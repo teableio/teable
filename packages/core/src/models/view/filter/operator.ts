@@ -157,7 +157,7 @@ const mappingOperatorSymbol = {
 
   [hasAllOf.value]: $has.value,
 
-  [isWithIn.value]: $between.value,
+  // [isWithIn.value]: $between.value,
 
   [isEmpty.value]: $isNull.value,
   [isNotEmpty.value]: $isNotNull.value,
@@ -336,18 +336,15 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
       ];
       break;
     }
+    case FieldType.User:
     case FieldType.Link: {
       operationSet = isMultipleCellValue
         ? [hasAnyOf.value, hasAllOf.value, isExactly.value, hasNoneOf.value]
         : [is.value, isNot.value, isAnyOf.value, isNoneOf.value];
 
-      operationSet = [
-        ...operationSet,
-        contains.value,
-        doesNotContain.value,
-        isEmpty.value,
-        isNotEmpty.value,
-      ];
+      const fixLinkOperator = type === FieldType.Link ? [contains.value, doesNotContain.value] : [];
+
+      operationSet = [...operationSet, ...fixLinkOperator, isEmpty.value, isNotEmpty.value];
       break;
     }
     case FieldType.Attachment: {

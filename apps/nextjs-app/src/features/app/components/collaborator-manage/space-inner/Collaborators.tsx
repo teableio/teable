@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { SpaceRole } from '@teable-group/core';
 import { getSpaceCollaboratorList } from '@teable-group/openapi';
+import { ReactQueryKeys } from '@teable-group/sdk';
 import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib';
 import React from 'react';
 
@@ -12,7 +13,7 @@ interface SpaceInnerCollaboratorProps {
 export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
   const { spaceId } = props;
   const { data: collaborators } = useQuery({
-    queryKey: ['space-collaborator-list', spaceId],
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
     queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then(({ data }) => data),
   });
 

@@ -6,4 +6,5 @@ export * from './filterDatePicker';
 export * from './FilterCheckBox';
 export * from './FilterLinkSelect';
 export * from './FileTypeSelect';
+export * from './FilterUserSelect';
 export * from './base';

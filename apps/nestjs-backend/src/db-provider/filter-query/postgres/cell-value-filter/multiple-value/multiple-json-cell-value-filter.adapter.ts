@@ -47,7 +47,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { field, value } = params;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') @> to_jsonb(ARRAY[${sqlPlaceholders}]) AND to_jsonb(ARRAY[${sqlPlaceholders}]) @> jsonb_path_query_array(??::jsonb, '$[*].id')`,
         [field.dbFieldName, ...value, ...value, field.dbFieldName]
@@ -68,7 +68,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { field, value } = params;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') \\?| ARRAY[${sqlPlaceholders}]`,
         [field.dbFieldName, ...value]
@@ -89,7 +89,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { field, value } = params;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(
         `NOT jsonb_path_query_array(COALESCE(??, '[]')::jsonb, '$[*].id') \\?| ARRAY[${sqlPlaceholders}]`,
         [field.dbFieldName, ...value]
@@ -110,7 +110,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { field, value } = params;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') @> to_jsonb(ARRAY[${sqlPlaceholders}])`,
         [field.dbFieldName, ...value]

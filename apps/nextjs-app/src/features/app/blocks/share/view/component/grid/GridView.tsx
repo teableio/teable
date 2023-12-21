@@ -1,5 +1,5 @@
 import { TeableNew } from '@teable-group/icons';
-import { RecordProvider } from '@teable-group/sdk/context';
+import { ActionTriggerProvider, RecordProvider } from '@teable-group/sdk/context';
 import { useIsHydrated, useView } from '@teable-group/sdk/hooks';
 import { useContext } from 'react';
 import { ShareViewPageContext } from '../../ShareViewPageContext';
@@ -27,15 +27,17 @@ export const GridView = () => {
       </div>
       <div className="flex w-full grow flex-col overflow-hidden rounded border shadow-md">
         <Toolbar />
-        <AggregationProvider>
+        <ActionTriggerProvider>
           <RecordProvider serverRecords={records}>
-            <RowCountProvider>
-              <div className="w-full grow overflow-hidden">
-                <GridViewBase />
-              </div>
-            </RowCountProvider>
+            <AggregationProvider>
+              <RowCountProvider>
+                <div className="w-full grow overflow-hidden">
+                  <GridViewBase />
+                </div>
+              </RowCountProvider>
+            </AggregationProvider>
           </RecordProvider>
-        </AggregationProvider>
+        </ActionTriggerProvider>
       </div>
     </div>
   );

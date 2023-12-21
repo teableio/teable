@@ -173,10 +173,10 @@ export const useSelection = (
         isPrevCellSelection
           ? [columnIndex, rowIndex]
           : isPrevRowSelection
-          ? [rowIndex, rowIndex]
-          : isPrevColumnSelection
-          ? [columnIndex, columnIndex]
-          : undefined
+            ? [rowIndex, rowIndex]
+            : isPrevColumnSelection
+              ? [columnIndex, columnIndex]
+              : undefined
       ) as IRange;
       const inPrevRanges = selection.includes(checkedRange);
 

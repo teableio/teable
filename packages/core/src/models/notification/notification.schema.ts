@@ -23,7 +23,7 @@ export const tableRecordUrlSchema = z.object({
   recordId: z.string().startsWith(IdPrefix.Record).optional(),
 });
 
-export const notificationUrlSchema = tableRecordUrlSchema;
+export const notificationUrlSchema = tableRecordUrlSchema.optional();
 export type INotificationUrl = z.infer<typeof notificationUrlSchema>;
 
 export const notificationSchema = z.object({

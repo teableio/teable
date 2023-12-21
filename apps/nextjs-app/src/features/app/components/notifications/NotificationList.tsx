@@ -28,10 +28,6 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
   const queryClient = useQueryClient();
 
   const newPagesArray = (updatedId: string) => {
-    // return data?.map(({ notifications, totalCount }) => ({
-    //   notifications: notifications.filter(({ id }) => id !== updatedId),
-    //   totalCount,
-    // }));
     return data?.map((item) => ({
       ...item,
       notifications: item.notifications.filter(({ id }) => id !== updatedId),

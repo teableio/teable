@@ -2,19 +2,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRowCount } from '@teable-group/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
-import { ReactQueryKeys } from '../../config/react-query-keys';
-import { useIsHydrated, useActionTrigger } from '../../hooks';
+import { ReactQueryKeys } from '../../config';
+import { useActionTrigger, useIsHydrated } from '../../hooks';
+import type { PropKeys } from '../action-trigger';
 import { AnchorContext } from '../anchor';
 import { RowCountContext } from './RowCountContext';
 
-interface IRowCountProviderProps {
+interface RowCountProviderProps {
   children: ReactNode;
 }
 
-export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
-  const actionTrigger = useActionTrigger();
+export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
+  const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
 
   const { data: resRowCount } = useQuery({
@@ -32,10 +33,10 @@ export const RowCountProvider: FC<IRowCountProviderProps> = ({ children }) => {
   useEffect(() => {
     if (tableId == null) return;
 
-    if ([tableId, viewId].some((value) => value && actionTrigger?.fetchRowCount?.includes(value))) {
-      updateRowCount();
-    }
-  }, [actionTrigger?.fetchRowCount, tableId, updateRowCount, viewId]);
+    const relevantProps = ['tableAdd', 'tableDelete', 'applyViewFilter'] as PropKeys[];
+
+    listener?.(relevantProps, () => updateRowCount(), [tableId, viewId]);
+  }, [listener, tableId, updateRowCount, viewId]);
 
   const rowCount = useMemo(() => {
     if (!resRowCount) return 0;

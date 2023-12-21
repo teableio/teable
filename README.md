@@ -188,7 +188,7 @@ Choose the Sql-database you like
 
 ```sh
 # Use `.nvmrc` file to specify node version（Requires pre `nvm` tools）
-nvm install
+nvm install && nvm use
 
 # Enabling the Help Management Package Manager
 corepack enable

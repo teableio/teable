@@ -21,9 +21,9 @@ export type IChangeRecord = Record<
 export class RecordCreateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_RECORD_CREATE;
   @Expose() tableId: string;
-  @Expose() record: IRecord | IRecord[] | undefined;
+  @Expose() record: IRecord | IRecord[];
 
-  constructor(tableId: string, record: IRecord | IRecord[] | undefined, context: IEventContext) {
+  constructor(tableId: string, record: IRecord | IRecord[], context: IEventContext) {
     super(RawOpType.Create, Array.isArray(record), context);
 
     this.tableId = tableId;
@@ -35,9 +35,9 @@ export class RecordCreateEvent extends BaseOpEvent {
 export class RecordDeleteEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_RECORD_DELETE;
   @Expose() tableId: string;
-  @Expose() recordId: string | string[] | undefined;
+  @Expose() recordId: string | string[];
 
-  constructor(tableId: string, recordId: string | string[] | undefined, context: IEventContext) {
+  constructor(tableId: string, recordId: string | string[], context: IEventContext) {
     super(RawOpType.Del, Array.isArray(recordId), context);
 
     this.tableId = tableId;
@@ -49,13 +49,9 @@ export class RecordDeleteEvent extends BaseOpEvent {
 export class RecordUpdateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_RECORD_UPDATE;
   @Expose() tableId: string;
-  @Expose() record: IChangeRecord | IChangeRecord[] | undefined;
+  @Expose() record: IChangeRecord | IChangeRecord[];
 
-  constructor(
-    tableId: string,
-    record: IChangeRecord | IChangeRecord[] | undefined,
-    context: IEventContext
-  ) {
+  constructor(tableId: string, record: IChangeRecord | IChangeRecord[], context: IEventContext) {
     super(RawOpType.Edit, Array.isArray(record), context);
 
     this.tableId = tableId;

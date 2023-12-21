@@ -1,18 +1,31 @@
-import type { OpName } from '@teable-group/core';
-import type { User as UserModel } from '@teable-group/db-main-prisma';
-import type { Events } from '../model';
+import { OpName } from '@teable-group/core';
+import { z } from 'zod';
+import { Events } from '../model';
 
-export interface IEventContext {
-  user?: UserModel;
-  headers?: Record<string, string>;
-  opName?: OpName;
-  opPropertyKey?: string;
-}
+export const eventContextSchema = z.object({
+  user: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+    })
+    .optional(),
+  headers: z.record(z.string()).optional(),
+  opMeta: z
+    .object({
+      name: z.nativeEnum(OpName).optional(),
+      propertyKey: z.string(),
+    })
+    .partial()
+    .optional(),
+});
 
-export interface IBaseEvent {
-  name: Events;
+export type IEventContext = z.infer<typeof eventContextSchema>;
 
-  context: IEventContext;
+export const coreEventSchema = z.object({
+  name: z.nativeEnum(Events),
+  context: eventContextSchema,
+  isBatch: z.boolean().optional(),
+});
 
-  isBatch?: boolean;
-}
+export type ICoreEvent = z.infer<typeof coreEventSchema>;

@@ -1,4 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
+import { ReactQueryKeys } from '@teable-group/sdk';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
@@ -23,7 +24,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   });
 
   await queryClient.fetchQuery({
-    queryKey: ['space-collaborator-list', spaceId as string],
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string),
     queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1]),
   });
 

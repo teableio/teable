@@ -17,7 +17,11 @@ export const NotificationsManage: React.FC = () => {
   const queryClient = useQueryClient();
   const notification = useNotification();
 
+  const [isOpen, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+
+  const [newUnreadCount, setNewUnreadCount] = useState<number | undefined>(undefined);
+
   const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
 
   const { data: queryUnreadCount = 0 } = useQuery({
@@ -26,8 +30,14 @@ export const NotificationsManage: React.FC = () => {
   });
 
   useEffect(() => {
-    setUnreadCount(notification?.unreadCount ?? queryUnreadCount);
-  }, [notification?.unreadCount, queryUnreadCount]);
+    if (notification?.unreadCount == null) return;
+
+    setNewUnreadCount(notification.unreadCount);
+  }, [notification?.unreadCount]);
+
+  useEffect(() => {
+    setUnreadCount(newUnreadCount ?? queryUnreadCount);
+  }, [newUnreadCount, queryUnreadCount]);
 
   const {
     data: notifyPage,
@@ -41,26 +51,28 @@ export const NotificationsManage: React.FC = () => {
         ({ data }) => data
       ),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
-    refetchOnWindowFocus: false,
+    enabled: isOpen,
   });
 
   const { mutateAsync: markAllAsReadMutator } = useMutation({
     mutationFn: notificationReadAll,
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.notifyUnreadCount());
       refresh();
     },
   });
 
   const refresh = () => {
+    setNewUnreadCount(undefined);
+    queryClient.invalidateQueries(ReactQueryKeys.notifyUnreadCount());
     queryClient.resetQueries(ReactQueryKeys.notifyList({ status: notifyStatus }), { exact: true });
   };
 
   const renderNewButton = () => {
-    const newUnreadCount = (notification?.unreadCount ?? 0) - queryUnreadCount;
-    if (newUnreadCount < 1) {
-      return;
-    }
+    if (!newUnreadCount) return;
+
+    const num = newUnreadCount - queryUnreadCount;
+
+    if (num < 1) return;
     return (
       <div>
         <Button
@@ -71,14 +83,14 @@ export const NotificationsManage: React.FC = () => {
           }}
         >
           <RefreshCcw />
-          <p>{newUnreadCount} new</p>
+          <p>{num} new</p>
         </Button>
       </div>
     );
   };
 
   return (
-    <Popover>
+    <Popover onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
