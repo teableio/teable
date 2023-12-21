@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -18,8 +19,10 @@ import {
   IdPrefix,
   RecordOpBuilder,
 } from '@teable-group/core';
-import { deleteRecord, getRecords, updateRecord } from '@teable-group/openapi';
+import { deleteField, deleteRecord, getRecords, updateRecord } from '@teable-group/openapi';
+import type { Connection, Doc } from 'sharedb/lib/client';
 import type request from 'supertest';
+import { ShareDbService } from '../src/share-db/share-db.service';
 import {
   initApp,
   updateRecordByApi,
@@ -29,8 +32,6 @@ import {
   createRecords,
   getFields,
 } from './utils/init-app';
-import { ShareDbService } from '../src/share-db/share-db.service';
-import { Connection, Doc } from 'sharedb/lib/client';
 
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
@@ -2718,6 +2719,96 @@ describe('OpenAPI link (e2e)', () => {
           },
         },
         fieldKeyType: FieldKeyType.Id,
+      });
+    });
+  });
+
+  describe('delete field', () => {
+    describe.each([
+      { relationship: Relationship.OneOne, isOneWay: true },
+      { relationship: Relationship.OneOne, isOneWay: false },
+      { relationship: Relationship.ManyMany, isOneWay: true },
+      { relationship: Relationship.ManyMany, isOneWay: false },
+      { relationship: Relationship.ManyOne, isOneWay: true },
+      { relationship: Relationship.ManyOne, isOneWay: false },
+      { relationship: Relationship.OneMany, isOneWay: true },
+      { relationship: Relationship.OneMany, isOneWay: false },
+    ])('delete $relationship link field with isOneWay: $isOneWay', ({ relationship, isOneWay }) => {
+      let table1: ITableFullVo;
+      let table2: ITableFullVo;
+      beforeEach(async () => {
+        // create tables
+        const textFieldRo: IFieldRo = {
+          name: 'text field',
+          type: FieldType.SingleLineText,
+        };
+
+        const numberFieldRo: IFieldRo = {
+          name: 'Number field',
+          type: FieldType.Number,
+          options: {
+            formatting: { type: NumberFormattingType.Decimal, precision: 1 },
+          },
+        };
+
+        const createTable1Result = await request
+          .post(`/api/base/${baseId}/table`)
+          .send({
+            fields: [textFieldRo, numberFieldRo],
+            records: [
+              { fields: { 'text field': 'table1_1' } },
+              { fields: { 'text field': 'table1_2' } },
+              { fields: { 'text field': 'table1_3' } },
+            ],
+          })
+          .expect(201);
+
+        table1 = createTable1Result.body;
+
+        const createTable2Result = await request
+          .post(`/api/base/${baseId}/table`)
+          .send({
+            name: 'table2',
+            fields: [textFieldRo, numberFieldRo],
+            records: [
+              { fields: { 'text field': 'table2_1' } },
+              { fields: { 'text field': 'table2_2' } },
+              { fields: { 'text field': 'table2_3' } },
+            ],
+          })
+          .expect(201);
+
+        table2 = createTable2Result.body;
+
+        // create link field
+        const table2LinkFieldRo: IFieldRo = {
+          name: 'link field',
+          type: FieldType.Link,
+          options: {
+            relationship: relationship,
+            foreignTableId: table1.id,
+            isOneWay: isOneWay,
+          },
+        };
+
+        await createField(table2.id, table2LinkFieldRo);
+
+        const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
+        const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
+
+        table1.fields = getFields1Result.body;
+        table2.fields = getFields2Result.body;
+      });
+
+      afterEach(async () => {
+        await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+        await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      });
+
+      it('should safe delete link field', async () => {
+        await deleteField(table2.id, table2.fields[2].id);
+        const table1Fields = await getFields(table1.id);
+        expect(table1Fields.length).toEqual(2);
       });
     });
   });
