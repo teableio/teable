@@ -3,7 +3,6 @@ import { getBaseCollaboratorList } from '@teable-group/openapi';
 import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib';
 import React, { useCallback, useMemo } from 'react';
 import { ReactQueryKeys } from '../../../config';
-import { useTranslation } from '../../../context/app/i18n';
 import { useBase } from '../../../hooks';
 import type { UserField } from '../../../model';
 import { BaseMultipleSelect, BaseSingleSelect } from './base';

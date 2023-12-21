@@ -53,6 +53,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
   protected tableDbFieldName(field: IFieldInstance): string {
     return `${this._table}.${field.dbFieldName}`;
   }
+
   protected getJsonQueryColumn(field: IFieldInstance, operator: IFilterOperator): string {
     const defaultJsonColumn = 'json_each.value';
     if (field.type === FieldType.Link) {
@@ -60,6 +61,12 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
       const path = ([contains.value, doesNotContain.value] as string[]).includes(operator)
         ? '$.title'
         : '$.id';
+
+      return `json_extract(${object}, '${path}')`;
+    }
+    if (field.type === FieldType.User) {
+      const object = field.isMultipleCellValue ? defaultJsonColumn : field.dbFieldName;
+      const path = '$.id';
 
       return `json_extract(${object}, '${path}')`;
     } else if (field.type === FieldType.Attachment) {

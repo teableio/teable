@@ -24,7 +24,7 @@
     "@teable-group/core": "workspace:^",
     "@types/qs": "^6.9.10",
     "axios": "1.6.2",
-    "openapi3-ts": "^4.1.2",
+    "openapi3-ts": "^4.2.0",
     "qs": "^6.11.2",
     "zod": "3.22.4"
   },
