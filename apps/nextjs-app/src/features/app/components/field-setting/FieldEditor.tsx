@@ -1,6 +1,6 @@
 import type { IFieldOptionsRo, IFieldVo, ILookupOptionsRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk';
+import type { IFieldInstance, LinkField } from '@teable-group/sdk';
 import { useFieldStaticGetter } from '@teable-group/sdk';
 import { Textarea } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
@@ -75,7 +75,11 @@ export const FieldEditor = (props: {
   );
 
   const updateLookupOptions = useCallback(
-    (lookupOptions: Partial<ILookupOptionsRo>, lookupField?: IFieldInstance) => {
+    (
+      lookupOptions: Partial<ILookupOptionsRo>,
+      linkField?: LinkField,
+      lookupField?: IFieldInstance
+    ) => {
       const newLookupOptions = {
         ...field.lookupOptions,
         ...(lookupOptions || {}),
@@ -87,7 +91,7 @@ export const FieldEditor = (props: {
             lookupOptions: newLookupOptions,
             type: field.isLookup ? lookupField.type : field.type,
             cellValueType: lookupField.cellValueType,
-            isMultipleCellValue: lookupField.isMultipleCellValue,
+            isMultipleCellValue: linkField?.isMultipleCellValue || lookupField.isMultipleCellValue,
           }
         : {
             ...field,

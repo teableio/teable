@@ -25,9 +25,11 @@ export const getShowAsSchema = (
   });
 };
 
-export const unionShowAsSchema = z.union([singleLineTextShowAsSchema, numberShowAsSchema]).openapi({
-  description:
-    'According to the results of expression parsing to determine different visual effects, where strings, numbers will provide customized "show as"',
-});
+export const unionShowAsSchema = z
+  .union([singleLineTextShowAsSchema.strict(), numberShowAsSchema])
+  .openapi({
+    description:
+      'According to the results of expression parsing to determine different visual effects, where strings, numbers will provide customized "show as"',
+  });
 
 export type IUnionShowAs = z.infer<typeof unionShowAsSchema>;

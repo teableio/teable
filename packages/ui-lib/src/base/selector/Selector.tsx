@@ -59,7 +59,10 @@ export const Selector: React.FC<ISelectorProps> = ({
         >
           {selected ? (
             <>
-              {selected.icon} <span className="shrink-0">{selected.name}</span>
+              {selected.icon}
+              <span className="text-ellipsis whitespace-nowrap overflow-hidden">
+                {selected.name}
+              </span>
             </>
           ) : (
             <span className="shrink-0">{placeholder}</span>

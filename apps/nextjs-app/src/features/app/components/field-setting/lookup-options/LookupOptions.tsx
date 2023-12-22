@@ -30,7 +30,7 @@ const SelectFieldByTableId: React.FC<{
           return {
             id: f.id,
             name: f.name,
-            icon: <Icon />,
+            icon: <Icon className="h-4 w-4 shrink-0" />,
           };
         })}
       />
@@ -40,7 +40,11 @@ const SelectFieldByTableId: React.FC<{
 
 export const LookupOptions = (props: {
   options: Partial<ILookupOptionsVo> | undefined;
-  onChange?: (options: Partial<ILookupOptionsRo>, lookupField?: IFieldInstance) => void;
+  onChange?: (
+    options: Partial<ILookupOptionsRo>,
+    linkField?: LinkField,
+    lookupField?: IFieldInstance
+  ) => void;
 }) => {
   const { options = {}, onChange } = props;
   const fields = useFields();
@@ -51,8 +55,8 @@ export const LookupOptions = (props: {
   });
 
   const setOptions = useCallback(
-    (options: Partial<ILookupOptionsRo>, lookupField?: IFieldInstance) => {
-      onChange?.({ ...innerOptions, ...options }, lookupField);
+    (options: Partial<ILookupOptionsRo>, linkField?: LinkField, lookupField?: IFieldInstance) => {
+      onChange?.({ ...innerOptions, ...options }, linkField, lookupField);
       setInnerOptions({ ...innerOptions, ...options });
     },
     [innerOptions, onChange]
@@ -90,9 +94,12 @@ export const LookupOptions = (props: {
             <AnchorProvider tableId={innerOptions.foreignTableId}>
               <SelectFieldByTableId
                 selectedId={innerOptions.lookupFieldId}
-                onChange={(lookupField: IFieldInstance) =>
-                  setOptions?.({ lookupFieldId: lookupField.id }, lookupField)
-                }
+                onChange={(lookupField: IFieldInstance) => {
+                  const linkField = linkFields.find(
+                    (l) => l.id === innerOptions.linkFieldId
+                  ) as LinkField;
+                  setOptions?.({ lookupFieldId: lookupField.id }, linkField, lookupField);
+                }}
               />
             </AnchorProvider>
           )}
