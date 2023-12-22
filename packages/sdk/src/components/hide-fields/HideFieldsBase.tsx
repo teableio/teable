@@ -52,7 +52,8 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   };
 
   const hideAll = () => {
-    onChange(map(fields, 'id'));
+    const hiddenFields = fields.filter((field) => !field.isPrimary);
+    onChange(map(hiddenFields, 'id'));
   };
 
   const content = () => (
