@@ -1,4 +1,3 @@
-import Papa from 'papaparse';
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { SelectFieldCore } from './abstract/select.field.abstract';

@@ -49,6 +49,11 @@ export class PostgresProvider implements IDbProvider {
       .map((item) => item.sql);
   }
 
+  // postgres drop index with column automatically
+  dropColumnAndIndex(tableName: string, columnName: string, _indexName: string): string[] {
+    return this.dropColumn(tableName, columnName);
+  }
+
   columnInfo(tableName: string, columnName: string): string {
     const [schemaName, dbTableName] = tableName.split('.');
     return this.knex

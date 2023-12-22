@@ -41,9 +41,9 @@ export class TableDeleteEvent extends BaseOpEvent {
 export class TableUpdateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_UPDATE;
   @Expose() baseId: string;
-  @Expose() table: IChangeTable | undefined;
+  @Expose() table: IChangeTable;
 
-  constructor(baseId: string, table: IChangeTable | undefined, context: IEventContext) {
+  constructor(baseId: string, table: IChangeTable, context: IEventContext) {
     super(RawOpType.Edit, false, context);
 
     this.baseId = baseId;

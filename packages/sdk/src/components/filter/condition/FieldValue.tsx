@@ -1,5 +1,5 @@
+import type { IDateFilter, IFilterItem } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import type { IFilterItem, IDateFilter } from '@teable-group/core';
 
 import { Input } from '@teable-group/ui-lib';
 import { useCallback, useMemo } from 'react';
@@ -8,13 +8,14 @@ import { useField } from '../../../hooks';
 import type { DateField } from '../../../model';
 import { NumberEditor, RatingEditor } from '../../editor';
 import {
-  FilterSingleSelect,
-  FilterMultipleSelect,
-  FilterInput,
-  FilterDatePicker,
-  FilterCheckbox,
-  FilterLinkSelect,
   FileTypeSelect,
+  FilterCheckbox,
+  FilterDatePicker,
+  FilterInput,
+  FilterLinkSelect,
+  FilterMultipleSelect,
+  FilterSingleSelect,
+  FilterUserSelect,
 } from '../component';
 import { EMPTYOPERATORS, MULPTIPLEOPERATORS } from '../constant';
 
@@ -112,6 +113,15 @@ function FieldValue(props: IFieldValue) {
             onChange={onSelect as (value?: number) => void}
             className="h-8 rounded-md border border-input px-2 shadow-sm"
             iconClassName="w-4 h-4 mr-1"
+          />
+        );
+      case FieldType.User:
+        return (
+          <FilterUserSelect
+            field={field}
+            onSelect={(value) => onSelect(value as IFilterItem['value'])}
+            value={filter.value as string[]}
+            operator={filter.operator}
           />
         );
       default:

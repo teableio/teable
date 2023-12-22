@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { getRandomString } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -118,11 +118,13 @@ export class AttachmentsService {
       },
     });
     if (!attachment) {
-      return;
+      throw new NotFoundException(`Could not find attachment: ${token}`);
     }
     return {
       ...attachment,
-      url: attachment.url ? getFullStorageUrl(attachment.url) : null,
+      width: attachment.width ?? undefined,
+      height: attachment.height ?? undefined,
+      url: getFullStorageUrl(attachment.url),
     };
   }
 }

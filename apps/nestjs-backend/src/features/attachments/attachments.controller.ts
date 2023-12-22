@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { INotifyVo } from '@teable-group/openapi';
 import { Response } from 'express';
 import { Public } from '../auth/decorators/public.decorator';
 import { AttachmentsService } from './attachments.service';
@@ -51,7 +52,7 @@ export class AttachmentsController {
   }
 
   @Post('/notify/:secret')
-  async notify(@Param('secret') secret: string) {
+  async notify(@Param('secret') secret: string): Promise<INotifyVo> {
     return await this.attachmentsService.notify(secret);
   }
 }

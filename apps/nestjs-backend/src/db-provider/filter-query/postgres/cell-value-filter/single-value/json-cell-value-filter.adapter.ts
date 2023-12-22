@@ -16,7 +16,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(`??::jsonb @\\? '$.id \\? (@ == "${value}")'`, [field.dbFieldName]);
     } else {
       queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [field.dbFieldName]);
@@ -30,7 +30,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(`NOT COALESCE(??, '{}')::jsonb @\\? '$.id \\? (@ == "${value}")'`, [
         field.dbFieldName,
       ]);
@@ -48,7 +48,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(
         `jsonb_extract_path_text(??::jsonb, 'id') IN (${this.createSqlPlaceholders(value)})`,
         [field.dbFieldName, ...value]
@@ -68,7 +68,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { field, value } = params;
 
-    if (field.type === FieldType.Link) {
+    if (field.type === FieldType.Link || field.type === FieldType.User) {
       queryBuilder.whereRaw(
         `COALESCE(jsonb_extract_path_text(COALESCE(??, '{}')::jsonb, 'id'), '') NOT IN (${this.createSqlPlaceholders(
           value

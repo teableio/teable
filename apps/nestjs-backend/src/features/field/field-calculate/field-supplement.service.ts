@@ -218,8 +218,8 @@ export class FieldSupplementService {
     const symmetricFieldId = isOneWay
       ? undefined
       : oldOptions.foreignTableId === newOptionsRo.foreignTableId
-      ? oldOptions.symmetricFieldId
-      : generateFieldId();
+        ? oldOptions.symmetricFieldId
+        : generateFieldId();
 
     const lookupFieldId =
       oldOptions.foreignTableId === foreignTableId
@@ -392,8 +392,8 @@ export class FieldSupplementService {
       'formatting' in options
         ? options.formatting
         : sourceFormatting
-        ? sourceFormatting
-        : getDefaultFormatting(cellValueType);
+          ? sourceFormatting
+          : getDefaultFormatting(cellValueType);
 
     const showAs = 'showAs' in options ? options.showAs : sourceShowAs;
 
@@ -1063,16 +1063,15 @@ export class FieldSupplementService {
     };
 
     const dropColumn = async (tableName: string, columnName: string) => {
-      const dropIndexSql = this.knex
-        .queryBuilder()
-        .dropIndex(tableName, `index_${columnName}`)
-        .toQuery();
-      const dropColumnSql = this.knex
-        .raw(`ALTER TABLE ?? DROP ??`, [tableName, columnName])
-        .toQuery();
+      const alterTableQuery = this.dbProvider.dropColumnAndIndex(
+        tableName,
+        columnName,
+        `index_${columnName}`
+      );
 
-      await this.prismaService.txClient().$executeRawUnsafe(dropIndexSql);
-      await this.prismaService.txClient().$executeRawUnsafe(dropColumnSql);
+      for (const query of alterTableQuery) {
+        await this.prismaService.txClient().$executeRawUnsafe(query);
+      }
     };
 
     if (relationship === Relationship.ManyMany) {

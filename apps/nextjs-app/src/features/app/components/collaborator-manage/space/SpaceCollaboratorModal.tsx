@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { hasPermission } from '@teable-group/core';
 import type { IGetSpaceVo } from '@teable-group/openapi';
 import { getSpaceCollaboratorList } from '@teable-group/openapi';
+import { ReactQueryKeys } from '@teable-group/sdk';
 import { Collaborators } from './Collaborators';
 import { Invite } from './Invite';
 import { InviteLink } from './InviteLink';
@@ -15,7 +16,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
   const { id: spaceId, role } = space;
 
   const { data: collaborators } = useQuery({
-    queryKey: ['space-collaborator-list', spaceId],
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
     queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then(({ data }) => data),
   });
 

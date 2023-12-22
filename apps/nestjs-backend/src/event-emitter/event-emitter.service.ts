@@ -107,7 +107,7 @@ export class EventEmitterService {
       toArray(),
       map((groupedEvents) => this.combineEvents(groupedEvents)),
       catchError((error) => {
-        this.logger.error(`push event stream error: ${error.message}`, error?.stack);
+        this.logger.error(`1push event stream error: ${error.message}`, error?.stack);
         return EMPTY;
       })
     );
@@ -158,7 +158,7 @@ export class EventEmitterService {
   }
 
   private handleEventResult(result: BaseOpEvent): void {
-    this.logger.log(`emit event: [${result.name}]: %s`, JSON.stringify(result, null, 2));
+    this.logger.log({ eventName: result.name, eventList: result });
     this.emitAsync(result.name, result);
   }
 
@@ -289,72 +289,86 @@ export class EventEmitterService {
   ) {
     const { nodeId, opCreateData, ops = [] } = params;
     const opBuilder = this.getOpBuilder(docType);
-
-    const createdData = this.applyCreates(docType, opBuilder?.creator, opCreateData);
-    if (createdData) {
-      return createdData;
-    }
+    const initData = this.initData(docType, nodeId, opBuilder?.creator, opCreateData);
 
     const ops2Contexts = opBuilder?.ops2Contexts(ops) || [];
-    return ops2Contexts.reduce((pre, cur) => {
-      if (rawOpType === RawOpType.Edit) {
-        this.applyEdits(docType, opBuilder?.editor, pre, cur, nodeId);
-      }
+    const correctedData = ops2Contexts.reduce((acc, cur) => {
+      this.applyOperation(docType, rawOpType, acc, cur, nodeId, opBuilder?.editor);
 
-      set(pre, ['context', 'opName'], cur.name);
-      return pre;
+      set(acc, ['context', 'opMeta', 'name'], cur.name);
+      return acc;
     }, {});
+
+    return isEmpty(correctedData) ? initData : correctedData;
   }
 
-  private applyCreates(
+  private initData(
     docType: IdPrefix,
+    nodeId: string,
     createBuilder?: ICreateOpBuilder,
     opCreateData?: unknown
   ) {
+    if (createBuilder?.name === 'addRecord' && !opCreateData) {
+      opCreateData = { id: nodeId };
+    }
+
     if (opCreateData && createBuilder) {
       const buildData = createBuilder.build(opCreateData);
       const propertyCategory = this.getPropertyCategoryForType[docType as never];
-      return { [propertyCategory]: buildData };
+
+      const pre = { [propertyCategory]: buildData };
+      set(pre, ['context', 'opMeta', 'name'], createBuilder.name);
+      return pre;
     }
   }
 
-  private applyEdits(
+  private applyOperation(
     docType: IdPrefix,
-    editBuilders: { [key: string]: IOpBuilder } | undefined,
-    pre: object,
+    rawOpType: RawOpType,
+    acc: object,
     cur: IOpContextBase,
-    nodeId: string
+    nodeId: string,
+    editorBuilders?: { [key: string]: IOpBuilder }
   ) {
-    if (!editBuilders) {
-      return;
-    }
+    if (!editorBuilders) return;
 
-    const editBuilder = editBuilders[cur.name as keyof typeof editBuilders];
+    const opBuilder = editorBuilders[cur.name as keyof typeof editorBuilders];
+    if (!opBuilder) return;
+
     const propertyCategory = this.getPropertyCategoryForType[docType as never];
-    const otOperation = editBuilder.build(cur);
+    const otOperation = opBuilder.build(cur);
+    if (!otOperation) return;
 
-    otOperation && this.buildAndApply(docType, otOperation, pre, propertyCategory, nodeId);
+    this.buildAndApplyOp(otOperation, acc, propertyCategory, nodeId, rawOpType);
   }
 
-  private buildAndApply(
-    docType: IdPrefix,
+  private buildAndApplyOp(
     otOperation: IOtOperation,
-    pre: object,
+    acc: object,
     propertyCategory: string,
-    nodeId: string
+    nodeId: string,
+    rawOpType: RawOpType
   ) {
-    const propertyName = otOperation.p[0];
-    const oldValue = otOperation?.od;
-    const newValue = otOperation?.oi;
+    const { p, oi: newValue, od: oldValue } = otOperation;
+    set(acc, [propertyCategory, 'id'], nodeId);
 
-    set(pre, [propertyCategory, 'id'], nodeId);
+    const [propertyName, changeNodeId] = p;
+    const updateProperty = (key: string | number | null, value: unknown) => {
+      const propertyPath = [propertyCategory, propertyName, key].filter(Boolean) as (
+        | string
+        | number
+      )[];
+      set(acc, propertyPath, value);
+    };
 
-    if (docType === IdPrefix.Record) {
-      const changeProperty = get(pre, [propertyCategory, propertyName]) || {};
-      changeProperty[otOperation.p[1]] = { oldValue, newValue };
-      set(pre, [propertyCategory, propertyName], changeProperty);
-    } else {
-      set(pre, [propertyCategory, propertyName], { oldValue, newValue });
+    if (p.length === 1) {
+      const value = rawOpType === RawOpType.Edit ? { oldValue, newValue } : newValue;
+      updateProperty(null, value);
+    } else if (p.length === 2) {
+      const changeProperty = get(acc, [propertyCategory, propertyName], {});
+      changeProperty[changeNodeId] =
+        rawOpType === RawOpType.Edit ? { oldValue, newValue } : newValue;
+      updateProperty(changeNodeId, changeProperty[changeNodeId]);
     }
   }
 }

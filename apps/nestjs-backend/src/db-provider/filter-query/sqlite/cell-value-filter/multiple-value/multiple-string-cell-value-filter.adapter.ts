@@ -12,7 +12,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
 
     const sql = `exists ( 
       select 1 from 
-        json_each(${super._table}.${field.dbFieldName}) 
+        json_each(${this._table}.${field.dbFieldName}) 
       where json_each.value in (?)
     )`;
     queryBuilder.whereRaw(sql, [value]);
@@ -27,7 +27,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
 
     const sql = `not exists ( 
       select 1 from 
-        json_each(${super._table}.${field.dbFieldName}) 
+        json_each(${this._table}.${field.dbFieldName}) 
       where json_each.value in (?)
     )`;
     queryBuilder.whereRaw(sql, [value]);
@@ -42,7 +42,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
 
     const sql = `exists ( 
       select 1 from 
-        json_each(${super._table}.${field.dbFieldName}) 
+        json_each(${this._table}.${field.dbFieldName}) 
       where json_each.value like ?
     )`;
     queryBuilder.whereRaw(sql, [`%${value}%`]);
@@ -57,7 +57,7 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterSqlite 
 
     const sql = `not exists ( 
       select 1 from 
-        json_each(${super._table}.${field.dbFieldName}) 
+        json_each(${this._table}.${field.dbFieldName}) 
       where json_each.value like ?
     )`;
     queryBuilder.whereRaw(sql, [`%${value}%`]);

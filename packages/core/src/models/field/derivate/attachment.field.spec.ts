@@ -48,7 +48,6 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: '/attachment',
         url: '/attachment/xxxxxx',
       },
       {
@@ -57,7 +56,6 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: '/attachment',
         url: '/attachment/xxxxxx',
       },
     ];
@@ -79,7 +77,6 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: '/attachment',
         url: '/attachment/xxxxxx',
       },
       {
@@ -88,7 +85,6 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: '/attachment',
         url: '/attachment/xxxxxx',
       },
     ];
@@ -116,7 +112,6 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: '/attachment',
         url: '/attachment/xxxxxx',
       },
       {
@@ -125,7 +120,6 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: '/attachment',
         url: '/attachment/xxxxxx',
       },
     ];

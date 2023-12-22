@@ -17,6 +17,19 @@ import type { IFieldInstance } from '../features/field/model/factory';
 import type { IClsStore } from '../types/cls';
 import type { IRawOp, IRawOpMap } from './interface';
 
+export interface ISaveContext {
+  opsMap: IOpsMap;
+  fieldMap: Record<string, IFieldInstance>;
+  tableId2DbTableName: Record<string, string>;
+}
+
+export type ICustomSubmitContext = ShareDb.middleware.SubmitContext & {
+  extra: { source?: unknown; saveContext?: ISaveContext; stashOpMap?: IRawOpMap };
+};
+export type ICustomApplyContext = ShareDb.middleware.ApplyContext & {
+  extra: { source?: unknown; saveContext?: ISaveContext; stashOpMap?: IRawOpMap };
+};
+
 @Injectable()
 export class WsDerivateService {
   private logger = new Logger(WsDerivateService.name);
@@ -54,6 +67,8 @@ export class WsDerivateService {
     } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
     const composedMap = composeOpMaps([opsMapByLink, opsMapByCalculate, systemFieldOpsMap]);
 
+    // console.log('socket:final:opsMap', JSON.stringify(composedMap, null, 2));
+
     if (isEmpty(composedMap)) {
       return;
     }
@@ -65,11 +80,7 @@ export class WsDerivateService {
     };
   }
 
-  async save(saveContext: {
-    opsMap: IOpsMap;
-    fieldMap: Record<string, IFieldInstance>;
-    tableId2DbTableName: Record<string, string>;
-  }) {
+  async save(saveContext: ISaveContext) {
     const { opsMap, fieldMap, tableId2DbTableName } = saveContext;
     await this.prismaService.$tx(async () => {
       return await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
@@ -92,7 +103,7 @@ export class WsDerivateService {
     }, []);
   }
 
-  async onRecordApply(context: ShareDb.middleware.SubmitContext, next: (err?: unknown) => void) {
+  async onRecordApply(context: ICustomApplyContext, next: (err?: unknown) => void) {
     const [docType, tableId] = context.collection.split('_') as [IdPrefix, string];
     const recordId = context.id;
     if (docType !== IdPrefix.Record || !context.op.op) {
@@ -114,8 +125,8 @@ export class WsDerivateService {
         return await this.calculate(changes);
       });
       if (saveContext) {
-        context.agent.custom.saveContext = saveContext;
-        context.agent.custom.stashOpMap = this.stashOpMap(context);
+        context.extra.saveContext = saveContext;
+        context.extra.stashOpMap = this.stashOpMap(context);
       } else {
         this.stashOpMap(context, true);
       }
