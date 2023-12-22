@@ -50,6 +50,8 @@ const {
   cellScrollBarWidth,
   cellScrollBarPaddingX,
   cellScrollBarPaddingY,
+  columnFreezeHandlerWidth,
+  columnFreezeHandlerHeight,
 } = GRID_DEFAULT;
 
 export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawerProps) => {
@@ -756,11 +758,11 @@ export const drawColumnHeaders = (
     columns,
     theme,
     spriteManager,
-    dragState,
     mouseState,
     scrollState,
     selection,
     rowControls,
+    isInteracting,
     isRowAppendEnable,
     isColumnHeaderMenuVisible,
     isMultiSelectionEnable,
@@ -776,7 +778,6 @@ export const drawColumnHeaders = (
     rowCount,
   } = coordInstance;
   const { scrollLeft } = scrollState;
-  const { isDragging } = dragState;
   const { isColumnSelection, isRowSelection, ranges: selectionRanges } = selection;
   const { type: hoverRegionType, columnIndex: hoverColumnIndex } = mouseState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
@@ -804,7 +805,7 @@ export const drawColumnHeaders = (
     const isActive = isColumnSelection && selection.includes([columnIndex, columnIndex]);
     const column = columns[columnIndex];
     const isHover =
-      !isDragging &&
+      !isInteracting &&
       [RegionType.ColumnHeader, RegionType.ColumnHeaderMenu].includes(hoverRegionType) &&
       hoverColumnIndex === columnIndex;
     let fill = undefined;
@@ -970,7 +971,7 @@ export const drawColumnDraggingRegion = (
   props: ILayoutDrawerProps
 ) => {
   const { columns, theme, mouseState, scrollState, dragState, coordInstance } = props;
-  const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
+  const { columnDraggingPlaceholderBg, interactionLineColorHighlight } = theme;
   const { type, isDragging, ranges: draggingRanges, delta } = dragState;
   const { containerHeight } = coordInstance;
   const { x } = mouseState;
@@ -990,17 +991,18 @@ export const drawColumnDraggingRegion = (
   const targetColumnIndex = getDropTargetIndex(coordInstance, mouseState, scrollState, type);
   const finalX = coordInstance.getColumnRelativeOffset(targetColumnIndex, scrollLeft);
 
-  drawLine(ctx, {
-    x: finalX + 0.5,
+  drawRect(ctx, {
+    x: finalX - 0.5,
     y: 0.5,
-    points: [0, 0, 0, containerHeight],
-    stroke: cellLineColorActived,
+    width: 2,
+    height: containerHeight,
+    fill: interactionLineColorHighlight,
   });
 };
 
 export const drawRowDraggingRegion = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
   const { theme, mouseState, scrollState, dragState, coordInstance } = props;
-  const { columnDraggingPlaceholderBg, cellLineColorActived } = theme;
+  const { columnDraggingPlaceholderBg, interactionLineColorHighlight } = theme;
   const { type, isDragging, ranges: draggingRanges, delta } = dragState;
   const { containerWidth } = coordInstance;
   const { scrollTop } = scrollState;
@@ -1021,11 +1023,55 @@ export const drawRowDraggingRegion = (ctx: CanvasRenderingContext2D, props: ILay
   const offsetY = coordInstance.getRowOffset(targetRowIndex);
   const finalY = offsetY - scrollTop;
 
-  drawLine(ctx, {
+  drawRect(ctx, {
     x: 0.5,
-    y: finalY + 0.5,
-    points: [0, 0, containerWidth, 0],
-    stroke: cellLineColorActived,
+    y: finalY - 0.5,
+    width: containerWidth,
+    height: 2,
+    fill: interactionLineColorHighlight,
+  });
+};
+
+export const drawColumnFreezeHandler = (
+  ctx: CanvasRenderingContext2D,
+  props: ILayoutDrawerProps
+) => {
+  const { coordInstance, mouseState, scrollState, columnFreezeState, theme } = props;
+  const { isFreezing, targetIndex } = columnFreezeState;
+  const { type, x, y } = mouseState;
+
+  if (type !== RegionType.ColumnFreezeHandler && !isFreezing) return;
+
+  const { scrollLeft } = scrollState;
+  const { interactionLineColorHighlight } = theme;
+  const { containerHeight, freezeRegionWidth } = coordInstance;
+  const hoverX = isFreezing ? x : freezeRegionWidth;
+
+  if (isFreezing) {
+    const targetX = coordInstance.getColumnRelativeOffset(targetIndex + 1, scrollLeft);
+    drawRect(ctx, {
+      x: targetX - 1,
+      y: 0,
+      width: 2,
+      height: containerHeight,
+      fill: interactionLineColorHighlight,
+    });
+  }
+
+  drawRect(ctx, {
+    x: hoverX - columnFreezeHandlerWidth / 2,
+    y: y - columnFreezeHandlerHeight / 2,
+    width: columnFreezeHandlerWidth,
+    height: columnFreezeHandlerHeight,
+    fill: interactionLineColorHighlight,
+    radius: 4,
+  });
+  drawRect(ctx, {
+    x: hoverX - 1,
+    y: 0,
+    width: 2,
+    height: containerHeight,
+    fill: interactionLineColorHighlight,
   });
 };
 
@@ -1050,13 +1096,25 @@ export const drawFreezeRegionDivider = (
   dividerRegion: DividerRegion
 ) => {
   const { theme, coordInstance, scrollState, height } = props;
-  const { cellLineColor } = theme;
+  const { cellLineColor, interactionLineColorCommon } = theme;
   const { scrollLeft } = scrollState;
-  const { freezeRegionWidth, containerHeight } = coordInstance;
-
-  if (scrollLeft === 0) return;
-
+  const { freezeRegionWidth, containerHeight, freezeColumnCount } = coordInstance;
   const isTop = dividerRegion === DividerRegion.Top;
+
+  if (scrollLeft === 0) {
+    return (
+      isTop &&
+      freezeColumnCount > 1 &&
+      drawRect(ctx, {
+        x: freezeRegionWidth,
+        y: 0.5,
+        width: 1,
+        height: containerHeight,
+        fill: interactionLineColorCommon,
+      })
+    );
+  }
+
   const startY = isTop ? 0 : containerHeight;
   const endY = isTop ? containerHeight : height;
 
@@ -1364,6 +1422,8 @@ export const drawGrid = (
   drawRowDraggingRegion(mainCtx, props);
 
   drawColumnDraggingRegion(mainCtx, props);
+
+  drawColumnFreezeHandler(mainCtx, props);
 
   setVisibleImageRegion(props);
 

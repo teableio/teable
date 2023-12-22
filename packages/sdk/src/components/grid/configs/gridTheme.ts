@@ -47,6 +47,8 @@ export interface IGridTheme {
   avatarSizeSM: number;
   avatarSizeMD: number;
   scrollBarBg: string;
+  interactionLineColorCommon: string;
+  interactionLineColorHighlight: string;
 }
 
 export const gridTheme: IGridTheme = {
@@ -90,7 +92,7 @@ export const gridTheme: IGridTheme = {
   columnHeaderBgHovered: colors.slate[100],
   columnHeaderBgSelected: colors.slate[200],
   columnHeaderNameColor: colors.zinc[800],
-  columnResizeHandlerBg: colors.zinc[800],
+  columnResizeHandlerBg: colors.slate[400],
   columnDraggingPlaceholderBg: hexToRGBA(colors.black, 0.2),
 
   // Row Header
@@ -109,4 +111,8 @@ export const gridTheme: IGridTheme = {
 
   // ScrollBar
   scrollBarBg: colors.gray[400],
+
+  // interaction
+  interactionLineColorCommon: colors.slate[300],
+  interactionLineColorHighlight: colors.violet[500],
 };

@@ -1,4 +1,4 @@
-import type { GridViewOptions, PermissionAction } from '@teable-group/core';
+import type { PermissionAction } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import type {
   IRectangle,
@@ -8,6 +8,7 @@ import type {
   ICell,
   IInnerCell,
   Record,
+  GridView,
 } from '@teable-group/sdk';
 import {
   Grid,
@@ -28,6 +29,7 @@ import {
   hexToRGBA,
   emptySelection,
 } from '@teable-group/sdk';
+import { useScrollFrameRate } from '@teable-group/sdk/components/grid/hooks';
 import {
   useFields,
   useIsTouchDevice,
@@ -65,7 +67,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const tableId = useTableId() as string;
   const table = useTable();
   const activeViewId = useViewId();
-  const view = useView(activeViewId);
+  const view = useView(activeViewId) as GridView | undefined;
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
@@ -88,6 +90,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
   const sort = view?.sort;
+  const frozenColumnCount = view?.options?.frozenColumnCount ?? 1;
   const isAutoSort = sort && !sort?.manualSort;
   const isTouchDevice = useIsTouchDevice();
   const isLoading = !view;
@@ -257,6 +260,13 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [columns, openStatisticMenu]
   );
 
+  const onColumnFreeze = useCallback(
+    (count: number) => {
+      view?.updateFrozenColumnCount(count);
+    },
+    [view]
+  );
+
   const onRowAppended = () => {
     table?.createRecord({});
   };
@@ -271,7 +281,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const rowHeightLevel = useMemo(() => {
     if (view == null) return RowHeightLevel.Short;
-    return (view.options as GridViewOptions)?.rowHeight || RowHeightLevel.Short;
+    return view.options?.rowHeight || RowHeightLevel.Short;
   }, [view]);
 
   const rowControls = useMemo(() => {
@@ -432,6 +442,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     gridRef.current?.resetState();
   });
 
+  useScrollFrameRate(gridRef.current?.scrollBy);
+
   return (
     <div ref={container} className="relative h-full w-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
@@ -442,8 +454,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           isTouchDevice={isTouchDevice}
           rowCount={realRowCount}
           rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
+          freezeColumnCount={isTouchDevice ? 0 : frozenColumnCount}
           columnStatistics={columnStatistics}
-          freezeColumnCount={isTouchDevice ? 0 : 1}
           columns={columns}
           smoothScrollX
           smoothScrollY
@@ -461,6 +473,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
           onRowOrdered={onRowOrdered}
           onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
+          onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
           onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
           onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
           onContextMenu={onContextMenu}
