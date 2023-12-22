@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import {
   CellValueType,
   DbFieldType,
@@ -11,7 +12,8 @@ const parseData = [
   ['Tom', '30', 'medium'],
   ['Bob', '40', 'heavy'],
 ];
-jest.mock('@teable-group/core', () => {
+
+vi.mock('@teable-group/core', () => {
   return {
     __esModule: true,
     IFieldVo: {},
