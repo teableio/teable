@@ -218,8 +218,8 @@ export class FieldSupplementService {
     const symmetricFieldId = isOneWay
       ? undefined
       : oldOptions.foreignTableId === newOptionsRo.foreignTableId
-      ? oldOptions.symmetricFieldId
-      : generateFieldId();
+        ? oldOptions.symmetricFieldId
+        : generateFieldId();
 
     const lookupFieldId =
       oldOptions.foreignTableId === foreignTableId
@@ -392,8 +392,8 @@ export class FieldSupplementService {
       'formatting' in options
         ? options.formatting
         : sourceFormatting
-        ? sourceFormatting
-        : getDefaultFormatting(cellValueType);
+          ? sourceFormatting
+          : getDefaultFormatting(cellValueType);
 
     const showAs = 'showAs' in options ? options.showAs : sourceShowAs;
 

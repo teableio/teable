@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { IActionTriggerBuffer } from '@teable-group/core';
+import type { IActionTriggerBuffer, IColumn } from '@teable-group/core';
 import { getActionTriggerChannel } from '@teable-group/core';
+import { isEmpty } from 'lodash';
 import { ShareDbService } from '../../share-db/share-db.service';
-import type { RecordCreateEvent, RecordDeleteEvent, ViewUpdateEvent } from '../model';
-import { Events, RecordUpdateEvent } from '../model';
+import type { RecordDeleteEvent, ViewUpdateEvent } from '../model';
+import { Events, RecordCreateEvent, RecordUpdateEvent } from '../model';
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
@@ -16,7 +17,7 @@ export class ActionTriggerListener {
 
   constructor(private readonly shareDbService: ShareDbService) {}
 
-  @OnEvent('table.view.update', { async: true })
+  @OnEvent(Events.TABLE_VIEW_UPDATE, { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
     // Handling table view update events
@@ -31,33 +32,54 @@ export class ActionTriggerListener {
   }
 
   private async handleTableViewUpdate(event: ViewUpdateEvent): Promise<void> {
-    const {
-      tableId,
-      view: { id: viewId },
-    } = event;
     if (!this.isValidViewUpdateOperation(event)) {
       return;
     }
 
-    this.emitTablePullAction(tableId, {
-      fetchRowCount: [viewId],
-      fetchAggregation: [viewId],
-    });
+    const { tableId, view } = event;
+    const { id: viewId, filter, columnMeta } = view;
+
+    let buffer: IActionTriggerBuffer = {};
+    if (filter) {
+      buffer = {
+        ...buffer,
+        applyViewFilter: [tableId, viewId],
+      };
+    }
+
+    if (columnMeta) {
+      const fieldIds = Object.entries(columnMeta)
+        .filter(([_, v]) => !(v.newValue as IColumn).hidden)
+        .map(([fieldId, _]) => fieldId);
+
+      if (fieldIds.length) {
+        buffer = {
+          ...buffer,
+          showViewField: [tableId, viewId, ...fieldIds],
+        };
+      }
+    }
+
+    !isEmpty(buffer) && this.emitActionTrigger(tableId, buffer);
   }
 
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
     const { tableId } = event;
+    const buffer: IActionTriggerBuffer = {};
 
-    if (event instanceof RecordUpdateEvent) {
-      this.emitTablePullAction(tableId, {
-        fetchAggregation: [tableId],
-      });
-    } else {
-      this.emitTablePullAction(tableId, {
-        fetchRowCount: [tableId],
-        fetchAggregation: [tableId],
-      });
+    switch (event.constructor) {
+      case RecordCreateEvent:
+        buffer.tableAdd = [tableId];
+        break;
+      case RecordUpdateEvent:
+        buffer.tableUpdate = [tableId];
+        break;
+      default:
+        buffer.tableDelete = [tableId];
+        break;
     }
+
+    !isEmpty(buffer) && this.emitActionTrigger(tableId, buffer);
   }
 
   private isTableViewUpdateEvent(event: IListenerEvent): boolean {
@@ -66,7 +88,8 @@ export class ActionTriggerListener {
 
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
     const operationNames = ['setViewFilter', 'setViewColumnMeta'];
-    return event.context.opName && operationNames.includes(event.context.opName);
+    const { name } = event.context.opMeta || {};
+    return name && operationNames.includes(name);
   }
 
   private isTableRecordEvent(event: IListenerEvent): boolean {
@@ -78,7 +101,7 @@ export class ActionTriggerListener {
     return recordEvents.includes(event.name);
   }
 
-  private emitTablePullAction(tableId: string, data: IActionTriggerBuffer) {
+  private emitActionTrigger(tableId: string, data: IActionTriggerBuffer) {
     const channel = getActionTriggerChannel(tableId);
 
     const presence = this.shareDbService.connect().getPresence(channel);

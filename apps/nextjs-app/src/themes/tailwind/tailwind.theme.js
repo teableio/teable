@@ -5,6 +5,6 @@ const { browserFonts } = require('../shared/browser-fonts');
 
 module.exports = {
   fontFamily: {
-    sans: ['InterVariable', ...browserFonts.sans],
+    sans: ['Inter Variable', ...browserFonts.sans],
   },
 };

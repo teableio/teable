@@ -13,6 +13,7 @@ import type {
   IRowCountRo,
   IAggregationRo,
   ILinkFieldOptions,
+  IAggregationVo,
 } from '@teable-group/core';
 import { ANONYMOUS_USER_ID, FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -128,7 +129,10 @@ export class ShareService {
     };
   }
 
-  async getViewAggregations(shareInfo: IShareViewInfo, query: IAggregationRo = {}) {
+  async getViewAggregations(
+    shareInfo: IShareViewInfo,
+    query: IAggregationRo = {}
+  ): Promise<IAggregationVo> {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
     const { filter } = query;
@@ -137,7 +141,7 @@ export class ShareService {
       withView: { viewId, customFilter: filter },
     });
 
-    return { viewId: viewId, aggregations: result?.aggregations };
+    return { aggregations: result?.aggregations };
   }
 
   async getViewRowCount(shareInfo: IShareViewInfo, query: IRowCountRo = {}): Promise<IRowCountVo> {

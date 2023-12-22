@@ -16,6 +16,7 @@ import {
 } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
+import { ReactQueryKeys } from '../../../config';
 import { useBase } from '../../../hooks';
 import type { ICellEditor } from '../type';
 
@@ -32,7 +33,7 @@ export function UserEditorMain(props: IUserEditorMainProps) {
   const { id: baseId } = useBase();
 
   const { data: collaborators, isLoading } = useQuery({
-    queryKey: ['base-collaborator-list', baseId],
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
     queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
   });
 
@@ -76,13 +77,8 @@ export function UserEditorMain(props: IUserEditorMainProps) {
                 key={userId}
                 value={userName}
                 onSelect={() => onSelect({ id: userId, title: userName })}
+                className="flex justify-between"
               >
-                <Check
-                  className={classNames(
-                    'mr-2 h-4 w-4',
-                    activeStatus(userId) ? 'opacity-100' : 'opacity-0'
-                  )}
-                />
                 <div className="flex items-center space-x-4">
                   <Avatar className="box-content h-7 w-7 cursor-pointer border">
                     <AvatarImage src={avatar as string} alt="avatar-name" />
@@ -93,6 +89,12 @@ export function UserEditorMain(props: IUserEditorMainProps) {
                     <p className="text-sm text-muted-foreground">{email}</p>
                   </div>
                 </div>
+                <Check
+                  className={classNames(
+                    'ml-2 h-4 w-4',
+                    activeStatus(userId) ? 'opacity-100' : 'opacity-0'
+                  )}
+                />
               </CommandItem>
             ))
           )}

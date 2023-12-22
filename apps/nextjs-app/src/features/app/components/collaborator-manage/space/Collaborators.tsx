@@ -8,7 +8,7 @@ import {
   getSpaceCollaboratorList,
   updateSpaceCollaborator,
 } from '@teable-group/openapi';
-import { useSession } from '@teable-group/sdk';
+import { ReactQueryKeys, useSession } from '@teable-group/sdk';
 import {
   Avatar,
   AvatarFallback,
@@ -49,21 +49,21 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
   const { user } = useSession();
 
   const { data: collaborators } = useQuery({
-    queryKey: ['space-collaborator-list', spaceId],
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
     queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then(({ data }) => data),
   });
 
   const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
     mutationFn: updateSpaceCollaborator,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['space-collaborator-list'] });
+      await queryClient.invalidateQueries(ReactQueryKeys.spaceCollaboratorList(spaceId));
     },
   });
 
   const { mutate: deleteCollaborator, isLoading: deleteCollaboratorLoading } = useMutation({
     mutationFn: deleteSpaceCollaborator,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['space-collaborator-list'] });
+      await queryClient.invalidateQueries(ReactQueryKeys.spaceCollaboratorList(spaceId));
     },
   });
 

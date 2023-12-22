@@ -9,7 +9,7 @@ export class MailSenderService {
 
   constructor(
     private readonly mailService: MailerService,
-    @MailConfig() readonly config: IMailConfig
+    @MailConfig() private readonly config: IMailConfig
   ) {}
 
   async sendMail(mailOptions: ISendMailOptions): Promise<boolean> {
@@ -39,7 +39,7 @@ export class MailSenderService {
   }
 
   collaboratorCellTagEmailOptions(info: {
-    toUserName: string;
+    fromUserName: string;
     refRecord: {
       baseId: string;
       tableId: string;
@@ -49,7 +49,7 @@ export class MailSenderService {
     };
   }) {
     const {
-      toUserName,
+      fromUserName,
       refRecord: { baseId, tableId, fieldName, tableName, recordIds },
     } = info;
     let subject, template;
@@ -58,10 +58,10 @@ export class MailSenderService {
     const viewRecordUrlPrefix = `${this.config.origin}/base/${baseId}/${tableId}`;
 
     if (refLength <= 1) {
-      subject = `${toUserName} added you to the ${fieldName} field of a record in ${tableName}`;
+      subject = `${fromUserName} added you to the ${fieldName} field of a record in ${tableName}`;
       template = 'collaborator-cell-tag';
     } else {
-      subject = `${toUserName} added you to ${refLength} records in ${tableName}`;
+      subject = `${fromUserName} added you to ${refLength} records in ${tableName}`;
       template = 'collaborator-multi-row-tag';
     }
 
@@ -70,7 +70,7 @@ export class MailSenderService {
       subject: `${subject} - Teable`,
       template,
       context: {
-        toUserName,
+        fromUserName,
         refLength,
         tableName,
         fieldName,

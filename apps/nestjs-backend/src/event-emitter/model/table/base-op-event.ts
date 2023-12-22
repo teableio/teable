@@ -1,6 +1,6 @@
 import { Expose } from 'class-transformer';
 import type { RawOpType } from '../../../share-db/interface';
-import type { IBaseEvent } from '../../interfaces/base-event.interface';
+import type { ICoreEvent } from '../../interfaces/base-event.interface';
 import { IEventContext } from '../../interfaces/base-event.interface';
 import type { Events } from '../event.enum';
 
@@ -9,7 +9,7 @@ export type IChangeValue = {
   newValue: unknown;
 };
 
-export class BaseOpEvent implements IBaseEvent {
+export class BaseOpEvent implements ICoreEvent {
   name!: Events;
   @Expose() rawOpType: RawOpType | undefined;
   @Expose() isBatch: boolean | undefined;

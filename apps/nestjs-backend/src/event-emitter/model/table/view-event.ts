@@ -14,10 +14,19 @@ type IEventName = Extract<
 export type IChangeView = Record<
   keyof Omit<
     IViewVo,
-    'id' | 'type' | 'createdBy' | 'lastModifiedBy' | 'createdTime' | 'lastModifiedTime'
+    | 'id'
+    | 'type'
+    | 'columnMeta'
+    | 'createdBy'
+    | 'lastModifiedBy'
+    | 'createdTime'
+    | 'lastModifiedTime'
   >,
   IChangeValue
-> & { id: string };
+> & {
+  columnMeta: Record<string, IChangeValue>;
+  id: string;
+};
 
 export class ViewCreateEvent extends BaseOpEvent {
   name: IEventName = Events.TABLE_VIEW_CREATE;

@@ -228,12 +228,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       x < 0
         ? -Infinity
         : scrollLeft + x > totalWidth && scrollLeft + x < totalWidth + columnAppendBtnWidth
-        ? -2
-        : x <= freezeRegionWidth
-        ? x <= columnInitSize
-          ? -1
-          : coordInstance.getColumnStartIndex(x)
-        : coordInstance.getColumnStartIndex(scrollLeft + x);
+          ? -2
+          : x <= freezeRegionWidth
+            ? x <= columnInitSize
+              ? -1
+              : coordInstance.getColumnStartIndex(x)
+            : coordInstance.getColumnStartIndex(scrollLeft + x);
 
     return { x, y, rowIndex, columnIndex };
   };

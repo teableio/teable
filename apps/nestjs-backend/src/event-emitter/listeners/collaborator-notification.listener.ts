@@ -1,14 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { IUserCellValue } from '@teable-group/core';
+import type { IRecord, IUserCellValue } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { keyBy } from 'lodash';
+import { has, intersection, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { NotificationService } from '../../features/notification/notification.service';
 import type { IChangeRecord, RecordCreateEvent, RecordUpdateEvent } from '../model';
 import { Events } from '../model';
+import type { IChangeValue } from '../model/table/base-op-event';
 
 type IListenerEvent = RecordCreateEvent | RecordUpdateEvent;
 
@@ -33,29 +34,38 @@ export class CollaboratorNotificationListener {
   @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
-    const { name: eventName, tableId } = listenerEvent;
+    const { tableId, record } = listenerEvent;
 
     const userFieldData = await this.fetchUserFields(tableId);
-    if (!userFieldData.length) {
+    if (isEmpty(userFieldData)) {
       return;
     }
 
     const userFields = keyBy(userFieldData, 'fieldId');
     const userFieldIds = Object.keys(userFields);
 
-    if (eventName === Events.TABLE_RECORD_CREATE) {
-      this.logger.log('Wait a moment');
-    } else if (eventName === Events.TABLE_RECORD_UPDATE) {
-      await this.processTableRecordUpdate(
-        listenerEvent as RecordUpdateEvent,
-        userFieldIds,
-        userFields
-      );
+    if (!this.hasRelevantFields(record, userFieldIds)) {
+      return;
     }
+
+    await this.updateTableRecord(listenerEvent, userFieldIds, userFields);
   }
 
-  private async processTableRecordUpdate(
-    event: RecordUpdateEvent,
+  private hasRelevantFields(
+    record: IRecord | IChangeRecord | (IRecord | IChangeRecord)[],
+    userFieldIds: string[]
+  ): boolean {
+    const fields = this.getRecordFields(record);
+    return !isEmpty(intersection(userFieldIds, fields));
+  }
+
+  private getRecordFields(record: IRecord | IChangeRecord | (IRecord | IChangeRecord)[]): string[] {
+    const records = Array.isArray(record) ? record : [record];
+    return records.filter(Boolean).flatMap((r) => Object.keys(r.fields || {}));
+  }
+
+  private async updateTableRecord(
+    event: RecordCreateEvent | RecordUpdateEvent,
     userFieldIds: string[],
     userFields: Record<string, IUserField>
   ): Promise<void> {
@@ -66,7 +76,7 @@ export class CollaboratorNotificationListener {
     } = event;
     const recordSets = (Array.isArray(eventRecords) ? eventRecords : [eventRecords]).filter(
       Boolean
-    ) as IChangeRecord[];
+    ) as (IRecord | IChangeRecord)[];
 
     const notificationData = this.extractNotificationData(recordSets, userFieldIds);
 
@@ -89,7 +99,7 @@ export class CollaboratorNotificationListener {
   }
 
   private extractNotificationData(
-    records: IChangeRecord[],
+    records: (IRecord | IChangeRecord)[],
     userFieldIds: string[]
   ): Record<string, { fieldId: string; recordIds: string[] }> {
     return records.reduce<Record<string, { fieldId: string; recordIds: string[] }>>(
@@ -101,8 +111,10 @@ export class CollaboratorNotificationListener {
         }
 
         Object.entries(changeFields).forEach(([fieldId, value]) => {
-          if (userFieldIds.includes(fieldId) && value.newValue) {
-            const collaborators = Array.isArray(value.newValue) ? value.newValue : [value.newValue];
+          const cellValue = has(value, 'newValue') ? (value as IChangeValue).newValue : value;
+
+          if (userFieldIds.includes(fieldId) && cellValue) {
+            const collaborators = Array.isArray(cellValue) ? cellValue : [cellValue];
 
             collaborators.forEach((collaborator: IUserCellValue) => {
               const userId = collaborator.id;
