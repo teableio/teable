@@ -1,31 +1,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { act, renderHook } from '@testing-library/react';
 import type { Query } from 'sharedb/lib/client';
+import { vi } from 'vitest';
 import { createAppContext } from '../__tests__/createAppContext';
 import type { IUseInstancesProps } from './useInstances';
 import { useInstances } from './useInstances';
 
 describe('useInstances hook', () => {
   const mockQueryMethods = {
-    on: jest.fn(),
-    once: jest.fn(),
-    removeAllListeners: jest.fn(),
-    removeListener: jest.fn(),
-    destroy: jest.fn(),
+    on: vi.fn(),
+    once: vi.fn(),
+    removeAllListeners: vi.fn(),
+    removeListener: vi.fn(),
+    destroy: vi.fn(),
   };
 
   const createMockDoc = (arg: Record<string, any>) =>
     ({
       ...arg,
-      on: jest.fn(),
-      destroy: jest.fn(),
-      listenerCount: jest.fn(),
-      removeEventListener: jest.fn(),
-      removeListener: jest.fn(),
+      on: vi.fn(),
+      destroy: vi.fn(),
+      listenerCount: vi.fn(),
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
     }) as any;
 
   // Factory function for creating test data instances
-  const createTestInstance = jest.fn((data: any, doc?: any) => {
+  const createTestInstance = vi.fn((data: any, doc?: any) => {
     return { ...data, doc };
   });
 
@@ -53,7 +54,7 @@ describe('useInstances hook', () => {
   // Mock the AppContext
   const mockAppContext = {
     connection: {
-      createSubscribeQuery: jest.fn((collection: string, queryParams: any) => {
+      createSubscribeQuery: vi.fn((collection: string, queryParams: any) => {
         const query: Query<any> = {
           collection,
           query: queryParams,
@@ -69,7 +70,7 @@ describe('useInstances hook', () => {
   };
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should initialize with initData when connected is false', () => {

@@ -1,4 +1,3 @@
-require('@testing-library/jest-dom');
 const { extendZodWithOpenApi } = require('@asteasolutions/zod-to-openapi');
 const dayjs = require('dayjs');
 const timezone = require('dayjs/plugin/timezone');

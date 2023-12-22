@@ -22,7 +22,7 @@
       "@teable-group/ui-lib": ["../ui-lib/src"],
       "@teable-group/openapi": ["../openapi/src"]
     },
-    "types": ["@testing-library/jest-dom/types"]
+    "types": ["vitest/globals"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": ["src"]

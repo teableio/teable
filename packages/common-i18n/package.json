@@ -33,7 +33,6 @@
   },
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/jest": "29.5.8",
     "@types/node": "18.18.2",
     "cross-env": "7.0.3",
     "eslint": "8.52.0",

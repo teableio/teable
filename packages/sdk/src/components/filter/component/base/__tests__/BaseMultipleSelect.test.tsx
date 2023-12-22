@@ -1,14 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
 import { createAppContext } from '../../../../../context/__tests__/createAppContext';
 import { BaseMultipleSelect } from '../BaseMultipleSelect';
 
-window.ResizeObserver =
-  window.ResizeObserver ||
-  jest.fn().mockImplementation(() => ({
-    disconnect: jest.fn(),
-    observe: jest.fn(),
-    unobserve: jest.fn(),
-  }));
+const mockResizeObserver = {
+  disconnect: vi.fn(),
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+};
+
+globalThis.ResizeObserver = globalThis.ResizeObserver || mockResizeObserver;
 
 describe('BaseMultipleSelect', () => {
   const options = [
@@ -54,7 +55,7 @@ describe('BaseMultipleSelect', () => {
   });
 
   it('should call onSelect twice', async () => {
-    const selectHandler = jest.fn();
+    const selectHandler = vi.fn();
     render(<BaseMultipleSelect options={options} onSelect={selectHandler} value={null} />, {
       wrapper: createAppContext(),
     });
