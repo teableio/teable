@@ -13,9 +13,10 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { RangeType } from '@teable-group/openapi';
-import type { DeepMockProxy } from 'jest-mock-extended';
-import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
+import { vi } from 'vitest';
+import type { DeepMockProxy } from 'vitest-mock-extended';
+import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
@@ -87,7 +88,7 @@ describe('selectionService', () => {
         { id: 'field1', name: 'Field 1', type: FieldType.SingleLineText },
         { id: 'field2', name: 'Field 2', type: FieldType.SingleLineText },
       ];
-      jest.spyOn(selectionService as any, 'getSelectionCtxByRange').mockReturnValue({
+      vi.spyOn(selectionService as any, 'getSelectionCtxByRange').mockReturnValue({
         records: mockSelectionCtxRecords,
         fields: mockSelectionCtxFields,
       });
@@ -161,7 +162,7 @@ describe('selectionService', () => {
         { id: 'record1', fields: {} },
         { id: 'record2', fields: {} },
       ] as IRecord[];
-      jest.spyOn(recordOpenApiService, 'createRecords').mockResolvedValueOnce({
+      vi.spyOn(recordOpenApiService, 'createRecords').mockResolvedValueOnce({
         records: expectedRecords,
       });
 
@@ -194,7 +195,7 @@ describe('selectionService', () => {
 
   describe('expandColumns', () => {
     it('should expand the columns and create new fields', async () => {
-      jest.spyOn(fieldService as any, 'generateDbFieldName').mockReturnValue('fieldName');
+      vi.spyOn(fieldService as any, 'generateDbFieldName').mockReturnValue('fieldName');
       // Mock dependencies
       const tableId = 'table1';
       // const viewId = 'view1';
@@ -203,8 +204,8 @@ describe('selectionService', () => {
         { id: '4', name: 'Phone', type: FieldType.SingleLineText },
       ] as IFieldVo[];
       const numColsToExpand = 2;
-      jest.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[0]);
-      jest.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[1]);
+      vi.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[0]);
+      vi.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[1]);
 
       // Perform expanding columns
       const result = await selectionService['expandColumns']({
@@ -536,21 +537,21 @@ describe('selectionService', () => {
         { id: 'newRecordId2', fields: {} },
       ];
 
-      jest.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
+      vi.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
 
-      jest.spyOn(recordService, 'getRowCount').mockResolvedValue(mockRecords.length);
-      jest
-        .spyOn(recordService, 'getRecordsFields')
-        .mockResolvedValue(mockRecords.slice(pasteRo.range[0][1]));
+      vi.spyOn(recordService, 'getRowCount').mockResolvedValue(mockRecords.length);
+      vi.spyOn(recordService, 'getRecordsFields').mockResolvedValue(
+        mockRecords.slice(pasteRo.range[0][1])
+      );
 
-      jest.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
+      vi.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
 
-      jest.spyOn(selectionService as any, 'expandRows').mockResolvedValue({
+      vi.spyOn(selectionService as any, 'expandRows').mockResolvedValue({
         records: mockNewRecords,
       });
-      jest.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
+      vi.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
 
-      jest.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
+      vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
 
       prismaService.$tx.mockImplementation(async (fn, _options) => {
         await fn(prismaService);
@@ -631,9 +632,9 @@ describe('selectionService', () => {
       };
 
       // Mock the required methods from the service
-      selectionService['getSelectionCtxByRange'] = jest.fn().mockResolvedValue({ fields, records });
-      selectionService['fillCells'] = jest.fn().mockResolvedValue(updateRecordsRo);
-      recordOpenApiService.updateRecords = jest.fn().mockResolvedValue(null);
+      selectionService['getSelectionCtxByRange'] = vi.fn().mockResolvedValue({ fields, records });
+      selectionService['fillCells'] = vi.fn().mockResolvedValue(updateRecordsRo);
+      recordOpenApiService.updateRecords = vi.fn().mockResolvedValue(null);
 
       // Call the clear method
       await selectionService.clear(tableId, viewId, clearRo);

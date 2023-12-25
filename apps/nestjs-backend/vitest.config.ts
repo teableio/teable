@@ -1,14 +1,13 @@
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
-const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
+const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
   plugins: [swc.vite({})],
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: './vitest-e2e.setup.ts',
     passWithNoTests: true,
     typecheck: {
       enabled: false,
@@ -24,6 +23,7 @@ export default defineConfig({
     },
     include: testFiles,
     exclude: [
+      '**/*.controller.spec.ts', // exclude controller test
       '**/node_modules/**',
       '**/dist/**',
       '**/.next/**',

@@ -5,8 +5,8 @@
     "test",
     "dist",
     "**/*spec.ts",
-    "jest-e2e.setup.ts",
     "vitest-e2e.setup.ts",
-    "vitest-e2e.config.ts"
+    "vitest-e2e.config.ts",
+    "vitest.config.ts"
   ]
 }

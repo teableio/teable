@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import type { IFieldRo } from '@teable-group/core';
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { vi } from 'vitest';
 import { GlobalModule } from '../../../global/global.module';
 import { FieldService } from '../field.service';
 import { createFieldInstanceByVo } from '../model/factory';
@@ -22,7 +23,7 @@ describe('FieldSupplementService', () => {
     const fieldService = module.get<FieldService>(FieldService);
     service = module.get<FieldSupplementService>(FieldSupplementService);
     prismaService = module.get<PrismaService>(PrismaService);
-    fieldService.generateDbFieldName = jest.fn().mockImplementation((name) => name);
+    fieldService.generateDbFieldName = vi.fn().mockImplementation((name) => name);
   });
 
   describe('prepareFieldOptions', () => {
@@ -71,7 +72,7 @@ describe('FieldSupplementService', () => {
         dbFieldType: DbFieldType.Json,
         columnMeta: {},
       };
-      (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
+      (prismaService as any).reference = { create: vi.fn().mockResolvedValue(undefined) };
       await service['createReference'](createFieldInstanceByVo(linkField));
 
       expect(prismaService.reference.create).toBeCalledWith({
@@ -96,7 +97,7 @@ describe('FieldSupplementService', () => {
         dbFieldType: DbFieldType.Text,
         columnMeta: {},
       };
-      (prismaService as any).reference = { create: jest.fn().mockResolvedValue(undefined) };
+      (prismaService as any).reference = { create: vi.fn().mockResolvedValue(undefined) };
       await service['createReference'](createFieldInstanceByVo(formulaField));
 
       expect(prismaService.reference.create).toHaveBeenNthCalledWith(1, {

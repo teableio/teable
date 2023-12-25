@@ -24,8 +24,8 @@
     "generate": "rm -rf src/components && node ./scripts/generate.mjs"
   },
   "peerDependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
   },
   "dependencies": {
     "typescript": "5.3.3"

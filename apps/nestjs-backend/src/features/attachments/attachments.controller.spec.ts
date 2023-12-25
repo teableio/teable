@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { vi } from 'vitest';
 import { AttachmentsController } from './attachments.controller';
 import { AttachmentsModule } from './attachments.module';
 
@@ -14,7 +15,7 @@ describe('AttachmentsController', () => {
     })
       .useMocker((token) => {
         if (token === PrismaService) {
-          return jest.fn();
+          return vi.fn();
         }
       })
       .compile();

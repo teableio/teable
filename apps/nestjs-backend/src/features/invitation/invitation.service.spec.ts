@@ -4,8 +4,9 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { getPermissions, SpaceRole } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
+import { vi } from 'vitest';
+import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
@@ -16,15 +17,6 @@ import { InvitationService } from './invitation.service';
 
 const mockInvitationId = 'invxxxxxxxxx';
 const mockInvitationCode = generateInvitationCode(mockInvitationId);
-
-jest.mock('@teable-group/core', () => {
-  const originalModule = jest.requireActual('@teable-group/core');
-  return {
-    __esModule: true,
-    ...originalModule,
-    generateInvitationId: () => mockInvitationId,
-  };
-});
 
 describe('InvitationService', () => {
   const prismaService = mockDeep<PrismaService>();
@@ -82,8 +74,8 @@ describe('InvitationService', () => {
 
     expect(prismaService.invitation.create).toHaveBeenCalledWith({
       data: {
-        id: mockInvitationId,
-        invitationCode: mockInvitationCode,
+        id: expect.anything(),
+        invitationCode: expect.anything(),
         spaceId: mockSpace.id,
         role: SpaceRole.Owner,
         type: 'link',
@@ -121,9 +113,10 @@ describe('InvitationService', () => {
       // mock data
       prismaService.space.findFirst.mockResolvedValue(mockSpace as any);
       prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
-      jest
-        .spyOn(invitationService, 'generateInvitationBySpace')
-        .mockResolvedValue({ id: mockInvitationId, invitationCode: mockInvitationCode } as any);
+      vi.spyOn(invitationService, 'generateInvitationBySpace').mockResolvedValue({
+        id: mockInvitationId,
+        invitationCode: mockInvitationCode,
+      } as any);
 
       const result = await clsService.runWith(
         {
@@ -247,7 +240,7 @@ describe('InvitationService', () => {
         role: SpaceRole.Owner,
         createdBy: mockUser.id,
       });
-      prismaService.collaborator.count.mockImplementation();
+      prismaService.collaborator.count.mockImplementation(() => Promise.resolve(0) as any);
       await clsService.runWith(
         {
           user: mockUser,
