@@ -13,7 +13,8 @@ const TextEditorBase: ForwardRefRenderFunction<
   IEditorRef<ITextCell | INumberCell>,
   IEditorProps<ITextCell | INumberCell | ILinkCell>
 > = (props, ref) => {
-  const { cell, rect, style, isEditing, onChange } = props;
+  const { cell, rect, style, theme, isEditing, onChange } = props;
+  const { cellLineColorActived } = theme;
   const { width, height } = rect;
   const { displayData, type } = cell;
   const needWrap = (cell as ITextCell)?.isWrap;
@@ -84,6 +85,7 @@ const TextEditorBase: ForwardRefRenderFunction<
         <Input
           ref={inputRef as RefObject<HTMLInputElement>}
           style={{
+            border: `2px solid ${cellLineColorActived}`,
             ...style,
             ...attachStyle,
           }}

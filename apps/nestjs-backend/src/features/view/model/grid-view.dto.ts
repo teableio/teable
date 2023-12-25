@@ -9,6 +9,12 @@ export class GridViewOptionsDto implements GridViewOptions {
     description: 'The row height level of row in view',
   })
   rowHeight?: RowHeightLevel;
+
+  @ApiProperty({
+    example: 1,
+    description: 'The frozen column count in view',
+  })
+  frozenColumnCount?: number;
 }
 
 export class GridViewDto extends GridViewCore {}

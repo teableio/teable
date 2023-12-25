@@ -2,14 +2,16 @@ import type { FC } from 'react';
 import { useRef, useEffect, useMemo } from 'react';
 import type { IVisibleRegion } from './hooks';
 import type { IInteractionLayerProps } from './InteractionLayer';
-import type {
-  ICellItem,
-  IPosition,
-  IDragState,
-  IMouseState,
-  IColumnResizeState,
-  ICellPosition,
-  IActiveCellBound,
+import {
+  type ICellItem,
+  type IPosition,
+  type IDragState,
+  type IMouseState,
+  type IColumnResizeState,
+  type ICellPosition,
+  type IActiveCellBound,
+  type IColumnFreezeState,
+  RegionType,
 } from './interface';
 import type { CombinedSelection } from './managers';
 import { drawGrid } from './renderers';
@@ -39,12 +41,15 @@ export interface IRenderLayerProps
   activeCellBound: IActiveCellBound | null;
   dragState: IDragState;
   mouseState: IMouseState;
+  columnFreezeState: IColumnFreezeState;
   selection: CombinedSelection;
   isSelecting: boolean;
+  isInteracting?: boolean;
   forceRenderFlag: string;
   hoverCellPosition: ICellPosition | null;
   hoveredColumnResizeIndex: number;
   columnResizeState: IColumnResizeState;
+  isColumnFreezable?: boolean;
   isRowAppendEnable?: boolean;
   isColumnResizable?: boolean;
   isColumnAppendEnable?: boolean;
@@ -67,10 +72,12 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     collaborators,
     dragState,
     scrollState,
+    columnFreezeState,
     hoverCellPosition,
     mouseState: originMouseState,
     selection,
     isSelecting,
+    isInteracting: _isInteracting,
     coordInstance,
     forceRenderFlag,
     getCellContent,
@@ -79,17 +86,17 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     columnResizeState,
     rowCounterVisible,
     hoveredColumnResizeIndex,
+    isColumnFreezable,
     isRowAppendEnable,
     isColumnResizable,
     isColumnAppendEnable,
     isColumnHeaderMenuVisible,
     isMultiSelectionEnable,
   } = props;
-  const { isDragging } = dragState;
   const { containerWidth } = coordInstance;
-  const { columnIndex: resizingColumnIndex } = columnResizeState;
   const { x, y, columnIndex, rowIndex, type, isOutOfBounds } = originMouseState;
-  const isColumnResizing = resizingColumnIndex > -1;
+  const isInteracting = _isInteracting || type === RegionType.ColumnFreezeHandler;
+
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastPropsRef = useRef<IRenderLayerProps>();
 
@@ -112,9 +119,9 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
   }, [columnIndex, rowIndex, type, isOutOfBounds]);
 
   const mousePosition: IPosition | null = useMemo(() => {
-    if (!isDragging && !isColumnResizing) return null;
+    if (!isInteracting) return null;
     return { x, y };
-  }, [x, y, isDragging, isColumnResizing]);
+  }, [x, y, isInteracting]);
 
   useEffect(() => {
     const mainCanvas = mainCanvasRef.current;
@@ -135,10 +142,12 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       collaborators,
       dragState,
       scrollState,
+      columnFreezeState,
       hoverCellPosition,
       mouseState: mousePosition ? { ...mouseState, ...mousePosition } : mouseState,
       selection,
       isSelecting,
+      isInteracting,
       coordInstance,
       forceRenderFlag,
       getCellContent,
@@ -147,6 +156,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       columnResizeState,
       rowCounterVisible,
       hoveredColumnResizeIndex,
+      isColumnFreezable,
       isRowAppendEnable,
       isColumnResizable,
       isColumnAppendEnable,
@@ -169,11 +179,13 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     activeCellBound,
     collaborators,
     dragState,
-    scrollState,
     mouseState,
+    scrollState,
+    columnFreezeState,
     mousePosition,
     selection,
     isSelecting,
+    isInteracting,
     coordInstance,
     forceRenderFlag,
     getCellContent,
@@ -183,6 +195,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     rowCounterVisible,
     hoverCellPosition,
     hoveredColumnResizeIndex,
+    isColumnFreezable,
     isRowAppendEnable,
     isColumnResizable,
     isColumnAppendEnable,

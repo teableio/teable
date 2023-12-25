@@ -1,20 +1,25 @@
 import type {
-  IAttachmentCellValue,
-  INumberFieldOptions,
   INumberShowAs,
   ISingleLineTextShowAs,
+  IAttachmentCellValue,
 } from '@teable-group/core';
 import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
-import { CellType, EditorPosition, getFileCover, NumberEditor, onMixedTextClick } from '../..';
+import { CellType, getFileCover, onMixedTextClick } from '../..';
 import { useTablePermission, useFields, useViewId, useView } from '../../../hooks';
-import type { IFieldInstance, Record } from '../../../model';
+import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { IViewInstance } from '../../../model/view';
 import { GRID_DEFAULT } from '../../grid/configs';
-import { GridAttachmentEditor, GridDateEditor, GridLinkEditor, GridSelectEditor } from '../editor';
+import {
+  GridAttachmentEditor,
+  GridDateEditor,
+  GridLinkEditor,
+  GridSelectEditor,
+  GridNumberEditor,
+} from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
@@ -130,7 +135,6 @@ const createCellValue2GridDisplay =
           data: (cellValue as string) || '',
           displayData,
           readonly,
-          editorPosition: EditorPosition.Below,
           customEditor: (props, editorRef) => (
             <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
           ),
@@ -208,10 +212,6 @@ const createCellValue2GridDisplay =
           };
         }
 
-        const onChange = (value: unknown) => {
-          record.updateCell(field.id, value ?? null);
-        };
-
         return {
           type: CellType.Number,
           data: cellValue as number,
@@ -222,11 +222,10 @@ const createCellValue2GridDisplay =
           readonly,
           showAs: showAs as unknown as IGridNumberShowAs,
           customEditor: (props, editorRef) => (
-            <NumberEditor
+            <GridNumberEditor
               ref={editorRef}
-              value={cellValue as number}
-              options={field.options as INumberFieldOptions}
-              onChange={onChange}
+              field={field as NumberField}
+              record={record}
               {...props}
             />
           ),
@@ -250,7 +249,6 @@ const createCellValue2GridDisplay =
           readonly,
           isMultiple,
           editWhenClicked: true,
-          editorPosition: EditorPosition.Below,
           customEditor: (props, editorRef) => (
             <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
           ),
@@ -267,7 +265,6 @@ const createCellValue2GridDisplay =
           choices,
           readonly,
           isMultiple,
-          editorPosition: EditorPosition.Below,
           customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
         };
       }
@@ -322,7 +319,6 @@ const createCellValue2GridDisplay =
           type: CellType.User,
           data: data,
           readonly,
-          editorPosition: EditorPosition.Below,
           customEditor: (props) => <GridUserEditor field={field} record={record} {...props} />,
         };
       }

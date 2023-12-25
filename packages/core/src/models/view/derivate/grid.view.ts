@@ -11,11 +11,13 @@ export interface IGridView extends IViewVo {
 
 export class GridViewOptions {
   rowHeight?: RowHeightLevel;
+  frozenColumnCount?: number;
 }
 
 export const gridViewOptionSchema = z
   .object({
     rowHeight: z.nativeEnum(RowHeightLevel).optional(),
+    frozenColumnCount: z.number().optional(),
   })
   .strict();
 

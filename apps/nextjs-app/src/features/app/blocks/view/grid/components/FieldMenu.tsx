@@ -1,5 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight } from '@teable-group/icons';
+import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable-group/icons';
+import type { GridView } from '@teable-group/sdk';
 import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable-group/sdk';
 import { insertSingle } from '@teable-group/sdk/utils';
 import {
@@ -19,6 +20,7 @@ import { useGridViewStore } from '../store/gridView';
 
 enum MenuItemType {
   Edit = 'Edit',
+  Freeze = 'Freeze',
   Hidden = 'Hidden',
   Delete = 'Delete',
   InsertLeft = 'InsertLeft',
@@ -29,7 +31,7 @@ const iconClassName = 'mr-2 h-4 w-4';
 
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
-  const view = useView();
+  const view = useView() as GridView | undefined;
   const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
   const permission = useTablePermission();
   const allFields = useFields({ withHidden: true });
@@ -74,6 +76,15 @@ export const FieldMenu = () => {
     });
   };
 
+  const freezeField = async () => {
+    const fieldId = fieldIds[0];
+    const index = allFields.findIndex((f) => f.id === fieldId);
+
+    if (index === -1) return;
+
+    view?.updateFrozenColumnCount(index + 1);
+  };
+
   const menuItems = [
     {
       type: MenuItemType.Edit,
@@ -100,6 +111,13 @@ export const FieldMenu = () => {
       icon: <ArrowRight className={iconClassName} />,
       hidden: fieldIds.length !== 1 || !permission['field|create'],
       onClick: async () => await insertField(),
+    },
+    {
+      type: MenuItemType.Freeze,
+      name: 'Freeze up to this field',
+      icon: <FreezeColumn className={iconClassName} />,
+      hidden: fieldIds.length !== 1 || !permission['view|update'],
+      onClick: async () => await freezeField(),
     },
     {
       type: MenuItemType.Hidden,

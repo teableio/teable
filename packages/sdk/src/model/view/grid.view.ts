@@ -9,4 +9,8 @@ export class GridView extends Mixin(GridViewCore, View) {
   async updateRowHeight(rowHeight: RowHeightLevel) {
     return await requestWrap(setViewOption)(this.tableId, this.id, { rowHeight });
   }
+
+  async updateFrozenColumnCount(frozenColumnCount: number) {
+    return await requestWrap(setViewOption)(this.tableId, this.id, { frozenColumnCount });
+  }
 }

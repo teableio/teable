@@ -27,12 +27,14 @@ interface ICheckRegionProps
     | 'isMultiSelectionEnable'
   > {
   rowControls: IRowControlItem[];
-  isOutOfBounds: boolean;
   position: IRegionPosition;
-  hasAppendRow: boolean;
-  hasAppendColumn: boolean;
-  hasColumnHeaderMenu: boolean;
-  hasColumnResizeHandler: boolean;
+  isFreezing: boolean;
+  isOutOfBounds: boolean;
+  isRowAppendEnable: boolean;
+  isColumnFreezable: boolean;
+  isColumnResizable: boolean;
+  isColumnAppendEnable: boolean;
+  isColumnHeaderMenuVisible: boolean;
   activeCell: ICellItem | null;
   activeCellBound: IActiveCellBound | null;
 }
@@ -66,15 +68,18 @@ const {
   fillHandlerSize,
   rowHeadIconPaddingTop,
   columnStatisticHeight,
+  columnFreezeHandlerWidth,
 } = GRID_DEFAULT;
 
 export const getRegionData = (props: ICheckRegionProps): IRegionData => {
   return (
+    checkIfFreezing(props) ||
     checkIsActiveCell(props) ||
     checkIsOutOfBounds(props) ||
     checkIfSelecting(props) ||
     checkIfColumnResizing(props) ||
     checkIfDragging(props) ||
+    checkIsFreezeColumnHandler(props) ||
     checkIsAppendColumn(props) ||
     checkIsColumnStatistic(props) ||
     checkIsAllCheckbox(props) ||
@@ -85,6 +90,12 @@ export const getRegionData = (props: ICheckRegionProps): IRegionData => {
     checkIsColumnHeader(props) ||
     BLANK_REGION_DATA
   );
+};
+
+const checkIfFreezing = (props: ICheckRegionProps): IRegionData | null => {
+  const { isFreezing } = props;
+  if (!isFreezing) return null;
+  return { ...BLANK_REGION_DATA, type: RegionType.ColumnFreezeHandler };
 };
 
 const checkIsActiveCell = (props: ICheckRegionProps): IRegionData | null => {
@@ -135,10 +146,28 @@ const checkIfDragging = (props: ICheckRegionProps): IRegionData | null => {
   return { ...BLANK_REGION_DATA, type: RegionType.ColumnHeader };
 };
 
+const checkIsFreezeColumnHandler = (props: ICheckRegionProps): IRegionData | null => {
+  const { position, scrollState, coordInstance, isColumnFreezable } = props;
+  if (!isColumnFreezable) return null;
+  const { x, y } = position;
+  const { scrollTop } = scrollState;
+  const { freezeRegionWidth, rowInitSize, pureRowCount, containerHeight } = coordInstance;
+  const offsetY = coordInstance.getRowOffset(pureRowCount) - scrollTop;
+  const maxY = Math.min(offsetY, containerHeight - columnStatisticHeight);
+  const halfWidth = columnFreezeHandlerWidth / 2;
+  if (
+    inRange(x, freezeRegionWidth - halfWidth, freezeRegionWidth + halfWidth) &&
+    inRange(y, rowInitSize, maxY)
+  ) {
+    return { ...BLANK_REGION_DATA, type: RegionType.ColumnFreezeHandler };
+  }
+  return null;
+};
+
 const checkIsAppendColumn = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, hasAppendColumn } = props;
+  const { position, isColumnAppendEnable } = props;
   const { rowIndex, columnIndex } = position;
-  if (hasAppendColumn && rowIndex >= -1 && columnIndex === -2) {
+  if (isColumnAppendEnable && rowIndex >= -1 && columnIndex === -2) {
     return { ...BLANK_REGION_DATA, type: RegionType.AppendColumn };
   }
   return null;
@@ -204,10 +233,10 @@ const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {
 };
 
 const checkIsAppendRow = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, coordInstance, hasAppendRow } = props;
+  const { position, coordInstance, isRowAppendEnable } = props;
   const { rowIndex, columnIndex } = position;
   const { rowCount } = coordInstance;
-  if (hasAppendRow && rowIndex === rowCount - 1 && columnIndex >= -1) {
+  if (isRowAppendEnable && rowIndex === rowCount - 1 && columnIndex >= -1) {
     return { ...BLANK_REGION_DATA, type: RegionType.AppendRow };
   }
   return null;
@@ -306,8 +335,8 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
     coordInstance,
     columns,
     theme,
-    hasColumnHeaderMenu,
-    hasColumnResizeHandler,
+    isColumnResizable,
+    isColumnHeaderMenuVisible,
   } = props;
 
   const { x, y, rowIndex, columnIndex } = position;
@@ -327,7 +356,7 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
 
     if (
       hasMenu &&
-      hasColumnHeaderMenu &&
+      isColumnHeaderMenuVisible &&
       inRange(x, columnMenuX, columnMenuX + columnHeadMenuClickableSize)
     ) {
       return {
@@ -356,7 +385,7 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
     }
 
     if (
-      hasColumnResizeHandler &&
+      isColumnResizable &&
       ((columnIndex !== 0 &&
         inRange(x, startOffsetX, startOffsetX + columnResizeHandlerWidth / 2)) ||
         inRange(x, endOffsetX - columnResizeHandlerWidth / 2, endOffsetX))

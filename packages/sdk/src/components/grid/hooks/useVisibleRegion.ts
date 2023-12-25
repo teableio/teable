@@ -31,7 +31,11 @@ export const getHorizontalRangeInfo = (coordInstance: CoordinateManager, scrollL
   };
 };
 
-export const useVisibleRegion = (coordInstance: CoordinateManager, scrollState: IScrollState) => {
+export const useVisibleRegion = (
+  coordInstance: CoordinateManager,
+  scrollState: IScrollState,
+  forceRenderFlag: string
+) => {
   const { scrollTop, scrollLeft } = scrollState;
 
   return useMemo(() => {
@@ -44,5 +48,6 @@ export const useVisibleRegion = (coordInstance: CoordinateManager, scrollState: 
       startColumnIndex,
       stopColumnIndex,
     };
-  }, [coordInstance, scrollTop, scrollLeft]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coordInstance, scrollTop, scrollLeft, forceRenderFlag]);
 };
