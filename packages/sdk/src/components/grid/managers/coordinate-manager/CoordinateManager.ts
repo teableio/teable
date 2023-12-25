@@ -7,8 +7,8 @@ export class CoordinateManager implements ICoordinate {
   public pureRowCount: number;
   public rowCount: number;
   public columnCount: number;
-  public containerWidth: number;
-  public containerHeight: number;
+  private _containerWidth: number;
+  private _containerHeight: number;
   public rowHeightMap: IIndicesMap = {};
   public columnWidthMap: IIndicesMap = {};
   public rowInitSize: number;
@@ -17,7 +17,7 @@ export class CoordinateManager implements ICoordinate {
   public lastColumnIndex = -1;
   public rowMetaDataMap: ICellMetaDataMap = {};
   public columnMetaDataMap: ICellMetaDataMap = {};
-  public freezeColumnCount: number;
+  private _freezeColumnCount: number;
 
   constructor({
     rowHeight,
@@ -40,15 +40,39 @@ export class CoordinateManager implements ICoordinate {
     this.columnCount = columnCount;
     this.rowInitSize = rowInitSize;
     this.columnInitSize = columnInitSize;
-    this.containerWidth = containerWidth;
-    this.containerHeight = containerHeight;
+    this._containerWidth = containerWidth;
+    this._containerHeight = containerHeight;
     this.rowHeightMap = rowHeightMap;
     this.columnWidthMap = columnWidthMap;
-    this.freezeColumnCount = freezeColumnCount;
+    this._freezeColumnCount = freezeColumnCount;
   }
 
   public get freezeRegionWidth() {
-    return this.getColumnOffset(this.freezeColumnCount);
+    return this.getColumnOffset(this._freezeColumnCount);
+  }
+
+  public get freezeColumnCount() {
+    return this._freezeColumnCount;
+  }
+
+  public set freezeColumnCount(count: number) {
+    this._freezeColumnCount = count;
+  }
+
+  public get containerWidth() {
+    return this._containerWidth;
+  }
+
+  public set containerWidth(width: number) {
+    this._containerWidth = width;
+  }
+
+  public get containerHeight() {
+    return this._containerHeight;
+  }
+
+  public set containerHeight(height: number) {
+    this._containerHeight = height;
   }
 
   public get columnWidth() {
@@ -186,7 +210,7 @@ export class CoordinateManager implements ICoordinate {
 
   public getRowStopIndex(startIndex: number, scrollTop: number) {
     const itemMetadata = this.getCellMetaData(startIndex, ItemType.Row);
-    const maxOffset = scrollTop + this.containerHeight;
+    const maxOffset = scrollTop + this._containerHeight;
     let offset = itemMetadata.offset + itemMetadata.size;
     let stopIndex = startIndex;
 
@@ -203,7 +227,7 @@ export class CoordinateManager implements ICoordinate {
 
   public getColumnStopIndex(startIndex: number, scrollLeft: number) {
     const itemMetadata = this.getCellMetaData(startIndex, ItemType.Column);
-    const maxOffset = scrollLeft + this.containerWidth;
+    const maxOffset = scrollLeft + this._containerWidth;
     let offset = itemMetadata.offset + itemMetadata.size;
     let stopIndex = startIndex;
 
@@ -224,6 +248,35 @@ export class CoordinateManager implements ICoordinate {
 
   public getColumnRelativeOffset(columnIndex: number, scrollLeft: number) {
     const x = this.getColumnOffset(columnIndex);
-    return columnIndex < this.freezeColumnCount ? x : x - scrollLeft;
+    return columnIndex < this._freezeColumnCount ? x : x - scrollLeft;
+  }
+
+  public refreshColumnDimensions({
+    columnCount,
+    columnInitSize = 0,
+    columnWidthMap = {},
+  }: Pick<ICoordinate, 'columnCount' | 'columnInitSize' | 'columnWidthMap'>) {
+    this.columnCount = columnCount;
+    this.columnInitSize = columnInitSize;
+    this.columnWidthMap = columnWidthMap;
+    this.lastColumnIndex = -1;
+  }
+
+  public refreshRowDimensions({
+    rowCount,
+    pureRowCount,
+    rowInitSize = 0,
+    rowHeight,
+    rowHeightMap = {},
+  }: Pick<
+    ICoordinate,
+    'rowCount' | 'pureRowCount' | 'rowInitSize' | 'rowHeight' | 'rowHeightMap'
+  >) {
+    this.rowCount = rowCount;
+    this.pureRowCount = pureRowCount;
+    this.rowInitSize = rowInitSize;
+    this.rowHeight = rowHeight;
+    this.rowHeightMap = rowHeightMap;
+    this.lastRowIndex = -1;
   }
 }

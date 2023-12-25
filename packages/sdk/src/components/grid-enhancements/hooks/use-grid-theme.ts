@@ -17,13 +17,15 @@ const darkTheme = {
   cellLineColor: colors.gray[700],
   cellLineColorActived: colors.slate[400],
   cellTextColor: colors.slate[50],
+  cellOptionBg: colors.gray[600],
+  cellOptionTextColor: colors.white,
 
   // Column Header
   columnHeaderBg: colors.zinc[900],
   columnHeaderBgHovered: colors.zinc[800],
   columnHeaderBgSelected: colors.zinc[700],
   columnHeaderNameColor: colors.slate[50],
-  columnResizeHandlerBg: colors.gray[100],
+  columnResizeHandlerBg: colors.gray[400],
   columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.2),
 
   // Row Header
@@ -42,6 +44,10 @@ const darkTheme = {
 
   // ScrollBar
   scrollBarBg: colors.gray[600],
+
+  // interaction
+  interactionLineColorCommon: colors.gray[500],
+  interactionLineColorHighlight: colors.violet[700],
 };
 
 export function useGridTheme() {

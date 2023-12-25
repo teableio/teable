@@ -116,6 +116,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
       const newRange = <IRange>[newColumnIndex, rowIndex];
       const ranges = [newRange, newRange];
 
+      editorRef.current?.saveValue?.();
       scrollToItem([newColumnIndex, rowIndex]);
       setEditing(false);
       setActiveCell(newRange);
@@ -150,6 +151,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     Mousetrap.bind(['mod+c'], () => {
       if (isEditing) return;
       if (!isAncestorOfActiveElement(GRID_CONTAINER_ID)) return;
+      if (selection.type === SelectionRegionType.None) return;
       onCopy?.(selection);
     });
 

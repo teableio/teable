@@ -21,13 +21,12 @@ const GridDateEditorBase: ForwardRefRenderFunction<
   const attachStyle = useGridPopupPosition(rect);
 
   useImperativeHandle(ref, () => ({
-    setValue: (value?: string) => {
-      editorRef.current?.setValue?.(value);
-    },
+    setValue: (value?: string) => editorRef.current?.setValue?.(value),
+    saveValue: () => editorRef.current?.saveValue?.(),
   }));
 
   const setDateTime = useCallback(
-    (selectedDayStr?: string) => {
+    (selectedDayStr?: string | null) => {
       record.updateCell(field.id, selectedDayStr ?? null);
       if (timeFormatting === TimeFormatting.None) {
         setEditing?.(false);
