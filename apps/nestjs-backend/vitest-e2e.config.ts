@@ -1,26 +1,22 @@
-import tsconfigPaths from 'vite-tsconfig-paths';
+import swc from 'unplugin-swc';
+// import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
-const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
+// const testFiles = ['./test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
+const testFiles = ['./test/field.e2e-spec.ts'];
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [swc.vite({})],
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: './vitest.setup.js',
+    setupFiles: './vitest-e2e.setup.ts',
     passWithNoTests: true,
     typecheck: {
       enabled: false,
     },
-    /*
-    deps: {
-      experimentalOptimizer: {
-        enabled: true,
-      },
-    }, */
     cache: {
-      dir: '../../.cache/vitest/core',
+      dir: '../../.cache/vitest/nestjs-backend',
     },
     coverage: {
       provider: 'v8',

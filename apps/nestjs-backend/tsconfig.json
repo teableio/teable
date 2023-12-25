@@ -4,7 +4,7 @@
   "compilerOptions": {
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "target": "es6",
+    "target": "es2022",
     "moduleResolution": "Node",
     "declaration": true,
     "declarationDir": "./dist",
@@ -17,7 +17,8 @@
       "@teable-group/core": ["../../packages/core/src"],
       "@teable-group/openapi": ["../../packages/openapi/src"],
       "@teable-group/db-main-prisma": ["../../packages/db-main-prisma/src"]
-    }
+    },
+    "types": ["vitest/globals"]
   },
   "exclude": ["**/node_modules", "**/.*/", "dist"]
 }

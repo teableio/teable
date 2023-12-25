@@ -69,7 +69,9 @@ function prepareSqliteEnv() {
 }
 
 export async function initApp() {
+  console.log('globalThis.testConfig', globalThis.testConfig);
   prepareSqliteEnv();
+  console.log('x0');
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
@@ -82,8 +84,9 @@ export async function initApp() {
     .overrideProvider(DevWsGateway)
     .useClass(WsGateway)
     .compile();
-
+  console.log('x1-');
   const app = moduleFixture.createNestApplication();
+  console.log('x1');
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
