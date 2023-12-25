@@ -6,6 +6,7 @@ import type {
   LinkField,
   SingleSelectField,
   UserField,
+  NumberField,
 } from '../../../model';
 
 export interface IWrapperEditorProps {
@@ -15,7 +16,8 @@ export interface IWrapperEditorProps {
     | AttachmentField
     | DateField
     | LinkField
-    | UserField;
+    | UserField
+    | NumberField;
   record: Record;
   style?: React.CSSProperties;
   onCancel?: () => void;

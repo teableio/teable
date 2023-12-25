@@ -48,6 +48,7 @@ export interface IEditorRef<T extends IInnerCell = IInnerCell> {
 export interface IEditorProps<T extends IInnerCell = IInnerCell> {
   cell: T;
   rect: IRectangle;
+  theme: IGridTheme;
   style?: CSSProperties;
   isEditing?: boolean;
   setEditing?: React.Dispatch<React.SetStateAction<boolean>>;
@@ -60,13 +61,6 @@ export interface IEditorContainerRef {
 }
 
 const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
-
-const getInputStyle = (cellType: CellType, theme: IGridTheme): CSSProperties => {
-  return {
-    border: `2px solid ${theme.cellLineColorActived}`,
-    boxShadow: 'none',
-  };
-};
 
 export const EditorContainerBase: ForwardRefRenderFunction<
   IEditorContainerRef,
@@ -177,6 +171,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       return customEditor(
         {
           rect,
+          theme,
           style: editorStyle,
           cell: cellContent as IInnerCell,
           isEditing,
@@ -191,17 +186,13 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       case CellType.Text:
       case CellType.Link:
       case CellType.Number: {
-        const inputStyle = getInputStyle(cellType, theme);
-
         return (
           <TextEditor
             ref={editorRef}
-            cell={cellContent}
             rect={rect}
-            style={{
-              ...editorStyle,
-              ...inputStyle,
-            }}
+            theme={theme}
+            style={editorStyle}
+            cell={cellContent}
             isEditing={isEditing}
             onChange={onChangeInner}
           />
@@ -209,17 +200,30 @@ export const EditorContainerBase: ForwardRefRenderFunction<
       }
       case CellType.Boolean:
         return (
-          <BooleanEditor ref={editorRef} rect={rect} cell={cellContent} onChange={onChangeInner} />
+          <BooleanEditor
+            ref={editorRef}
+            rect={rect}
+            theme={theme}
+            cell={cellContent}
+            onChange={onChangeInner}
+          />
         );
       case CellType.Rating:
         return (
-          <RatingEditor ref={editorRef} rect={rect} cell={cellContent} onChange={onChangeInner} />
+          <RatingEditor
+            ref={editorRef}
+            rect={rect}
+            theme={theme}
+            cell={cellContent}
+            onChange={onChangeInner}
+          />
         );
       case CellType.Select:
         return (
           <SelectEditor
             ref={editorRef}
             rect={rect}
+            theme={theme}
             cell={cellContent}
             style={editorStyle}
             isEditing={isEditing}
@@ -261,7 +265,12 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     <div className="click-outside-ignore pointer-events-none absolute left-0 top-0">
       <div
         className="absolute z-10"
-        style={{ minWidth: width, minHeight: height, top: rect.y, left: rect.x }}
+        style={{
+          top: rect.y,
+          left: rect.x,
+          minWidth: width,
+          minHeight: height,
+        }}
         onKeyDown={onKeyDown}
         onPaste={onPasteInner}
       >

@@ -17,11 +17,11 @@ import {
 } from './configs';
 import type { IGridProps } from './Grid';
 import {
-  useAutoScroll,
-  useEventListener,
-  useSmartClick,
   useSelection,
+  useAutoScroll,
   useColumnResize,
+  useColumnFreeze,
+  useEventListener,
 } from './hooks';
 import { useDrag } from './hooks/useDrag';
 import { useVisibleRegion } from './hooks/useVisibleRegion';
@@ -102,8 +102,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     rowIndexVisible,
     rowCounterVisible,
     isMultiSelectionEnable,
-    collaborators,
     activeCellBound: _activeCellBound,
+    collaborators,
     activeCell,
     setActiveCell,
     setMouseState,
@@ -118,6 +118,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onRowOrdered,
     onCellEdited,
     onSelectionChanged,
+    onColumnFreeze,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -174,12 +175,13 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const { containerHeight, freezeColumnCount } = coordInstance;
   const { scrollTop, scrollLeft, isScrolling } = scrollState;
   const { type: regionType } = mouseState;
-  const hasAppendRow = onRowAppend != null;
-  const hasAppendColumn = onColumnAppend != null;
-  const hasColumnResizeHandler = onColumnResize != null;
-  const hasColumnHeaderMenu = onColumnHeaderMenuClick != null;
+  const isRowAppendEnable = onRowAppend != null;
+  const isColumnFreezable = onColumnFreeze != null;
+  const isColumnResizable = onColumnResize != null;
+  const isColumnAppendEnable = onColumnAppend != null;
+  const isColumnHeaderMenuVisible = onColumnHeaderMenuClick != null;
 
-  const visibleRegion = useVisibleRegion(coordInstance, scrollState);
+  const visibleRegion = useVisibleRegion(coordInstance, scrollState, forceRenderFlag);
   const {
     columnResizeState,
     hoveredColumnResizeIndex,
@@ -211,17 +213,21 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     selection,
     draggable
   );
+  const { columnFreezeState, onColumnFreezeStart, onColumnFreezeMove, onColumnFreezeEnd } =
+    useColumnFreeze(coordInstance, scrollState);
 
   const { isDragging, type: dragType } = dragState;
+  const { isFreezing } = columnFreezeState;
   const isResizing = columnResizeState.columnIndex > -1;
   const { isCellSelection, ranges: selectionRanges } = selection;
-  const isInteracting = isSelecting || isDragging || isResizing;
+  const isInteracting = isSelecting || isDragging || isResizing || isFreezing;
   const [activeColumnIndex, activeRowIndex] = activeCell ?? [];
 
   const getPosition = () => {
     const x = mousePosition.elX;
     const y = mousePosition.elY;
-    const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize } = coordInstance;
+    const { freezeRegionWidth, totalWidth, rowInitSize, columnInitSize, columnCount } =
+      coordInstance;
     const rowIndex =
       y < 0 ? -Infinity : y <= rowInitSize ? -1 : coordInstance.getRowStartIndex(scrollTop + y);
     const columnIndex =
@@ -235,7 +241,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
               : coordInstance.getColumnStartIndex(x)
             : coordInstance.getColumnStartIndex(scrollLeft + x);
 
-    return { x, y, rowIndex, columnIndex };
+    return { x, y, rowIndex, columnIndex: Math.min(columnIndex, columnCount - 1) };
   };
 
   const getHoverCellPosition = (mouseState: IMouseState) => {
@@ -294,13 +300,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       coordInstance,
       scrollState,
       rowControls,
+      isFreezing,
       isOutOfBounds,
-      hasAppendRow,
-      hasAppendColumn,
       columnStatistics,
-      hasColumnHeaderMenu,
-      hasColumnResizeHandler,
+      isRowAppendEnable,
+      isColumnResizable,
+      isColumnAppendEnable,
       isMultiSelectionEnable,
+      isColumnHeaderMenuVisible,
+      isColumnFreezable,
       activeCellBound,
       activeCell,
       columns,
@@ -320,6 +328,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const setCursorStyle = (regionType: RegionType) => {
     if (isScrolling) return;
+    if (isFreezing) return setCursor('grab');
     if (isDragging) return setCursor('grabbing');
 
     switch (regionType) {
@@ -335,6 +344,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.ColumnStatistic:
       case RegionType.AllCheckbox:
         return setCursor('pointer');
+      case RegionType.ColumnFreezeHandler:
+        return setCursor('grab');
       case RegionType.RowHeaderDragHandler: {
         if (draggable === 'column' || draggable === 'none') {
           return setCursor('not-allowed');
@@ -464,11 +475,17 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
-  const { onSmartClick, onSmartMouseDown, onSmartMouseUp } = useSmartClick(
-    stageRef,
-    onClick,
-    onDblClick
-  );
+  const onSmartClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const eventDetail = event.detail;
+
+    if (eventDetail === 1) {
+      onClick(event);
+    }
+
+    if (eventDetail === 2) {
+      onDblClick();
+    }
+  };
 
   const onMouseDown = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     event.preventDefault();
@@ -480,11 +497,11 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       setEditing(false);
       editorContainerRef.current?.saveValue?.();
     }
-    onSmartMouseDown(mouseState);
     onDragStart(mouseState);
+    onColumnFreezeStart(mouseState);
     prevActiveCellRef.current = activeCell;
     onSelectionStart(event, mouseState);
-    hasColumnResizeHandler && onColumnResizeStart(mouseState);
+    isColumnResizable && onColumnResizeStart(mouseState);
   };
 
   const onCellPosition = (mouseState: IMouseState) => {
@@ -524,6 +541,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       onColumnResize?.(columns[columnIndex], newWidth, columnIndex);
     });
     onDragChange(mouseState);
+    onColumnFreezeMove(mouseState);
     if (!isInteracting && !isEqual(hoveredRegionRef.current, previousHoveredRegionRef.current)) {
       const { type, ...rest } = hoveredRegionRef.current;
       const { columnIndex, rowIndex } = mouseState;
@@ -536,7 +554,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const mouseState = getMouseState();
     setMouseState(mouseState);
     onAutoScrollStop();
-    onSmartMouseUp(mouseState);
     onDragEnd(mouseState, (ranges, dropIndex) => {
       if (dragType === DragRegionType.Columns) {
         onColumnOrdered?.(flatRanges(ranges), dropIndex);
@@ -547,6 +564,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       setActiveCell(null);
       setSelection(selection.reset());
       setCursor('default');
+    });
+    onColumnFreezeEnd((columnCount: number) => {
+      onColumnFreeze?.(columnCount);
+      setMouseState(DEFAULT_MOUSE_STATE);
     });
     onSelectionEnd();
     onColumnResizeEnd();
@@ -625,18 +646,21 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           dragState={dragState}
           selection={selection}
           isSelecting={isSelecting}
+          isInteracting={isInteracting}
           forceRenderFlag={forceRenderFlag}
           rowIndexVisible={rowIndexVisible}
           rowCounterVisible={rowCounterVisible}
           columnResizeState={columnResizeState}
           hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}
+          columnFreezeState={columnFreezeState}
           isMultiSelectionEnable={isMultiSelectionEnable}
           getCellContent={getCellContent}
-          isRowAppendEnable={onRowAppend != null}
-          isColumnResizable={hasColumnResizeHandler}
-          isColumnAppendEnable={onColumnAppend != null}
-          isColumnHeaderMenuVisible={hasColumnHeaderMenu}
+          isRowAppendEnable={isRowAppendEnable}
+          isColumnFreezable={isColumnFreezable}
+          isColumnResizable={isColumnResizable}
+          isColumnAppendEnable={isColumnAppendEnable}
+          isColumnHeaderMenuVisible={isColumnHeaderMenuVisible}
         />
       </div>
 

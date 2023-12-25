@@ -42,6 +42,7 @@ export enum RegionType {
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnDescription = 'ColumnDescription',
   ColumnResizeHandler = 'ColumnResizeHandler',
+  ColumnFreezeHandler = 'ColumnFreezeHandler',
   RowHeaderDragHandler = 'RowHeaderDragHandler',
   RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
@@ -116,6 +117,12 @@ export interface IColumnResizeState {
   columnIndex: number;
   width: number;
   x: number;
+}
+
+export interface IColumnFreezeState {
+  sourceIndex: number;
+  targetIndex: number;
+  isFreezing: boolean;
 }
 
 export interface IDragState {

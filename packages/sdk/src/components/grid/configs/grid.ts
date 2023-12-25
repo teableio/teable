@@ -19,6 +19,8 @@ export const GRID_DEFAULT = {
   columnAppendBtnWidth: 100,
   columnResizeHandlerWidth: 5,
   columnResizeHandlerPaddingTop: 4,
+  columnFreezeHandlerWidth: 8,
+  columnFreezeHandlerHeight: 30,
 
   // Cell
   cellHorizontalPadding: 8,
@@ -64,6 +66,12 @@ export const DEFAULT_DRAG_STATE = {
   ranges: [],
   delta: 0,
   isDragging: false,
+};
+
+export const DEFAULT_FREEZE_COLUMN_STATE = {
+  sourceIndex: -1,
+  targetIndex: -1,
+  isFreezing: false,
 };
 
 export const ROW_RELATED_REGIONS = new Set([

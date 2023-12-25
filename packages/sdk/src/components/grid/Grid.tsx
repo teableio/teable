@@ -82,6 +82,7 @@ export interface IGridExternalProps {
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onSelectionChanged?: (selection: CombinedSelection) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
+  onColumnFreeze?: (freezeColumnCount: number) => void;
   onRowExpand?: (rowIndex: number) => void;
   onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
@@ -119,6 +120,7 @@ export interface IGridRef {
   forceUpdate: () => void;
   setSelection: (selection: CombinedSelection) => void;
   scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
+  scrollBy: (deltaX: number, deltaY: number) => void;
 }
 
 const {
@@ -137,7 +139,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     draggable = DraggableType.All,
     selectable = SelectableType.All,
     columnStatistics,
-    freezeColumnCount = 1,
+    freezeColumnCount: _freezeColumnCount = 1,
     rowCount: originRowCount,
     rowHeight = defaultRowHeight,
     rowControls = [{ type: RowControlType.Checkbox }],
@@ -167,6 +169,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onContextMenu,
     onSelectionChanged,
     onVisibleRegionChanged,
+    onColumnFreeze,
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
@@ -177,6 +180,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
 
   useImperativeHandle(forwardRef, () => ({
     scrollToItem,
+    scrollBy,
     resetState: () => interactionLayerRef.current?.resetState(),
     forceUpdate: () => setForceRenderFlag(uniqueId('grid_')),
     setSelection: (selection: CombinedSelection) => {
@@ -209,47 +213,59 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const hoverRegionType = mouseState.type;
   const hasColumnStatistics = columnStatistics != null;
   const containerHeight = hasColumnStatistics ? height - columnStatisticHeight : height;
+  const columnCount = columns.length;
+  const freezeColumnCount = Math.min(_freezeColumnCount, columnCount);
 
   const theme = useMemo(() => ({ ...gridTheme, ...customTheme }), [customTheme]);
   const { iconSizeMD } = theme;
 
-  const coordInstance = useMemo<CoordinateManager>(() => {
-    const columnInitSize =
-      !rowIndexVisible && !rowControlCount ? 0 : Math.max(rowControlCount, 2) * iconSizeMD;
+  const columnInitSize = useMemo(() => {
+    return !rowIndexVisible && !rowControlCount ? 0 : Math.max(rowControlCount, 2) * iconSizeMD;
+  }, [rowControlCount, rowIndexVisible, iconSizeMD]);
 
+  const rowHeightMap = useMemo(() => {
+    return hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined;
+  }, [rowCount, hasAppendRow]);
+
+  const columnWidthMap = useMemo(() => {
+    return columns.reduce(
+      (acc, column, index) => ({
+        ...acc,
+        [index]: column.width || defaultColumnWidth,
+      }),
+      {}
+    );
+  }, [columns]);
+
+  const coordInstance = useMemo<CoordinateManager>(() => {
     return new CoordinateManager({
       rowHeight,
       columnWidth: defaultColumnWidth,
       pureRowCount: originRowCount,
       rowCount,
-      columnCount: columns.length,
+      columnCount,
       freezeColumnCount,
       containerWidth: width,
       containerHeight,
       rowInitSize: defaultColumnHeaderHeight,
       columnInitSize,
-      rowHeightMap: hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined,
-      columnWidthMap: columns.reduce(
-        (acc, column, index) => ({
-          ...acc,
-          [index]: column.width || defaultColumnWidth,
-        }),
-        {}
-      ),
+      rowHeightMap,
+      columnWidthMap,
     });
-  }, [
-    width,
-    containerHeight,
-    columns,
-    rowCount,
-    rowHeight,
-    originRowCount,
-    freezeColumnCount,
-    rowControlCount,
-    rowIndexVisible,
-    hasAppendRow,
-    iconSizeMD,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowHeight, originRowCount, rowCount, rowHeightMap]);
+
+  useMemo(() => {
+    coordInstance.refreshColumnDimensions({ columnInitSize, columnCount, columnWidthMap });
+    setForceRenderFlag(uniqueId('grid_'));
+  }, [coordInstance, columnInitSize, columnCount, columnWidthMap]);
+
+  useMemo(() => {
+    coordInstance.containerWidth = width;
+    coordInstance.containerHeight = containerHeight;
+    coordInstance.freezeColumnCount = freezeColumnCount;
+    setForceRenderFlag(uniqueId('grid_'));
+  }, [coordInstance, width, containerHeight, freezeColumnCount]);
 
   const activeCellBound = useMemo(() => {
     if (activeColumnIndex == null || activeRowIndex == null) {
@@ -349,7 +365,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     containerRef.current?.focus();
   };
 
-  const { rowInitSize, columnInitSize } = coordInstance;
+  const { rowInitSize } = coordInstance;
 
   return (
     <div className="h-full w-full" style={style} ref={ref}>
@@ -375,6 +391,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             forceRenderFlag={forceRenderFlag}
+            rowIndexVisible={rowIndexVisible}
             getCellContent={getCellContent}
             setMouseState={setMouseState}
             setActiveCell={setActiveCell}
@@ -423,7 +440,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onRowExpand={onRowExpand}
             onRowOrdered={onRowOrdered}
             onCellEdited={onCellEdited}
-            onSelectionChanged={onSelectionChanged}
             onContextMenu={onContextMenu}
             onColumnAppend={onColumnAppend}
             onColumnResize={onColumnResize}
@@ -432,6 +448,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnHeaderDblClick={onColumnHeaderDblClick}
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
             onColumnStatisticClick={onColumnStatisticClick}
+            onColumnFreeze={onColumnFreeze}
+            onSelectionChanged={onSelectionChanged}
             onItemHovered={onItemHovered}
             onItemClick={onItemClick}
           />

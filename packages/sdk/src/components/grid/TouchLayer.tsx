@@ -4,6 +4,7 @@ import ReactHammer from 'react-hammerjs';
 import {
   DEFAULT_COLUMN_RESIZE_STATE,
   DEFAULT_DRAG_STATE,
+  DEFAULT_FREEZE_COLUMN_STATE,
   DEFAULT_MOUSE_STATE,
   GRID_DEFAULT,
   type IGridTheme,
@@ -65,6 +66,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     imageManager,
     spriteManager,
     forceRenderFlag,
+    rowIndexVisible,
     getCellContent,
     setActiveCell,
     setMouseState,
@@ -81,7 +83,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const visibleRegion = useVisibleRegion(coordInstance, scrollState);
+  const visibleRegion = useVisibleRegion(coordInstance, scrollState, forceRenderFlag);
 
   const { selection, setSelection } = useSelection(
     coordInstance,
@@ -167,6 +169,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           imageManager={imageManager}
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}
+          rowIndexVisible={rowIndexVisible}
           activeCell={null}
           activeCellBound={null}
           mouseState={mouseState}
@@ -175,6 +178,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           selection={emptySelection}
           isSelecting={false}
           forceRenderFlag={forceRenderFlag}
+          columnFreezeState={DEFAULT_FREEZE_COLUMN_STATE}
           columnResizeState={DEFAULT_COLUMN_RESIZE_STATE}
           hoverCellPosition={null}
           hoveredColumnResizeIndex={-1}

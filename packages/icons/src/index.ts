@@ -51,6 +51,7 @@ export { default as FileUnknown } from './components/FileUnknown';
 export { default as FileVideo } from './components/FileVideo';
 export { default as Filter } from './components/Filter';
 export { default as Flame } from './components/Flame';
+export { default as FreezeColumn } from './components/FreezeColumn';
 export { default as Frown } from './components/Frown';
 export { default as Gauge } from './components/Gauge';
 export { default as Github } from './components/Github';
