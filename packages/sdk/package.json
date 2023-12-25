@@ -29,7 +29,7 @@
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/sdk.eslintcache",
     "typecheck": "tsc --project ./tsconfig.build.json --noEmit",
     "test": "run-s test-unit",
-    "test-unit": "vitest run --logHeapUsage --silent",
+    "test-unit": "vitest run --silent",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix"
   },
   "dependencies": {

@@ -34,5 +34,7 @@ jobs:
       - name: 🧪 Run Tests
         env:
           CI: 1
+          VITEST_MAX_THREADS: 2
+          VITEST_MIN_THREADS: 1
         run: |
           make ${{ matrix.database-type }}.integration.test

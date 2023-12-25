@@ -10,9 +10,6 @@ export default defineConfig({
     environment: 'node',
     setupFiles: './vitest-e2e.setup.ts',
     passWithNoTests: true,
-    typecheck: {
-      enabled: false,
-    },
     cache: {
       dir: '../../.cache/vitest/nestjs-backend',
     },

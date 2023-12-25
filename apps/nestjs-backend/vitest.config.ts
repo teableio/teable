@@ -9,8 +9,10 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     passWithNoTests: true,
-    typecheck: {
-      enabled: false,
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
     },
     cache: {
       dir: '../../.cache/vitest/nestjs-backend',

@@ -18,27 +18,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
-    /*
-    deps: {
-      optimizer: {
-        web: {
-          enabled: false,
-        },
-        ssr: { enabled: false },
-      },
-    }, */
-    typecheck: {
-      enabled: false,
-    },
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        minThreads: 1,
-        maxThreads: 16,
-        // useAtomics: true,
-        // isolate: false,
-      },
-    },
     passWithNoTests: false,
     setupFiles: './config/tests/setupVitest.ts',
     cache: {

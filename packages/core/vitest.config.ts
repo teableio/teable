@@ -22,6 +22,11 @@ export default defineConfig({
     cache: {
       dir: '../../.cache/vitest/core',
     },
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'clover'],

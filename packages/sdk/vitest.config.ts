@@ -18,26 +18,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'happy-dom',
-    /*
-    deps: {
-      optimizer: {
-        web: {
-          enabled: false,
-        },
-        ssr: { enabled: false },
-      },
-    }, */
     typecheck: {
       enabled: false,
-    },
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        minThreads: 1,
-        maxThreads: 16,
-        // useAtomics: true,
-        // isolate: false,
-      },
     },
     passWithNoTests: false,
     setupFiles: './config/tests/setupVitest.ts',
@@ -50,14 +32,6 @@ export default defineConfig({
       extension: ['js', 'jsx', 'ts', 'tsx'],
     },
     include: testFiles,
-    // you might want to disable it, if you don't have tests that rely on CSS
-    // since parsing CSS is slow
-    // css: true,
-    // To mimic Jest behaviour regarding mocks.
-    // @link https://vitest.dev/config/#clearmocks
-    clearMocks: true,
-    mockReset: true,
-    restoreMocks: true,
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
