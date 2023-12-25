@@ -15,7 +15,7 @@ export const PrismaProvider: Provider = {
 
 @Global()
 @Module({
-  providers: [ClsService, PrismaProvider],
+  providers: [PrismaProvider],
   exports: [PrismaProvider],
 })
 export class PrismaModule {}

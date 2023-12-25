@@ -76,8 +76,8 @@
     "zustand": "4.4.7"
   },
   "peerDependencies": {
-    "react": "18.0.0",
-    "react-dom": "18.0.0"
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
