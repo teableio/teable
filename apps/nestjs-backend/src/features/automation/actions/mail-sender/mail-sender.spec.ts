@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { generateWorkflowActionId } from '@teable-group/core';
+import { vi } from 'vitest';
 import { GlobalModule } from '../../../../global/global.module';
 import { MailSenderService } from '../../../mail-sender/mail-sender.service';
 import { AutomationModule } from '../../automation.module';
@@ -19,9 +20,9 @@ describe('Mail-Sender Action Test', () => {
     jsonRulesEngine = await moduleRef.resolve<JsonRulesEngine>(JsonRulesEngine);
     mailSenderService = await moduleRef.resolve<MailSenderService>(MailSenderService);
 
-    jest
-      .spyOn(mailSenderService, 'sendMail')
-      .mockImplementation((_mailOptions) => Promise.resolve(true));
+    vi.spyOn(mailSenderService, 'sendMail').mockImplementation((_mailOptions) =>
+      Promise.resolve(true)
+    );
   });
 
   it('should call onSuccess and send mail', async () => {

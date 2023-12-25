@@ -22,18 +22,22 @@ describe('OpenAPI ViewController (e2e)', () => {
     const appCtx = await initApp();
     app = appCtx.app;
     request = appCtx.request;
+  });
 
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
     const result = await request.post(`/api/base/${baseId}/table`).send({
       name: 'table1',
     });
     table = result.body;
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
     console.log('clear table: ', result.body);
-
-    await app.close();
   });
 
   it('/api/table/{tableId}/view (GET)', async () => {

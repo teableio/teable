@@ -11,6 +11,7 @@ import {
   generateViewId,
   generateWorkflowActionId,
 } from '@teable-group/core';
+import { vi } from 'vitest';
 import { GlobalModule } from '../../../../../global/global.module';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
@@ -48,7 +49,7 @@ describe('Create-Record Action Test', () => {
     fieldService = await moduleRef.resolve<FieldService>(FieldService);
     recordOpenApiService = await moduleRef.resolve<RecordOpenApiService>(RecordOpenApiService);
 
-    jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((baseId, tableRo) =>
+    vi.spyOn(tableOpenApiService, 'createTable').mockImplementation((baseId, tableRo) =>
       Promise.resolve({
         name: 'table1-automation-add',
         dbTableName: 'table1-automation-add',
@@ -63,7 +64,7 @@ describe('Create-Record Action Test', () => {
       })
     );
 
-    jest.spyOn(fieldService, 'getFieldsByQuery').mockImplementation((_tableId, _query) =>
+    vi.spyOn(fieldService, 'getFieldsByQuery').mockImplementation((_tableId, _query) =>
       Promise.resolve([
         {
           id: 'fldHrMYez5yIwBdKEiK',
@@ -90,9 +91,8 @@ describe('Create-Record Action Test', () => {
       ])
     );
 
-    jest
-      .spyOn(recordOpenApiService, 'multipleCreateRecords')
-      .mockImplementation((_tableId, _createRecordsRo) =>
+    vi.spyOn(recordOpenApiService, 'multipleCreateRecords').mockImplementation(
+      (_tableId, _createRecordsRo) =>
         Promise.resolve({
           records: [
             {
@@ -105,7 +105,7 @@ describe('Create-Record Action Test', () => {
           ],
           total: 1,
         })
-      );
+    );
 
     tableId = await createTable();
   });

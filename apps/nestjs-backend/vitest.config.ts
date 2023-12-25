@@ -1,31 +1,21 @@
-import tsconfigPaths from 'vite-tsconfig-paths';
+import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
-const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
+const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [swc.vite({})],
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: './vitest.setup.js',
     passWithNoTests: true,
-    typecheck: {
-      enabled: false,
-    },
-    /*
-    deps: {
-      experimentalOptimizer: {
-        enabled: true,
-      },
-    }, */
-    cache: {
-      dir: '../../.cache/vitest/core',
-    },
     poolOptions: {
       threads: {
         singleThread: true,
       },
+    },
+    cache: {
+      dir: '../../.cache/vitest/nestjs-backend',
     },
     coverage: {
       provider: 'v8',
@@ -33,13 +23,9 @@ export default defineConfig({
       extension: ['js', 'ts'],
       all: true,
     },
-    // To mimic Jest behaviour regarding mocks.
-    // @link https://vitest.dev/config/#clearmocks
-    clearMocks: true,
-    mockReset: true,
-    restoreMocks: true,
     include: testFiles,
     exclude: [
+      '**/*.controller.spec.ts', // exclude controller test
       '**/node_modules/**',
       '**/dist/**',
       '**/.next/**',

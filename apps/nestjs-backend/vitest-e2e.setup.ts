@@ -1,4 +1,3 @@
-import type { Config } from '@jest/types';
 import { PrismaClient } from '@prisma/client';
 import { DriverClient, parseDsn } from '@teable-group/core';
 import bcrypt from 'bcrypt';
@@ -18,20 +17,28 @@ declare global {
   var testConfig: ITestConfig;
 }
 
-export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.ProjectConfig) => {
+// 设置全局变量（如果需要）
+globalThis.testConfig = {
+  email: 'test@e2e.com',
+  password: '12345678',
+  userId: 'usrTestUserId',
+  spaceId: 'spcTestSpaceId',
+  baseId: 'bseTestBaseId',
+  driver: DriverClient.Sqlite,
+};
+
+async function setup() {
   console.log('node-env', process.env.NODE_ENV);
   dotenv.config({ path: '../nextjs-app' });
 
-  const { email, password, spaceId, baseId, userId } = projectConfig.globals
-    .testConfig as ITestConfig;
+  const { email, password, spaceId, baseId, userId } = globalThis.testConfig;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const databaseUrl = process.env.PRISMA_DATABASE_URL!;
 
   console.log('database-url: ', databaseUrl);
-
   const { driver } = parseDsn(databaseUrl);
   console.log('driver: ', driver);
-  (projectConfig.globals.testConfig as ITestConfig).driver = driver;
+  globalThis.testConfig.driver = driver;
 
   const prismaClient = new PrismaClient();
 
@@ -92,4 +99,6 @@ export default async (_globalConfig: Config.GlobalConfig, projectConfig: Config.
       });
     }
   });
-};
+}
+
+export default setup();

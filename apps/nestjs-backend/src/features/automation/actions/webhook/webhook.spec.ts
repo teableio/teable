@@ -5,7 +5,6 @@ import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import ajv from '../../engine/json-schema/ajv';
 import { ActionTypeEnums } from '../../enums/action-type.enum';
 import type { IWebhookSchema } from './webhook';
-jest.setTimeout(60000);
 
 describe('Webhook Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
@@ -95,5 +94,5 @@ describe('Webhook Action Test', () => {
       'data.topData'
     );
     expect(topData).toBeDefined();
-  });
+  }, 60000);
 });

@@ -3,6 +3,8 @@ import { Test } from '@nestjs/testing';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { AttachmentsTableService } from './attachments-table.service';
 
 describe('AttachmentsService', () => {
@@ -21,10 +23,10 @@ describe('AttachmentsService', () => {
               return this;
             },
             attachmentsTable: {
-              findMany: jest.fn(),
-              create: jest.fn(),
-              updateMany: jest.fn(),
-              deleteMany: jest.fn(),
+              findMany: vi.fn(),
+              create: vi.fn(),
+              updateMany: vi.fn(),
+              deleteMany: vi.fn(),
             },
           },
         },
@@ -33,7 +35,7 @@ describe('AttachmentsService', () => {
       .useMocker((token) => {
         if (token === ClsService) {
           return {
-            get: jest.fn(),
+            get: vi.fn(),
           };
         }
       })
@@ -60,7 +62,7 @@ describe('AttachmentsService', () => {
     ];
 
     it('should update by record if no existing records', async () => {
-      (prismaService.attachmentsTable.findMany as jest.Mock).mockResolvedValueOnce([]);
+      (prismaService.attachmentsTable.findMany as Mock).mockResolvedValueOnce([]);
       await service.updateByRecord(tableId, recordId, attachments);
       expect(prismaService.attachmentsTable.create).toHaveBeenCalledTimes(attachments.length);
       expect(prismaService.attachmentsTable.deleteMany).not.toBeCalled();
@@ -75,14 +77,14 @@ describe('AttachmentsService', () => {
           fieldId: 'fieldId',
         },
       ];
-      (prismaService.attachmentsTable.findMany as jest.Mock).mockResolvedValueOnce(exists);
+      (prismaService.attachmentsTable.findMany as Mock).mockResolvedValueOnce(exists);
       await service.updateByRecord(tableId, recordId, attachments);
       expect(prismaService.attachmentsTable.create).toHaveBeenCalledTimes(attachments.length);
       expect(prismaService.attachmentsTable.deleteMany).toBeCalledTimes(exists.length);
     });
 
     it('should throw error if findMany fails', async () => {
-      (prismaService.attachmentsTable.findMany as jest.Mock).mockRejectedValueOnce(
+      (prismaService.attachmentsTable.findMany as Mock).mockRejectedValueOnce(
         new Error('findMany error')
       );
       await expect(service.updateByRecord(tableId, recordId, attachments)).rejects.toThrow(
@@ -93,8 +95,8 @@ describe('AttachmentsService', () => {
     });
 
     it('should throw error if create fails', async () => {
-      (prismaService.attachmentsTable.findMany as jest.Mock).mockResolvedValueOnce([]);
-      (prismaService.attachmentsTable.create as jest.Mock).mockRejectedValueOnce(
+      (prismaService.attachmentsTable.findMany as Mock).mockResolvedValueOnce([]);
+      (prismaService.attachmentsTable.create as Mock).mockRejectedValueOnce(
         new Error('create error')
       );
       await expect(service.updateByRecord(tableId, recordId, attachments)).rejects.toThrow(
@@ -113,8 +115,8 @@ describe('AttachmentsService', () => {
           fieldId: 'fieldId',
         },
       ];
-      (prismaService.attachmentsTable.findMany as jest.Mock).mockResolvedValueOnce(exists);
-      (prismaService.attachmentsTable.deleteMany as jest.Mock).mockRejectedValueOnce(
+      (prismaService.attachmentsTable.findMany as Mock).mockResolvedValueOnce(exists);
+      (prismaService.attachmentsTable.deleteMany as Mock).mockRejectedValueOnce(
         new Error(updateManyError)
       );
       await expect(service.updateByRecord(tableId, recordId, attachments)).rejects.toThrow(
@@ -141,7 +143,7 @@ describe('AttachmentsService', () => {
     });
 
     it('should throw error if updateMany fails', async () => {
-      (prismaService.attachmentsTable.deleteMany as jest.Mock).mockRejectedValueOnce(
+      (prismaService.attachmentsTable.deleteMany as Mock).mockRejectedValueOnce(
         new Error(updateManyError)
       );
       await expect(service.delete(queries)).rejects.toThrow(updateManyError);

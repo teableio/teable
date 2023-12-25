@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { vi } from 'vitest';
 import { AggregationService } from '../aggregation.service';
 import { AggregationOpenApiController } from './aggregation-open-api.controller';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
@@ -15,7 +16,7 @@ describe('AggregationOpenApiController', () => {
     })
       .useMocker((token) => {
         if (token === PrismaService) {
-          return jest.fn();
+          return vi.fn();
         }
       })
       .compile();

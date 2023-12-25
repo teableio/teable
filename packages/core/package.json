@@ -15,6 +15,8 @@
   },
   "sideEffects": false,
   "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -26,7 +28,7 @@
     "check-dist": "es-check -v",
     "check-size": "size-limit",
     "test": "run test-unit",
-    "test-unit": "vitest run --logHeapUsage --silent",
+    "test-unit": "vitest run --silent",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
@@ -37,16 +39,16 @@
     "dayjs": "1.11.10",
     "lodash": "4.17.21",
     "nanoid": "3.3.6",
-    "papaparse": "^5.4.1",
+    "papaparse": "5.4.1",
     "reflect-metadata": "0.1.13",
     "zod": "3.22.4"
   },
   "devDependencies": {
     "@size-limit/file": "11.0.1",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/lodash": "^4.14.202",
+    "@types/lodash": "4.14.202",
     "@types/node": "18.18.2",
-    "@types/papaparse": "^5.3.14",
+    "@types/papaparse": "5.3.14",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.1.1",
@@ -56,7 +58,7 @@
     "rimraf": "5.0.5",
     "size-limit": "11.0.1",
     "typescript": "5.3.3",
-    "vite-tsconfig-paths": "^4.2.2",
-    "vitest": "^1.1.0"
+    "vite-tsconfig-paths": "4.2.2",
+    "vitest": "1.1.0"
   }
 }

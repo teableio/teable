@@ -12,6 +12,7 @@ import {
   generateTableId,
   generateWorkflowActionId,
 } from '@teable-group/core';
+import { vi } from 'vitest';
 import { GlobalModule } from '../../../../../global/global.module';
 import { FieldModule } from '../../../../field/field.module';
 import { FieldService } from '../../../../field/field.service';
@@ -51,7 +52,7 @@ describe('Update-Record Action Test', () => {
     fieldService = await moduleRef.resolve<FieldService>(FieldService);
     recordOpenApiService = await moduleRef.resolve<RecordOpenApiService>(RecordOpenApiService);
 
-    jest.spyOn(tableOpenApiService, 'createTable').mockImplementation((baseId, tableRo) =>
+    vi.spyOn(tableOpenApiService, 'createTable').mockImplementation((baseId, tableRo) =>
       Promise.resolve({
         name: `table1-${faker.string.nanoid()}`,
         dbTableName: `table1-${faker.string.nanoid()}`,
@@ -66,7 +67,7 @@ describe('Update-Record Action Test', () => {
       })
     );
 
-    jest.spyOn(fieldService, 'getFieldsByQuery').mockImplementation((tableId, _query) =>
+    vi.spyOn(fieldService, 'getFieldsByQuery').mockImplementation((tableId, _query) =>
       Promise.resolve([
         {
           id: fieldId,
@@ -93,15 +94,14 @@ describe('Update-Record Action Test', () => {
       ])
     );
 
-    jest
-      .spyOn(recordOpenApiService, 'updateRecordById')
-      .mockImplementation((tableId, recordId, _updateRecordRo) =>
+    vi.spyOn(recordOpenApiService, 'updateRecordById').mockImplementation(
+      (tableId, recordId, _updateRecordRo) =>
         Promise.resolve({
           id: recordId,
           fields: { [fieldId]: 'update: mockName' },
           recordOrder: { tableId: 1 },
         })
-      );
+    );
 
     await createTable();
   });

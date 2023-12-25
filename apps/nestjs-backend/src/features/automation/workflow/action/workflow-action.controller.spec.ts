@@ -33,9 +33,8 @@ describe('WorkflowActionController', () => {
     it('/Controller should return success', async () => {
       const result = { success: true };
       const pathParamWorkflowActionId = generateWorkflowActionId();
-      jest
-        .spyOn(workflowActionService, 'create')
-        .mockImplementation((_actionId, _createWorkflowActionRo) =>
+      vi.spyOn(workflowActionService, 'create').mockImplementation(
+        (_actionId, _createWorkflowActionRo) =>
           Promise.resolve({
             workflowId: 'workflowId',
             description: 'description',
@@ -44,7 +43,7 @@ describe('WorkflowActionController', () => {
             parentNodeId: '',
             nextNodeId: '',
           } as AutomationWorkflowActionModel)
-        );
+      );
 
       expect(await workflowActionController.create(pathParamWorkflowActionId, bodyParam)).toEqual(
         result

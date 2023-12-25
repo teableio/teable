@@ -35,7 +35,6 @@ import {
 
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
-  jest.useRealTimers();
   let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
   const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';

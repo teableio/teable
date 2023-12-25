@@ -3,9 +3,10 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { ActionPrefix, IdPrefix } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { mockDeep, mockReset } from 'jest-mock-extended';
 import { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
+import { vi } from 'vitest';
+import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { PermissionService } from '../features/auth/permission.service';
 import { FieldService } from '../features/field/field.service';
 import { GlobalModule } from '../global/global.module';
@@ -62,10 +63,10 @@ describe('ShareDBPermissionService', () => {
         agent: { custom: { user: mockUser, isBackend: false } },
       });
       // mock a callback function
-      const callback = jest.fn();
+      const callback = vi.fn();
       // spy on clsService.set and get methods
-      const setSpy = jest.spyOn(clsService, 'set');
-      const getSpy = jest.spyOn(clsService, 'get');
+      const setSpy = vi.spyOn(clsService, 'set');
+      const getSpy = vi.spyOn(clsService, 'get');
       // call the clsRunWith method with the context and callback
       await shareDbPermissionService['clsRunWith'](context, callback);
       // expect the callback to be called once
@@ -85,11 +86,11 @@ describe('ShareDBPermissionService', () => {
         agent: { custom: { cookie: 'xxxx', isBackend: false, shareId: undefined } },
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      jest.spyOn(wsAuthService, 'checkCookie').mockResolvedValue(mockUser);
+      vi.spyOn(wsAuthService, 'checkCookie').mockResolvedValue(mockUser);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(shareDbPermissionService as any, 'clsRunWith').mockImplementation();
+      vi.spyOn(shareDbPermissionService as any, 'clsRunWith').mockImplementation(() => ({}));
 
       await shareDbPermissionService.authMiddleware(context, callback);
 
@@ -101,7 +102,7 @@ describe('ShareDBPermissionService', () => {
       const context = mockDeep<IAuthMiddleContext>({
         agent: { custom: { isBackend: true } },
       });
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       await shareDbPermissionService.authMiddleware(context, callback);
 
@@ -114,9 +115,9 @@ describe('ShareDBPermissionService', () => {
         agent: { custom: { isBackend: false, cookie: 'xxx', shareId: undefined } },
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      const checkCookieMock = jest
+      const checkCookieMock = vi
         .spyOn(wsAuthService, 'checkCookie')
         .mockRejectedValue(new Error('Authentication failed'));
 
@@ -132,11 +133,11 @@ describe('ShareDBPermissionService', () => {
         agent: { custom: { cookie: 'xxxx', isBackend: false, shareId } },
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      jest.spyOn(wsAuthService, 'checkShareCookie').mockImplementation();
+      vi.spyOn(wsAuthService, 'checkShareCookie').mockImplementation(() => ({}) as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(shareDbPermissionService as any, 'clsRunWith').mockImplementation();
+      vi.spyOn(shareDbPermissionService as any, 'clsRunWith').mockImplementation(() => ({}) as any);
 
       await shareDbPermissionService.authMiddleware(context, callback);
 
@@ -167,9 +168,9 @@ describe('ShareDBPermissionService', () => {
         op: fieldUpdateNameOp,
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      const runPermissionCheckMock = jest
+      const runPermissionCheckMock = vi
         .spyOn(shareDbPermissionService as any, 'runPermissionCheck')
         .mockResolvedValue(undefined);
 
@@ -190,9 +191,9 @@ describe('ShareDBPermissionService', () => {
         op: fieldUpdateNameOp,
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      const runPermissionCheckMock = jest
+      const runPermissionCheckMock = vi
         .spyOn(shareDbPermissionService as any, 'runPermissionCheck')
         .mockRejectedValue('error');
 
@@ -211,7 +212,7 @@ describe('ShareDBPermissionService', () => {
         op: fieldUpdateNameOp,
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       await shareDbPermissionService.checkApplyPermissionMiddleware(context, callback);
 
@@ -230,9 +231,9 @@ describe('ShareDBPermissionService', () => {
         agent: { custom: { isBackend: false, user: mockUser, shareId: undefined } },
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      const runPermissionCheckMock = jest
+      const runPermissionCheckMock = vi
         .spyOn(shareDbPermissionService as any, 'runPermissionCheck')
         .mockResolvedValue(undefined);
 
@@ -252,9 +253,9 @@ describe('ShareDBPermissionService', () => {
         agent: { custom: { isBackend: false, user: mockUser, shareId: undefined } },
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      const runPermissionCheckMock = jest
+      const runPermissionCheckMock = vi
         .spyOn(shareDbPermissionService as any, 'runPermissionCheck')
         .mockRejectedValue('error');
 
@@ -272,7 +273,7 @@ describe('ShareDBPermissionService', () => {
         action: 'readSnapshots',
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
       await shareDbPermissionService.checkApplyPermissionMiddleware(context, callback);
 
@@ -288,9 +289,9 @@ describe('ShareDBPermissionService', () => {
         snapshots: [{ id: 'fldxxx ' }] as any,
       });
 
-      const callback = jest.fn();
+      const callback = vi.fn();
 
-      const checkReadViewSharePermissionMock = jest
+      const checkReadViewSharePermissionMock = vi
         .spyOn(shareDbPermissionService, 'checkReadViewSharePermission')
         .mockResolvedValue(undefined);
 
@@ -310,7 +311,7 @@ describe('ShareDBPermissionService', () => {
       const collection = `${IdPrefix.Table}_bse1`;
       const permissionAction = 'table|read';
 
-      const checkPermissionByBaseIdMock = jest
+      const checkPermissionByBaseIdMock = vi
         .spyOn(permissionService, 'checkPermissionByBaseId')
         .mockResolvedValue([]);
 
@@ -323,7 +324,7 @@ describe('ShareDBPermissionService', () => {
       const collection = `${IdPrefix.View}_tbl1`;
       const permissionAction = 'view|read';
 
-      const checkPermissionByTableIdMock = jest
+      const checkPermissionByTableIdMock = vi
         .spyOn(permissionService, 'checkPermissionByTableId')
         .mockResolvedValue([]);
 
@@ -338,7 +339,7 @@ describe('ShareDBPermissionService', () => {
 
       const errorMessage = 'Permission denied';
 
-      const checkPermissionByBaseIdMock = jest
+      const checkPermissionByBaseIdMock = vi
         .spyOn(permissionService, 'checkPermissionByBaseId')
         .mockRejectedValue(new Error(errorMessage));
 

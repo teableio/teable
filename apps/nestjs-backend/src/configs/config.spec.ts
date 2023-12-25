@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { vi } from 'vitest';
 
 type IMockConfigService = Partial<ConfigService>;
 
@@ -8,7 +9,7 @@ export const createMockConfigService = (
   mockValues: Record<string, unknown> = {}
 ): IMockConfigService => {
   return {
-    get: jest.fn().mockImplementation((key: string) => mockValues[key]),
+    get: vi.fn().mockImplementation((key: string) => mockValues[key]),
   };
 };
 

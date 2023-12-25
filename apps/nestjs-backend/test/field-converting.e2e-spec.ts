@@ -1164,8 +1164,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   });
 
   describe('convert formula field', () => {
-    bfAf();
-
     const refField1Ro: IFieldRo = {
       type: FieldType.SingleLineText,
     };
@@ -1184,6 +1182,19 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     let refField2: IFieldVo;
 
     beforeEach(async () => {
+      const result1 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table1',
+      });
+      table1 = result1.body;
+      const result2 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table2',
+      });
+      table2 = result2.body;
+      const result3 = await request.post(`/api/base/${baseId}/table`).send({
+        name: 'table3',
+      });
+      table3 = result3.body;
+
       refField1 = await createField(table1.id, refField1Ro);
       refField2 = await createField(table1.id, refField2Ro);
 
@@ -1192,6 +1203,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       await updateRecordByApi(table1.id, table1.records[0].id, refField2.id, 1);
       await updateRecordByApi(table1.id, table1.records[1].id, refField2.id, 2);
+    });
+
+    afterEach(async () => {
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await request.delete(`/api/base/${baseId}/table/arbitrary/${table3.id}`);
     });
 
     it('should convert formula and modify expression', async () => {

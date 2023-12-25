@@ -2,26 +2,27 @@ import { resolve, join } from 'path';
 import * as fse from 'fs-extra';
 import type { Sharp } from 'sharp';
 import sharp from 'sharp';
+import { vi } from 'vitest';
 import Local from './local';
 
 const mockSharpInstance = {
-  metadata: jest.fn(),
+  metadata: vi.fn(),
 };
 
-jest.mock('fs-extra', () => ({
-  ensureDir: jest.fn(),
-  copy: jest.fn(),
-  unlink: jest.fn(),
+vi.mock('fs-extra', () => ({
+  ensureDir: vi.fn(),
+  copy: vi.fn(),
+  unlink: vi.fn(),
 }));
 
-jest.mock('sharp', () =>
-  jest.fn((_path: string) => {
+vi.mock('sharp', () => ({
+  default: vi.fn((_path: string) => {
     return mockSharpInstance as Partial<Sharp>;
-  })
-);
+  }),
+}));
 
-jest.mock('fs', () => ({
-  createReadStream: jest.fn(() => 'stream'),
+vi.mock('fs', () => ({
+  createReadStream: vi.fn(() => 'stream'),
 }));
 
 describe('Local', () => {
@@ -32,7 +33,7 @@ describe('Local', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should return upload url', () => {

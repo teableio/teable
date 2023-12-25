@@ -4,8 +4,6 @@ import { GlobalModule } from '../global/global.module';
 import { ShareDbModule } from './share-db.module';
 import { ShareDbService } from './share-db.service';
 
-jest.setTimeout(1000);
-
 describe('ShareDb', () => {
   let provider: ShareDbService;
 
@@ -32,5 +30,5 @@ describe('ShareDb', () => {
   //       done();
   //     });
   //   });
-  // });
+  // }, 1000);
 });

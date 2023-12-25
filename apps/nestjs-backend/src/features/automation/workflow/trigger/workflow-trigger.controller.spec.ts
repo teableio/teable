@@ -32,9 +32,8 @@ describe('WorkflowTriggerController', () => {
         workflowId: generateWorkflowId(),
         triggerType: TriggerTypeEnums.RecordCreated,
       };
-      jest
-        .spyOn(workflowTriggerService, 'create')
-        .mockImplementation((_triggerId, _createWorkflowTriggerRo) =>
+      vi.spyOn(workflowTriggerService, 'create').mockImplementation(
+        (_triggerId, _createWorkflowTriggerRo) =>
           Promise.resolve({
             id: 'id',
             workflowId: 'workflowId',
@@ -44,7 +43,7 @@ describe('WorkflowTriggerController', () => {
             createdBy: 'admin',
             lastModifiedBy: 'admin',
           } as AutomationWorkflowTriggerModel)
-        );
+      );
 
       expect(await workflowTriggerController.create(pathParamTriggerId, bodyParam)).toEqual(result);
     });

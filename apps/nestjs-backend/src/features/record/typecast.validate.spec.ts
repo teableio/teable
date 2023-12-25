@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Colors, FieldType } from '@teable-group/core';
 import type { PrismaService } from '@teable-group/db-main-prisma';
-import { mockDeep, mockReset } from 'jest-mock-extended';
+import { vi } from 'vitest';
+import { mockDeep, mockReset } from 'vitest-mock-extended';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -9,7 +10,7 @@ import type { SingleSelectFieldDto } from '../field/model/field-dto/single-selec
 import type { RecordService } from './record.service';
 import { TypeCastAndValidate } from './typecast.validate';
 
-jest.mock('zod-validation-error', () => {
+vi.mock('zod-validation-error', () => {
   return {
     __esModule: true,
     fromZodError: (message: any) => message,
@@ -40,7 +41,7 @@ describe('TypeCastAndValidate', () => {
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
       const cellValues: unknown[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'castToSingleSelect').mockResolvedValue(cellValues);
+      vi.spyOn(typeCastAndValidate as any, 'castToSingleSelect').mockResolvedValue(cellValues);
 
       const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
@@ -53,7 +54,7 @@ describe('TypeCastAndValidate', () => {
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
       const cellValues: unknown[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'castToMultipleSelect').mockResolvedValue(cellValues);
+      vi.spyOn(typeCastAndValidate as any, 'castToMultipleSelect').mockResolvedValue(cellValues);
 
       const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
@@ -66,7 +67,7 @@ describe('TypeCastAndValidate', () => {
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
       const cellValues: Record<string, unknown>[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'castToLink').mockResolvedValue(cellValues);
+      vi.spyOn(typeCastAndValidate as any, 'castToLink').mockResolvedValue(cellValues);
 
       const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
@@ -79,7 +80,7 @@ describe('TypeCastAndValidate', () => {
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
       const cellValues: unknown[] = [];
 
-      jest.spyOn(typeCastAndValidate as any, 'defaultCastTo').mockResolvedValue(cellValues);
+      vi.spyOn(typeCastAndValidate as any, 'defaultCastTo').mockResolvedValue(cellValues);
 
       const result = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
 
@@ -91,7 +92,7 @@ describe('TypeCastAndValidate', () => {
       const field = mockDeep<IFieldInstance>({ type: FieldType.SingleSelect, isComputed: false });
       const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
 
-      jest.spyOn(typeCastAndValidate as any, 'castToSingleSelect').mockImplementation(() => {
+      vi.spyOn(typeCastAndValidate as any, 'castToSingleSelect').mockImplementation(() => {
         throw new Error('xxxxx');
       });
 
@@ -160,7 +161,7 @@ describe('TypeCastAndValidate', () => {
     });
     it('should map record and apply callback', () => {
       const cellValues = [1];
-      const callback = jest.fn(() => 'value');
+      const callback = vi.fn(() => 'value');
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore-next-line
@@ -192,7 +193,7 @@ describe('TypeCastAndValidate', () => {
       });
 
       expect(() => {
-        typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, jest.fn());
+        typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, vi.fn());
       }).toThrow('Bad Request');
     });
 
@@ -225,7 +226,7 @@ describe('TypeCastAndValidate', () => {
         success: true,
       } as any);
 
-      const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, jest.fn());
+      const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, vi.fn());
 
       expect(result).toEqual(cellValues);
     });
@@ -245,7 +246,7 @@ describe('TypeCastAndValidate', () => {
     });
 
     it('should create new options and update field', async () => {
-      fieldConvertingService.updateFieldById.mockImplementation();
+      fieldConvertingService.updateFieldById.mockImplementation(() => Promise.resolve() as any);
 
       await typeCastAndValidate['createOptionsIfNotExists'](['1', '2']);
 
@@ -265,7 +266,7 @@ describe('TypeCastAndValidate', () => {
     });
 
     it('should return if no options', async () => {
-      fieldConvertingService.updateFieldById.mockImplementation();
+      fieldConvertingService.updateFieldById.mockImplementation(() => Promise.resolve() as any);
       await typeCastAndValidate['createOptionsIfNotExists']([]);
 
       expect(fieldConvertingService.updateFieldById).not.toBeCalled();
@@ -283,9 +284,9 @@ describe('TypeCastAndValidate', () => {
         typecast: true,
       });
 
-      jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
-        .mockImplementation((...args) => (args[1] as any)());
+      vi.spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate').mockImplementation(
+        (...args: any[]) => (args[1] as any)()
+      );
 
       const result = typeCastAndValidate['defaultCastTo'](cellValues);
 
@@ -307,11 +308,13 @@ describe('TypeCastAndValidate', () => {
       typecast: true,
     });
     it('should call dependencies correctly and return', async () => {
-      jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
-        .mockImplementation((...args) => (args[1] as any)('value'));
+      vi.spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate').mockImplementation(
+        (...args: any[]) => (args[1] as any)('value')
+      );
 
-      jest.spyOn(typeCastAndValidate as any, 'createOptionsIfNotExists').mockImplementation();
+      vi.spyOn(typeCastAndValidate as any, 'createOptionsIfNotExists').mockImplementation(
+        () => ({})
+      );
 
       const result = await typeCastAndValidate['castToSingleSelect'](cellValues);
 
@@ -335,11 +338,13 @@ describe('TypeCastAndValidate', () => {
       typecast: true,
     });
     it('should call dependencies correctly and return', async () => {
-      jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
-        .mockImplementation((...args) => (args[1] as any)('value'));
+      vi.spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate').mockImplementation(
+        (...args: any[]) => (args[1] as any)('value')
+      );
 
-      jest.spyOn(typeCastAndValidate as any, 'createOptionsIfNotExists').mockImplementation();
+      vi.spyOn(typeCastAndValidate as any, 'createOptionsIfNotExists').mockImplementation(
+        () => ({})
+      );
 
       const result = await typeCastAndValidate['castToMultipleSelect'](cellValues);
 
@@ -409,15 +414,13 @@ describe('TypeCastAndValidate', () => {
       typecast: true,
     });
     it('should call dependencies correctly and return map by typecast', async () => {
-      jest.spyOn(typeCastAndValidate as any, 'getLinkTableRecordMap').mockResolvedValue({});
+      vi.spyOn(typeCastAndValidate as any, 'getLinkTableRecordMap').mockResolvedValue({});
 
-      jest
-        .spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate')
-        .mockImplementation((...args) => (args[1] as any)('title'));
+      vi.spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate').mockImplementation(
+        (...args: any[]) => (args[1] as any)('title')
+      );
 
-      jest
-        .spyOn(typeCastAndValidate as any, 'castToLinkOne')
-        .mockReturnValue({ title1: '1' } as any);
+      vi.spyOn(typeCastAndValidate as any, 'castToLinkOne').mockReturnValue({ title1: '1' } as any);
 
       const result = await typeCastAndValidate['castToLink'](cellValues);
 

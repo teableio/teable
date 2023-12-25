@@ -5,6 +5,7 @@ import type { ICreateTableRo, ITableFullVo } from '@teable-group/core';
 import { map } from 'lodash';
 import { logger, type Doc } from 'sharedb/lib/client';
 import type request from 'supertest';
+import { vi } from 'vitest';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import { initApp, updateViewColumnMeta } from './utils/init-app';
 
@@ -94,7 +95,7 @@ describe('Share (socket-e2e) (e2e)', () => {
 
   it('shareId error', async () => {
     const collection = `${IdPrefix.View}_${tableId}`;
-    const consoleWarnSpy = jest.spyOn(logger, 'warn');
+    const consoleWarnSpy = vi.spyOn(logger, 'warn');
     await expect(getQuery(collection, 'share')).rejects.toThrow();
     expect(consoleWarnSpy).toHaveBeenCalledWith(
       'Agent closed due to error',

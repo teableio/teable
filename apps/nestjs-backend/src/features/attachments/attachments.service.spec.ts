@@ -2,6 +2,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
+import { vi } from 'vitest';
 import { AttachmentsModule } from './attachments.module';
 import { AttachmentsService } from './attachments.service';
 
@@ -14,7 +15,7 @@ describe('AttachmentsService', () => {
     })
       .useMocker((token) => {
         if (token === ClsService || token === PrismaService) {
-          return jest.fn();
+          return vi.fn();
         }
       })
       .compile();
