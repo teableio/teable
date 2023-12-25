@@ -1,7 +1,10 @@
+import { Colors } from './colors';
 import { CellValueType, FieldType } from './constant';
 import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
 import { fieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
 import { NumberFormattingType } from './formatting';
+import type { IUnionShowAs } from './show-as';
+import { SingleNumberDisplayType } from './show-as';
 
 describe('field Schema Test', () => {
   it('should return true when options validate', () => {
@@ -83,5 +86,39 @@ describe('field Schema Test', () => {
 
     const result = fieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(true);
+  });
+
+  it('should return true when isLookup field with formatting or showAs options', () => {
+    const fieldRo = {
+      type: FieldType.Rollup,
+      options: {
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 2,
+        },
+        showAs: {
+          type: SingleNumberDisplayType.Ring,
+          color: Colors.Blue,
+          showValue: true,
+          maxValue: 100,
+        } as IUnionShowAs,
+      },
+      lookupOptions: {
+        foreignTableId: 'tableId',
+        lookupFieldId: 'fieldId',
+        linkFieldId: 'fieldId',
+      },
+    };
+
+    const result = fieldRoSchema.safeParse(fieldRo);
+    expect(result.success).toBe(false);
+
+    const lookUpFieldRo = {
+      isLookup: true,
+      ...fieldRo,
+    };
+
+    const result2 = fieldRoSchema.safeParse(lookUpFieldRo);
+    expect(result2.success).toBe(true);
   });
 });

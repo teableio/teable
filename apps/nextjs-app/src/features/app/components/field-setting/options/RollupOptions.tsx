@@ -41,7 +41,9 @@ export const RollupOptions = (props: {
   } = props;
   const { formatting, expression } = options;
 
-  const typedValue = calculateRollupTypedValue(expression, cellValueType, isMultipleCellValue);
+  const typedValue = isLookup
+    ? { cellValueType, isMultipleCellValue }
+    : calculateRollupTypedValue(expression, cellValueType, isMultipleCellValue);
 
   const onExpressionChange = (expression: IRollupFieldOptions['expression']) => {
     onChange?.({
@@ -137,22 +139,24 @@ export const RollupOptions = (props: {
           />
         </div>
       )}
-      <div className="space-y-2">
-        <UnionFormatting
-          cellValueType={typedValue.cellValueType}
-          formatting={formatting}
-          onChange={onFormattingChange}
-        />
-      </div>
-      {Boolean(expression) && (
-        <div className="space-y-2">
-          <UnionShowAs
-            showAs={options?.showAs}
-            cellValueType={typedValue.cellValueType}
-            isMultipleCellValue={typedValue.isMultipleCellValue}
-            onChange={onShowAsChange}
-          />
-        </div>
+      {(isLookup || Boolean(expression)) && (
+        <>
+          <div className="space-y-2">
+            <UnionFormatting
+              cellValueType={typedValue.cellValueType}
+              formatting={formatting}
+              onChange={onFormattingChange}
+            />
+          </div>
+          <div className="space-y-2">
+            <UnionShowAs
+              showAs={options?.showAs}
+              cellValueType={typedValue.cellValueType}
+              isMultipleCellValue={typedValue.isMultipleCellValue}
+              onChange={onShowAsChange}
+            />
+          </div>
+        </>
       )}
     </div>
   );

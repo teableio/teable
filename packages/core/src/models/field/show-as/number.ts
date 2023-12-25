@@ -36,6 +36,9 @@ export type ISingleNumberShowAs = z.infer<typeof singleNumberShowAsSchema>;
 
 export type IMultiNumberShowAs = z.infer<typeof multiNumberShowAsSchema>;
 
-export const numberShowAsSchema = z.union([singleNumberShowAsSchema, multiNumberShowAsSchema]);
+export const numberShowAsSchema = z.union([
+  singleNumberShowAsSchema.strict(),
+  multiNumberShowAsSchema.strict(),
+]);
 
 export type INumberShowAs = z.infer<typeof numberShowAsSchema>;

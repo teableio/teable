@@ -2,9 +2,9 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "types": ["jest", "node"],
+    "types": ["node"],
     "baseUrl": "./src",
-    "target": "es6",
+    "target": "esnext",
     "lib": ["esnext"],
     "module": "CommonJS",
     "noEmit": false,

@@ -1,15 +1,16 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
 import { createAppContext } from '../../../../../context/__tests__/createAppContext';
 import { defaultLocale } from '../../../../../context/app/i18n';
 import { BaseSingleSelect } from '../BaseSingleSelect';
 
-window.ResizeObserver =
-  window.ResizeObserver ||
-  jest.fn().mockImplementation(() => ({
-    disconnect: jest.fn(),
-    observe: jest.fn(),
-    unobserve: jest.fn(),
-  }));
+const mockResizeObserver = {
+  disconnect: vi.fn(),
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+};
+
+globalThis.ResizeObserver = globalThis.ResizeObserver || mockResizeObserver;
 
 describe('BaseSingleSelect', () => {
   const options = [
@@ -54,7 +55,7 @@ describe('BaseSingleSelect', () => {
   });
 
   it('should return the selected option value', async () => {
-    const selecthandle = jest.fn();
+    const selecthandle = vi.fn();
     render(<BaseSingleSelect options={options} onSelect={selecthandle} value={null} />, {
       wrapper: createAppContext(),
     });

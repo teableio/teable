@@ -27,6 +27,8 @@ import {
   autoNumberFieldOptionsRoSchema,
   userFieldOptionsSchema,
 } from './derivate';
+import { unionFormattingSchema } from './formatting';
+import { unionShowAsSchema } from './show-as';
 
 export const lookupOptionsVoSchema = linkFieldOptionsSchema
   .pick({
@@ -86,6 +88,11 @@ export const unionFieldOptionsRoSchema = z.union([
   createdTimeFieldOptionsRoSchema.strict(),
   lastModifiedTimeFieldOptionsRoSchema.strict(),
 ]);
+
+export const commonOptionsSchema = z.object({
+  showAs: unionShowAsSchema.optional(),
+  formatting: unionFormattingSchema.optional(),
+});
 
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
 
@@ -289,8 +296,21 @@ const refineOptions = (
   if (!options) {
     return;
   }
-  const schema = getOptionsSchema(data.type);
-  const result = schema && schema.safeParse(data.options);
+
+  if (isLookup) {
+    const result = commonOptionsSchema.safeParse(options);
+    if (!result.success) {
+      ctx.addIssue({
+        path: ['options'],
+        code: z.ZodIssueCode.custom,
+        message: `RefineOptionsInLookupError: ${result.error.message}`,
+      });
+    }
+    return;
+  }
+
+  const schema = getOptionsSchema(type);
+  const result = schema && schema.safeParse(options);
 
   if (result && !result.success) {
     ctx.addIssue({

@@ -18,7 +18,7 @@ import {
   TimeFormatting,
 } from '@teable-group/core';
 import type request from 'supertest';
-import { updateRecordByApi, getRecord, initApp } from './utils/init-app';
+import { updateRecordByApi, getRecord, initApp, createField } from './utils/init-app';
 
 // All kind of field type (except link)
 const defaultFields: IFieldRo[] = [
@@ -543,6 +543,45 @@ describe('OpenAPI Lookup field (e2e)', () => {
     expect(record1.fields[lookupFieldVo.id]).toEqual('A2');
     const record2 = await getRecord(table2.id, table2.records[2].id);
     expect(record2.fields[lookupFieldVo.id]).toEqual('A2');
+  });
+
+  it('should set showAs when create field lookup to a rollup', async () => {
+    const rollupFieldRo: IFieldRo = {
+      name: 'rollup',
+      type: FieldType.Rollup,
+      options: {
+        expression: 'countall({values})',
+      },
+      lookupOptions: {
+        foreignTableId: table2.id,
+        linkFieldId: getFieldByType(table1.fields, FieldType.Link).id,
+        lookupFieldId: getFieldByType(table2.fields, FieldType.Number).id,
+      },
+    };
+
+    const rollupField = await createField(table1.id, rollupFieldRo);
+
+    const lookupFieldRo: IFieldRo = {
+      name: `lookup ${rollupField.name} [${table1.name}]`,
+      type: rollupField.type,
+      isLookup: true,
+      options: {
+        showAs: {
+          color: Colors.Green,
+          maxValue: 100,
+          showValue: true,
+          type: 'ring',
+        },
+      },
+      lookupOptions: {
+        foreignTableId: table1.id,
+        linkFieldId: getFieldByType(table2.fields, FieldType.Link).id,
+        lookupFieldId: rollupField.id,
+      } as ILookupOptionsRo,
+    };
+    const lookupField = await createField(table2.id, lookupFieldRo);
+
+    expect(lookupField).toMatchObject(lookupFieldRo);
   });
 
   it('should get graph of a lookup field', async () => {
