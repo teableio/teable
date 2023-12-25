@@ -6,8 +6,6 @@ import type request from 'supertest';
 import { FIELD_MOCK_DATA } from './field-mock';
 import { initApp } from './init-app';
 
-jest.setTimeout(1000000);
-
 describe('Performance test data generator', () => {
   let app: INestApplication;
   let tableId = '';
@@ -79,5 +77,5 @@ describe('Performance test data generator', () => {
     }
     console.timeEnd(`create ${count} records`);
     console.log(`new table: ${tableId} created`);
-  });
+  }, 1000000);
 });

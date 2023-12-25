@@ -5,54 +5,73 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Jest e2e nest backend",
+      "name": "vitest e2e nest backend",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/apps/nestjs-backend",
       "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "--inspect-brk",
-        "./node_modules/.bin/jest",
-        "${relativeFile}",
-        "--runInBand",
-        "--config",
-        "./jest-e2e.js"
-      ],
+      "autoAttachChildProcesses": true,
+      "program": "./node_modules/.bin/vitest",
+      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest-e2e.config.ts"],
+      "smartStep": true,
       "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "internalConsoleOptions": "neverOpen"
     },
     {
-      "name": "Jest nest backend",
+      "name": "vitest nest backend",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/apps/nestjs-backend",
       "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "--inspect-brk",
-        "./node_modules/.bin/jest",
-        "${relativeFile}",
-        "--runInBand",
-        "--config",
-        "./jest.config.js"
-      ],
+      "autoAttachChildProcesses": true,
+      "program": "./node_modules/.bin/vitest",
+      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "smartStep": true,
       "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "internalConsoleOptions": "neverOpen"
     },
     {
-      "name": "Jest next app",
+      "name": "vitest next app",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/apps/nextjs-app",
       "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "--inspect-brk",
-        "./node_modules/.bin/jest",
-        "${relativeFile}",
-        "--runInBand",
-        "--config",
-        "./jest.config.js"
-      ],
+      "autoAttachChildProcesses": true,
+      "program": "./node_modules/.bin/vitest",
+      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "smartStep": true,
       "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "vitest core",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/core",
+      "runtimeExecutable": "sh",
+      "autoAttachChildProcesses": true,
+      "program": "./node_modules/.bin/vitest",
+      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "smartStep": true,
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "vitest sdk",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/packages/sdk",
+      "runtimeExecutable": "sh",
+      "autoAttachChildProcesses": true,
+      "program": "./node_modules/.bin/vitest",
+      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest.config.ts"],
+      "smartStep": true,
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
       "internalConsoleOptions": "neverOpen"
     },
     {
@@ -69,20 +88,5 @@
       "console": "internalConsole",
       "outputCapture": "std"
     },
-    {
-      "name": "Jest core",
-      "type": "node",
-      "request": "launch",
-      "cwd": "${workspaceFolder}/packages/core",
-      "runtimeExecutable": "sh",
-      "runtimeArgs": [
-        "--inspect-brk",
-        "./node_modules/.bin/jest",
-        "${relativeFile}",
-        "--runInBand"
-      ],
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
-    }
   ]
 }

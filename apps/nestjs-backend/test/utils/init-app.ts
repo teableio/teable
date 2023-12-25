@@ -69,9 +69,7 @@ function prepareSqliteEnv() {
 }
 
 export async function initApp() {
-  console.log('globalThis.testConfig', globalThis.testConfig);
   prepareSqliteEnv();
-  console.log('x0');
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
   })
@@ -84,9 +82,7 @@ export async function initApp() {
     .overrideProvider(DevWsGateway)
     .useClass(WsGateway)
     .compile();
-  console.log('x1-');
   const app = moduleFixture.createNestApplication();
-  console.log('x1');
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
@@ -115,8 +111,8 @@ export async function initApp() {
   const newRequest = request.agent(app.getHttpServer());
   newRequest.set('Cookie', cookie);
 
-  console.log(`> Jest Test NODE_ENV is ${process.env.NODE_ENV}`);
-  console.log(`> Jest Test Ready on ${url}`);
+  console.log(`> Test NODE_ENV is ${process.env.NODE_ENV}`);
+  console.log(`> Test Ready on ${url}`);
 
   return { app, request: newRequest, cookie: cookie.join(';') };
 }

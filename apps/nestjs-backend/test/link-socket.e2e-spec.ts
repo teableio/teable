@@ -25,7 +25,6 @@ describe('OpenAPI link (socket-e2e)', () => {
   let table2: ITableFullVo;
   let shareDbService!: ShareDbService;
   const baseId = globalThis.testConfig.baseId;
-  jest.useRealTimers();
   let request: request.SuperAgentTest;
   let cookie: string;
 
@@ -364,10 +363,6 @@ describe('OpenAPI link (socket-e2e)', () => {
         ])
       ).rejects.toThrow();
 
-      // function wait(ms: number) {
-      //   return new Promise((resolve) => setTimeout(resolve, ms));
-      // }
-      // await wait(1000);
       const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
 
       expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([

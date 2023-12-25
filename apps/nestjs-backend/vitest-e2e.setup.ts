@@ -36,7 +36,6 @@ async function setup() {
   const databaseUrl = process.env.PRISMA_DATABASE_URL!;
 
   console.log('database-url: ', databaseUrl);
-
   const { driver } = parseDsn(databaseUrl);
   console.log('driver: ', driver);
   globalThis.testConfig.driver = driver;

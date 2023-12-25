@@ -16,7 +16,6 @@ import { getFields, initApp, createField, updateRecordByApi } from './utils/init
 
 describe('OpenAPI link Select (e2e)', () => {
   let app: INestApplication;
-  jest.useRealTimers();
   let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
