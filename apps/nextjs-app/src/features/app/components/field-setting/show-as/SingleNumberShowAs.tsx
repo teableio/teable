@@ -85,7 +85,7 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
   };
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex w-full flex-col gap-2" data-testid="single-number-show-as">
       <Label className="font-normal">Show As</Label>
       <div className="flex justify-between">
         {SINGLE_NUMBER_DISPLAY_INFOS.map(({ type, text }) => {

@@ -4,7 +4,7 @@
  */
 import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { AppTestProviders } from './AppTestProviders';
+import { AppTestProviders, TestAnchorProvider } from './AppTestProviders';
 
 /** Recommended in vitest only for cleanup
 import { cleanup, render } from '@testing-library/react';
@@ -27,4 +27,4 @@ export * from '@testing-library/react';
 export { default as userEvent } from '@testing-library/user-event';
 
 // override render method
-export { customRender as render };
+export { customRender as render, TestAnchorProvider };

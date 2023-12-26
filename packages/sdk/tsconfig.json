@@ -6,7 +6,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "jsx": "react-jsx",
-    "rootDir": "src",
+    "rootDir": "../",
     "outDir": "dist",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -25,5 +25,5 @@
     "types": ["vitest/globals"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src"]
+  "include": ["src", "../icons/src", "../core/src", "../ui-lib/src", "../openapi/src"]
 }
