@@ -168,7 +168,6 @@ export const GridViewBase = () => {
     (colIndex: number, bounds: IRectangle) => {
       const { x, y, width, height } = bounds;
       const fieldId = columns[colIndex].id;
-      console.log('click');
       openStatisticMenu({ fieldId, position: { x, y, width, height } });
     },
     [columns, openStatisticMenu]
