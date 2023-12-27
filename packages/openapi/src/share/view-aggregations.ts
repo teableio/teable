@@ -16,25 +16,18 @@ export const shareViewAggregationsQueryRoSchema = z.object({
   query: z
     .string()
     .optional()
-    .refine((value) => {
-      try {
-        if (value) {
-          return shareViewAggregationsQuerySchema.parse(JSON.parse(value));
+    .transform((value, ctx) => {
+      if (value) {
+        const parsingResult = shareViewAggregationsQuerySchema.safeParse(JSON.parse(value));
+        if (!parsingResult.success) {
+          parsingResult.error.issues.forEach((issue) => {
+            ctx.addIssue(issue);
+          });
+          return z.NEVER;
         }
-        return value;
-      } catch (e) {
-        return value;
+        return parsingResult.data;
       }
-    }, 'valid error')
-    .transform((value) => {
-      try {
-        if (value) {
-          return shareViewAggregationsQuerySchema.parse(JSON.parse(value));
-        }
-        return value;
-      } catch (e) {
-        return value;
-      }
+      return value;
     }),
 });
 

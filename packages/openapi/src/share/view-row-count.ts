@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IRowCountVo } from '@teable-group/core';
 import { rowCountVoSchema, aggregationRoSchema } from '@teable-group/core';
+import type { ZodError } from 'zod';
 import { axios } from '../axios';
 import { paramsSerializer, registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -15,35 +16,24 @@ export const shareViewRowCountQueryRoSchema = z.object({
   query: z
     .string()
     .optional()
-    .refine((value) => {
-      try {
-        if (value) {
-          return shareViewRowCountQuerySchema.parse(JSON.parse(value));
+    .transform((value, ctx) => {
+      if (value) {
+        const parsingResult = shareViewRowCountQuerySchema.safeParse(JSON.parse(value));
+        if (!parsingResult.success) {
+          parsingResult.error.issues.forEach((issue) => {
+            ctx.addIssue(issue);
+          });
+          return z.NEVER;
         }
-        return value;
-      } catch (e) {
-        return value;
+        return parsingResult.data;
       }
-    }, 'valid error')
-    .transform((value) => {
-      try {
-        if (value) {
-          return shareViewRowCountQuerySchema.parse(JSON.parse(value));
-        }
-        return value;
-      } catch (e) {
-        return value;
-      }
+      return value;
     }),
 });
 
 export type IShareViewRowCountQueryRo = z.infer<typeof shareViewRowCountQueryRoSchema>;
 
 export type IShareViewRowCountQuery = z.infer<typeof shareViewRowCountQuerySchema>;
-
-// export const shareViewRowCountRoSchema = rowCountRoSchema.pick({ filter: true });
-
-// export type IShareViewRowCountRo = z.infer<typeof shareViewRowCountRoSchema>;
 
 export const ShareViewRowCountRoute: RouteConfig = registerRoute({
   method: 'get',
