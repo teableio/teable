@@ -56,6 +56,6 @@ describe('OpenAPI ViewController (e2e) option (PUT)', () => {
     await setViewFilter(tableId, viewId, assertFilter);
     const updatedView = await getView(tableId, viewId);
     const viewFilter = updatedView.filter;
-    expect(viewFilter).toEqual(assertFilter);
+    expect(viewFilter).toEqual(assertFilter.filter);
   });
 });

@@ -474,6 +474,6 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     await apiSetViewSort(tableId, viewId, assertSort);
     const updatedView = await getView(tableId, viewId);
     const viewSort = updatedView.sort;
-    expect(viewSort).toEqual(assertSort);
+    expect(viewSort).toEqual(assertSort.sort);
   });
 });
