@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { ISort } from '@teable-group/core';
+import type { IViewSortRo } from '@teable-group/core';
 import { sortSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -32,7 +32,7 @@ export const SetViewSortRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewSort = async (tableId: string, viewId: string, sortViewRo: ISort) => {
+export const setViewSort = async (tableId: string, viewId: string, sortViewRo: IViewSortRo) => {
   return axios.put<void>(
     urlBuilder(VIEW_SORT, {
       tableId,

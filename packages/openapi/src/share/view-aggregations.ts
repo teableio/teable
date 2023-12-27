@@ -7,9 +7,39 @@ import { z } from '../zod';
 
 export const SHARE_VIEW_AGGREGATIONS_LIST = '/share/{shareId}/view/aggregations';
 
-export const shareViewAggregationsRoSchema = aggregationRoSchema.pick({ filter: true });
+export const shareViewAggregationsQuerySchema = aggregationRoSchema.pick({
+  filter: true,
+  field: true,
+});
 
-export type IShareViewAggregationsRo = z.infer<typeof shareViewAggregationsRoSchema>;
+export const shareViewAggregationsQueryRoSchema = z.object({
+  query: z
+    .string()
+    .optional()
+    .refine((value) => {
+      try {
+        if (value) {
+          return shareViewAggregationsQuerySchema.parse(JSON.parse(value));
+        }
+        return value;
+      } catch (e) {
+        return value;
+      }
+    }, 'valid error')
+    .transform((value) => {
+      try {
+        if (value) {
+          return shareViewAggregationsQuerySchema.parse(JSON.parse(value));
+        }
+        return value;
+      } catch (e) {
+        return value;
+      }
+    }),
+});
+
+export type IShareViewAggregationsQuery = z.infer<typeof shareViewAggregationsQuerySchema>;
+export type IShareViewAggregationsQueryRo = z.infer<typeof shareViewAggregationsQueryRoSchema>;
 
 export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -19,7 +49,7 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
-    query: z.object({}),
+    query: shareViewAggregationsQueryRoSchema,
   },
   responses: {
     200: {
@@ -36,7 +66,7 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
 
 export const getShareViewAggregations = async (
   shareId: string,
-  query?: IShareViewAggregationsRo
+  query?: IShareViewAggregationsQueryRo
 ) => {
   return axios.get<IAggregationVo>(urlBuilder(SHARE_VIEW_AGGREGATIONS_LIST, { shareId }), {
     params: query,

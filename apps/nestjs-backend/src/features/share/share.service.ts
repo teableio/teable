@@ -10,10 +10,9 @@ import type {
   IViewVo,
   IShareViewMeta,
   IRowCountVo,
-  IRowCountRo,
-  IAggregationRo,
   ILinkFieldOptions,
   IAggregationVo,
+  StatisticsFunc,
 } from '@teable-group/core';
 import { ANONYMOUS_USER_ID, FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -22,6 +21,8 @@ import type {
   IShareViewLinkRecordsRo,
   ShareViewFormSubmitRo,
   ShareViewGetVo,
+  IShareViewRowCountQuery,
+  IShareViewAggregationsQuery,
 } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -131,23 +132,36 @@ export class ShareService {
 
   async getViewAggregations(
     shareInfo: IShareViewInfo,
-    query: IAggregationRo = {}
+    query: IShareViewAggregationsQuery = {}
   ): Promise<IAggregationVo> {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
-    const { filter } = query;
+    const filter = query?.filter ?? null;
+    const fieldStats: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
+    if (query?.field) {
+      Object.entries(query.field).forEach(([key, value]) => {
+        const stats = value.map((fieldId) => ({
+          fieldId,
+          statisticFunc: key as StatisticsFunc,
+        }));
+        fieldStats.push(...stats);
+      });
+    }
     const result = await this.aggregationService.performAggregation({
       tableId,
-      withView: { viewId, customFilter: filter },
+      withView: { viewId, customFilter: filter, customFieldStats: fieldStats },
     });
 
     return { aggregations: result?.aggregations };
   }
 
-  async getViewRowCount(shareInfo: IShareViewInfo, query: IRowCountRo = {}): Promise<IRowCountVo> {
+  async getViewRowCount(
+    shareInfo: IShareViewInfo,
+    query?: IShareViewRowCountQuery
+  ): Promise<IRowCountVo> {
+    const filter = query?.filter ?? null;
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
-    const { filter } = query;
     const result = await this.aggregationService.performRowCount({
       tableId,
       withView: { viewId, customFilter: filter },

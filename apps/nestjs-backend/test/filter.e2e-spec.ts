@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFilter, IFieldVo } from '@teable-group/core';
+import type { IFieldVo, IFilterRo } from '@teable-group/core';
 import { setViewFilter as apiSetViewFilter } from '@teable-group/openapi';
 import { initApp, getView, createTable, deleteTable } from './utils/init-app';
 
@@ -15,9 +15,9 @@ afterAll(async () => {
   await app.close();
 });
 
-async function setViewFilter(tableId: string, viewId: string, filterSet: IFilter) {
+async function setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
   try {
-    const result = await apiSetViewFilter(tableId, viewId, filterSet);
+    const result = await apiSetViewFilter(tableId, viewId, filterRo);
     return result.data;
   } catch (e) {
     console.log(e);
@@ -41,15 +41,17 @@ describe('OpenAPI ViewController (e2e) option (PUT)', () => {
   });
 
   test(`/table/{tableId}/view/{viewId}/filter (PUT) update filter`, async () => {
-    const assertFilter: IFilter = {
-      conjunction: 'and',
-      filterSet: [
-        {
-          fieldId: fields[0].id,
-          operator: 'is',
-          value: '2',
-        },
-      ],
+    const assertFilter: IFilterRo = {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: fields[0].id,
+            operator: 'is',
+            value: '2',
+          },
+        ],
+      },
     };
     await setViewFilter(tableId, viewId, assertFilter);
     const updatedView = await getView(tableId, viewId);

@@ -255,6 +255,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     (colIndex: number, bounds: IRectangle) => {
       const { x, y, width, height } = bounds;
       const fieldId = columns[colIndex].id;
+      console.log('click');
       openStatisticMenu({ fieldId, position: { x, y, width, height } });
     },
     [columns, openStatisticMenu]
@@ -474,8 +475,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           onRowOrdered={onRowOrdered}
           onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
           onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
-          onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
-          onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
+          onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
+          onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
           onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
           onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}

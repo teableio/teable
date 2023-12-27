@@ -1,4 +1,4 @@
-import type { IFilter, IFilterItem, IFilterSet } from '@teable-group/core';
+import type { IFilter, IFilterItem, IFilterSet, IConjunction } from '@teable-group/core';
 import type { IFieldInstance } from '../../../model';
 
 enum ConditionAddType {
@@ -23,7 +23,7 @@ interface IFilterBaseProps {
 
 interface IConditionCommon {
   index: number;
-  conjunction: IFilter['conjunction'];
+  conjunction: IConjunction;
   level: number;
   path: IFiltersPath;
 }

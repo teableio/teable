@@ -18,9 +18,9 @@ interface IDraggbleProps {
 }
 
 interface IDraggableSortProps {
-  sorts: ISort['sortObjs'];
+  sorts: NonNullable<ISort>['sortObjs'];
   selectedFields: string[];
-  onChange: (sorts: ISort['sortObjs']) => void;
+  onChange: (sorts: NonNullable<ISort>['sortObjs']) => void;
 }
 
 function DraggableItem(props: IDraggbleProps & ISortItemProps) {

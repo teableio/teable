@@ -1,4 +1,4 @@
-import type { IFilter, IFilterItem } from '@teable-group/core';
+import type { IFilter, IFilterItem, IConjunction } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
 
 import { Plus, Share2 } from '@teable-group/icons';
@@ -18,11 +18,11 @@ import { isFilterItem, ConditionAddType } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
-const defaultFilter: IFilter = {
+const defaultFilter: NonNullable<IFilter> = {
   conjunction: 'and',
   filterSet: [],
 };
-const defaultGroupFilter: IFilter = {
+const defaultGroupFilter: NonNullable<IFilter> = {
   ...defaultFilter,
   conjunction: 'or',
 };
@@ -34,11 +34,7 @@ function FilterBase(props: IFilterBaseProps) {
 
   const setFilterHandler = (
     path: IFiltersPath,
-    value:
-      | IFilterItem['value']
-      | IFilter['conjunction']
-      | IFilterItem['fieldId']
-      | IFilterItem['operator']
+    value: IFilterItem['value'] | IConjunction | IFilterItem['fieldId'] | IFilterItem['operator']
   ) => {
     if (filters) {
       const newFilters = produce(filters, (draft) => {

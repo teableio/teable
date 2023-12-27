@@ -66,7 +66,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
       successCallback: (_file: IFile, attachment: INotifyVo) => {
         const url = attachment.url;
         setCoverUrl(url);
-        (view as FormView).updateCover(url);
+        view.setOption({ coverUrl: url });
       },
     });
     e.target.value = '';

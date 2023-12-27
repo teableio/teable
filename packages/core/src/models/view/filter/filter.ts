@@ -15,12 +15,20 @@ export const nestedFilterItemSchema: z.ZodType<IFilterSet> = baseFilterSetSchema
   filterSet: z.lazy(() => z.union([filterItemSchema, nestedFilterItemSchema]).array()),
 });
 
-export const filterSchema = z.object({
-  filterSet: z.union([filterItemSchema, nestedFilterItemSchema]).array(),
-  conjunction: conjunctionSchema,
-});
+export const filterSchema = z
+  .object({
+    filterSet: z.union([filterItemSchema, nestedFilterItemSchema]).array(),
+    conjunction: conjunctionSchema,
+  })
+  .nullable();
 
 export type IFilter = z.infer<typeof filterSchema>;
+
+export const filterRoSchema = z.object({
+  filter: filterSchema,
+});
+
+export type IFilterRo = z.infer<typeof filterRoSchema>;
 
 export const filterStringSchema = z.string().transform((val, ctx) => {
   let jsonValue;
