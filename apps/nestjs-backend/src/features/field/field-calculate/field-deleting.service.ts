@@ -40,21 +40,27 @@ export class FieldDeletingService {
     await this.cleanField(tableId, errorLookupFieldIds);
   }
 
-  async cleanRef(tableId: string, fieldId: string, isLinkField?: boolean) {
+  async cleanRef(fieldId: string, isLinkField?: boolean) {
     const errorRefFieldIds = await this.fieldSupplementService.deleteReference(fieldId);
     const errorLookupFieldIds =
       isLinkField && (await this.fieldSupplementService.deleteLookupFieldReference(fieldId));
 
-    const errorFieldIds = errorLookupFieldIds
-      ? errorRefFieldIds.concat(errorLookupFieldIds)
-      : errorRefFieldIds;
-    await this.markFieldsAsError(tableId, errorFieldIds);
+    const errorFieldIds = errorRefFieldIds.concat(errorLookupFieldIds || []);
 
-    await this.cleanField(tableId, errorFieldIds.concat(fieldId));
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: errorFieldIds } },
+      select: { id: true, tableId: true },
+    });
+
+    for (const fieldRaw of fieldRaws) {
+      const { id, tableId } = fieldRaw;
+      await this.markFieldsAsError(tableId, [id]);
+      await this.cleanField(tableId, [id]);
+    }
   }
 
   async delateAndCleanRef(tableId: string, fieldId: string, isLinkField?: boolean) {
-    await this.cleanRef(tableId, fieldId, isLinkField);
+    await this.cleanRef(fieldId, isLinkField);
     await this.fieldService.batchDeleteFields(tableId, [fieldId]);
   }
 

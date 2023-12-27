@@ -1,12 +1,12 @@
-import type { IFieldOptionsRo, IFieldVo, ILookupOptionsRo } from '@teable-group/core';
+import type { IFieldOptionsRo, IFieldVo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
-import type { IFieldInstance, LinkField } from '@teable-group/sdk';
 import { useFieldStaticGetter } from '@teable-group/sdk';
 import { Textarea } from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import { useCallback, useState } from 'react';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
+import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
 import { LookupOptions } from './lookup-options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { SystemInfo } from './SystemInfo';
@@ -61,7 +61,7 @@ export const FieldEditor = (props: {
     });
   };
 
-  const updateFieldOptions: IFieldOptionsProps['updateFieldOptions'] = useCallback(
+  const updateFieldOptions: IFieldOptionsProps['onChange'] = useCallback(
     (options) => {
       setFieldFn({
         ...field,
@@ -74,41 +74,14 @@ export const FieldEditor = (props: {
     [field, setFieldFn]
   );
 
-  const updateLookupOptions = useCallback(
-    (
-      lookupOptions: Partial<ILookupOptionsRo>,
-      linkField?: LinkField,
-      lookupField?: IFieldInstance
-    ) => {
-      const newLookupOptions = {
-        ...field.lookupOptions,
-        ...(lookupOptions || {}),
-      } as ILookupOptionsRo;
-
-      const newField: IFieldEditorRo = lookupField
-        ? {
-            ...field,
-            lookupOptions: newLookupOptions,
-            type: field.isLookup ? lookupField.type : field.type,
-            cellValueType: lookupField.cellValueType,
-            isMultipleCellValue: linkField?.isMultipleCellValue || lookupField.isMultipleCellValue,
-          }
-        : {
-            ...field,
-            lookupOptions: newLookupOptions,
-          };
-
-      setFieldFn(newField);
-    },
-    [field, setFieldFn]
-  );
+  const updateLookupOptions = useUpdateLookupOptions(field, setFieldFn);
 
   const getUnionOptions = () => {
     if (field.isLookup) {
       return (
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
-          <FieldOptions field={field} updateFieldOptions={updateFieldOptions} />
+          <FieldOptions field={field} onChange={updateFieldOptions} />
         </>
       );
     }
@@ -117,14 +90,12 @@ export const FieldEditor = (props: {
       return (
         <>
           <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
-          {field.lookupOptions && (
-            <FieldOptions field={field} updateFieldOptions={updateFieldOptions} />
-          )}
+          {field.lookupOptions && <FieldOptions field={field} onChange={updateFieldOptions} />}
         </>
       );
     }
 
-    return <FieldOptions field={field} updateFieldOptions={updateFieldOptions} />;
+    return <FieldOptions field={field} onChange={updateFieldOptions} />;
   };
 
   return (

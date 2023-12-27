@@ -27,17 +27,17 @@ import type { IFieldEditorRo } from './type';
 
 export interface IFieldOptionsProps {
   field: IFieldEditorRo;
-  updateFieldOptions: (options: Partial<IFieldVo['options']>) => void;
+  onChange: (options: Partial<IFieldVo['options']>) => void;
 }
 
-export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldOptions }) => {
+export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) => {
   const { type, isLookup, cellValueType, isMultipleCellValue, options } = field;
   switch (type) {
     case FieldType.SingleLineText:
       return (
         <SingleLineTextOptions
           options={options as ISingleLineTextFieldOptions}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.SingleSelect:
@@ -46,7 +46,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
         <SelectOptions
           options={options as ISelectFieldOptions}
           isLookup={isLookup}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.Number:
@@ -55,7 +55,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
           options={options as INumberFieldOptions}
           isLookup={isLookup}
           isMultipleCellValue={isMultipleCellValue}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.Link:
@@ -63,7 +63,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
         <LinkOptions
           options={options as ILinkFieldOptionsRo}
           isLookup={isLookup}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.Formula:
@@ -73,7 +73,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
           isLookup={isLookup}
           cellValueType={cellValueType}
           isMultipleCellValue={isMultipleCellValue}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.User:
@@ -81,7 +81,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
         <UserOptions
           options={options as IUserFieldOptions}
           isLookup={isLookup}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.Date:
@@ -89,21 +89,18 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
         <DateOptions
           options={options as IDateFieldOptions}
           isLookup={isLookup}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.CreatedTime:
       return (
-        <CreatedTimeOptions
-          options={options as ICreatedTimeFieldOptions}
-          onChange={updateFieldOptions}
-        />
+        <CreatedTimeOptions options={options as ICreatedTimeFieldOptions} onChange={onChange} />
       );
     case FieldType.LastModifiedTime:
       return (
         <CreatedTimeOptions
           options={options as ILastModifiedTimeFieldOptions}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.Rating:
@@ -111,7 +108,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
         <RatingOptions
           options={options as IRatingFieldOptions}
           isLookup={isLookup}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     case FieldType.Rollup:
@@ -121,7 +118,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, updateFieldO
           isLookup={isLookup}
           cellValueType={cellValueType}
           isMultipleCellValue={isMultipleCellValue}
-          onChange={updateFieldOptions}
+          onChange={onChange}
         />
       );
     default:

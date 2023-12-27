@@ -57,7 +57,7 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
   };
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex w-full flex-col gap-2" data-testid="multi-number-show-as">
       <Label className="font-normal">Show As</Label>
       <div className="flex justify-between">
         {MULTI_NUMBER_DISPLAY_INFOS.map(({ type, text }) => {

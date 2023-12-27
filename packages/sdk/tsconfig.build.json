@@ -2,11 +2,12 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": "src",
     "target": "esnext",
     "module": "esnext",
     "jsx": "react-jsx",
     "paths": {}
   },
-  "exclude": ["dist", "**/__tests__/*", "**/*spec.ts"]
+  "exclude": ["dist", "**/__tests__/*", "**/*spec.ts"],
+  "include": ["src"]
 }

@@ -241,7 +241,6 @@ export class FieldService implements IAdapterService {
         result = result.filter((field) => !view?.columnMeta[field.id].hidden);
       }
       result = sortBy(result, (field) => {
-        console.log('fieldOrder', field.name, view?.columnMeta[field.id].order);
         return view?.columnMeta[field.id].order;
       });
     }
@@ -278,6 +277,7 @@ export class FieldService implements IAdapterService {
 
     const fieldMap = keyBy(fieldRaw, 'id');
 
+    console.log('opData', JSON.stringify(opData, null, 2));
     for (const { fieldId, ops } of opData) {
       const opContext = ops.map((op) => {
         const ctx = FieldOpBuilder.detect(op);
