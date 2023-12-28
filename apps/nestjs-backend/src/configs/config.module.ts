@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import path from 'path';
 import type { DynamicModule } from '@nestjs/common';
 import { Logger, Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule as BaseConfigModule } from '@nestjs/config';
 import { authConfig } from './auth.config';
 import { baseConfig } from './base.config';
 import { bootstrapConfigs, nextJsConfig } from './bootstrap.config';
@@ -12,11 +13,9 @@ import { mailConfig } from './mail.config';
 const configurations = [...bootstrapConfigs, loggerConfig, mailConfig, authConfig, baseConfig];
 
 @Module({})
-export class TeableConfigModule {
+export class ConfigModule {
   static register(): DynamicModule {
-    const logger = new Logger();
-
-    return ConfigModule.forRoot({
+    return BaseConfigModule.forRoot({
       isGlobal: true,
       cache: true,
       expandVariables: true,
@@ -24,7 +23,10 @@ export class TeableConfigModule {
       envFilePath: ['.env.development.local', '.env.development', '.env'].map((str) => {
         const nextJsDir = nextJsConfig().dir;
         const envDir = nextJsDir ? path.join(process.cwd(), nextJsDir, str) : str;
-        logger.log(`[Env File Path]: ${envDir}`);
+
+        Logger.attachBuffer();
+        Logger.log(`[Env File Path]: ${envDir}`);
+        Logger.detachBuffer();
         return envDir;
       }),
       validationSchema: envValidationSchema,

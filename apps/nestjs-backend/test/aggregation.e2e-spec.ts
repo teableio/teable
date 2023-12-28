@@ -3,18 +3,15 @@ import type { INestApplication } from '@nestjs/common';
 import type { ITableFullVo } from '@teable-group/core';
 import { StatisticsFunc } from '@teable-group/core';
 import { getAggregation, getRowCount } from '@teable-group/openapi';
-import type request from 'supertest';
-import { createRecords, initApp } from './utils/init-app';
+import { createRecords, createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AggregationController (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -42,28 +39,24 @@ describe('OpenAPI AggregationController (e2e)', () => {
   describe('simple aggregation', () => {
     let table: ITableFullVo;
     beforeEach(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-        })
-        .expect(201);
-      table = result.body;
+      table = await createTable(baseId, { name: 'table1' });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
+      await deleteTable(baseId, table.id);
     });
 
     it('should get rowCount', async () => {
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
-            [table.fields[1].id]: faker.number.int(),
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: faker.string.sample(),
+              [table.fields[1].id]: faker.number.int(),
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { rowCount } = await getViewRowCount(table.id, table.views[0].id);
       expect(rowCount).toEqual(4);
@@ -87,13 +80,15 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: faker.string.sample(),
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
@@ -128,13 +123,15 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: faker.string.sample(),
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
@@ -170,18 +167,20 @@ describe('OpenAPI AggregationController (e2e)', () => {
       });
 
       const identicalStr = faker.string.sample();
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[0].id]: identicalStr,
+      await createRecords(tableId, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: identicalStr,
+            },
           },
-        },
-        {
-          fields: {
-            [table.fields[0].id]: identicalStr,
+          {
+            fields: {
+              [table.fields[0].id]: identicalStr,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
@@ -197,13 +196,15 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: faker.string.sample(),
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
@@ -238,18 +239,20 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 9,
+      await createRecords(tableId, {
+        records: [
+          {
+            fields: {
+              [table.fields[1].id]: 9,
+            },
           },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 11,
+          {
+            fields: {
+              [table.fields[1].id]: 11,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
@@ -284,18 +287,20 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 22,
+      await createRecords(tableId, {
+        records: [
+          {
+            fields: {
+              [table.fields[1].id]: 22,
+            },
           },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 0,
+          {
+            fields: {
+              [table.fields[1].id]: 0,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
@@ -330,18 +335,20 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 6,
+      await createRecords(tableId, {
+        records: [
+          {
+            fields: {
+              [table.fields[1].id]: 6,
+            },
           },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 60,
+          {
+            fields: {
+              [table.fields[1].id]: 60,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
@@ -376,18 +383,20 @@ describe('OpenAPI AggregationController (e2e)', () => {
         ]),
       });
 
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 6.6,
+      await createRecords(tableId, {
+        records: [
+          {
+            fields: {
+              [table.fields[1].id]: 6.6,
+            },
           },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 9.9,
+          {
+            fields: {
+              [table.fields[1].id]: 9.9,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(
         await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])

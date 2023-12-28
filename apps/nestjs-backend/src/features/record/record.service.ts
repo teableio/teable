@@ -1030,8 +1030,6 @@ export class RecordService implements IAdapterService {
 
     const querySql = queryBuilder.toQuery();
 
-    return await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
+    return this.prismaService.txClient().$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
   }
 }

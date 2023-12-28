@@ -18,28 +18,39 @@ import type {
   ICreateTableRo,
   IFilter,
   IViewRo,
+  IGetRecordsQuery,
+  IRecordsVo,
+  IUpdateRecordRo,
+  ITableFullVo,
+  IGetTableQuery,
+  ITableVo,
 } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import {
   axios,
-  updateRecord,
-  signin,
+  signin as apiSignin,
   getRecord as apiGetRecord,
+  deleteRecord as apiDeleteRecord,
+  deleteRecords as apiDeleteRecords,
+  updateRecord as apiUpdateRecord,
+  getRecords as apiGetRecords,
   createRecords as apiCreateRecords,
   createField as apiCreateField,
+  deleteField as apiDeleteField,
   updateField as apiUpdateField,
   getFields as apiGetFields,
   getField as apiGetField,
+  getViewList as apiGetViewList,
   getViewById as apiGetViewById,
   setViewColumnMeta as apiSetViewColumnMeta,
   createTable as apiCreateTable,
   deleteTable as apiDeleteTable,
+  getTableById as apiGetTableById,
   setViewFilter as apiSetViewFilter,
   createView as apiCreateView,
 } from '@teable-group/openapi';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
-import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { NextService } from '../../src/features/next/next.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
@@ -97,6 +108,8 @@ export async function initApp() {
   const nestUrl = await app.getUrl();
   const url = `http://127.0.0.1:${new URL(nestUrl).port}`;
 
+  console.log('url', url);
+
   axios.interceptors.request.use((config) => {
     config.baseURL = url + '/api';
     return config;
@@ -108,27 +121,52 @@ export async function initApp() {
     return config;
   });
 
-  const newRequest = request.agent(app.getHttpServer());
-  newRequest.set('Cookie', cookie);
-
   console.log(`> Test NODE_ENV is ${process.env.NODE_ENV}`);
   console.log(`> Test Ready on ${url}`);
 
-  return { app, request: newRequest, cookie: cookie.join(';') };
+  return { app, appUrl: url, cookie: cookie.join(';') };
 }
 
-export async function createTable(baseId: string, tableVo: ICreateTableRo) {
-  const result = await apiCreateTable(baseId, tableVo);
-  return result.data;
+export async function createTable(baseId: string, tableVo: ICreateTableRo, expectStatus = 201) {
+  try {
+    const res = await apiCreateTable(baseId, tableVo);
+    expect(res.status).toEqual(expectStatus);
+
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as ITableFullVo;
+  }
 }
 
-export async function deleteTable(baseId: string, tableId: string) {
-  const result = await apiDeleteTable(baseId, tableId);
+export async function deleteTable(baseId: string, tableId: string, expectStatus?: number) {
+  try {
+    const res = await apiDeleteTable(baseId, tableId);
+    expectStatus && expect(res.status).toEqual(expectStatus);
+
+    return res.data;
+  } catch (e: unknown) {
+    if (expectStatus && (e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IRecord;
+  }
+}
+
+export async function getTable(
+  baseId: string,
+  tableId: string,
+  query: IGetTableQuery = {}
+): Promise<ITableVo> {
+  const result = await apiGetTableById(baseId, tableId, query);
+
   return result.data;
 }
 
 async function getCookie(email: string, password: string) {
-  const sessionResponse = await signin({ email, password });
+  const sessionResponse = await apiSignin({ email, password });
   return {
     access_token: sessionResponse.data,
     cookie: sessionResponse.headers['set-cookie'] as string[],
@@ -140,13 +178,61 @@ export async function updateRecordByApi(
   recordId: string,
   fieldId: string,
   newValue: unknown,
+  expectStatus = 200,
+  fieldKeyType = FieldKeyType.Id
+) {
+  try {
+    const res = await apiUpdateRecord(tableId, recordId, {
+      record: { fields: { [fieldId]: newValue } },
+      fieldKeyType,
+    });
+    expect(res.status).toEqual(expectStatus);
+
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IRecord;
+  }
+}
+
+export async function updateRecord(
+  tableId: string,
+  recordId: string,
+  recordRo: IUpdateRecordRo,
   expectStatus = 200
 ) {
   try {
-    const res = await updateRecord(tableId, recordId, {
-      record: { fields: { [fieldId]: newValue } },
-      fieldKeyType: FieldKeyType.Id,
-    });
+    const res = await apiUpdateRecord(tableId, recordId, recordRo);
+    expect(res.status).toEqual(expectStatus);
+
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IRecord;
+  }
+}
+
+export async function deleteRecord(tableId: string, recordId: string, expectStatus = 200) {
+  try {
+    const res = await apiDeleteRecord(tableId, recordId);
+    expect(res.status).toEqual(expectStatus);
+
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IRecord;
+  }
+}
+
+export async function deleteRecords(tableId: string, recordIds: string[], expectStatus = 200) {
+  try {
+    const res = await apiDeleteRecords(tableId, recordIds);
     expect(res.status).toEqual(expectStatus);
 
     return res.data;
@@ -161,56 +247,99 @@ export async function updateRecordByApi(
 export async function getRecord(
   tableId: string,
   recordId: string,
-  cellFormat?: CellFormat
+  cellFormat?: CellFormat,
+  expectStatus = 200
 ): Promise<IRecord> {
-  return (await apiGetRecord(tableId, recordId, { fieldKeyType: FieldKeyType.Id, cellFormat }))
-    .data;
+  try {
+    const res = await apiGetRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      cellFormat,
+    });
+
+    expect(res.status).toEqual(expectStatus);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IRecord;
+  }
+}
+
+export async function getRecords(tableId: string, query?: IGetRecordsQuery): Promise<IRecordsVo> {
+  const result = await apiGetRecords(tableId, query);
+
+  return result.data;
 }
 
 export async function createRecords(
   tableId: string,
-  records: ICreateRecordsRo['records'],
-  typecast = false,
-  status = 201
+  recordsRo: ICreateRecordsRo,
+  expectStatus = 201
 ): Promise<ICreateRecordsVo> {
   try {
     const res = await apiCreateRecords(tableId, {
-      records,
-      fieldKeyType: FieldKeyType.Id,
-      typecast: typecast,
+      fieldKeyType: recordsRo.fieldKeyType ?? FieldKeyType.Id,
+      records: recordsRo.records,
+      typecast: recordsRo.typecast ?? false,
     });
 
-    expect(res.status).toEqual(status);
+    expect(res.status).toEqual(expectStatus);
     return res.data;
   } catch (e: unknown) {
-    if ((e as HttpError).status !== status) {
+    if ((e as HttpError).status !== expectStatus) {
       throw e;
     }
     return {} as ICreateRecordsVo;
   }
 }
 
-export async function createField(tableId: string, fieldRo: IFieldRo): Promise<IFieldVo> {
-  const result = await apiCreateField(tableId, fieldRo);
+export async function createField(
+  tableId: string,
+  fieldRo: IFieldRo,
+  expectStatus = 201
+): Promise<IFieldVo> {
+  try {
+    const res = await apiCreateField(tableId, fieldRo);
 
-  if (result.status !== 201) {
+    expect(res.status).toEqual(expectStatus);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IFieldVo;
+  }
+}
+
+export async function deleteField(tableId: string, fieldId: string) {
+  const result = await apiDeleteField(tableId, fieldId);
+
+  if (result.status !== 200) {
     console.error(result.data);
   }
-  expect(result.status).toEqual(201);
+
+  expect(result.status).toEqual(200);
   return result.data;
 }
 
 export async function updateField(
   tableId: string,
   fieldId: string,
-  fieldRo: IFieldRo
+  fieldRo: IFieldRo,
+  expectStatus = 200
 ): Promise<IFieldVo> {
-  const result = await apiUpdateField(tableId, fieldId, fieldRo);
-  if (result.status !== 200) {
-    console.error(JSON.stringify(result.data, null, 2));
+  try {
+    const res = await apiUpdateField(tableId, fieldId, fieldRo);
+
+    expect(res.status).toEqual(expectStatus);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IFieldVo;
   }
-  expect(result.status).toEqual(200);
-  return result.data;
 }
 
 export async function getFields(
@@ -223,8 +352,26 @@ export async function getFields(
   return result.data;
 }
 
-export async function getField(tableId: string, fieldId: string): Promise<IFieldVo> {
-  const result = await apiGetField(tableId, fieldId);
+export async function getField(
+  tableId: string,
+  fieldId: string,
+  expectStatus = 200
+): Promise<IFieldVo> {
+  try {
+    const res = await apiGetField(tableId, fieldId);
+
+    expect(res.status).toEqual(expectStatus);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IFieldVo;
+  }
+}
+
+export async function getViews(tableId: string): Promise<IViewVo[]> {
+  const result = await apiGetViewList(tableId);
   return result.data;
 }
 
@@ -233,7 +380,7 @@ export async function getView(tableId: string, viewId: string): Promise<IViewVo>
   return result.data;
 }
 
-export async function creteView(tableId: string, viewRo: IViewRo) {
+export async function createView(tableId: string, viewRo: IViewRo) {
   const result = await apiCreateView(tableId, viewRo);
   return result.data;
 }

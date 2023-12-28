@@ -1,8 +1,21 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptionsRo, ITableFullVo } from '@teable-group/core';
-import { Relationship, FieldType, generateFieldId, NumberFormattingType } from '@teable-group/core';
-import type request from 'supertest';
-import { initApp, createField } from './utils/init-app';
+import {
+  FieldKeyType,
+  FieldType,
+  generateFieldId,
+  NumberFormattingType,
+  Relationship,
+} from '@teable-group/core';
+import {
+  createField,
+  createRecords,
+  createTable,
+  deleteTable,
+  getRecords,
+  initApp,
+  updateRecord,
+} from './utils/init-app';
 
 describe('OpenAPI formula (e2e)', () => {
   let app: INestApplication;
@@ -10,13 +23,11 @@ describe('OpenAPI formula (e2e)', () => {
   let numberFieldRo: IFieldRo & { id: string; name: string };
   let textFieldRo: IFieldRo & { id: string; name: string };
   let formulaFieldRo: IFieldRo & { id: string; name: string };
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -51,59 +62,51 @@ describe('OpenAPI formula (e2e)', () => {
       },
     };
 
-    const result1 = await request
-      .post(`/api/base/${baseId}/table`)
-      .send({
+    table1Id = (
+      await createTable(baseId, {
         name: 'table1',
         fields: [numberFieldRo, textFieldRo, formulaFieldRo],
       })
-      .expect(201);
-    table1Id = result1.body.id;
+    ).id;
   });
 
   afterEach(async () => {
-    await request.delete(`/api/base/${baseId}/table/arbitrary/${table1Id}`);
+    await deleteTable(baseId, table1Id);
   });
 
   it('should response calculate record after create', async () => {
-    const recordResult = await request
-      .post(`/api/table/${table1Id}/record`)
-      .send({
-        records: [
-          {
-            fields: {
-              [numberFieldRo.name]: 1,
-              [textFieldRo.name]: 'x',
-            },
+    const recordResult = await createRecords(table1Id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        {
+          fields: {
+            [numberFieldRo.name]: 1,
+            [textFieldRo.name]: 'x',
           },
-        ],
-      })
-      .expect(201);
+        },
+      ],
+    });
 
-    const record = recordResult.body.records[0];
+    const record = recordResult.records[0];
     expect(record.fields[numberFieldRo.name]).toEqual(1);
     expect(record.fields[textFieldRo.name]).toEqual('x');
     expect(record.fields[formulaFieldRo.name]).toEqual('1x');
   });
 
   it('should response calculate record after update multi record field', async () => {
-    const getResult = await request.get(`/api/table/${table1Id}/record`).expect(200);
+    const getResult = await getRecords(table1Id);
 
-    const existRecord = getResult.body.records[0];
+    const existRecord = getResult.records[0];
 
-    const updateResult = await request
-      .patch(`/api/table/${table1Id}/record/${existRecord.id}`)
-      .send({
-        record: {
-          fields: {
-            [numberFieldRo.name]: 1,
-            [textFieldRo.name]: 'x',
-          },
+    const record = await updateRecord(table1Id, existRecord.id, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          [numberFieldRo.name]: 1,
+          [textFieldRo.name]: 'x',
         },
-      })
-      .expect(200);
-
-    const record = updateResult.body;
+      },
+    });
 
     expect(record.fields[numberFieldRo.name]).toEqual(1);
     expect(record.fields[textFieldRo.name]).toEqual('x');
@@ -111,39 +114,31 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   it('should response calculate record after update single record field', async () => {
-    const getResult = await request.get(`/api/table/${table1Id}/record`).expect(200);
+    const getResult = await getRecords(table1Id);
 
-    const existRecord = getResult.body.records[0];
+    const existRecord = getResult.records[0];
 
-    const updateResult1 = await request
-      .patch(`/api/table/${table1Id}/record/${existRecord.id}`)
-      .send({
-        record: {
-          fields: {
-            [numberFieldRo.name]: 1,
-          },
+    const record1 = await updateRecord(table1Id, existRecord.id, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          [numberFieldRo.name]: 1,
         },
-      })
-      .expect(200);
-
-    const record1 = updateResult1.body;
+      },
+    });
 
     expect(record1.fields[numberFieldRo.name]).toEqual(1);
     expect(record1.fields[textFieldRo.name]).toBeUndefined();
     expect(record1.fields[formulaFieldRo.name]).toEqual('1');
 
-    const updateResult2 = await request
-      .patch(`/api/table/${table1Id}/record/${existRecord.id}`)
-      .send({
-        record: {
-          fields: {
-            [textFieldRo.name]: 'x',
-          },
+    const record2 = await updateRecord(table1Id, existRecord.id, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          [textFieldRo.name]: 'x',
         },
-      })
-      .expect(200);
-
-    const record2 = updateResult2.body;
+      },
+    });
 
     expect(record2.fields[numberFieldRo.name]).toEqual(1);
     expect(record2.fields[textFieldRo.name]).toEqual('x');
@@ -151,8 +146,7 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   it('should calculate primary field when have link relationship', async () => {
-    const result2 = await request.post(`/api/base/${baseId}/table`).expect(201);
-    const table2: ITableFullVo = result2.body;
+    const table2: ITableFullVo = await createTable(baseId, { name: 'table2' });
     const linkFieldRo: IFieldRo = {
       type: FieldType.Link,
       options: {
@@ -172,19 +166,14 @@ describe('OpenAPI formula (e2e)', () => {
 
     const formulaField = await createField(table2.id, formulaFieldRo);
 
-    console.log('----------------------');
-    const updateResult1 = await request
-      .patch(`/api/table/${table2.id}/record/${table2.records[0].id}`)
-      .send({
-        record: {
-          fields: {
-            [table2.fields[0].name]: 'text',
-          },
+    const record1 = await updateRecord(table2.id, table2.records[0].id, {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          [table2.fields[0].name]: 'text',
         },
-      })
-      .expect(200);
-
-    const record1 = updateResult1.body;
+      },
+    });
     expect(record1.fields[formulaField.name]).toEqual('text');
   });
 });

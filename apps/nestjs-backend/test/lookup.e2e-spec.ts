@@ -3,12 +3,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type {
-  ILookupOptionsRo,
-  IFieldVo,
-  LinkFieldCore,
   IFieldRo,
-  ITableFullVo,
+  IFieldVo,
+  ILookupOptionsRo,
   INumberFieldOptions,
+  ITableFullVo,
+  LinkFieldCore,
 } from '@teable-group/core';
 import {
   Colors,
@@ -17,9 +17,17 @@ import {
   Relationship,
   TimeFormatting,
 } from '@teable-group/core';
-import { deleteField } from '@teable-group/openapi';
-import type request from 'supertest';
-import { updateRecordByApi, getRecord, initApp, createField } from './utils/init-app';
+import { getGraph as apiGetGraph } from '@teable-group/openapi';
+import {
+  createField,
+  deleteField,
+  createTable,
+  deleteTable,
+  getFields,
+  getRecord,
+  initApp,
+  updateRecordByApi,
+} from './utils/init-app';
 
 // All kind of field type (except link)
 const defaultFields: IFieldRo[] = [
@@ -95,11 +103,10 @@ describe('OpenAPI Lookup field (e2e)', () => {
   let table1: ITableFullVo = {} as any;
   let table2: ITableFullVo = {} as any;
   const tables: ITableFullVo[] = [];
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   async function updateTableFields(table: ITableFullVo) {
-    const tableFields = (await request.get(`/api/table/${table.id}/field`).expect(200)).body;
+    const tableFields = await getFields(table.id);
     table.fields = tableFields;
     return tableFields;
   }
@@ -107,40 +114,28 @@ describe('OpenAPI Lookup field (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
 
     // create table1 with fundamental field
-    const result1 = await request
-      .post(`/api/base/${baseId}/table`)
-      .send({
-        name: 'table1',
-        fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table1]' })),
-      })
-      .expect(201);
-    table1 = result1.body;
+    table1 = await createTable(baseId, {
+      name: 'table1',
+      fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table1]' })),
+    });
 
     // create table2 with fundamental field
-    const result2 = await request
-      .post(`/api/base/${baseId}/table`)
-      .send({
-        name: 'table2',
-        fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table2]' })),
-      })
-      .expect(201);
-    table2 = result2.body;
+    table2 = await createTable(baseId, {
+      name: 'table2',
+      fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table2]' })),
+    });
 
     // create link field
-    await request
-      .post(`/api/table/${table1.id}/field`)
-      .send({
-        name: 'link[table1]',
-        type: FieldType.Link,
-        options: {
-          relationship: Relationship.OneMany,
-          foreignTableId: table2.id,
-        },
-      } as IFieldRo)
-      .expect(201);
+    await createField(table1.id, {
+      name: 'link[table1]',
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.OneMany,
+        foreignTableId: table2.id,
+      },
+    });
     // update fields in table after create link field
     await updateTableFields(table1);
     await updateTableFields(table2);
@@ -148,12 +143,9 @@ describe('OpenAPI Lookup field (e2e)', () => {
   });
 
   afterAll(async () => {
-    try {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`).expect(200);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`).expect(200);
-    } finally {
-      await app.close();
-    }
+    await deleteTable(baseId, table1.id);
+    await deleteTable(baseId, table2.id);
+    await app.close();
   });
 
   beforeEach(async () => {
@@ -192,6 +184,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     }
     return field;
   }
+
   function getFieldByName(fields: IFieldVo[], name: string) {
     const field = fields.find((field) => field.name === name);
     if (!field) {
@@ -222,7 +215,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
     };
 
     // create lookup field
-    await request.post(`/api/table/${table.id}/field`).send(lookupFieldRo).expect(201);
+    await createField(table.id, lookupFieldRo);
 
     await updateTableFields(table);
     return getFieldByName(table.fields, lookupFieldRo.name!);
@@ -624,10 +617,14 @@ describe('OpenAPI Lookup field (e2e)', () => {
     );
 
     await lookupFrom(table2, lookedUpToField.id);
-    const result = await request.post(`/api/base/${baseId}/table/${table1.id}/graph`).send({
-      cell: [0, 0],
-    });
-    expect(result.body.nodes).toBeTruthy();
-    expect(result.body.edges).toBeTruthy();
+    const result = (
+      await apiGetGraph({
+        baseId,
+        tableId: table1.id,
+        cell: [0, 0],
+      })
+    ).data;
+    expect(result?.nodes).toBeTruthy();
+    expect(result?.edges).toBeTruthy();
   });
 });

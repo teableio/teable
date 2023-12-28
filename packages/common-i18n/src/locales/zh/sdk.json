@@ -40,7 +40,8 @@
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
     "linkInputPlaceholder": "输入值",
-    "groupDescription": "以下任一条件为真…"
+    "groupDescription": "以下任一条件为真…",
+    "currentUser": "我（当前用户）"
   },
   "hidden": {
     "showAll": "显示全部",

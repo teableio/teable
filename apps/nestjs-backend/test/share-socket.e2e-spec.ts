@@ -1,20 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import { IdPrefix, ViewType } from '@teable-group/core';
-import type { ICreateTableRo, ITableFullVo } from '@teable-group/core';
+import { enableShareView as apiEnableShareView } from '@teable-group/openapi';
 import { map } from 'lodash';
 import { logger, type Doc } from 'sharedb/lib/client';
-import type request from 'supertest';
 import { vi } from 'vitest';
 import { ShareDbService } from '../src/share-db/share-db.service';
-import { initApp, updateViewColumnMeta } from './utils/init-app';
+import { initApp, updateViewColumnMeta, createTable, deleteTable } from './utils/init-app';
 
 describe('Share (socket-e2e) (e2e)', () => {
   let app: INestApplication;
   let tableId: string;
   let shareId: string;
   let viewId: string;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
   let fieldIds: string[] = [];
   let shareDbService!: ShareDbService;
@@ -23,40 +21,35 @@ describe('Share (socket-e2e) (e2e)', () => {
     const appCtx = await initApp();
     app = appCtx.app;
     shareDbService = app.get(ShareDbService);
-    request = appCtx.request;
-    const result = await request
-      .post(`/api/base/${baseId}/table`)
-      .send({
-        name: 'table1',
-        views: [
-          {
-            type: ViewType.Grid,
-            name: 'view1',
-          },
-          {
-            type: ViewType.Form,
-            name: 'view2',
-          },
-        ],
-      } as ICreateTableRo)
-      .expect(201);
-    const table = result.body as ITableFullVo;
+
+    const table = await createTable(baseId, {
+      name: 'table1',
+      views: [
+        {
+          type: ViewType.Grid,
+          name: 'view1',
+        },
+        {
+          type: ViewType.Form,
+          name: 'view2',
+        },
+      ],
+    });
     tableId = table.id;
     viewId = table.defaultViewId!;
-    const shareResult = await request
-      .patch(`/api/table/${tableId}/view/${viewId}/enableShare`)
-      .expect(200);
+    const shareResult = await apiEnableShareView({ tableId, viewId });
     fieldIds = map(table.fields, 'id');
     // hidden last one field
     const field = table.fields[fieldIds.length - 1];
     await updateViewColumnMeta(tableId, viewId, [
       { fieldId: field.id, columnMeta: { hidden: true } },
     ]);
-    shareId = shareResult.body.shareId;
+    shareId = shareResult.data.shareId;
   });
 
   afterAll(async () => {
-    await request.delete(`/api/base/${baseId}/table/arbitrary/${tableId}`).expect(200);
+    await deleteTable(baseId, tableId);
+
     await app.close();
   });
 
