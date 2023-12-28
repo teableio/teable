@@ -2123,7 +2123,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const recordResult2 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const recordResult2 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(recordResult2.records[0].fields[lookupField.id]).toEqual([1]);
     });
 
@@ -2214,7 +2214,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const recordResult2 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const recordResult2 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(recordResult2.records[0].fields[lookupField.id]).toEqual([2023]);
     });
 

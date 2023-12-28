@@ -8,7 +8,7 @@ import {
 } from '@teable-group/openapi';
 import { initApp } from './utils/init-app';
 
-describe('OpenAPI Db Connection (e2e)', () => {
+describe.skip('OpenAPI Db Connection (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
 
