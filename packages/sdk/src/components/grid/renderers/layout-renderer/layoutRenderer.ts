@@ -1,3 +1,4 @@
+import { contractColorForTheme } from '@teable-group/core';
 import { isEqual, groupBy } from 'lodash';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import { getDropTargetIndex } from '../../hooks';
@@ -17,7 +18,6 @@ import {
   drawRect,
   drawRoundPoly,
   drawSingleLineText,
-  drawAvatar,
 } from '../base-renderer';
 import { getCellRenderer, getCellScrollState } from '../cell-renderer';
 import type {
@@ -432,11 +432,13 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
 };
 
 export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { collaborators, scrollState, coordInstance, theme } = props;
+  const { collaborators, scrollState, coordInstance, activeCellBound, theme } = props;
   const { scrollTop, scrollLeft } = scrollState;
-  const { fontFamily, avatarBg, avatarTextColor, avatarSizeXS, fontSizeXXS } = theme;
-  const avatarOffset = 4;
-  const cellOffset = 1;
+  const { themeKey } = theme;
+
+  // const { fontFamily, avatarBg, avatarTextColor, avatarSizeXS, fontSizeXXS, scrollBarBg } = theme;
+  // const avatarOffset = 4;
+  // const cellOffset = 1;
 
   const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
     coordInstance;
@@ -450,12 +452,15 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
   for (let i = 0; i < groupedCollaborators.length; i++) {
     // for conflict cell, we'd like to show the latest collaborator
     const conflictCollaborators = groupedCollaborators[i].sort((a, b) => b.timeStamp - a.timeStamp);
-    const { activeCell, borderColor, user } = conflictCollaborators[0];
+    const { activeCell, borderColor } = conflictCollaborators[0];
     const [columnIndex, rowIndex] = activeCell;
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
     const width = coordInstance.getColumnWidth(columnIndex);
-    const height = coordInstance.getRowHeight(rowIndex);
+    const height =
+      activeCellBound?.columnIndex === columnIndex && activeCellBound?.rowIndex === rowIndex
+        ? activeCellBound.height
+        : coordInstance.getRowHeight(rowIndex);
 
     ctx.save();
     ctx.beginPath();
@@ -472,25 +477,26 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     ctx.clip();
 
     drawRect(ctx, {
-      x: x + cellOffset,
-      y: y + cellOffset,
-      width: width - cellOffset,
-      height: height - cellOffset,
-      fill: hexToRGBA(borderColor, 0.1),
+      x: x + 0.5,
+      y: y + 0.5,
+      width,
+      height: height,
+      stroke: hexToRGBA(contractColorForTheme(borderColor, themeKey)),
+      radius: 2,
     });
 
-    drawAvatar(ctx, {
-      x: x + width - avatarSizeXS - avatarOffset + cellOffset * 2,
-      y: y + avatarOffset,
-      width: avatarSizeXS,
-      height: avatarSizeXS,
-      fill: avatarBg,
-      stroke: borderColor,
-      textColor: avatarTextColor,
-      fontSize: fontSizeXXS,
-      fontFamily,
-      user,
-    });
+    // drawAvatar(ctx, {
+    //   x: x + width - avatarSizeXS - avatarOffset + cellOffset * 2,
+    //   y: y + avatarOffset,
+    //   width: avatarSizeXS,
+    //   height: avatarSizeXS,
+    //   fill: avatarBg,
+    //   stroke: borderColor,
+    //   textColor: avatarTextColor,
+    //   fontSize: fontSizeXXS,
+    //   fontFamily,
+    //   user,
+    // });
     ctx.restore();
   }
   ctx.restore();
@@ -1404,9 +1410,9 @@ export const drawGrid = (
 
   drawFreezeRegionDivider(mainCtx, props, DividerRegion.Top);
 
-  drawActiveCell(mainCtx, props);
-
   drawCollaborators(mainCtx, props);
+
+  drawActiveCell(mainCtx, props);
 
   drawColumnStatisticsRegion(mainCtx, props);
 
