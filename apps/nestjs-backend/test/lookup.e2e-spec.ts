@@ -17,10 +17,10 @@ import {
   Relationship,
   TimeFormatting,
 } from '@teable-group/core';
-import { deleteField } from '@teable-group/openapi';
 import { getGraph as apiGetGraph } from '@teable-group/openapi';
 import {
   createField,
+  deleteField,
   createTable,
   deleteTable,
   getFields,
