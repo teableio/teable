@@ -7,7 +7,7 @@ import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
-import { FieldEditor } from './FieldEditor';
+import { DynamicFieldEditor } from './DynamicFieldEditor';
 import type { IFieldEditorRo, IFieldSetting } from './type';
 import { FieldOperator } from './type';
 
@@ -111,7 +111,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
             {/* Header */}
             <div className="text-md mx-2 w-full border-b py-2 font-semibold">{title}</div>
             {/* Content Form */}
-            {<FieldEditor field={field} onChange={onFieldEditorChange} />}
+            {<DynamicFieldEditor field={field} onChange={onFieldEditorChange} />}
             {/* Footer */}
             <div className="flex w-full justify-end space-x-2 p-2">
               <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>
