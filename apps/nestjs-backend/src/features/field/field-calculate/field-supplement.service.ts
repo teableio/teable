@@ -1106,17 +1106,14 @@ export class FieldSupplementService {
 
   async createReference(field: IFieldInstance) {
     if (field.isLookup) {
-      return await this.createLookupReference(field);
+      return this.createComputedFieldReference(field);
     }
 
     switch (field.type) {
       case FieldType.Formula:
-        return await this.createFormulaReference(field);
       case FieldType.Rollup:
-        // rollup use same reference logic as lookup
-        return await this.createLookupReference(field);
       case FieldType.Link:
-        return await this.createLinkReference(field);
+        return this.createComputedFieldReference(field);
       default:
         break;
     }
@@ -1167,36 +1164,25 @@ export class FieldSupplementService {
     return lookupFieldIds;
   }
 
-  private async createLookupReference(field: IFieldInstance) {
-    const toFieldId = field.id;
-    if (!field.lookupOptions) {
-      throw new Error('lookupOptions is required');
+  getComputedFieldReferenceIds(field: IFieldInstance) {
+    if (field.lookupOptions) {
+      return [field.lookupOptions.lookupFieldId];
     }
-    const { lookupFieldId } = field.lookupOptions;
 
-    await this.prismaService.txClient().reference.create({
-      data: {
-        fromFieldId: lookupFieldId,
-        toFieldId,
-      },
-    });
+    if (field.type === FieldType.Link) {
+      return [field.options.lookupFieldId];
+    }
+
+    if (field.type === FieldType.Formula) {
+      return (field as FormulaFieldDto).getReferenceFieldIds();
+    }
+
+    throw new Error('invalid field type');
   }
 
-  private async createLinkReference(field: LinkFieldDto) {
+  private async createComputedFieldReference(field: IFieldInstance) {
     const toFieldId = field.id;
-    const fromFieldId = field.options.lookupFieldId;
-
-    await this.prismaService.txClient().reference.create({
-      data: {
-        fromFieldId,
-        toFieldId,
-      },
-    });
-  }
-
-  private async createFormulaReference(field: FormulaFieldDto) {
-    const fieldIds = field.getReferenceFieldIds();
-    const toFieldId = field.id;
+    const fieldIds = this.getComputedFieldReferenceIds(field);
 
     for (const fromFieldId of fieldIds) {
       await this.prismaService.txClient().reference.create({

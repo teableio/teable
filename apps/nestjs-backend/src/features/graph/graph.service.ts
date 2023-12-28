@@ -2,14 +2,38 @@ import { Injectable } from '@nestjs/common';
 import type { ITinyRecord } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { IGraphEdge, IGraphNode, IGraphCombo, IGraphVo } from '@teable-group/openapi';
-import { keyBy } from 'lodash';
+import type {
+  IGraphEdge,
+  IGraphNode,
+  IGraphCombo,
+  IGraphVo,
+  ICreateFieldPlainVo,
+} from '@teable-group/openapi';
+import { Knex } from 'knex';
+import { groupBy, keyBy, uniq } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import type { IRecordItem } from '../calculation/reference.service';
 import { ReferenceService } from '../calculation/reference.service';
+import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import { RecordService } from '../record/record.service';
+
+interface ITinyField {
+  id: string;
+  name: string;
+  type: string;
+  tableId: string;
+  isLookup?: boolean | null;
+}
+
+interface ITinyTable {
+  id: string;
+  name: string;
+  dbTableName: string;
+  count: number;
+}
 
 @Injectable()
 export class GraphService {
@@ -17,7 +41,9 @@ export class GraphService {
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
-    private readonly referenceService: ReferenceService
+    private readonly referenceService: ReferenceService,
+    private readonly fieldSupplementService: FieldSupplementService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async getCellInfo(tableId: string, cell: [number, number], viewId?: string) {
@@ -80,7 +106,7 @@ export class GraphService {
     });
   }
 
-  private getNodesAndCombos(
+  private getCellNodesAndCombos(
     fieldMap: IFieldMap,
     tableMap: { [dbTableName: string]: { dbTableName: string; name: string } },
     selectedCell: { recordId: string; fieldId: string },
@@ -135,7 +161,7 @@ export class GraphService {
       prepared;
     const tableMap = await this.getTableMap(tableId2DbTableName);
     const orderWithRecords = orderWithRecordsByFieldId[fieldId];
-    const { nodes, combos } = this.getNodesAndCombos(
+    const { nodes, combos } = this.getCellNodesAndCombos(
       fieldMap,
       tableMap,
       { recordId, fieldId },
@@ -163,6 +189,114 @@ export class GraphService {
       nodes,
       edges,
       combos,
+    };
+  }
+
+  private getFieldNodesAndCombos(
+    fieldId: string,
+    fieldRawsMap: Record<string, ITinyField[]>,
+    tableRaws: ITinyTable[]
+  ) {
+    const nodes: IGraphNode[] = [];
+    const combos: IGraphCombo[] = [];
+    tableRaws.forEach(({ id: tableId, name: tableName }) => {
+      combos.push({
+        id: tableId,
+        label: tableName,
+      });
+      fieldRawsMap[tableId].forEach((field) => {
+        nodes.push({
+          id: field.id,
+          label: field.name,
+          comboId: tableId,
+          fieldType: field.type,
+          isLookup: field.isLookup,
+          isSelected: field.id === fieldId,
+        });
+      });
+    });
+    return {
+      nodes,
+      combos,
+    };
+  }
+
+  private async getTablesCount<T extends { dbTableName: string }>(tableRaws: T[]) {
+    const tableRawsWithCount: (T & { count: number })[] = [];
+    for (const tableRaw of tableRaws) {
+      const sql = this.knex(tableRaw.dbTableName).count('* as count').toQuery();
+      const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(sql);
+      tableRawsWithCount.push({ ...tableRaw, count: Number(count) });
+    }
+    return tableRawsWithCount;
+  }
+
+  async createFieldPlain(tableId: string, field: IFieldInstance): Promise<ICreateFieldPlainVo> {
+    const referenceFieldIds = this.fieldSupplementService.getComputedFieldReferenceIds(field);
+    const directedGraph = await this.referenceService.getFieldGraphItems(referenceFieldIds);
+    const fromGraph = referenceFieldIds.map((fromFieldId) => ({
+      fromFieldId,
+      toFieldId: field.id,
+    }));
+    directedGraph.push(...fromGraph);
+    const allFieldIds = uniq(
+      directedGraph.map((item) => [item.fromFieldId, item.toFieldId]).flat()
+    );
+    const fieldRaws = await this.prismaService.field.findMany({
+      where: { id: { in: allFieldIds } },
+      select: { id: true, name: true, type: true, isLookup: true, tableId: true },
+    });
+
+    fieldRaws.push({
+      id: field.id,
+      name: field.name,
+      type: field.type,
+      isLookup: field.isLookup || null,
+      tableId,
+    });
+
+    const tableRaws = await this.prismaService.tableMeta.findMany({
+      where: { id: { in: uniq(fieldRaws.map((item) => item.tableId)) } },
+      select: { id: true, name: true, dbTableName: true },
+    });
+
+    const tableRawsWithCount = await this.getTablesCount(tableRaws);
+    const tableMap = keyBy(tableRawsWithCount, 'id');
+    const fieldMap = keyBy(fieldRaws, 'id');
+
+    const fieldRawsMap = groupBy(fieldRaws, 'tableId');
+
+    const edges = directedGraph.map<IGraphEdge>((node) => {
+      const field = fieldMap[node.toFieldId];
+      return {
+        source: node.fromFieldId,
+        target: node.toFieldId,
+        label: field.type + (field.isLookup ? ' (lookup)' : ''),
+      };
+    }, []);
+
+    const { nodes, combos } = this.getFieldNodesAndCombos(
+      field.id,
+      fieldRawsMap,
+      tableRawsWithCount
+    );
+    const updateCellCount = tableMap[tableId].count;
+    const totalCellCount = Object.entries(fieldRawsMap).reduce((pre, [tableId, fieldRaws]) => {
+      const tableRaw = tableMap[tableId];
+      const count = tableRaw.count;
+      const fieldCount = fieldRaws.length;
+      return pre + count * fieldCount;
+    }, 0);
+
+    return {
+      isAsync: updateCellCount > 1000 || totalCellCount > 10000,
+      graph: {
+        nodes,
+        edges,
+        combos,
+      },
+      updateCellCount,
+      totalCellCount,
     };
   }
 }
