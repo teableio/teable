@@ -29,7 +29,11 @@ import type { ICellChange } from './utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
 import type { IAdjacencyMap } from './utils/dfs';
-import { buildCompressedAdjacencyMap, filterDirectedGraph, getTopologicalOrder } from './utils/dfs';
+import {
+  buildCompressedAdjacencyMap,
+  filterDirectedGraph,
+  topologicalOrderFromNode,
+} from './utils/dfs';
 
 // topo item is for field level reference, all id stands for fieldId;
 export interface ITopoItem {
@@ -143,7 +147,7 @@ export class ReferenceService {
     return fieldIds.reduce<{
       [fieldId: string]: ITopoItem[];
     }>((pre, fieldId) => {
-      pre[fieldId] = getTopologicalOrder(fieldId, directedGraph);
+      pre[fieldId] = topologicalOrderFromNode(fieldId, directedGraph);
       return pre;
     }, {});
   }

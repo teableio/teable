@@ -102,10 +102,7 @@ export function buildCompressedAdjacencyMap(
  * @param graph - The input graph.
  * @returns An array of ITopoItem representing the topological order.
  */
-export function getTopologicalOrder(
-  startNodeId: string,
-  graph: { toFieldId: string; fromFieldId: string }[]
-): ITopoItem[] {
+export function topologicalOrderFromNode(startNodeId: string, graph: IGraphItem[]): ITopoItem[] {
   const visitedNodes = new Set<string>();
   const sortedNodes: ITopoItem[] = [];
 
@@ -143,6 +140,51 @@ export function getTopologicalOrder(
     id: node.id,
     dependencies: uniq(node.dependencies),
   }));
+}
+
+// simple topological sort
+export function topologicalSort(graph: IGraphItem[]): string[] {
+  const adjList: Record<string, string[]> = {};
+  const visited = new Set<string>();
+  const currentStack = new Set<string>();
+  const result: string[] = [];
+
+  graph.forEach((node) => {
+    if (!adjList[node.fromFieldId]) {
+      adjList[node.fromFieldId] = [];
+    }
+    adjList[node.fromFieldId].push(node.toFieldId);
+  });
+
+  function dfs(node: string) {
+    if (currentStack.has(node)) {
+      throw new Error(`Detected a cycle involving node '${node}'`);
+    }
+
+    if (visited.has(node)) {
+      return;
+    }
+
+    currentStack.add(node);
+    visited.add(node);
+
+    const neighbors = adjList[node] || [];
+    neighbors.forEach((neighbor) => dfs(neighbor));
+
+    currentStack.delete(node);
+    result.push(node);
+  }
+
+  graph.forEach((node) => {
+    if (!visited.has(node.fromFieldId)) {
+      dfs(node.fromFieldId);
+    }
+    if (!visited.has(node.toFieldId)) {
+      dfs(node.toFieldId);
+    }
+  });
+
+  return result.reverse();
 }
 
 /**

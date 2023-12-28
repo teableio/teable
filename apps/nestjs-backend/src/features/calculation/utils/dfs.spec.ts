@@ -1,4 +1,5 @@
-import { buildAdjacencyMap, buildCompressedAdjacencyMap } from './dfs';
+import type { IGraphItem } from './dfs';
+import { buildAdjacencyMap, buildCompressedAdjacencyMap, topologicalSort } from './dfs';
 
 describe('Graph Processing Functions', () => {
   describe('buildAdjacencyMap', () => {
@@ -80,6 +81,44 @@ describe('Graph Processing Functions', () => {
         id3: ['id5'],
       };
       expect(buildCompressedAdjacencyMap(graph, linkIdSet)).toEqual(expected);
+    });
+  });
+
+  describe('topologicalSort', () => {
+    it('should perform a basic topological sort', () => {
+      const graph: IGraphItem[] = [
+        { fromFieldId: 'a', toFieldId: 'b' },
+        { fromFieldId: 'b', toFieldId: 'c' },
+      ];
+      expect(topologicalSort(graph)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should perform a branched topological sort', () => {
+      const graph: IGraphItem[] = [
+        { fromFieldId: 'a', toFieldId: 'b' },
+        { fromFieldId: 'a', toFieldId: 'c' },
+        { fromFieldId: 'b', toFieldId: 'c' },
+        { fromFieldId: 'b', toFieldId: 'd' },
+      ];
+      expect(topologicalSort(graph)).toEqual(['a', 'b', 'd', 'c']);
+    });
+
+    it('should handle an empty graph', () => {
+      const graph: IGraphItem[] = [];
+      expect(topologicalSort(graph)).toEqual([]);
+    });
+
+    it('should handle a graph with a single circular node', () => {
+      const graph: IGraphItem[] = [{ fromFieldId: 'a', toFieldId: 'a' }];
+      expect(() => topologicalSort(graph)).toThrowError();
+    });
+
+    it('should handle graphs with circular dependencies', () => {
+      const graph: IGraphItem[] = [
+        { fromFieldId: 'a', toFieldId: 'b' },
+        { fromFieldId: 'b', toFieldId: 'a' },
+      ];
+      expect(() => topologicalSort(graph)).toThrowError();
     });
   });
 });

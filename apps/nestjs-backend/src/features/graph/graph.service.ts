@@ -1,20 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  IGraphEdge,
-  IGraphVo,
-  IGraphNode,
-  ITinyRecord,
-  IGraphCombo,
-} from '@teable-group/core';
+import type { ITinyRecord } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IGraphEdge, IGraphNode, IGraphCombo, IGraphVo } from '@teable-group/openapi';
 import { keyBy } from 'lodash';
-import type { IRecordItem } from '../../calculation/reference.service';
-import { ReferenceService } from '../../calculation/reference.service';
-import { FieldService } from '../../field/field.service';
-import type { IFieldInstance, IFieldMap } from '../../field/model/factory';
-import type { FormulaFieldDto } from '../../field/model/field-dto/formula-field.dto';
-import { RecordService } from '../../record/record.service';
+import type { IRecordItem } from '../calculation/reference.service';
+import { ReferenceService } from '../calculation/reference.service';
+import { FieldService } from '../field/field.service';
+import type { IFieldInstance, IFieldMap } from '../field/model/factory';
+import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
+import { RecordService } from '../record/record.service';
 
 @Injectable()
 export class GraphService {
