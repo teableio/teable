@@ -1,4 +1,4 @@
-import type { ISort } from '@teable-group/core';
+import type { ISortItem } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../field/model/factory';
 
@@ -7,17 +7,14 @@ export class SortQueryTranslator {
     private readonly knex: Knex,
     private readonly queryBuilder: Knex.QueryBuilder,
     private readonly fields?: { [fieldId: string]: IFieldInstance },
-    private readonly sortObjs?: ISort['sortObjs']
+    private readonly sortObjs?: ISortItem[]
   ) {}
 
   appendQueryBuilder(): Knex.QueryBuilder {
     return this.parseSorts(this.queryBuilder, this.sortObjs);
   }
 
-  private parseSorts(
-    queryBuilder: Knex.QueryBuilder,
-    sortObjs?: ISort['sortObjs']
-  ): Knex.QueryBuilder {
+  private parseSorts(queryBuilder: Knex.QueryBuilder, sortObjs?: ISortItem[]): Knex.QueryBuilder {
     if (!sortObjs) {
       return queryBuilder;
     }

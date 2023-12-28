@@ -2,7 +2,13 @@ import { useMutation } from '@tanstack/react-query';
 import type { GridViewOptions } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
 import { shareViewCopy, type IShareViewCopyRo } from '@teable-group/openapi';
-import type { CombinedSelection, ICell, ICellItem, IGridRef } from '@teable-group/sdk/components';
+import type {
+  CombinedSelection,
+  ICell,
+  ICellItem,
+  IGridRef,
+  IRectangle,
+} from '@teable-group/sdk/components';
 import {
   DraggableType,
   Grid,
@@ -14,6 +20,7 @@ import {
   useGridTheme,
   RowControlType,
   CellType,
+  useGridColumnOrder,
 } from '@teable-group/sdk/components';
 import {
   useIsHydrated,
@@ -48,10 +55,12 @@ export const GridViewBase = () => {
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const isTouchDevice = useIsTouchDevice();
-  const { setSelection } = useGridViewStore();
+  const { setSelection, openStatisticMenu } = useGridViewStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
-  const { columns } = useGridColumnResize(originalColumns);
+  const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
+  const { onColumnOrdered } = useGridColumnOrder();
+
   const customIcons = useGridIcons();
   const { mutateAsync: copy } = useMutation({
     mutationFn: (copyRo: IShareViewCopyRo) => shareViewCopy(router.query.shareId as string, copyRo),
@@ -155,6 +164,15 @@ export const GridViewBase = () => {
     [copyMethod, view?.shareMeta?.allowCopy, toast]
   );
 
+  const onColumnStatisticClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      const { x, y, width, height } = bounds;
+      const fieldId = columns[colIndex].id;
+      openStatisticMenu({ fieldId, position: { x, y, width, height } });
+    },
+    [columns, openStatisticMenu]
+  );
+
   return (
     <div ref={container} className="relative h-full w-full overflow-hidden">
       {prepare ? (
@@ -182,6 +200,9 @@ export const GridViewBase = () => {
           onSelectionChanged={onSelectionChanged}
           onCopy={onCopy}
           onRowExpand={onRowExpandInner}
+          onColumnOrdered={onColumnOrdered}
+          onColumnResize={onColumnResize}
+          onColumnStatisticClick={onColumnStatisticClick}
         />
       ) : (
         <div className="flex w-full items-center space-x-4">

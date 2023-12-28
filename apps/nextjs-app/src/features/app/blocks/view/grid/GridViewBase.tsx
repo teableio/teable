@@ -474,8 +474,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           onRowOrdered={onRowOrdered}
           onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
           onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
-          onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
-          onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
+          onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
+          onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
           onContextMenu={onContextMenu}
           onColumnHeaderClick={onColumnHeaderClick}
           onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}

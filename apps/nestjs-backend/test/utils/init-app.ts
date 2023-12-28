@@ -16,7 +16,7 @@ import type {
   IColumnMetaRo,
   IViewVo,
   ICreateTableRo,
-  IFilter,
+  IFilterRo,
   IViewRo,
   IGetRecordsQuery,
   IRecordsVo,
@@ -394,7 +394,7 @@ export async function updateViewColumnMeta(
   return result.data;
 }
 
-export async function setViewFilter(tableId: string, viewId: string, filterRo: IFilter) {
+export async function setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
   const result = await apiSetViewFilter(tableId, viewId, filterRo);
   return result.data;
 }

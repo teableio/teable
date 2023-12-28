@@ -1,6 +1,6 @@
-import type { IOtOperation, IViewVo } from '@teable-group/core';
-import type { IViewInstance } from '@teable-group/sdk';
+import type { IOtOperation, IViewVo, ISort, IColumnMetaRo, IFilter } from '@teable-group/core';
 import { ViewContext, createViewInstance, useView } from '@teable-group/sdk';
+import type { IViewInstance } from '@teable-group/sdk';
 import { useEffect, useRef, useState } from 'react';
 
 type IProxyViewKey = 'filter' | 'sort' | 'rowHeight';
@@ -13,10 +13,22 @@ interface IViewProxyProps {
   children: React.ReactNode;
 }
 
+type IProxyViewInstance = Omit<
+  IViewInstance,
+  'setViewFilter' | 'setViewSort' | 'setOption' | 'setViewColumnMeta'
+>;
+
+interface IProxyView extends IProxyViewInstance {
+  setViewFilter: (filter: IFilter) => void;
+  setViewSort: (sort: ISort) => void;
+  setOption: (option: object) => void;
+  setViewColumnMeta: (columnMeta: IColumnMetaRo) => void;
+}
+
 export const ViewProxy = (props: IViewProxyProps) => {
   const { proxyKeys, serverData, children } = props;
   const view = useView();
-  const [proxyView, setProxyView] = useState<IViewInstance>();
+  const [proxyView, setProxyView] = useState<IProxyView>();
   const [viewData, setViewData] = useState<IViewVo>();
   const viewSubmitOperation = useRef<((operation: IOtOperation) => Promise<unknown>) | undefined>(
     view?.submitOperation
@@ -36,31 +48,51 @@ export const ViewProxy = (props: IViewProxyProps) => {
   }, [serverData, view]);
 
   useEffect(() => {
-    if (!viewData) return;
-    const newViewProxy = createViewInstance(viewData);
-    newViewProxy.submitOperation = async (operation: IOtOperation) => {
-      const { oi, od, p } = operation;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const path = p[0] as any;
-      const hasFilter = !proxyKeys || proxyKeys.includes(path);
-      if ((oi || od) && hasFilter) {
-        const newViewData = { ...viewData };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (newViewData as any)[path] = oi ?? null;
-        setViewData(newViewData);
-        return oi;
-      }
-      if (!viewSubmitOperation.current) {
-        return;
-      }
-      return await viewSubmitOperation.current(operation);
+    if (!viewData || !view?.id) return;
+    const newViewProxy = createViewInstance(viewData) as IProxyView;
+    newViewProxy.setViewSort = (sort: ISort) => {
+      setViewData({
+        ...viewData,
+        sort,
+      });
+    };
+
+    newViewProxy.setViewFilter = (filter: IFilter) => {
+      setViewData({
+        ...viewData,
+        filter,
+      });
+    };
+
+    newViewProxy.setOption = (option: object) => {
+      setViewData({
+        ...viewData,
+        options: {
+          ...(viewData?.options ?? {}),
+          ...option,
+        },
+      });
+    };
+    newViewProxy.setViewColumnMeta = (columnMeta: IColumnMetaRo) => {
+      const [{ columnMeta: meta, fieldId }] = columnMeta;
+      const newViewData = {
+        ...viewData,
+        columnMeta: {
+          ...viewData.columnMeta,
+          [fieldId]: {
+            ...viewData.columnMeta?.[fieldId],
+            ...meta,
+          },
+        },
+      };
+      setViewData(newViewData);
     };
     setProxyView(newViewProxy);
     return () => (viewSubmitOperation.current = undefined);
-  }, [viewData, proxyKeys]);
+  }, [viewData, proxyKeys, view?.id]);
 
   return (
-    <ViewContext.Provider value={{ views: proxyView ? [proxyView] : [] }}>
+    <ViewContext.Provider value={{ views: (proxyView ? [proxyView] : []) as IViewInstance[] }}>
       {children}
     </ViewContext.Provider>
   );

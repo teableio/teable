@@ -20,7 +20,7 @@ export const Pickers: React.FC<{
 
   const onFilterChange = useCallback(
     async (filters: IFilter | null) => {
-      await view?.setFilter(filters).catch((e) => {
+      await view?.setViewFilter(filters).catch((e) => {
         let message;
         if (e instanceof z.ZodError) {
           message = fromZodError(e).message;

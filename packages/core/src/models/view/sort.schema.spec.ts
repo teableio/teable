@@ -1,4 +1,4 @@
-import type { ISort } from './sort';
+import type { ISort, ISortItem } from './sort';
 import { sortSchema, mergeWithDefaultSort } from './sort';
 
 describe('Sort Parse', () => {
@@ -15,14 +15,14 @@ describe('Sort mergeWithDefaultSort function test', () => {
   const defaultViewSortString =
     '{"sortObjs":[{"fieldId":"fieldId","order":"asc"}, {"fieldId":"fieldId2","order":"desc"}],"manualSort":true}';
 
-  const querySort: ISort['sortObjs'] = [
+  const querySort: ISortItem[] = [
     {
       fieldId: 'queryFieldId',
       order: 'asc',
     },
   ];
 
-  const querySort1: ISort['sortObjs'] = [
+  const querySort1: ISortItem[] = [
     {
       fieldId: 'fieldId',
       order: 'desc',
