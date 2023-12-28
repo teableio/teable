@@ -449,7 +449,16 @@ export class FieldSupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
-      return merge({}, oldFieldVo, fieldRo);
+      return merge(
+        {},
+        fieldRo.options
+          ? {
+              ...oldFieldVo,
+              options: { ...oldFieldVo.options, showAs: undefined }, // clean showAs
+            }
+          : oldFieldVo,
+        fieldRo
+      );
     }
 
     return this.prepareLookupField(fieldRo);

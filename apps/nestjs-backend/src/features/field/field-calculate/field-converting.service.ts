@@ -98,7 +98,6 @@ export class FieldConvertingService {
     return FieldOpBuilder.editor.setFieldProperty.build({ key, oldValue, newValue: value });
   }
 
-  // TODO: formatting should be validate before inherit
   /**
    * 1. check if the lookup field is valid, if not mark error
    * 2. update lookup field properties
@@ -109,12 +108,12 @@ export class FieldConvertingService {
     const lookupOptions = field.lookupOptions as ILookupOptionsVo;
     const linkField = fieldMap[lookupOptions.linkFieldId] as LinkFieldDto;
     const lookupField = fieldMap[lookupOptions.lookupFieldId];
-    const { formatting, showAs, ...inheritOptions } = field.options as Record<string, unknown>;
+    const { showAs: _, ...inheritableOptions } = lookupField.options as Record<string, unknown>;
     const {
-      formatting: _0,
-      showAs: _1,
-      ...inheritableOptions
-    } = lookupField.options as Record<string, unknown>;
+      formatting = inheritableOptions.formatting,
+      showAs,
+      ...inheritOptions
+    } = field.options as Record<string, unknown>;
     const cellValueTypeChanged = field.cellValueType !== lookupField.cellValueType;
 
     if (field.type !== lookupField.type) {

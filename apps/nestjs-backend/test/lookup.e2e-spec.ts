@@ -17,6 +17,7 @@ import {
   Relationship,
   TimeFormatting,
 } from '@teable-group/core';
+import { deleteField } from '@teable-group/openapi';
 import { getGraph as apiGetGraph } from '@teable-group/openapi';
 import {
   createField,
@@ -536,6 +537,28 @@ describe('OpenAPI Lookup field (e2e)', () => {
     expect(record1.fields[lookupFieldVo.id]).toEqual('A2');
     const record2 = await getRecord(table2.id, table2.records[2].id);
     expect(record2.fields[lookupFieldVo.id]).toEqual('A2');
+  });
+
+  it('should delete a field that be lookup', async () => {
+    const textFieldRo: IFieldRo = {
+      type: FieldType.SingleLineText,
+    };
+    const textField = await createField(table2.id, textFieldRo);
+    const lookupFieldRo = {
+      name: 'lookup',
+      type: FieldType.SingleLineText,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: table2.id,
+        linkFieldId: getFieldByType(table1.fields, FieldType.Link).id,
+        lookupFieldId: textField.id,
+      } as ILookupOptionsRo,
+    };
+
+    const lookupField = await createField(table1.id, lookupFieldRo);
+
+    await deleteField(table2.id, textField.id);
+    await deleteField(table1.id, lookupField.id);
   });
 
   it('should set showAs when create field lookup to a rollup', async () => {

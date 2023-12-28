@@ -277,6 +277,7 @@ export class FieldService implements IAdapterService {
 
     const fieldMap = keyBy(fieldRaw, 'id');
 
+    console.log('opData', JSON.stringify(opData, null, 2));
     for (const { fieldId, ops } of opData) {
       const opContext = ops.map((op) => {
         const ctx = FieldOpBuilder.detect(op);
