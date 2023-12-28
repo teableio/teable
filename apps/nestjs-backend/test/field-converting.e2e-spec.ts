@@ -21,9 +21,8 @@ import {
   defaultDatetimeFormatting,
   FieldKeyType,
 } from '@teable-group/core';
-import { getRecords } from '@teable-group/openapi';
-import type request from 'supertest';
 import {
+  getRecords,
   createField,
   createRecords,
   getField,
@@ -31,6 +30,8 @@ import {
   initApp,
   updateField,
   updateRecordByApi,
+  createTable,
+  deleteTable,
 } from './utils/init-app';
 
 describe('OpenAPI Freely perform column transformations (e2e)', () => {
@@ -38,12 +39,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let table1: ITableFullVo;
   let table2: ITableFullVo;
   let table3: ITableFullVo;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
+
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -52,24 +52,15 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
   const bfAf = () => {
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table1',
-      });
-      table1 = result1.body;
-      const result2 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table2',
-      });
-      table2 = result2.body;
-      const result3 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table3',
-      });
-      table3 = result3.body;
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+      table3 = await createTable(baseId, { name: 'table3' });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table3.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
+      await deleteTable(baseId, table3.id);
     });
   };
 
@@ -87,7 +78,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       for (let i = 0; i < appendBlankRow; i++) {
         records.push({ fields: {} });
       }
-      const createData = await createRecords(table.id, records);
+      const createData = await createRecords(table.id, { records });
       table.records.push(...createData.records);
     }
 
@@ -140,7 +131,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const field = await createField(table1.id, sourceFieldRo1);
       expect(field.dbFieldName).toEqual('the_db_field_name');
 
-      await request.post(`/api/table/${table1.id}/field`).send(sourceFieldRo1).expect(400);
+      await createField(table1.id, sourceFieldRo1, 400);
 
       const sourceFieldRo2: IFieldRo = {
         name: 'TextField 2',
@@ -1046,10 +1037,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
       const sourceField = await createField(table1.id, sourceFieldRo);
-      await request
-        .patch(`/api/table/${table1.id}/field/${sourceField.id}`)
-        .send(newFieldRo)
-        .expect(400);
+
+      await updateField(table1.id, sourceField.id, newFieldRo, 400);
     });
   });
 
@@ -1182,18 +1171,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     let refField2: IFieldVo;
 
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table1',
-      });
-      table1 = result1.body;
-      const result2 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table2',
-      });
-      table2 = result2.body;
-      const result3 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table3',
-      });
-      table3 = result3.body;
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+      table3 = await createTable(baseId, { name: 'table3' });
 
       refField1 = await createField(table1.id, refField1Ro);
       refField2 = await createField(table1.id, refField2Ro);
@@ -1206,9 +1186,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table3.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
+      await deleteTable(baseId, table3.id);
     });
 
     it('should convert formula and modify expression', async () => {
@@ -1240,7 +1220,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const newField2 = await updateField(table1.id, newField.id, newFieldRo2);
 
-      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
       expect(newField2).toMatchObject({
         cellValueType: CellValueType.Number,
@@ -1319,7 +1299,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
       // only match 'x' in table2, because many-one link only allowed one value
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       // clean up invalid value
@@ -1360,7 +1340,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
       expect(values[0]).toEqual([
         { title: 'x', id: records[0].id },
         { title: 'y', id: records[1].id },
@@ -1395,11 +1375,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       // make sure symmetricField have been deleted
       const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
-      await request
-        .get(
-          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
-        )
-        .expect(404);
+      await getField(sourceFieldOptions.foreignTableId, sourceFieldOptions.symmetricFieldId!, 404);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -1436,11 +1412,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       // make sure symmetricField have been deleted
       const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
-      await request
-        .get(
-          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
-        )
-        .expect(404);
+      await getField(sourceFieldOptions.foreignTableId, sourceFieldOptions.symmetricFieldId!, 404);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -1489,7 +1461,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
       expect(values[0]).toEqual([{ title: 'xx', id: records[0].id }]);
       // values[1] should by values[0] to keep link consistency
       expect(values[1]).toEqual(undefined);
@@ -1533,7 +1505,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       expect(values[1]).toEqual({ title: 'zzz', id: records[2].id });
     });
@@ -1574,11 +1546,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       // make sure symmetricField have been deleted
       const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
       const newFieldOptions = newField.options as ILinkFieldOptions;
-      await request
-        .get(
-          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
-        )
-        .expect(404);
+      await getField(sourceFieldOptions.foreignTableId, sourceFieldOptions.symmetricFieldId!, 404);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -1606,7 +1574,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = (await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id });
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       expect(values[1]).toEqual({ title: 'y', id: records[1].id });
       expect(values[2]).toBeUndefined();
@@ -1643,7 +1611,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       ]);
 
       // make sure records has been updated
-      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[sourceField.id]).toBeUndefined();
     });
 
@@ -1703,7 +1671,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // make sure records has been updated
-      const { records: rs } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records: rs } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(rs[0].fields[sourceLinkField.id]).toEqual({ id: table2.records[0].id, title: 'B1' });
       expect(rs[0].fields[sourceLookupField.id]).toEqual('B1');
       expect(rs[0].fields[sourceFormulaLinkField.id]).toEqual('B1');
@@ -1732,7 +1700,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(targetFormulaLookupField.hasError).toBeUndefined();
 
       // make sure records has been updated
-      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[newLinkField.id]).toEqual({ id: table3.records[0].id, title: 'C1' });
       expect(records[0].fields[targetLookupField.id]).toBeUndefined();
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('C1');
@@ -1789,7 +1757,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       // make sure records has been updated
-      const { records: rs } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records: rs } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(rs[0].fields[sourceLinkField.id]).toEqual({ id: table2.records[0].id, title: 'B1' });
       expect(rs[0].fields[sourceLookupField.id]).toEqual('B1');
       expect(rs[0].fields[sourceFormulaLinkField.id]).toEqual('B1');
@@ -1812,7 +1780,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(targetFormulaLookupField.hasError).toBeUndefined();
 
       // make sure records has been updated
-      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[newField.id]).toEqual('txt');
       expect(records[0].fields[targetLookupField.id]).toBeUndefined();
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('txt');
@@ -1855,11 +1823,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       // make sure symmetricField have been deleted
       const sourceFieldOptions = sourceField.options as ILinkFieldOptions;
       const newFieldOptions = newField.options as ILinkFieldOptions;
-      await request
-        .get(
-          `/api/table/${sourceFieldOptions.foreignTableId}/field/${sourceFieldOptions.symmetricFieldId}`
-        )
-        .expect(404);
+      await getField(sourceFieldOptions.foreignTableId, sourceFieldOptions.symmetricFieldId!, 404);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -1887,7 +1851,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const { records } = (await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const { records } = await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id });
       expect(values[0]).toEqual([{ title: 'x', id: records[0].id }]);
       expect(values[1]).toEqual([{ title: 'y', id: records[1].id }]);
       expect(values[2]).toBeUndefined();
@@ -2049,7 +2013,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       await updateRecordByApi(table2.id, table2.records[0].id, sourceField.id, 'text 1');
       await updateRecordByApi(table2.id, table2.records[1].id, sourceField.id, 'text 2');
 
-      const recordResult1 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const recordResult1 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(recordResult1.records[0].fields[lookupField.id]).toEqual(['text 1', 'text 2']);
 
       const newFieldRo: IFieldRo = {
@@ -2083,7 +2047,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       });
 
-      const recordResult2 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const recordResult2 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(recordResult2.records[0].fields[lookupField.id]).toEqual(['text 1', 'text 2']);
     });
 
@@ -2151,7 +2115,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       // update source field record before convert
       await updateRecordByApi(table2.id, table2.records[0].id, sourceField.id, 1);
 
-      const recordResult1 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const recordResult1 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(recordResult1.records[0].fields[lookupField.id]).toEqual(1);
       expect(recordResult1.records[1].fields[lookupField.id]).toEqual(1);
 
@@ -2190,7 +2154,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         cellValueType: newField.cellValueType,
       });
 
-      const recordResult2 = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const recordResult2 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(recordResult2.records[0].fields[lookupField.id]).toEqual('1.00');
       expect(recordResult2.records[1].fields[lookupField.id]).toEqual('1.00');
     });
@@ -2464,7 +2428,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const linkFieldAfter = await getField(table1.id, linkField.id);
       expect(linkFieldAfter).toMatchObject(linkField);
-      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data.records;
+      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).records;
       expect(records[0].fields[linkField.id]).toEqual([
         {
           id: table2.records[0].id,
@@ -2524,8 +2488,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           linkFieldId: linkField2.id,
         },
       };
-      const recordsPre = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data
-        .records;
+      const recordsPre = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).records;
       expect(recordsPre[0].fields[lookupField.id]).toEqual([
         { id: table1.records[0].id },
         { id: table1.records[0].id },
@@ -2537,7 +2500,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const linkField2After = await getField(table1.id, linkField2.id);
       expect(linkField2After).toMatchObject(linkField2);
 
-      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data.records;
+      const records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).records;
       expect(records[0].fields[linkField1.id]).toEqual([
         { id: table2.records[0].id },
         { id: table2.records[1].id },

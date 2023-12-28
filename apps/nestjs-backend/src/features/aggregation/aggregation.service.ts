@@ -61,6 +61,7 @@ export class AggregationService {
     tableId: string;
     withFieldIds?: string[];
     withView?: IWithView;
+    withUserId?: string;
   }): Promise<IRawAggregationValue> {
     const { tableId, withFieldIds, withView } = params;
 

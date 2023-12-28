@@ -12,14 +12,22 @@ import type {
 import {
   Colors,
   DateUtil,
+  FieldKeyType,
   FieldType,
   NumberFormattingType,
   Relationship,
   TimeFormatting,
 } from '@teable-group/core';
+import { axios, GET_RECORDS_URL, urlBuilder } from '@teable-group/openapi';
 import qs from 'qs';
-import type request from 'supertest';
-import { createField, createRecords, initApp } from './utils/init-app';
+import {
+  createField,
+  createRecords,
+  createTable,
+  deleteTable,
+  getTable,
+  initApp,
+} from './utils/init-app';
 
 // All kind of field type (except link)
 const defaultFields: IFieldRo[] = [
@@ -75,15 +83,14 @@ const defaultFields: IFieldRo[] = [
     type: FieldType.Attachment,
   },
 ];
+
 describe('OpenAPI Record-Filter-Query (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -92,16 +99,16 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
   async function getFilterRecord(tableId: string, viewId: string, filter: IFilter) {
     return (
-      await request
-        .get(`/api/table/${tableId}/record`)
-        .query(
-          qs.stringify({
-            fieldKeyType: 'id',
-            filter: filter,
-          })
-        )
-        .expect(200)
-    ).body;
+      await axios.get(urlBuilder(GET_RECORDS_URL, { tableId }), {
+        params: {
+          fieldKeyType: FieldKeyType.Id,
+          filter: filter,
+        },
+        paramsSerializer: (params) => {
+          return qs.stringify(params);
+        },
+      })
+    ).data;
   }
 
   function getFieldByType(fields: IFieldVo[], type: FieldType) {
@@ -115,18 +122,14 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
   describe('simple record filter query', () => {
     let table: ITableFullVo;
     beforeEach(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-          fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table1]' })),
-        })
-        .expect(201);
-      table = result.body;
+      table = await createTable(baseId, {
+        name: 'table1',
+        fields: defaultFields.map((f) => ({ ...f, name: f.name + '[table1]' })),
+      });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
+      await deleteTable(baseId, table.id);
     });
 
     it('should isEmpty value', async () => {
@@ -154,18 +157,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isNotEmpty value', async () => {
       const fieldId = table.fields[0].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 'string',
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'string',
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 'string1',
+          {
+            fields: {
+              [fieldId]: 'string1',
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -191,13 +196,15 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should is value', async () => {
       const fieldId = table.fields[0].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 'string',
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'string',
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -224,13 +231,15 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       { type: FieldType.Number, value: 2 },
     ])('should isNot value - $type', async ({ type, value }) => {
       const fieldId = getFieldByType(table.fields, type).id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: value,
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: value,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -254,18 +263,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should contains value', async () => {
       const fieldId = table.fields[0].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: '1dom1',
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: '1dom1',
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: '2dom2',
+          {
+            fields: {
+              [fieldId]: '2dom2',
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -294,13 +305,15 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should doesNotContain value', async () => {
       const fieldId = table.fields[0].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 'dom',
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'dom',
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -324,23 +337,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isGreater value', async () => {
       const fieldId = table.fields[1].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 0,
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 0,
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 1,
+          {
+            fields: {
+              [fieldId]: 1,
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 2,
+          {
+            fields: {
+              [fieldId]: 2,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -369,23 +384,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isGreaterEqual value', async () => {
       const fieldId = table.fields[1].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 2,
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 2,
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 3,
+          {
+            fields: {
+              [fieldId]: 3,
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 4,
+          {
+            fields: {
+              [fieldId]: 4,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -414,18 +431,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isLess value', async () => {
       const fieldId = table.fields[1].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 7,
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 7,
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 8,
+          {
+            fields: {
+              [fieldId]: 8,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -449,18 +468,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isLessEqual value', async () => {
       const fieldId = table.fields[1].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 7,
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 7,
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 8,
+          {
+            fields: {
+              [fieldId]: 8,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -489,18 +510,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isAnyOf value', async () => {
       const fieldId = table.fields[2].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 'todo',
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'todo',
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 'doing',
+          {
+            fields: {
+              [fieldId]: 'doing',
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -524,18 +547,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isNoneOf value', async () => {
       const fieldId = table.fields[2].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: 'doing',
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'doing',
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 'done',
+          {
+            fields: {
+              [fieldId]: 'done',
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -561,18 +586,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should hasAnyOf value', async () => {
       const fieldId = table.fields[3].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: ['rap'],
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: ['rap'],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: ['rap', 'rock'],
+          {
+            fields: {
+              [fieldId]: ['rap', 'rock'],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -598,18 +625,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should hasAllOf value', async () => {
       const fieldId = table.fields[3].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: ['rap'],
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: ['rap'],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: ['rap', 'rock'],
+          {
+            fields: {
+              [fieldId]: ['rap', 'rock'],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -635,18 +664,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should hasNoneOf value', async () => {
       const fieldId = table.fields[3].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: ['rap'],
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: ['rap'],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: ['rock'],
+          {
+            fields: {
+              [fieldId]: ['rock'],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -672,28 +703,30 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
     it('should isExactly value', async () => {
       const fieldId = table.fields[3].id;
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: ['rap'],
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: ['rap'],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: ['rock'],
+          {
+            fields: {
+              [fieldId]: ['rock'],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: ['hiphop'],
+          {
+            fields: {
+              [fieldId]: ['hiphop'],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: ['hiphop', 'rock', 'rap'],
+          {
+            fields: {
+              [fieldId]: ['hiphop', 'rock', 'rap'],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -720,18 +753,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isWithIn value', async () => {
       const fieldId = table.fields[4].id;
       const yesterday = new DateUtil('Asia/Singapore').offsetDay(-1).toISOString();
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: '2023-10-06T16:00:00.000Z',
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: '2023-10-06T16:00:00.000Z',
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: yesterday,
+          {
+            fields: {
+              [fieldId]: yesterday,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -760,13 +795,15 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isBefore value', async () => {
       const fieldId = table.fields[4].id;
       const pastDate = faker.date.past({ years: 1 }).toISOString();
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: pastDate,
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: pastDate,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -796,13 +833,15 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isAfter value', async () => {
       const fieldId = table.fields[4].id;
       const futureDate = faker.date.future({ years: 1 }).toISOString();
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: futureDate,
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: futureDate,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -833,18 +872,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isOnOrBefore value', async () => {
       const fieldId = table.fields[4].id;
       const nowDate = new Date().toISOString();
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: faker.date.past({ years: 1 }).toISOString(),
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: faker.date.past({ years: 1 }).toISOString(),
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: nowDate,
+          {
+            fields: {
+              [fieldId]: nowDate,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -874,18 +915,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isOnOrAfter value', async () => {
       const fieldId = table.fields[4].id;
       const nowDate = new Date().toISOString();
-      await createRecords(table.id, [
-        {
-          fields: {
-            [fieldId]: faker.date.future({ years: 1 }).toISOString(),
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: faker.date.future({ years: 1 }).toISOString(),
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: nowDate,
+          {
+            fields: {
+              [fieldId]: nowDate,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(table.id, table.views[0].id, {
         filterSet: [
@@ -918,61 +961,57 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     let sourceTable: ITableFullVo;
 
     beforeEach(async () => {
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-          fields: defaultFields,
-          records: [
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a1',
-                [FieldType.Number]: 1,
-                [FieldType.SingleSelect]: 'todo',
-                [FieldType.MultipleSelect]: ['rap'],
-                [FieldType.Date]: '2022-11-07T16:00:00.000Z',
-              },
+      sourceTable = await createTable(baseId, {
+        name: 'table1',
+        fields: defaultFields,
+        records: [
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a1',
+              [FieldType.Number]: 1,
+              [FieldType.SingleSelect]: 'todo',
+              [FieldType.MultipleSelect]: ['rap'],
+              [FieldType.Date]: '2022-11-07T16:00:00.000Z',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a2',
-                [FieldType.Number]: 2,
-                [FieldType.SingleSelect]: 'doing',
-                [FieldType.MultipleSelect]: ['rap', 'rock'],
-                [FieldType.Date]: '2023-11-06T16:00:00.000Z',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a2',
+              [FieldType.Number]: 2,
+              [FieldType.SingleSelect]: 'doing',
+              [FieldType.MultipleSelect]: ['rap', 'rock'],
+              [FieldType.Date]: '2023-11-06T16:00:00.000Z',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a3',
-                [FieldType.Number]: 3,
-                [FieldType.SingleSelect]: 'done',
-                [FieldType.MultipleSelect]: ['rock', 'hiphop'],
-                [FieldType.Date]: '2023-11-05T16:00:00.000Z',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a3',
+              [FieldType.Number]: 3,
+              [FieldType.SingleSelect]: 'done',
+              [FieldType.MultipleSelect]: ['rock', 'hiphop'],
+              [FieldType.Date]: '2023-11-05T16:00:00.000Z',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a4',
-                [FieldType.Number]: 4,
-                [FieldType.SingleSelect]: 'doing',
-                [FieldType.MultipleSelect]: ['rap', 'rock', 'hiphop'],
-                [FieldType.Date]: '2023-11-01T00:08:00.000Z',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a4',
+              [FieldType.Number]: 4,
+              [FieldType.SingleSelect]: 'doing',
+              [FieldType.MultipleSelect]: ['rap', 'rock', 'hiphop'],
+              [FieldType.Date]: '2023-11-01T00:08:00.000Z',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a5',
-                [FieldType.Number]: 5,
-                [FieldType.SingleSelect]: 'doing',
-                [FieldType.MultipleSelect]: ['rock', 'hiphop'],
-                [FieldType.Date]: new DateUtil('Asia/Singapore').offsetDay(10).toISOString(),
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a5',
+              [FieldType.Number]: 5,
+              [FieldType.SingleSelect]: 'doing',
+              [FieldType.MultipleSelect]: ['rock', 'hiphop'],
+              [FieldType.Date]: new DateUtil('Asia/Singapore').offsetDay(10).toISOString(),
             },
-          ],
-        })
-        .expect(201);
-      sourceTable = createTable1Result.body;
+          },
+        ],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -983,16 +1022,12 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
         },
       };
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [defaultFields[0], linkFieldRo],
-        })
-        .expect(201);
-      lookupTable = createTable2Result.body;
+      lookupTable = await createTable(baseId, {
+        name: 'table2',
+        fields: [defaultFields[0], linkFieldRo],
+      });
 
-      const { fields } = createTable2Result.body;
+      const { fields } = lookupTable;
       const linkField = fields[1];
 
       for (const lookupField of defaultFields) {
@@ -1009,45 +1044,44 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
           lookupOptions: {
             foreignTableId: sourceTable.id,
             linkFieldId: linkField.id,
-            lookupFieldId: getFieldByType(createTable1Result.body.fields, lookupField.type).id,
+            lookupFieldId: getFieldByType(sourceTable.fields, lookupField.type).id,
           } as ILookupOptionsRo,
         };
 
         await createField(lookupTable.id, fieldRo);
       }
 
-      const refreshTableData = await request
-        .get(`/api/base/${baseId}/table/${lookupTable.id}`)
-        .query({
-          includeContent: true,
-        })
-        .expect(200);
-      lookupTable = refreshTableData.body;
+      // refreshTableData
+      lookupTable = (await getTable(baseId, lookupTable.id, {
+        includeContent: true,
+      })) as ITableFullVo;
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${sourceTable.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${lookupTable.id}`);
+      await deleteTable(baseId, sourceTable.id);
+      await deleteTable(baseId, lookupTable.id);
     });
 
     it('should is value', async () => {
       const fieldId = lookupTable.fields[0].id;
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[2].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [fieldId]: 'b1',
-            [linkFieldId]: [{ id: sourceTable.records[0].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'b1',
+              [linkFieldId]: [{ id: sourceTable.records[0].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 'b2',
-            [linkFieldId]: [{ id: sourceTable.records[1].id }],
+          {
+            fields: {
+              [fieldId]: 'b2',
+              [linkFieldId]: [{ id: sourceTable.records[1].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1074,20 +1108,22 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       const fieldId = lookupTable.fields[0].id;
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[2].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [fieldId]: 'b1',
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'b1',
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 'b2',
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [fieldId]: 'b2',
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1116,20 +1152,22 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       const fieldId = lookupTable.fields[0].id;
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[2].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [fieldId]: 'b1',
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'b1',
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 'b2',
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [fieldId]: 'b2',
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1161,20 +1199,22 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       const fieldId = lookupTable.fields[0].id;
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[2].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [fieldId]: 'b1',
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [fieldId]: 'b1',
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [fieldId]: 'b2',
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [fieldId]: 'b2',
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1193,18 +1233,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isGreater value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[3].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1230,18 +1272,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isGreaterEqual value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[3].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1272,18 +1316,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isLess value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[3].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[1].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1309,18 +1355,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isLessEqual value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = lookupTable.fields[3].id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[1].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1351,18 +1399,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isAnyOf value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.SingleSelect).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1388,18 +1438,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isNoneOf value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.SingleSelect).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[3].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[3].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1427,22 +1479,24 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should hasAnyOf value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.MultipleSelect).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [
-              { id: sourceTable.records[0].id },
-              { id: sourceTable.records[1].id },
-              { id: sourceTable.records[2].id },
-            ],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [
+                { id: sourceTable.records[0].id },
+                { id: sourceTable.records[1].id },
+                { id: sourceTable.records[2].id },
+              ],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[3].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[3].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1470,23 +1524,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should hasAllOf value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.MultipleSelect).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[1].id }, { id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[1].id }, { id: sourceTable.records[2].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[3].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[3].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1514,28 +1570,30 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should hasNoneOf value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.MultipleSelect).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[1].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[3].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[3].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1563,28 +1621,30 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isExactly value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.MultipleSelect).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[1].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[3].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[3].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1610,23 +1670,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isWithIn value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.Date).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[3].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }, { id: sourceTable.records[3].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[4].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[4].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1649,18 +1711,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isBefore value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.Date).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1692,18 +1756,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isAfter value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.Date).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[3].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[3].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1733,18 +1799,20 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isOnOrBefore value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.Date).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1776,23 +1844,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     it('should isOnOrAfter value', async () => {
       const linkFieldId = lookupTable.fields[1].id;
       const queryLookupFieldId = getFieldByType(lookupTable.fields, FieldType.Date).id;
-      await createRecords(lookupTable.id, [
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[0].id }],
+      await createRecords(lookupTable.id, {
+        records: [
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[0].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[1].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[1].id }],
+            },
           },
-        },
-        {
-          fields: {
-            [linkFieldId]: [{ id: sourceTable.records[2].id }],
+          {
+            fields: {
+              [linkFieldId]: [{ id: sourceTable.records[2].id }],
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       const { records } = await getFilterRecord(lookupTable.id, lookupTable.views[0].id, {
         filterSet: [
@@ -1827,46 +1897,42 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     let sourceTable: ITableFullVo;
 
     beforeEach(async () => {
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-          fields: defaultFields,
-          records: [
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a1',
-              },
+      sourceTable = await createTable(baseId, {
+        name: 'table1',
+        fields: defaultFields,
+        records: [
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a1',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a2',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a2',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a3',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a3',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a4',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a4',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'a5',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'a5',
             },
-            {
-              fields: {
-                [FieldType.SingleLineText]: 'other',
-              },
+          },
+          {
+            fields: {
+              [FieldType.SingleLineText]: 'other',
             },
-          ],
-        })
-        .expect(201);
-      sourceTable = createTable1Result.body;
+          },
+        ],
+      });
 
       const linkFieldRo1: IFieldRo = {
         name: 'link field(ManyOne)',
@@ -1886,39 +1952,37 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
         },
       };
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [defaultFields[0], linkFieldRo1, linkFieldRo2],
-        })
-        .expect(201);
-      linkTable = createTable2Result.body;
+      linkTable = await createTable(baseId, {
+        name: 'table2',
+        fields: [defaultFields[0], linkFieldRo1, linkFieldRo2],
+      });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${sourceTable.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${linkTable.id}`);
+      await deleteTable(baseId, sourceTable.id);
+      await deleteTable(baseId, linkTable.id);
     });
 
     describe('link(ManyOne)', () => {
       it('should is value', async () => {
         const fieldId = linkTable.fields[0].id;
         const linkFieldId = linkTable.fields[1].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [fieldId]: 'b1',
-              [linkFieldId]: { id: sourceTable.records[0].id },
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [fieldId]: 'b1',
+                [linkFieldId]: { id: sourceTable.records[0].id },
+              },
             },
-          },
-          {
-            fields: {
-              [fieldId]: 'b2',
-              [linkFieldId]: { id: sourceTable.records[1].id },
+            {
+              fields: {
+                [fieldId]: 'b2',
+                [linkFieldId]: { id: sourceTable.records[1].id },
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -1946,20 +2010,22 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       it('should isNot value', async () => {
         const fieldId = linkTable.fields[0].id;
         const linkFieldId = linkTable.fields[1].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [fieldId]: 'b1',
-              [linkFieldId]: { id: sourceTable.records[0].id },
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [fieldId]: 'b1',
+                [linkFieldId]: { id: sourceTable.records[0].id },
+              },
             },
-          },
-          {
-            fields: {
-              [fieldId]: 'b2',
-              [linkFieldId]: { id: sourceTable.records[1].id },
+            {
+              fields: {
+                [fieldId]: 'b2',
+                [linkFieldId]: { id: sourceTable.records[1].id },
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -1986,23 +2052,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
       it('should contains value', async () => {
         const linkFieldId = linkTable.fields[1].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[0].id },
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[0].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[1].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[1].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[5].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[5].id },
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -2032,23 +2100,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
       it('should doesNotContain value', async () => {
         const linkFieldId = linkTable.fields[1].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[0].id },
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[0].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[1].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[1].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[5].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[5].id },
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -2075,23 +2145,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
       it('should isAnyOf value', async () => {
         const linkFieldId = linkTable.fields[1].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[0].id },
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[0].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[1].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[1].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[5].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[5].id },
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -2121,23 +2193,25 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
       it('should isNoneOf value', async () => {
         const linkFieldId = linkTable.fields[1].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[0].id },
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[0].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[1].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[1].id },
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: { id: sourceTable.records[5].id },
+            {
+              fields: {
+                [linkFieldId]: { id: sourceTable.records[5].id },
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -2171,18 +2245,23 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     describe('link(OneMany)', () => {
       it('should hasAnyOf value', async () => {
         const linkFieldId = linkTable.fields[2].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: [
+                  { id: sourceTable.records[0].id },
+                  { id: sourceTable.records[1].id },
+                ],
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[5].id }],
+            {
+              fields: {
+                [linkFieldId]: [{ id: sourceTable.records[5].id }],
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -2210,18 +2289,23 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
       it('should hasNoneOf value', async () => {
         const linkFieldId = linkTable.fields[2].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: [
+                  { id: sourceTable.records[0].id },
+                  { id: sourceTable.records[1].id },
+                ],
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[5].id }],
+            {
+              fields: {
+                [linkFieldId]: [{ id: sourceTable.records[5].id }],
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -2257,18 +2341,23 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
       it('should hasAllOf value', async () => {
         const linkFieldId = linkTable.fields[2].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: [
+                  { id: sourceTable.records[0].id },
+                  { id: sourceTable.records[1].id },
+                ],
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[5].id }],
+            {
+              fields: {
+                [linkFieldId]: [{ id: sourceTable.records[5].id }],
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [
@@ -2296,18 +2385,23 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
       it('should isExactly value', async () => {
         const linkFieldId = linkTable.fields[2].id;
-        await createRecords(linkTable.id, [
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[0].id }, { id: sourceTable.records[1].id }],
+        await createRecords(linkTable.id, {
+          records: [
+            {
+              fields: {
+                [linkFieldId]: [
+                  { id: sourceTable.records[0].id },
+                  { id: sourceTable.records[1].id },
+                ],
+              },
             },
-          },
-          {
-            fields: {
-              [linkFieldId]: [{ id: sourceTable.records[5].id }],
+            {
+              fields: {
+                [linkFieldId]: [{ id: sourceTable.records[5].id }],
+              },
             },
-          },
-        ]);
+          ],
+        });
 
         const { records } = await getFilterRecord(linkTable.id, linkTable.views[0].id, {
           filterSet: [

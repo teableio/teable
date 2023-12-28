@@ -3,36 +3,31 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship } from '@teable-group/core';
 import type { IFieldRo, ITableFullVo } from '@teable-group/core';
-import type { IRangesToIdVo } from '@teable-group/openapi';
-import { RangeType, IdReturnType } from '@teable-group/openapi';
-import type request from 'supertest';
-import { createField, getRecord, initApp } from './utils/init-app';
+import {
+  RangeType,
+  IdReturnType,
+  getIdsFromRanges as apiGetIdsFromRanges,
+  paste as apiPaste,
+} from '@teable-group/openapi';
+import { createField, getRecord, initApp, createTable, deleteTable } from './utils/init-app';
 
 describe('OpenAPI SelectionController (e2e)', () => {
   let app: INestApplication;
   let table: ITableFullVo;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   beforeEach(async () => {
-    const result = await request
-      .post(`/api/base/${baseId}/table`)
-      .send({
-        name: 'table1',
-      })
-      .expect(201);
-    table = result.body;
+    table = await createTable(baseId, { name: 'table1' });
   });
 
   afterEach(async () => {
-    const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
-    console.log('clear table: ', result.body);
+    const result = await deleteTable(baseId, table.id);
+    console.log('clear table: ', result);
   });
 
   afterAll(async () => {
@@ -42,132 +37,141 @@ describe('OpenAPI SelectionController (e2e)', () => {
   describe('getIdsFromRanges', () => {
     it('should return all ids for cell range ', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([
             [0, 0],
             [0, 0],
           ]),
           returnType: IdReturnType.All,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.recordIds).toHaveLength(1);
       expect(data.fieldIds).toHaveLength(1);
     });
 
     it('should return all ids for row range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Rows,
           returnType: IdReturnType.All,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.recordIds).toHaveLength(2);
       expect(data.fieldIds).toHaveLength(table.fields.length);
     });
 
     it('should return all ids for column range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Columns,
           returnType: IdReturnType.All,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.recordIds).toHaveLength(table.records.length);
       expect(data.fieldIds).toHaveLength(2);
     });
 
     it('should return record ids for cell range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([
             [0, 0],
             [0, 1],
           ]),
           returnType: IdReturnType.RecordId,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.recordIds).toHaveLength(2);
       expect(data.fieldIds).toBeUndefined();
     });
 
     it('should return record ids for row range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Rows,
           returnType: IdReturnType.RecordId,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.recordIds).toHaveLength(2);
       expect(data.fieldIds).toBeUndefined();
     });
 
     it('should return record ids for column range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([[0, 0]]),
           type: RangeType.Columns,
           returnType: IdReturnType.RecordId,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.recordIds).toHaveLength(table.records.length);
       expect(data.fieldIds).toBeUndefined();
     });
 
     it('should return field ids for cell range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([
             [0, 0],
             [0, 1],
           ]),
           returnType: IdReturnType.FieldId,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.fieldIds).toHaveLength(1);
       expect(data.recordIds).toBeUndefined();
     });
 
     it('should return field ids for row range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([[0, 1]]),
           type: RangeType.Rows,
           returnType: IdReturnType.FieldId,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.fieldIds).toHaveLength(table.fields.length);
       expect(data.recordIds).toBeUndefined();
     });
 
     it('should return record ids for column range', async () => {
       const viewId = table.views[0].id;
-      const result = await request
-        .get(`/api/table/${table.id}/view/${viewId}/selection/rangeToId`)
-        .query({
+
+      const data = (
+        await apiGetIdsFromRanges(table.id, viewId, {
           ranges: JSON.stringify([[0, 0]]),
           type: RangeType.Columns,
           returnType: IdReturnType.FieldId,
-        });
-      const data: IRangesToIdVo = result.body;
+        })
+      ).data;
+
       expect(data.fieldIds).toHaveLength(1);
       expect(data.recordIds).toBeUndefined();
     });
@@ -183,40 +187,30 @@ describe('OpenAPI SelectionController (e2e)', () => {
         type: FieldType.SingleLineText,
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-          fields: [textFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
+      table1 = await createTable(baseId, {
+        name: 'table1',
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
-      table1 = createTable1Result.body;
-
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-
-      table2 = createTable2Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should paste 2 manyOne link field in same time', async () => {
@@ -232,27 +226,22 @@ describe('OpenAPI SelectionController (e2e)', () => {
 
       const linkField1 = await createField(table1.id, table1LinkFieldRo);
       const linkField2 = await createField(table1.id, table1LinkFieldRo);
-      await request
-        .patch(`/api/table/${table1.id}/view/${table1.views[0].id}/selection/paste`)
-        .send({
-          content: 'table2_1\ttable2_2',
-          range: [
-            [1, 0],
-            [1, 0],
-          ],
-          header: [linkField1, linkField2],
-        })
-        .expect(200);
+
+      await apiPaste(table1.id, table1.views[0].id, {
+        content: 'table2_1\ttable2_2',
+        range: [
+          [1, 0],
+          [1, 0],
+        ],
+        header: [linkField1, linkField2],
+      });
 
       const record = await getRecord(table1.id, table1.records[0].id);
-
-      console.log(record.fields);
 
       expect(record.fields[linkField1.id]).toEqual({
         id: table2.records[0].id,
         title: 'table2_1',
       });
-
       expect(record.fields[linkField2.id]).toEqual({
         id: table2.records[1].id,
         title: 'table2_2',
@@ -272,17 +261,15 @@ describe('OpenAPI SelectionController (e2e)', () => {
 
       const linkField1 = await createField(table1.id, table1LinkFieldRo);
       const linkField2 = await createField(table1.id, table1LinkFieldRo);
-      await request
-        .patch(`/api/table/${table1.id}/view/${table1.views[0].id}/selection/paste`)
-        .send({
-          content: 'table2_1\ttable2_2',
-          range: [
-            [1, 0],
-            [1, 0],
-          ],
-          header: [linkField1, linkField2],
-        })
-        .expect(200);
+
+      await apiPaste(table1.id, table1.views[0].id, {
+        content: 'table2_1\ttable2_2',
+        range: [
+          [1, 0],
+          [1, 0],
+        ],
+        header: [linkField1, linkField2],
+      });
 
       const record = await getRecord(table1.id, table1.records[0].id);
 
@@ -292,7 +279,6 @@ describe('OpenAPI SelectionController (e2e)', () => {
           title: 'table2_1',
         },
       ]);
-
       expect(record.fields[linkField2.id]).toEqual([
         {
           id: table2.records[1].id,

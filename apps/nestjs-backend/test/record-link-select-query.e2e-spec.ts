@@ -1,28 +1,26 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
-import type {
-  ITableFullVo,
-  IFieldRo,
-  IRecordsVo,
-  IGetRecordsQuery,
-  IFieldVo,
-  IRowCountVo,
-} from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IGetRecordsQuery, ITableFullVo } from '@teable-group/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable-group/core';
-import qs from 'qs';
-import type request from 'supertest';
-import { getFields, initApp, createField, updateRecordByApi } from './utils/init-app';
+import { getRowCount as apiGetRowCount } from '@teable-group/openapi';
+import {
+  createField,
+  createTable,
+  deleteTable,
+  getFields,
+  getRecords,
+  initApp,
+  updateRecordByApi,
+} from './utils/init-app';
 
 describe('OpenAPI link Select (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -47,46 +45,33 @@ describe('OpenAPI link Select (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
+      table1 = await createTable(baseId, {
+        name: 'table1',
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
-      table1 = createTable1Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-
-      table2 = createTable2Result.body;
-
-      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
-
-      table1.fields = getFields1Result.body;
-      table2.fields = getFields2Result.body;
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     describe.each([
@@ -213,68 +198,28 @@ describe('OpenAPI link Select (e2e)', () => {
             filterLinkCellSelected: [linkField1.id, table1.records[0].id],
           };
 
-          const table1CResult = (
-            await request
-              .get(`/api/table/${table1.id}/record`)
-              .query(qs.stringify(table1Candidate))
-              .expect(200)
-          ).body as IRecordsVo;
+          const table1CResult = await getRecords(table1.id, table1Candidate);
           expect(table1CResult.records.length).toBe(result[0].left.c);
 
-          const table1CResultRow = (
-            await request
-              .get(`/api/table/${table1.id}/aggregation/rowCount`)
-              .query(qs.stringify(table1Candidate))
-              .expect(200)
-          ).body as IRowCountVo;
+          const table1CResultRow = (await apiGetRowCount(table1.id, table1Candidate)).data;
           expect(table1CResultRow.rowCount).toBe(result[0].left.c);
 
-          const table1SResult = (
-            await request
-              .get(`/api/table/${table1.id}/record`)
-              .query(qs.stringify(table1Selected))
-              .expect(200)
-          ).body as IRecordsVo;
+          const table1SResult = await getRecords(table1.id, table1Selected);
           expect(table1SResult.records.length).toBe(result[0].left.s);
 
-          const table1SResultRow = (
-            await request
-              .get(`/api/table/${table1.id}/aggregation/rowCount`)
-              .query(qs.stringify(table1Selected))
-              .expect(200)
-          ).body as IRowCountVo;
+          const table1SResultRow = (await apiGetRowCount(table1.id, table1Selected)).data;
           expect(table1SResultRow.rowCount).toBe(result[0].left.s);
 
-          const table2CResult = (
-            await request
-              .get(`/api/table/${table2.id}/record`)
-              .query(qs.stringify(table2Candidate))
-              .expect(200)
-          ).body as IRecordsVo;
+          const table2CResult = await getRecords(table2.id, table2Candidate);
           expect(table2CResult.records.length).toBe(result[0].right.c);
 
-          const table2CResultRow = (
-            await request
-              .get(`/api/table/${table2.id}/aggregation/rowCount`)
-              .query(qs.stringify(table2Candidate))
-              .expect(200)
-          ).body as IRowCountVo;
+          const table2CResultRow = (await apiGetRowCount(table2.id, table2Candidate)).data;
           expect(table2CResultRow.rowCount).toBe(result[0].right.c);
 
-          const table2SResult = (
-            await request
-              .get(`/api/table/${table2.id}/record`)
-              .query(qs.stringify(table2Selected))
-              .expect(200)
-          ).body as IRecordsVo;
+          const table2SResult = await getRecords(table2.id, table2Selected);
           expect(table2SResult.records.length).toBe(result[0].right.s);
 
-          const table2SResultRow = (
-            await request
-              .get(`/api/table/${table2.id}/aggregation/rowCount`)
-              .query(qs.stringify(table2Selected))
-              .expect(200)
-          ).body as IRowCountVo;
+          const table2SResultRow = (await apiGetRowCount(table2.id, table2Selected)).data;
           expect(table2SResultRow.rowCount).toBe(result[0].right.s);
         });
 
@@ -314,40 +259,16 @@ describe('OpenAPI link Select (e2e)', () => {
             filterLinkCellSelected: [linkField1.id, table1.records[0].id],
           };
 
-          const table1CResult = (
-            await request
-              .get(`/api/table/${table1.id}/record`)
-              .query(qs.stringify(table1Candidate))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table1CResult = await getRecords(table1.id, table1Candidate);
           expect(table1CResult.records.length).toBe(result[1].left.c);
 
-          const table1SResult = (
-            await request
-              .get(`/api/table/${table1.id}/record`)
-              .query(qs.stringify(table1Selected))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table1SResult = await getRecords(table1.id, table1Selected);
           expect(table1SResult.records.length).toBe(result[1].left.s);
 
-          const table2CResult = (
-            await request
-              .get(`/api/table/${table2.id}/record`)
-              .query(qs.stringify(table2Candidate))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table2CResult = await getRecords(table2.id, table2Candidate);
           expect(table2CResult.records.length).toBe(result[1].right.c);
 
-          const table2SResult = (
-            await request
-              .get(`/api/table/${table2.id}/record`)
-              .query(qs.stringify(table2Selected))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table2SResult = await getRecords(table2.id, table2Selected);
           expect(table2SResult.records.length).toBe(result[1].right.s);
         });
 
@@ -387,40 +308,16 @@ describe('OpenAPI link Select (e2e)', () => {
             filterLinkCellSelected: linkField1.id,
           };
 
-          const table1CResult = (
-            await request
-              .get(`/api/table/${table1.id}/record`)
-              .query(qs.stringify(table1Candidate))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table1CResult = await getRecords(table1.id, table1Candidate);
           expect(table1CResult.records.length).toBe(result[2].left.c);
 
-          const table1SResult = (
-            await request
-              .get(`/api/table/${table1.id}/record`)
-              .query(qs.stringify(table1Selected))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table1SResult = await getRecords(table1.id, table1Selected);
           expect(table1SResult.records.length).toBe(result[2].left.s);
 
-          const table2CResult = (
-            await request
-              .get(`/api/table/${table2.id}/record`)
-              .query(qs.stringify(table2Candidate))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table2CResult = await getRecords(table2.id, table2Candidate);
           expect(table2CResult.records.length).toBe(result[2].right.c);
 
-          const table2SResult = (
-            await request
-              .get(`/api/table/${table2.id}/record`)
-              .query(qs.stringify(table2Selected))
-              .expect(200)
-          ).body as IRecordsVo;
-
+          const table2SResult = await getRecords(table2.id, table2Selected);
           expect(table2SResult.records.length).toBe(result[2].right.s);
         });
       }

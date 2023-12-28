@@ -15,7 +15,7 @@ export default defineConfig({
       },
     },
     cache: {
-      dir: '../../.cache/vitest/nestjs-backend',
+      dir: '../../.cache/vitest/nestjs-backend/unit',
     },
     coverage: {
       provider: 'v8',

@@ -1,4 +1,3 @@
-/* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type {
   IFieldRo,
@@ -17,20 +16,25 @@ import {
   NumberFormattingType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { deleteField as apiDeleteField } from '@teable-group/openapi';
 import type { Knex } from 'knex';
-import type request from 'supertest';
-import { createField, getRecord, initApp, updateRecordByApi } from './utils/init-app';
+import {
+  createField,
+  deleteField,
+  createTable,
+  deleteTable,
+  getFields,
+  getRecord,
+  initApp,
+  updateRecordByApi,
+} from './utils/init-app';
 
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -41,22 +45,17 @@ describe('OpenAPI FieldController (e2e)', () => {
     let table1: ITableFullVo;
 
     beforeAll(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-        })
-        .expect(201);
-      table1 = result.body;
+      table1 = await createTable(baseId, { name: 'table1' });
     });
 
     afterAll(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
+      await deleteTable(baseId, table1.id);
     });
 
     it('/api/table/{tableId}/field (GET)', async () => {
-      const fieldsResult = await request.get(`/api/table/${table1.id}/field`);
-      expect(fieldsResult.body).toHaveLength(3);
+      const fields: IFieldVo[] = await getFields(table1.id);
+
+      expect(fields).toHaveLength(3);
     });
 
     it('/api/table/{tableId}/field (POST)', async () => {
@@ -67,17 +66,9 @@ describe('OpenAPI FieldController (e2e)', () => {
         options: SingleLineTextFieldCore.defaultOptions(),
       };
 
-      await request.post(`/api/table/${table1.id}/field`).send(fieldRo).expect(201);
+      await createField(table1.id, fieldRo);
 
-      const result = await request
-        .get(`/api/table/${table1.id}/field`)
-        .query({
-          skip: 0,
-          take: 1000,
-        })
-        .expect(200);
-
-      const fields: IFieldVo[] = result.body;
+      const fields: IFieldVo[] = await getFields(table1.id);
       expect(fields).toHaveLength(4);
     });
   });
@@ -87,26 +78,13 @@ describe('OpenAPI FieldController (e2e)', () => {
     let table2: ITableFullVo;
 
     beforeAll(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-        })
-        .expect(201);
-      table1 = result.body;
-
-      const result2 = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-        })
-        .expect(201);
-      table2 = result2.body;
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
     });
 
     afterAll(async () => {
-      await request.delete(`/api/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     async function createFieldByType(
@@ -118,8 +96,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         options,
       };
 
-      const result = await request.post(`/api/table/${table1.id}/field`).send(fieldRo).expect(201);
-      return result.body;
+      return await createField(table1.id, fieldRo);
     }
     it('basic field', async () => {
       const textField = await createFieldByType(FieldType.SingleLineText);
@@ -206,8 +183,7 @@ describe('OpenAPI FieldController (e2e)', () => {
         });
 
         expect(linkField.name).toEqual(`${table2.name}`);
-        const fieldsResult = await request.get(`/api/table/${table2.id}/field`);
-        table2.fields = fieldsResult.body;
+        table2.fields = await getFields(table2.id);
         const symmetricalLinkField = table2.fields.find((f) => f.type === FieldType.Link);
 
         expect(symmetricalLinkField?.name).toEqual(table1.name);
@@ -250,37 +226,15 @@ describe('OpenAPI FieldController (e2e)', () => {
     let table2: ITableFullVo;
 
     beforeAll(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-        })
-        .expect(201);
-      table1 = result.body;
-
-      const result2 = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-        })
-        .expect(201);
-      table2 = result2.body;
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
     });
 
     afterAll(async () => {
-      await request.delete(`/api/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
-    async function createField(tableId: string, fieldRo: IFieldRo): Promise<IFieldVo> {
-      const result = await request.post(`/api/table/${tableId}/field`).send(fieldRo).expect(201);
-      return result.body;
-    }
-
-    async function deleteField(tableId: string, fieldId: string): Promise<IFieldVo> {
-      const result = await request.delete(`/api/table/${tableId}/field/${fieldId}`).expect(200);
-      return result.body;
-    }
     let prisma: PrismaService;
     let knex: Knex;
 
@@ -310,7 +264,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       });
 
       const primaryFieldId = fields.find((f) => f.isPrimary)?.id as string;
-      const fn = async () => (await apiDeleteField(table1.id, primaryFieldId))?.data;
+      const fn = async () => await deleteField(table1.id, primaryFieldId);
       await expect(fn()).rejects.toMatchObject({
         status: 403,
       });

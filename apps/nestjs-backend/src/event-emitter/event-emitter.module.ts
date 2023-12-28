@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { DynamicModule } from '@nestjs/common';
 import { ConfigurableModuleBuilder, Module } from '@nestjs/common';
-import { EventEmitterModule } from '@nestjs/event-emitter';
+import { EventEmitterModule as BaseEventEmitterModule } from '@nestjs/event-emitter';
 import { NotificationModule } from '../features/notification/notification.module';
 import { ShareDbModule } from '../share-db/share-db.module';
 import { EventEmitterService } from './event-emitter.service';
@@ -16,18 +16,18 @@ export const { ConfigurableModuleClass: EventEmitterModuleClass, OPTIONS_TYPE } 
   new ConfigurableModuleBuilder<EventEmitterModuleOptions>().build();
 
 @Module({})
-export class TeableEventEmitterModule extends EventEmitterModuleClass {
+export class EventEmitterModule extends EventEmitterModuleClass {
   static register(options?: typeof OPTIONS_TYPE): DynamicModule {
     const { global } = options || {};
 
-    const module = EventEmitterModule.forRoot({
+    const module = BaseEventEmitterModule.forRoot({
       wildcard: true,
       delimiter: '.',
     });
 
     return {
       imports: [module, ShareDbModule, NotificationModule],
-      module: TeableEventEmitterModule,
+      module: EventEmitterModule,
       global,
       providers: [EventEmitterService, ActionTriggerListener, CollaboratorNotificationListener],
       exports: [EventEmitterService],

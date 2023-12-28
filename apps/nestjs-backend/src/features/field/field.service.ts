@@ -241,7 +241,6 @@ export class FieldService implements IAdapterService {
         result = result.filter((field) => !view?.columnMeta[field.id].hidden);
       }
       result = sortBy(result, (field) => {
-        console.log('fieldOrder', field.name, view?.columnMeta[field.id].order);
         return view?.columnMeta[field.id].order;
       });
     }

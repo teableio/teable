@@ -62,7 +62,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 }
 
 export async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { snapshot: true });
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const configService = app.get(ConfigService);
 
   if (module.hot) {
@@ -72,6 +72,7 @@ export async function bootstrap() {
 
   const logger = app.get(Logger);
   app.useLogger(logger);
+  app.flushLogs();
 
   app.enableShutdownHooks();
 

@@ -1,20 +1,20 @@
-/* eslint-disable sonarjs/no-duplicate-string */
-/* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import { DriverClient } from '@teable-group/core';
 import type { IDbConnectionVo } from '@teable-group/openapi';
-import type request from 'supertest';
+import {
+  createDbConnection as apiCreateDbConnection,
+  deleteDbConnection as apiDeleteDbConnection,
+  getDbConnection as apiGetDbConnection,
+} from '@teable-group/openapi';
 import { initApp } from './utils/init-app';
 
-describe.skip('OpenAPI Db Connection (e2e)', () => {
+describe('OpenAPI Db Connection (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -29,17 +29,16 @@ describe.skip('OpenAPI Db Connection (e2e)', () => {
       return;
     }
 
-    const postResult = (await request.post(`/api/base/${baseId}/connection`).expect(201))
-      .body as IDbConnectionVo;
+    const postResult = (await apiCreateDbConnection(baseId)).data as IDbConnectionVo;
     expect(postResult.url).toEqual(expect.stringContaining('postgresql://'));
     expect(postResult.dsn.driver).toEqual('postgresql');
 
-    const getResult = (await request.get(`/api/base/${baseId}/connection`).expect(200)).body;
+    const getResult = (await apiGetDbConnection(baseId)).data as IDbConnectionVo;
     expect(getResult.url).toEqual(postResult.url);
     expect(getResult.dsn).toEqual(postResult.dsn);
 
-    await request.delete(`/api/base/${baseId}/connection`).expect(200);
-    const result = await request.get(`/api/base/${baseId}/connection`).expect(200);
-    expect(result.body).toEqual({});
+    expect((await apiDeleteDbConnection(baseId)).status).toEqual(200);
+    const result = (await apiGetDbConnection(baseId)).data;
+    expect(result).to.be.oneOf([undefined, '', {}]);
   });
 });

@@ -18,7 +18,6 @@ export const { ConfigurableModuleClass: MailSenderModuleClass, OPTIONS_TYPE } =
 @Module({})
 export class MailSenderModule extends MailSenderModuleClass {
   static register(options?: typeof OPTIONS_TYPE): DynamicModule {
-    const logger = new Logger();
     const { global } = options || {};
 
     const module = MailerModule.forRootAsync({
@@ -26,7 +25,7 @@ export class MailSenderModule extends MailSenderModuleClass {
       useFactory: (config: IMailConfig) => {
         const templateDir = path.join(__dirname, '/templates');
 
-        logger.log(`[Mail Template Dir]: ${templateDir}`);
+        Logger.log(`[Mail Template Dir]: ${templateDir}`);
         return {
           transport: {
             host: config.host,
