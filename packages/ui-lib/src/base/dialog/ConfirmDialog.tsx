@@ -1,30 +1,72 @@
 import React from 'react';
-import { ContentDialog } from './ContentDialog';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../../shadcn';
 
 interface IConfirmDialogProps {
   open?: boolean;
-  children?: React.ReactNode;
+  contentClassName?: string;
   title?: string | React.ReactNode;
   description?: string | React.ReactNode;
+  children?: React.ReactNode;
+  content?: React.ReactNode;
   cancelText?: string;
   confirmText?: string;
   onConfirm?: () => void;
   onCancel?: () => void;
   onOpenChange?: (open: boolean) => void;
 }
-
 export const ConfirmDialog = (props: IConfirmDialogProps) => {
-  const { title, description, ...common } = props;
+  const {
+    open,
+    contentClassName,
+    title,
+    description,
+    onOpenChange,
+    children,
+    content,
+    cancelText = 'Cancel',
+    confirmText = 'Continue',
+    onConfirm,
+    onCancel,
+  } = props;
 
   return (
-    <ContentDialog
-      {...common}
-      content={
-        <>
-          {title && <div className="text-base font-medium">{title}</div>}
-          {description && <div className="text-sm text-muted-foreground">{description}</div>}
-        </>
-      }
-    />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
+      <DialogContent
+        className={contentClassName}
+        closeable={false}
+        overlayStyle={{
+          pointerEvents: 'none',
+        }}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {(title || description) && (
+          <DialogHeader>
+            {title && <DialogTitle>{title}</DialogTitle>}
+            {description && <DialogDescription>{description}</DialogDescription>}
+          </DialogHeader>
+        )}
+        {content}
+        <DialogFooter>
+          <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
+            {cancelText}
+          </Button>
+          <Button size={'sm'} onClick={onConfirm}>
+            {confirmText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

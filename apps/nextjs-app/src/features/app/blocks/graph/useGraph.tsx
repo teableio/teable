@@ -2,8 +2,7 @@ import type { GraphData, Graph as IGraph } from '@antv/g6';
 import G6 from '@antv/g6';
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
-
-export const useGraph = (ref: RefObject<HTMLDivElement>, width: number, height: number) => {
+export const useGraph = (ref: RefObject<HTMLDivElement>) => {
   const graphRef = useRef<IGraph>();
 
   useEffect(() => {
@@ -12,33 +11,49 @@ export const useGraph = (ref: RefObject<HTMLDivElement>, width: number, height: 
     }
     const element = ref.current;
     const graph = new G6.Graph({
+      plugins: [
+        new G6.Grid({
+          follow: true,
+        }),
+      ],
       container: element,
       width: element.clientWidth,
       height: element.clientHeight,
       fitViewPadding: 20,
       fitView: true,
       fitCenter: true,
+      maxZoom: 1,
       autoPaint: true,
       layout: {
         type: 'dagre',
-        nodesep: 20,
-        ranksep: 40,
+        nodesep: 40,
+        ranksep: 20,
+        controlPoints: true,
         align: 'UL',
       },
       defaultEdge: {
+        type: 'polyline',
         labelCfg: {
           autoRotate: true,
         },
         style: {
-          endArrow: {
-            path: G6.Arrow.triangle(5, 5, 5),
-            d: 5,
-          },
+          radius: 20,
+          offset: 45,
+          endArrow: true,
+          lineWidth: 2,
         },
       },
       defaultNode: {
-        type: 'ellipse',
-        size: [120, 40],
+        type: 'rect',
+        size: [130, 30],
+        anchorPoints: [
+          [0.5, 0],
+          [0.5, 1],
+        ],
+        style: {
+          fillOpacity: 0.5,
+          radius: 10,
+        },
       },
       modes: {
         default: [
@@ -47,7 +62,6 @@ export const useGraph = (ref: RefObject<HTMLDivElement>, width: number, height: 
           },
           {
             type: 'drag-canvas',
-            enableOptimize: true,
           },
           'drag-node',
           'brush-select',
@@ -57,7 +71,11 @@ export const useGraph = (ref: RefObject<HTMLDivElement>, width: number, height: 
     });
     graphRef.current = graph;
     return () => {
-      graphRef.current?.destroy();
+      try {
+        graphRef.current?.destroy();
+      } catch (e) {
+        console.error(e);
+      }
     };
   }, [ref]);
 
@@ -79,16 +97,15 @@ export const useGraph = (ref: RefObject<HTMLDivElement>, width: number, height: 
     graph.render();
   }, []);
 
-  useEffect(() => {
-    const graph = graphRef.current;
-    if (graph == undefined) {
+  const changeSize = useCallback(() => {
+    if (!graphRef.current || !ref.current) {
       return;
     }
-    graph.changeSize(width, height);
-    graph.render();
-  }, [height, width]);
+    graphRef.current.changeSize(ref.current.clientWidth, ref.current?.clientHeight);
+    graphRef.current.render();
+  }, [ref]);
 
-  return { updateGraph };
+  return { updateGraph, changeSize };
 };
 
 const fittingString = (str: string, maxWidth: number, fontSize = 12) => {

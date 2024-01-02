@@ -18,7 +18,7 @@ import {
   IUpdateFieldRo,
   updateFieldRoSchema,
 } from '@teable-group/core';
-import type { ICreateFieldPlainVo } from '@teable-group/openapi';
+import type { IPlanFieldCreateVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -52,12 +52,12 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|create')
-  @Post('/plain')
-  async createFieldPlain(
+  @Post('/plan')
+  async planFieldCreate(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(fieldRoSchema)) fieldRo: IFieldRo
-  ): Promise<ICreateFieldPlainVo> {
-    return await this.fieldOpenApiService.createFieldPlain(tableId, fieldRo);
+  ): Promise<IPlanFieldCreateVo> {
+    return await this.fieldOpenApiService.planFieldCreate(tableId, fieldRo);
   }
 
   @Permissions('field|create')

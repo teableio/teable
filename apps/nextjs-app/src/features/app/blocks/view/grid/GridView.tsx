@@ -5,15 +5,15 @@ import {
   ActionTriggerProvider,
 } from '@teable-group/sdk/context';
 import { useIsHydrated } from '@teable-group/sdk/hooks';
-import { DynamicGraph } from '../../graph/DynamicGraph';
-import { useGraphStore } from '../../graph/useGraphStore';
+import { DynamicCellGraph } from '../../graph/DynamicCellGraph';
+import { useCellGraphStore } from '../../graph/useCellGraphStore';
 import { GridToolBar } from '../tool-bar/GridToolBar';
 import type { IViewBaseProps } from '../types';
 import { GridViewBase } from './GridViewBase';
 
 export const GridView = (props: IViewBaseProps) => {
   const { recordServerData, recordsServerData } = props;
-  const { graphOpen } = useGraphStore();
+  const { graphOpen } = useCellGraphStore();
   const isHydrated = useIsHydrated();
 
   if (!isHydrated) {
@@ -28,7 +28,7 @@ export const GridView = (props: IViewBaseProps) => {
           <RowCountProvider>
             <div className="w-full grow overflow-hidden sm:pl-2">
               <GridViewBase />
-              {graphOpen && <DynamicGraph />}
+              {graphOpen && <DynamicCellGraph />}
             </div>
           </RowCountProvider>
         </AggregationProvider>

@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IAggregationRo, NotificationStatesEnum, IRowCountRo } from '@teable-group/core';
 import type {
   IShareViewAggregationsQueryRo,
   IShareViewRowCountQueryRo,
-} from '@teable-group/openapi';
+  IAggregationRo,
+  IFieldRo,
+  IRowCountRo,
+  NotificationStatesEnum,
+} from '@teable-group/core';
 
 export type ReactQueryKeys = {
   spaceCollaboratorList: (spaceId: string) => [string, string];
@@ -24,6 +27,7 @@ export type ReactQueryKeys = {
     shareId: string,
     query: IShareViewAggregationsQueryRo
   ) => [string, string, IShareViewAggregationsQueryRo];
+  planFieldCreate: (tableId: string, fieldRo: IFieldRo) => [string, string, IFieldRo];
 };
 
 export const ReactQueryKeys: ReactQueryKeys = {
@@ -39,4 +43,6 @@ export const ReactQueryKeys: ReactQueryKeys = {
 
   shareViewRowCount: (shareId, query) => ['share-view-row-count', shareId, query],
   shareViewAggregations: (shareId, query) => ['share-view-aggregations', shareId, query],
+
+  planFieldCreate: (tableId, fieldRo) => ['create-field-plain', tableId, fieldRo],
 };

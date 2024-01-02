@@ -20,10 +20,10 @@ export class FieldOpenApiService {
     private readonly graphService: GraphService
   ) {}
 
-  async createFieldPlain(tableId: string, fieldRo: IFieldRo) {
+  async planFieldCreate(tableId: string, fieldRo: IFieldRo) {
     const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
     const fieldInstance = createFieldInstanceByVo(fieldVo);
-    return await this.graphService.createFieldPlain(tableId, fieldInstance);
+    return await this.graphService.planFieldCreate(tableId, fieldInstance);
   }
 
   async createField(tableId: string, fieldRo: IFieldRo) {

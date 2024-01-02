@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 
-interface IGridState {
+interface ICellGraphState {
   graphOpen: boolean;
   openGraph: () => void;
   closeGraph: () => void;
   toggleGraph: () => void;
 }
 
-export const useGraphStore = create<IGridState>((set) => ({
+export const useCellGraphStore = create<ICellGraphState>((set) => ({
   graphOpen: false,
   toggleGraph: () => {
     set((state) => {

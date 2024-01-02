@@ -7,6 +7,7 @@ import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
+import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
 import type { IFieldEditorRo, IFieldSetting } from './type';
 import { FieldOperator } from './type';
@@ -46,6 +47,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
 const FieldSettingBase = (props: IFieldSetting) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
+  const table = useTable();
   const { toast } = useToast();
   const [field, setField] = useState<IFieldEditorRo>(
     originField
@@ -55,6 +57,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
         }
   );
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
+  const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
 
   const onOpenChange = (open?: boolean) => {
@@ -77,11 +80,19 @@ const FieldSettingBase = (props: IFieldSetting) => {
     onCancel?.();
   };
 
-  const onConfirmInner = () => {
+  const onSave = () => {
     const result = updateFieldRoSchema.safeParse(field);
     if (result.success) {
-      console.log('fieldConFirm', result.data);
-      return onConfirm?.(result.data);
+      if (
+        !result.data.lookupOptions &&
+        result.data.type !== FieldType.Formula &&
+        operator !== FieldOperator.Edit
+      ) {
+        onConfirm?.(result.data);
+      } else {
+        setGraphVisible(true);
+      }
+      return;
     }
     console.error('fieldConFirm', field);
     console.error('fieldConFirmResult', fromZodError(result.error).message);
@@ -90,6 +101,13 @@ const FieldSettingBase = (props: IFieldSetting) => {
       variant: 'destructive',
       description: fromZodError(result.error).message,
     });
+  };
+
+  const onConfirmInner = () => {
+    const result = updateFieldRoSchema.safeParse(field);
+    if (result.success) {
+      onConfirm?.(result.data);
+    }
   };
 
   const title = useMemo(() => {
@@ -117,7 +135,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
               <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>
                 Cancel
               </Button>
-              <Button size={'sm'} onClick={onConfirmInner}>
+              <Button size={'sm'} onClick={onSave}>
                 Save
               </Button>
             </div>
@@ -130,6 +148,20 @@ const FieldSettingBase = (props: IFieldSetting) => {
         title="Are you sure you want to discard your changes?"
         onCancel={() => setAlertVisible(false)}
         onConfirm={onCancel}
+      />
+      <ConfirmDialog
+        contentClassName="max-w-6xl"
+        title="Field Dependencies Graph"
+        open={graphVisible}
+        onOpenChange={setGraphVisible}
+        content={
+          graphVisible && (
+            <DynamicFieldGraph tableId={table?.id as string} fieldRo={field as IFieldRo} />
+          )
+        }
+        confirmText="Save"
+        onCancel={() => setGraphVisible(false)}
+        onConfirm={onConfirmInner}
       />
     </>
   );

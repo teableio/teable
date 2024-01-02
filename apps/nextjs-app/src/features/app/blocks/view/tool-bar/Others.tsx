@@ -3,12 +3,12 @@ import { useDriver } from '@teable-group/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
 import Link from 'next/link';
 import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
-import { useGraphStore } from '../../graph/useGraphStore';
+import { useCellGraphStore } from '../../graph/useCellGraphStore';
 import { SharePopover } from './SharePopover';
 import { ToolBarButton } from './ToolBarButton';
 
 export const Others: React.FC = () => {
-  const { toggleGraph } = useGraphStore();
+  const { toggleGraph } = useCellGraphStore();
   const driver = useDriver();
   return (
     <div className="min-w-[100px] justify-end @container/toolbar-others @2xl/toolbar:flex @2xl/toolbar:flex-1">

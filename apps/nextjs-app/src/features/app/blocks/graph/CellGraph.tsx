@@ -8,10 +8,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useMount } from 'react-use';
 import { useGridViewStore } from '../view/grid/store/gridView';
+import { useCellGraphStore } from './useCellGraphStore';
 import { useGraph } from './useGraph';
-import { useGraphStore } from './useGraphStore';
 
-export const Graph: React.FC = () => {
+export const CellGraph: React.FC = () => {
   const { selection } = useGridViewStore();
   const { mutateAsync: getGraphMutator, data, isLoading } = useMutation({ mutationFn: getGraph });
   const tableId = useTableId();
@@ -23,7 +23,7 @@ export const Graph: React.FC = () => {
   const [x, setX] = useState(0);
   const [y, setY] = useState(30);
   const [tables, setTables] = useState<{ name: string; color: string }[]>([]);
-  const { closeGraph } = useGraphStore();
+  const { closeGraph } = useCellGraphStore();
 
   useMount(() => {
     const x =
@@ -32,8 +32,9 @@ export const Graph: React.FC = () => {
     setX(x);
   });
 
-  const { updateGraph } = useGraph(ref, width, height);
+  const { updateGraph, changeSize } = useGraph(ref);
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   useEffect(() => {
     const cell = selection?.ranges?.[0];
     const isCell = selection?.isCellSelection;
@@ -45,18 +46,20 @@ export const Graph: React.FC = () => {
         const { nodes, edges, combos } = res.data;
         const cache: Record<string, string> = {};
         updateGraph({
-          nodes: nodes.map((node) => {
+          nodes: nodes?.map((node) => {
             const comboId = node.comboId || 'default';
-            const stroke = cache[comboId]
+            const color = cache[comboId]
               ? cache[comboId]
-              : ColorUtils.getRandomHexFromStr(comboId);
-            cache[comboId] = stroke;
+              : ColorUtils.getRandomColorFromStr(comboId);
+            cache[comboId] = color;
+            const stroke = ColorUtils.getHexForColor(color);
             return {
               ...node,
-              label: `${node.fieldName}\n${node.label}`,
+              label: `${node.fieldName}\n${node.label || '-'}`,
               style: {
                 stroke,
                 lineWidth: node.isSelected ? 5 : 1,
+                fill: stroke,
               },
             };
           }),
@@ -84,6 +87,7 @@ export const Graph: React.FC = () => {
       onResizeStop={(e, direction, ref) => {
         setWidth(ref.clientWidth);
         setHeight(ref.clientHeight);
+        changeSize();
       }}
     >
       <Rnd

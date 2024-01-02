@@ -1164,7 +1164,7 @@ export class FieldSupplementService {
     return lookupFieldIds;
   }
 
-  getComputedFieldReferenceIds(field: IFieldInstance) {
+  getComputedFieldReferenceIds(field: IFieldInstance): string[] {
     if (field.lookupOptions) {
       return [field.lookupOptions.lookupFieldId];
     }
@@ -1177,7 +1177,7 @@ export class FieldSupplementService {
       return (field as FormulaFieldDto).getReferenceFieldIds();
     }
 
-    throw new Error('invalid field type');
+    return [];
   }
 
   private async createComputedFieldReference(field: IFieldInstance) {

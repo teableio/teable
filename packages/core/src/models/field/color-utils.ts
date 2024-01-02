@@ -86,10 +86,16 @@ export interface IColorUtils {
   randomColor(exists?: string[], num?: number): Colors[];
 
   /**
-   * Randomly (but consistently) pick a value from a map based on a string
+   * Randomly (but consistently) pick a hex from a map based on a string
    * @param str input string
    */
   getRandomHexFromStr(str: string, theme?: 'light' | 'dark'): string;
+
+  /**
+   * Randomly (but consistently) pick a color from a map based on a string
+   * @param str input string
+   */
+  getRandomColorFromStr(str: string): Colors;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -149,6 +155,12 @@ export const ColorUtils: IColorUtils = {
     }
 
     return result;
+  },
+
+  getRandomColorFromStr(str: string): Colors {
+    const seed = getSeed(str);
+    const values = Object.values(Colors);
+    return values[seed % values.length];
   },
 
   getRandomHexFromStr(str: string) {

@@ -6,21 +6,21 @@ import { graphVoSchema } from '../table/get-cell-graph';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const CREATE_FIELD_PLAIN = '/table/{tableId}/field/plain';
+export const PLAN_FIELD_CREATE = '/table/{tableId}/field/plan';
 
-export const createFieldPlainVoSchema = z.object({
+export const planFieldCreateVoSchema = z.object({
   isAsync: z.boolean(),
   graph: graphVoSchema,
   updateCellCount: z.number(),
   totalCellCount: z.number(),
 });
 
-export type ICreateFieldPlainVo = z.infer<typeof createFieldPlainVoSchema>;
+export type IPlanFieldCreateVo = z.infer<typeof planFieldCreateVoSchema>;
 
-export const CreateFieldPlainRoute: RouteConfig = registerRoute({
+export const planFieldCreateRoute: RouteConfig = registerRoute({
   method: 'post',
-  path: CREATE_FIELD_PLAIN,
-  description: 'Generate calculation plain for creating the field',
+  path: PLAN_FIELD_CREATE,
+  description: 'Generate calculation plan for creating the field',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -38,7 +38,7 @@ export const CreateFieldPlainRoute: RouteConfig = registerRoute({
       description: 'Returns the calculation plan for creating the field',
       content: {
         'application/json': {
-          schema: createFieldPlainVoSchema,
+          schema: planFieldCreateVoSchema,
         },
       },
     },
@@ -46,6 +46,6 @@ export const CreateFieldPlainRoute: RouteConfig = registerRoute({
   tags: ['field'],
 });
 
-export const createFieldPlain = async (tableId: string, fieldRo: IFieldRo) => {
-  return axios.post<ICreateFieldPlainVo>(urlBuilder(CREATE_FIELD_PLAIN, { tableId }), fieldRo);
+export const planFieldCreate = async (tableId: string, fieldRo: IFieldRo) => {
+  return axios.post<IPlanFieldCreateVo>(urlBuilder(PLAN_FIELD_CREATE, { tableId }), fieldRo);
 };

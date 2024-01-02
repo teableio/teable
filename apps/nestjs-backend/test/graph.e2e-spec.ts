@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship, type IFieldRo, type ITableFullVo } from '@teable-group/core';
-import { createFieldPlain } from '@teable-group/openapi';
+import { planFieldCreate } from '@teable-group/openapi';
 import { createField, createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Graph (e2e)', () => {
@@ -43,7 +43,7 @@ describe('OpenAPI Graph (e2e)', () => {
       },
     };
 
-    const { data: plain } = await createFieldPlain(table1.id, formulaRo);
+    const { data: plain } = await planFieldCreate(table1.id, formulaRo);
 
     expect(plain).toMatchObject({
       isAsync: false,
@@ -55,7 +55,7 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plain.graph?.combos).toHaveLength(1);
   });
 
-  it.only('should create lookup field plain', async () => {
+  it('should create lookup field plain', async () => {
     const linkFieldRo: IFieldRo = {
       type: FieldType.Link,
       options: {
@@ -76,7 +76,7 @@ describe('OpenAPI Graph (e2e)', () => {
       },
     };
 
-    const { data: plain } = await createFieldPlain(table1.id, lookupFieldRo);
+    const { data: plain } = await planFieldCreate(table1.id, lookupFieldRo);
 
     expect(plain).toMatchObject({
       isAsync: false,

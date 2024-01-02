@@ -7,7 +7,7 @@ import type {
   IGraphNode,
   IGraphCombo,
   IGraphVo,
-  ICreateFieldPlainVo,
+  IPlanFieldCreateVo,
 } from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
@@ -231,7 +231,7 @@ export class GraphService {
     return tableRawsWithCount;
   }
 
-  async createFieldPlain(tableId: string, field: IFieldInstance): Promise<ICreateFieldPlainVo> {
+  async planFieldCreate(tableId: string, field: IFieldInstance): Promise<IPlanFieldCreateVo> {
     const referenceFieldIds = this.fieldSupplementService.getComputedFieldReferenceIds(field);
     const directedGraph = await this.referenceService.getFieldGraphItems(referenceFieldIds);
     const fromGraph = referenceFieldIds.map((fromFieldId) => ({
@@ -271,7 +271,7 @@ export class GraphService {
       return {
         source: node.fromFieldId,
         target: node.toFieldId,
-        label: field.type + (field.isLookup ? ' (lookup)' : ''),
+        label: field.isLookup ? 'lookup' : field.type,
       };
     }, []);
 
