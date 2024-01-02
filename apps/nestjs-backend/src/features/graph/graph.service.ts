@@ -232,7 +232,7 @@ export class GraphService {
   }
 
   async planFieldCreate(tableId: string, field: IFieldInstance): Promise<IPlanFieldCreateVo> {
-    const referenceFieldIds = this.fieldSupplementService.getComputedFieldReferenceIds(field);
+    const referenceFieldIds = this.fieldSupplementService.getFieldReferenceIds(field);
     const directedGraph = await this.referenceService.getFieldGraphItems(referenceFieldIds);
     const fromGraph = referenceFieldIds.map((fromFieldId) => ({
       fromFieldId,

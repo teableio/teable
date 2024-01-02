@@ -110,7 +110,7 @@ export const CellGraph: React.FC = () => {
       <Button
         variant={'ghost'}
         size="xs"
-        className="absolute right-2 top-2"
+        className="absolute right-2 top-2 z-10"
         onClick={() => closeGraph()}
       >
         <X className="h-4 w-4" />

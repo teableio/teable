@@ -85,6 +85,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
     if (result.success) {
       if (
         !result.data.lookupOptions &&
+        result.data.type !== FieldType.Link &&
         result.data.type !== FieldType.Formula &&
         operator !== FieldOperator.Edit
       ) {
@@ -154,11 +155,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
         title="Field Dependencies Graph"
         open={graphVisible}
         onOpenChange={setGraphVisible}
-        content={
-          graphVisible && (
-            <DynamicFieldGraph tableId={table?.id as string} fieldRo={field as IFieldRo} />
-          )
-        }
+        content={<DynamicFieldGraph tableId={table?.id as string} fieldRo={field as IFieldRo} />}
         confirmText="Save"
         onCancel={() => setGraphVisible(false)}
         onConfirm={onConfirmInner}

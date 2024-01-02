@@ -1164,7 +1164,7 @@ export class FieldSupplementService {
     return lookupFieldIds;
   }
 
-  getComputedFieldReferenceIds(field: IFieldInstance): string[] {
+  getFieldReferenceIds(field: IFieldInstance): string[] {
     if (field.lookupOptions) {
       return [field.lookupOptions.lookupFieldId];
     }
@@ -1182,7 +1182,7 @@ export class FieldSupplementService {
 
   private async createComputedFieldReference(field: IFieldInstance) {
     const toFieldId = field.id;
-    const fieldIds = this.getComputedFieldReferenceIds(field);
+    const fieldIds = this.getFieldReferenceIds(field);
 
     for (const fromFieldId of fieldIds) {
       await this.prismaService.txClient().reference.create({

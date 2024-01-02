@@ -15,6 +15,10 @@ export const useGraph = (ref: RefObject<HTMLDivElement>) => {
         new G6.Grid({
           follow: true,
         }),
+        new G6.ToolBar({
+          className:
+            'absolute flex gap-2 right-2 bottom-2 border rounded bg-background shadow p-1 pointer cursor-pointer',
+        }),
       ],
       container: element,
       width: element.clientWidth,
@@ -27,9 +31,10 @@ export const useGraph = (ref: RefObject<HTMLDivElement>) => {
       layout: {
         type: 'dagre',
         nodesep: 40,
-        ranksep: 20,
+        ranksep: 30,
         controlPoints: true,
         align: 'UL',
+        rankdir: 'BT',
       },
       defaultEdge: {
         type: 'polyline',

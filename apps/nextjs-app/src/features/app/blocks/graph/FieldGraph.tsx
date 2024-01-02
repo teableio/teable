@@ -73,7 +73,7 @@ export const FieldGraph: React.FC<{ tableId: string; fieldRo: IFieldRo }> = ({
           );
         })}
       </div>
-      <div className="flex h-[600px] w-full flex-col">
+      <div className="relative flex h-[600px] w-full flex-col">
         <div ref={ref} className="grow rounded border shadow"></div>
       </div>
     </>
