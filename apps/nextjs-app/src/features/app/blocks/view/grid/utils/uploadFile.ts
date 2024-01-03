@@ -1,6 +1,6 @@
 import type { IAttachmentItem } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
-import type { INotifyVo } from '@teable-group/openapi';
+import { UploadType, type INotifyVo } from '@teable-group/openapi';
 import type { IFile } from '@teable-group/sdk';
 import { AttachmentManager } from '@teable-group/sdk';
 
@@ -10,6 +10,7 @@ export const uploadFiles = async (files: FileList): Promise<IAttachmentItem[]> =
     const attachments: IAttachmentItem[] = [];
     attachmentManager.upload(
       Array.from(files).map((file) => ({ instance: file, id: generateAttachmentId() })),
+      UploadType.Table,
       {
         successCallback: (file: IFile, attachment: INotifyVo) => {
           const { instance, id } = file;

@@ -137,7 +137,7 @@ const getSortRecords = async (tableId: string, orderBy?: IGetRecordsQuery['order
 
 const setRecordsOrder = async (tableId: string, viewId: string, orderBy: ISortItem[]) => {
   await apiSetViewSort(tableId, viewId, {
-    sortObjs: orderBy,
+    sort: { sortObjs: orderBy },
   });
 };
 

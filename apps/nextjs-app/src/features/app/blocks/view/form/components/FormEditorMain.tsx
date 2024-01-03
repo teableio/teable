@@ -3,6 +3,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { generateAttachmentId } from '@teable-group/core';
 import { Pencil } from '@teable-group/icons';
 import type { INotifyVo } from '@teable-group/openapi';
+import { UploadType } from '@teable-group/openapi/src/attachment/signature';
 import type { IFile } from '@teable-group/sdk/components/editor/attachment/upload-attachment/uploadManage';
 import { AttachmentManager } from '@teable-group/sdk/components/editor/attachment/upload-attachment/uploadManage';
 import { useIsHydrated, useView } from '@teable-group/sdk/hooks';
@@ -62,7 +63,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
 
     const files = Array.from(fileList);
     const uploadItem = { instance: files[0], id: generateAttachmentId() };
-    attachmentManager.upload([uploadItem], {
+    attachmentManager.upload([uploadItem], UploadType.Form, {
       successCallback: (_file: IFile, attachment: INotifyVo) => {
         const url = attachment.url;
         setCoverUrl(url);

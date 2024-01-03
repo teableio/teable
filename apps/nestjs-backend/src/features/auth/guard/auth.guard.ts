@@ -10,6 +10,10 @@ export class AuthGuard extends PassportAuthGuard(['jwt']) {
     super();
   }
 
+  validate(context: ExecutionContext) {
+    return super.canActivate(context);
+  }
+
   canActivate(context: ExecutionContext) {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -19,6 +23,6 @@ export class AuthGuard extends PassportAuthGuard(['jwt']) {
     if (isPublic) {
       return true;
     }
-    return super.canActivate(context);
+    return this.validate(context);
   }
 }

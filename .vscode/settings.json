@@ -6,6 +6,7 @@
     "DATETIME",
     "gantt",
     "Localstorage",
+    "minio",
     "nextjs",
     "nonstrict",
     "OPENAI",

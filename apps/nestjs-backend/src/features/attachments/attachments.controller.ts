@@ -1,37 +1,47 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
+  Body,
   Controller,
   Get,
   Param,
   Post,
+  Put,
   Query,
+  Req,
   Res,
   StreamableFile,
-  UploadedFile,
-  UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import type { INotifyVo } from '@teable-group/openapi';
-import { Response } from 'express';
+import { SignatureRo, signatureRoSchema } from '@teable-group/openapi';
+import type { INotifyVo, SignatureVo } from '@teable-group/openapi';
+import { Response, Request } from 'express';
+import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
+import { AuthGuard } from '../auth/guard/auth.guard';
 import { AttachmentsService } from './attachments.service';
+import { DynamicAuthGuardFactory } from './guard/auth.guard';
 
 @Controller('api/attachments')
+@Public()
 export class AttachmentsController {
   constructor(private readonly attachmentsService: AttachmentsService) {}
 
-  @Post('/upload/:token')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(@UploadedFile() file: Express.Multer.File, @Param('token') token: string) {
-    await this.attachmentsService.upload(file, token);
+  @Put('/upload/:token')
+  async uploadFilePut(@Req() req: Request, @Param('token') token: string) {
+    await this.attachmentsService.upload(req, token);
     return null;
   }
 
-  @Public()
-  @Get(':token')
+  @Post('/upload/:token')
+  async uploadFilePost(@Req() req: Request, @Param('token') token: string) {
+    await this.attachmentsService.upload(req, token);
+    return null;
+  }
+
+  @Get('/read')
   async read(
     @Res({ passthrough: true }) res: Response,
-    @Param('token') token: string,
+    @Query('token') token: string,
     @Query('filename') filename?: string
   ) {
     const { fileStream, headers } = await this.attachmentsService.readLocalFile(token, filename);
@@ -46,13 +56,17 @@ export class AttachmentsController {
     return new StreamableFile(fileStream);
   }
 
+  @UseGuards(AuthGuard, DynamicAuthGuardFactory)
   @Post('/signature')
-  async signature() {
-    return await this.attachmentsService.signature();
+  async signature(
+    @Body(new ZodValidationPipe(signatureRoSchema)) body: SignatureRo
+  ): Promise<SignatureVo> {
+    return await this.attachmentsService.signature(body);
   }
 
-  @Post('/notify/:secret')
-  async notify(@Param('secret') secret: string): Promise<INotifyVo> {
-    return await this.attachmentsService.notify(secret);
+  @UseGuards(AuthGuard, DynamicAuthGuardFactory)
+  @Post('/notify/:token')
+  async notify(@Param('token') token: string): Promise<INotifyVo> {
+    return await this.attachmentsService.notify(token);
   }
 }

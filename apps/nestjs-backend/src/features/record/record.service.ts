@@ -37,6 +37,7 @@ import {
 } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { UploadType } from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -47,7 +48,9 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { getViewOrderFieldName } from '../../utils';
 import { Timing } from '../../utils/timing';
+import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
+import StorageAdapter from '../attachments/plugins/adapter';
 import { BatchService } from '../calculation/batch.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedDbFieldNames } from '../field/constant';
@@ -66,6 +69,7 @@ export class RecordService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
     private readonly attachmentService: AttachmentsTableService,
+    private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
     @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -114,23 +118,47 @@ export class RecordService implements IAdapterService {
     return userFields;
   }
 
-  private dbRecord2RecordFields(
+  private async dbRecord2RecordFields(
     record: IRecord['fields'],
     fields: IFieldInstance[],
     fieldKeyType?: FieldKeyType,
     cellFormat: CellFormat = CellFormat.Json
   ) {
-    return fields.reduce<IRecord['fields']>((acc, field) => {
+    const recordFields: IRecord['fields'] = {};
+    for (const field of fields) {
       const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
       const dbCellValue = record[field.dbFieldName];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cellValue = field.convertDBValue2CellValue(dbCellValue as any);
-      if (cellValue != null) {
-        acc[fieldNameOrId] =
-          cellFormat === CellFormat.Text ? field.cellValue2String(cellValue) : cellValue;
+      let cellValue = field.convertDBValue2CellValue(dbCellValue as any);
+      if (cellValue == null) {
+        continue;
       }
-      return acc;
-    }, {});
+      if (field.type === FieldType.Attachment) {
+        const attachmentCellValue = cellValue as IAttachmentCellValue;
+        cellValue = await Promise.all(
+          attachmentCellValue.map(async (item) => {
+            const { path, mimetype, token } = item;
+            const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
+              StorageAdapter.getBucket(UploadType.Table),
+              path,
+              token,
+              undefined,
+              {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                'Content-Type': mimetype,
+              }
+            );
+            return {
+              ...item,
+              presignedUrl,
+            };
+          })
+        );
+      }
+      recordFields[fieldNameOrId] =
+        cellFormat === CellFormat.Text ? field.cellValue2String(cellValue) : cellValue;
+    }
+    return recordFields;
   }
 
   async getAllRecordCount(dbTableName: string) {
@@ -882,40 +910,47 @@ export class RecordService implements IAdapterService {
 
     const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
 
-    return result
-      .sort((a, b) => {
-        return recordIdsMap[a.__id] - recordIdsMap[b.__id];
-      })
-      .map((record) => {
-        const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
-          (acc, vFieldName, index) => {
-            acc[allViews[index].id] = record[vFieldName] as number;
-            return acc;
-          },
-          {}
-        );
-        const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
-        const name = recordFields[primaryField[fieldKeyType]];
-        return {
-          id: record.__id,
-          v: record.__version,
-          type: 'json0',
-          data: {
-            fields: recordFields,
-            name:
-              cellFormat === CellFormat.Text
-                ? (name as string)
-                : primaryField.cellValue2String(name),
+    return Promise.all(
+      result
+        .sort((a, b) => {
+          return recordIdsMap[a.__id] - recordIdsMap[b.__id];
+        })
+        .map(async (record) => {
+          const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
+            (acc, vFieldName, index) => {
+              acc[allViews[index].id] = record[vFieldName] as number;
+              return acc;
+            },
+            {}
+          );
+          const recordFields = await this.dbRecord2RecordFields(
+            record,
+            fields,
+            fieldKeyType,
+            cellFormat
+          );
+          const name = recordFields[primaryField[fieldKeyType]];
+          return {
             id: record.__id,
-            autoNumber: record.__auto_number,
-            createdTime: record.__created_time?.toISOString(),
-            lastModifiedTime: record.__last_modified_time?.toISOString(),
-            createdBy: record.__created_by,
-            lastModifiedBy: record.__last_modified_by,
-            recordOrder,
-          },
-        };
-      });
+            v: record.__version,
+            type: 'json0',
+            data: {
+              fields: recordFields,
+              name:
+                cellFormat === CellFormat.Text
+                  ? (name as string)
+                  : primaryField.cellValue2String(name),
+              id: record.__id,
+              autoNumber: record.__auto_number,
+              createdTime: record.__created_time?.toISOString(),
+              lastModifiedTime: record.__last_modified_time?.toISOString(),
+              createdBy: record.__created_by,
+              lastModifiedBy: record.__last_modified_by,
+              recordOrder,
+            },
+          };
+        })
+    );
   }
 
   async shareWithViewId(tableId: string, viewId?: string) {
@@ -1007,12 +1042,14 @@ export class RecordService implements IAdapterService {
         queryBuilder.toQuery()
       );
 
-    return result.map((record) => {
-      return {
-        id: record.__id,
-        fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
-      };
-    });
+    return Promise.all(
+      result.map(async (record) => {
+        return {
+          id: record.__id,
+          fields: await this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
+        };
+      })
+    );
   }
 
   async getRecordsWithPrimary(tableId: string, titles: string[]) {

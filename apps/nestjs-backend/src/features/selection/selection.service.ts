@@ -301,7 +301,6 @@ export class SelectionService {
           width: true,
           height: true,
           path: true,
-          url: true,
         },
       })
     );

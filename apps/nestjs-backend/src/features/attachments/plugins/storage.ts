@@ -1,12 +1,27 @@
-import Local from './local';
+/* eslint-disable @typescript-eslint/naming-convention */
+import type { Provider } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
+import { CacheService } from '../../../cache/cache.service';
+import type { IStorageConfig } from '../../../configs/storage';
+import { storageConfig } from '../../../configs/storage';
+import { LocalStorage } from './local';
+import { MinioStorage } from './minio';
 
-export default abstract class StorageAdapter {
-  abstract getUploadUrl(): string;
-  abstract getUrl(token: string): string;
-}
+const StorageAdapterProvider = Symbol.for('ObjectStorage');
 
-export class Storage {
-  static adapter() {
-    return new Local();
-  }
-}
+export const InjectStorageAdapter = () => Inject(StorageAdapterProvider);
+
+export const storageAdapterProvider: Provider = {
+  provide: StorageAdapterProvider,
+  useFactory: (config: IStorageConfig, cacheService: CacheService) => {
+    switch (config.provider) {
+      case 'local':
+        return new LocalStorage(config, cacheService);
+      case 'minio':
+        return new MinioStorage(config);
+      default:
+        throw new Error('Invalid storage provider');
+    }
+  },
+  inject: [storageConfig.KEY, CacheService],
+};

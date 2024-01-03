@@ -3,15 +3,16 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const NOTIFY_URL = '/attachments/notify/{secret}';
+export const NOTIFY_URL = '/attachments/notify/{token}';
 
 export const notifyVoSchema = z.object({
   token: z.string().openapi({ example: 'xxxxxxxxxxx', description: 'Token for the uploaded file' }),
   size: z.number().openapi({ example: 1024, description: 'File size in bytes' }),
+  url: z.string().openapi({ example: '/bucket/xxxxx', description: 'URL of the uploaded file' }),
+  path: z.string().openapi({ example: '/table/xxxxxx', description: 'file path' }),
   mimetype: z
     .string()
     .openapi({ example: 'video/mp4', description: 'MIME type of the uploaded file' }),
-  url: z.string().openapi({ description: 'Attachment url' }),
   width: z
     .number()
     .optional()
@@ -20,6 +21,7 @@ export const notifyVoSchema = z.object({
     .number()
     .optional()
     .openapi({ example: 100, description: 'Image height of the uploaded file' }),
+  presignedUrl: z.string().openapi({ description: 'Preview url' }),
 });
 
 export type INotifyVo = z.infer<typeof notifyVoSchema>;
@@ -30,7 +32,7 @@ export const NotifyRoute: RouteConfig = registerRoute({
   description: 'Attachment information',
   request: {
     params: z.object({
-      secret: z.string(),
+      token: z.string(),
     }),
   },
   responses: {
@@ -46,6 +48,10 @@ export const NotifyRoute: RouteConfig = registerRoute({
   tags: ['attachments'],
 });
 
-export const notify = async (secret: string) => {
-  return axios.post<INotifyVo>(urlBuilder(NOTIFY_URL, { secret }));
+export const notify = async (token: string, shareId?: string) => {
+  return axios.post<INotifyVo>(urlBuilder(NOTIFY_URL, { token }), undefined, {
+    headers: {
+      'Tea-Share-Id': shareId,
+    },
+  });
 };

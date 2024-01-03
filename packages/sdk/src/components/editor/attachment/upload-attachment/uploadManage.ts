@@ -1,4 +1,4 @@
-import type { INotifyVo } from '@teable-group/openapi';
+import type { INotifyVo, UploadType } from '@teable-group/openapi';
 import { getSignature, notify } from '@teable-group/openapi';
 import axios from 'axios';
 import { noop } from 'lodash';
@@ -7,6 +7,7 @@ interface IUploadTask {
   file: IFile;
   status: Status;
   progress: number;
+  type: UploadType;
   successCallback: ISuccessCallback;
   errorCallback: IErrorCallback;
   progressCallback: IProgressCallback;
@@ -32,6 +33,7 @@ export enum Status {
 export class AttachmentManager {
   limit: number;
   uploadQueue: IUploadTask[];
+  shareId?: string;
 
   constructor(limit: number) {
     this.limit = limit;
@@ -40,6 +42,7 @@ export class AttachmentManager {
 
   upload(
     files: IFile[],
+    type: UploadType,
     callbackFn: {
       successCallback?: ISuccessCallback;
       errorCallback?: IErrorCallback;
@@ -54,6 +57,7 @@ export class AttachmentManager {
         file,
         status: Status.Pending,
         progress: 0,
+        type,
         successCallback: successCallback,
         errorCallback: errorCallback,
         progressCallback: progressCallback,
@@ -71,27 +75,35 @@ export class AttachmentManager {
     uploadTask.status = Status.Uploading;
 
     try {
-      const res = await getSignature(); // Assuming you have an AttachmentApi that provides the upload URL
+      const fileInstance = uploadTask.file.instance;
+      const res = await getSignature(
+        {
+          type: uploadTask.type,
+          contentLength: fileInstance.size,
+          contentType: fileInstance.type,
+        },
+        this.shareId
+      ); // Assuming you have an AttachmentApi that provides the upload URL
       if (!res.data) {
         uploadTask.errorCallback(uploadTask.file, 'Failed to get upload URL');
         return;
       }
-
-      const formData = new FormData();
-
-      formData.append('file', uploadTask.file.instance);
-
-      const { url, secret } = res.data;
-
-      await axios.post(url, formData, {
+      const { url, uploadMethod, token, requestHeaders } = res.data;
+      await axios(url, {
+        method: uploadMethod,
+        data: fileInstance,
         onUploadProgress: (progressEvent) => {
           const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 0));
           uploadTask.progress = progress;
           uploadTask.progressCallback(uploadTask.file, progress); // Update progress
         },
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ...(requestHeaders as any),
+        },
       });
 
-      const notifyRes = await notify(secret);
+      const notifyRes = await notify(token, this.shareId);
       if (!notifyRes.data) {
         uploadTask.errorCallback(uploadTask.file);
         return;
