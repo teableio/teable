@@ -147,6 +147,9 @@ export class RecordOpenApiService {
 
       // attachment presignedUrl reparation
       for (const recordField of newRecordsFields) {
+        if (field.type !== FieldType.Attachment) {
+          continue;
+        }
         const attachmentCellValue = recordField[fieldIdOrName] as IAttachmentCellValue;
         if (!attachmentCellValue) {
           continue;
