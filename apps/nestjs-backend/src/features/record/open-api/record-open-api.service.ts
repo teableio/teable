@@ -145,34 +145,33 @@ export class RecordOpenApiService {
         }
       });
 
-      // attachment presignedUrl reparation
-      for (const recordField of newRecordsFields) {
-        if (field.type !== FieldType.Attachment) {
-          continue;
+      if (field.type === FieldType.Attachment) {
+        // attachment presignedUrl reparation
+        for (const recordField of newRecordsFields) {
+          const attachmentCellValue = recordField[fieldIdOrName] as IAttachmentCellValue;
+          if (!attachmentCellValue) {
+            continue;
+          }
+          recordField[fieldIdOrName] = await Promise.all(
+            attachmentCellValue.map(async (item) => {
+              const { path, mimetype, token } = item;
+              const presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
+                StorageAdapter.getBucket(UploadType.Table),
+                path,
+                token,
+                undefined,
+                {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  'Content-Type': mimetype,
+                }
+              );
+              return {
+                ...item,
+                presignedUrl,
+              };
+            })
+          );
         }
-        const attachmentCellValue = recordField[fieldIdOrName] as IAttachmentCellValue;
-        if (!attachmentCellValue) {
-          continue;
-        }
-        recordField[fieldIdOrName] = await Promise.all(
-          attachmentCellValue.map(async (item) => {
-            const { path, mimetype, token } = item;
-            const presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-              StorageAdapter.getBucket(UploadType.Table),
-              path,
-              token,
-              undefined,
-              {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                'Content-Type': mimetype,
-              }
-            );
-            return {
-              ...item,
-              presignedUrl,
-            };
-          })
-        );
       }
     }
 

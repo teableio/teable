@@ -118,47 +118,23 @@ export class RecordService implements IAdapterService {
     return userFields;
   }
 
-  private async dbRecord2RecordFields(
+  private dbRecord2RecordFields(
     record: IRecord['fields'],
     fields: IFieldInstance[],
     fieldKeyType?: FieldKeyType,
     cellFormat: CellFormat = CellFormat.Json
   ) {
-    const recordFields: IRecord['fields'] = {};
-    for (const field of fields) {
+    return fields.reduce<IRecord['fields']>((acc, field) => {
       const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
       const dbCellValue = record[field.dbFieldName];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let cellValue = field.convertDBValue2CellValue(dbCellValue as any);
-      if (cellValue == null) {
-        continue;
+      const cellValue = field.convertDBValue2CellValue(dbCellValue as any);
+      if (cellValue != null) {
+        acc[fieldNameOrId] =
+          cellFormat === CellFormat.Text ? field.cellValue2String(cellValue) : cellValue;
       }
-      if (field.type === FieldType.Attachment) {
-        const attachmentCellValue = cellValue as IAttachmentCellValue;
-        cellValue = await Promise.all(
-          attachmentCellValue.map(async (item) => {
-            const { path, mimetype, token } = item;
-            const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
-              StorageAdapter.getBucket(UploadType.Table),
-              path,
-              token,
-              undefined,
-              {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                'Content-Type': mimetype,
-              }
-            );
-            return {
-              ...item,
-              presignedUrl,
-            };
-          })
-        );
-      }
-      recordFields[fieldNameOrId] =
-        cellFormat === CellFormat.Text ? field.cellValue2String(cellValue) : cellValue;
-    }
-    return recordFields;
+      return acc;
+    }, {});
   }
 
   async getAllRecordCount(dbTableName: string) {
@@ -864,6 +840,46 @@ export class RecordService implements IAdapterService {
     return Object.keys(projectionInner).length ? projectionInner : undefined;
   }
 
+  private async recordsPresignedUrl(
+    records: ISnapshotBase<IRecord>[],
+    fields: IFieldInstance[],
+    fieldKeyType: FieldKeyType
+  ) {
+    for (const field of fields) {
+      if (field.type === FieldType.Attachment) {
+        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        for (const record of records) {
+          let cellValue = record.data.fields[fieldKey];
+          if (cellValue == null) {
+            continue;
+          }
+          const attachmentCellValue = cellValue as IAttachmentCellValue;
+          cellValue = await Promise.all(
+            attachmentCellValue.map(async (item) => {
+              const { path, mimetype, token } = item;
+              const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
+                StorageAdapter.getBucket(UploadType.Table),
+                path,
+                token,
+                undefined,
+                {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  'Content-Type': mimetype,
+                }
+              );
+              return {
+                ...item,
+                presignedUrl,
+              };
+            })
+          );
+          record.data.fields[fieldKey] = cellValue;
+        }
+      }
+    }
+    return records;
+  }
+
   async getSnapshotBulk(
     tableId: string,
     recordIds: string[],
@@ -910,47 +926,44 @@ export class RecordService implements IAdapterService {
 
     const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
 
-    return Promise.all(
-      result
-        .sort((a, b) => {
-          return recordIdsMap[a.__id] - recordIdsMap[b.__id];
-        })
-        .map(async (record) => {
-          const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
-            (acc, vFieldName, index) => {
-              acc[allViews[index].id] = record[vFieldName] as number;
-              return acc;
-            },
-            {}
-          );
-          const recordFields = await this.dbRecord2RecordFields(
-            record,
-            fields,
-            fieldKeyType,
-            cellFormat
-          );
-          const name = recordFields[primaryField[fieldKeyType]];
-          return {
+    const snapshots = result
+      .sort((a, b) => {
+        return recordIdsMap[a.__id] - recordIdsMap[b.__id];
+      })
+      .map((record) => {
+        const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
+          (acc, vFieldName, index) => {
+            acc[allViews[index].id] = record[vFieldName] as number;
+            return acc;
+          },
+          {}
+        );
+        const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
+        const name = recordFields[primaryField[fieldKeyType]];
+        return {
+          id: record.__id,
+          v: record.__version,
+          type: 'json0',
+          data: {
+            fields: recordFields,
+            name:
+              cellFormat === CellFormat.Text
+                ? (name as string)
+                : primaryField.cellValue2String(name),
             id: record.__id,
-            v: record.__version,
-            type: 'json0',
-            data: {
-              fields: recordFields,
-              name:
-                cellFormat === CellFormat.Text
-                  ? (name as string)
-                  : primaryField.cellValue2String(name),
-              id: record.__id,
-              autoNumber: record.__auto_number,
-              createdTime: record.__created_time?.toISOString(),
-              lastModifiedTime: record.__last_modified_time?.toISOString(),
-              createdBy: record.__created_by,
-              lastModifiedBy: record.__last_modified_by,
-              recordOrder,
-            },
-          };
-        })
-    );
+            autoNumber: record.__auto_number,
+            createdTime: record.__created_time?.toISOString(),
+            lastModifiedTime: record.__last_modified_time?.toISOString(),
+            createdBy: record.__created_by,
+            lastModifiedBy: record.__last_modified_by,
+            recordOrder,
+          },
+        };
+      });
+    if (cellFormat === CellFormat.Json) {
+      return await this.recordsPresignedUrl(snapshots, fields, fieldKeyType);
+    }
+    return snapshots;
   }
 
   async shareWithViewId(tableId: string, viewId?: string) {
