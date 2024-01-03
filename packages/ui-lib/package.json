@@ -116,6 +116,7 @@
     "react-day-picker": "8.10.0",
     "react-hook-form": "7.49.2",
     "tailwind-merge": "2.2.0",
+    "react-resizable-panels": "1.0.5",
     "tailwindcss-animate": "1.0.7",
     "zod": "3.22.4"
   }

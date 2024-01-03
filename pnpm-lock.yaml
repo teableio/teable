@@ -1430,6 +1430,9 @@ importers:
       react-hook-form:
         specifier: 7.49.2
         version: 7.49.2(react@18.2.0)
+      react-resizable-panels:
+        specifier: 1.0.5
+        version: 1.0.5(react-dom@18.2.0)(react@18.2.0)
       tailwind-merge:
         specifier: 2.2.0
         version: 2.2.0
@@ -21653,6 +21656,16 @@ packages:
       tslib: 2.6.2
       use-callback-ref: 1.3.0(@types/react@18.2.45)(react@18.2.0)
       use-sidecar: 1.1.2(@types/react@18.2.45)(react@18.2.0)
+
+  /react-resizable-panels@1.0.5(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-OP0whNQCko+f4BgoptGaeIc7StBRyeMeJ+8r/7rXACBDf9W5EcMWuM32hfqPDMenS2HFy/eZVi/r8XqK+ZIEag==}
+    peerDependencies:
+      react: ^16.14.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
 
   /react-resizable@3.0.5(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-vKpeHhI5OZvYn82kXOs1bC8aOXktGU5AmKAgaZS4F5JPburCtbmDPqE7Pzp+1kN4+Wb81LlF33VpGwWwtXem+w==}
