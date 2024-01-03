@@ -286,7 +286,7 @@ describe('LocalStorage', () => {
         path: mockPath,
         // eslint-disable-next-line @typescript-eslint/naming-convention
         respHeaders: mockRespHeaders,
-        expiresIn: -1,
+        expiresDate: -1,
       });
       expect(result).toEqual({
         hash: 'mock-hash',
@@ -324,7 +324,7 @@ describe('LocalStorage', () => {
       );
 
       expect(storage.expireTokenEncryptor.encrypt).toHaveBeenCalledWith({
-        expiresIn: mockExpiresIn,
+        expiresDate: Math.floor(Date.now() / 1000) + mockExpiresIn,
         path: mockPath,
         respHeaders: mockRespHeaders,
       });
