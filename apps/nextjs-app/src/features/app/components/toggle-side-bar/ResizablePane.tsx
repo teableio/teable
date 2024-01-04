@@ -18,12 +18,6 @@ export const ResizablePane: React.FC<{
   const [leftVisible, setLeftVisible] = useState<boolean>(true);
   const leftMenuRef = useRef<React.ComponentRef<typeof ResizablePanel>>(null);
 
-  const onLayout = (sizes: number[]) => {
-    document.cookie = `react-resizable-panels:${LocalStorageKeys.SideBarSize}=${JSON.stringify(
-      sizes
-    )}`;
-  };
-
   if (!isHydrated) {
     return (
       <>
@@ -62,7 +56,6 @@ export const ResizablePane: React.FC<{
         direction="horizontal"
         className="relative"
         autoSaveId={LocalStorageKeys.SideBarSize}
-        onLayout={onLayout}
       >
         {isMobile ? (
           <SheetWraper>{left}</SheetWraper>
