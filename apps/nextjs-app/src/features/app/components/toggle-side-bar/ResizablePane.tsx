@@ -18,7 +18,7 @@ enum ResizePart {
 }
 
 export const ResizablePane: React.FC<{
-  children: React.ReactElement[];
+  children: React.ReactNode[];
 }> = ({ children }) => {
   const isMobile = useIsMobile();
   const isHydrated = useIsHydrated();
@@ -112,7 +112,9 @@ export const ResizablePane: React.FC<{
               transition: !isDragging ? 'flex 100ms ease-in-out 0s' : 'none 0s ease 0s',
             }}
           >
-            {React.cloneElement(left, { expandSideBar: () => leftMenuRef?.current?.collapse() })}
+            {React.cloneElement(left as React.ReactElement, {
+              expandSideBar: () => leftMenuRef?.current?.collapse(),
+            })}
           </ResizablePanel>
         )}
         <ResizableHandle
