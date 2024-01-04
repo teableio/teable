@@ -2,11 +2,20 @@ import { ChevronsLeft } from '@teable-group/icons';
 import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable-group/sdk';
 import { ResizablePanelGroup, ResizableHandle, ResizablePanel, Button } from '@teable-group/ui-lib';
 import classNames from 'classnames';
-import React, { useRef, useState } from 'react';
+import { isString } from 'lodash';
+import React, { useRef, useState, useEffect } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { HoverWraper } from '../../blocks/base/base-side-bar/HoverWraper';
 import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
+
+const ResizeblePanelsPrefix = 'react-resizable-panels';
+
+enum ResizePart {
+  LEFT = 'left',
+  CENTER = 'center',
+  RIGHT = 'right',
+}
 
 export const ResizablePane: React.FC<{
   children: React.ReactElement[];
@@ -18,6 +27,19 @@ export const ResizablePane: React.FC<{
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [leftVisible, setLeftVisible] = useState<boolean>(true);
   const leftMenuRef = useRef<React.ComponentRef<typeof ResizablePanel>>(null);
+
+  useEffect(() => {
+    const sizeString = localStorage.getItem(
+      `${ResizeblePanelsPrefix}:${LocalStorageKeys.SideBarSize}`
+    );
+    if (isString(sizeString)) {
+      const sizeObj = JSON.parse(sizeString);
+      const keys = Object.keys(sizeObj);
+      const key = keys?.[0];
+      const collapseSize = sizeObj?.[key]?.expandToSizes?.[ResizePart.LEFT];
+      setOffset(collapseSize || 25);
+    }
+  }, []);
 
   useHotkeys(`meta+b`, () => {
     if (leftVisible) {
@@ -70,7 +92,7 @@ export const ResizablePane: React.FC<{
           <SheetWraper>{left}</SheetWraper>
         ) : (
           <ResizablePanel
-            id="left"
+            id={ResizePart.LEFT}
             order={1}
             className={classNames('h-full')}
             minSize={15}
@@ -94,16 +116,18 @@ export const ResizablePane: React.FC<{
           </ResizablePanel>
         )}
         <ResizableHandle
-          className="after:z-50 hover:after:w-1 hover:after:bg-violet-600"
+          className={classNames('after:z-50 hover:after:w-1 hover:after:bg-violet-600', {
+            hidden: !leftVisible,
+          })}
           onDragging={(drag) => {
             setIsDragging(drag);
           }}
         />
-        <ResizablePanel className="min-w-80" id="center" order={2}>
+        <ResizablePanel className="min-w-80" id={ResizePart.CENTER} order={2}>
           {center}
         </ResizablePanel>
         {right && (
-          <ResizablePanel id="right" order={3}>
+          <ResizablePanel id={ResizePart.RIGHT} order={3}>
             {right}
           </ResizablePanel>
         )}

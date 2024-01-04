@@ -11,7 +11,7 @@ interface IHoverWraperTag {
 }
 
 export const HoverWraper = (props: IHoverWraperProps) => {
-  const { children, size } = props;
+  const { children, size = 25 } = props;
   const [trigger, content] = children;
   const [hover, setHover] = useState(false);
 
