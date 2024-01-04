@@ -311,6 +311,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         'x',
       ]);
       expect(newField).toMatchObject({
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
         cellValueType: CellValueType.Number,
         dbFieldType: DbFieldType.Real,
         name: 'TextField',
@@ -653,6 +659,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         'x',
       ]);
       expect(newField).toMatchObject({
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
         cellValueType: CellValueType.Number,
         dbFieldType: DbFieldType.Real,
         name: 'LongTextField',
