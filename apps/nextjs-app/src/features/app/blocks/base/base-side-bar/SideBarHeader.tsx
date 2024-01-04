@@ -1,14 +1,23 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useQuery } from '@tanstack/react-query';
-import { ChevronsLeft, TeableNew } from '@teable-group/icons';
+import { ChevronsLeft, TeableNew, FreezeColumn } from '@teable-group/icons';
 import { getBaseById } from '@teable-group/openapi';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  Button,
+} from '@teable-group/ui-lib';
 import { useRouter } from 'next/router';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import type { ISideBarInteractionProps } from './SideBar';
 
-export const SideBarHeader: React.FC = () => {
+export const SideBarHeader = (props: ISideBarInteractionProps) => {
   const router = useRouter();
   const baseId = router.query.baseId as string;
+  const { expandSideBar } = props;
   const { data } = useQuery({
     queryKey: ['base', baseId],
     queryFn: ({ queryKey }) => getBaseById(queryKey[1]),
@@ -21,7 +30,7 @@ export const SideBarHeader: React.FC = () => {
   };
 
   return (
-    <div className="m-2 flex items-center gap-1">
+    <div className="group/header m-2 flex items-center gap-1">
       <div className="group relative h-6 w-6 shrink-0 cursor-pointer" onClick={backSpace}>
         <div className="absolute top-0 h-6 w-6 group-hover:opacity-0">
           {data?.data.icon ? (
@@ -34,6 +43,21 @@ export const SideBarHeader: React.FC = () => {
       </div>
       <p className="truncate text-sm">{data?.data.name}</p>
       <div className="grow basis-0"></div>
+
+      {expandSideBar && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild className="opacity-0 group-hover/header:opacity-100">
+              <Button variant="ghost" size="xs" onClick={() => expandSideBar?.()}>
+                <FreezeColumn className="h-5 w-5"></FreezeColumn>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Collapse SideBar ⌘+B</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
     </div>
   );
 };

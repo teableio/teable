@@ -577,6 +577,9 @@ importers:
       react-hook-form:
         specifier: 7.49.2
         version: 7.49.2(react@18.2.0)
+      react-hotkeys-hook:
+        specifier: 4.4.1
+        version: 4.4.1(react-dom@18.2.0)(react@18.2.0)
       react-i18next:
         specifier: 13.3.0
         version: 13.3.0(i18next@23.5.1)(react-dom@18.2.0)(react@18.2.0)
@@ -800,12 +803,18 @@ importers:
       '@soluble/dsn-parser':
         specifier: 1.9.2
         version: 1.9.2
+      '@types/color':
+        specifier: 3.0.6
+        version: 3.0.6
       antlr4ts:
         specifier: 0.5.0-alpha.4
         version: 0.5.0-alpha.4
       class-transformer:
         specifier: 0.5.1
         version: 0.5.1
+      color:
+        specifier: 4.2.3
+        version: 4.2.3
       dayjs:
         specifier: 1.11.10
         version: 1.11.10
@@ -1424,6 +1433,9 @@ importers:
       react-hook-form:
         specifier: 7.49.2
         version: 7.49.2(react@18.2.0)
+      react-resizable-panels:
+        specifier: 1.0.5
+        version: 1.0.5(react-dom@18.2.0)(react@18.2.0)
       tailwind-merge:
         specifier: 2.2.0
         version: 2.2.0
@@ -9122,6 +9134,22 @@ packages:
       '@types/connect': 3.4.38
       '@types/node': 18.18.2
     dev: true
+
+  /@types/color-convert@2.0.3:
+    resolution: {integrity: sha512-2Q6wzrNiuEvYxVQqhh7sXM2mhIhvZR/Paq4FdsQkOMgWsCIkKvSGj8Le1/XalulrmgOzPMqNa0ix+ePY4hTrfg==}
+    dependencies:
+      '@types/color-name': 1.1.3
+    dev: false
+
+  /@types/color-name@1.1.3:
+    resolution: {integrity: sha512-87W6MJCKZYDhLAx/J1ikW8niMvmGRyY+rpUxWpL1cO7F8Uu5CHuQoFv+R0/L5pgNdW4jTyda42kv60uwVIPjLw==}
+    dev: false
+
+  /@types/color@3.0.6:
+    resolution: {integrity: sha512-NMiNcZFRUAiUUCCf7zkAelY8eV3aKqfbzyFQlXpPIEeoNDbsEHGpb854V3gzTsGKYj830I5zPuOwU/TP5/cW6A==}
+    dependencies:
+      '@types/color-convert': 2.0.3
+    dev: false
 
   /@types/concat-stream@2.0.3:
     resolution: {integrity: sha512-3qe4oQAPNwVNwK4C9c8u+VJqv9kez+2MR4qJpoPFfXtgxxif1QbFusvXzK0/Wra2VX07smostI2VMmJNSpZjuQ==}
@@ -21519,6 +21547,16 @@ packages:
       react: 18.2.0
     dev: false
 
+  /react-hotkeys-hook@4.4.1(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-sClBMBioFEgFGYLTWWRKvhxcCx1DRznd+wkFHwQZspnRBkHTgruKIHptlK/U/2DPX8BhHoRGzpMVWUXMmdZlmw==}
+    peerDependencies:
+      react: '>=16.8.1'
+      react-dom: '>=16.8.1'
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
+
   /react-i18next@13.3.0(i18next@23.5.1)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-FlR9xjYHSPIJfQspEmkN0yOlxgRyNuiJKJ8gCaZH08UJ7SZHG+VrptEPcpEMEchjNoCOZdKcvJ3PnmHEZhkeXg==}
     peerDependencies:
@@ -21631,6 +21669,16 @@ packages:
       tslib: 2.6.2
       use-callback-ref: 1.3.0(@types/react@18.2.45)(react@18.2.0)
       use-sidecar: 1.1.2(@types/react@18.2.45)(react@18.2.0)
+
+  /react-resizable-panels@1.0.5(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-OP0whNQCko+f4BgoptGaeIc7StBRyeMeJ+8r/7rXACBDf9W5EcMWuM32hfqPDMenS2HFy/eZVi/r8XqK+ZIEag==}
+    peerDependencies:
+      react: ^16.14.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    dev: false
 
   /react-resizable@3.0.5(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-vKpeHhI5OZvYn82kXOs1bC8aOXktGU5AmKAgaZS4F5JPburCtbmDPqE7Pzp+1kN4+Wb81LlF33VpGwWwtXem+w==}

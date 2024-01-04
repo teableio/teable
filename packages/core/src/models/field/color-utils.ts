@@ -1,4 +1,5 @@
 /** @module @teable-group/sdk: colorUtils */ /** */
+import Color from 'color';
 import { getEnumValueIfExists, has } from '../../utils/enum';
 import { Colors, rgbTuplesByColor } from './colors';
 
@@ -88,7 +89,7 @@ export interface IColorUtils {
    * Randomly (but consistently) pick a value from a map based on a string
    * @param str input string
    */
-  getRandomHexFromStr(str: string): string;
+  getRandomHexFromStr(str: string, theme?: 'light' | 'dark'): string;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -156,6 +157,11 @@ export const ColorUtils: IColorUtils = {
     const value = values[seed % values.length];
     return ColorUtils.getHexForColor(value);
   },
+};
+
+export const contractColorForTheme = (color: string, theme: 'light' | 'dark') => {
+  const colorRegular = Color(color).alpha(1);
+  return theme === 'light' ? colorRegular.darken(0.5).hex() : colorRegular.lighten(0.5).hex();
 };
 
 // Function to generate a seed from a string
