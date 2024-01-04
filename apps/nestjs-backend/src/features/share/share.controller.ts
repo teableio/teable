@@ -38,13 +38,17 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RecordPipe } from '../record/open-api/record.pipe';
 import { AuthGuard } from './guard/auth.guard';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
+import { ShareAuthService } from './share-auth.service';
 import type { IShareViewInfo } from './share.service';
 import { ShareService } from './share.service';
 
 @Controller('api/share')
 @Public()
 export class ShareController {
-  constructor(private readonly shareService: ShareService) {}
+  constructor(
+    private readonly shareService: ShareService,
+    private readonly shareAuthService: ShareAuthService
+  ) {}
 
   @HttpCode(200)
   @UseGuards(ShareAuthLocalGuard)
@@ -52,7 +56,7 @@ export class ShareController {
   async auth(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const shareId = req.shareId;
     const password = req.password;
-    const token = await this.shareService.authToken({ shareId, password });
+    const token = await this.shareAuthService.authToken({ shareId, password });
     res.cookie(shareId, token, {
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7,

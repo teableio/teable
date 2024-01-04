@@ -27,7 +27,7 @@ export const GridAttachmentEditor = forwardRef<
   const previewFiles = useMemo(() => {
     return attachments
       ? attachments.map((item) => ({
-          src: item.url,
+          src: item.presignedUrl || '',
           name: item.name,
           fileId: item.id,
           mimetype: item.mimetype,

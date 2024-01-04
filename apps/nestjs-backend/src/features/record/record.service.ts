@@ -37,6 +37,7 @@ import {
 } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { UploadType } from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -47,7 +48,9 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { getViewOrderFieldName } from '../../utils';
 import { Timing } from '../../utils/timing';
+import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { AttachmentsTableService } from '../attachments/attachments-table.service';
+import StorageAdapter from '../attachments/plugins/adapter';
 import { BatchService } from '../calculation/batch.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import { preservedDbFieldNames } from '../field/constant';
@@ -66,6 +69,7 @@ export class RecordService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
     private readonly attachmentService: AttachmentsTableService,
+    private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
     @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -836,6 +840,46 @@ export class RecordService implements IAdapterService {
     return Object.keys(projectionInner).length ? projectionInner : undefined;
   }
 
+  private async recordsPresignedUrl(
+    records: ISnapshotBase<IRecord>[],
+    fields: IFieldInstance[],
+    fieldKeyType: FieldKeyType
+  ) {
+    for (const field of fields) {
+      if (field.type === FieldType.Attachment) {
+        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        for (const record of records) {
+          let cellValue = record.data.fields[fieldKey];
+          if (cellValue == null) {
+            continue;
+          }
+          const attachmentCellValue = cellValue as IAttachmentCellValue;
+          cellValue = await Promise.all(
+            attachmentCellValue.map(async (item) => {
+              const { path, mimetype, token } = item;
+              const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
+                StorageAdapter.getBucket(UploadType.Table),
+                path,
+                token,
+                undefined,
+                {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  'Content-Type': mimetype,
+                }
+              );
+              return {
+                ...item,
+                presignedUrl,
+              };
+            })
+          );
+          record.data.fields[fieldKey] = cellValue;
+        }
+      }
+    }
+    return records;
+  }
+
   async getSnapshotBulk(
     tableId: string,
     recordIds: string[],
@@ -882,7 +926,7 @@ export class RecordService implements IAdapterService {
 
     const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
 
-    return result
+    const snapshots = result
       .sort((a, b) => {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
       })
@@ -916,6 +960,10 @@ export class RecordService implements IAdapterService {
           },
         };
       });
+    if (cellFormat === CellFormat.Json) {
+      return await this.recordsPresignedUrl(snapshots, fields, fieldKeyType);
+    }
+    return snapshots;
   }
 
   async shareWithViewId(tableId: string, viewId?: string) {
@@ -1007,12 +1055,14 @@ export class RecordService implements IAdapterService {
         queryBuilder.toQuery()
       );
 
-    return result.map((record) => {
-      return {
-        id: record.__id,
-        fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
-      };
-    });
+    return Promise.all(
+      result.map(async (record) => {
+        return {
+          id: record.__id,
+          fields: await this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
+        };
+      })
+    );
   }
 
   async getRecordsWithPrimary(tableId: string, titles: string[]) {

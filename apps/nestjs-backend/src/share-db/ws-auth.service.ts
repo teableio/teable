@@ -3,7 +3,7 @@ import { HttpErrorCode } from '@teable-group/core';
 import cookie from 'cookie';
 import { AUTH_COOKIE } from '../const';
 import { AuthService } from '../features/auth/auth.service';
-import { ShareService } from '../features/share/share.service';
+import { ShareAuthService } from '../features/share/share-auth.service';
 import { UserService } from '../features/user/user.service';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -14,7 +14,7 @@ export class WsAuthService {
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
-    private readonly shareService: ShareService
+    private readonly shareAuthService: ShareAuthService
   ) {}
 
   async checkCookie(cookie: string | undefined) {
@@ -62,7 +62,7 @@ export class WsAuthService {
   }
 
   async authShare(shareId: string, cookie?: string) {
-    const { view } = await this.shareService.getShareViewInfo(shareId);
+    const { view } = await this.shareAuthService.getShareViewInfo(shareId);
     const hasPassword = view.shareMeta?.password;
     if (!hasPassword) {
       return;
@@ -75,8 +75,8 @@ export class WsAuthService {
       throw new UnauthorizedException();
     }
     try {
-      const jwtShare = await this.shareService.validateJwtToken(token);
-      const shareAuthId = await this.shareService.authShareView(
+      const jwtShare = await this.shareAuthService.validateJwtToken(token);
+      const shareAuthId = await this.shareAuthService.authShareView(
         jwtShare.shareId,
         jwtShare.password
       );

@@ -95,8 +95,8 @@ export const useSelectionOperation = () => {
       } else {
         const attachments = await uploadFiles(files);
         const attachmentsStrings = attachments
-          .map(({ name, url }) => {
-            return AttachmentFieldCore.itemString(name, url);
+          .map(({ name, token }) => {
+            return AttachmentFieldCore.itemString(name, token);
           })
           .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER);
         await pasteReq({

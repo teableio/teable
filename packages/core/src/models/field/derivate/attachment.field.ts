@@ -10,10 +10,11 @@ export type IAttachmentFieldOptions = z.infer<typeof attachmentFieldOptionsSchem
 export const attachmentItemSchema = z.object({
   id: z.string().startsWith(IdPrefix.Attachment),
   name: z.string(),
+  path: z.string(),
   token: z.string(),
   size: z.number(),
   mimetype: z.string(),
-  url: z.string(),
+  presignedUrl: z.string().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
 });
@@ -41,8 +42,8 @@ export class AttachmentFieldCore extends FieldCore {
     return {};
   }
 
-  static itemString(name: string, url: string) {
-    return `${name} (${url})`;
+  static itemString(name: string, token: string) {
+    return `${name} (${token})`;
   }
 
   cellValue2String(cellValue?: unknown) {
@@ -81,7 +82,7 @@ export class AttachmentFieldCore extends FieldCore {
     if (value == null) {
       return '';
     }
-    const { name, url } = value as IAttachmentItem;
-    return AttachmentFieldCore.itemString(name, url);
+    const { name, token } = value as IAttachmentItem;
+    return AttachmentFieldCore.itemString(name, token);
   }
 }

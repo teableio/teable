@@ -9,8 +9,16 @@ import { bootstrapConfigs, nextJsConfig } from './bootstrap.config';
 import { envValidationSchema } from './env.validation.schema';
 import { loggerConfig } from './logger.config';
 import { mailConfig } from './mail.config';
+import { storageConfig } from './storage';
 
-const configurations = [...bootstrapConfigs, loggerConfig, mailConfig, authConfig, baseConfig];
+const configurations = [
+  ...bootstrapConfigs,
+  loggerConfig,
+  mailConfig,
+  authConfig,
+  baseConfig,
+  storageConfig,
+];
 
 @Module({})
 export class ConfigModule {
