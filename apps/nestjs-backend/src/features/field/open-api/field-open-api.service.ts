@@ -21,9 +21,7 @@ export class FieldOpenApiService {
   ) {}
 
   async planFieldCreate(tableId: string, fieldRo: IFieldRo) {
-    const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
-    const fieldInstance = createFieldInstanceByVo(fieldVo);
-    return await this.graphService.planFieldCreate(tableId, fieldInstance);
+    return await this.graphService.planFieldCreate(tableId, fieldRo);
   }
 
   async createField(tableId: string, fieldRo: IFieldRo) {
@@ -40,7 +38,11 @@ export class FieldOpenApiService {
     });
   }
 
-  async updateFieldById(
+  async planFieldUpdate(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
+    return await this.graphService.planFieldUpdate(tableId, fieldId, updateFieldRo);
+  }
+
+  async updateField(
     tableId: string,
     fieldId: string,
     updateFieldRo: IUpdateFieldRo

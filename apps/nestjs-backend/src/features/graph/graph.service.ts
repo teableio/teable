@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import type { ITinyRecord } from '@teable-group/core';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import type { IFieldRo, ITinyRecord, IUpdateFieldRo } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
@@ -7,16 +7,25 @@ import type {
   IGraphNode,
   IGraphCombo,
   IGraphVo,
-  IPlanFieldCreateVo,
+  IPlanFieldVo,
+  IPlanFieldUpdateVo,
 } from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { Timing } from '../../utils/timing';
+import { FieldCalculationService } from '../calculation/field-calculation.service';
 import type { IRecordItem } from '../calculation/reference.service';
 import { ReferenceService } from '../calculation/reference.service';
+import { topoOrderWithStart } from '../calculation/utils/dfs';
+import { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
-import type { IFieldInstance, IFieldMap } from '../field/model/factory';
+import {
+  createFieldInstanceByVo,
+  type IFieldInstance,
+  type IFieldMap,
+} from '../field/model/factory';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import { RecordService } from '../record/record.service';
 
@@ -43,6 +52,8 @@ export class GraphService {
     private readonly fieldService: FieldService,
     private readonly referenceService: ReferenceService,
     private readonly fieldSupplementService: FieldSupplementService,
+    private readonly fieldCalculationService: FieldCalculationService,
+    private readonly fieldConvertingService: FieldConvertingService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -231,7 +242,10 @@ export class GraphService {
     return tableRawsWithCount;
   }
 
-  async planFieldCreate(tableId: string, field: IFieldInstance): Promise<IPlanFieldCreateVo> {
+  async planFieldCreate(tableId: string, fieldRo: IFieldRo): Promise<IPlanFieldVo> {
+    const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
+    const field = createFieldInstanceByVo(fieldVo);
+
     const referenceFieldIds = this.fieldSupplementService.getFieldReferenceIds(field);
     const directedGraph = await this.referenceService.getFieldGraphItems(referenceFieldIds);
     const fromGraph = referenceFieldIds.map((fromFieldId) => ({
@@ -287,6 +301,130 @@ export class GraphService {
       const fieldCount = fieldRaws.length;
       return pre + count * fieldCount;
     }, 0);
+
+    return {
+      isAsync: updateCellCount > 1000 || totalCellCount > 10000,
+      graph: {
+        nodes,
+        edges,
+        combos,
+      },
+      updateCellCount,
+      totalCellCount,
+    };
+  }
+
+  private async getField(tableId: string, fieldId: string, fieldRo: IUpdateFieldRo) {
+    const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
+    if (!oldFieldVo) {
+      throw new BadRequestException(`Not found fieldId(${fieldId})`);
+    }
+    const oldField = createFieldInstanceByVo(oldFieldVo);
+    const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
+      tableId,
+      fieldRo,
+      oldField
+    );
+    const newField = createFieldInstanceByVo(newFieldVo);
+    return { oldField, newField };
+  }
+
+  @Timing()
+  private async getCalculationPlan(tableId: string, fieldIds: string[]) {
+    const context = await this.fieldCalculationService.getTopoOrdersContext(fieldIds);
+    const { fieldMap, startFieldIds, directedGraph, tableId2DbTableName } = context;
+    const dbTableName = tableId2DbTableName[tableId];
+
+    const initialRecordIds = await this.fieldCalculationService.getSelfOriginRecords(dbTableName);
+
+    const relatedRecordItems = await this.fieldCalculationService.getRecordItems({
+      tableId,
+      itemsToCalculate: initialRecordIds,
+      startFieldIds,
+      directedGraph,
+      fieldMap,
+    });
+
+    return { context, initialRecordIds, relatedRecordItems };
+  }
+
+  async planFieldUpdate(
+    tableId: string,
+    fieldId: string,
+    fieldRo: IUpdateFieldRo
+  ): Promise<IPlanFieldUpdateVo> {
+    const { oldField, newField } = await this.getField(tableId, fieldId, fieldRo);
+
+    const majorChange = this.fieldConvertingService.majorKeysChanged(oldField, newField);
+    if (!majorChange) {
+      return { skip: true };
+    }
+
+    const { context, initialRecordIds, relatedRecordItems } = await this.getCalculationPlan(
+      tableId,
+      [fieldId]
+    );
+    const {
+      directedGraph,
+      allFieldIds,
+      fieldMap,
+      fieldId2DbTableName,
+      tableId2DbTableName,
+      fieldId2TableId,
+    } = context;
+    const topoFieldIds = topoOrderWithStart(fieldId, directedGraph);
+
+    const recordIdsByTableName = this.referenceService.getRecordIdsByTableName({
+      fieldMap,
+      fieldId2DbTableName,
+      relatedRecordItems,
+      modifiedRecords: [],
+      initialRecordIdMap: { [fieldId2DbTableName[fieldId]]: new Set(initialRecordIds) },
+    });
+
+    const edges = directedGraph.map<IGraphEdge>((node) => {
+      const field = fieldMap[node.toFieldId];
+      return {
+        source: node.fromFieldId,
+        target: node.toFieldId,
+        label: field.isLookup ? 'lookup' : field.type,
+      };
+    }, []);
+
+    const tableIds = Object.keys(tableId2DbTableName);
+    const tableRaws = await this.prismaService.tableMeta.findMany({
+      where: { id: { in: tableIds } },
+      select: { id: true, name: true },
+    });
+
+    const combos = tableRaws.map<IGraphCombo>((table) => ({
+      id: table.id,
+      label: table.name,
+    }));
+
+    const nodes = allFieldIds.map<IGraphNode>((id) => {
+      const tableId = fieldId2TableId[id];
+      const field = fieldMap[id];
+      return {
+        id: field.id,
+        label: field.name,
+        comboId: tableId,
+        fieldType: field.type,
+        isLookup: field.isLookup,
+        isSelected: field.id === fieldId,
+      };
+    });
+
+    const oldReferences = this.fieldSupplementService.getFieldReferenceIds(oldField);
+
+    const updateCellCount = topoFieldIds.reduce((pre, fieldId) => {
+      const dbTableName = fieldId2DbTableName[fieldId];
+      const recordIds = recordIdsByTableName[dbTableName];
+      return pre + recordIds.size;
+    }, 0);
+
+    // TODO: not accurate
+    const totalCellCount = oldReferences.length * initialRecordIds.length + updateCellCount;
 
     return {
       isAsync: updateCellCount > 1000 || totalCellCount > 10000,

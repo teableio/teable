@@ -48,6 +48,8 @@ import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { ReferenceService } from '../../calculation/reference.service';
+import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import type { IFieldInstance } from '../model/factory';
@@ -60,6 +62,7 @@ export class FieldSupplementService {
   constructor(
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
+    private readonly referenceService: ReferenceService,
     @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -1182,7 +1185,17 @@ export class FieldSupplementService {
 
   private async createComputedFieldReference(field: IFieldInstance) {
     const toFieldId = field.id;
+
+    const graphItems = await this.referenceService.getFieldGraphItems([field.id]);
     const fieldIds = this.getFieldReferenceIds(field);
+
+    fieldIds.forEach((fromFieldId) => {
+      graphItems.push({ fromFieldId, toFieldId });
+    });
+
+    if (hasCycle(graphItems)) {
+      throw new BadRequestException('field reference has cycle');
+    }
 
     for (const fromFieldId of fieldIds) {
       await this.prismaService.txClient().reference.create({

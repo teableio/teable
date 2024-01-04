@@ -8,14 +8,14 @@ import { z } from '../zod';
 
 export const PLAN_FIELD_CREATE = '/table/{tableId}/field/plan';
 
-export const planFieldCreateVoSchema = z.object({
+export const planFieldVoSchema = z.object({
   isAsync: z.boolean(),
   graph: graphVoSchema,
   updateCellCount: z.number(),
   totalCellCount: z.number(),
 });
 
-export type IPlanFieldCreateVo = z.infer<typeof planFieldCreateVoSchema>;
+export type IPlanFieldVo = z.infer<typeof planFieldVoSchema>;
 
 export const planFieldCreateRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -38,7 +38,7 @@ export const planFieldCreateRoute: RouteConfig = registerRoute({
       description: 'Returns the calculation plan for creating the field',
       content: {
         'application/json': {
-          schema: planFieldCreateVoSchema,
+          schema: planFieldVoSchema,
         },
       },
     },
@@ -47,5 +47,5 @@ export const planFieldCreateRoute: RouteConfig = registerRoute({
 });
 
 export const planFieldCreate = async (tableId: string, fieldRo: IFieldRo) => {
-  return axios.post<IPlanFieldCreateVo>(urlBuilder(PLAN_FIELD_CREATE, { tableId }), fieldRo);
+  return axios.post<IPlanFieldVo>(urlBuilder(PLAN_FIELD_CREATE, { tableId }), fieldRo);
 };

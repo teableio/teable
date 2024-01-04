@@ -18,6 +18,7 @@ import { nameConsole } from './utils/name-console';
 
 export interface ITopoOrdersContext {
   fieldMap: IFieldMap;
+  allFieldIds: string[];
   startFieldIds: string[];
   directedGraph: IGraphItem[];
   fieldId2DbTableName: { [fieldId: string]: string };
@@ -36,7 +37,7 @@ export class FieldCalculationService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  private async getSelfOriginRecords(dbTableName: string) {
+  async getSelfOriginRecords(dbTableName: string) {
     const nativeSql = this.knex.queryBuilder().select('__id').from(dbTableName).toSQL().toNative();
 
     const results = await this.prismaService
@@ -113,6 +114,7 @@ export class FieldCalculationService {
 
     return {
       startFieldIds: fieldIds,
+      allFieldIds,
       fieldMap,
       directedGraph,
       topoOrdersByFieldId,
@@ -123,7 +125,7 @@ export class FieldCalculationService {
     };
   }
 
-  private async getRecordItems(params: {
+  async getRecordItems(params: {
     tableId: string;
     startFieldIds: string[];
     itemsToCalculate: string[];

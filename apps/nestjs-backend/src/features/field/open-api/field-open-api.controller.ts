@@ -18,7 +18,7 @@ import {
   IUpdateFieldRo,
   updateFieldRoSchema,
 } from '@teable-group/core';
-import type { IPlanFieldCreateVo } from '@teable-group/openapi';
+import type { IPlanFieldUpdateVo, IPlanFieldVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -56,7 +56,7 @@ export class FieldOpenApiController {
   async planFieldCreate(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(fieldRoSchema)) fieldRo: IFieldRo
-  ): Promise<IPlanFieldCreateVo> {
+  ): Promise<IPlanFieldVo> {
     return await this.fieldOpenApiService.planFieldCreate(tableId, fieldRo);
   }
 
@@ -70,13 +70,23 @@ export class FieldOpenApiController {
   }
 
   @Permissions('field|update')
+  @Patch(':fieldId/plan')
+  async planFieldUpdate(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string,
+    @Body(new ZodValidationPipe(updateFieldRoSchema)) updateFieldRo: IUpdateFieldRo
+  ): Promise<IPlanFieldUpdateVo> {
+    return await this.fieldOpenApiService.planFieldUpdate(tableId, fieldId, updateFieldRo);
+  }
+
+  @Permissions('field|update')
   @Patch(':fieldId')
-  async updateFieldById(
+  async updateField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
     @Body(new ZodValidationPipe(updateFieldRoSchema)) updateFieldRo: IUpdateFieldRo
   ) {
-    return await this.fieldOpenApiService.updateFieldById(tableId, fieldId, updateFieldRo);
+    return await this.fieldOpenApiService.updateField(tableId, fieldId, updateFieldRo);
   }
 
   @Permissions('field|delete')
