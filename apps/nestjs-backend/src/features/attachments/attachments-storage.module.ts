@@ -4,7 +4,6 @@ import { StorageModule } from './plugins/storage.module';
 
 @Module({
   providers: [AttachmentsStorageService],
-  controllers: [],
   imports: [StorageModule],
   exports: [AttachmentsStorageService],
 })
