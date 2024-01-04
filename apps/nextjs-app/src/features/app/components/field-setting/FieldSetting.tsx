@@ -155,7 +155,13 @@ const FieldSettingBase = (props: IFieldSetting) => {
         title="Field Dependencies Graph"
         open={graphVisible}
         onOpenChange={setGraphVisible}
-        content={<DynamicFieldGraph tableId={table?.id as string} fieldRo={field as IFieldRo} />}
+        content={
+          <DynamicFieldGraph
+            tableId={table?.id as string}
+            fieldId={props.field?.id}
+            fieldRo={field as IFieldRo}
+          />
+        }
         confirmText="Save"
         onCancel={() => setGraphVisible(false)}
         onConfirm={onConfirmInner}

@@ -5,6 +5,7 @@ import type {
   IAggregationRo,
   IFieldRo,
   IRowCountRo,
+  IUpdateFieldRo,
   NotificationStatesEnum,
 } from '@teable-group/core';
 
@@ -28,6 +29,12 @@ export type ReactQueryKeys = {
     query: IShareViewAggregationsQueryRo
   ) => [string, string, IShareViewAggregationsQueryRo];
   planFieldCreate: (tableId: string, fieldRo: IFieldRo) => [string, string, IFieldRo];
+
+  planFieldUpdate: (
+    tableId: string,
+    fieldId: string,
+    fieldRo: IUpdateFieldRo
+  ) => [string, string, string, IUpdateFieldRo];
 };
 
 export const ReactQueryKeys: ReactQueryKeys = {
@@ -45,4 +52,6 @@ export const ReactQueryKeys: ReactQueryKeys = {
   shareViewAggregations: (shareId, query) => ['share-view-aggregations', shareId, query],
 
   planFieldCreate: (tableId, fieldRo) => ['create-field-plain', tableId, fieldRo],
+
+  planFieldUpdate: (tableId, fieldId, fieldRo) => ['create-field-plain', tableId, fieldId, fieldRo],
 };

@@ -9,8 +9,8 @@ import { planFieldVoSchema } from './plan-create';
 export const PLAN_FIELD_UPDATE = '/table/{tableId}/field/{fieldId}/plan';
 
 export const planFieldUpdateVoSchema = planFieldVoSchema
-  .merge(z.object({ skip: z.undefined() }))
-  .or(z.object({ skip: z.literal(true) }));
+  .partial()
+  .merge(z.object({ skip: z.boolean().optional() }));
 
 export type IPlanFieldUpdateVo = z.infer<typeof planFieldUpdateVoSchema>;
 

@@ -1,20 +1,38 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IFieldRo } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
-import { planFieldCreate } from '@teable-group/openapi';
+import { planFieldCreate, planFieldUpdate } from '@teable-group/openapi';
 import { ReactQueryKeys } from '@teable-group/sdk';
 import { useEffect, useRef, useState } from 'react';
 import { useGraph } from './useGraph';
 
-export const FieldGraph: React.FC<{ tableId: string; fieldRo: IFieldRo }> = ({
+export const FieldGraph: React.FC<{ tableId: string; fieldId?: string; fieldRo: IFieldRo }> = ({
   tableId,
+  fieldId,
   fieldRo,
 }) => {
-  const { data: plan } = useQuery({
+  const { data: updatePlan, refetch: planUpdate } = useQuery({
+    queryKey: ReactQueryKeys.planFieldUpdate(tableId, fieldId as string, fieldRo),
+    queryFn: ({ queryKey }) => planFieldUpdate(queryKey[1], queryKey[2], queryKey[3]),
+    refetchOnWindowFocus: false,
+    enabled: false,
+  });
+
+  const { data: createPlan, refetch: planCreate } = useQuery({
     queryKey: ReactQueryKeys.planFieldCreate(tableId, fieldRo),
     queryFn: ({ queryKey }) => planFieldCreate(queryKey[1], queryKey[2]),
     refetchOnWindowFocus: false,
+    enabled: false,
   });
+
+  useEffect(() => {
+    if (fieldId) {
+      planUpdate();
+    } else {
+      planCreate();
+    }
+  }, [fieldId, planCreate, planUpdate]);
+
   const ref = useRef(null);
 
   const [tables, setTables] = useState<{ name: string; color: string }[]>([]);
@@ -22,11 +40,14 @@ export const FieldGraph: React.FC<{ tableId: string; fieldRo: IFieldRo }> = ({
   const { updateGraph } = useGraph(ref);
 
   useEffect(() => {
-    if (!plan?.data?.graph) {
+    const graph =
+      createPlan?.data?.graph || (updatePlan && !updatePlan.data.skip && updatePlan.data.graph);
+
+    if (!graph) {
       return;
     }
 
-    const { nodes, edges, combos } = plan.data.graph;
+    const { nodes, edges, combos } = graph;
     const cache: Record<string, string> = {};
     updateGraph({
       nodes: nodes?.map((node) => {
@@ -52,7 +73,7 @@ export const FieldGraph: React.FC<{ tableId: string; fieldRo: IFieldRo }> = ({
         color: ColorUtils.getHexForColor(cache[combo.id]) || '',
       }))
     );
-  }, [plan?.data?.graph, updateGraph]);
+  }, [createPlan, updatePlan, updateGraph]);
 
   return (
     <>
