@@ -35,6 +35,8 @@ export type ReactQueryKeys = {
     fieldId: string,
     fieldRo: IUpdateFieldRo
   ) => [string, string, string, IUpdateFieldRo];
+
+  planField: (tableId: string, fieldId: string) => [string, string, string];
 };
 
 export const ReactQueryKeys: ReactQueryKeys = {
@@ -51,7 +53,9 @@ export const ReactQueryKeys: ReactQueryKeys = {
   shareViewRowCount: (shareId, query) => ['share-view-row-count', shareId, query],
   shareViewAggregations: (shareId, query) => ['share-view-aggregations', shareId, query],
 
-  planFieldCreate: (tableId, fieldRo) => ['create-field-plain', tableId, fieldRo],
+  planFieldCreate: (tableId, fieldRo) => ['create-field-plan', tableId, fieldRo],
 
-  planFieldUpdate: (tableId, fieldId, fieldRo) => ['create-field-plain', tableId, fieldId, fieldRo],
+  planFieldUpdate: (tableId, fieldId, fieldRo) => ['create-field-plan', tableId, fieldId, fieldRo],
+
+  planField: (tableId, fieldId) => ['field-plan', tableId, fieldId],
 };

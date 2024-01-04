@@ -99,7 +99,7 @@ export const FieldEditor = (props: {
   };
 
   return (
-    <div className="w-full flex-1 gap-2 overflow-y-auto px-2 text-sm">
+    <div className="w-full gap-2 overflow-y-auto px-2 text-sm">
       {/* General */}
       <div className="flex flex-col gap-2">
         <div className="relative flex w-full flex-col gap-2">

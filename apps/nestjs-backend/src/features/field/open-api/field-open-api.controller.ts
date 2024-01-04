@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import {
   Body,
   Controller,
@@ -32,6 +33,15 @@ export class FieldOpenApiController {
     private readonly fieldService: FieldService,
     private readonly fieldOpenApiService: FieldOpenApiService
   ) {}
+
+  @Permissions('field|read')
+  @Get(':fieldId/plan')
+  async planField(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<IPlanFieldVo> {
+    return await this.fieldOpenApiService.planField(tableId, fieldId);
+  }
 
   @Permissions('field|read')
   @Get(':fieldId')

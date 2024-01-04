@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship, type IFieldRo, type ITableFullVo } from '@teable-group/core';
-import { planFieldCreate, planFieldUpdate } from '@teable-group/openapi';
+import { planField, planFieldCreate, planFieldUpdate } from '@teable-group/openapi';
 import { createField, createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Graph (e2e)', () => {
@@ -88,7 +88,7 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.combos).toHaveLength(2);
   });
 
-  it('should  plan formula to number field', async () => {
+  it('should plan formula to number field', async () => {
     const textField = table1.fields[0];
     const formulaRo: IFieldRo = {
       name: 'formula',
@@ -121,7 +121,7 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.combos).toHaveLength(1);
   });
 
-  it('should  plan formula update with more reference field', async () => {
+  it('should plan formula update with more reference field', async () => {
     const textField = table1.fields[0];
     const numberField = table1.fields[1];
     const formulaRo: IFieldRo = {
@@ -147,6 +147,31 @@ describe('OpenAPI Graph (e2e)', () => {
     if (plan.skip) {
       return;
     }
+    expect(plan).toMatchObject({
+      isAsync: false,
+      updateCellCount: 3,
+      totalCellCount: 9,
+    });
+    expect(plan.graph?.nodes).toHaveLength(3);
+    expect(plan.graph?.edges).toHaveLength(2);
+    expect(plan.graph?.combos).toHaveLength(1);
+  });
+
+  it('should plan formula with more reference field', async () => {
+    const textField = table1.fields[0];
+    const numberField = table1.fields[1];
+
+    const formulaRo: IFieldRo = {
+      type: FieldType.Formula,
+      options: {
+        expression: `{${textField.id}} & {${numberField.id}}`,
+      },
+    };
+
+    const formulaField = await createField(table1.id, formulaRo);
+
+    const { data: plan } = await planField(table1.id, formulaField.id);
+
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: 3,

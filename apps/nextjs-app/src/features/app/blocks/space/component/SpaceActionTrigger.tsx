@@ -52,6 +52,8 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
         title={`Are you sure you want to delete ${space?.name}?`}
+        cancelText="Cancel"
+        confirmText="Continue"
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={onDelete}
       />

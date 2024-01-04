@@ -20,6 +20,10 @@ export class FieldOpenApiService {
     private readonly graphService: GraphService
   ) {}
 
+  async planField(tableId: string, fieldId: string) {
+    return await this.graphService.planField(tableId, fieldId);
+  }
+
   async planFieldCreate(tableId: string, fieldRo: IFieldRo) {
     return await this.graphService.planFieldCreate(tableId, fieldRo);
   }

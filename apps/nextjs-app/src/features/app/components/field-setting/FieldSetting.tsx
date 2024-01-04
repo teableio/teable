@@ -1,5 +1,6 @@
 import type { IFieldRo } from '@teable-group/core';
 import { updateFieldRoSchema, FieldType, getOptionsSchema } from '@teable-group/core';
+import { Share2 } from '@teable-group/icons';
 import { useTable, useView } from '@teable-group/sdk/hooks';
 import { ConfirmDialog } from '@teable-group/ui-lib/base';
 import { useToast } from '@teable-group/ui-lib/shadcn';
@@ -59,6 +60,34 @@ const FieldSettingBase = (props: IFieldSetting) => {
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
+  const [showGraphButton, setShowGraphButton] = useState<boolean>(true);
+
+  const isCreatingSimpleField = useCallback(
+    (field: IFieldEditorRo) => {
+      return (
+        !field.lookupOptions &&
+        field.type !== FieldType.Link &&
+        field.type !== FieldType.Formula &&
+        operator !== FieldOperator.Edit
+      );
+    },
+    [operator]
+  );
+
+  const checkFieldReady = useCallback(
+    (field: IFieldEditorRo) => {
+      const result = updateFieldRoSchema.safeParse(field);
+      if (!result.success) {
+        return false;
+      }
+      const data = result.data;
+      if (isCreatingSimpleField(data)) {
+        return false;
+      }
+      return true;
+    },
+    [isCreatingSimpleField]
+  );
 
   const onOpenChange = (open?: boolean) => {
     if (open) {
@@ -67,10 +96,14 @@ const FieldSettingBase = (props: IFieldSetting) => {
     onCancelInner();
   };
 
-  const onFieldEditorChange = useCallback((field: IFieldEditorRo) => {
-    setField(field);
-    setUpdateCount(1);
-  }, []);
+  const onFieldEditorChange = useCallback(
+    (field: IFieldEditorRo) => {
+      setField(field);
+      setUpdateCount(1);
+      setShowGraphButton(checkFieldReady(field));
+    },
+    [checkFieldReady]
+  );
 
   const onCancelInner = () => {
     if (updateCount > 0) {
@@ -83,12 +116,7 @@ const FieldSettingBase = (props: IFieldSetting) => {
   const onSave = () => {
     const result = updateFieldRoSchema.safeParse(field);
     if (result.success) {
-      if (
-        !result.data.lookupOptions &&
-        result.data.type !== FieldType.Link &&
-        result.data.type !== FieldType.Formula &&
-        operator !== FieldOperator.Edit
-      ) {
+      if (isCreatingSimpleField(result.data)) {
         onConfirm?.(result.data);
       } else {
         setGraphVisible(true);
@@ -130,7 +158,21 @@ const FieldSettingBase = (props: IFieldSetting) => {
             {/* Header */}
             <div className="text-md mx-2 w-full border-b py-2 font-semibold">{title}</div>
             {/* Content Form */}
-            {<DynamicFieldEditor field={field} onChange={onFieldEditorChange} />}
+            <div className="flex flex-1 flex-col gap-4">
+              {<DynamicFieldEditor field={field} onChange={onFieldEditorChange} />}
+              {showGraphButton && (
+                <div>
+                  <Button
+                    className="w-full"
+                    size={'sm'}
+                    variant={'ghost'}
+                    onClick={() => setGraphVisible(true)}
+                  >
+                    <Share2 className="h-4 w-4" /> show dependencies graph
+                  </Button>
+                </div>
+              )}
+            </div>
             {/* Footer */}
             <div className="flex w-full justify-end space-x-2 p-2">
               <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>
@@ -148,6 +190,8 @@ const FieldSettingBase = (props: IFieldSetting) => {
         onOpenChange={setAlertVisible}
         title="Are you sure you want to discard your changes?"
         onCancel={() => setAlertVisible(false)}
+        cancelText="Cancel"
+        confirmText="Continue"
         onConfirm={onCancel}
       />
       <ConfirmDialog
@@ -159,10 +203,11 @@ const FieldSettingBase = (props: IFieldSetting) => {
           <DynamicFieldGraph
             tableId={table?.id as string}
             fieldId={props.field?.id}
-            fieldRo={field as IFieldRo}
+            fieldRo={updateCount ? (field as IFieldRo) : undefined}
           />
         }
-        confirmText="Save"
+        cancelText="Cancel"
+        confirmText="Continue"
         onCancel={() => setGraphVisible(false)}
         onConfirm={onConfirmInner}
       />
