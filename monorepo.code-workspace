@@ -49,14 +49,13 @@
     "recommendations": [
       "dbaeumer.vscode-eslint",
       "esbenp.prettier-vscode",
-      "orta.vscode-jest",
     ]
   },
   "settings": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": true
+      "source.fixAll.eslint": "explicit"
     },
     // Disable vscode formatting for js,jsx,ts,tsx files
     // to allow dbaeumer.vscode-eslint to format them
@@ -79,14 +78,5 @@
       "sharedb",
       "Teable"
     ],
-    "jest.disabledWorkspaceFolders": [
-      "eslint-config-bases",
-      "icons",
-      "common-i18n",
-      "db-main-prisma",
-      "ui-lib",
-      "root",
-      "openapi"
-    ]
   }
 }
