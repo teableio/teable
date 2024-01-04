@@ -3,6 +3,7 @@ import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable-group/sdk'
 import { ResizablePanelGroup, ResizableHandle, ResizablePanel, Button } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import React, { useRef, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { HoverWraper } from '../../blocks/base/base-side-bar/HoverWraper';
 import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
@@ -17,6 +18,14 @@ export const ResizablePane: React.FC<{
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [leftVisible, setLeftVisible] = useState<boolean>(true);
   const leftMenuRef = useRef<React.ComponentRef<typeof ResizablePanel>>(null);
+
+  useHotkeys(`meta+b`, () => {
+    if (leftVisible) {
+      leftMenuRef?.current?.collapse();
+    } else {
+      leftMenuRef?.current?.expand();
+    }
+  });
 
   if (!isHydrated) {
     return (

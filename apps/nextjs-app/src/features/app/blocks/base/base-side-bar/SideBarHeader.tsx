@@ -53,7 +53,7 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Collapse SideBar</p>
+              <p>Collapse SideBar ⌘+B</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
