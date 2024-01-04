@@ -8,6 +8,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { HoverWraper } from '../../blocks/base/base-side-bar/HoverWraper';
 import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
+import { PaneSkeleton } from './PaneSkeleton';
 
 const ResizeblePanelsPrefix = 'react-resizable-panels';
 
@@ -50,13 +51,7 @@ export const ResizablePane: React.FC<{
   });
 
   if (!isHydrated) {
-    return (
-      <>
-        {left}
-        {center}
-        {right}
-      </>
-    );
+    return <PaneSkeleton />;
   }
 
   return (
