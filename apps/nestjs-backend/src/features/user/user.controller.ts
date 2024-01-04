@@ -1,9 +1,15 @@
-import { Body, Controller, Patch } from '@nestjs/common';
 import {
-  IUpdateUserAvatarRo,
+  BadRequestException,
+  Body,
+  Controller,
+  Patch,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
   IUpdateUserNameRo,
   IUserNotifyMeta,
-  updateUserAvatarRoSchema,
   updateUserNameRoSchema,
   userNotifyMetaSchema,
 } from '@teable-group/openapi';
@@ -27,12 +33,24 @@ export class UserController {
     return this.userService.updateUserName(userId, updateUserNameRo.name);
   }
 
+  @UseInterceptors(
+    FileInterceptor('file', {
+      fileFilter: (_req, file, callback) => {
+        if (file.mimetype.startsWith('image/')) {
+          callback(null, true);
+        } else {
+          callback(new BadRequestException('Invalid file type'), false);
+        }
+      },
+      limits: {
+        fileSize: 3 * 1024 * 1024, // limit file size is 3MB
+      },
+    })
+  )
   @Patch('updateAvatar')
-  async updateAvatar(
-    @Body(new ZodValidationPipe(updateUserAvatarRoSchema)) updateUserAvatarRo: IUpdateUserAvatarRo
-  ): Promise<void> {
+  async updateAvatar(@UploadedFile() file: Express.Multer.File): Promise<void> {
     const userId = this.cls.get('user.id');
-    return this.userService.updateAvatar(userId, updateUserAvatarRo.avatar);
+    return this.userService.updateAvatar(userId, file);
   }
 
   @Patch('updateNotifyMeta')

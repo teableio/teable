@@ -29,6 +29,18 @@ export default abstract class StorageAdapter {
     }
   };
 
+  static readonly isPublicDir = (dir: string) => {
+    switch (dir) {
+      case 'avatar':
+      case 'form':
+        return true;
+      case 'table':
+        return false;
+      default:
+        throw new BadRequestException('Invalid file dir');
+    }
+  };
+
   /**
    * generate presigned url
    * @param bucket bucket name
@@ -61,5 +73,19 @@ export default abstract class StorageAdapter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [key: string]: any;
     }
+  ): Promise<string>;
+
+  /**
+   * uploadFile with file path
+   * @param bucket bucket name
+   * @param path path name
+   * @param filePath file path
+   * @param metadata Metadata of the object.
+   */
+  abstract uploadFileWidthPath(
+    bucket: string,
+    path: string,
+    filePath: string,
+    metadata: Record<string, unknown>
   ): Promise<string>;
 }

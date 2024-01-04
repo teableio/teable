@@ -282,8 +282,7 @@ describe('LocalStorage', () => {
       expect(storage.getFileMate).toHaveBeenCalledWith(
         resolve(storage.storageDir, mockBucket, mockPath)
       );
-      expect(storage['getUrl']).toHaveBeenCalledWith({
-        path: mockPath,
+      expect(storage['getUrl']).toHaveBeenCalledWith(mockPath, {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         respHeaders: mockRespHeaders,
         expiresDate: -1,
@@ -340,7 +339,6 @@ describe('LocalStorage', () => {
     it('should verify read token', () => {
       vi.spyOn(storage.expireTokenEncryptor, 'decrypt').mockReturnValueOnce({
         expiresDate,
-        path: 'mock-path',
         respHeaders: mockRespHeaders,
       });
 
@@ -349,7 +347,6 @@ describe('LocalStorage', () => {
       expect(storage.expireTokenEncryptor.decrypt).toHaveBeenCalledWith('mock-token');
 
       expect(result).toEqual({
-        path: 'mock-path',
         respHeaders: mockRespHeaders,
       });
     });
@@ -357,7 +354,6 @@ describe('LocalStorage', () => {
     it('should throw BadRequestException for expired token', () => {
       vi.spyOn(storage.expireTokenEncryptor, 'decrypt').mockReturnValueOnce({
         expiresDate: 1,
-        path: 'mock-path',
       });
 
       expect(() => storage.verifyReadToken('expired-token')).toThrow(BadRequestException);

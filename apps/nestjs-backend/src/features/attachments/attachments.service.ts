@@ -1,8 +1,9 @@
+import type { IncomingHttpHeaders } from 'http';
 import { join } from 'path';
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { SignatureRo, SignatureVo } from '@teable-group/openapi';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { StorageConfig, IStorageConfig } from '../../configs/storage';
@@ -35,7 +36,7 @@ export class AttachmentsService {
     const file = await localStorage.saveTemporaryFile(req);
     await localStorage.validateToken(token, file);
     const hash = await localStorage.getHash(file.path);
-    await localStorage.save(file, join(bucket, path));
+    await localStorage.save(file.path, join(bucket, path));
 
     await this.cacheService.set(
       `attachment:upload:${token}`,
@@ -44,19 +45,52 @@ export class AttachmentsService {
     );
   }
 
-  async readLocalFile(token: string, filename?: string) {
+  async readLocalFile(path: string, token?: string, filename?: string) {
     const localStorage = this.storageAdapter as LocalStorage;
-    const { path, respHeaders } = localStorage.verifyReadToken(token);
+    let respHeaders: Record<string, string> = {};
+
     if (!path) {
       throw new HttpException(`Could not find attachment: ${token}`, HttpStatus.NOT_FOUND);
     }
+    const { dir, token: tokenInPath } = localStorage.parsePath(path);
+    if (token && !StorageAdapter.isPublicDir(dir)) {
+      respHeaders = localStorage.verifyReadToken(token).respHeaders ?? {};
+    } else {
+      const attachment = await this.prismaService
+        .txClient()
+        .attachments.findUnique({ where: { token: tokenInPath, deletedTime: null } });
+      if (!attachment) {
+        throw new BadRequestException(`Invalid path: ${path}`);
+      }
+      respHeaders['Content-Type'] = attachment.mimetype;
+    }
+
     const headers: Record<string, string> = respHeaders ?? {};
     if (filename) {
       headers['Content-Disposition'] = `attachment; filename="${filename}"`;
     }
-
     const fileStream = localStorage.read(path);
+
     return { headers, fileStream };
+  }
+
+  localFileConditionalCaching(path: string, reqHeaders: IncomingHttpHeaders, res: Response) {
+    const ifModifiedSince = reqHeaders['if-modified-since'];
+    const localStorage = this.storageAdapter as LocalStorage;
+    const lastModifiedTimestamp = localStorage.getLastModifiedTime(path);
+    if (!lastModifiedTimestamp) {
+      throw new BadRequestException(`Could not find attachment: ${path}`);
+    }
+    // Comparison of accuracy in seconds
+    if (
+      !ifModifiedSince ||
+      Math.floor(new Date(ifModifiedSince).getTime() / 1000) <
+        Math.floor(lastModifiedTimestamp / 1000)
+    ) {
+      res.set('Last-Modified', new Date(lastModifiedTimestamp).toUTCString());
+      return false;
+    }
+    return true;
   }
 
   async signature(signatureRo: SignatureRo): Promise<SignatureVo> {

@@ -92,4 +92,14 @@ export class MinioStorage implements StorageAdapter {
   ) {
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, respHeaders);
   }
+
+  async uploadFileWidthPath(
+    bucket: string,
+    path: string,
+    filePath: string,
+    metadata: Record<string, unknown>
+  ) {
+    await this.minioClient.fPutObject(bucket, path, filePath, metadata);
+    return `/${bucket}/${path}`;
+  }
 }
