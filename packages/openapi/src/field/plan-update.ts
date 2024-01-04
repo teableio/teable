@@ -4,7 +4,7 @@ import { updateFieldRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { planFieldVoSchema } from './plan-create';
+import { planFieldVoSchema } from './plan';
 
 export const PLAN_FIELD_UPDATE = '/table/{tableId}/field/{fieldId}/plan';
 
@@ -41,7 +41,7 @@ export const planFieldUpdateRoute: RouteConfig = registerRoute({
       },
     },
   },
-  tags: ['field'],
+  tags: ['field', 'plan'],
 });
 
 export const planFieldUpdate = async (

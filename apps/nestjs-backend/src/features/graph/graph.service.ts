@@ -11,13 +11,13 @@ import type {
   IPlanFieldUpdateVo,
 } from '@teable-group/openapi';
 import { Knex } from 'knex';
-import { groupBy, keyBy, uniq } from 'lodash';
+import { groupBy, keyBy, union, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
-import type { IRecordItem } from '../calculation/reference.service';
+import type { IGraphItem, IRecordItem } from '../calculation/reference.service';
 import { ReferenceService } from '../calculation/reference.service';
-import { topoOrderWithStart } from '../calculation/utils/dfs';
+import { pruneGraph, topoOrderWithStart } from '../calculation/utils/dfs';
 import { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -330,8 +330,26 @@ export class GraphService {
   }
 
   @Timing()
-  private async getCalculationPlan(tableId: string, fieldIds: string[]) {
-    const context = await this.fieldCalculationService.getTopoOrdersContext(fieldIds);
+  private async getUpdateCalculationPlan(tableId: string, newField: IFieldInstance) {
+    const fieldId = newField.id;
+    const newReference = this.fieldSupplementService.getFieldReferenceIds(newField);
+
+    const incomingGraph = await this.referenceService.getFieldGraphItems(newReference);
+
+    const oldGraph = await this.referenceService.getFieldGraphItems([fieldId]);
+
+    const tempGraph = [
+      ...oldGraph.filter((graph) => graph.toFieldId !== fieldId),
+      ...incomingGraph.filter((graph) => graph.toFieldId !== fieldId),
+      ...newReference.map((id) => ({ fromFieldId: id, toFieldId: fieldId })),
+    ];
+
+    const newDirectedGraph = pruneGraph(fieldId, tempGraph);
+
+    const context = await this.fieldCalculationService.getTopoOrdersContext(
+      [fieldId],
+      newDirectedGraph
+    );
     const { fieldMap, startFieldIds, directedGraph, tableId2DbTableName } = context;
     const dbTableName = tableId2DbTableName[tableId];
 
@@ -348,39 +366,16 @@ export class GraphService {
     return { context, initialRecordIds, relatedRecordItems };
   }
 
-  async planFieldUpdate(
-    tableId: string,
-    fieldId: string,
-    fieldRo: IUpdateFieldRo
-  ): Promise<IPlanFieldUpdateVo> {
-    const { oldField, newField } = await this.getField(tableId, fieldId, fieldRo);
-
-    const majorChange = this.fieldConvertingService.majorKeysChanged(oldField, newField);
-    if (!majorChange) {
-      return { skip: true };
-    }
-
-    const { context, initialRecordIds, relatedRecordItems } = await this.getCalculationPlan(
-      tableId,
-      [fieldId]
-    );
-    const {
-      directedGraph,
-      allFieldIds,
-      fieldMap,
-      fieldId2DbTableName,
-      tableId2DbTableName,
-      fieldId2TableId,
-    } = context;
-    const topoFieldIds = topoOrderWithStart(fieldId, directedGraph);
-
-    const recordIdsByTableName = this.referenceService.getRecordIdsByTableName({
-      fieldMap,
-      fieldId2DbTableName,
-      relatedRecordItems,
-      modifiedRecords: [],
-      initialRecordIdMap: { [fieldId2DbTableName[fieldId]]: new Set(initialRecordIds) },
-    });
+  private async generateGraph(params: {
+    fieldId: string;
+    directedGraph: IGraphItem[];
+    allFieldIds: string[];
+    fieldMap: IFieldMap;
+    tableId2DbTableName: Record<string, string>;
+    fieldId2TableId: Record<string, string>;
+  }) {
+    const { fieldId, directedGraph, allFieldIds, fieldMap, tableId2DbTableName, fieldId2TableId } =
+      params;
 
     const edges = directedGraph.map<IGraphEdge>((node) => {
       const field = fieldMap[node.toFieldId];
@@ -415,7 +410,60 @@ export class GraphService {
       };
     });
 
+    return {
+      nodes,
+      edges,
+      combos,
+    };
+  }
+
+  async planFieldUpdate(
+    tableId: string,
+    fieldId: string,
+    fieldRo: IUpdateFieldRo
+  ): Promise<IPlanFieldUpdateVo> {
+    const { oldField, newField } = await this.getField(tableId, fieldId, fieldRo);
+
+    const majorChange = this.fieldConvertingService.majorKeysChanged(oldField, newField);
+    if (!majorChange) {
+      return { skip: true };
+    }
+
+    const { context, initialRecordIds, relatedRecordItems } = await this.getUpdateCalculationPlan(
+      tableId,
+      newField
+    );
+
+    const {
+      directedGraph,
+      allFieldIds,
+      fieldMap,
+      fieldId2DbTableName,
+      tableId2DbTableName,
+      fieldId2TableId,
+    } = context;
+    const topoFieldIds = topoOrderWithStart(fieldId, directedGraph);
+
+    const graph = await this.generateGraph({
+      fieldId,
+      directedGraph,
+      allFieldIds,
+      fieldMap,
+      tableId2DbTableName,
+      fieldId2TableId,
+    });
+
+    const recordIdsByTableName = this.referenceService.getRecordIdsByTableName({
+      fieldMap,
+      fieldId2DbTableName,
+      relatedRecordItems,
+      modifiedRecords: [],
+      initialRecordIdMap: { [fieldId2DbTableName[fieldId]]: new Set(initialRecordIds) },
+    });
+
+    const referenceFieldIds = this.fieldSupplementService.getFieldReferenceIds(newField);
     const oldReferences = this.fieldSupplementService.getFieldReferenceIds(oldField);
+    const difference = union(referenceFieldIds, oldReferences);
 
     const updateCellCount = topoFieldIds.reduce((pre, fieldId) => {
       const dbTableName = fieldId2DbTableName[fieldId];
@@ -424,15 +472,81 @@ export class GraphService {
     }, 0);
 
     // TODO: not accurate
-    const totalCellCount = oldReferences.length * initialRecordIds.length + updateCellCount;
+    const totalCellCount = difference.length * initialRecordIds.length + updateCellCount;
 
     return {
       isAsync: updateCellCount > 1000 || totalCellCount > 10000,
-      graph: {
-        nodes,
-        edges,
-        combos,
-      },
+      graph,
+      updateCellCount,
+      totalCellCount,
+    };
+  }
+
+  @Timing()
+  private async getCalculationPlan(tableId: string, fieldIds: string[]) {
+    const context = await this.fieldCalculationService.getTopoOrdersContext(fieldIds);
+    const { fieldMap, startFieldIds, directedGraph, tableId2DbTableName } = context;
+    const dbTableName = tableId2DbTableName[tableId];
+
+    const initialRecordIds = await this.fieldCalculationService.getSelfOriginRecords(dbTableName);
+
+    const relatedRecordItems = await this.fieldCalculationService.getRecordItems({
+      tableId,
+      itemsToCalculate: initialRecordIds,
+      startFieldIds,
+      directedGraph,
+      fieldMap,
+    });
+
+    return { context, initialRecordIds, relatedRecordItems };
+  }
+
+  async planField(tableId: string, fieldId: string): Promise<IPlanFieldVo> {
+    const { context, initialRecordIds, relatedRecordItems } = await this.getCalculationPlan(
+      tableId,
+      [fieldId]
+    );
+    const {
+      directedGraph,
+      allFieldIds,
+      fieldMap,
+      fieldId2DbTableName,
+      tableId2DbTableName,
+      fieldId2TableId,
+    } = context;
+    const topoFieldIds = topoOrderWithStart(fieldId, directedGraph);
+
+    const graph = await this.generateGraph({
+      fieldId,
+      directedGraph,
+      allFieldIds,
+      fieldMap,
+      tableId2DbTableName,
+      fieldId2TableId,
+    });
+
+    const recordIdsByTableName = this.referenceService.getRecordIdsByTableName({
+      fieldMap,
+      fieldId2DbTableName,
+      relatedRecordItems,
+      modifiedRecords: [],
+      initialRecordIdMap: { [fieldId2DbTableName[fieldId]]: new Set(initialRecordIds) },
+    });
+
+    const reference = this.fieldSupplementService.getFieldReferenceIds(fieldMap[fieldId]);
+
+    const updateCellCount = topoFieldIds.reduce((pre, fieldId) => {
+      const dbTableName = fieldId2DbTableName[fieldId];
+      const recordIds = recordIdsByTableName[dbTableName];
+      return pre + recordIds.size;
+    }, 0);
+
+    // TODO: not accurate
+    const totalCellCount = reference.length * initialRecordIds.length + updateCellCount;
+
+    return {
+      isAsync: updateCellCount > 1000 || totalCellCount > 10000,
+      graph,
       updateCellCount,
       totalCellCount,
     };

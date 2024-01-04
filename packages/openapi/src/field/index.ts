@@ -5,3 +5,4 @@ export * from './get';
 export * from './update';
 export * from './plan-create';
 export * from './plan-update';
+export * from './plan';

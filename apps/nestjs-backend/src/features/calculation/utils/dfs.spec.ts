@@ -3,6 +3,7 @@ import {
   buildAdjacencyMap,
   buildCompressedAdjacencyMap,
   hasCycle,
+  pruneGraph,
   topoOrderWithDepends,
   topoOrderWithStart,
   topologicalSort,
@@ -230,6 +231,48 @@ describe('Graph Processing Functions', () => {
       ];
       const result = topoOrderWithStart('1', graph);
       expect(result).toEqual(['1', '2', '3', '4']);
+    });
+  });
+
+  describe('pruneGraph', () => {
+    test('returns an empty array for an empty graph', () => {
+      expect(pruneGraph('A', [])).toEqual([]);
+    });
+
+    test('returns correct graph for a single-node graph', () => {
+      const graph: IGraphItem[] = [{ fromFieldId: 'A', toFieldId: 'B' }];
+      expect(pruneGraph('A', graph)).toEqual(graph);
+    });
+
+    test('returns correct graph for a tow-node graph', () => {
+      const graph: IGraphItem[] = [
+        { fromFieldId: 'A', toFieldId: 'C' },
+        { fromFieldId: 'B', toFieldId: 'C' },
+      ];
+      expect(pruneGraph('C', graph)).toEqual(graph);
+    });
+
+    test('returns correct graph for a multi-node graph', () => {
+      const graph: IGraphItem[] = [
+        { fromFieldId: 'A', toFieldId: 'B' },
+        { fromFieldId: 'B', toFieldId: 'C' },
+        { fromFieldId: 'C', toFieldId: 'D' },
+        { fromFieldId: 'E', toFieldId: 'F' },
+      ];
+      const expectedResult: IGraphItem[] = [
+        { fromFieldId: 'A', toFieldId: 'B' },
+        { fromFieldId: 'B', toFieldId: 'C' },
+        { fromFieldId: 'C', toFieldId: 'D' },
+      ];
+      expect(pruneGraph('A', graph)).toEqual(expectedResult);
+    });
+
+    test('returns an empty array for a graph with unrelated node', () => {
+      const graph: IGraphItem[] = [
+        { fromFieldId: 'B', toFieldId: 'C' },
+        { fromFieldId: 'C', toFieldId: 'D' },
+      ];
+      expect(pruneGraph('A', graph)).toEqual([]);
     });
   });
 });

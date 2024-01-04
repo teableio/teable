@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 import { uniq } from 'lodash';
 
 // topo item is for field level reference, all id stands for fieldId;
@@ -63,7 +64,6 @@ export function buildCompressedAdjacencyMap(
   const adjMap = buildAdjacencyMap(graph);
   const compressedAdjMap: IAdjacencyMap = {};
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   Object.keys(adjMap).forEach((from) => {
     const queue = [from];
     const visited = new Set<string>();
@@ -95,7 +95,6 @@ export function buildCompressedAdjacencyMap(
   return compressedAdjMap;
 }
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function hasCycle(graphItems: IGraphItem[]): boolean {
   const adjList: Record<string, string[]> = {};
   const visiting = new Set<string>();
@@ -144,7 +143,6 @@ export function hasCycle(graphItems: IGraphItem[]): boolean {
  * @param graph - The input graph.
  * @returns An array of ITopoItem representing the topological order.
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function topoOrderWithDepends(startNodeId: string, graph: IGraphItem[]): ITopoItem[] {
   const visitedNodes = new Set<string>();
   const visitingNodes = new Set<string>();
@@ -277,7 +275,6 @@ export function topologicalSort(graph: IGraphItem[]): string[] {
 /**
  * Returns all relations related to the given fieldIds.
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function filterDirectedGraph(
   undirectedGraph: IGraphItem[],
   fieldIds: string[]
@@ -339,4 +336,34 @@ export function filterDirectedGraph(
   }
 
   return result;
+}
+
+export function pruneGraph(node: string, graph: IGraphItem[]): IGraphItem[] {
+  const relatedNodes = new Set<string>();
+  const prunedGraph: IGraphItem[] = [];
+
+  function dfs(currentNode: string) {
+    relatedNodes.add(currentNode);
+    for (const edge of graph) {
+      if (edge.fromFieldId === currentNode && !relatedNodes.has(edge.toFieldId)) {
+        dfs(edge.toFieldId);
+      }
+    }
+  }
+
+  dfs(node);
+
+  for (const edge of graph) {
+    if (relatedNodes.has(edge.fromFieldId) || relatedNodes.has(edge.toFieldId)) {
+      prunedGraph.push(edge);
+      if (!relatedNodes.has(edge.fromFieldId)) {
+        dfs(edge.fromFieldId);
+      }
+      if (!relatedNodes.has(edge.toFieldId)) {
+        dfs(edge.toFieldId);
+      }
+    }
+  }
+
+  return prunedGraph;
 }

@@ -88,7 +88,7 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.combos).toHaveLength(2);
   });
 
-  it('should update formula field plan', async () => {
+  it('should  plan formula to number field', async () => {
     const textField = table1.fields[0];
     const formulaRo: IFieldRo = {
       name: 'formula',
@@ -118,6 +118,42 @@ describe('OpenAPI Graph (e2e)', () => {
     });
     expect(plan.graph?.nodes).toHaveLength(2);
     expect(plan.graph?.edges).toHaveLength(1);
+    expect(plan.graph?.combos).toHaveLength(1);
+  });
+
+  it('should  plan formula update with more reference field', async () => {
+    const textField = table1.fields[0];
+    const numberField = table1.fields[1];
+    const formulaRo: IFieldRo = {
+      name: 'formula',
+      type: FieldType.Formula,
+      options: {
+        expression: `{${textField.id}}`,
+      },
+    };
+
+    const newFormulaFieldRo: IFieldRo = {
+      type: FieldType.Formula,
+      options: {
+        expression: `{${textField.id}} & {${numberField.id}}`,
+      },
+    };
+
+    const formulaField = await createField(table1.id, formulaRo);
+
+    const { data: plan } = await planFieldUpdate(table1.id, formulaField.id, newFormulaFieldRo);
+
+    expect(plan.skip).toBeUndefined();
+    if (plan.skip) {
+      return;
+    }
+    expect(plan).toMatchObject({
+      isAsync: false,
+      updateCellCount: 3,
+      totalCellCount: 9,
+    });
+    expect(plan.graph?.nodes).toHaveLength(3);
+    expect(plan.graph?.edges).toHaveLength(2);
     expect(plan.graph?.combos).toHaveLength(1);
   });
 

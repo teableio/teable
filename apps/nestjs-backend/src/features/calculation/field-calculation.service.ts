@@ -93,8 +93,11 @@ export class FieldCalculationService {
     await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
   }
 
-  async getTopoOrdersContext(fieldIds: string[]): Promise<ITopoOrdersContext> {
-    const directedGraph = await this.referenceService.getFieldGraphItems(fieldIds);
+  async getTopoOrdersContext(
+    fieldIds: string[],
+    customGraph?: IGraphItem[]
+  ): Promise<ITopoOrdersContext> {
+    const directedGraph = customGraph || (await this.referenceService.getFieldGraphItems(fieldIds));
 
     // get all related field by undirected graph
     const allFieldIds = uniq(this.referenceService.flatGraph(directedGraph).concat(fieldIds));

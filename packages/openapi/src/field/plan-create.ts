@@ -2,20 +2,12 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IFieldRo } from '@teable-group/core';
 import { fieldRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
-import { graphVoSchema } from '../table/get-cell-graph';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { IPlanFieldVo } from './plan';
+import { planFieldVoSchema } from './plan';
 
 export const PLAN_FIELD_CREATE = '/table/{tableId}/field/plan';
-
-export const planFieldVoSchema = z.object({
-  isAsync: z.boolean(),
-  graph: graphVoSchema,
-  updateCellCount: z.number(),
-  totalCellCount: z.number(),
-});
-
-export type IPlanFieldVo = z.infer<typeof planFieldVoSchema>;
 
 export const planFieldCreateRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -43,7 +35,7 @@ export const planFieldCreateRoute: RouteConfig = registerRoute({
       },
     },
   },
-  tags: ['field'],
+  tags: ['field', 'plan'],
 });
 
 export const planFieldCreate = async (tableId: string, fieldRo: IFieldRo) => {
