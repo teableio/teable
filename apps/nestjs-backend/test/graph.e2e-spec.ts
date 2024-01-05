@@ -104,7 +104,7 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.combos).toHaveLength(1);
   });
 
-  it('should plan formula to number field', async () => {
+  it('should plan text to number field reference by formula', async () => {
     const textField = table1.fields[0];
     const formulaRo: IFieldRo = {
       name: 'formula',
@@ -124,12 +124,38 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planFieldUpdate(table1.id, textField.id, newFieldRo);
 
     expect(plan.skip).toBeUndefined();
-    if (plan.skip) {
-      return;
-    }
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: 6,
+      totalCellCount: 6,
+    });
+    expect(plan.graph?.nodes).toHaveLength(2);
+    expect(plan.graph?.edges).toHaveLength(1);
+    expect(plan.graph?.combos).toHaveLength(1);
+  });
+
+  it('should plan text to formula field', async () => {
+    const numberField = table1.fields[1];
+    const textFieldRo: IFieldRo = {
+      type: FieldType.SingleSelect,
+    };
+
+    const textField = await createField(table1.id, textFieldRo);
+
+    const formulaRo: IFieldRo = {
+      name: 'formula',
+      type: FieldType.Formula,
+      options: {
+        expression: `{${numberField.id}}`,
+      },
+    };
+
+    const { data: plan } = await planFieldUpdate(table1.id, textField.id, formulaRo);
+
+    expect(plan.skip).toBeUndefined();
+    expect(plan).toMatchObject({
+      isAsync: false,
+      updateCellCount: 3,
       totalCellCount: 6,
     });
     expect(plan.graph?.nodes).toHaveLength(2);
@@ -160,9 +186,6 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planFieldUpdate(table1.id, formulaField.id, newFormulaFieldRo);
 
     expect(plan.skip).toBeUndefined();
-    if (plan.skip) {
-      return;
-    }
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: 3,
@@ -265,14 +288,11 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planFieldUpdate(table1.id, lookupField.id, lookupFieldRo2);
 
     expect(plan.skip).toBeUndefined();
-    if (plan.skip) {
-      return;
-    }
 
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: table1.records.length * 2,
-      totalCellCount: table1.records.length * 3,
+      totalCellCount: table1.records.length * 4,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
     expect(plan.graph?.edges).toHaveLength(2);
