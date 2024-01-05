@@ -18,13 +18,16 @@ enum ResizePart {
   RIGHT = 'right',
 }
 
+const DefaultLeftSize = 25;
+
 export const ResizablePane: React.FC<{
   children: React.ReactNode[];
 }> = ({ children }) => {
   const isMobile = useIsMobile();
   const isHydrated = useIsHydrated();
   const [left, center, right] = children;
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(DefaultLeftSize);
+  const [defaultLeftSize, setDefaultLeftSize] = useState<number>(DefaultLeftSize);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [leftVisible, setLeftVisible] = useState<boolean>(true);
   const leftMenuRef = useRef<React.ComponentRef<typeof ResizablePanel>>(null);
@@ -37,8 +40,11 @@ export const ResizablePane: React.FC<{
       const sizeObj = JSON.parse(sizeString);
       const keys = Object.keys(sizeObj);
       const key = keys?.[0];
-      const collapseSize = sizeObj?.[key]?.expandToSizes?.[ResizePart.LEFT];
-      setOffset(collapseSize || 25);
+      const collapseSize = sizeObj?.[key]?.expandToSizes?.[ResizePart.LEFT] ?? DefaultLeftSize;
+      const lastLeftLayout = sizeObj?.[key]?.layout?.[0] ?? DefaultLeftSize;
+      setOffset(collapseSize);
+      // in some cases, the left panel will transition from default, so constrain the default size
+      setDefaultLeftSize(lastLeftLayout);
     }
   }, []);
 
@@ -89,9 +95,9 @@ export const ResizablePane: React.FC<{
           <ResizablePanel
             id={ResizePart.LEFT}
             order={1}
-            className={classNames('h-full')}
+            className={classNames('h-full will-change-auto')}
             minSize={15}
-            defaultSize={25}
+            defaultSize={defaultLeftSize}
             maxSize={30}
             collapsible={true}
             ref={leftMenuRef}
@@ -115,6 +121,7 @@ export const ResizablePane: React.FC<{
         <ResizableHandle
           className={classNames('after:z-50 hover:after:w-1 hover:after:bg-violet-600', {
             hidden: !leftVisible,
+            'after:bg-violet-600': isDragging,
           })}
           onDragging={(drag) => {
             setIsDragging(drag);
