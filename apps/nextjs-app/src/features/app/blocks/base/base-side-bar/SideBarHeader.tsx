@@ -47,12 +47,12 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
       {expandSideBar && (
         <TooltipProvider>
           <Tooltip>
-            <TooltipTrigger asChild className="opacity-0 group-hover/header:opacity-100">
+            <TooltipTrigger asChild>
               <Button variant="ghost" size="xs" onClick={() => expandSideBar?.()}>
                 <FreezeColumn className="h-5 w-5"></FreezeColumn>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
+            <TooltipContent hideWhenDetached={true}>
               <p>Collapse SideBar ⌘+B</p>
             </TooltipContent>
           </Tooltip>
