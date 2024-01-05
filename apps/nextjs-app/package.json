@@ -96,7 +96,7 @@
     "vitest": "1.1.0"
   },
   "dependencies": {
-    "@antv/g6": "4.8.23",
+    "@antv/g6": "4.8.24",
     "@asteasolutions/zod-to-openapi": "6.3.0",
     "@belgattitude/http-exception": "1.5.0",
     "@codemirror/autocomplete": "6.10.1",

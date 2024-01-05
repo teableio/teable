@@ -46,11 +46,10 @@ async function setup() {
   const hashPassword = await bcrypt.hash(password, salt);
 
   // init data exists
-  const existsEmail = await prismaClient.user.count({ where: { email } });
-  const existsSpace = await prismaClient.space.count({ where: { id: spaceId } });
-  const existsBase = await prismaClient.base.count({ where: { id: baseId } });
-
   await prismaClient.$transaction(async (prisma) => {
+    const existsEmail = await prismaClient.user.count({ where: { email } });
+    const existsSpace = await prismaClient.space.count({ where: { id: spaceId } });
+    const existsBase = await prismaClient.base.count({ where: { id: baseId } });
     if (!existsEmail) {
       await prisma.user.create({
         data: {

@@ -1,3 +1,4 @@
+import { Toaster as SoonerToaster } from '@teable-group/ui-lib/shadcn/ui/sonner';
 import { Toaster } from '@teable-group/ui-lib/shadcn/ui/toaster';
 import type { FC, PropsWithChildren } from 'react';
 
@@ -9,6 +10,7 @@ export const AppProviders: FC<Props> = (props) => {
     <>
       {children}
       <Toaster />
+      <SoonerToaster />
     </>
   );
 };

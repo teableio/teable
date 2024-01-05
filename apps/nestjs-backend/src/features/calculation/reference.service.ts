@@ -29,7 +29,11 @@ import type { ICellChange } from './utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
 import type { IAdjacencyMap } from './utils/dfs';
-import { buildCompressedAdjacencyMap, filterDirectedGraph, getTopologicalOrder } from './utils/dfs';
+import {
+  buildCompressedAdjacencyMap,
+  filterDirectedGraph,
+  topoOrderWithDepends,
+} from './utils/dfs';
 
 // topo item is for field level reference, all id stands for fieldId;
 export interface ITopoItem {
@@ -143,7 +147,11 @@ export class ReferenceService {
     return fieldIds.reduce<{
       [fieldId: string]: ITopoItem[];
     }>((pre, fieldId) => {
-      pre[fieldId] = getTopologicalOrder(fieldId, directedGraph);
+      try {
+        pre[fieldId] = topoOrderWithDepends(fieldId, directedGraph);
+      } catch (e) {
+        throw new BadRequestException((e as { message: string }).message);
+      }
       return pre;
     }, {});
   }
@@ -709,10 +717,9 @@ export class ReferenceService {
     return newOrder;
   }
 
-  async getRecordMapBatch(params: {
+  getRecordIdsByTableName(params: {
     fieldMap: IFieldMap;
     fieldId2DbTableName: Record<string, string>;
-    dbTableName2fields: Record<string, IFieldInstance[]>;
     initialRecordIdMap?: { [dbTableName: string]: Set<string> };
     modifiedRecords: IRecordData[];
     relatedRecordItems: IRelatedRecordItem[];
@@ -720,7 +727,6 @@ export class ReferenceService {
     const {
       fieldMap,
       fieldId2DbTableName,
-      dbTableName2fields,
       initialRecordIdMap,
       modifiedRecords,
       relatedRecordItems,
@@ -756,6 +762,21 @@ export class ReferenceService {
       insertId(options.lookupFieldId, item.fromId);
       insertId(item.fieldId, item.toId);
     });
+
+    return recordIdsByTableName;
+  }
+
+  async getRecordMapBatch(params: {
+    fieldMap: IFieldMap;
+    fieldId2DbTableName: Record<string, string>;
+    dbTableName2fields: Record<string, IFieldInstance[]>;
+    initialRecordIdMap?: { [dbTableName: string]: Set<string> };
+    modifiedRecords: IRecordData[];
+    relatedRecordItems: IRelatedRecordItem[];
+  }) {
+    const { fieldId2DbTableName, dbTableName2fields, modifiedRecords } = params;
+
+    const recordIdsByTableName = this.getRecordIdsByTableName(params);
     const recordMap = await this.getRecordMap(recordIdsByTableName, dbTableName2fields);
     this.coverRecordData(fieldId2DbTableName, modifiedRecords, recordMap);
 

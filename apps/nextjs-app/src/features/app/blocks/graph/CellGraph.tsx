@@ -1,75 +1,29 @@
-import type { GraphData, Graph as IGraph } from '@antv/g6';
-import G6 from '@antv/g6';
 import { useMutation } from '@tanstack/react-query';
 import { ColorUtils } from '@teable-group/core';
-import { X } from '@teable-group/icons';
+import { DraggableHandle, X } from '@teable-group/icons';
 import { getGraph } from '@teable-group/openapi';
 import { useBase, useTableId, useViewId } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useMount } from 'react-use';
 import { useGridViewStore } from '../view/grid/store/gridView';
-import { useGraphStore } from './useGraphStore';
+import { useCellGraphStore } from './useCellGraphStore';
+import { useGraph } from './useGraph';
 
-export const Graph: React.FC = () => {
+export const CellGraph: React.FC = () => {
   const { selection } = useGridViewStore();
-  const { mutateAsync: getGraphMutator } = useMutation({ mutationFn: getGraph });
+  const { mutateAsync: getGraphMutator, data, isLoading } = useMutation({ mutationFn: getGraph });
   const tableId = useTableId();
   const base = useBase();
   const viewId = useViewId();
-  const graphRef = useRef<IGraph>();
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(500);
   const [height, setHeight] = useState(500);
   const [x, setX] = useState(0);
   const [y, setY] = useState(30);
   const [tables, setTables] = useState<{ name: string; color: string }[]>([]);
-  const { closeGraph } = useGraphStore();
-
-  useEffect(() => {
-    if (!ref.current) {
-      return;
-    }
-    const element = ref.current;
-    const graph = new G6.Graph({
-      container: element,
-      width: element.clientWidth,
-      height: element.clientHeight,
-      fitViewPadding: 20,
-      fitView: true,
-      fitCenter: true,
-      autoPaint: true,
-      layout: {
-        type: 'dagre',
-        nodesep: 20,
-        ranksep: 40,
-        align: 'UL',
-      },
-      defaultEdge: {
-        labelCfg: {
-          autoRotate: true,
-        },
-        style: {
-          endArrow: {
-            path: G6.Arrow.triangle(5, 5, 5),
-            d: 5,
-          },
-        },
-      },
-      defaultNode: {
-        type: 'ellipse',
-      },
-      modes: {
-        default: ['drag-node'],
-      },
-      animate: true,
-    });
-    graphRef.current = graph;
-    return () => {
-      graphRef.current?.destroy();
-    };
-  }, []);
+  const { closeGraph } = useCellGraphStore();
 
   useMount(() => {
     const x =
@@ -78,28 +32,9 @@ export const Graph: React.FC = () => {
     setX(x);
   });
 
-  const updateGraph = useCallback(async (data?: GraphData) => {
-    const graph = graphRef.current;
-    if (!graph) {
-      return;
-    }
-    if (data) {
-      graph.data(data);
-    } else {
-      graph.data({ nodes: [], edges: [] });
-    }
-    graph.render();
-  }, []);
+  const { updateGraph, changeSize } = useGraph(ref);
 
-  useEffect(() => {
-    const graph = graphRef.current;
-    if (graph == undefined) {
-      return;
-    }
-    graph.changeSize(width, height);
-    graph.render();
-  }, [height, width]);
-
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   useEffect(() => {
     const cell = selection?.ranges?.[0];
     const isCell = selection?.isCellSelection;
@@ -111,18 +46,20 @@ export const Graph: React.FC = () => {
         const { nodes, edges, combos } = res.data;
         const cache: Record<string, string> = {};
         updateGraph({
-          nodes: nodes.map((node) => {
+          nodes: nodes?.map((node) => {
             const comboId = node.comboId || 'default';
-            const stroke = cache[comboId]
+            const color = cache[comboId]
               ? cache[comboId]
-              : ColorUtils.getRandomHexFromStr(comboId);
-            cache[comboId] = stroke;
+              : ColorUtils.getRandomColorFromStr(comboId);
+            cache[comboId] = color;
+            const stroke = ColorUtils.getHexForColor(color);
             return {
               ...node,
-              label: `${node.fieldName}\n${node.label}`,
+              label: `${node.fieldName}\n${node.label || '-'}`,
               style: {
                 stroke,
-                lineWidth: node.isSelected ? 3 : 1,
+                lineWidth: node.isSelected ? 5 : 1,
+                fill: stroke,
               },
             };
           }),
@@ -143,28 +80,42 @@ export const Graph: React.FC = () => {
 
   return (
     <Rnd
-      className="absolute right-10 top-20  rounded border bg-background shadow"
+      className="absolute right-10 top-20 rounded border bg-background shadow"
       size={{ width, height }}
       position={{ x, y }}
-      onDragStop={(e, d) => {
-        setX(d.x);
-        setY(d.y);
-      }}
+      disableDragging={true}
       onResizeStop={(e, direction, ref) => {
         setWidth(ref.clientWidth);
         setHeight(ref.clientHeight);
+        changeSize();
       }}
     >
-      {!selection && 'Click a cell and see what happens.'}
+      <Rnd
+        className="absolute left-2 top-2 z-10"
+        default={{
+          x: 8,
+          y: 8,
+          width: 20,
+          height: 20,
+        }}
+        position={{ x: 8, y: 8 }}
+        onDrag={(e, d) => {
+          setX(x + d.x);
+          setY(y + d.y);
+        }}
+        enableResizing={false}
+      >
+        <DraggableHandle />
+      </Rnd>
       <Button
         variant={'ghost'}
         size="xs"
-        className="absolute right-2 top-2"
+        className="absolute right-2 top-2 z-10"
         onClick={() => closeGraph()}
       >
         <X className="h-4 w-4" />
       </Button>
-      <div className="absolute left-0 top-0 flex gap-2 p-2 text-xs">
+      <div className="absolute left-5 top-0 flex gap-2 p-2 text-xs">
         {tables.map((table) => {
           return (
             <div key={table.color} className="flex items-center justify-center gap-1">
@@ -174,9 +125,12 @@ export const Graph: React.FC = () => {
           );
         })}
       </div>
+      {!data?.data?.nodes?.length && !isLoading && (
+        <p className="absolute inset-0 flex items-center justify-center">
+          Click a cell and see what happens.
+        </p>
+      )}
       <div ref={ref} className="h-full w-full"></div>
     </Rnd>
   );
 };
-
-export type IGraphComponent = typeof Graph;

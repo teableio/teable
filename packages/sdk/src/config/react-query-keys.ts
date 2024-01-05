@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IAggregationRo, NotificationStatesEnum, IRowCountRo } from '@teable-group/core';
 import type {
-  IShareViewAggregationsQueryRo,
+  IAggregationRo,
+  IFieldRo,
+  IRowCountRo,
+  IUpdateFieldRo,
+  NotificationStatesEnum,
+} from '@teable-group/core';
+import type {
   IShareViewRowCountQueryRo,
+  IShareViewAggregationsQueryRo,
 } from '@teable-group/openapi';
 
 export type ReactQueryKeys = {
@@ -24,6 +30,15 @@ export type ReactQueryKeys = {
     shareId: string,
     query: IShareViewAggregationsQueryRo
   ) => [string, string, IShareViewAggregationsQueryRo];
+  planFieldCreate: (tableId: string, fieldRo: IFieldRo) => [string, string, IFieldRo];
+
+  planFieldUpdate: (
+    tableId: string,
+    fieldId: string,
+    fieldRo: IUpdateFieldRo
+  ) => [string, string, string, IUpdateFieldRo];
+
+  planField: (tableId: string, fieldId: string) => [string, string, string];
 };
 
 export const ReactQueryKeys: ReactQueryKeys = {
@@ -39,4 +54,10 @@ export const ReactQueryKeys: ReactQueryKeys = {
 
   shareViewRowCount: (shareId, query) => ['share-view-row-count', shareId, query],
   shareViewAggregations: (shareId, query) => ['share-view-aggregations', shareId, query],
+
+  planFieldCreate: (tableId, fieldRo) => ['create-field-plan', tableId, fieldRo],
+
+  planFieldUpdate: (tableId, fieldId, fieldRo) => ['create-field-plan', tableId, fieldId, fieldRo],
+
+  planField: (tableId, fieldId) => ['field-plan', tableId, fieldId],
 };

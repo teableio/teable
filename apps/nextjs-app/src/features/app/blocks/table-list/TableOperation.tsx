@@ -82,6 +82,8 @@ export const TableOperation = (props: ITableOperationProps) => {
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
         title={`Are you sure you want to delete ${table?.name}?`}
+        cancelText="Cancel"
+        confirmText="Continue"
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={deleteTable}
       />

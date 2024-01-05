@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { GraphService } from '../../graph/graph.service';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
 import { FieldDeletingService } from '../field-calculate/field-deleting.service';
@@ -15,8 +16,17 @@ export class FieldOpenApiService {
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldConvertingService: FieldConvertingService,
-    private readonly fieldSupplementService: FieldSupplementService
+    private readonly fieldSupplementService: FieldSupplementService,
+    private readonly graphService: GraphService
   ) {}
+
+  async planField(tableId: string, fieldId: string) {
+    return await this.graphService.planField(tableId, fieldId);
+  }
+
+  async planFieldCreate(tableId: string, fieldRo: IFieldRo) {
+    return await this.graphService.planFieldCreate(tableId, fieldRo);
+  }
 
   async createField(tableId: string, fieldRo: IFieldRo) {
     return this.prismaService.$tx(async () => {
@@ -32,7 +42,11 @@ export class FieldOpenApiService {
     });
   }
 
-  async updateFieldById(
+  async planFieldUpdate(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
+    return await this.graphService.planFieldUpdate(tableId, fieldId, updateFieldRo);
+  }
+
+  async updateField(
     tableId: string,
     fieldId: string,
     updateFieldRo: IUpdateFieldRo

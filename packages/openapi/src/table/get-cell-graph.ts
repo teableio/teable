@@ -1,11 +1,57 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IGraphVo } from '@teable-group/core';
-import { getGraphRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const GET_CELL_GRAPH_URL = '/base/{baseId}/table/{tableId}/graph';
+
+export const getGraphRoSchema = z.object({
+  cell: z
+    .tuple([z.number(), z.number()])
+    .openapi({ description: 'The cell coord, [colIndex, rowIndex]' }),
+  viewId: z.string().optional().openapi({ description: 'The view id' }),
+});
+
+export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
+
+export const graphNodeSchema = z
+  .object({
+    id: z.string(),
+    label: z.string().optional(),
+    comboId: z.string().optional(),
+  })
+  .passthrough();
+
+export type IGraphNode = z.infer<typeof graphNodeSchema>;
+
+export const graphEdgeSchema = z
+  .object({
+    source: z.string(),
+    target: z.string(),
+    label: z.string().optional(),
+  })
+  .passthrough();
+
+export type IGraphEdge = z.infer<typeof graphEdgeSchema>;
+
+export const graphComboSchema = z
+  .object({
+    id: z.string(),
+    label: z.string(),
+  })
+  .passthrough();
+
+export type IGraphCombo = z.infer<typeof graphComboSchema>;
+
+export const graphVoSchema = z
+  .object({
+    nodes: z.array(graphNodeSchema),
+    edges: z.array(graphEdgeSchema),
+    combos: z.array(graphComboSchema),
+  })
+  .optional();
+
+export type IGraphVo = z.infer<typeof graphVoSchema>;
 
 export const GetCellGraphRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -26,6 +72,11 @@ export const GetCellGraphRoute: RouteConfig = registerRoute({
   responses: {
     200: {
       description: 'get cell references graph',
+      content: {
+        'application/json': {
+          schema: graphVoSchema,
+        },
+      },
     },
   },
   tags: ['graph'],
