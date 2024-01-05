@@ -16,11 +16,11 @@ import {
 import React from 'react';
 
 export const Account: React.FC = () => {
-  const { user: sessionUser, refresh } = useSession();
+  const { user: sessionUser, refresh, refreshAvatar } = useSession();
 
   const updateUserAvatarMutation = useMutation(updateUserAvatar, {
     onSuccess: () => {
-      refresh?.();
+      refreshAvatar?.();
     },
   });
 
@@ -59,7 +59,11 @@ export const Account: React.FC = () => {
             <TooltipTrigger asChild>
               <div className="group relative flex h-fit items-center justify-center">
                 <Avatar className="h-14 w-14">
-                  <AvatarImage src={sessionUser.avatar as string} alt="avatar-name" />
+                  <AvatarImage
+                    id={`${sessionUser.id}-avatar`}
+                    src={sessionUser.avatar as string}
+                    alt="avatar-name"
+                  />
                   <AvatarFallback className="text-2xl">
                     {sessionUser.name.slice(0, 1)}
                   </AvatarFallback>
