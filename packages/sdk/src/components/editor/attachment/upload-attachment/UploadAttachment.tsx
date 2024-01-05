@@ -129,7 +129,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                     >
                       <FilePreviewItem
                         className="flex items-center justify-center"
-                        src={fileCover(attachment)}
+                        src={attachment.presignedUrl || ''}
                         name={attachment.name}
                         mimetype={attachment.mimetype}
                         size={attachment.size}
