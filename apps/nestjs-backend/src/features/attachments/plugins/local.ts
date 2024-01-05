@@ -16,7 +16,6 @@ import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from
 
 interface ITokenEncryptor {
   expiresDate: number;
-  path: string;
   respHeaders?: IRespHeaders;
 }
 
@@ -26,6 +25,7 @@ export class LocalStorage implements StorageAdapter {
   storageDir: string;
   temporaryDir = resolve(process.cwd(), '.temporary');
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
+  readPath = '/api/attachments/read';
 
   constructor(
     @StorageConfig() readonly config: IStorageConfig,
@@ -49,9 +49,17 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
-  private getUrl(params: ITokenEncryptor) {
+  private getUrl(path: string, params: ITokenEncryptor) {
     const token = this.expireTokenEncryptor.encrypt(params);
-    return `/api/attachments/read?token=${token}`;
+    return `${join(this.readPath, path)}?token=${token}`;
+  }
+
+  parsePath(path: string) {
+    const [dir, token] = path.split('/');
+    return {
+      dir,
+      token,
+    };
   }
 
   async presigned(_bucket: string, dir: string, params: IPresignParams) {
@@ -135,16 +143,24 @@ export class LocalStorage implements StorageAdapter {
     });
   }
 
-  async save(file: ILocalFileUpload, rename: string) {
+  async save(filePath: string, rename: string) {
     const distPath = resolve(this.storageDir);
     const newFilePath = resolve(distPath, rename);
-    await fse.copy(file.path, newFilePath);
-    await fse.remove(file.path);
+    await fse.copy(filePath, newFilePath);
+    await fse.remove(filePath);
     return join(this.path, rename);
   }
 
   read(path: string) {
     return createReadStream(resolve(this.storageDir, path));
+  }
+
+  getLastModifiedTime(path: string) {
+    const url = resolve(this.storageDir, path);
+    if (!fse.existsSync(url)) {
+      return;
+    }
+    return fse.statSync(url).mtimeMs;
   }
 
   async getFileMate(path: string) {
@@ -178,8 +194,7 @@ export class LocalStorage implements StorageAdapter {
       hash,
       mimetype,
       size,
-      url: this.getUrl({
-        path,
+      url: this.getUrl(path, {
         respHeaders: { 'Content-Type': mimetype },
         expiresDate: -1,
       }),
@@ -193,24 +208,32 @@ export class LocalStorage implements StorageAdapter {
     expiresIn: number = this.config.urlExpireIn,
     respHeaders?: IRespHeaders
   ): Promise<string> {
-    const token = this.expireTokenEncryptor.encrypt({
+    const url = this.getUrl(path, {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
-      path,
       respHeaders,
     });
-    const url = `/api/attachments/read?token=${token}`;
     return getFullStorageUrl(url);
   }
 
   verifyReadToken(token: string) {
     try {
-      const { expiresDate, path, respHeaders } = this.expireTokenEncryptor.decrypt(token);
+      const { expiresDate, respHeaders } = this.expireTokenEncryptor.decrypt(token);
       if (expiresDate > 0 && Math.floor(Date.now() / 1000) > expiresDate) {
         throw new BadRequestException('Token has expired');
       }
-      return { path, respHeaders };
+      return { respHeaders };
     } catch (error) {
       throw new BadRequestException('Invalid token');
     }
+  }
+
+  async uploadFileWidthPath(
+    bucket: string,
+    path: string,
+    filePath: string,
+    _metadata: Record<string, unknown>
+  ) {
+    this.save(filePath, join(bucket, path));
+    return join(this.readPath, path);
   }
 }

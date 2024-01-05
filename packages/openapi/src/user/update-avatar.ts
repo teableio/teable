@@ -6,7 +6,7 @@ import { z } from '../zod';
 export const UPDATE_USER_AVATAR = '/user/updateAvatar';
 
 export const updateUserAvatarRoSchema = z.object({
-  avatar: z.string(),
+  file: z.string().openapi({ format: 'binary' }),
 });
 
 export type IUpdateUserAvatarRo = z.infer<typeof updateUserAvatarRoSchema>;
@@ -18,7 +18,7 @@ export const UpdateUserAvatarRoute: RouteConfig = registerRoute({
   request: {
     body: {
       content: {
-        'application/json': {
+        'multipart/form-data': {
           schema: updateUserAvatarRoSchema,
         },
       },
@@ -32,8 +32,6 @@ export const UpdateUserAvatarRoute: RouteConfig = registerRoute({
   tags: ['user'],
 });
 
-export const updateUserAvatar = async (params: { updateUserAvatarRo: IUpdateUserAvatarRo }) => {
-  const { updateUserAvatarRo } = params;
-
+export const updateUserAvatar = async (updateUserAvatarRo: IUpdateUserAvatarRo) => {
   return axios.patch<void>(urlBuilder(UPDATE_USER_AVATAR), updateUserAvatarRo);
 };

@@ -38,21 +38,25 @@ export class AttachmentsController {
     return null;
   }
 
-  @Get('/read')
+  @Get('/read/:path(*)')
   async read(
     @Res({ passthrough: true }) res: Response,
+    @Req() req: Request,
+    @Param('path') path: string,
     @Query('token') token: string,
     @Query('filename') filename?: string
   ) {
-    const { fileStream, headers } = await this.attachmentsService.readLocalFile(token, filename);
+    const hasCache = this.attachmentsService.localFileConditionalCaching(path, req.headers, res);
+    if (hasCache) {
+      res.status(304);
+      return;
+    }
+    const { fileStream, headers } = await this.attachmentsService.readLocalFile(
+      path,
+      token,
+      filename
+    );
     res.set(headers);
-    // one years
-    const maxAge = 60 * 60 * 24 * 365;
-    res.set({
-      ...headers,
-      'Cache-Control': `public, max-age=${maxAge}`,
-    });
-
     return new StreamableFile(fileStream);
   }
 
