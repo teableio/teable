@@ -188,9 +188,7 @@ describe('LocalStorage', () => {
 
   describe('save', () => {
     it('should save file to storage', async () => {
-      const mockFile = {
-        path: '/mock/temp/path',
-      };
+      const mockFilePath = '/mock/temp/path';
 
       const mockRename = 'mock-rename.png';
       const mockDistPath = resolve(storage.storageDir, mockRename);
@@ -198,10 +196,10 @@ describe('LocalStorage', () => {
       vi.spyOn(fse, 'remove').mockResolvedValueOnce(undefined);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await storage.save(mockFile as any, mockRename);
+      const result = await storage.save(mockFilePath, mockRename);
 
-      expect(fse.copy).toHaveBeenCalledWith(mockFile.path, mockDistPath);
-      expect(fse.remove).toHaveBeenCalledWith(mockFile.path);
+      expect(fse.copy).toHaveBeenCalledWith(mockFilePath, mockDistPath);
+      expect(fse.remove).toHaveBeenCalledWith(mockFilePath);
       expect(result).toBe(join(storage.path, mockRename));
     });
   });
@@ -324,11 +322,10 @@ describe('LocalStorage', () => {
 
       expect(storage.expireTokenEncryptor.encrypt).toHaveBeenCalledWith({
         expiresDate: Math.floor(Date.now() / 1000) + mockExpiresIn,
-        path: mockPath,
         respHeaders: mockRespHeaders,
       });
       expect(fullStorageUrlModule.getFullStorageUrl).toHaveBeenCalledWith(
-        '/api/attachments/read?token=mock-token'
+        '/api/attachments/read/mock/file/path?token=mock-token'
       );
       expect(result).toBe('http://example.com');
     });
