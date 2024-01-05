@@ -14,18 +14,13 @@ export const HoverWraper = (props: IHoverWraperProps) => {
   const { children, size = 25 } = props;
   const [trigger, content] = children;
   const [hover, setHover] = useState(false);
-  const [contentVisible, setContentVisible] = useState(false);
 
   const mouseEnterHandler = () => {
     setHover(true);
-    setContentVisible(true);
   };
 
   const mouseOutHandler = () => {
     setHover(false);
-    setTimeout(() => {
-      setContentVisible(false);
-    }, 300);
   };
 
   return (
@@ -36,12 +31,14 @@ export const HoverWraper = (props: IHoverWraperProps) => {
       {
         <div
           className={classNames(
-            'fixed flex h-full top-0',
-            hover ? 'z-50 w-full ' : contentVisible ? 'w-auto z-10' : 'w-auto z-0'
+            'fixed flex h-full top-0 transition-[z-index] will-change-auto',
+            hover ? 'z-50 w-full ' : 'w-auto z-0'
           )}
         >
           <div
-            className={classNames('transition-[width] overflow-hidden drop-shadow-2xl border-r')}
+            className={classNames(
+              'transition-[width] overflow-hidden drop-shadow-2xl border-r will-change-auto'
+            )}
             style={{
               width: hover ? `${size}%` : '0%',
             }}
