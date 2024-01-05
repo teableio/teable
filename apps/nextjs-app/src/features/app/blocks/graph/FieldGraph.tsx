@@ -3,13 +3,18 @@ import type { IFieldRo } from '@teable-group/core';
 import { ColorUtils } from '@teable-group/core';
 import { planField, planFieldCreate, planFieldUpdate } from '@teable-group/openapi';
 import { ReactQueryKeys } from '@teable-group/sdk';
+import { Badge } from '@teable-group/ui-lib/shadcn';
 import { useEffect, useRef, useState } from 'react';
 import { useGraph } from './useGraph';
 
-export const FieldGraph: React.FC<{ tableId: string; fieldId?: string; fieldRo?: IFieldRo }> = ({
+export const FieldGraph = ({
   tableId,
   fieldId,
   fieldRo,
+}: {
+  tableId: string;
+  fieldId?: string;
+  fieldRo?: IFieldRo;
 }) => {
   const { data: updatePlan, refetch: planUpdate } = useQuery({
     queryKey: ReactQueryKeys.planFieldUpdate(tableId, fieldId as string, fieldRo as IFieldRo),
@@ -32,19 +37,26 @@ export const FieldGraph: React.FC<{ tableId: string; fieldId?: string; fieldRo?:
     enabled: false,
   });
 
+  const isUpdate = fieldId && fieldRo;
+  const isStatic = fieldId && !fieldRo;
+  const isCreate = !fieldId && fieldRo;
+  const planData = createPlan?.data || staticPlan?.data || updatePlan?.data;
+  const isAsync = planData?.isAsync;
+  const updateCellCount = planData?.updateCellCount;
+
   useEffect(() => {
-    if (fieldId && fieldRo) {
+    if (isUpdate) {
       planUpdate();
     }
 
-    if (fieldId && !fieldRo) {
-      planStatic();
-    }
-
-    if (!fieldId && fieldRo) {
+    if (isCreate) {
       planCreate();
     }
-  }, [fieldId, fieldRo, planCreate, planStatic, planUpdate]);
+
+    if (isStatic) {
+      planStatic();
+    }
+  }, [isCreate, isStatic, isUpdate, planCreate, planStatic, planUpdate]);
 
   const ref = useRef(null);
 
@@ -53,10 +65,7 @@ export const FieldGraph: React.FC<{ tableId: string; fieldId?: string; fieldRo?:
   const { updateGraph } = useGraph(ref);
 
   useEffect(() => {
-    const graph =
-      createPlan?.data?.graph ||
-      staticPlan?.data.graph ||
-      (updatePlan && !updatePlan.data.skip && updatePlan.data.graph);
+    const graph = planData?.graph;
 
     if (!graph) {
       return;
@@ -76,6 +85,7 @@ export const FieldGraph: React.FC<{ tableId: string; fieldId?: string; fieldRo?:
           style: {
             stroke,
             lineWidth: node.isSelected ? 5 : 1,
+            lineDash: node.isSelected ? [6, 4] : undefined,
             fill: stroke,
           },
         };
@@ -88,10 +98,10 @@ export const FieldGraph: React.FC<{ tableId: string; fieldId?: string; fieldRo?:
         color: ColorUtils.getHexForColor(cache[combo.id]) || '',
       }))
     );
-  }, [createPlan, updatePlan, staticPlan, updateGraph]);
+  }, [planData, updateGraph]);
 
   return (
-    <>
+    <div className="flex flex-col gap-2 pb-2">
       <div className="flex items-center gap-2 pb-2 text-xs">
         Table label:
         {tables.map((table) => {
@@ -109,9 +119,14 @@ export const FieldGraph: React.FC<{ tableId: string; fieldId?: string; fieldRo?:
           );
         })}
       </div>
-      <div className="relative flex h-[600px] w-full flex-col">
+      <div className="text-sm">
+        {isCreate ? 'Creating' : 'Modifying'} this field may affect{' '}
+        <Badge>{updateCellCount || 0}</Badge> cells and the update will be{' '}
+        {isAsync ? 'asynchronously processed' : 'completed immediately'}.
+      </div>
+      <div className="relative flex h-[calc(100vh-400px)] max-h-[600px] w-full flex-col">
         <div ref={ref} className="grow rounded border shadow"></div>
       </div>
-    </>
+    </div>
   );
 };

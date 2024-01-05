@@ -1,25 +1,34 @@
 import type { GraphData, Graph as IGraph } from '@antv/g6';
 import G6 from '@antv/g6';
+import { ThemeKey } from '@teable-group/sdk/context';
+import { useTheme } from '@teable-group/sdk/hooks';
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 export const useGraph = (ref: RefObject<HTMLDivElement>) => {
   const graphRef = useRef<IGraph>();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (!ref.current) {
       return;
     }
     const element = ref.current;
-    const graph = new G6.Graph({
-      plugins: [
+    const plugins: unknown[] = [
+      new G6.ToolBar({
+        className:
+          'absolute flex gap-2 right-2 bottom-2 border rounded bg-background shadow p-1 pointer cursor-pointer',
+      }),
+    ];
+    if (theme === ThemeKey.Light) {
+      plugins.push(
         new G6.Grid({
           follow: true,
-        }),
-        new G6.ToolBar({
-          className:
-            'absolute flex gap-2 right-2 bottom-2 border rounded bg-background shadow p-1 pointer cursor-pointer',
-        }),
-      ],
+        })
+      );
+    }
+    const textColor = theme === ThemeKey.Light ? '#000' : '#fff';
+    const graph = new G6.Graph({
+      plugins,
       container: element,
       width: element.clientWidth,
       height: element.clientHeight,
@@ -39,7 +48,9 @@ export const useGraph = (ref: RefObject<HTMLDivElement>) => {
       defaultEdge: {
         type: 'polyline',
         labelCfg: {
-          autoRotate: true,
+          style: {
+            fill: textColor,
+          },
         },
         style: {
           radius: 20,
@@ -82,7 +93,7 @@ export const useGraph = (ref: RefObject<HTMLDivElement>) => {
         console.error(e);
       }
     };
-  }, [ref]);
+  }, [ref, theme]);
 
   const updateGraph = useCallback(async (data?: GraphData) => {
     const graph = graphRef.current;

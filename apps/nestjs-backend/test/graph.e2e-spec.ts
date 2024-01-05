@@ -88,6 +88,22 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.combos).toHaveLength(2);
   });
 
+  it('should plan a simple field with more reference', async () => {
+    const numberField = table1.fields[1];
+
+    const { data: plan } = await planField(table1.id, numberField.id);
+
+    expect(plan).toMatchObject({
+      isAsync: false,
+      updateCellCount: 3,
+      totalCellCount: 3,
+    });
+
+    expect(plan.graph?.nodes).toHaveLength(1);
+    expect(plan.graph?.edges).toHaveLength(0);
+    expect(plan.graph?.combos).toHaveLength(1);
+  });
+
   it('should plan formula to number field', async () => {
     const textField = table1.fields[0];
     const formulaRo: IFieldRo = {

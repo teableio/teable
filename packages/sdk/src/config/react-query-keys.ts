@@ -1,13 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {
-  IShareViewAggregationsQueryRo,
-  IShareViewRowCountQueryRo,
   IAggregationRo,
   IFieldRo,
   IRowCountRo,
   IUpdateFieldRo,
   NotificationStatesEnum,
 } from '@teable-group/core';
+import type {
+  IShareViewRowCountQueryRo,
+  IShareViewAggregationsQueryRo,
+} from '@teable-group/openapi';
 
 export type ReactQueryKeys = {
   spaceCollaboratorList: (spaceId: string) => [string, string];
