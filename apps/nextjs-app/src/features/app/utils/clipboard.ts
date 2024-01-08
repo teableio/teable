@@ -48,6 +48,7 @@ export const extractTableHeader = (html?: string) => {
     const type = cell.getAttribute('type');
     const options = cell.getAttribute('options');
     const cellValueType = cell.getAttribute('cellValueType');
+    const isComputed = cell.getAttribute('isComputed');
     const fieldVo = mapValues(
       {
         id,
@@ -59,6 +60,7 @@ export const extractTableHeader = (html?: string) => {
         type,
         options,
         cellValueType,
+        isComputed,
       },
       (value) => {
         const encodeValue = value ? decodeURIComponent(value) : undefined;
