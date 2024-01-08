@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import type { IFieldRo, ITinyRecord, IUpdateFieldRo } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type { IFieldRo, ILinkFieldOptions, ITinyRecord, IUpdateFieldRo } from '@teable-group/core';
+import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
   IGraphEdge,
@@ -11,7 +11,7 @@ import type {
   IPlanFieldUpdateVo,
 } from '@teable-group/openapi';
 import { Knex } from 'knex';
-import { groupBy, keyBy, union, uniq } from 'lodash';
+import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
@@ -41,11 +41,15 @@ interface ITinyTable {
   id: string;
   name: string;
   dbTableName: string;
-  count: number;
 }
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const ASYNC_THRESHOLD = 2000;
 
 @Injectable()
 export class GraphService {
+  private logger = new Logger(GraphService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
@@ -232,16 +236,6 @@ export class GraphService {
     };
   }
 
-  private async getTablesCount<T extends { dbTableName: string }>(tableRaws: T[]) {
-    const tableRawsWithCount: (T & { count: number })[] = [];
-    for (const tableRaw of tableRaws) {
-      const sql = this.knex(tableRaw.dbTableName).count('* as count').toQuery();
-      const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(sql);
-      tableRawsWithCount.push({ ...tableRaw, count: Number(count) });
-    }
-    return tableRawsWithCount;
-  }
-
   async planFieldCreate(tableId: string, fieldRo: IFieldRo): Promise<IPlanFieldVo> {
     const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
     const field = createFieldInstanceByVo(fieldVo);
@@ -274,8 +268,7 @@ export class GraphService {
       select: { id: true, name: true, dbTableName: true },
     });
 
-    const tableRawsWithCount = await this.getTablesCount(tableRaws);
-    const tableMap = keyBy(tableRawsWithCount, 'id');
+    const tableMap = keyBy(tableRaws, 'id');
     const fieldMap = keyBy(fieldRaws, 'id');
 
     const fieldRawsMap = groupBy(fieldRaws, 'tableId');
@@ -289,28 +282,22 @@ export class GraphService {
       };
     }, []);
 
-    const { nodes, combos } = this.getFieldNodesAndCombos(
+    const { nodes, combos } = this.getFieldNodesAndCombos(field.id, fieldRawsMap, tableRaws);
+    const updateCellCount = await this.affectedRecordCount(
       field.id,
-      fieldRawsMap,
-      tableRawsWithCount
+      [field.id],
+      { [field.id]: field },
+      { [field.id]: tableMap[tableId].dbTableName }
     );
-    const updateCellCount = tableMap[tableId].count;
-    const totalCellCount = Object.entries(fieldRawsMap).reduce((pre, [tableId, fieldRaws]) => {
-      const tableRaw = tableMap[tableId];
-      const count = tableRaw.count;
-      const fieldCount = fieldRaws.length;
-      return pre + count * fieldCount;
-    }, 0);
 
     return {
-      isAsync: updateCellCount > 1000 || totalCellCount > 10000,
+      isAsync: updateCellCount > ASYNC_THRESHOLD,
       graph: {
         nodes,
         edges,
         combos,
       },
       updateCellCount,
-      totalCellCount,
     };
   }
 
@@ -330,7 +317,7 @@ export class GraphService {
   }
 
   @Timing()
-  private async getUpdateCalculationPlan(tableId: string, newField: IFieldInstance) {
+  private async getUpdateCalculationContext(newField: IFieldInstance) {
     const fieldId = newField.id;
     const newReference = this.fieldSupplementService.getFieldReferenceIds(newField);
 
@@ -350,20 +337,15 @@ export class GraphService {
       [fieldId],
       newDirectedGraph
     );
-    const { fieldMap, startFieldIds, directedGraph, tableId2DbTableName } = context;
-    const dbTableName = tableId2DbTableName[tableId];
+    const fieldMap = {
+      ...context.fieldMap,
+      [newField.id]: newField,
+    };
 
-    const initialRecordIds = await this.fieldCalculationService.getSelfOriginRecords(dbTableName);
-
-    const relatedRecordItems = await this.fieldCalculationService.getRecordItems({
-      tableId,
-      itemsToCalculate: initialRecordIds,
-      startFieldIds,
-      directedGraph,
+    return {
+      ...context,
       fieldMap,
-    });
-
-    return { context, initialRecordIds, relatedRecordItems };
+    };
   }
 
   private async generateGraph(params: {
@@ -429,10 +411,7 @@ export class GraphService {
       return { skip: true };
     }
 
-    const { context, initialRecordIds, relatedRecordItems } = await this.getUpdateCalculationPlan(
-      tableId,
-      newField
-    );
+    const context = await this.getUpdateCalculationContext(newField);
 
     const {
       directedGraph,
@@ -453,59 +432,55 @@ export class GraphService {
       fieldId2TableId,
     });
 
-    const recordIdsByTableName = this.referenceService.getRecordIdsByTableName({
+    const updateCellCount = await this.affectedRecordCount(
+      fieldId,
+      topoFieldIds,
       fieldMap,
-      fieldId2DbTableName,
-      relatedRecordItems,
-      modifiedRecords: [],
-      initialRecordIdMap: { [fieldId2DbTableName[fieldId]]: new Set(initialRecordIds) },
-    });
-
-    const referenceFieldIds = this.fieldSupplementService.getFieldReferenceIds(newField);
-    const oldReferences = this.fieldSupplementService.getFieldReferenceIds(oldField);
-    const difference = union(referenceFieldIds, oldReferences);
-
-    const updateCellCount = topoFieldIds.reduce((pre, fieldId) => {
-      const dbTableName = fieldId2DbTableName[fieldId];
-      const recordIds = recordIdsByTableName[dbTableName];
-      return pre + recordIds.size;
-    }, 0);
-
-    // TODO: not accurate
-    const totalCellCount = difference.length * initialRecordIds.length + updateCellCount;
+      fieldId2DbTableName
+    );
 
     return {
-      isAsync: updateCellCount > 1000 || totalCellCount > 10000,
+      isAsync: updateCellCount > ASYNC_THRESHOLD,
       graph,
       updateCellCount,
-      totalCellCount,
     };
   }
 
-  @Timing()
-  private async getCalculationPlan(tableId: string, fieldIds: string[]) {
-    const context = await this.fieldCalculationService.getTopoOrdersContext(fieldIds);
-    const { fieldMap, startFieldIds, directedGraph, tableId2DbTableName } = context;
-    const dbTableName = tableId2DbTableName[tableId];
+  private async affectedRecordCount(
+    hostFieldId: string,
+    fieldIds: string[],
+    fieldMap: IFieldMap,
+    fieldId2DbTableName: Record<string, string>
+  ): Promise<number> {
+    const queries = fieldIds.map((fieldId) => {
+      const field = fieldMap[fieldId];
+      if (field.id !== hostFieldId && (field.lookupOptions || field.type === FieldType.Link)) {
+        const options = field.lookupOptions || (field.options as ILinkFieldOptions);
+        const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = options;
+        const query =
+          relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+            ? this.knex.count(foreignKeyName).from(fkHostTableName)
+            : this.knex.countDistinct(selfKeyName).from(fkHostTableName);
 
-    const initialRecordIds = await this.fieldCalculationService.getSelfOriginRecords(dbTableName);
-
-    const relatedRecordItems = await this.fieldCalculationService.getRecordItems({
-      tableId,
-      itemsToCalculate: initialRecordIds,
-      startFieldIds,
-      directedGraph,
-      fieldMap,
+        return query.toQuery();
+      } else {
+        const dbTableName = fieldId2DbTableName[fieldId];
+        return this.knex.count('*').from(dbTableName).toQuery();
+      }
     });
 
-    return { context, initialRecordIds, relatedRecordItems };
+    let total = 0;
+    for (const query of queries) {
+      const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
+      total += Number(count);
+    }
+    return total;
   }
 
+  @Timing()
   async planField(tableId: string, fieldId: string): Promise<IPlanFieldVo> {
-    const { context, initialRecordIds, relatedRecordItems } = await this.getCalculationPlan(
-      tableId,
-      [fieldId]
-    );
+    const context = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
+
     const {
       directedGraph,
       allFieldIds,
@@ -525,30 +500,17 @@ export class GraphService {
       fieldId2TableId,
     });
 
-    const recordIdsByTableName = this.referenceService.getRecordIdsByTableName({
+    const updateCellCount = await this.affectedRecordCount(
+      fieldId,
+      topoFieldIds,
       fieldMap,
-      fieldId2DbTableName,
-      relatedRecordItems,
-      modifiedRecords: [],
-      initialRecordIdMap: { [fieldId2DbTableName[fieldId]]: new Set(initialRecordIds) },
-    });
-
-    const reference = this.fieldSupplementService.getFieldReferenceIds(fieldMap[fieldId]);
-
-    const updateCellCount = topoFieldIds.reduce((pre, fieldId) => {
-      const dbTableName = fieldId2DbTableName[fieldId];
-      const recordIds = recordIdsByTableName[dbTableName];
-      return pre + recordIds.size;
-    }, 0);
-
-    // TODO: not accurate
-    const totalCellCount = reference.length * initialRecordIds.length + updateCellCount;
+      fieldId2DbTableName
+    );
 
     return {
-      isAsync: updateCellCount > 1000 || totalCellCount > 10000,
+      isAsync: updateCellCount > ASYNC_THRESHOLD,
       graph,
       updateCellCount,
-      totalCellCount,
     };
   }
 }

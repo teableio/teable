@@ -75,6 +75,9 @@ export async function initApp() {
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
   app.use(cookieParser());
+  // const logger = new ConsoleLogger();
+  // logger.setLogLevels(['log', 'error']);
+  // app.useLogger(logger);
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
