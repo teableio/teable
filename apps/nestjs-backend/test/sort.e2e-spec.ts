@@ -137,7 +137,7 @@ const getSortRecords = async (tableId: string, orderBy?: IGetRecordsQuery['order
 
 const setRecordsOrder = async (tableId: string, viewId: string, orderBy: ISortItem[]) => {
   await apiSetViewSort(tableId, viewId, {
-    sortObjs: orderBy,
+    sort: { sortObjs: orderBy },
   });
 };
 
@@ -433,17 +433,19 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
 
   test('/api/table/{tableId}/view/{viewId}/sort sort view order (PUT)', async () => {
     const assertSort = {
-      sortObjs: [
-        {
-          fieldId: fields[0].id as string,
-          order: orderTypeEnum.Enum.asc,
-        },
-      ],
-      manualSort: false,
+      sort: {
+        sortObjs: [
+          {
+            fieldId: fields[0].id as string,
+            order: orderTypeEnum.Enum.asc,
+          },
+        ],
+        manualSort: false,
+      },
     };
     await apiSetViewSort(tableId, viewId, assertSort);
     const updatedView = await getView(tableId, viewId);
     const viewSort = updatedView.sort;
-    expect(viewSort).toEqual(assertSort);
+    expect(viewSort).toEqual(assertSort.sort);
   });
 });

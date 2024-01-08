@@ -51,6 +51,8 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
         title={`Are you sure you want to delete ${base.name}?`}
+        cancelText="Cancel"
+        confirmText="Continue"
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={onDelete}
       />

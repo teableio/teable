@@ -14,10 +14,10 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
+import { GraphService } from '../../graph/graph.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
-import { ViewService } from '../../view/view.service';
 import { TableService } from '../table.service';
 
 @Injectable()
@@ -27,7 +27,7 @@ export class TableOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
-    private readonly viewService: ViewService,
+    private readonly graphService: GraphService,
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
     private readonly fieldCreatingService: FieldCreatingService,
@@ -199,5 +199,9 @@ export class TableOpenApiService {
     this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
 
     return this.prismaService.$queryRawUnsafe(combinedQuery);
+  }
+
+  async getGraph(tableId: string, cell: [number, number], viewId?: string) {
+    return this.graphService.getGraph(tableId, cell, viewId);
   }
 }

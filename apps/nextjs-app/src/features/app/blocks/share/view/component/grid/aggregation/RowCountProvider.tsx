@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IShareViewRowCountRo } from '@teable-group/openapi';
+import type { IShareViewRowCountQueryRo } from '@teable-group/openapi';
 import { getShareViewRowCount } from '@teable-group/openapi';
 import type { PropKeys } from '@teable-group/sdk';
 import { RowCountContext, ReactQueryKeys, useActionTrigger } from '@teable-group/sdk';
@@ -12,9 +12,9 @@ interface IRowCountProviderProps {
   children: ReactNode;
 }
 
-const useRowCountQuery = (): IShareViewRowCountRo => {
+const useRowCountQuery = (): IShareViewRowCountQueryRo => {
   const view = useView();
-  return useMemo(() => ({ filter: view?.filter }), [view?.filter]);
+  return useMemo(() => ({ query: JSON.stringify({ filter: view?.filter }) }), [view?.filter]);
 };
 
 export const RowCountProvider = ({ children }: IRowCountProviderProps) => {

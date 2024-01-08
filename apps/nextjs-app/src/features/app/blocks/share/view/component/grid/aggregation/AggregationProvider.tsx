@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IShareViewAggregationsRo } from '@teable-group/openapi';
+import type { IAggregationRo } from '@teable-group/core';
+import type { IShareViewAggregationsQueryRo } from '@teable-group/openapi';
 import { getShareViewAggregations } from '@teable-group/openapi';
 import type { PropKeys } from '@teable-group/sdk';
 import { useView, ReactQueryKeys, AggregationContext, useActionTrigger } from '@teable-group/sdk';
@@ -11,9 +12,28 @@ interface IAggregationProviderProps {
   children: ReactNode;
 }
 
-const useAggregationQuery = (): IShareViewAggregationsRo => {
+const useAggregationQuery = (): IShareViewAggregationsQueryRo => {
   const view = useView();
-  return useMemo(() => ({ filter: view?.filter }), [view?.filter]);
+  const field = useMemo(
+    () =>
+      view?.columnMeta
+        ? Object.entries(view.columnMeta).reduce<Partial<IAggregationRo['field']>>(
+            (acc, [fieldId, { statisticFunc }]) => {
+              if (statisticFunc && acc) {
+                const existingArr = acc[statisticFunc] || [];
+                acc[statisticFunc] = [...existingArr, fieldId];
+              }
+              return acc;
+            },
+            {}
+          )
+        : null,
+    [view?.columnMeta]
+  );
+  return useMemo(
+    () => ({ query: JSON.stringify({ filter: view?.filter, field }) }),
+    [field, view?.filter]
+  );
 };
 
 export const AggregationProvider = ({ children }: IAggregationProviderProps) => {

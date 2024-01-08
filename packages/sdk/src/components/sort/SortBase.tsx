@@ -39,7 +39,7 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
     onChange(null);
   };
 
-  const onSortObjsChange = (sorts?: ISort['sortObjs']) => {
+  const onSortObjsChange = (sorts?: NonNullable<ISort>['sortObjs']) => {
     const sortObjs = sorts?.length
       ? {
           sortObjs: sorts,

@@ -1,9 +1,9 @@
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
 import { generateAttachmentId } from '@teable-group/core';
 import { X, Download } from '@teable-group/icons';
-import type { INotifyVo } from '@teable-group/openapi';
+import { UploadType, type INotifyVo } from '@teable-group/openapi';
 import { Button, FilePreviewItem, FilePreviewProvider, Progress, cn } from '@teable-group/ui-lib';
-import { map } from 'lodash';
+import { map, omit } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getFileCover, isSystemFileIcon } from '../utils';
 import { DragAndCopy } from './DragAndCopy';
@@ -14,16 +14,23 @@ import { AttachmentManager } from './uploadManage';
 export interface IUploadAttachment {
   className?: string;
   attachments: IAttachmentCellValue;
-  onChange: (attachment: IAttachmentCellValue) => void;
+  attachmentManager?: AttachmentManager;
+  onChange?: (attachment: IAttachmentCellValue) => void;
   readonly?: boolean;
 }
 
 type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 
-const attachmentManager = new AttachmentManager(2);
+const defaultAttachmentManager = new AttachmentManager(2);
 
 export const UploadAttachment = (props: IUploadAttachment) => {
-  const { className, attachments, onChange, readonly } = props;
+  const {
+    className,
+    attachments,
+    onChange,
+    readonly,
+    attachmentManager = defaultAttachmentManager,
+  } = props;
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
   const listRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
@@ -33,27 +40,30 @@ export const UploadAttachment = (props: IUploadAttachment) => {
 
   useEffect(() => {
     if (newAttachments.length && newAttachments.length === Object.keys(uploadingFiles).length) {
-      onChange(attachmentsRef.current.concat(newAttachments));
+      onChange?.(attachmentsRef.current.concat(newAttachments));
       setNewAttachments([]);
       setUploadingFiles({});
     }
   }, [newAttachments, onChange, uploadingFiles]);
 
   const onDelete = (id: string) => {
-    onChange(attachments.filter((attachment) => attachment.id !== id));
+    onChange?.(attachments.filter((attachment) => attachment.id !== id));
   };
 
-  const downloadFile = ({ url, name }: IAttachmentItem) => {
-    window.open(`${url}?filename=${name}`);
+  const downloadFile = ({ presignedUrl, name }: IAttachmentItem) => {
+    const downloadLink = document.createElement('a');
+    downloadLink.href = presignedUrl || '';
+    downloadLink.target = '_blank';
+    downloadLink.download = name;
+    downloadLink.click();
   };
 
   const handleSuccess = useCallback((file: IFile, attachment: INotifyVo) => {
     const { id, instance } = file;
-
     const newAttachment: IAttachmentItem = {
       id,
       name: instance.name,
-      ...attachment,
+      ...omit(attachment, ['url']),
     };
     setNewAttachments((pre) => [...pre, newAttachment]);
   }, []);
@@ -66,7 +76,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
         acc[file.id] = { progress: 0, file: file.instance };
         return acc;
       }, {});
-      attachmentManager.upload(uploadList, {
+      attachmentManager.upload(uploadList, UploadType.Table, {
         successCallback: handleSuccess,
         progressCallback: (file, progress) => {
           setUploadingFiles((pre) => ({ ...pre, [file.id]: { progress, file: file.instance } }));
@@ -77,7 +87,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
         scrollBottom();
       }, 100);
     },
-    [handleSuccess]
+    [attachmentManager, handleSuccess]
   );
 
   const scrollBottom = () => {
@@ -92,6 +102,11 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   const len = useMemo(() => {
     return attachments.length + Object.keys(uploadingFiles).length;
   }, [attachments, uploadingFiles]);
+
+  const fileCover = useCallback(({ mimetype, presignedUrl }: IAttachmentItem) => {
+    if (!presignedUrl) return '';
+    return getFileCover(mimetype, presignedUrl);
+  }, []);
 
   const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
 
@@ -114,14 +129,14 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                     >
                       <FilePreviewItem
                         className="flex items-center justify-center"
-                        src={attachment.url}
+                        src={fileCover(attachment)}
                         name={attachment.name}
                         mimetype={attachment.mimetype}
                         size={attachment.size}
                       >
                         <img
                           className="h-full w-full object-contain"
-                          src={getFileCover(attachment.mimetype, attachment.url)}
+                          src={fileCover(attachment)}
                           alt={attachment.name}
                         />
                       </FilePreviewItem>

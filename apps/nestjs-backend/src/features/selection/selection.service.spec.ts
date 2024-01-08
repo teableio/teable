@@ -236,15 +236,14 @@ describe('selectionService', () => {
         }),
       ];
       const tableData: string[][] = [
-        ['file1.png (https://xxx.xxx/token1),file2.png (https://xxx.xxx/token2)'],
-        ['file3.png (https://xxx.xxx/token3)'],
+        ['file1.png (token1),file2.png (token2)'],
+        ['file3.png (token3)'],
       ];
 
       const mockAttachment: any[] = [
         {
           token: 'token1',
           path: '',
-          url: '',
           size: 1,
           mimetype: 'image/png',
           width: null,
@@ -253,7 +252,6 @@ describe('selectionService', () => {
         {
           token: 'token2',
           path: '',
-          url: '',
           size: 1,
           mimetype: 'image/png',
           width: 10,
@@ -262,7 +260,6 @@ describe('selectionService', () => {
         {
           token: 'token3',
           path: '',
-          url: '',
           size: 1,
           mimetype: 'image/png',
           width: 10,
@@ -290,7 +287,6 @@ describe('selectionService', () => {
           width: true,
           height: true,
           path: true,
-          url: true,
         },
       });
       // Assert the result based on the mocked attachments

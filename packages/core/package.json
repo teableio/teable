@@ -34,8 +34,10 @@
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "6.3.1",
     "@soluble/dsn-parser": "1.9.2",
+    "@types/color": "3.0.6",
     "antlr4ts": "0.5.0-alpha.4",
     "class-transformer": "0.5.1",
+    "color": "4.2.3",
     "dayjs": "1.11.10",
     "lodash": "4.17.21",
     "nanoid": "3.3.6",

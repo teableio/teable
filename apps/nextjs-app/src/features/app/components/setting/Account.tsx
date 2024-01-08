@@ -1,5 +1,5 @@
-import { Pencil } from '@teable-group/icons';
-import { updateUserName } from '@teable-group/openapi';
+import { useMutation } from '@tanstack/react-query';
+import { updateUserAvatar, updateUserName } from '@teable-group/openapi';
 import { useSession } from '@teable-group/sdk';
 import {
   Avatar,
@@ -8,17 +8,44 @@ import {
   Input,
   Label,
   Separator,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn';
 import React from 'react';
 
 export const Account: React.FC = () => {
-  const { user: sessionUser, refresh } = useSession();
+  const { user: sessionUser, refresh, refreshAvatar } = useSession();
+
+  const updateUserAvatarMutation = useMutation(updateUserAvatar, {
+    onSuccess: () => {
+      refreshAvatar?.();
+    },
+  });
+
+  const updateUserNameMutation = useMutation(updateUserName, {
+    onSuccess: () => {
+      refresh?.();
+    },
+  });
 
   const toggleRenameUser = (e: React.FocusEvent<HTMLInputElement, Element>) => {
     const name = e.target.value;
     if (name && name !== sessionUser.name) {
-      updateUserName({ name }).then(() => refresh?.());
+      updateUserNameMutation.mutate({ name });
     }
+  };
+
+  const uploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const avatarFille = e.target.files?.[0];
+    if (!avatarFille) {
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', avatarFille);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    updateUserAvatarMutation.mutate(formData as any);
   };
 
   return (
@@ -27,16 +54,36 @@ export const Account: React.FC = () => {
         <h3 className="text-lg font-medium">My profile</h3>
       </div>
       <div className="flex">
-        <div className="relative flex h-20 w-20 cursor-pointer items-center justify-center">
-          <Avatar className="h-20 w-20 hover:shadow-[0_0_0_10px_rgba(0,0,0,0.05)] dark:hover:shadow-slate-700">
-            <AvatarImage src={sessionUser.avatar as string} alt="avatar-name" />
-            <AvatarFallback>{sessionUser.name.slice(0, 1)}</AvatarFallback>
-          </Avatar>
-          <div className="absolute bottom-[-1px] right-[-1px] flex h-5 w-5 items-center justify-center rounded-full bg-background">
-            <Pencil />
-          </div>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="group relative flex h-fit items-center justify-center">
+                <Avatar className="h-14 w-14">
+                  <AvatarImage
+                    id={`${sessionUser.id}-avatar`}
+                    src={sessionUser.avatar as string}
+                    alt="avatar-name"
+                  />
+                  <AvatarFallback className="text-2xl">
+                    {sessionUser.name.slice(0, 1)}
+                  </AvatarFallback>
+                </Avatar>
 
+                <div className="absolute left-0 top-0 h-full w-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
+                  <input
+                    type="file"
+                    className="absolute inset-0 h-full w-full opacity-0"
+                    accept="image/*"
+                    onChange={uploadAvatar}
+                  ></input>
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Upload photo</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div className="ml-4 pt-3">
           <Input
             className="w-64"

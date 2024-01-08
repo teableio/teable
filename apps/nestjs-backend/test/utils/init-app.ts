@@ -16,7 +16,7 @@ import type {
   IColumnMetaRo,
   IViewVo,
   ICreateTableRo,
-  IFilter,
+  IFilterRo,
   IViewRo,
   IGetRecordsQuery,
   IRecordsVo,
@@ -25,7 +25,7 @@ import type {
   IGetTableQuery,
   ITableVo,
 } from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
+import { FieldKeyType, getRandomString } from '@teable-group/core';
 import {
   axios,
   signin as apiSignin,
@@ -65,7 +65,7 @@ function prepareSqliteEnv() {
   const prevDir = path.dirname(prevFilePath);
   const baseName = path.basename(prevFilePath);
 
-  const newFileName = 'test-' + Date.now() + '-' + baseName;
+  const newFileName = 'test-' + getRandomString(12) + '-' + baseName;
   const newFilePath = path.join(prevDir, 'test', newFileName);
 
   process.env.PRISMA_DATABASE_URL = 'file:' + newFilePath;
@@ -394,7 +394,7 @@ export async function updateViewColumnMeta(
   return result.data;
 }
 
-export async function setViewFilter(tableId: string, viewId: string, filterRo: IFilter) {
+export async function setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
   const result = await apiSetViewFilter(tableId, viewId, filterRo);
   return result.data;
 }

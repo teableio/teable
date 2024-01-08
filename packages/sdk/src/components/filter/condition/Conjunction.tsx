@@ -1,10 +1,10 @@
-import type { IFilter } from '@teable-group/core';
+import type { IConjunction } from '@teable-group/core';
 import { ConjunctionSelect } from './ConjunctionSelect';
 
 interface IConjunctionProps {
   index: number;
-  value: IFilter['conjunction'];
-  onSelect: (value: IFilter['conjunction'] | null) => void;
+  value: IConjunction;
+  onSelect: (value: IConjunction | null) => void;
 }
 
 enum ConjunctionPosition {

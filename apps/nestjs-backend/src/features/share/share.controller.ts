@@ -11,27 +11,26 @@ import {
   Body,
   Query,
 } from '@nestjs/common';
-import {
-  type IAggregationVo,
-  type IRowCountVo,
-  rowCountRoSchema,
-  IRowCountRo,
-} from '@teable-group/core';
+import { type IAggregationVo, type IRowCountVo } from '@teable-group/core';
 import {
   ShareViewFormSubmitRo,
   shareViewCopyRoSchema,
   shareViewFormSubmitRoSchema,
   IShareViewCopyRo,
-  shareViewAggregationsRoSchema,
-  IShareViewAggregationsRo,
+  shareViewRowCountQueryRoSchema,
+  shareViewAggregationsQueryRoSchema,
   shareViewLinkRecordsRoSchema,
   IShareViewLinkRecordsRo,
+  IShareViewRowCountQueryRo,
+  IShareViewAggregationsQueryRo,
 } from '@teable-group/openapi';
 import type {
   IShareViewCopyVo,
   IShareViewLinkRecordsVo,
   ShareViewFormSubmitVo,
   ShareViewGetVo,
+  IShareViewAggregationsQuery,
+  IShareViewRowCountQuery,
 } from '@teable-group/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -39,13 +38,17 @@ import { Public } from '../auth/decorators/public.decorator';
 import { RecordPipe } from '../record/open-api/record.pipe';
 import { AuthGuard } from './guard/auth.guard';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
+import { ShareAuthService } from './share-auth.service';
 import type { IShareViewInfo } from './share.service';
 import { ShareService } from './share.service';
 
 @Controller('api/share')
 @Public()
 export class ShareController {
-  constructor(private readonly shareService: ShareService) {}
+  constructor(
+    private readonly shareService: ShareService,
+    private readonly shareAuthService: ShareAuthService
+  ) {}
 
   @HttpCode(200)
   @UseGuards(ShareAuthLocalGuard)
@@ -53,7 +56,7 @@ export class ShareController {
   async auth(@Request() req: any, @Res({ passthrough: true }) res: Response) {
     const shareId = req.shareId;
     const password = req.password;
-    const token = await this.shareService.authToken({ shareId, password });
+    const token = await this.shareAuthService.authToken({ shareId, password });
     res.cookie(shareId, token, {
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7,
@@ -71,20 +74,28 @@ export class ShareController {
   @Get('/:shareId/view/aggregations')
   async getViewAggregations(
     @Request() req: any,
-    @Query(new ZodValidationPipe(shareViewAggregationsRoSchema)) query?: IShareViewAggregationsRo
+    @Query(new ZodValidationPipe(shareViewAggregationsQueryRoSchema))
+    query?: IShareViewAggregationsQueryRo
   ): Promise<IAggregationVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return await this.shareService.getViewAggregations(shareInfo, query);
+    return await this.shareService.getViewAggregations(
+      shareInfo,
+      query?.query as IShareViewAggregationsQuery
+    );
   }
 
   @UseGuards(AuthGuard)
   @Get('/:shareId/view/rowCount')
   async getViewRowCount(
     @Request() req: any,
-    @Query(new ZodValidationPipe(rowCountRoSchema)) query?: IRowCountRo
+    @Query(new ZodValidationPipe(shareViewRowCountQueryRoSchema))
+    query?: IShareViewRowCountQueryRo
   ): Promise<IRowCountVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return await this.shareService.getViewRowCount(shareInfo, query);
+    return await this.shareService.getViewRowCount(
+      shareInfo,
+      query?.query as IShareViewRowCountQuery
+    );
   }
 
   @UseGuards(AuthGuard)

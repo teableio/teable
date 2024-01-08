@@ -5,6 +5,7 @@ import { PrismaModule } from '@teable-group/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsMiddleware, ClsModule } from 'nestjs-cls';
+import { CacheModule } from '../cache/cache.module';
 import type { IAuthConfig } from '../configs/auth.config';
 import { authConfig } from '../configs/auth.config';
 import { ConfigModule } from '../configs/config.module';
@@ -41,6 +42,7 @@ import { KnexModule } from './knex';
     KnexModule.register(),
     PrismaModule,
     PermissionModule,
+    CacheModule,
   ],
 })
 export class GlobalModule implements NestModule {

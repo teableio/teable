@@ -154,7 +154,7 @@ export class TableService implements IAdapterService {
 
     return tableIds.map((tableId) => {
       const item = results.find((result) => result.tableId === tableId);
-      return item?.lastModifiedTime.toISOString();
+      return item?.lastModifiedTime?.toISOString();
     });
   }
 

@@ -27,7 +27,7 @@ export const DragAndCopy = (props: IDragAndCopyProps) => {
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full min-h-[100px] w-full flex-col">
       <div
         tabIndex={0}
         role="button"

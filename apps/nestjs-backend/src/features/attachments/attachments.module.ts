@@ -1,18 +1,16 @@
 import { Module } from '@nestjs/common';
-import { MulterModule } from '@nestjs/platform-express';
-import multer from 'multer';
-import { AttachmentsTableService } from './attachments-table.service';
+import { AuthModule } from '../auth/auth.module';
+import { ShareAuthModule } from '../share/share-auth.module';
+import { AttachmentsStorageModule } from './attachments-storage.module';
 import { AttachmentsController } from './attachments.controller';
 import { AttachmentsService } from './attachments.service';
+import { DynamicAuthGuardFactory } from './guard/auth.guard';
+import { StorageModule } from './plugins/storage.module';
 
 @Module({
-  providers: [AttachmentsService, AttachmentsTableService],
+  providers: [AttachmentsService, DynamicAuthGuardFactory],
   controllers: [AttachmentsController],
-  imports: [
-    MulterModule.register({
-      storage: multer.diskStorage({}),
-    }),
-  ],
-  exports: [AttachmentsService, AttachmentsTableService],
+  imports: [StorageModule, AttachmentsStorageModule, ShareAuthModule, AuthModule],
+  exports: [AttachmentsService],
 })
 export class AttachmentsModule {}

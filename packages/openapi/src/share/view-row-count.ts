@@ -1,15 +1,39 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IRowCountVo } from '@teable-group/core';
-import { rowCountRoSchema, rowCountVoSchema } from '@teable-group/core';
+import { rowCountVoSchema, aggregationRoSchema } from '@teable-group/core';
+import type { ZodError } from 'zod';
 import { axios } from '../axios';
 import { paramsSerializer, registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/rowCount';
 
-export const shareViewRowCountRoSchema = rowCountRoSchema.pick({ filter: true });
+export const shareViewRowCountQuerySchema = aggregationRoSchema.pick({
+  filter: true,
+});
 
-export type IShareViewRowCountRo = z.infer<typeof shareViewRowCountRoSchema>;
+export const shareViewRowCountQueryRoSchema = z.object({
+  query: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (value) {
+        const parsingResult = shareViewRowCountQuerySchema.safeParse(JSON.parse(value));
+        if (!parsingResult.success) {
+          parsingResult.error.issues.forEach((issue) => {
+            ctx.addIssue(issue);
+          });
+          return z.NEVER;
+        }
+        return parsingResult.data;
+      }
+      return value;
+    }),
+});
+
+export type IShareViewRowCountQueryRo = z.infer<typeof shareViewRowCountQueryRoSchema>;
+
+export type IShareViewRowCountQuery = z.infer<typeof shareViewRowCountQuerySchema>;
 
 export const ShareViewRowCountRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -19,7 +43,7 @@ export const ShareViewRowCountRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
-    query: shareViewRowCountRoSchema,
+    query: shareViewRowCountQueryRoSchema,
   },
   responses: {
     200: {
@@ -34,7 +58,7 @@ export const ShareViewRowCountRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const getShareViewRowCount = async (shareId: string, query?: IShareViewRowCountRo) => {
+export const getShareViewRowCount = async (shareId: string, query: IShareViewRowCountQueryRo) => {
   return axios.get<IRowCountVo>(urlBuilder(SHARE_VIEW_ROW_COUNT, { shareId }), {
     params: query,
     paramsSerializer,

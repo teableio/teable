@@ -10,7 +10,12 @@ import type { ITinyRecord } from '../../../record/record.schema';
 import { CellValueType } from '../../constant';
 import { FieldCore } from '../../field';
 import type { INumberFormatting, IDatetimeFormatting, IUnionFormatting } from '../../formatting';
-import { formatNumberToString, formatDateToString } from '../../formatting';
+import {
+  formatNumberToString,
+  formatDateToString,
+  defaultNumberFormatting,
+  defaultDatetimeFormatting,
+} from '../../formatting';
 import { booleanCellValueSchema } from '../checkbox.field';
 import { dataFieldCellValueSchema } from '../date.field';
 import { numberCellValueSchema } from '../number.field';
@@ -74,9 +79,15 @@ export abstract class FormulaAbstractCore extends FieldCore {
 
     switch (this.cellValueType) {
       case CellValueType.Number:
-        return formatNumberToString(value as number, formatting as INumberFormatting);
+        return formatNumberToString(
+          value as number,
+          (formatting as INumberFormatting) || defaultNumberFormatting
+        );
       case CellValueType.DateTime:
-        return formatDateToString(value as string, formatting as IDatetimeFormatting);
+        return formatDateToString(
+          value as string,
+          (formatting as IDatetimeFormatting) || defaultDatetimeFormatting
+        );
     }
     return value == null ? '' : String(value);
   }

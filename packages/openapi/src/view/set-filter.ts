@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IFilterSet } from '@teable-group/core';
-import { filterSchema } from '@teable-group/core';
+import type { IFilterRo } from '@teable-group/core';
+import { filterRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -20,17 +20,20 @@ export const SetViewFilterRoute: RouteConfig = registerRoute({
       content: {
         // TODO zod-to-openapi does not support z.lazy which use in filterSchema
         'application/json': {
-          schema: filterSchema.openapi({
+          schema: filterRoSchema.openapi({
             type: 'object',
             example: {
-              filterSet: [
-                {
-                  fieldId: 'fldxxxxxxxxxxxxxxxx',
-                  value: 'value',
-                  operator: 'is',
-                },
-              ],
-              conjunction: 'and',
+              filter: {
+                filterSet: [
+                  {
+                    isSymbol: false,
+                    fieldId: 'fldxxxxxxxxxxxxxxxx',
+                    value: 'value',
+                    operator: 'is',
+                  },
+                ],
+                conjunction: 'and',
+              },
             },
           }),
         },
@@ -45,7 +48,7 @@ export const SetViewFilterRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewFilter = async (tableId: string, viewId: string, filterRo: IFilterSet) => {
+export const setViewFilter = async (tableId: string, viewId: string, filterRo: IFilterRo) => {
   return axios.put<void>(
     urlBuilder(VIEW_FILTER, {
       tableId,

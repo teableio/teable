@@ -15,10 +15,12 @@ export const sortItemSchema = z.object({
   order: orders,
 });
 
-export const sortSchema = z.object({
-  sortObjs: sortItemSchema.array(),
-  manualSort: z.boolean().optional(),
-});
+export const sortSchema = z
+  .object({
+    sortObjs: sortItemSchema.array(),
+    manualSort: z.boolean().optional(),
+  })
+  .nullable();
 
 export const sortStringSchema = z.string().transform((val, ctx) => {
   let jsonValue;
@@ -42,11 +44,17 @@ export const manualSortRoSchema = z.object({
   sortObjs: sortItemSchema.array(),
 });
 
+export const viewSortRoSchema = z.object({
+  sort: sortSchema.nullable(),
+});
+
+export type IViewSortRo = z.infer<typeof viewSortRoSchema>;
+
 export type IManualSortRo = z.infer<typeof manualSortRoSchema>;
 
 export function mergeWithDefaultSort(
   defaultViewSort?: string | null,
-  querySort?: ISort['sortObjs']
+  querySort?: ISortItem[]
 ): ISortItem[] {
   if (!defaultViewSort && !querySort) {
     return [];

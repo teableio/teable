@@ -311,6 +311,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         'x',
       ]);
       expect(newField).toMatchObject({
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
         cellValueType: CellValueType.Number,
         dbFieldType: DbFieldType.Real,
         name: 'TextField',
@@ -653,6 +659,12 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         'x',
       ]);
       expect(newField).toMatchObject({
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
         cellValueType: CellValueType.Number,
         dbFieldType: DbFieldType.Real,
         name: 'LongTextField',
@@ -2215,7 +2227,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
 
       const recordResult2 = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
-      expect(recordResult2.records[0].fields[lookupField.id]).toEqual([2023]);
+      expect(recordResult2.records[0].fields[lookupField.id]).toEqual([new Date().getFullYear()]);
     });
 
     it('should convert number field to text and relational many-one lookup field and formula field', async () => {

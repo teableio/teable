@@ -48,6 +48,8 @@ import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { ReferenceService } from '../../calculation/reference.service';
+import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import type { IFieldInstance } from '../model/factory';
@@ -60,6 +62,7 @@ export class FieldSupplementService {
   constructor(
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
+    private readonly referenceService: ReferenceService,
     @Inject('DbProvider') private dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -1106,17 +1109,14 @@ export class FieldSupplementService {
 
   async createReference(field: IFieldInstance) {
     if (field.isLookup) {
-      return await this.createLookupReference(field);
+      return this.createComputedFieldReference(field);
     }
 
     switch (field.type) {
       case FieldType.Formula:
-        return await this.createFormulaReference(field);
       case FieldType.Rollup:
-        // rollup use same reference logic as lookup
-        return await this.createLookupReference(field);
       case FieldType.Link:
-        return await this.createLinkReference(field);
+        return this.createComputedFieldReference(field);
       default:
         break;
     }
@@ -1167,36 +1167,35 @@ export class FieldSupplementService {
     return lookupFieldIds;
   }
 
-  private async createLookupReference(field: IFieldInstance) {
-    const toFieldId = field.id;
-    if (!field.lookupOptions) {
-      throw new Error('lookupOptions is required');
+  getFieldReferenceIds(field: IFieldInstance): string[] {
+    if (field.lookupOptions) {
+      return [field.lookupOptions.lookupFieldId];
     }
-    const { lookupFieldId } = field.lookupOptions;
 
-    await this.prismaService.txClient().reference.create({
-      data: {
-        fromFieldId: lookupFieldId,
-        toFieldId,
-      },
-    });
+    if (field.type === FieldType.Link) {
+      return [field.options.lookupFieldId];
+    }
+
+    if (field.type === FieldType.Formula) {
+      return (field as FormulaFieldDto).getReferenceFieldIds();
+    }
+
+    return [];
   }
 
-  private async createLinkReference(field: LinkFieldDto) {
+  private async createComputedFieldReference(field: IFieldInstance) {
     const toFieldId = field.id;
-    const fromFieldId = field.options.lookupFieldId;
 
-    await this.prismaService.txClient().reference.create({
-      data: {
-        fromFieldId,
-        toFieldId,
-      },
+    const graphItems = await this.referenceService.getFieldGraphItems([field.id]);
+    const fieldIds = this.getFieldReferenceIds(field);
+
+    fieldIds.forEach((fromFieldId) => {
+      graphItems.push({ fromFieldId, toFieldId });
     });
-  }
 
-  private async createFormulaReference(field: FormulaFieldDto) {
-    const fieldIds = field.getReferenceFieldIds();
-    const toFieldId = field.id;
+    if (hasCycle(graphItems)) {
+      throw new BadRequestException('field reference has cycle');
+    }
 
     for (const fromFieldId of fieldIds) {
       await this.prismaService.txClient().reference.create({
