@@ -1,12 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { faker } from '@faker-js/faker';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldVo, IRecord } from '@teable-group/core';
+import type { IFieldOptionsVo, IFieldVo, IRecord } from '@teable-group/core';
 import {
   CellValueType,
+  Colors,
   DbFieldType,
   FieldKeyType,
   FieldType,
+  MultiNumberDisplayType,
+  NumberFormattingType,
+  SingleLineTextDisplayType,
+  SingleNumberDisplayType,
+  TIME_ZONE_LIST,
   getPermissions,
   nullsToUndefined,
   SpaceRole,
@@ -657,6 +664,250 @@ describe('selectionService', () => {
         records,
       });
       expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith(tableId, updateRecordsRo);
+    });
+  });
+
+  describe('optionsRoToVoByCvType', () => {
+    it('should return correct options for Number type', () => {
+      const cellValueType = CellValueType.Number;
+      const options: IFieldOptionsVo = {
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 3,
+        },
+        showAs: {
+          type: faker.helpers.arrayElement(Object.values(SingleNumberDisplayType)),
+          color: faker.helpers.arrayElement(Object.values(Colors)),
+          showValue: faker.datatype.boolean(),
+          maxValue: faker.number.int(),
+        },
+      };
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.Number,
+        options,
+      });
+    });
+
+    it('should return correct options for DateTime type', () => {
+      const cellValueType = CellValueType.DateTime;
+      const options: IFieldOptionsVo = {
+        formatting: {
+          date: 'MM/DD/YYYY',
+          time: 'HH:mm',
+          timeZone: TIME_ZONE_LIST[0],
+        },
+      };
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.Date,
+        options,
+      });
+    });
+
+    it('should return correct options for String type', () => {
+      const cellValueType = CellValueType.String;
+      const options: IFieldOptionsVo = {
+        showAs: {
+          type: faker.helpers.arrayElement(Object.values(SingleLineTextDisplayType)),
+        },
+      };
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.SingleLineText,
+        options,
+      });
+    });
+
+    it('should return correct options for Boolean type', () => {
+      const cellValueType = CellValueType.Boolean;
+      const options: IFieldOptionsVo = {};
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.Checkbox,
+        options: {},
+      });
+    });
+
+    it('should throw BadRequestException for invalid cellValueType', () => {
+      const cellValueType = 'InvalidType' as any;
+      const options: IFieldOptionsVo = {};
+
+      expect(() => selectionService['optionsRoToVoByCvType'](cellValueType, options)).toThrowError(
+        'Invalid cellValueType'
+      );
+    });
+  });
+
+  describe('fieldVoToRo', () => {
+    it('should return default SingleLineText field if no field is provided', () => {
+      const result = selectionService['fieldVoToRo'](undefined);
+
+      expect(result).toEqual({
+        type: FieldType.SingleLineText,
+      });
+    });
+
+    it('should return correct User field for CreatedBy and LastModifiedBy types', () => {
+      const createdByField: IFieldVo = {
+        type: FieldType.CreatedBy,
+        id: '',
+        name: '',
+        description: '',
+        isComputed: true,
+        options: undefined as any,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const lastModifiedByField: IFieldVo = {
+        type: FieldType.LastModifiedBy,
+        id: '',
+        options: undefined as any,
+        name: '',
+        isComputed: true,
+        description: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const createdByResult = selectionService['fieldVoToRo'](createdByField);
+      const lastModifiedByResult = selectionService['fieldVoToRo'](lastModifiedByField);
+
+      expect(createdByResult).toEqual({
+        type: FieldType.User,
+        options: undefined,
+        name: '',
+        description: '',
+      });
+
+      expect(lastModifiedByResult).toEqual({
+        type: FieldType.User,
+        options: undefined,
+        name: '',
+        description: '',
+      });
+    });
+
+    it('should handle computed fields with valid cellValueType', () => {
+      const computedField: IFieldVo = {
+        id: '',
+        name: '',
+        description: '',
+        type: FieldType.Formula,
+        isComputed: true,
+        cellValueType: CellValueType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const optionsRoToVoByCvTypeMock = vitest.spyOn(
+        selectionService as any,
+        'optionsRoToVoByCvType'
+      );
+
+      const result = selectionService['fieldVoToRo'](computedField);
+
+      expect(result).toEqual({
+        name: '',
+        description: '',
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+      });
+
+      expect(optionsRoToVoByCvTypeMock).toHaveBeenCalledWith(
+        computedField.cellValueType,
+        computedField.options
+      );
+
+      optionsRoToVoByCvTypeMock.mockRestore();
+    });
+
+    it('should handle computed fields with invalid cellValueType', () => {
+      const computedField: IFieldVo = {
+        id: '',
+        name: '',
+        description: '',
+        type: FieldType.Number,
+        isComputed: false,
+        cellValueType: CellValueType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+        dbFieldType: DbFieldType.Integer,
+        dbFieldName: '',
+      };
+
+      const optionsRoToVoByCvTypeMock = vitest.spyOn(
+        selectionService as any,
+        'optionsRoToVoByCvType'
+      );
+
+      const result = selectionService['fieldVoToRo'](computedField);
+
+      expect(result).toEqual({
+        name: '',
+        description: '',
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+      });
+
+      expect(optionsRoToVoByCvTypeMock).not.toHaveBeenCalled();
+
+      optionsRoToVoByCvTypeMock.mockRestore();
     });
   });
 });

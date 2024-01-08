@@ -31,16 +31,18 @@ export const userCellValueSchema = z.object({
 
 export type IUserCellValue = z.infer<typeof userCellValueSchema>;
 
+export const defaultUserFieldOptions: IUserFieldOptions = {
+  isMultiple: false,
+  shouldNotify: true,
+};
+
 export class UserFieldCore extends FieldCore {
   type!: FieldType.User;
   options!: IUserFieldOptions;
   cellValueType!: CellValueType.String;
 
-  static defaultOptions(): IUserFieldOptions {
-    return {
-      isMultiple: false,
-      shouldNotify: true,
-    };
+  static defaultOptions() {
+    return defaultUserFieldOptions;
   }
 
   item2String(value: unknown) {

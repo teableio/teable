@@ -95,6 +95,7 @@ export const commonOptionsSchema = z.object({
 });
 
 export type IFieldOptionsRo = z.infer<typeof unionFieldOptionsRoSchema>;
+export type IFieldOptionsVo = z.infer<typeof unionFieldOptionsVoSchema>;
 
 export const fieldVoSchema = z.object({
   id: z.string().startsWith(IdPrefix.Field).openapi({
