@@ -7,9 +7,9 @@ import {
   DbFieldType,
   FieldKeyType,
   FieldType,
-  SpaceRole,
   getPermissions,
   nullsToUndefined,
+  SpaceRole,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { RangeType } from '@teable-group/openapi';
@@ -19,6 +19,7 @@ import type { DeepMockProxy } from 'vitest-mock-extended';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
+import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -36,6 +37,7 @@ describe('selectionService', () => {
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
   let clsService: ClsService<IClsStore>;
+  let aggregationService: AggregationService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -51,6 +53,7 @@ describe('selectionService', () => {
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
     clsService = module.get<ClsService<IClsStore>>(ClsService);
+    aggregationService = module.get<AggregationService>(AggregationService);
 
     prismaService = module.get<PrismaService>(
       PrismaService
@@ -535,7 +538,9 @@ describe('selectionService', () => {
 
       vi.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
 
-      vi.spyOn(recordService, 'getRowCount').mockResolvedValue(mockRecords.length);
+      vi.spyOn(aggregationService, 'performRowCount').mockResolvedValue({
+        rowCount: mockRecords.length,
+      });
       vi.spyOn(recordService, 'getRecordsFields').mockResolvedValue(
         mockRecords.slice(pasteRo.range[0][1])
       );
@@ -565,7 +570,10 @@ describe('selectionService', () => {
 
       // Assertions
       expect(selectionService['parseCopyContent']).toHaveBeenCalledWith(content);
-      expect(recordService.getRowCount).toHaveBeenCalledWith(tableId, viewId);
+      expect(aggregationService.performRowCount).toHaveBeenCalledWith({
+        tableId,
+        withView: { viewId },
+      });
       expect(recordService.getRecordsFields).toHaveBeenCalledWith(tableId, {
         viewId,
         skip: 1,

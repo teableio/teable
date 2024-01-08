@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -24,6 +23,7 @@ import type {
   ISortItem,
 } from '@teable-group/core';
 import {
+  CellFormat,
   FieldKeyType,
   FieldType,
   generateRecordId,
@@ -32,7 +32,6 @@ import {
   mergeWithDefaultFilter,
   mergeWithDefaultSort,
   OpName,
-  CellFormat,
   Relationship,
 } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
@@ -42,6 +41,7 @@ import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
@@ -70,7 +70,7 @@ export class RecordService implements IAdapterService {
     private readonly attachmentService: AttachmentsTableService,
     private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
-    @Inject('DbProvider') private dbProvider: IDbProvider,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -126,8 +126,7 @@ export class RecordService implements IAdapterService {
     return fields.reduce<IRecord['fields']>((acc, field) => {
       const fieldNameOrId = fieldKeyType === FieldKeyType.Name ? field.name : field.id;
       const dbCellValue = record[field.dbFieldName];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cellValue = field.convertDBValue2CellValue(dbCellValue as any);
+      const cellValue = field.convertDBValue2CellValue(dbCellValue);
       if (cellValue != null) {
         acc[fieldNameOrId] =
           cellFormat === CellFormat.Text ? field.cellValue2String(cellValue) : cellValue;
@@ -136,7 +135,7 @@ export class RecordService implements IAdapterService {
     }, {});
   }
 
-  async getAllRecordCount(dbTableName: string) {
+  private async getAllRecordCount(dbTableName: string) {
     const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
 
     const queryResult = await this.prismaService
@@ -416,7 +415,9 @@ export class RecordService implements IAdapterService {
 
   async buildFilterSortQuery(
     tableId: string,
-    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>
+    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'> & {
+      queryUserId?: string;
+    }
   ): Promise<Knex.QueryBuilder> {
     const { queryBuilder, filter, orderBy, fieldMap } = await this.prepareQuery(tableId, query);
 
@@ -424,18 +425,16 @@ export class RecordService implements IAdapterService {
       await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
     }
 
-    // TODO: testing
-    const withUserId = this.cls.get('user.id');
-
     // All `where` condition-related construction work
     this.dbProvider
-      .filterQuery(queryBuilder, fieldMap, filter, { withUserId })
+      .filterQuery(queryBuilder, fieldMap, filter, { withUserId: query.queryUserId })
       .appendQueryBuilder();
     this.dbProvider.sortQuery(queryBuilder, fieldMap, orderBy).appendSortBuilder();
 
     // view sorting added by default
     queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
 
+    this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder };
@@ -530,33 +529,10 @@ export class RecordService implements IAdapterService {
     }, []);
   }
 
-  async getRowCount(
+  async getRecords(
     tableId: string,
-    _viewId: string,
-    filterQueryBuilder?: Knex.QueryBuilder
-  ): Promise<number> {
-    if (filterQueryBuilder) {
-      filterQueryBuilder
-        .clearSelect()
-        .clearCounters()
-        .clearGroup()
-        .clearHaving()
-        .clearOrder()
-        .clear('limit')
-        .clear('offset');
-      const rowCountSql = filterQueryBuilder.count({ count: '*' });
-
-      const result = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
-      return Number(result[0]?.count ?? 0);
-    }
-
-    const dbTableName = await this.getDbTableName(tableId);
-    return await this.getAllRecordCount(dbTableName);
-  }
-
-  async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
+    query: IGetRecordsQuery & { queryUserId?: string }
+  ): Promise<IRecordsVo> {
     const defaultView = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true, filter: true, sort: true },
       where: {
@@ -576,6 +552,7 @@ export class RecordService implements IAdapterService {
       orderBy: query.orderBy,
       filterLinkCellCandidate: query.filterLinkCellCandidate,
       filterLinkCellSelected: query.filterLinkCellSelected,
+      queryUserId: query.queryUserId,
     });
 
     const recordSnapshot = await this.getSnapshotBulk(
@@ -993,7 +970,7 @@ export class RecordService implements IAdapterService {
 
   async getDocIdsByQuery(
     tableId: string,
-    query: IGetRecordsQuery
+    query: IGetRecordsQuery & { queryUserId?: string }
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const viewId = await this.shareWithViewId(tableId, query.viewId);
 
@@ -1031,7 +1008,7 @@ export class RecordService implements IAdapterService {
 
   async getRecordsFields(
     tableId: string,
-    query: IMakeRequired<IGetRecordsQuery, 'viewId'>
+    query: IMakeRequired<IGetRecordsQuery, 'viewId'> & { queryUserId?: string }
   ): Promise<Pick<IRecord, 'id' | 'fields'>[]> {
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
@@ -1046,6 +1023,7 @@ export class RecordService implements IAdapterService {
       viewId: viewId,
       filter,
       orderBy,
+      queryUserId: query.queryUserId,
     });
     queryBuilder.select(fieldNames.concat('__id'));
     queryBuilder.offset(skip);

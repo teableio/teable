@@ -10,11 +10,9 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 
 const otelSDK = new NodeSDK({
-  traceExporter: new OTLPTraceExporter({
-    url: 'http://localhost:4318/v1/traces',
-    // url: 'http://tracing-analysis-dc-sz.aliyuncs.com:8090',
-    // metadata,
-  }),
+  // traceExporter: new OTLPTraceExporter({
+  //   url: 'http://localhost:4318/v1/traces',
+  // }),
   contextManager: new AsyncLocalStorageContextManager(),
   instrumentations: [
     new HttpInstrumentation(),

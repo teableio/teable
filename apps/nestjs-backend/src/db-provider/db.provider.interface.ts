@@ -1,4 +1,4 @@
-import type { DriverClient, IAggregationField, IFilter, ISort } from '@teable-group/core';
+import type { DriverClient, IAggregationField, IFilter, ISortItem } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -66,7 +66,7 @@ export interface IDbProvider {
   sortQuery(
     originKnex: Knex.QueryBuilder,
     fields?: { [fieldId: string]: IFieldInstance },
-    sortObjs?: ISort['sortObjs'],
+    sortObjs?: ISortItem[],
     extra?: ISortQueryExtra
   ): ISortQueryInterface;
 }

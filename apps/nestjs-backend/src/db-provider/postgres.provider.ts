@@ -1,10 +1,11 @@
 import { Logger } from '@nestjs/common';
-import type { IAggregationField, IFilter, ISort } from '@teable-group/core';
+import type { IAggregationField, IFilter, ISortItem } from '@teable-group/core';
 import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
+import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
 import type {
   IAggregationQueryExtra,
   IDbProvider,
@@ -15,7 +16,6 @@ import type { IFilterQueryInterface } from './filter-query/filter-query.interfac
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQueryPostgres } from './sort-query/sort-query.postgres';
-import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
 
 export class PostgresProvider implements IDbProvider {
   private readonly logger = new Logger(PostgresProvider.name);
@@ -153,7 +153,7 @@ export class PostgresProvider implements IDbProvider {
   sortQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fields?: { [fieldId: string]: IFieldInstance },
-    sortObjs?: ISort['sortObjs'],
+    sortObjs?: ISortItem[],
     extra?: ISortQueryExtra
   ): ISortQueryInterface {
     return new SortQueryPostgres(this.knex, originQueryBuilder, fields, sortObjs, extra);

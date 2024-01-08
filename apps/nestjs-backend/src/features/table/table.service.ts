@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   ICreateTableRo,
   IOtOperation,
@@ -10,11 +10,11 @@ import type {
 import {
   FieldKeyType,
   generateTableId,
+  getRandomString,
   getUniqName,
   IdPrefix,
   nullsToUndefined,
   tablePropertyKeySchema,
-  getRandomString,
 } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -22,6 +22,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
+import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
@@ -46,7 +47,7 @@ export class TableService implements IAdapterService {
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly attachmentService: AttachmentsTableService,
-    @Inject('DbProvider') private dbProvider: IDbProvider,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -214,6 +215,7 @@ export class TableService implements IAdapterService {
     baseId: string,
     tableId: string,
     viewId?: string,
+    queryUserId?: string,
     fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ITableFullVo> {
     const tableMeta = await this.getTableMeta(baseId, tableId);
@@ -224,6 +226,7 @@ export class TableService implements IAdapterService {
       skip: 0,
       take: 50,
       fieldKeyType,
+      queryUserId,
     });
 
     return {

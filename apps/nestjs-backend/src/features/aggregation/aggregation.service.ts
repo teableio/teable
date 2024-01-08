@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   IAggregationField,
   IColumnMeta,
@@ -20,6 +20,7 @@ import dayjs from 'dayjs';
 import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -50,7 +51,7 @@ export class AggregationService {
     private readonly recordService: RecordService,
     private readonly prisma: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @Inject('DbProvider') private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   async performAggregation(params: {

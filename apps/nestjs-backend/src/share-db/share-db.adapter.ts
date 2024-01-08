@@ -19,6 +19,7 @@ import { FieldService } from '../features/field/field.service';
 import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
+import type { IClsStore } from '../types/cls';
 import type { IAdapterService } from './interface';
 
 export interface ICollectionSnapshot {
@@ -34,7 +35,7 @@ export class ShareDbAdapter extends ShareDb.DB {
   closed: boolean;
 
   constructor(
-    private readonly clsService: ClsService,
+    private readonly cls: ClsService<IClsStore>,
     private readonly tableService: TableService,
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
@@ -69,30 +70,37 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (err: any, snapshots: Snapshot[], extra?: any) => void
   ) => {
     // console.log(`query: ${collection} ${JSON.stringify(query)}`);
-    this.queryPoll(collection, query, options, (error, results, extra) => {
-      // console.log('query pull result: ', ids);
-      if (error) {
-        return callback(error, []);
-      }
-      if (!results.length) {
-        return callback(undefined, []);
-      }
+    const userId = this.cls.get('user.id');
 
-      this.getSnapshotBulk(
-        collection,
-        results as string[],
-        projection,
-        undefined,
-        (error, snapshots) => {
-          callback(
-            error,
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            results.map((id) => snapshots![id]),
-            extra
-          );
+    this.queryPoll(
+      collection,
+      { ...(query ?? {}), queryUserId: userId },
+      options,
+      (error, results, extra) => {
+        // console.log('query pull result: ', ids);
+        if (error) {
+          return callback(error, []);
         }
-      );
-    });
+        if (!results.length) {
+          return callback(undefined, []);
+        }
+
+        this.getSnapshotBulk(
+          collection,
+          results as string[],
+          projection,
+          undefined,
+          (error, snapshots) => {
+            callback(
+              error,
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+              results.map((id) => snapshots![id]),
+              extra
+            );
+          }
+        );
+      }
+    );
   };
 
   async queryPoll(
@@ -103,11 +111,12 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: ShareDb.Error | null, ids: string[], extra?: any) => void
   ) {
     try {
+      const userId = this.cls.get('user.id');
       const [docType, collectionId] = collection.split('_');
 
       const queryResult = await this.getService(docType as IdPrefix).getDocIdsByQuery(
         collectionId,
-        query
+        { ...(query ?? {}), queryUserId: userId }
       );
       // console.log('queryPollResult:', collection, ids);
       callback(null, queryResult.ids, queryResult.extra);
@@ -230,7 +239,7 @@ export class ShareDbAdapter extends ShareDb.DB {
             collection: collectionId,
             version: rawOp.v,
             operation: JSON.stringify(rawOp),
-            createdBy: this.clsService.get('user.id'),
+            createdBy: this.cls.get('user.id'),
           },
         });
 

@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
@@ -22,7 +23,9 @@ import {
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
 } from '@teable-group/core';
+import type { User as UserModel } from '@teable-group/db-main-prisma';
 import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable-group/openapi';
+import { Request } from 'express';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -41,10 +44,12 @@ export class RecordOpenApiController {
   @Permissions('record|read')
   @Get()
   async getRecords(
+    @Req() req: Request,
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getRecordsQuerySchema), RecordPipe) query: IGetRecordsQuery
   ): Promise<IRecordsVo> {
-    return await this.recordService.getRecords(tableId, query);
+    const { id: queryUserId } = req.user as UserModel;
+    return await this.recordService.getRecords(tableId, { ...query, queryUserId });
   }
 
   @Permissions('record|read')

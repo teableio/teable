@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IAggregationField, IFilter, ISort } from '@teable-group/core';
+import type { IAggregationField, IFilter, ISortItem } from '@teable-group/core';
 import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
@@ -143,7 +143,7 @@ export class SqliteProvider implements IDbProvider {
   sortQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fields?: { [fieldId: string]: IFieldInstance },
-    sortObjs?: ISort['sortObjs'],
+    sortObjs?: ISortItem[],
     extra?: ISortQueryExtra
   ): ISortQueryInterface {
     return new SortQuerySqlite(this.knex, originQueryBuilder, fields, sortObjs, extra);
