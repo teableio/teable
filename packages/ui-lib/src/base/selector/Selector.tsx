@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from '@teable-group/icons';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -21,6 +21,7 @@ export interface ISelectorItem {
 
 export type ISelectorProps<T = ISelectorItem> = {
   className?: string;
+  contentClassName?: string;
   readonly?: boolean;
   selectedId?: string;
   placeholder?: string;
@@ -40,12 +41,25 @@ export const Selector: React.FC<ISelectorProps> = ({
   emptyTip = 'No found.',
   defaultName = 'Untitled',
   className,
+  contentClassName,
   candidates = [],
 }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
 
-  const selected = candidates.find(({ id }) => id === selectedId);
+  const candidatesMap = useMemo(
+    () =>
+      candidates.reduce(
+        (pre, cur) => {
+          pre[cur.id?.toLowerCase()] = cur;
+          return pre;
+        },
+        {} as Record<string, ISelectorItem>
+      ),
+    [candidates]
+  );
+  const selected = candidatesMap[selectedId.toLowerCase()];
+
   return (
     <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
@@ -71,11 +85,15 @@ export const Selector: React.FC<ISelectorProps> = ({
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" style={{ minWidth: ref.current?.offsetWidth }}>
+      <PopoverContent
+        className={cn('w-full p-0', contentClassName)}
+        style={{ minWidth: ref.current?.offsetWidth }}
+      >
         <Command
           filter={(value, search) => {
+            if (!search) return 1;
             // cmdk bugs value is always lowercase, sucks...
-            const item = candidates.find(({ id }) => id.toLowerCase() === value);
+            const item = candidatesMap[value];
             const text = item?.name || item?.id;
             if (text?.toLocaleLowerCase().includes(search.toLocaleLowerCase())) return 1;
             return 0;
