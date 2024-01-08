@@ -52,9 +52,9 @@
     "@teable-group/ui-lib": "workspace:*",
     "@types/mousetrap": "1.6.15",
     "antlr4ts": "0.5.0-alpha.4",
-    "axios": "1.6.3",
+    "axios": "1.6.5",
     "class-transformer": "0.5.1",
-    "classnames": "2.5.0",
+    "classnames": "2.5.1",
     "dayjs": "1.11.10",
     "dequal": "2.0.3",
     "fuse.js": "7.0.0",
@@ -62,7 +62,7 @@
     "knex": "3.0.1",
     "lodash": "4.17.21",
     "lru-cache": "10.1.0",
-    "lucide-react": "0.302.0",
+    "lucide-react": "0.303.0",
     "mousetrap": "1.6.5",
     "react-day-picker": "8.10.0",
     "react-hammerjs": "1.0.1",
@@ -81,7 +81,7 @@
   },
   "devDependencies": {
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@testing-library/jest-dom": "6.1.5",
+    "@testing-library/jest-dom": "6.2.0",
     "@testing-library/react": "14.1.2",
     "@types/lodash": "4.14.202",
     "@types/node": "18.18.2",
@@ -100,10 +100,10 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "rimraf": "5.0.5",
-    "tailwindcss": "3.4.0",
+    "tailwindcss": "3.4.1",
     "typescript": "5.3.3",
     "vite-plugin-svgr": "4.2.0",
-    "vite-tsconfig-paths": "4.2.2",
-    "vitest": "1.1.0"
+    "vite-tsconfig-paths": "4.2.3",
+    "vitest": "1.1.3"
   }
 }

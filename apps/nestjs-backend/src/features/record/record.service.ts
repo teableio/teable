@@ -54,7 +54,6 @@ import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
-import { SortQueryTranslator } from './translator/sort-query-translator';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -421,9 +420,14 @@ export class RecordService implements IAdapterService {
       await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
     }
 
+    // TODO: testing
+    const withUserId = this.cls.get('user.id');
+
     // All `where` condition-related construction work
-    this.dbProvider.filterQuery(queryBuilder, fieldMap, filter).appendQueryBuilder();
-    new SortQueryTranslator(this.knex, queryBuilder, fieldMap, orderBy).appendQueryBuilder();
+    this.dbProvider
+      .filterQuery(queryBuilder, fieldMap, filter, { withUserId })
+      .appendQueryBuilder();
+    this.dbProvider.sortQuery(queryBuilder, fieldMap, orderBy).appendSortBuilder();
 
     // view sorting added by default
     queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');

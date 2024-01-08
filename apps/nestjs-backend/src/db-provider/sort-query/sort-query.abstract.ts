@@ -1,24 +1,30 @@
+import { Logger } from '@nestjs/common';
 import type { ISort } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../field/model/factory';
+import type { IFieldInstance } from '../../features/field/model/factory';
+import type { ISortQueryExtra } from '../db.provider.interface';
+import type { ISortQueryInterface } from './sort-query.interface';
 
-export class SortQueryTranslator {
+export abstract class AbstractSortQuery implements ISortQueryInterface {
+  private logger = new Logger(AbstractSortQuery.name);
+
   constructor(
-    private readonly knex: Knex,
-    private readonly queryBuilder: Knex.QueryBuilder,
-    private readonly fields?: { [fieldId: string]: IFieldInstance },
-    private readonly sortObjs?: ISort['sortObjs']
+    protected readonly knex: Knex,
+    protected readonly originQueryBuilder: Knex.QueryBuilder,
+    protected readonly fields?: { [fieldId: string]: IFieldInstance },
+    protected readonly sortObjs?: ISort['sortObjs'],
+    protected readonly extra?: ISortQueryExtra
   ) {}
 
-  appendQueryBuilder(): Knex.QueryBuilder {
-    return this.parseSorts(this.queryBuilder, this.sortObjs);
+  appendSortBuilder(): Knex.QueryBuilder {
+    return this.parseSorts(this.originQueryBuilder, this.sortObjs);
   }
 
   private parseSorts(
     queryBuilder: Knex.QueryBuilder,
     sortObjs?: ISort['sortObjs']
   ): Knex.QueryBuilder {
-    if (!sortObjs) {
+    if (!sortObjs || !sortObjs.length) {
       return queryBuilder;
     }
 

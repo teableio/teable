@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { isMeTag, Me } from '@teable-group/core';
 import { User as UserIcon } from '@teable-group/icons';
 import { getBaseCollaboratorList } from '@teable-group/openapi';
 import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib';
@@ -16,7 +17,7 @@ interface IFilterUserProps {
   onSelect: (value: string[] | string | null) => void;
 }
 
-const SINGLESELECTOPERATORS = ['is', 'isNot'];
+const SINGLE_SELECT_OPERATORS = ['is', 'isNot'];
 
 const FilterUserSelectBase = (props: IFilterUserProps) => {
   const { user: currentUser } = useSession();
@@ -41,7 +42,7 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
 
     if (currentUser) {
       map.unshift({
-        value: 'Me',
+        value: Me,
         label: t('filter.currentUser'),
         avatar: null,
       });
@@ -57,7 +58,7 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
       >
         <div className="flex items-center space-x-2">
           <Avatar className="h-7 w-7 border">
-            {option.value === 'Me' ? (
+            {isMeTag(option.value) ? (
               <span className="flex h-full w-full items-center justify-center">
                 <UserIcon className="h-4 w-4" />
               </span>
@@ -82,7 +83,7 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
       >
         <div className="flex items-center space-x-2">
           <Avatar className="h-7 w-7 border">
-            {option.value === 'Me' ? (
+            {isMeTag(option.value) ? (
               <span className="flex h-full w-full items-center justify-center">
                 <UserIcon className="h-4 w-4" />
               </span>
@@ -101,7 +102,7 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
 
   return (
     <>
-      {SINGLESELECTOPERATORS.includes(operator) ? (
+      {SINGLE_SELECT_OPERATORS.includes(operator) ? (
         <BaseSingleSelect
           options={options}
           onSelect={onSelect}

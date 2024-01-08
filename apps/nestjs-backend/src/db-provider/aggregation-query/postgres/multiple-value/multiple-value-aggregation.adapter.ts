@@ -1,95 +1,74 @@
-import { AbstractAggregationFunction } from './aggregation-function.abstract';
+import { AggregationFunctionPostgres } from '../aggregation-function.postgres';
 
-export class AggregationFunctionPostgres extends AbstractAggregationFunction {
-  multipleCellValueUnique(): string {
+export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres {
+  unique(): string {
     return this.knex
       .raw(`SELECT COUNT(DISTINCT "value") AS "value" FROM ??, json_array_elements_text(??)`, [
         this.dbTableName,
-        this.dbColumnName,
+        this.tableColumnRef,
       ])
       .toQuery();
   }
 
-  multipleCellValueMax(): string {
+  max(): string {
     return this.knex
       .raw(`SELECT MAX("value"::INTEGER) AS "value" FROM ??, json_array_elements_text(??)`, [
         this.dbTableName,
-        this.dbColumnName,
+        this.tableColumnRef,
       ])
       .toQuery();
   }
 
-  multipleCellValueMin(): string {
+  min(): string {
     return this.knex
       .raw(`SELECT MIN("value"::INTEGER) AS "value" FROM ??, json_array_elements_text(??)`, [
         this.dbTableName,
-        this.dbColumnName,
+        this.tableColumnRef,
       ])
       .toQuery();
   }
 
-  multipleCellValueSum(): string {
+  sum(): string {
     return this.knex
       .raw(`SELECT SUM("value"::INTEGER) AS "value" FROM ??, json_array_elements_text(??)`, [
         this.dbTableName,
-        this.dbColumnName,
+        this.tableColumnRef,
       ])
       .toQuery();
   }
 
-  multipleCellValueAverage(): string {
+  average(): string {
     return this.knex
       .raw(`SELECT AVG("value"::INTEGER) AS "value" FROM ??, json_array_elements_text(??)`, [
         this.dbTableName,
-        this.dbColumnName,
+        this.tableColumnRef,
       ])
       .toQuery();
   }
 
-  multipleCellValuePercentUnique(): string {
+  percentUnique(): string {
     return this.knex
       .raw(
         `SELECT (COUNT(DISTINCT "value") * 1.0 / COUNT(*)) * 100 AS "value" FROM ??, json_array_elements_text(??)`,
-        [this.dbTableName, this.dbColumnName]
+        [this.dbTableName, this.tableColumnRef]
       )
       .toQuery();
   }
 
-  singleCellValueDateRangeOfDays(): string {
-    return this.knex
-      .raw(`extract(DAY FROM (MAX(??) - MIN(??)))::INTEGER`, [this.dbColumnName, this.dbColumnName])
-      .toQuery();
-  }
-
-  multipleCellValueDateRangeOfDays(): string {
+  dateRangeOfDays(): string {
     return this.knex
       .raw(
         `SELECT extract(DAY FROM (MAX("value"::TIMESTAMPTZ) - MIN("value"::TIMESTAMPTZ)))::INTEGER AS "value" FROM ??, json_array_elements_text(??)`,
-        [this.dbTableName, this.dbColumnName]
+        [this.dbTableName, this.tableColumnRef]
       )
       .toQuery();
   }
 
-  singleCellValueDateRangeOfMonths(): string {
-    return this.knex
-      .raw(`CONCAT(MAX(??), ',', MIN(??))`, [this.dbColumnName, this.dbColumnName])
-      .toQuery();
-  }
-
-  multipleCellValueDateRangeOfMonths(): string {
+  dateRangeOfMonths(): string {
     return this.knex
       .raw(
         `SELECT CONCAT(MAX("value"::TIMESTAMPTZ), ',', MIN("value"::TIMESTAMPTZ)) AS "value" FROM ??, json_array_elements_text(??)`,
-        [this.dbTableName, this.dbColumnName]
-      )
-      .toQuery();
-  }
-
-  totalAttachmentSize(): string {
-    return this.knex
-      .raw(
-        `SELECT SUM(("value"::json ->> 'size')::INTEGER) AS "value" FROM ??, json_array_elements(??)`,
-        [this.dbTableName, this.dbColumnName]
+        [this.dbTableName, this.tableColumnRef]
       )
       .toQuery();
   }

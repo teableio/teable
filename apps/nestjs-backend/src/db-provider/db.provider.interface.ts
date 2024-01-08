@@ -1,9 +1,22 @@
-import type { DriverClient, IFilter } from '@teable-group/core';
+import type { DriverClient, IAggregationField, IFilter, ISort } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
-import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
+import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
+import type { ISortQueryInterface } from './sort-query/sort-query.interface';
+
+export type IFilterQueryExtra = {
+  withUserId?: string;
+
+  [key: string]: unknown;
+};
+
+export type ISortQueryExtra = {
+  [key: string]: unknown;
+};
+
+export type IAggregationQueryExtra = { filter?: IFilter } & IFilterQueryExtra;
 
 export interface IDbProvider {
   driver: DriverClient;
@@ -35,11 +48,25 @@ export interface IDbProvider {
     data: { id: string; values: { [key: string]: unknown } }[];
   }): { insertTempTableSql: string; updateRecordSql: string };
 
-  aggregationFunction(dbTableName: string, field: IFieldInstance): IAggregationFunctionInterface;
+  aggregationQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    fields?: { [fieldId: string]: IFieldInstance },
+    aggregationFields?: IAggregationField[],
+    extra?: IAggregationQueryExtra
+  ): IAggregationQueryInterface;
 
   filterQuery(
     originKnex: Knex.QueryBuilder,
     fields?: { [fieldId: string]: IFieldInstance },
-    filter?: IFilter | null
+    filter?: IFilter,
+    extra?: IFilterQueryExtra
   ): IFilterQueryInterface;
+
+  sortQuery(
+    originKnex: Knex.QueryBuilder,
+    fields?: { [fieldId: string]: IFieldInstance },
+    sortObjs?: ISort['sortObjs'],
+    extra?: ISortQueryExtra
+  ): ISortQueryInterface;
 }

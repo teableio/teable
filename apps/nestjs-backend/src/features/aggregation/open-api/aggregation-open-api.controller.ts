@@ -1,11 +1,13 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import type { IAggregationVo, IRowCountVo } from '@teable-group/core';
 import {
-  IAggregationRo,
   aggregationRoSchema,
-  rowCountRoSchema,
+  IAggregationRo,
   IRowCountRo,
+  rowCountRoSchema,
 } from '@teable-group/core';
+import type { User as UserModel } from '@teable-group/db-main-prisma';
+import { Request } from 'express';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -20,18 +22,28 @@ export class AggregationOpenApiController {
   @Get()
   @Permissions('table|read')
   async getAggregation(
+    @Req() req: Request,
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(aggregationRoSchema)) query?: IAggregationRo
   ): Promise<IAggregationVo> {
-    return await this.aggregationOpenApiService.getAggregation(tableId, query);
+    const { id: userId } = req.user as UserModel;
+    return await this.aggregationOpenApiService.getAggregation(tableId, {
+      ...query,
+      withUserId: userId,
+    });
   }
 
   @Get('/rowCount')
   @Permissions('table|read')
   async getRowCount(
+    @Req() req: Request,
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rowCountRoSchema), RecordPipe) query?: IRowCountRo
   ): Promise<IRowCountVo> {
-    return await this.aggregationOpenApiService.getRowCount(tableId, query);
+    const { id: userId } = req.user as UserModel;
+    return await this.aggregationOpenApiService.getRowCount(tableId, {
+      ...query,
+      withUserId: userId,
+    });
   }
 }

@@ -15,7 +15,6 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     const shouldLogStack = !('getStatus' in exception) || exception.getStatus?.() >= 500;
 
-    console.error('exception:', exception);
     this.logger.error(
       `[${request.url}]${exception.message}\n${shouldLogStack ? exception.stack : ''}`
     );

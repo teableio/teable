@@ -1,6 +1,7 @@
 import type { DynamicModule } from '@nestjs/common';
 import { Module, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { trace, context } from '@opentelemetry/api';
 import { ClsService } from 'nestjs-cls';
 import { LoggerModule as BaseLoggerModule } from 'nestjs-pino';
 import type { ILoggerConfig } from '../configs/logger.config';
@@ -29,6 +30,14 @@ export class LoggerModule {
             },
             transport:
               process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
+            formatters: {
+              log(object) {
+                const span = trace.getSpan(context.active());
+                if (!span) return { ...object };
+                const { traceId, spanId } = span.spanContext();
+                return { ...object, spanId, traceId };
+              },
+            },
           },
           exclude: [
             '_next/(.*)',
