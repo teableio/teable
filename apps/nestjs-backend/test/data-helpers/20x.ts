@@ -3,6 +3,7 @@ import { faker } from '@faker-js/faker';
 import {
   Colors,
   DateFormattingPreset,
+  DateUtil,
   FieldType,
   generateFieldId,
   NumberFormattingType,
@@ -68,9 +69,32 @@ const userField = {
   type: FieldType.User,
 };
 
-export const x_20 = {
-  fields: [textField, numberField, singleSelectField, dateField, checkboxField, userField],
+const multipleSelectField = {
+  id: generateFieldId(),
+  name: 'multipleSelect field',
+  description: 'the multipleSelect field',
+  type: FieldType.MultipleSelect,
+  options: {
+    choices: [
+      { id: 'choX', name: 'rap', color: Colors.Cyan },
+      { id: 'choY', name: 'rock', color: Colors.Blue },
+      { id: 'choZ', name: 'hiphop', color: Colors.Gray },
+    ],
+  },
+};
 
+export const x_20 = {
+  fields: [
+    textField,
+    numberField,
+    singleSelectField,
+    dateField,
+    checkboxField,
+    userField,
+    multipleSelectField,
+  ],
+
+  // actual number of items: 23
   records: [
     {
       fields: {},
@@ -80,6 +104,8 @@ export const x_20 = {
         [textField.name]: 'Text Field 0',
         [numberField.name]: 0,
         [dateField.name]: '2019-12-31T16:00:00.000Z',
+        [userField.name]: { id: 'usrTestUserId', title: 'e2e' },
+        [multipleSelectField.name]: ['rap', 'rock', 'hiphop'],
       },
     },
     {
@@ -87,6 +113,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 1',
         [numberField.name]: 1,
         [dateField.name]: faker.date.past({ years: 1 }).toISOString(),
+        [multipleSelectField.name]: ['rap', 'rock'],
       },
     },
     {
@@ -95,6 +122,7 @@ export const x_20 = {
         [numberField.name]: 2,
         [checkboxField.name]: true,
         [dateField.name]: '2023-11-28T16:00:00.000Z',
+        [multipleSelectField.name]: ['rap'],
       },
     },
     {
@@ -143,6 +171,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 8',
         [numberField.name]: 8,
         [singleSelectField.name]: 'x',
+        [dateField.name]: new DateUtil('utc', true).offsetDay(1),
       },
     },
     {
@@ -150,6 +179,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 9',
         [numberField.name]: 9,
         [singleSelectField.name]: 'x',
+        [dateField.name]: new DateUtil('utc', true).offsetDay(-1),
       },
     },
     {
@@ -157,6 +187,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 10',
         [numberField.name]: 10,
         [singleSelectField.name]: 'y',
+        [dateField.name]: new DateUtil('utc', true).offsetWeek(1),
       },
     },
     {
@@ -172,6 +203,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 12',
         [numberField.name]: 12,
         [checkboxField.name]: true,
+        [dateField.name]: new DateUtil('utc', true).offsetWeek(-1),
         [singleSelectField.name]: 'z',
       },
     },
@@ -180,6 +212,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 13',
         [numberField.name]: 13,
         [singleSelectField.name]: 'y',
+        [dateField.name]: new DateUtil('utc', true).offsetMonth(1),
       },
     },
     {
@@ -187,12 +220,14 @@ export const x_20 = {
         [textField.name]: 'Text Field 14',
         [numberField.name]: 14,
         [singleSelectField.name]: 'y',
+        [dateField.name]: new DateUtil('utc', true).offsetMonth(-1),
       },
     },
     {
       fields: {
         [textField.name]: 'Text Field 15',
         [numberField.name]: 15,
+        [multipleSelectField.name]: ['rock', 'hiphop'],
       },
     },
     {
@@ -205,18 +240,21 @@ export const x_20 = {
       fields: {
         [textField.name]: 'Text Field 17',
         [numberField.name]: 17,
+        [multipleSelectField.name]: ['rock'],
       },
     },
     {
       fields: {
         [textField.name]: 'Text Field 18',
         [numberField.name]: 18,
+        [multipleSelectField.name]: ['hiphop'],
       },
     },
     {
       fields: {
         [textField.name]: 'Text Field 19',
         [numberField.name]: 19,
+        [multipleSelectField.name]: ['rap', 'hiphop'],
       },
     },
     {
@@ -232,6 +270,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 10',
         [numberField.name]: 10,
         [dateField.name]: '2099-12-31T15:59:59.000Z',
+        [multipleSelectField.name]: ['rap', 'rock', 'hiphop'],
       },
     },
   ],

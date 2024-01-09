@@ -1,69 +1,62 @@
 import type { IFilterOperator, ILiteralValue } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../../features/field/model/factory';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`??::jsonb @> '[?]'::jsonb`, [field.dbFieldName, Number(value)]);
-    return queryBuilder;
+    builderClient.whereRaw(`??::jsonb @> '[?]'::jsonb`, [this.columnName, Number(value)]);
+    return builderClient;
   }
 
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`NOT COALESCE(??, '[]')::jsonb @> '[?]'::jsonb`, [
-      field.dbFieldName,
+    builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @> '[?]'::jsonb`, [
+      this.columnName,
       Number(value),
     ]);
-    return queryBuilder;
+    return builderClient;
   }
 
   isGreaterOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > ?)'`, [field.dbFieldName, Number(value)]);
-    return queryBuilder;
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > ?)'`, [this.columnName, Number(value)]);
+    return builderClient;
   }
 
   isGreaterEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= ?)'`, [field.dbFieldName, Number(value)]);
-    return queryBuilder;
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= ?)'`, [this.columnName, Number(value)]);
+    return builderClient;
   }
 
   isLessOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < ?)'`, [field.dbFieldName, Number(value)]);
-    return queryBuilder;
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < ?)'`, [this.columnName, Number(value)]);
+    return builderClient;
   }
 
   isLessEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= ?)'`, [field.dbFieldName, Number(value)]);
-    return queryBuilder;
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= ?)'`, [this.columnName, Number(value)]);
+    return builderClient;
   }
 }

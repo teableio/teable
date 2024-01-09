@@ -1,101 +1,107 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../../features/field/model/factory';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereRaw(
       `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [field.dbFieldName]
+      [this.columnName]
     );
-    return queryBuilder;
+    return builderClient;
   }
 
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereRaw(
       `NOT ??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [field.dbFieldName]
+      [this.columnName]
     );
-    return queryBuilder;
+    return builderClient;
   }
 
   isGreaterOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`, [
-      field.dbFieldName,
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`, [
+      this.columnName,
     ]);
-    return queryBuilder;
+    return builderClient;
   }
 
   isGreaterEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`, [
-      field.dbFieldName,
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`, [
+      this.columnName,
     ]);
-    return queryBuilder;
+    return builderClient;
   }
 
   isLessOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`, [
-      field.dbFieldName,
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`, [
+      this.columnName,
     ]);
-    return queryBuilder;
+    return builderClient;
   }
 
   isLessEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`, [
-      field.dbFieldName,
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`, [
+      this.columnName,
     ]);
-    return queryBuilder;
+    return builderClient;
   }
 
   isWithInOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereRaw(
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereRaw(
       `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [field.dbFieldName]
+      [this.columnName]
     );
-    return queryBuilder;
+    return builderClient;
   }
 }
