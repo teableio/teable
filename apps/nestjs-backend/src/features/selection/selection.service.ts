@@ -9,6 +9,7 @@ import type {
   IRecord,
   ISingleLineTextFieldOptions,
   IUpdateRecordsRo,
+  IUserFieldOptions,
 } from '@teable-group/core';
 import {
   CellValueType,
@@ -309,16 +310,37 @@ export class SelectionService {
     }
   }
 
+  private lookupOptionsRoToVo(field: IFieldVo): { type: FieldType; options: IFieldOptionsRo } {
+    const { type, isMultipleCellValue, options } = field;
+    if (type === FieldType.SingleSelect && isMultipleCellValue) {
+      return {
+        type: FieldType.MultipleSelect,
+        options,
+      };
+    }
+    if (type === FieldType.User && isMultipleCellValue) {
+      const userOptions = options as IUserFieldOptions;
+      return {
+        type,
+        options: {
+          ...userOptions,
+          isMultiple: true,
+        },
+      };
+    }
+    return { type, options };
+  }
+
   private fieldVoToRo(field?: IFieldVo): IFieldRo {
     if (!field) {
       return {
         type: FieldType.SingleLineText,
       };
     }
-    const { isComputed } = field;
+    const { isComputed, isLookup } = field;
     const baseField = pick(field, 'name', 'type', 'options', 'description');
 
-    if (isComputed) {
+    if (isComputed && !isLookup) {
       if ([FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)) {
         return {
           ...baseField,
@@ -329,6 +351,13 @@ export class SelectionService {
       return {
         ...baseField,
         ...this.optionsRoToVoByCvType(field.cellValueType, field.options),
+      };
+    }
+
+    if (isLookup) {
+      return {
+        ...baseField,
+        ...this.lookupOptionsRoToVo(field),
       };
     }
 

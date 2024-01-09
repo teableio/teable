@@ -14,6 +14,7 @@ import {
   SingleLineTextDisplayType,
   SingleNumberDisplayType,
   TIME_ZONE_LIST,
+  defaultUserFieldOptions,
   getPermissions,
   nullsToUndefined,
   SpaceRole,
@@ -786,14 +787,14 @@ describe('selectionService', () => {
 
       expect(createdByResult).toEqual({
         type: FieldType.User,
-        options: undefined,
+        options: defaultUserFieldOptions,
         name: '',
         description: '',
       });
 
       expect(lastModifiedByResult).toEqual({
         type: FieldType.User,
-        options: undefined,
+        options: defaultUserFieldOptions,
         name: '',
         description: '',
       });
@@ -908,6 +909,75 @@ describe('selectionService', () => {
       expect(optionsRoToVoByCvTypeMock).not.toHaveBeenCalled();
 
       optionsRoToVoByCvTypeMock.mockRestore();
+    });
+  });
+
+  describe('lookupOptionsRoToVo', () => {
+    it('should return MultipleSelect options for SingleSelect with isMultipleCellValue', () => {
+      const field: IFieldVo = {
+        type: FieldType.SingleSelect,
+        isMultipleCellValue: true,
+        options: {
+          choices: [],
+        },
+        id: '',
+        name: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const result = selectionService['lookupOptionsRoToVo'](field);
+
+      expect(result).toEqual({
+        type: FieldType.MultipleSelect,
+        options: field.options,
+      });
+    });
+
+    it('should return User options with isMultiple true for FieldType User with isMultipleCellValue', () => {
+      const field: IFieldVo = {
+        type: FieldType.User,
+        isMultipleCellValue: true,
+        options: {
+          isMultiple: false,
+          shouldNotify: false,
+        },
+        id: '',
+        name: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+      const result = selectionService['lookupOptionsRoToVo'](field);
+
+      expect(result).toEqual({
+        type: FieldType.User,
+        options: {
+          ...field.options,
+          isMultiple: true,
+        },
+      });
+    });
+
+    it('should return the same type and options for other cases', () => {
+      const field: IFieldVo = {
+        type: FieldType.SingleLineText,
+        isMultipleCellValue: false,
+        options: {},
+        id: '',
+        name: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const result = selectionService['lookupOptionsRoToVo'](field);
+
+      expect(result).toEqual({
+        type: field.type,
+        options: field.options,
+      });
     });
   });
 });
