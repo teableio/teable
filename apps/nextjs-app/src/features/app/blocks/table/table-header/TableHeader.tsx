@@ -1,12 +1,15 @@
 import { UserPlus } from '@teable-group/icons';
+import { useBase } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn';
 
+import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
 import { ViewList } from '../../view/list/ViewList';
 import { AddView } from './AddView';
 import { Collaborators } from './Collaborators';
 import { TableInfo } from './TableInfo';
 
 export const TableHeader: React.FC = () => {
+  const base = useBase();
   return (
     <div className="flex h-[42px] shrink-0 flex-row items-center gap-2 px-4">
       <TableInfo className="shrink-0 grow-0" />
@@ -14,9 +17,17 @@ export const TableHeader: React.FC = () => {
       <AddView />
       <div className="grow basis-0"></div>
       <Collaborators />
-      <Button variant="default" size="xs" className="hidden sm:flex">
-        <UserPlus className="h-4 w-4" /> Invite
-      </Button>
+      <SpaceCollaboratorModalTrigger
+        space={{
+          name: base.name,
+          role: base.role,
+          id: base.spaceId,
+        }}
+      >
+        <Button variant="default" size="xs" className="hidden sm:flex">
+          <UserPlus className="h-4 w-4" /> Invite
+        </Button>
+      </SpaceCollaboratorModalTrigger>
     </div>
   );
 };
