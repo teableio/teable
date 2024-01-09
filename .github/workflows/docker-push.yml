@@ -25,7 +25,7 @@ jobs:
           docker buildx build \
           --cache-from type=registry,ref=registry.cn-beijing.aliyuncs.com/bieber/teable:build-cache \
           --cache-to type=registry,ref=registry.cn-beijing.aliyuncs.com/bieber/teable:build-cache,mode=max \
-          --file Dockerfile \
+          --file dockers/teable/Dockerfile \
           --tag registry.cn-beijing.aliyuncs.com/bieber/teable:latest \
           --tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} \
           --push .
