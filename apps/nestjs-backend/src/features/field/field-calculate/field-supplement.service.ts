@@ -698,7 +698,9 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateUserField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
-    return merge({}, oldFieldVo, fieldRo);
+    const mergeObj = merge({}, oldFieldVo, fieldRo);
+
+    return this.prepareUserField(mergeObj);
   }
 
   private prepareUserField(field: IFieldRo) {

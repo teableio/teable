@@ -3,6 +3,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { ICreateTableRo } from '@teable-group/core';
 import { FieldType, ViewType } from '@teable-group/core';
+import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import {
   createRecords,
@@ -104,7 +105,7 @@ describe('OpenAPI FieldController (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    dbProvider = app.get('DbProvider');
+    dbProvider = app.get(DB_PROVIDER_SYMBOL);
   });
 
   afterAll(async () => {
