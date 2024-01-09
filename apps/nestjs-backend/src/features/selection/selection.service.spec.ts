@@ -648,7 +648,6 @@ describe('selectionService', () => {
         tableId,
         viewId,
         clearRo.ranges,
-        undefined,
         undefined
       );
       expect(selectionService['fillCells']).toHaveBeenCalledWith({
