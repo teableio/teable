@@ -15,11 +15,8 @@ import { AggregationService } from '../aggregation.service';
 export class AggregationOpenApiService {
   constructor(private readonly aggregationService: AggregationService) {}
 
-  async getAggregation(
-    tableId: string,
-    query?: IAggregationRo & { withUserId?: string }
-  ): Promise<IAggregationVo> {
-    const { viewId, filter: customFilter, field: aggregationFields, withUserId } = query || {};
+  async getAggregation(tableId: string, query?: IAggregationRo): Promise<IAggregationVo> {
+    const { viewId, filter: customFilter, field: aggregationFields } = query || {};
 
     let withView: IWithView = { viewId, customFilter };
 
@@ -42,24 +39,18 @@ export class AggregationOpenApiService {
     const result = await this.aggregationService.performAggregation({
       tableId: tableId,
       withView,
-      withUserId,
     });
     return { aggregations: result?.aggregations };
   }
 
-  async getRowCount(
-    tableId: string,
-    query?: IRowCountRo & { withUserId?: string }
-  ): Promise<IRowCountVo> {
-    const { viewId, filter, filterLinkCellCandidate, filterLinkCellSelected, withUserId } =
-      query || {};
+  async getRowCount(tableId: string, query?: IRowCountRo): Promise<IRowCountVo> {
+    const { viewId, filter, filterLinkCellCandidate, filterLinkCellSelected } = query || {};
 
     const result = await this.aggregationService.performRowCount({
       tableId,
       filterLinkCellCandidate,
       filterLinkCellSelected,
       withView: { viewId, customFilter: filter },
-      withUserId,
     });
     return {
       rowCount: result.rowCount,

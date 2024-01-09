@@ -215,7 +215,6 @@ export class TableService implements IAdapterService {
     baseId: string,
     tableId: string,
     viewId?: string,
-    queryUserId?: string,
     fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ITableFullVo> {
     const tableMeta = await this.getTableMeta(baseId, tableId);
@@ -226,7 +225,6 @@ export class TableService implements IAdapterService {
       skip: 0,
       take: 50,
       fieldKeyType,
-      queryUserId,
     });
 
     return {

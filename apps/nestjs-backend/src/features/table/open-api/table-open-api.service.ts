@@ -116,20 +116,10 @@ export class TableOpenApiService {
     return await this.tableService.createTable(baseId, tableRo);
   }
 
-  async getTable(
-    baseId: string,
-    tableId: string,
-    query: IGetTableQuery & { queryUserId?: string }
-  ): Promise<ITableVo> {
-    const { viewId, fieldKeyType, includeContent, queryUserId } = query;
+  async getTable(baseId: string, tableId: string, query: IGetTableQuery): Promise<ITableVo> {
+    const { viewId, fieldKeyType, includeContent } = query;
     if (includeContent) {
-      return await this.tableService.getFullTable(
-        baseId,
-        tableId,
-        viewId,
-        queryUserId,
-        fieldKeyType
-      );
+      return await this.tableService.getFullTable(baseId, tableId, viewId, fieldKeyType);
     }
     return await this.tableService.getTableMeta(baseId, tableId);
   }
@@ -190,11 +180,10 @@ export class TableOpenApiService {
     );
   }
 
-  async sqlQuery(tableId: string, viewId: string, sql: string, queryUserId?: string) {
+  async sqlQuery(tableId: string, viewId: string, sql: string) {
     this.logger.log('sqlQuery:sql: ' + sql);
     const { queryBuilder } = await this.recordService.buildFilterSortQuery(tableId, {
       viewId,
-      queryUserId,
     });
 
     const baseQuery = queryBuilder.toString();

@@ -413,22 +413,37 @@ export class RecordService implements IAdapterService {
     };
   }
 
+  /**
+   * Builds a query based on filtering and sorting criteria.
+   *
+   * This method creates a `Knex` query builder that constructs SQL queries based on the provided
+   * filtering and sorting parameters. It also takes into account the context of the current user,
+   * which is crucial for ensuring the security and relevance of data access.
+   *
+   * @param {string} tableId - The unique identifier of the table to determine the target of the query.
+   * @param {Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>} query - An object of query parameters, including view ID, sorting rules, filtering conditions, etc.
+   * @returns {Promise<Knex.QueryBuilder>} Returns an instance of the Knex query builder encapsulating the constructed SQL query.
+   */
   async buildFilterSortQuery(
     tableId: string,
-    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'> & {
-      queryUserId?: string;
-    }
+    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>
   ): Promise<Knex.QueryBuilder> {
+    // Prepare the base query builder, filtering conditions, sorting rules, and field mapping
     const { queryBuilder, filter, orderBy, fieldMap } = await this.prepareQuery(tableId, query);
+
+    // Retrieve the current user's ID to build user-related query conditions
+    const currentUserId = this.cls.get('user.id');
 
     if (query.filterLinkCellCandidate) {
       await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
     }
 
-    // All `where` condition-related construction work
+    // Add filtering conditions to the query builder
     this.dbProvider
-      .filterQuery(queryBuilder, fieldMap, filter, { withUserId: query.queryUserId })
+      .filterQuery(queryBuilder, fieldMap, filter, { withUserId: currentUserId })
       .appendQueryBuilder();
+
+    // Add sorting rules to the query builder
     this.dbProvider.sortQuery(queryBuilder, fieldMap, orderBy).appendSortBuilder();
 
     // view sorting added by default
@@ -529,10 +544,7 @@ export class RecordService implements IAdapterService {
     }, []);
   }
 
-  async getRecords(
-    tableId: string,
-    query: IGetRecordsQuery & { queryUserId?: string }
-  ): Promise<IRecordsVo> {
+  async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
     const defaultView = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true, filter: true, sort: true },
       where: {
@@ -552,7 +564,6 @@ export class RecordService implements IAdapterService {
       orderBy: query.orderBy,
       filterLinkCellCandidate: query.filterLinkCellCandidate,
       filterLinkCellSelected: query.filterLinkCellSelected,
-      queryUserId: query.queryUserId,
     });
 
     const recordSnapshot = await this.getSnapshotBulk(
@@ -970,7 +981,7 @@ export class RecordService implements IAdapterService {
 
   async getDocIdsByQuery(
     tableId: string,
-    query: IGetRecordsQuery & { queryUserId?: string }
+    query: IGetRecordsQuery
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const viewId = await this.shareWithViewId(tableId, query.viewId);
 
@@ -1008,7 +1019,7 @@ export class RecordService implements IAdapterService {
 
   async getRecordsFields(
     tableId: string,
-    query: IMakeRequired<IGetRecordsQuery, 'viewId'> & { queryUserId?: string }
+    query: IMakeRequired<IGetRecordsQuery, 'viewId'>
   ): Promise<Pick<IRecord, 'id' | 'fields'>[]> {
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
@@ -1023,7 +1034,6 @@ export class RecordService implements IAdapterService {
       viewId: viewId,
       filter,
       orderBy,
-      queryUserId: query.queryUserId,
     });
     queryBuilder.select(fieldNames.concat('__id'));
     queryBuilder.offset(skip);

@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
   getTableQuerySchema,
@@ -7,14 +7,12 @@ import {
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
-import type { User as UserModel } from '@teable-group/db-main-prisma';
 import {
+  getGraphRoSchema,
   IGetGraphRo,
   ISqlQuerySchema,
-  getGraphRoSchema,
   sqlQuerySchema,
 } from '@teable-group/openapi';
-import { Request } from 'express';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -39,13 +37,11 @@ export class TableController {
   @Permissions('table|read')
   @Get(':tableId')
   async getTable(
-    @Req() req: Request,
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getTableQuerySchema)) query: IGetTableQuery
   ): Promise<ITableVo> {
-    const { id: queryUserId } = req.user as UserModel;
-    return await this.tableOpenApiService.getTable(baseId, tableId, { ...query, queryUserId });
+    return await this.tableOpenApiService.getTable(baseId, tableId, query);
   }
 
   @Permissions('table|read')
@@ -87,11 +83,9 @@ export class TableController {
   @Permissions('table|read')
   @Post(':tableId/sqlQuery')
   async sqlQuery(
-    @Req() req: Request,
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(sqlQuerySchema)) query: ISqlQuerySchema
   ) {
-    const { id: queryUserId } = req.user as UserModel;
-    return await this.tableOpenApiService.sqlQuery(tableId, query.viewId, query.sql, queryUserId);
+    return await this.tableOpenApiService.sqlQuery(tableId, query.viewId, query.sql);
   }
 }

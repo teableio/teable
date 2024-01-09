@@ -20,8 +20,10 @@ import dayjs from 'dayjs';
 import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IClsStore } from '../../types/cls';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
@@ -51,16 +53,18 @@ export class AggregationService {
     private readonly recordService: RecordService,
     private readonly prisma: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async performAggregation(params: {
     tableId: string;
     withFieldIds?: string[];
     withView?: IWithView;
-    withUserId?: string;
   }): Promise<IRawAggregationValue> {
-    const { tableId, withFieldIds, withView, withUserId } = params;
+    const { tableId, withFieldIds, withView } = params;
+    // Retrieve the current user's ID to build user-related query conditions
+    const currentUserId = this.cls.get('user.id');
 
     const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
       tableId,
@@ -77,7 +81,7 @@ export class AggregationService {
       fieldInstanceMap,
       filter,
       statisticFields,
-      withUserId,
+      withUserId: currentUserId,
     });
 
     const aggregationResult = rawAggregationData && rawAggregationData[0];
@@ -105,10 +109,10 @@ export class AggregationService {
     filterLinkCellCandidate?: IGetRecordsQuery['filterLinkCellCandidate'];
     filterLinkCellSelected?: IGetRecordsQuery['filterLinkCellSelected'];
     withView?: IWithView;
-    withUserId?: string;
   }): Promise<IRawRowCountValue> {
-    const { tableId, filterLinkCellCandidate, filterLinkCellSelected, withView, withUserId } =
-      params;
+    const { tableId, filterLinkCellCandidate, filterLinkCellSelected, withView } = params;
+    // Retrieve the current user's ID to build user-related query conditions
+    const currentUserId = this.cls.get('user.id');
 
     const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
       tableId,
@@ -131,7 +135,7 @@ export class AggregationService {
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
-      withUserId,
+      withUserId: currentUserId,
     });
     return {
       rowCount: Number(rawRowCountData[0]?.count ?? 0),

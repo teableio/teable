@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation, IRecord } from '@teable-group/core';
 import {
   FieldOpBuilder,
@@ -32,6 +32,8 @@ type IProjection = { [fieldNameOrId: string]: boolean };
 
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
+  private logger = new Logger(ShareDbAdapter.name);
+
   closed: boolean;
 
   constructor(
@@ -69,38 +71,29 @@ export class ShareDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (err: any, snapshots: Snapshot[], extra?: any) => void
   ) => {
-    // console.log(`query: ${collection} ${JSON.stringify(query)}`);
-    const userId = this.cls.get('user.id');
-
-    this.queryPoll(
-      collection,
-      { ...(query ?? {}), queryUserId: userId },
-      options,
-      (error, results, extra) => {
-        // console.log('query pull result: ', ids);
-        if (error) {
-          return callback(error, []);
-        }
-        if (!results.length) {
-          return callback(undefined, []);
-        }
-
-        this.getSnapshotBulk(
-          collection,
-          results as string[],
-          projection,
-          undefined,
-          (error, snapshots) => {
-            callback(
-              error,
-              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-              results.map((id) => snapshots![id]),
-              extra
-            );
-          }
-        );
+    this.queryPoll(collection, query, options, (error, results, extra) => {
+      if (error) {
+        return callback(error, []);
       }
-    );
+      if (!results.length) {
+        return callback(undefined, []);
+      }
+
+      this.getSnapshotBulk(
+        collection,
+        results as string[],
+        projection,
+        undefined,
+        (error, snapshots) => {
+          callback(
+            error,
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            results.map((id) => snapshots![id]),
+            extra
+          );
+        }
+      );
+    });
   };
 
   async queryPoll(
@@ -111,14 +104,12 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: ShareDb.Error | null, ids: string[], extra?: any) => void
   ) {
     try {
-      const userId = this.cls.get('user.id');
       const [docType, collectionId] = collection.split('_');
 
       const queryResult = await this.getService(docType as IdPrefix).getDocIdsByQuery(
         collectionId,
-        { ...(query ?? {}), queryUserId: userId }
+        query
       );
-      // console.log('queryPollResult:', collection, ids);
       callback(null, queryResult.ids, queryResult.extra);
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -213,7 +204,6 @@ export class ShareDbAdapter extends ShareDb.DB {
      * }
      * snapshot: PostgresSnapshot
      */
-    // console.log('commit', collection, id, options, rawOp.op);
 
     const [docType, collectionId] = collection.split('_');
 
@@ -227,7 +217,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         const maxVersion = opsResult._max.version == null ? 0 : opsResult._max.version + 1;
 
         if (rawOp.v !== maxVersion) {
-          console.log('crashed', rawOp.op);
+          this.logger.log({ message: 'op crashed', crashed: rawOp.op });
           throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
         }
 
@@ -281,7 +271,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: unknown,
     callback: (err: ShareDb.Error | null, data?: Record<string, Snapshot>) => void
   ) {
-    // console.log('getSnapshotBulk:', { options, collection, ids });
     try {
       const [docType, collectionId] = collection.split('_');
 
@@ -320,7 +309,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: unknown,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-    // console.log('getSnapshot:', { options, collection });
     this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
       if (err) {
         callback(err);
@@ -349,7 +337,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
-      // console.log('getOps:', { options, collection });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
       const nativeSql = this.knex('ops')
