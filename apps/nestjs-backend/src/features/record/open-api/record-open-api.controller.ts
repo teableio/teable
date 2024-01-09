@@ -13,14 +13,14 @@ import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
 import {
   createRecordsRoSchema,
   getRecordQuerySchema,
-  updateRecordByIndexRoSchema,
-  updateRecordRoSchema,
   getRecordsQuerySchema,
-  IGetRecordsQuery,
-  IGetRecordQuery,
   ICreateRecordsRo,
+  IGetRecordQuery,
+  IGetRecordsQuery,
   IUpdateRecordByIndexRo,
   IUpdateRecordRo,
+  updateRecordByIndexRoSchema,
+  updateRecordRoSchema,
 } from '@teable-group/core';
 import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';

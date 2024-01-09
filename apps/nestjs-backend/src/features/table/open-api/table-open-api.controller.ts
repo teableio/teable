@@ -8,9 +8,9 @@ import {
   tableRoSchema,
 } from '@teable-group/core';
 import {
+  getGraphRoSchema,
   IGetGraphRo,
   ISqlQuerySchema,
-  getGraphRoSchema,
   sqlQuerySchema,
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';

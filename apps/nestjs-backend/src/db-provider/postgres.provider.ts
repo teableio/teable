@@ -1,14 +1,21 @@
 import { Logger } from '@nestjs/common';
-import type { IFilter } from '@teable-group/core';
+import type { IAggregationField, IFilter, ISortItem } from '@teable-group/core';
 import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
-import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
-import { AggregationFunctionPostgres } from './aggregation/aggregation-function.postgres';
-import type { IDbProvider } from './db.provider.interface';
+import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
+import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
+import type {
+  IAggregationQueryExtra,
+  IDbProvider,
+  IFilterQueryExtra,
+  ISortQueryExtra,
+} from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
+import type { ISortQueryInterface } from './sort-query/sort-query.interface';
+import { SortQueryPostgres } from './sort-query/sort-query.postgres';
 
 export class PostgresProvider implements IDbProvider {
   private readonly logger = new Logger(PostgresProvider.name);
@@ -117,15 +124,38 @@ export class PostgresProvider implements IDbProvider {
     return { insertTempTableSql, updateRecordSql };
   }
 
-  aggregationFunction(dbTableName: string, field: IFieldInstance): IAggregationFunctionInterface {
-    return new AggregationFunctionPostgres(this.knex, dbTableName, field);
+  aggregationQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    fields?: { [fieldId: string]: IFieldInstance },
+    aggregationFields?: IAggregationField[],
+    extra?: IAggregationQueryExtra
+  ): IAggregationQueryInterface {
+    return new AggregationQueryPostgres(
+      this.knex,
+      originQueryBuilder,
+      dbTableName,
+      fields,
+      aggregationFields,
+      extra
+    );
   }
 
   filterQuery(
     originQueryBuilder: Knex.QueryBuilder,
-    fields?: { [p: string]: IFieldInstance },
-    filter?: IFilter | null
+    fields?: { [fieldId: string]: IFieldInstance },
+    filter?: IFilter,
+    extra?: IFilterQueryExtra
   ): IFilterQueryInterface {
-    return new FilterQueryPostgres(originQueryBuilder, fields, filter);
+    return new FilterQueryPostgres(originQueryBuilder, fields, filter, extra);
+  }
+
+  sortQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fields?: { [fieldId: string]: IFieldInstance },
+    sortObjs?: ISortItem[],
+    extra?: ISortQueryExtra
+  ): ISortQueryInterface {
+    return new SortQueryPostgres(this.knex, originQueryBuilder, fields, sortObjs, extra);
   }
 }

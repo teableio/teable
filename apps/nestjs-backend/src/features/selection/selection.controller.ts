@@ -1,14 +1,14 @@
 import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import type { ICopyVo, IRangesToIdVo, PasteVo } from '@teable-group/openapi';
 import {
-  IRangesToIdRo,
-  rangesToIdRoSchema,
   ClearRo,
   clearRoSchema,
   ICopyRo,
-  rangesSchema,
+  IRangesToIdRo,
   PasteRo,
   pasteRoSchema,
+  rangesSchema,
+  rangesToIdRoSchema,
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';

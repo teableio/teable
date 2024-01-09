@@ -36,7 +36,10 @@ export class AggregationOpenApiService {
       withView = { ...withView, customFieldStats: validFieldStats };
     }
 
-    const result = await this.aggregationService.performAggregation({ tableId: tableId, withView });
+    const result = await this.aggregationService.performAggregation({
+      tableId: tableId,
+      withView,
+    });
     return { aggregations: result?.aggregations };
   }
 

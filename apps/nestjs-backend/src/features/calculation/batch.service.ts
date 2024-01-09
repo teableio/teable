@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -8,6 +8,7 @@ import { groupBy, isEmpty, keyBy, merge } from 'lodash';
 import { customAlphabet } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
@@ -15,7 +16,7 @@ import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
-import { SchemaType, dbType2knexFormat } from '../field/util';
+import { dbType2knexFormat, SchemaType } from '../field/util';
 import { IOpsMap } from './reference.service';
 
 export interface IOpsData {
@@ -34,7 +35,7 @@ export class BatchService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @Inject('DbProvider') private dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   private async completeMissingCtx(

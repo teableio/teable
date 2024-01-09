@@ -67,6 +67,13 @@ export const rowCountVoSchema = rawRowCountValueSchema;
 
 export type IRowCountVo = z.infer<typeof rowCountVoSchema>;
 
+export const aggregationFieldSchema = z.object({
+  fieldId: z.string(),
+  statisticFunc: z.nativeEnum(StatisticsFunc),
+});
+
+export type IAggregationField = z.infer<typeof aggregationFieldSchema>;
+
 export const aggregationRoSchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
     description: 'The id of the view.',

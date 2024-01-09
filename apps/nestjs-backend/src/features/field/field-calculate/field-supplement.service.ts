@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   IFieldRo,
   IFieldVo,
@@ -14,31 +14,31 @@ import type {
   IUserFieldOptions,
 } from '@teable-group/core';
 import {
-  ColorUtils,
-  generateChoiceId,
-  getFormattingSchema,
-  getShowAsSchema,
+  assertNever,
+  AttachmentFieldCore,
+  AutoNumberFieldCore,
   CellValueType,
-  getDefaultFormatting,
+  CheckboxFieldCore,
+  ColorUtils,
+  CreatedTimeFieldCore,
+  DateFieldCore,
+  DbFieldType,
   FieldType,
+  generateChoiceId,
   generateFieldId,
+  getDefaultFormatting,
+  getFormattingSchema,
+  getRandomString,
+  getShowAsSchema,
+  isMultiValueLink,
+  LastModifiedTimeFieldCore,
+  LongTextFieldCore,
+  NumberFieldCore,
+  RatingFieldCore,
   Relationship,
   RelationshipRevert,
-  DbFieldType,
-  assertNever,
-  SingleLineTextFieldCore,
-  NumberFieldCore,
   SelectFieldCore,
-  AttachmentFieldCore,
-  DateFieldCore,
-  CheckboxFieldCore,
-  RatingFieldCore,
-  LongTextFieldCore,
-  CreatedTimeFieldCore,
-  AutoNumberFieldCore,
-  LastModifiedTimeFieldCore,
-  isMultiValueLink,
-  getRandomString,
+  SingleLineTextFieldCore,
   UserFieldCore,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -47,12 +47,13 @@ import { keyBy, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
-import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import type { IFieldInstance } from '../model/factory';
+import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
@@ -63,7 +64,7 @@ export class FieldSupplementService {
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
     private readonly referenceService: ReferenceService,
-    @Inject('DbProvider') private dbProvider: IDbProvider,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -697,7 +698,9 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateUserField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
-    return merge({}, oldFieldVo, fieldRo);
+    const mergeObj = merge({}, oldFieldVo, fieldRo);
+
+    return this.prepareUserField(mergeObj);
   }
 
   private prepareUserField(field: IFieldRo) {

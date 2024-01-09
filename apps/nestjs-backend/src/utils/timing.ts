@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/naming-convention */
 import { Logger } from '@nestjs/common';
+import { Span } from '../tracing/decorators/span';
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
 export function Timing(customLoggerKey?: string): MethodDecorator {
   const logger = new Logger('Timing');
   return (
@@ -10,6 +11,9 @@ export function Timing(customLoggerKey?: string): MethodDecorator {
     propertyKey: string | symbol,
     descriptor: TypedPropertyDescriptor<any>
   ) => {
+    // Enhancements to the current decorator can be reported to the link tracking system
+    Span()(target, propertyKey, descriptor);
+
     const originalMethod = descriptor.value;
     descriptor.value = function (...args: any[]) {
       const start = process.hrtime.bigint();

@@ -32,7 +32,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.3.0",
+    "@asteasolutions/zod-to-openapi": "6.3.1",
     "@soluble/dsn-parser": "1.9.2",
     "@types/color": "3.0.6",
     "antlr4ts": "0.5.0-alpha.4",
@@ -60,7 +60,7 @@
     "rimraf": "5.0.5",
     "size-limit": "11.0.1",
     "typescript": "5.3.3",
-    "vite-tsconfig-paths": "4.2.2",
+    "vite-tsconfig-paths": "4.2.3",
     "vitest": "1.1.0"
   }
 }

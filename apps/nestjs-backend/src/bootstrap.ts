@@ -19,6 +19,8 @@ import { RedocModule } from 'nestjs-redoc';
 import { AppModule } from './app.module';
 import type { ISecurityWebConfig, ISwaggerConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
+import otelSDK from './tracing';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const module: any;
 
@@ -62,6 +64,8 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 }
 
 export async function bootstrap() {
+  otelSDK.start();
+
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const configService = app.get(ConfigService);
 

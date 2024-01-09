@@ -1,10 +1,10 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import type { IAggregationVo, IRowCountVo } from '@teable-group/core';
 import {
-  IAggregationRo,
   aggregationRoSchema,
-  rowCountRoSchema,
+  IAggregationRo,
   IRowCountRo,
+  rowCountRoSchema,
 } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';

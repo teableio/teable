@@ -20,6 +20,7 @@ import { IdReturnType, RangeType } from '@teable-group/openapi';
 import { isNumber, isString, map, omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { AggregationService } from '../aggregation/aggregation.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
@@ -33,14 +34,15 @@ import { RecordService } from '../record/record.service';
 @Injectable()
 export class SelectionService {
   constructor(
-    private recordService: RecordService,
-    private fieldService: FieldService,
-    private prismaService: PrismaService,
-    private recordOpenApiService: RecordOpenApiService,
-    private fieldCreatingService: FieldCreatingService,
-    private fieldSupplementService: FieldSupplementService,
+    private readonly recordService: RecordService,
+    private readonly fieldService: FieldService,
+    private readonly prismaService: PrismaService,
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly fieldCreatingService: FieldCreatingService,
+    private readonly fieldSupplementService: FieldSupplementService,
     private readonly collaboratorService: CollaboratorService,
-    private cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly aggregationService: AggregationService
   ) {}
 
   async getIdsFromRanges(
@@ -498,7 +500,10 @@ export class SelectionService {
   async paste(tableId: string, viewId: string, pasteRo: PasteRo) {
     const { range, type, content, header = [] } = pasteRo;
 
-    const rowCountInView = await this.recordService.getRowCount(tableId, viewId);
+    const { rowCount: rowCountInView } = await this.aggregationService.performRowCount({
+      tableId,
+      withView: { viewId },
+    });
     const fields = await this.fieldService.getFieldInstances(tableId, {
       viewId,
       filterHidden: true,
