@@ -21,8 +21,9 @@ jobs:
 
       - name: Build and push Docker image
         run: |
+          # --platform linux/amd64,linux/arm64
           docker buildx build \
-          --cache-from type=registry,registry.cn-beijing.aliyuncs.com/bieber/teable:build-cache \
+          --cache-from type=registry,ref=registry.cn-beijing.aliyuncs.com/bieber/teable:build-cache \
           --cache-to type=registry,ref=registry.cn-beijing.aliyuncs.com/bieber/teable:build-cache,mode=max \
           --file Dockerfile \
           --tag registry.cn-beijing.aliyuncs.com/bieber/teable:latest \
