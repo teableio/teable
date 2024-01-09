@@ -1,7 +1,7 @@
 name: Build and Push to Alibaba Cloud Registry
 
 on:
-  pull_request:
+  push:
     branches:
       - develop
 
