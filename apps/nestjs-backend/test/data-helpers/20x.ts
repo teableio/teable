@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { faker } from '@faker-js/faker';
 import {
   Colors,
   DateFormattingPreset,
@@ -112,7 +111,6 @@ export const x_20 = {
       fields: {
         [textField.name]: 'Text Field 1',
         [numberField.name]: 1,
-        [dateField.name]: faker.date.past({ years: 1 }).toISOString(),
         [multipleSelectField.name]: ['rap', 'rock'],
       },
     },
@@ -121,7 +119,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 2',
         [numberField.name]: 2,
         [checkboxField.name]: true,
-        [dateField.name]: '2023-11-28T16:00:00.000Z',
+        [dateField.name]: '2022-11-28T16:00:00.000Z',
         [multipleSelectField.name]: ['rap'],
       },
     },
@@ -130,7 +128,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 3',
         [numberField.name]: 3,
         [singleSelectField.name]: 'x',
-        [dateField.name]: '2023-01-27T16:00:00.000Z',
+        [dateField.name]: '2022-01-27T16:00:00.000Z',
       },
     },
     {
@@ -138,7 +136,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 4',
         [numberField.name]: 4,
         [singleSelectField.name]: 'x',
-        [dateField.name]: '2023-02-28T16:00:00.000Z',
+        [dateField.name]: '2022-02-28T16:00:00.000Z',
       },
     },
     {
@@ -146,7 +144,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 5',
         [numberField.name]: 5,
         [singleSelectField.name]: 'x',
-        [dateField.name]: '2023-03-01T16:00:00.000Z',
+        [dateField.name]: '2022-03-01T16:00:00.000Z',
       },
     },
     {
@@ -155,7 +153,7 @@ export const x_20 = {
         [numberField.name]: 6,
         [checkboxField.name]: true,
         [singleSelectField.name]: 'x',
-        [dateField.name]: '2023-03-11T16:00:00.000Z',
+        [dateField.name]: '2022-03-11T16:00:00.000Z',
       },
     },
     {
@@ -163,7 +161,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 7',
         [numberField.name]: 7,
         [singleSelectField.name]: 'x',
-        [dateField.name]: '2023-05-08T16:00:00.000Z',
+        [dateField.name]: '2022-05-08T16:00:00.000Z',
       },
     },
     {
@@ -195,7 +193,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 11',
         [numberField.name]: 11,
         [singleSelectField.name]: 'z',
-        [dateField.name]: faker.date.future({ years: 1 }).toISOString(),
+        [dateField.name]: new DateUtil('utc', true).offsetWeek(-1),
       },
     },
     {
@@ -203,8 +201,8 @@ export const x_20 = {
         [textField.name]: 'Text Field 12',
         [numberField.name]: 12,
         [checkboxField.name]: true,
-        [dateField.name]: new DateUtil('utc', true).offsetWeek(-1),
         [singleSelectField.name]: 'z',
+        [dateField.name]: new DateUtil('utc', true).offsetMonth(1),
       },
     },
     {
@@ -212,7 +210,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 13',
         [numberField.name]: 13,
         [singleSelectField.name]: 'y',
-        [dateField.name]: new DateUtil('utc', true).offsetMonth(1),
+        [dateField.name]: new DateUtil('utc', true).offsetMonth(-1),
       },
     },
     {
@@ -220,7 +218,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 14',
         [numberField.name]: 14,
         [singleSelectField.name]: 'y',
-        [dateField.name]: new DateUtil('utc', true).offsetMonth(-1),
+        [dateField.name]: new DateUtil('utc', true).offset('year', 1),
       },
     },
     {
@@ -228,6 +226,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 15',
         [numberField.name]: 15,
         [multipleSelectField.name]: ['rock', 'hiphop'],
+        [dateField.name]: new DateUtil('utc', true).offset('year', -1),
       },
     },
     {

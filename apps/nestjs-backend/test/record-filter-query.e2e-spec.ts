@@ -212,6 +212,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
   describe('simple filter date field record', () => {
     let table: ITableFullVo;
     beforeAll(async () => {
+      vi.setSystemTime(new Date());
       table = await createTable(baseId, {
         name: 'record_query_x_20',
         fields: x_20.fields,

@@ -37,7 +37,7 @@ export const IS_WITH_IN_SETS = [
       mode: pastYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 11,
+    expectResultLength: 5,
   },
   {
     fieldIndex: 3,
@@ -64,7 +64,7 @@ export const IS_WITH_IN_SETS = [
       mode: nextYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 5,
+    expectResultLength: 4,
   },
   {
     fieldIndex: 3,
