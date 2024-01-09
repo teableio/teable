@@ -36,7 +36,6 @@
     }
   },
   "filter": {
-    "description": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
     "addCondition": "Add condition",
     "addConditionGroup": "Add condition group",
     "linkInputPlaceholder": "Enter a value",

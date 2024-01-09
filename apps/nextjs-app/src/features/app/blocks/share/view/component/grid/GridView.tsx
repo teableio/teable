@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-html-link-for-pages */
 import { TeableNew } from '@teable-group/icons';
 import { ActionTriggerProvider, RecordProvider } from '@teable-group/sdk/context';
 import { useIsHydrated, useView } from '@teable-group/sdk/hooks';
@@ -19,11 +20,11 @@ export const GridView = () => {
   return (
     <div className="flex h-full w-full flex-col px-3 pb-3">
       <div className="flex w-full justify-between py-3">
-        <h1 className="text-2xl font-semibold">{view?.name}</h1>
-        <div className="flex items-center">
+        <h1 className="text-lg font-semibold">{view?.name}</h1>
+        <a href="/" className="flex items-center">
           <TeableNew className="text-2xl text-black" />
-          <p className="ml-1 text-2xl font-semibold">Teable</p>
-        </div>
+          <p className="ml-1 font-semibold">Teable</p>
+        </a>
       </div>
       <div className="flex w-full grow flex-col overflow-hidden rounded border shadow-md">
         <Toolbar />

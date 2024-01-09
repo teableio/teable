@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable-group/core';
-import { MoreHorizontal } from '@teable-group/icons';
+import { MoreHorizontal, UserPlus } from '@teable-group/icons';
 import type { IGetSpaceVo } from '@teable-group/openapi';
 import { createBase } from '@teable-group/openapi';
 import type { ButtonProps } from '@teable-group/ui-lib';
@@ -41,7 +41,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
       )}
       <SpaceCollaboratorModalTrigger space={space}>
         <Button variant={'outline'} size={buttonSize} disabled={createBaseLoading}>
-          Share
+          <UserPlus className="h-4 w-4" /> Invite
         </Button>
       </SpaceCollaboratorModalTrigger>
       <SpaceActionTrigger

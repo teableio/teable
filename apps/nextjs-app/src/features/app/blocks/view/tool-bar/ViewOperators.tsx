@@ -5,9 +5,12 @@ import {
   PaintBucket,
   Filter as FilterIcon,
   EyeOff,
+  Share2,
 } from '@teable-group/icons';
 import { Filter, HideFields, RowHeight, useFields, Sort } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
+import { useTranslation } from 'react-i18next';
+import { viewConfig } from '@/features/i18n/view.config';
 import { useToolbarChange } from '../hooks/useToolbarChange';
 import { ToolBarButton } from './ToolBarButton';
 
@@ -17,7 +20,7 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const fields = useFields();
 
   const { onFilterChange, onRowHeightChange, onSortChange } = useToolbarChange();
-
+  const { t } = useTranslation(viewConfig.i18nNamespaces);
   if (!view || !fields.length) {
     return <div></div>;
   }
@@ -31,7 +34,18 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </HideFields>
-      <Filter filters={view?.filter || null} onChange={onFilterChange}>
+      <Filter
+        filters={view?.filter || null}
+        onChange={onFilterChange}
+        contentHeader={
+          view.enableShare && (
+            <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
+              <Share2 className="mr-4 h-4 w-4 shrink-0" />
+              <span className="text-muted-foreground">{t('view:toolbar.viewFilterInShare')}</span>
+            </div>
+          )
+        }
+      >
         {(text, isActive) => (
           <ToolBarButton disabled={disabled} isActive={isActive} text={text} className="max-w-xs">
             <FilterIcon className="h-4 w-4 text-sm" />
