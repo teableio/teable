@@ -1,7 +1,7 @@
 name: Build and Push to Alibaba Cloud Registry
 
 on:
-  push:
+  pull_request:
     branches:
       - develop
 
@@ -11,19 +11,20 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Alibaba Cloud Docker Registry
         run: docker login --username=${{ secrets.ALI_DOCKER_USERNAME }} registry.cn-beijing.aliyuncs.com --password=${{ secrets.ALI_DOCKER_PASSWORD }}
 
       - name: Build and push Docker image
         run: |
-          docker build -t registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} -f dockers/teable/Dockerfile .
-          docker push registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA}
-          # Tag the built image with 'latest' label
-          docker tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} registry.cn-beijing.aliyuncs.com/bieber/teable:latest
-          # Push the 'latest' tagged image
-          docker push registry.cn-beijing.aliyuncs.com/bieber/teable:latest
+          docker buildx build \
+          --cache-from type=registry,registry.cn-beijing.aliyuncs.com/bieber/teable:build-cache \
+          --cache-to type=registry,ref=registry.cn-beijing.aliyuncs.com/bieber/teable:build-cache,mode=max \
+          --file Dockerfile \
+          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:latest \
+          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} \
+          --push .

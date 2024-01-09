@@ -6,6 +6,6 @@ export class SingleValueAggregationAdapter extends AggregationFunctionSqlite {
   }
 
   dateRangeOfMonths(): string {
-    return `max(${this.tableColumnRef}}) || ',' || min(${this.tableColumnRef}})`;
+    return `MAX(${this.tableColumnRef}) || ',' || MIN(${this.tableColumnRef})`;
   }
 }
