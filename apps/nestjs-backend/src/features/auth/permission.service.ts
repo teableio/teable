@@ -18,6 +18,7 @@ export class PermissionService {
       where: {
         userId,
         spaceId,
+        baseId: null,
         deletedTime: null,
       },
       select: { roleName: true },
@@ -34,6 +35,7 @@ export class PermissionService {
     const collaborator = await this.prismaService.collaborator.findFirst({
       where: {
         userId,
+        spaceId: null,
         baseId,
         deletedTime: null,
       },
