@@ -3,11 +3,10 @@ import { fieldVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { rangesSchema } from './range';
+import type { IRangesRo } from './range';
+import { rangesQuerySchema } from './range';
 
-export const COPY_URL = '/table/{tableId}/view/{viewId}/selection/copy';
-
-export type ICopyRo = z.infer<typeof rangesSchema>;
+export const COPY_URL = '/table/{tableId}/selection/copy';
 
 export const copyVoSchema = z.object({
   content: z.string(),
@@ -23,9 +22,8 @@ export const CopyRoute: RouteConfig = registerRoute({
   request: {
     params: z.object({
       tableId: z.string(),
-      viewId: z.string(),
     }),
-    query: rangesSchema,
+    query: rangesQuerySchema,
   },
   responses: {
     200: {
@@ -40,12 +38,18 @@ export const CopyRoute: RouteConfig = registerRoute({
   tags: ['selection'],
 });
 
-export const copy = async (tableId: string, viewId: string, copyRo: ICopyRo) => {
+export const copy = async (tableId: string, copyRo: IRangesRo) => {
   return axios.get<ICopyVo>(
     urlBuilder(COPY_URL, {
       tableId,
-      viewId,
     }),
-    { params: copyRo }
+    {
+      params: {
+        ...copyRo,
+        filter: JSON.stringify(copyRo.filter),
+        orderBy: JSON.stringify(copyRo.orderBy),
+        ranges: JSON.stringify(copyRo.ranges),
+      },
+    }
   );
 };

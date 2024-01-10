@@ -201,7 +201,7 @@ export class TableOpenApiService {
     return this.prismaService.$queryRawUnsafe(combinedQuery);
   }
 
-  async getGraph(tableId: string, cell: [number, number], viewId?: string) {
-    return this.graphService.getGraph(tableId, cell, viewId);
+  async getGraph(tableId: string, cell: [string, string]) {
+    return this.graphService.getGraph(tableId, cell);
   }
 }

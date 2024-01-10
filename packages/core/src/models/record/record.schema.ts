@@ -3,7 +3,7 @@
 import { TQL_README } from '../../query/README';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { filterSchema, sortItemSchema } from '../view';
+import { FILTER_DESCRIPTION, filterSchema, sortItemSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
@@ -76,7 +76,93 @@ export type IGetRecordQuery = z.infer<typeof getRecordQuerySchema>;
 const defaultPageSize = 100;
 const maxPageSize = 10000;
 
-export const getRecordsQuerySchema = getRecordQuerySchema.extend({
+export const queryBaseSchema = z.object({
+  viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
+    example: 'viwXXXXXXX',
+    description:
+      'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
+  }),
+  filterByTql: z.string().optional().openapi({
+    example: "{field} = 'Completed' AND {field} > 5",
+    description: TQL_README,
+  }),
+  filter: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (value == null) {
+        return value;
+      }
+
+      const parsingResult = filterSchema.safeParse(JSON.parse(value));
+      if (!parsingResult.success) {
+        parsingResult.error.issues.forEach((issue) => {
+          ctx.addIssue(issue);
+        });
+        return z.NEVER;
+      }
+      return parsingResult.data;
+    })
+    .openapi({
+      type: 'string',
+      description: FILTER_DESCRIPTION,
+    }),
+  filterLinkCellCandidate: z
+    .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
+    .or(z.string().startsWith(IdPrefix.Field))
+    .optional()
+    .openapi({
+      example: ['fldXXXXXXX', 'recXXXXXXX'],
+      description:
+        'Filter out the records that can be selected by a given link cell from the relational table. For example, if the specified field is one to many or one to one relationship, recordId for which the field has already been selected will not appear.',
+    }),
+  filterLinkCellSelected: z
+    .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
+    .or(z.string().startsWith(IdPrefix.Field))
+    .optional()
+    .openapi({
+      example: ['fldXXXXXXX', 'recXXXXXXX'],
+      description:
+        'Filter out selected records based on this link cell from the relational table. Note that viewId, filter, and orderBy will not take effect in this case because selected records has it own order.',
+    }),
+});
+
+export type IQueryBaseRo = z.infer<typeof queryBaseSchema>;
+
+const orderByDescription =
+  'An array of sort objects that specifies how the records should be ordered.';
+
+export const orderBySchema = sortItemSchema.array().openapi({
+  type: 'array',
+  description: orderByDescription,
+});
+
+// with orderBy for content related fetch
+export const contentQueryBaseSchema = queryBaseSchema.extend({
+  orderBy: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (value == null) {
+        return value;
+      }
+
+      const parsingResult = orderBySchema.safeParse(JSON.parse(value));
+      if (!parsingResult.success) {
+        parsingResult.error.issues.forEach((issue) => {
+          ctx.addIssue(issue);
+        });
+        return z.NEVER;
+      }
+      return parsingResult.data;
+    })
+    .openapi({
+      type: 'string',
+      description: orderByDescription,
+    }),
+});
+
+export const getRecordsRoSchema = getRecordQuerySchema.merge(contentQueryBaseSchema).extend({
   take: z
     .string()
     .or(z.number())
@@ -104,45 +190,9 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
       example: 0,
       description: 'The records count you want to skip',
     }),
-  viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
-    example: 'viwXXXXXXX',
-    description:
-      'Set the view you want to fetch, default is first view. result will filter and sort by view options.',
-  }),
-  orderBy: sortItemSchema.array().nonempty().optional().openapi({
-    type: 'array',
-    description: 'An array of sort objects that specifies how the records should be ordered.',
-  }),
-  filterByTql: z.string().optional().openapi({
-    example: "{field} = 'Completed' AND {field} > 5",
-    description: TQL_README,
-  }),
-  filter: filterSchema.optional().openapi({
-    type: 'object',
-    description:
-      'A filter object used to filter results. It allows complex query conditions based on fields, operators, and values. For a more convenient experience, filterByTql is recommended',
-  }),
-  filterLinkCellCandidate: z
-    .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
-    .or(z.string().startsWith(IdPrefix.Field))
-    .optional()
-    .openapi({
-      example: ['fldXXXXXXX', 'recXXXXXXX'],
-      description:
-        'Filters out the records that can be selected by a given link cell. For example, if the specified field is one to many or one to one relationship, recordId for which the field has already been selected will not appear.',
-    }),
-  filterLinkCellSelected: z
-    .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
-    .or(z.string().startsWith(IdPrefix.Field))
-    .optional()
-    .openapi({
-      example: ['fldXXXXXXX', 'recXXXXXXX'],
-      description:
-        'Filter out selected records based on this link cell. Note that viewId, filter, and orderBy will not take effect in this case.',
-    }),
 });
 
-export type IGetRecordsQuery = z.infer<typeof getRecordsQuerySchema>;
+export type IGetRecordsRo = z.infer<typeof getRecordsRoSchema>;
 
 export const recordsSchema = recordSchema.array().openapi({
   example: [
@@ -241,20 +291,3 @@ export const updateRecordsRoSchema = z
   });
 
 export type IUpdateRecordsRo = z.infer<typeof updateRecordsRoSchema>;
-
-export const updateRecordByIndexRoSchema = updateRecordRoSchema
-  .merge(
-    z.object({
-      index: z.number().min(0).openapi({
-        description: 'The index of record in view, start from 0',
-      }),
-      viewId: z.string().startsWith(IdPrefix.View).openapi({
-        description: 'The view id',
-      }),
-    })
-  )
-  .openapi({
-    description: 'Update record by index in view',
-  });
-
-export type IUpdateRecordByIndexRo = z.infer<typeof updateRecordByIndexRoSchema>;

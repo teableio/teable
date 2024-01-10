@@ -10,6 +10,7 @@ import { envValidationSchema } from './env.validation.schema';
 import { loggerConfig } from './logger.config';
 import { mailConfig } from './mail.config';
 import { storageConfig } from './storage';
+import { thresholdConfig } from './threshold.config';
 
 const configurations = [
   ...bootstrapConfigs,
@@ -18,6 +19,7 @@ const configurations = [
   authConfig,
   baseConfig,
   storageConfig,
+  thresholdConfig,
 ];
 
 @Module({})

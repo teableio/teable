@@ -16,7 +16,7 @@ import type {
   ICreateTableRo,
   IFilterRo,
   IViewRo,
-  IGetRecordsQuery,
+  IGetRecordsRo,
   IRecordsVo,
   IUpdateRecordRo,
   ITableFullVo,
@@ -244,7 +244,7 @@ export async function getRecord(
   }
 }
 
-export async function getRecords(tableId: string, query?: IGetRecordsQuery): Promise<IRecordsVo> {
+export async function getRecords(tableId: string, query?: IGetRecordsRo): Promise<IRecordsVo> {
   const result = await apiGetRecords(tableId, query);
 
   return result.data;

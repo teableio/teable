@@ -1,5 +1,5 @@
 import { CellFormat, FieldKeyType } from './record';
-import { getRecordsQuerySchema, recordSchema, recordsVoSchema } from './record.schema';
+import { getRecordsRoSchema, recordSchema, recordsVoSchema } from './record.schema';
 
 describe('recordsRoSchema', () => {
   const validData = {
@@ -13,13 +13,13 @@ describe('recordsRoSchema', () => {
   };
 
   it('validates successfully for correct data', () => {
-    const result = getRecordsQuerySchema.safeParse(validData);
+    const result = getRecordsRoSchema.safeParse(validData);
     expect(result.success).toBe(true);
   });
 
   it('fails for invalid take', () => {
     const data = { ...validData, take: -1 };
-    const result = getRecordsQuerySchema.safeParse(data);
+    const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual('You should at least take 1 record');
@@ -27,7 +27,7 @@ describe('recordsRoSchema', () => {
 
   it('fails for invalid skip', () => {
     const data = { ...validData, skip: -1 };
-    const result = getRecordsQuerySchema.safeParse(data);
+    const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual(
@@ -37,13 +37,13 @@ describe('recordsRoSchema', () => {
 
   it('validates successfully for empty projection', () => {
     const data = { ...validData, projection: {} };
-    const result = getRecordsQuerySchema.safeParse(data);
+    const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(true);
   });
 
   it('fails for invalid projection (non-string array)', () => {
     const data = { ...validData, projection: { field1: 1, field2: 2 } };
-    const result = getRecordsQuerySchema.safeParse(data);
+    const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual('Expected boolean, received number');
@@ -51,7 +51,7 @@ describe('recordsRoSchema', () => {
 
   it('fails for invalid viewId', () => {
     const data = { ...validData, viewId: 'xxx' };
-    const result = getRecordsQuerySchema.safeParse(data);
+    const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual('Invalid input: must start with "viw"');
@@ -59,7 +59,7 @@ describe('recordsRoSchema', () => {
 
   it('fails for invalid cellFormat', () => {
     const data = { ...validData, cellFormat: 'invalidFormat' };
-    const result = getRecordsQuerySchema.safeParse(data);
+    const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual(
@@ -69,7 +69,7 @@ describe('recordsRoSchema', () => {
 
   it('fails for invalid fieldKeyType', () => {
     const data = { ...validData, fieldKeyType: 'invalidKey' };
-    const result = getRecordsQuerySchema.safeParse(data);
+    const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
       expect(result.error.errors[0].message).toEqual(

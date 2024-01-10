@@ -73,8 +73,6 @@ describe('selectionService', () => {
   const viewId = 'view1';
 
   describe('copy', () => {
-    const range = '[[0, 0], [1, 1]]';
-
     it('should return merged ranges data', async () => {
       const mockSelectionCtxRecords = [
         {
@@ -104,8 +102,12 @@ describe('selectionService', () => {
         fields: mockSelectionCtxFields,
       });
 
-      const result = await selectionService.copy(tableId, viewId, {
-        ranges: range,
+      const result = await selectionService.copy(tableId, {
+        viewId,
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
       });
 
       expect(result?.content).toEqual('1\t2\n1\t2');
@@ -503,7 +505,7 @@ describe('selectionService', () => {
       ].map(createFieldInstanceByVo);
 
       const pasteRo = {
-        range: [
+        ranges: [
           [2, 1],
           [2, 1],
         ] as [number, number][],
@@ -550,7 +552,7 @@ describe('selectionService', () => {
         rowCount: mockRecords.length,
       });
       vi.spyOn(recordService, 'getRecordsFields').mockResolvedValue(
-        mockRecords.slice(pasteRo.range[0][1])
+        mockRecords.slice(pasteRo.ranges[0][1])
       );
 
       vi.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
@@ -573,18 +575,18 @@ describe('selectionService', () => {
           tx: {},
           permissions: getPermissions(SpaceRole.Owner),
         },
-        async () => await selectionService.paste(tableId, viewId, pasteRo)
+        async () => await selectionService.paste(tableId, { viewId, ...pasteRo })
       );
 
       // Assertions
       expect(selectionService['parseCopyContent']).toHaveBeenCalledWith(content);
-      expect(aggregationService.performRowCount).toHaveBeenCalledWith({
-        tableId,
-        withView: { viewId },
-      });
+      expect(aggregationService.performRowCount).toHaveBeenCalledWith(tableId, { viewId });
       expect(recordService.getRecordsFields).toHaveBeenCalledWith(tableId, {
         viewId,
         skip: 1,
+        projection: {
+          fieldId3: true,
+        },
         take: tableData.length,
         fieldKeyType: 'id',
       });
@@ -649,15 +651,13 @@ describe('selectionService', () => {
       recordOpenApiService.updateRecords = vi.fn().mockResolvedValue(null);
 
       // Call the clear method
-      await selectionService.clear(tableId, viewId, clearRo);
+      await selectionService.clear(tableId, { viewId, ...clearRo });
 
       // Expect the methods to have been called with the correct parameters
-      expect(selectionService['getSelectionCtxByRange']).toHaveBeenCalledWith(
-        tableId,
+      expect(selectionService['getSelectionCtxByRange']).toHaveBeenCalledWith(tableId, {
         viewId,
-        clearRo.ranges,
-        undefined
-      );
+        ranges: clearRo.ranges,
+      });
       expect(selectionService['fillCells']).toHaveBeenCalledWith({
         tableId,
         tableData: [],

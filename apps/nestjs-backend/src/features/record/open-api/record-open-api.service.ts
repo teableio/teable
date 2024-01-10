@@ -4,7 +4,6 @@ import type {
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecord,
-  IUpdateRecordByIndexRo,
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable-group/core';
@@ -215,13 +214,6 @@ export class RecordOpenApiService {
       }
       return snapshots[0].data;
     });
-  }
-
-  async updateRecordByIndex(tableId: string, updateRecordRoByIndexRo: IUpdateRecordByIndexRo) {
-    const { viewId, index, ...updateRecordRo } = updateRecordRoByIndexRo;
-    const recordId = await this.recordService.getRecordIdByIndex(tableId, viewId, index);
-
-    return await this.updateRecordById(tableId, recordId, updateRecordRo);
   }
 
   async deleteRecord(tableId: string, recordId: string) {

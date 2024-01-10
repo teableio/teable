@@ -11,9 +11,8 @@ import type {
   IExtraResult,
   IFilter,
   IGetRecordQuery,
-  IGetRecordsQuery,
+  IGetRecordsRo,
   ILinkCellValue,
-  IMakeRequired,
   IRecord,
   IRecordsVo,
   ISetRecordOpContext,
@@ -389,10 +388,7 @@ export class RecordService implements IAdapterService {
       });
   }
 
-  async prepareQuery(
-    tableId: string,
-    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter'>
-  ) {
+  async prepareQuery(tableId: string, query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'filter'>) {
     const { viewId, orderBy: extraOrderBy, filter: extraFilter } = query;
 
     const dbTableName = await this.getDbTableName(tableId);
@@ -421,12 +417,12 @@ export class RecordService implements IAdapterService {
    * which is crucial for ensuring the security and relevance of data access.
    *
    * @param {string} tableId - The unique identifier of the table to determine the target of the query.
-   * @param {Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>} query - An object of query parameters, including view ID, sorting rules, filtering conditions, etc.
+   * @param {Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>} query - An object of query parameters, including view ID, sorting rules, filtering conditions, etc.
    * @returns {Promise<Knex.QueryBuilder>} Returns an instance of the Knex query builder encapsulating the constructed SQL query.
    */
   async buildFilterSortQuery(
     tableId: string,
-    query: Pick<IGetRecordsQuery, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>
+    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, and field mapping
     const { queryBuilder, filter, orderBy, fieldMap } = await this.prepareQuery(tableId, query);
@@ -544,7 +540,7 @@ export class RecordService implements IAdapterService {
     }, []);
   }
 
-  async getRecords(tableId: string, query: IGetRecordsQuery): Promise<IRecordsVo> {
+  async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
     const defaultView = await this.prismaService.txClient().view.findFirstOrThrow({
       select: { id: true, filter: true, sort: true },
       where: {
@@ -601,21 +597,6 @@ export class RecordService implements IAdapterService {
       fieldKeyType: FieldKeyType.Id,
     });
     return record.fields[fieldId];
-  }
-
-  async getRecordIdByIndex(tableId: string, viewId: string, index: number) {
-    const dbTableName = await this.getDbTableName(tableId);
-    const sqlNative = this.knex(dbTableName)
-      .select('__id')
-      .orderBy(getViewOrderFieldName(viewId), 'asc')
-      .offset(index)
-      .limit(1)
-      .toSQL()
-      .toNative();
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
-    return result[0].__id;
   }
 
   async getMaxRecordOrder(dbTableName: string) {
@@ -981,7 +962,7 @@ export class RecordService implements IAdapterService {
 
   async getDocIdsByQuery(
     tableId: string,
-    query: IGetRecordsQuery
+    query: IGetRecordsRo
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const viewId = await this.shareWithViewId(tableId, query.viewId);
 
@@ -1019,19 +1000,30 @@ export class RecordService implements IAdapterService {
 
   async getRecordsFields(
     tableId: string,
-    query: IMakeRequired<IGetRecordsQuery, 'viewId'>
+    query: IGetRecordsRo
   ): Promise<Pick<IRecord, 'id' | 'fields'>[]> {
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
 
-    const { skip, take, filter, orderBy, fieldKeyType, cellFormat, projection, viewId } = query;
+    const {
+      skip,
+      take,
+      filter,
+      orderBy,
+      fieldKeyType,
+      cellFormat,
+      projection,
+      viewId,
+      filterLinkCellCandidate,
+    } = query;
 
     const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const fieldNames = fields.map((f) => f.dbFieldName);
 
     const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
-      viewId: viewId,
+      viewId,
+      filterLinkCellCandidate,
       filter,
       orderBy,
     });
@@ -1047,14 +1039,12 @@ export class RecordService implements IAdapterService {
         queryBuilder.toQuery()
       );
 
-    return Promise.all(
-      result.map(async (record) => {
-        return {
-          id: record.__id,
-          fields: await this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
-        };
-      })
-    );
+    return result.map((record) => {
+      return {
+        id: record.__id,
+        fields: this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat),
+      };
+    });
   }
 
   async getRecordsWithPrimary(tableId: string, titles: string[]) {

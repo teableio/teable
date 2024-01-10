@@ -13,6 +13,7 @@ import type {
 import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
 import type { IGraphItem, IRecordItem } from '../calculation/reference.service';
@@ -43,9 +44,6 @@ interface ITinyTable {
   dbTableName: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const ASYNC_THRESHOLD = 2000;
-
 @Injectable()
 export class GraphService {
   private logger = new Logger(GraphService.name);
@@ -58,23 +56,9 @@ export class GraphService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly fieldConvertingService: FieldConvertingService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
-
-  private async getCellInfo(tableId: string, cell: [number, number], viewId?: string) {
-    const [colIndex, rowIndex] = cell;
-    if (!viewId) {
-      const viewRaw = await this.prismaService.view.findFirstOrThrow({
-        where: { tableId, deletedTime: null },
-        orderBy: { order: 'asc' },
-      });
-      viewId = viewRaw.id;
-    }
-    const recordId = await this.recordService.getRecordIdByIndex(tableId, viewId, rowIndex);
-    const fieldId = await this.fieldService.getFieldIdByIndex(tableId, viewId, colIndex);
-    const cellValue = await this.recordService.getCellValue(tableId, recordId, fieldId);
-    return { recordId, fieldId, cellValue };
-  }
 
   private getLookupEdge(
     field: IFieldInstance,
@@ -164,8 +148,9 @@ export class GraphService {
     return keyBy(tableRaw, 'dbTableName');
   }
 
-  async getGraph(tableId: string, cell: [number, number], viewId?: string): Promise<IGraphVo> {
-    const { recordId, fieldId, cellValue } = await this.getCellInfo(tableId, cell, viewId);
+  async getGraph(tableId: string, cell: [string, string]): Promise<IGraphVo> {
+    const [fieldId, recordId] = cell;
+    const cellValue = await this.recordService.getCellValue(tableId, recordId, fieldId);
     const prepared = await this.referenceService.prepareCalculation([
       { id: recordId, fieldId: fieldId, newValue: cellValue },
     ]);
@@ -291,7 +276,7 @@ export class GraphService {
     );
 
     return {
-      isAsync: updateCellCount > ASYNC_THRESHOLD,
+      isAsync: updateCellCount > this.thresholdConfig.maxSyncUpdateCells,
       graph: {
         nodes,
         edges,
@@ -440,7 +425,7 @@ export class GraphService {
     );
 
     return {
-      isAsync: updateCellCount > ASYNC_THRESHOLD,
+      isAsync: updateCellCount > this.thresholdConfig.maxSyncUpdateCells,
       graph,
       updateCellCount,
     };
@@ -508,7 +493,7 @@ export class GraphService {
     );
 
     return {
-      isAsync: updateCellCount > ASYNC_THRESHOLD,
+      isAsync: updateCellCount > this.thresholdConfig.maxSyncUpdateCells,
       graph,
       updateCellCount,
     };

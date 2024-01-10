@@ -1,9 +1,10 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { contentQueryBaseSchema, filterSchema, orderBySchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_IDS_FROM_RANGES_URL = '/table/{tableId}/view/{viewId}/selection/rangeToId';
+export const GET_IDS_FROM_RANGES_URL = '/table/{tableId}/selection/rangeToId';
 
 export enum RangeType {
   Rows = 'rows',
@@ -14,21 +15,54 @@ export const cellSchema = z.tuple([z.number(), z.number()]);
 
 export type ICell = z.infer<typeof cellSchema>;
 
-export const rangesSchema = z.object({
+const rangeTypeSchema = z.nativeEnum(RangeType).optional().openapi({
+  description: 'Types of non-contiguous selections',
+  example: RangeType.Columns,
+});
+
+export const rangesSchema = z.array(cellSchema).min(1, {
+  message: 'The range parameter must be a valid 2D array with even length.',
+});
+
+export const rangesRoSchema = contentQueryBaseSchema.extend({
+  filter: filterSchema.optional(),
+  orderBy: orderBySchema.optional(),
+  ranges: rangesSchema.openapi({
+    description:
+      'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
+    example: [
+      [0, 0],
+      [1, 1],
+    ],
+  }),
+  type: rangeTypeSchema,
+});
+
+export type IRangesRo = z.infer<typeof rangesRoSchema>;
+
+export const rangesQuerySchema = contentQueryBaseSchema.extend({
   ranges: z
     .string()
-    .refine((value) => z.array(cellSchema).min(1).safeParse(JSON.parse(value)).success, {
-      message: 'The range parameter must be a valid 2D array with even length.',
+    .transform((value, ctx) => {
+      const parsingResult = rangesSchema.safeParse(JSON.parse(value));
+      if (!parsingResult.success) {
+        parsingResult.error.issues.forEach((issue) => {
+          ctx.addIssue(issue);
+        });
+        return z.NEVER;
+      }
+      return parsingResult.data;
     })
     .openapi({
+      type: 'string',
       description:
         'The parameter "ranges" is used to represent the coordinates [column, row][] of a selected range in a table. ',
-      example: '[[0, 0],[1, 1]]',
+      example: [
+        [0, 0],
+        [1, 1],
+      ],
     }),
-  type: z.nativeEnum(RangeType).optional().openapi({
-    description: 'Types of non-contiguous selections',
-    example: RangeType.Columns,
-  }),
+  type: rangeTypeSchema,
 });
 
 export enum IdReturnType {
@@ -37,13 +71,11 @@ export enum IdReturnType {
   All = 'all',
 }
 
-export const rangesToIdRoSchema = rangesSchema.merge(
-  z.object({
-    returnType: z.nativeEnum(IdReturnType).openapi({ description: 'Define which Id to return.' }),
-  })
-);
+export const rangesToIdQuerySchema = rangesQuerySchema.extend({
+  returnType: z.nativeEnum(IdReturnType).openapi({ description: 'Define which Id to return.' }),
+});
 
-export type IRangesToIdRo = z.infer<typeof rangesToIdRoSchema>;
+export type IRangesToIdQuery = z.infer<typeof rangesToIdQuerySchema>;
 
 export const rangesToIdVoSchema = z.object({
   recordIds: z.array(z.string()).optional(),
@@ -59,9 +91,8 @@ export const GetIdsFromRangesRoute: RouteConfig = registerRoute({
   request: {
     params: z.object({
       tableId: z.string(),
-      viewId: z.string(),
     }),
-    query: rangesToIdRoSchema,
+    query: rangesToIdQuerySchema,
   },
   responses: {
     200: {
@@ -76,18 +107,18 @@ export const GetIdsFromRangesRoute: RouteConfig = registerRoute({
   tags: ['selection'],
 });
 
-export const getIdsFromRanges = async (
-  tableId: string,
-  viewId: string,
-  rangesToIdRo: IRangesToIdRo
-) => {
+export const getIdsFromRanges = async (tableId: string, rangesToIdQuery: IRangesToIdQuery) => {
   return axios.get<IRangesToIdVo>(
     urlBuilder(GET_IDS_FROM_RANGES_URL, {
       tableId,
-      viewId,
     }),
     {
-      params: rangesToIdRo,
+      params: {
+        ...rangesToIdQuery,
+        filter: JSON.stringify(rangesToIdQuery.filter),
+        orderBy: JSON.stringify(rangesToIdQuery.orderBy),
+        ranges: JSON.stringify(rangesToIdQuery.ranges),
+      },
     }
   );
 };

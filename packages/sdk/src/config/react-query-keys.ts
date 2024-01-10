@@ -2,14 +2,11 @@
 import type {
   IAggregationRo,
   IFieldRo,
-  IRowCountRo,
+  IQueryBaseRo,
   IUpdateFieldRo,
   NotificationStatesEnum,
 } from '@teable-group/core';
-import type {
-  IShareViewRowCountQueryRo,
-  IShareViewAggregationsQueryRo,
-} from '@teable-group/openapi';
+import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable-group/openapi';
 
 export type ReactQueryKeys = {
   spaceCollaboratorList: (spaceId: string) => [string, string];
@@ -19,17 +16,17 @@ export type ReactQueryKeys = {
   notifyList: (filter: { status: NotificationStatesEnum }) => [string, string, unknown];
   notifyUnreadCount: () => [string, string];
 
-  rowCount: (tableId: string, query: IRowCountRo) => [string, string, IRowCountRo];
+  rowCount: (tableId: string, query: IQueryBaseRo) => [string, string, IQueryBaseRo];
   aggregations: (tableId: string, query: IAggregationRo) => [string, string, IAggregationRo];
 
   shareViewRowCount: (
     shareId: string,
-    query: IShareViewRowCountQueryRo
-  ) => [string, string, IShareViewRowCountQueryRo];
+    query: IShareViewRowCountRo
+  ) => [string, string, IShareViewRowCountRo];
   shareViewAggregations: (
     shareId: string,
-    query: IShareViewAggregationsQueryRo
-  ) => [string, string, IShareViewAggregationsQueryRo];
+    query: IShareViewAggregationsRo
+  ) => [string, string, IShareViewAggregationsRo];
   planFieldCreate: (tableId: string, fieldRo: IFieldRo) => [string, string, IFieldRo];
 
   planFieldUpdate: (
