@@ -72,9 +72,9 @@ async function setup() {
   // init data exists
   await prismaClient.$transaction(
     async (prisma) => {
-      const existsEmail = await prismaClient.user.findFirst({ where: { email } });
-      const existsSpace = await prismaClient.space.findFirst({ where: { id: spaceId } });
-      const existsBase = await prismaClient.base.findFirst({ where: { id: baseId } });
+      const existsEmail = await prisma.user.findFirst({ where: { email } });
+      const existsSpace = await prisma.space.findFirst({ where: { id: spaceId } });
+      const existsBase = await prisma.base.findFirst({ where: { id: baseId } });
       if (!existsEmail) {
         await prisma.user.create({
           data: {
