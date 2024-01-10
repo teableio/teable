@@ -426,11 +426,7 @@ export class SelectionService {
   }
 
   private parseCopyContent(content: string): string[][] {
-    const { error, data } = parseClipboardText(content);
-    if (error) {
-      throw new BadRequestException(error);
-    }
-    return data;
+    return parseClipboardText(content);
   }
 
   private stringifyCopyContent(content: string[][]): string {

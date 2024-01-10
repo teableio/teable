@@ -5,11 +5,8 @@ import { fromZodError } from 'zod-validation-error';
 const teableHtmlMarker = 'data-teable-html-marker';
 
 export const serializerHtml = (data: string, headers: IFieldVo[]) => {
-  const { data: rows, error } = parseClipboardText(data);
-  if (error) {
-    return `<div>${error}</div>`;
-  }
-  const bodyContent = rows
+  const tableData = parseClipboardText(data);
+  const bodyContent = tableData
     .map((row) => {
       return `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
     })
