@@ -1,10 +1,29 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IRecord, IUpdateRecordsRo } from '@teable-group/core';
+import type {
+  IDateFieldOptions,
+  IFieldOptionsRo,
+  IFieldOptionsVo,
+  IFieldRo,
+  IFieldVo,
+  INumberFieldOptionsRo,
+  IRecord,
+  ISingleLineTextFieldOptions,
+  IUpdateRecordsRo,
+  IUserFieldOptions,
+} from '@teable-group/core';
 import {
+  CellValueType,
   FieldKeyType,
   FieldType,
+  datetimeFormattingSchema,
+  defaultDatetimeFormatting,
+  defaultNumberFormatting,
+  defaultUserFieldOptions,
   nullsToUndefined,
+  numberFormattingSchema,
   parseClipboardText,
+  singleLineTextShowAsSchema,
+  singleNumberShowAsSchema,
   stringifyClipboardText,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -17,7 +36,7 @@ import type {
   PasteVo,
 } from '@teable-group/openapi';
 import { IdReturnType, RangeType } from '@teable-group/openapi';
-import { isNumber, isString, map, omit } from 'lodash';
+import { isNumber, isString, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
@@ -243,6 +262,108 @@ export class SelectionService {
     return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
   }
 
+  private optionsRoToVoByCvType(
+    cellValueType: CellValueType,
+    options: IFieldOptionsVo = {}
+  ): { type: FieldType; options: IFieldOptionsRo } {
+    switch (cellValueType) {
+      case CellValueType.Number: {
+        const numberOptions = options as INumberFieldOptionsRo;
+        const formattingRes = numberFormattingSchema.safeParse(numberOptions?.formatting);
+        const showAsRes = singleNumberShowAsSchema.safeParse(numberOptions?.showAs);
+        return {
+          type: FieldType.Number,
+          options: {
+            formatting: formattingRes.success ? formattingRes?.data : defaultNumberFormatting,
+            showAs: showAsRes.success ? showAsRes?.data : undefined,
+          },
+        };
+      }
+      case CellValueType.DateTime: {
+        const dateOptions = options as IDateFieldOptions;
+        const formattingRes = datetimeFormattingSchema.safeParse(dateOptions?.formatting);
+        return {
+          type: FieldType.Date,
+          options: {
+            formatting: formattingRes.success ? formattingRes?.data : defaultDatetimeFormatting,
+          },
+        };
+      }
+      case CellValueType.String: {
+        const singleLineTextOptions = options as ISingleLineTextFieldOptions;
+        const showAsRes = singleLineTextShowAsSchema.safeParse(singleLineTextOptions.showAs);
+        return {
+          type: FieldType.SingleLineText,
+          options: {
+            showAs: showAsRes.success ? showAsRes?.data : undefined,
+          },
+        };
+      }
+      case CellValueType.Boolean: {
+        return {
+          type: FieldType.Checkbox,
+          options: {},
+        };
+      }
+      default:
+        throw new BadRequestException('Invalid cellValueType');
+    }
+  }
+
+  private lookupOptionsRoToVo(field: IFieldVo): { type: FieldType; options: IFieldOptionsRo } {
+    const { type, isMultipleCellValue, options } = field;
+    if (type === FieldType.SingleSelect && isMultipleCellValue) {
+      return {
+        type: FieldType.MultipleSelect,
+        options,
+      };
+    }
+    if (type === FieldType.User && isMultipleCellValue) {
+      const userOptions = options as IUserFieldOptions;
+      return {
+        type,
+        options: {
+          ...userOptions,
+          isMultiple: true,
+        },
+      };
+    }
+    return { type, options };
+  }
+
+  private fieldVoToRo(field?: IFieldVo): IFieldRo {
+    if (!field) {
+      return {
+        type: FieldType.SingleLineText,
+      };
+    }
+    const { isComputed, isLookup } = field;
+    const baseField = pick(field, 'name', 'type', 'options', 'description');
+
+    if (isComputed && !isLookup) {
+      if ([FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)) {
+        return {
+          ...baseField,
+          type: FieldType.User,
+          options: defaultUserFieldOptions,
+        };
+      }
+      return {
+        ...baseField,
+        ...this.optionsRoToVoByCvType(field.cellValueType, field.options),
+      };
+    }
+
+    if (isLookup) {
+      return {
+        ...baseField,
+        ...this.lookupOptionsRoToVo(field),
+      };
+    }
+
+    return baseField;
+  }
+
   private async expandColumns({
     tableId,
     header,
@@ -255,11 +376,7 @@ export class SelectionService {
     const colLen = header.length;
     const res: IFieldVo[] = [];
     for (let i = colLen - numColsToExpand; i < colLen; i++) {
-      const field: IFieldRo = header[i]
-        ? omit(header[i], 'id')
-        : {
-            type: FieldType.SingleLineText,
-          };
+      const field = this.fieldVoToRo(header[i]);
       const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, field);
       const fieldInstance = createFieldInstanceByVo(fieldVo);
       const newField = await this.fieldCreatingService.createField(tableId, fieldInstance);
@@ -309,11 +426,7 @@ export class SelectionService {
   }
 
   private parseCopyContent(content: string): string[][] {
-    const { error, data } = parseClipboardText(content);
-    if (error) {
-      throw new BadRequestException(error);
-    }
-    return data;
+    return parseClipboardText(content);
   }
 
   private stringifyCopyContent(content: string[][]): string {
