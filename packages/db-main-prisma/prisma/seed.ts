@@ -4,20 +4,24 @@ import { PrismaClient } from '../';
 import { SpaceSeeds } from '../src/seeds/e2e/space-seeds';
 import { UserSeeds } from '../src/seeds/e2e/user-seeds';
 
-const prisma = new PrismaClient();
+let prisma: PrismaClient | undefined;
 
 const options: ParseArgsConfig['options'] = {
   e2e: { type: 'boolean', default: false },
   log: { type: 'boolean', default: false },
-  environment: { type: 'string' },
 };
 
 async function main() {
   const {
-    values: { environment, e2e, log },
+    values: { e2e, log },
   } = parseArgs({ options });
+  const databaseUrl = process.env.PRISMA_DATABASE_URL!;
 
-  console.log('🌱  Seed E2E: ', e2e);
+  console.log('🌱      Seed E2E: ', e2e);
+  console.log('🌱   environment: ', process.env.NODE_ENV);
+  console.log('🌱  Database Url: ', databaseUrl);
+
+  prisma = new PrismaClient();
 
   if (e2e) {
     const userSeeds = new UserSeeds(prisma, Boolean(log));
@@ -34,5 +38,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   });

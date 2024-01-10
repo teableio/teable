@@ -76,7 +76,7 @@ export class SpaceSeeds extends AbstractSeed {
       const collaboratorSets = await generateCollaborator(CREATE_USER_NUM);
       for (const c of collaboratorSets) {
         const { id, spaceId, userId, ...collaboratorNonUnique } = c;
-        const collaborator = await this.prisma.collaborator.upsert({
+        const collaborator = await tx.collaborator.upsert({
           where: { id, spaceId, userId },
           update: collaboratorNonUnique,
           create: c,

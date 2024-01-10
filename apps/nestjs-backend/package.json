@@ -41,7 +41,7 @@
     "test": "run-s test-unit test-e2e",
     "test-unit": "vitest run --silent --bail 1",
     "test-cov": "vitest run --coverage",
-    "pre-test-e2e": "pnpm -F @teable-group/db-main-prisma prisma-db-seed -- --e2e",
+    "pre-test-e2e": "cross-env NODE_ENV=test pnpm -F @teable-group/db-main-prisma prisma-db-seed -- --e2e",
     "test-e2e": "pnpm pre-test-e2e && vitest run --config ./vitest-e2e.config.ts --silent --bail 1",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "lint": "eslint . --ext .ts,.js,.cjs,.mjs,.mdx --cache --cache-location ../../.cache/eslint/nestjs-backend.eslintcache",

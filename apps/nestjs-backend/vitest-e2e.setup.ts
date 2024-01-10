@@ -53,7 +53,6 @@ async function setup() {
   console.log('node-env', process.env.NODE_ENV);
   dotenv.config({ path: '../nextjs-app' });
 
-  // const { email, password, spaceId, baseId, userId } = globalThis.testConfig;
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const databaseUrl = process.env.PRISMA_DATABASE_URL!;
 
