@@ -55,37 +55,54 @@ export class SpaceSeeds extends AbstractSeed {
   execute = async (): Promise<void> => {
     await this.prisma.$transaction(async (tx) => {
       // Space
-      const { id: spaceId, ...spaceNonUnique } = generateSpace();
-      const space = await tx.space.upsert({
-        where: { id: spaceId },
-        update: spaceNonUnique,
-        create: { id: spaceId, ...spaceNonUnique },
-      });
-      this.log('UPSERT', `Space ${space.id} - ${space.name}`);
+      await this.createSpace(tx);
 
       // Base
-      const { id: baseId, ...baseNonUnique } = generateBase();
-      const base = await tx.base.upsert({
-        where: { id: baseId },
-        update: baseNonUnique,
-        create: { id: baseId, ...baseNonUnique },
-      });
-      this.log('UPSERT', `Base ${base.id} - ${base.name}`);
+      await this.createBase(tx);
 
       // Collaborator
-      const collaboratorSets = await generateCollaborator(CREATE_USER_NUM);
-      for (const c of collaboratorSets) {
-        const { id, spaceId, userId, ...collaboratorNonUnique } = c;
-        const collaborator = await tx.collaborator.upsert({
-          where: { id, spaceId, userId },
-          update: collaboratorNonUnique,
-          create: c,
-        });
-        this.log(
-          'UPSERT',
-          `Collaborator ${collaborator.id} - ${collaborator.spaceId} - ${collaborator.userId}`
-        );
-      }
+      await this.createCollaborator(tx);
     });
   };
+
+  private async createSpace(tx: Prisma.TransactionClient) {
+    const { id: spaceId, ...spaceNonUnique } = generateSpace();
+    const space = await tx.space.upsert({
+      where: { id: spaceId },
+      update: spaceNonUnique,
+      create: { id: spaceId, ...spaceNonUnique },
+    });
+    this.log('UPSERT', `Space ${space.id} - ${space.name}`);
+  }
+
+  private async createBase(tx: Prisma.TransactionClient) {
+    const { id: baseId, ...baseNonUnique } = generateBase();
+    const base = await tx.base.upsert({
+      where: { id: baseId },
+      update: baseNonUnique,
+      create: { id: baseId, ...baseNonUnique },
+    });
+    this.log('UPSERT', `Base ${base.id} - ${base.name}`);
+
+    if (this.driver !== 'sqlite3') {
+      await tx.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
+      await tx.$executeRawUnsafe(`revoke all on schema "${baseId}" from public`);
+    }
+  }
+
+  private async createCollaborator(tx: Prisma.TransactionClient) {
+    const collaboratorSets = await generateCollaborator(CREATE_USER_NUM);
+    for (const c of collaboratorSets) {
+      const { id, spaceId, userId, ...collaboratorNonUnique } = c;
+      const collaborator = await tx.collaborator.upsert({
+        where: { id, spaceId, userId },
+        update: collaboratorNonUnique,
+        create: c,
+      });
+      this.log(
+        'UPSERT',
+        `Collaborator ${collaborator.id} - ${collaborator.spaceId} - ${collaborator.userId}`
+      );
+    }
+  }
 }

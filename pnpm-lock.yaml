@@ -916,6 +916,9 @@ importers:
       '@prisma/client':
         specifier: 5.8.0
         version: 5.8.0(prisma@5.8.0)
+      '@soluble/dsn-parser':
+        specifier: 1.9.2
+        version: 1.9.2
       '@teable-group/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
@@ -8070,7 +8073,6 @@ packages:
 
   /@soluble/dsn-parser@1.9.2:
     resolution: {integrity: sha512-FgkvHHHSCzjQ1/ouW6Vtw2hy0k5/KWeu116swH5VYX267I4rx+8MCy9/6eZ60IWGIQVNgh0sektKAu0n9gtzzA==}
-    dev: false
 
   /@storybook/addon-actions@7.6.7:
     resolution: {integrity: sha512-+6EZvhIeKEqG/RNsU3R5DxOrd60BL5GEvmzE2w60s2eKaNNxtyilDjiO1g4z2s2zDNyr7JL/Ft03pJ0Jgo0lew==}

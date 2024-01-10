@@ -1,8 +1,32 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ParseArgsConfig } from 'node:util';
 import { parseArgs } from 'node:util';
+import type { parseDsnOrThrow } from '@soluble/dsn-parser';
+import { parseDsn as parse } from '@soluble/dsn-parser';
 import { PrismaClient } from '../';
 import { SpaceSeeds } from '../src/seeds/e2e/space-seeds';
 import { UserSeeds } from '../src/seeds/e2e/user-seeds';
+
+export type IDsn = ReturnType<typeof parseDsnOrThrow>;
+
+export function parseDsn(dsn: string): IDsn {
+  const parsedDsn = parse(dsn);
+  if (dsn.startsWith('file:')) {
+    return {
+      host: 'localhost',
+      driver: 'sqlite3',
+    };
+  }
+
+  if (!parsedDsn.success) {
+    throw new Error(`DATABASE_URL ${parsedDsn.reason}`);
+  }
+  if (!parsedDsn.value.port) {
+    throw new Error(`DATABASE_URL must provide a port`);
+  }
+
+  return parsedDsn.value;
+}
 
 let prisma: PrismaClient | undefined;
 
@@ -16,18 +40,20 @@ async function main() {
     values: { e2e, log },
   } = parseArgs({ options });
   const databaseUrl = process.env.PRISMA_DATABASE_URL!;
+  const { driver } = parseDsn(databaseUrl);
 
-  console.log('🌱      Seed E2E: ', e2e);
-  console.log('🌱   environment: ', process.env.NODE_ENV);
-  console.log('🌱  Database Url: ', databaseUrl);
+  console.log('🌱         Seed E2E: ', e2e);
+  console.log('🌱      Environment: ', process.env.NODE_ENV);
+  console.log('🌱     Database Url: ', databaseUrl);
+  console.log('🌱  Database Driver: ', driver);
 
   prisma = new PrismaClient();
 
   if (e2e) {
-    const userSeeds = new UserSeeds(prisma, Boolean(log));
+    const userSeeds = new UserSeeds(prisma, driver as any, Boolean(log));
     await userSeeds.execute();
 
-    const spaceSeeds = new SpaceSeeds(prisma, Boolean(log));
+    const spaceSeeds = new SpaceSeeds(prisma, driver as any, Boolean(log));
     await spaceSeeds.execute();
   }
 }

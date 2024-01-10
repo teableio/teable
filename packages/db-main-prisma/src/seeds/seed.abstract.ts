@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 export abstract class AbstractSeed {
   constructor(
     public prisma: PrismaClient,
+    public driver: 'postgresql' | 'sqlite3',
     public outLog: boolean = false
   ) {}
 
