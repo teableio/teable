@@ -26,6 +26,7 @@
     "prisma-migrate": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma migrate",
     "prisma-migrate-reset": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma migrate reset",
     "prisma-db-push": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma db push",
+    "prisma-db-seed": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma db seed",
     "prisma-studio": "dotenv-flow -p ../../apps/nextjs-app -- pnpm prisma studio",
     "test": "run-s test-unit",
     "test-unit": "echo \"No unit tests yet\"",
@@ -48,6 +49,7 @@
     "@faker-js/faker": "8.3.1",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/node": "18.18.2",
+    "@types/bcrypt": "5.0.2",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.1.1",
@@ -59,6 +61,11 @@
     "picocolors": "1.0.0",
     "prettier": "3.1.1",
     "rimraf": "5.0.5",
-    "typescript": "5.3.3"
+    "tsx": "4.7.0",
+    "typescript": "5.3.3",
+    "bcrypt": "5.1.1"
+  },
+  "prisma": {
+    "seed": "tsx ./prisma/seed.ts"
   }
 }
