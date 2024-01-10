@@ -65,7 +65,12 @@ const TextEditorBase: ForwardRefRenderFunction<
     <>
       {needWrap ? (
         <div
-          style={{ ...style, ...attachStyle, paddingBottom: 16 }}
+          style={{
+            ...style,
+            ...attachStyle,
+            paddingBottom: 16,
+            border: `2px solid ${cellLineColorActived}`,
+          }}
           className="relative flex flex-col rounded-md"
         >
           <Textarea
