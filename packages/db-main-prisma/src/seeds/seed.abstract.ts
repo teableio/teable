@@ -9,6 +9,6 @@ export abstract class AbstractSeed {
   abstract execute(): Promise<void>;
 
   protected log = (operation: 'UPSERT' | 'CREATE' | 'UPDATE', msg: string) => {
-    this.outLog && console.log(`${operation}: ${msg}`);
+    (process.env.CI || this.outLog) && console.log(`${operation}: ${msg}`);
   };
 }
