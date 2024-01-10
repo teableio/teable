@@ -64,7 +64,7 @@
     "@teable-group/eslint-config-bases": "workspace:^",
     "@testing-library/react": "14.1.2",
     "@types/node": "18.18.2",
-    "@types/react": "18.2.45",
+    "@types/react": "18.2.47",
     "@types/react-dom": "18.2.18",
     "autoprefixer": "10.4.16",
     "core-js": "3.35.0",

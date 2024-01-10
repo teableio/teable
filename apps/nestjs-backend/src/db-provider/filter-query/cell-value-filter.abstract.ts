@@ -6,7 +6,6 @@ import {
 import type {
   IDateFieldOptions,
   IDateFilter,
-  IFilter,
   IFilterOperator,
   IFilterValue,
 } from '@teable-group/core';
@@ -39,29 +38,24 @@ import {
 } from '@teable-group/core';
 import type { Dayjs } from 'dayjs';
 import type { Knex } from 'knex';
-import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 
 export abstract class AbstractCellValueFilter implements ICellValueFilterInterface {
-  protected _table: string;
+  protected tableColumnRef: string;
+  protected columnName: string;
 
   constructor(
-    protected readonly queryBuilder: Knex.QueryBuilder,
-    protected readonly fields?: { [fieldId: string]: IFieldInstance },
-    protected readonly filter?: IFilter | null
+    protected readonly dbTableName: string,
+    protected readonly field: IFieldInstance
   ) {
-    this._table = get(queryBuilder, ['_single', 'table']);
+    const { dbFieldName } = this.field;
+
+    this.columnName = dbFieldName;
+    this.tableColumnRef = `${this.dbTableName}.${dbFieldName}`;
   }
 
-  filterStrategies(
-    operator: IFilterOperator,
-    params: {
-      queryBuilder: Knex.QueryBuilder;
-      field: IFieldInstance;
-      value: IFilterValue;
-    }
-  ) {
+  compiler(builderClient: Knex.QueryBuilder, operator: IFilterOperator, value: IFilterValue) {
     const operatorHandlers = {
       [is.value]: this.isOperatorHandler,
       [isExactly.value]: this.isExactlyOperatorHandler,
@@ -91,140 +85,146 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       throw new InternalServerErrorException(`Unknown operator ${operator} for filter`);
     }
 
-    const { field, value } = params;
-    return chosenHandler(params.queryBuilder, { field, operator, value });
+    return chosenHandler(builderClient, operator, value);
   }
 
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
+    const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.where(field.dbFieldName, parseValue);
-    return queryBuilder;
+    builderClient.where(this.columnName, parseValue);
+    return builderClient;
   }
 
   isExactlyOperatorHandler(
-    _queryBuilder: Knex.QueryBuilder,
-    _params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    _builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
   ): Knex.QueryBuilder {
     throw new NotImplementedException();
   }
 
   abstract isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder;
 
   containsOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.where(field.dbFieldName, 'LIKE', `%${value}%`);
-    return queryBuilder;
+    builderClient.where(this.columnName, 'LIKE', `%${value}%`);
+    return builderClient;
   }
 
   abstract doesNotContainOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder;
 
   isGreaterOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
+    const { cellValueType } = this.field;
+    const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.where(field.dbFieldName, '>', parseValue);
-    return queryBuilder;
+    builderClient.where(this.columnName, '>', parseValue);
+    return builderClient;
   }
 
   isGreaterEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
+    const { cellValueType } = this.field;
+    const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.where(field.dbFieldName, '>=', parseValue);
-    return queryBuilder;
+    builderClient.where(this.columnName, '>=', parseValue);
+    return builderClient;
   }
 
   isLessOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
+    const { cellValueType } = this.field;
+    const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.where(field.dbFieldName, '<', parseValue);
-    return queryBuilder;
+    builderClient.where(this.columnName, '<', parseValue);
+    return builderClient;
   }
 
   isLessEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
+    const { cellValueType } = this.field;
+    const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.where(field.dbFieldName, '<=', parseValue);
-    return queryBuilder;
+    builderClient.where(this.columnName, '<=', parseValue);
+    return builderClient;
   }
 
   isAnyOfOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
     const valueList = literalValueListSchema.parse(value);
 
-    queryBuilder.whereIn(field.dbFieldName, [...valueList]);
-    return queryBuilder;
+    builderClient.whereIn(this.columnName, [...valueList]);
+    return builderClient;
   }
 
   abstract isNoneOfOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder;
 
   hasAllOfOperatorHandler(
-    _queryBuilder: Knex.QueryBuilder,
-    _params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    _builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
   ): Knex.QueryBuilder {
     throw new NotImplementedException();
   }
 
   isWithInOperatorHandler(
-    _queryBuilder: Knex.QueryBuilder,
-    _params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    _builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
   ): Knex.QueryBuilder {
     throw new NotImplementedException();
   }
 
   isEmptyOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field } = params;
-
-    queryBuilder.whereNull(field.dbFieldName);
-    return queryBuilder;
+    builderClient.whereNull(this.columnName);
+    return builderClient;
   }
 
   isNotEmptyOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    _value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field } = params;
-
-    queryBuilder.whereNotNull(field.dbFieldName);
-    return queryBuilder;
+    builderClient.whereNotNull(this.columnName);
+    return builderClient;
   }
 
   protected createSqlPlaceholders(values: unknown[]): string {

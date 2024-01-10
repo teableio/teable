@@ -1,53 +1,48 @@
 import type { IFilterOperator, ILiteralValue } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../../features/field/model/factory';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [field.dbFieldName]);
-    return queryBuilder;
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [this.columnName]);
+    return builderClient;
   }
 
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [
-      field.dbFieldName,
+    builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [
+      this.columnName,
     ]);
-    return queryBuilder;
+    return builderClient;
   }
 
   containsOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
-      field.dbFieldName,
+    builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
+      this.columnName,
     ]);
-    return queryBuilder;
+    return builderClient;
   }
 
   doesNotContainOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(
+    builderClient.whereRaw(
       `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`,
-      [field.dbFieldName]
+      [this.columnName]
     );
-    return queryBuilder;
+    return builderClient;
   }
 }

@@ -18,7 +18,7 @@ import {
   isNotEmpty,
 } from '@teable-group/core';
 import type { Knex } from 'knex';
-import { includes, invert, isObject } from 'lodash';
+import { get, includes, invert, isObject } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
@@ -27,12 +27,16 @@ import type { IFilterQueryInterface } from './filter-query.interface';
 export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   private logger = new Logger(AbstractFilterQuery.name);
 
+  protected _table: string;
+
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
     protected readonly fields?: { [fieldId: string]: IFieldInstance },
     protected readonly filter?: IFilter,
     protected readonly extra?: IFilterQueryExtra
-  ) {}
+  ) {
+    this._table = get(originQueryBuilder, ['_single', 'table']);
+  }
 
   appendQueryBuilder(): Knex.QueryBuilder {
     this.preProcessRemoveNullAndReplaceMe(this.filter);
@@ -106,28 +110,25 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     }
 
     queryBuilder = queryBuilder[conjunction];
-    this.getFilterAdapter(field).filterStrategies(convertOperator as IFilterOperator, {
-      queryBuilder,
-      field,
-      value,
-    });
+
+    this.getFilterAdapter(field).compiler(queryBuilder, convertOperator as IFilterOperator, value);
     return queryBuilder;
   }
 
   private getFilterAdapter(field: IFieldInstance): AbstractCellValueFilter {
-    const { isMultipleCellValue, dbFieldType } = field;
+    const { dbFieldType } = field;
     switch (field.cellValueType) {
       case CellValueType.Boolean:
-        return this.booleanFilter(isMultipleCellValue);
+        return this.booleanFilter(field);
       case CellValueType.Number:
-        return this.numberFilter(isMultipleCellValue);
+        return this.numberFilter(field);
       case CellValueType.DateTime:
-        return this.dateTimeFilter(isMultipleCellValue);
+        return this.dateTimeFilter(field);
       case CellValueType.String: {
         if (dbFieldType === DbFieldType.Json) {
-          return this.jsonFilter(isMultipleCellValue);
+          return this.jsonFilter(field);
         }
-        return this.stringFilter(isMultipleCellValue);
+        return this.stringFilter(field);
       }
     }
   }
@@ -169,13 +170,13 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     });
   }
 
-  abstract booleanFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract booleanFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract numberFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract numberFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract dateTimeFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract dateTimeFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract stringFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract stringFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract jsonFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract jsonFilter(field: IFieldInstance): AbstractCellValueFilter;
 }

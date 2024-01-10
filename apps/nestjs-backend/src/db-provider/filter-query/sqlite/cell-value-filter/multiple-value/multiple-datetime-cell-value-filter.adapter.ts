@@ -1,119 +1,125 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../../features/field/model/factory';
 import { CellValueFilterSqlite } from '../cell-value-filter.sqlite';
 
 export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterSqlite {
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     const sql = `exists ( 
       select 1 from 
-        json_each(${this._table}.${field.dbFieldName}) 
+        json_each(${this.tableColumnRef}) 
       where json_each.value between ? and ?
     )`;
-    queryBuilder.whereRaw(sql, [...dateTimeRange]);
-    return queryBuilder;
+    builderClient.whereRaw(sql, [...dateTimeRange]);
+    return builderClient;
   }
 
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     const sql = `not exists ( 
       select 1 from 
-        json_each(${this._table}.${field.dbFieldName}) 
+        json_each(${this.tableColumnRef}) 
       where json_each.value between ? and ?
     )`;
-    queryBuilder.whereRaw(sql, [...dateTimeRange]);
-    return queryBuilder;
+    builderClient.whereRaw(sql, [...dateTimeRange]);
+    return builderClient;
   }
 
   isGreaterOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     const sql = `exists ( 
       select 1 from 
-        json_each(${this._table}.${field.dbFieldName}) 
+        json_each(${this.tableColumnRef}) 
       where json_each.value > ?
     )`;
-    queryBuilder.whereRaw(sql, [dateTimeRange[1]]);
-    return queryBuilder;
+    builderClient.whereRaw(sql, [dateTimeRange[1]]);
+    return builderClient;
   }
 
   isGreaterEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     const sql = `exists ( 
       select 1 from 
-        json_each(${this._table}.${field.dbFieldName}) 
+        json_each(${this.tableColumnRef}) 
       where json_each.value >= ?
     )`;
-    queryBuilder.whereRaw(sql, [dateTimeRange[0]]);
-    return queryBuilder;
+    builderClient.whereRaw(sql, [dateTimeRange[0]]);
+    return builderClient;
   }
 
   isLessOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     const sql = `exists ( 
       select 1 from 
-        json_each(${this._table}.${field.dbFieldName}) 
+        json_each(${this.tableColumnRef}) 
       where json_each.value < ?
     )`;
-    queryBuilder.whereRaw(sql, [dateTimeRange[0]]);
-    return queryBuilder;
+    builderClient.whereRaw(sql, [dateTimeRange[0]]);
+    return builderClient;
   }
 
   isLessEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     const sql = `exists ( 
       select 1 from 
-        json_each(${this._table}.${field.dbFieldName}) 
+        json_each(${this.tableColumnRef}) 
       where json_each.value <= ?
     )`;
-    queryBuilder.whereRaw(sql, [dateTimeRange[1]]);
-    return queryBuilder;
+    builderClient.whereRaw(sql, [dateTimeRange[1]]);
+    return builderClient;
   }
 
   isWithInOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     const sql = `exists ( 
       select 1 from 
-        json_each(${this._table}.${field.dbFieldName}) 
+        json_each(${this.tableColumnRef}) 
       where json_each.value between ? and ?
     )`;
-    queryBuilder.whereRaw(sql, [...dateTimeRange]);
-    return queryBuilder;
+    builderClient.whereRaw(sql, [...dateTimeRange]);
+    return builderClient;
   }
 }
