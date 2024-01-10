@@ -3,7 +3,8 @@ import type {
   IAggregationField,
   IColumnMeta,
   IFilter,
-  IGetRecordsQuery,
+  IGetRecordsRo,
+  IQueryBaseRo,
   IRawAggregations,
   IRawAggregationValue,
   IRawRowCountValue,
@@ -104,19 +105,17 @@ export class AggregationService {
     return { aggregations };
   }
 
-  async performRowCount(params: {
-    tableId: string;
-    filterLinkCellCandidate?: IGetRecordsQuery['filterLinkCellCandidate'];
-    filterLinkCellSelected?: IGetRecordsQuery['filterLinkCellSelected'];
-    withView?: IWithView;
-  }): Promise<IRawRowCountValue> {
-    const { tableId, filterLinkCellCandidate, filterLinkCellSelected, withView } = params;
+  async performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue> {
+    const { filterLinkCellCandidate, filterLinkCellSelected } = queryRo;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
     const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
       tableId,
-      withView,
+      withView: {
+        viewId: queryRo.viewId,
+        customFilter: queryRo.filter,
+      },
     });
 
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
@@ -317,7 +316,7 @@ export class AggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
-    filterLinkCellCandidate?: IGetRecordsQuery['filterLinkCellCandidate'];
+    filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
     withUserId?: string;
   }) {
     const { tableId, dbTableName, fieldInstanceMap, filter, filterLinkCellCandidate, withUserId } =

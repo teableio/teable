@@ -28,16 +28,16 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
-  ClearRo,
-  ICopyRo,
-  IRangesToIdRo,
+  IRangesToIdQuery,
   IRangesToIdVo,
-  PasteRo,
-  PasteVo,
+  IPasteRo,
+  IPasteVo,
+  IRangesRo,
 } from '@teable-group/openapi';
 import { IdReturnType, RangeType } from '@teable-group/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -56,49 +56,41 @@ export class SelectionService {
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
+    private readonly aggregationService: AggregationService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly collaboratorService: CollaboratorService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly aggregationService: AggregationService
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
-  async getIdsFromRanges(
-    tableId: string,
-    viewId: string,
-    query: IRangesToIdRo
-  ): Promise<IRangesToIdVo> {
-    const ranges = JSON.parse(query.ranges) as [number, number][];
-    const { returnType, type } = query;
+  async getIdsFromRanges(tableId: string, query: IRangesToIdQuery): Promise<IRangesToIdVo> {
+    const { returnType } = query;
     if (returnType === IdReturnType.RecordId) {
       return {
-        recordIds: await this.rowSelectionToIds(tableId, viewId, ranges, type),
+        recordIds: await this.rowSelectionToIds(tableId, query),
       };
     }
 
     if (returnType === IdReturnType.FieldId) {
       return {
-        fieldIds: await this.columnSelectionToIds(tableId, viewId, ranges, type),
+        fieldIds: await this.columnSelectionToIds(tableId, query),
       };
     }
 
     if (returnType === IdReturnType.All) {
       return {
-        fieldIds: await this.columnSelectionToIds(tableId, viewId, ranges, type),
-        recordIds: await this.rowSelectionToIds(tableId, viewId, ranges, type),
+        fieldIds: await this.columnSelectionToIds(tableId, query),
+        recordIds: await this.rowSelectionToIds(tableId, query),
       };
     }
 
     throw new BadRequestException('Invalid return type');
   }
 
-  private async columnSelectionToIds(
-    tableId: string,
-    viewId: string,
-    ranges: [number, number][],
-    type: RangeType | undefined
-  ): Promise<string[]> {
+  private async columnSelectionToIds(tableId: string, query: IRangesToIdQuery): Promise<string[]> {
+    const { type, viewId, ranges } = query;
     const result = await this.fieldService.getDocIdsByQuery(tableId, {
       viewId,
       filterHidden: true,
@@ -118,15 +110,11 @@ export class SelectionService {
     return result.ids.slice(start[0], end[0] + 1);
   }
 
-  private async rowSelectionToIds(
-    tableId: string,
-    viewId: string,
-    ranges: [number, number][],
-    type: RangeType | undefined
-  ): Promise<string[]> {
+  private async rowSelectionToIds(tableId: string, query: IRangesToIdQuery): Promise<string[]> {
+    const { type, ranges } = query;
     if (type === RangeType.Columns) {
       const result = await this.recordService.getDocIdsByQuery(tableId, {
-        viewId,
+        ...query,
         skip: 0,
         take: -1,
       });
@@ -135,9 +123,13 @@ export class SelectionService {
 
     if (type === RangeType.Rows) {
       let recordIds: string[] = [];
+      const total = ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
+      if (total > this.thresholdConfig.maxReadRows) {
+        throw new BadRequestException(`Exceed max read rows ${this.thresholdConfig.maxReadRows}`);
+      }
       for (const [start, end] of ranges) {
         const result = await this.recordService.getDocIdsByQuery(tableId, {
-          viewId,
+          ...query,
           skip: start,
           take: end + 1 - start,
         });
@@ -150,8 +142,12 @@ export class SelectionService {
     }
 
     const [start, end] = ranges;
+    const total = end[1] - start[1] + 1;
+    if (total > this.thresholdConfig.maxReadRows) {
+      throw new BadRequestException(`Exceed max read rows ${this.thresholdConfig.maxReadRows}`);
+    }
     const result = await this.recordService.getDocIdsByQuery(tableId, {
-      viewId,
+      ...query,
       skip: start[1],
       take: end[1] + 1 - start[1],
     });
@@ -169,13 +165,16 @@ export class SelectionService {
     );
   }
 
-  private async columnsSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
+  private async columnsSelectionCtx(tableId: string, rangesRo: IRangesRo) {
+    const { ranges, type, ...queryRo } = rangesRo;
+
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId,
+      viewId: queryRo.viewId,
       filterHidden: true,
     });
+
     const records = await this.recordService.getRecordsFields(tableId, {
-      viewId,
+      ...queryRo,
       skip: 0,
       take: -1,
       fieldKeyType: FieldKeyType.Id,
@@ -190,15 +189,16 @@ export class SelectionService {
     };
   }
 
-  private async rowsSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
+  private async rowsSelectionCtx(tableId: string, rangesRo: IRangesRo) {
+    const { ranges, type, ...queryRo } = rangesRo;
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId,
+      viewId: queryRo.viewId,
       filterHidden: true,
     });
     let records: Pick<IRecord, 'id' | 'fields'>[] = [];
     for (const [start, end] of ranges) {
       const recordsFields = await this.recordService.getRecordsFields(tableId, {
-        viewId,
+        ...queryRo,
         skip: start,
         take: end + 1 - start,
         fieldKeyType: FieldKeyType.Id,
@@ -213,14 +213,16 @@ export class SelectionService {
     };
   }
 
-  private async defaultSelectionCtx(tableId: string, viewId: string, ranges: [number, number][]) {
+  private async defaultSelectionCtx(tableId: string, rangesRo: IRangesRo) {
+    const { ranges, type, ...queryRo } = rangesRo;
     const [start, end] = ranges;
     const fields = await this.fieldService.getFieldInstances(tableId, {
-      viewId,
+      viewId: queryRo.viewId,
       filterHidden: true,
     });
+
     const records = await this.recordService.getRecordsFields(tableId, {
-      viewId,
+      ...queryRo,
       skip: start[1],
       take: end[1] + 1 - start[1],
       fieldKeyType: FieldKeyType.Id,
@@ -229,21 +231,52 @@ export class SelectionService {
     return { records, fields: fields.slice(start[0], end[0] + 1) };
   }
 
-  private async getSelectionCtxByRange(
+  private async parseRange(
     tableId: string,
-    viewId: string,
-    ranges: [number, number][],
-    type?: RangeType
-  ) {
+    rangesRo: IRangesRo
+  ): Promise<{ cellCount: number; columnCount: number; rowCount: number }> {
+    const { ranges, type, ...queryRo } = rangesRo;
     switch (type) {
       case RangeType.Columns: {
-        return await this.columnsSelectionCtx(tableId, viewId, ranges);
+        const { rowCount } = await this.aggregationService.performRowCount(tableId, queryRo);
+        const columnCount = ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
+        const cellCount = rowCount * columnCount;
+
+        return { cellCount, columnCount, rowCount };
       }
       case RangeType.Rows: {
-        return await this.rowsSelectionCtx(tableId, viewId, ranges);
+        const fields = await this.fieldService.getFieldsByQuery(tableId, {
+          viewId: queryRo.viewId,
+          filterHidden: true,
+        });
+        const columnCount = fields.length;
+        const rowCount = ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
+        const cellCount = rowCount * columnCount;
+
+        return { cellCount, columnCount, rowCount };
+      }
+      default: {
+        const [start, end] = ranges;
+        const columnCount = end[0] - start[0] + 1;
+        const rowCount = end[1] - start[1] + 1;
+        const cellCount = rowCount * columnCount;
+
+        return { cellCount, columnCount, rowCount };
+      }
+    }
+  }
+
+  private async getSelectionCtxByRange(tableId: string, rangesRo: IRangesRo) {
+    const { type } = rangesRo;
+    switch (type) {
+      case RangeType.Columns: {
+        return await this.columnsSelectionCtx(tableId, rangesRo);
+      }
+      case RangeType.Rows: {
+        return await this.rowsSelectionCtx(tableId, rangesRo);
       }
       default:
-        return await this.defaultSelectionCtx(tableId, viewId, ranges);
+        return await this.defaultSelectionCtx(tableId, rangesRo);
     }
   }
 
@@ -540,15 +573,14 @@ export class SelectionService {
     };
   }
 
-  async copy(tableId: string, viewId: string, query: ICopyRo) {
-    const { ranges, type } = query;
-    const rangesArray = JSON.parse(ranges) as [number, number][];
-    const { fields, records } = await this.getSelectionCtxByRange(
-      tableId,
-      viewId,
-      rangesArray,
-      type
-    );
+  async copy(tableId: string, rangesRo: IRangesRo) {
+    const { cellCount } = await this.parseRange(tableId, rangesRo);
+
+    if (cellCount > this.thresholdConfig.maxCopyCells) {
+      throw new BadRequestException(`Exceed max copy cells ${this.thresholdConfig.maxCopyCells}`);
+    }
+
+    const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const rectangleData = records.map((record) =>
       fieldInstances.map((fieldInstance) =>
@@ -610,13 +642,20 @@ export class SelectionService {
     return [range[0], range[1]];
   }
 
-  async paste(tableId: string, viewId: string, pasteRo: PasteRo) {
-    const { range, type, content, header = [] } = pasteRo;
+  async paste(tableId: string, pasteRo: IPasteRo) {
+    const { content, header = [], ...rangesRo } = pasteRo;
+    const { ranges, type, ...queryRo } = rangesRo;
+    const { viewId } = queryRo;
+    const { cellCount } = await this.parseRange(tableId, rangesRo);
 
-    const { rowCount: rowCountInView } = await this.aggregationService.performRowCount({
+    if (cellCount > this.thresholdConfig.maxPasteCells) {
+      throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
+    }
+
+    const { rowCount: rowCountInView } = await this.aggregationService.performRowCount(
       tableId,
-      withView: { viewId },
-    });
+      queryRo
+    );
     const fields = await this.fieldService.getFieldInstances(tableId, {
       viewId,
       filterHidden: true,
@@ -628,7 +667,7 @@ export class SelectionService {
         [0, 0],
         [tableSize[0] - 1, tableSize[1] - 1],
       ],
-      range,
+      ranges,
       type
     );
 
@@ -638,21 +677,31 @@ export class SelectionService {
 
     const cell = rangeCell[0];
     const [col, row] = cell;
+
+    const effectFields = fields.slice(col, col + tableColCount);
+
+    const projection = effectFields.reduce(
+      (acc, field) => {
+        acc[field.id] = true;
+        return acc;
+      },
+      {} as Record<string, boolean>
+    );
+
     const records = await this.recordService.getRecordsFields(tableId, {
-      viewId,
+      ...queryRo,
+      projection,
       skip: row,
       take: tableData.length,
       fieldKeyType: FieldKeyType.Id,
     });
-
-    const effectFields = fields.slice(col, col + tableColCount);
 
     const [numColsToExpand, numRowsToExpand] = this.calculateExpansion(tableSize, cell, [
       tableColCount,
       tableRowCount,
     ]);
 
-    const updateRange: PasteVo['ranges'] = [cell, cell];
+    const updateRange: IPasteVo['ranges'] = [cell, cell];
 
     await this.prismaService.$tx(async () => {
       // Expansion col
@@ -683,9 +732,8 @@ export class SelectionService {
     return updateRange;
   }
 
-  async clear(tableId: string, viewId: string, clearRo: ClearRo) {
-    const { ranges, type } = clearRo;
-    const { fields, records } = await this.getSelectionCtxByRange(tableId, viewId, ranges, type);
+  async clear(tableId: string, rangesRo: IRangesRo) {
+    const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const updateRecordsRo = await this.fillCells({
       tableId,

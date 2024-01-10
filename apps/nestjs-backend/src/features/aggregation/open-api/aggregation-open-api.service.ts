@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   IAggregationRo,
   IAggregationVo,
-  IRowCountRo,
+  IQueryBaseRo,
   IRowCountVo,
   StatisticsFunc,
 } from '@teable-group/core';
@@ -43,15 +43,8 @@ export class AggregationOpenApiService {
     return { aggregations: result?.aggregations };
   }
 
-  async getRowCount(tableId: string, query?: IRowCountRo): Promise<IRowCountVo> {
-    const { viewId, filter, filterLinkCellCandidate, filterLinkCellSelected } = query || {};
-
-    const result = await this.aggregationService.performRowCount({
-      tableId,
-      filterLinkCellCandidate,
-      filterLinkCellSelected,
-      withView: { viewId, customFilter: filter },
-    });
+  async getRowCount(tableId: string, query: IQueryBaseRo = {}): Promise<IRowCountVo> {
+    const result = await this.aggregationService.performRowCount(tableId, query);
     return {
       rowCount: result.rowCount,
     };

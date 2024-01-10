@@ -1,18 +1,11 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { copyVoSchema, rangesSchema, type ICopyRo } from '../selection';
+import type { ICopyVo, IRangesRo } from '../selection';
+import { copyVoSchema, rangesQuerySchema } from '../selection';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const SHARE_VIEW_COPY = '/share/{shareId}/view/copy';
-
-export const shareViewCopyRoSchema = rangesSchema;
-
-export type IShareViewCopyRo = z.infer<typeof shareViewCopyRoSchema>;
-
-export const shareViewCopyVoSchema = copyVoSchema;
-
-export type IShareViewCopyVo = z.infer<typeof shareViewCopyVoSchema>;
 
 export const ShareViewCopyRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -22,14 +15,14 @@ export const ShareViewCopyRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
-    query: shareViewCopyRoSchema,
+    query: rangesQuerySchema,
   },
   responses: {
     200: {
       description: 'Copy content',
       content: {
         'application/json': {
-          schema: shareViewCopyVoSchema,
+          schema: copyVoSchema,
         },
       },
     },
@@ -37,11 +30,18 @@ export const ShareViewCopyRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const shareViewCopy = async (shareId: string, copyRo: ICopyRo) => {
-  return axios.get<IShareViewCopyVo>(
+export const shareViewCopy = async (shareId: string, copyRo: IRangesRo) => {
+  return axios.get<ICopyVo>(
     urlBuilder(SHARE_VIEW_COPY, {
       shareId,
     }),
-    { params: copyRo }
+    {
+      params: {
+        ...copyRo,
+        filter: JSON.stringify(copyRo.filter),
+        orderBy: JSON.stringify(copyRo.orderBy),
+        ranges: JSON.stringify(copyRo.ranges),
+      },
+    }
   );
 };

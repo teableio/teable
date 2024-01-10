@@ -2,7 +2,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions, ITableFullVo } from '@teable-group/core';
 import { CellFormat, FieldKeyType, FieldType } from '@teable-group/core';
-import { updateRecordByIndex as apiUpdateRecordByIndex } from '@teable-group/openapi';
 import {
   createField,
   createRecords,
@@ -135,33 +134,6 @@ describe('OpenAPI RecordController (e2e)', () => {
 
       expect(result.records).toHaveLength(3);
       expect(result.records[0].fields[table.fields[0].name]).toEqual('new value');
-    });
-
-    it('should update record by index', async () => {
-      const viewResponse = await getViews(table.id);
-
-      const firstTextField = table.fields.find((field) => field.type === FieldType.SingleLineText);
-      if (!firstTextField) {
-        throw new Error('can not find text field');
-      }
-
-      await apiUpdateRecordByIndex(table.id, {
-        fieldKeyType: FieldKeyType.Name,
-        viewId: viewResponse[0].id,
-        index: 1,
-        record: {
-          fields: {
-            [firstTextField.name]: 'new value',
-          },
-        },
-      });
-
-      const result = await getRecords(table.id, {
-        skip: 0,
-        take: 1000,
-      });
-      expect(result.records).toHaveLength(3);
-      expect(result.records[1].fields[firstTextField.name]).toEqual('new value');
     });
 
     it('should batch create records', async () => {

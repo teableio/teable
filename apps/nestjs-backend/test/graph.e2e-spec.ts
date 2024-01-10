@@ -1,7 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Relationship, type IFieldRo, type ITableFullVo } from '@teable-group/core';
-import { planField, planFieldCreate, planFieldUpdate } from '@teable-group/openapi';
+import {
+  FieldType,
+  Relationship,
+  type IFieldRo,
+  type ITableFullVo,
+  FieldKeyType,
+} from '@teable-group/core';
+import { planField, planFieldCreate, planFieldUpdate, updateRecord } from '@teable-group/openapi';
 import { createField, createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Graph (e2e)', () => {
@@ -25,7 +31,7 @@ describe('OpenAPI Graph (e2e)', () => {
     });
     table2 = await createTable(baseId, {
       name: 'table2',
-      records: [{ fields: {} }],
+      records: Array.from({ length: 10 }).map(() => ({ fields: {} })),
     });
   });
 
@@ -45,11 +51,7 @@ describe('OpenAPI Graph (e2e)', () => {
 
     const { data: plan } = await planFieldCreate(table1.id, formulaRo);
 
-    expect(plan).toMatchObject({
-      isAsync: false,
-      updateCellCount: 3,
-      totalCellCount: 6,
-    });
+    expect(plan.updateCellCount).toEqual(3);
     expect(plan.graph?.nodes).toHaveLength(2);
     expect(plan.graph?.edges).toHaveLength(1);
     expect(plan.graph?.combos).toHaveLength(1);
@@ -81,14 +83,13 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: table1.records.length,
-      totalCellCount: table1.records.length * 2 + table2.records.length,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
     expect(plan.graph?.edges).toHaveLength(2);
     expect(plan.graph?.combos).toHaveLength(2);
   });
 
-  it('should plan a simple field with more reference', async () => {
+  it('should plan an empty simple field with no reference', async () => {
     const numberField = table1.fields[1];
 
     const { data: plan } = await planField(table1.id, numberField.id);
@@ -96,12 +97,69 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: 3,
-      totalCellCount: 3,
     });
 
     expect(plan.graph?.nodes).toHaveLength(1);
     expect(plan.graph?.edges).toHaveLength(0);
     expect(plan.graph?.combos).toHaveLength(1);
+  });
+
+  it('should plan simple field with ManyOne link', async () => {
+    const textField = table1.fields[0];
+    const linkFieldRo = {
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyOne,
+        foreignTableId: table1.id,
+      },
+    };
+    const linkField = await createField(table2.id, linkFieldRo);
+
+    await updateRecord(table2.id, table2.records[0].id, {
+      record: {
+        fields: {
+          [linkField.id]: { id: table1.records[0].id },
+        },
+      },
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    const { data: plan } = await planField(table1.id, textField.id);
+
+    expect(plan.updateCellCount).toEqual(4);
+
+    expect(plan.graph?.nodes).toHaveLength(2);
+    expect(plan.graph?.edges).toHaveLength(1);
+    expect(plan.graph?.combos).toHaveLength(2);
+  });
+
+  it('should plan simple field with OneMany link', async () => {
+    const textField = table1.fields[0];
+    const linkFieldRo = {
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.OneMany,
+        foreignTableId: table1.id,
+      },
+    };
+    const linkField = await createField(table2.id, linkFieldRo);
+
+    await updateRecord(table2.id, table2.records[0].id, {
+      record: {
+        fields: {
+          [linkField.id]: [{ id: table1.records[0].id }, { id: table1.records[1].id }],
+        },
+      },
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    const { data: plan } = await planField(table1.id, textField.id);
+
+    expect(plan.updateCellCount).toEqual(4);
+
+    expect(plan.graph?.nodes).toHaveLength(2);
+    expect(plan.graph?.edges).toHaveLength(1);
+    expect(plan.graph?.combos).toHaveLength(2);
   });
 
   it('should plan text to number field reference by formula', async () => {
@@ -124,11 +182,7 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planFieldUpdate(table1.id, textField.id, newFieldRo);
 
     expect(plan.skip).toBeUndefined();
-    expect(plan).toMatchObject({
-      isAsync: false,
-      updateCellCount: 6,
-      totalCellCount: 6,
-    });
+    expect(plan.updateCellCount).toEqual(6);
     expect(plan.graph?.nodes).toHaveLength(2);
     expect(plan.graph?.edges).toHaveLength(1);
     expect(plan.graph?.combos).toHaveLength(1);
@@ -156,7 +210,6 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: 3,
-      totalCellCount: 6,
     });
     expect(plan.graph?.nodes).toHaveLength(2);
     expect(plan.graph?.edges).toHaveLength(1);
@@ -189,7 +242,6 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: 3,
-      totalCellCount: 9,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
     expect(plan.graph?.edges).toHaveLength(2);
@@ -214,7 +266,6 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan).toMatchObject({
       isAsync: false,
       updateCellCount: 3,
-      totalCellCount: 9,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
     expect(plan.graph?.edges).toHaveLength(2);
@@ -291,8 +342,7 @@ describe('OpenAPI Graph (e2e)', () => {
 
     expect(plan).toMatchObject({
       isAsync: false,
-      updateCellCount: table1.records.length * 2,
-      totalCellCount: table1.records.length * 4,
+      updateCellCount: 6,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
     expect(plan.graph?.edges).toHaveLength(2);

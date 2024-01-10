@@ -5,7 +5,6 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFilter, ITableFullVo } from '@teable-group/core';
 import { and, FieldKeyType } from '@teable-group/core';
 import { axios, GET_RECORDS_URL, urlBuilder } from '@teable-group/openapi';
-import qs from 'qs';
 import { x_20 } from './data-helpers/20x';
 import {
   CHECKBOX_FIELD_CASES,
@@ -36,10 +35,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       await axios.get(urlBuilder(GET_RECORDS_URL, { tableId }), {
         params: {
           fieldKeyType: FieldKeyType.Id,
-          filter: filter,
-        },
-        paramsSerializer: (params) => {
-          return qs.stringify(params);
+          filter: JSON.stringify(filter),
         },
       })
     ).data;

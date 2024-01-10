@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IGetRecordsQuery, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IGetRecordsRo, ITableFullVo } from '@teable-group/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable-group/core';
 import { getRowCount as apiGetRowCount } from '@teable-group/openapi';
 import {
@@ -178,22 +178,22 @@ describe('OpenAPI link Select (e2e)', () => {
         });
 
         it('should fetch all candidate and selected records', async () => {
-          const table1Candidate: IGetRecordsQuery = {
+          const table1Candidate: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellCandidate: [linkField2.id, table2.records[0].id],
           };
 
-          const table1Selected: IGetRecordsQuery = {
+          const table1Selected: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellSelected: [linkField2.id, table2.records[0].id],
           };
 
-          const table2Candidate: IGetRecordsQuery = {
+          const table2Candidate: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellCandidate: [linkField1.id, table1.records[0].id],
           };
 
-          const table2Selected: IGetRecordsQuery = {
+          const table2Selected: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellSelected: [linkField1.id, table1.records[0].id],
           };
@@ -239,22 +239,22 @@ describe('OpenAPI link Select (e2e)', () => {
             await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, value);
           }
 
-          const table1Candidate: IGetRecordsQuery = {
+          const table1Candidate: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellCandidate: [linkField2.id, table2.records[0].id],
           };
 
-          const table1Selected: IGetRecordsQuery = {
+          const table1Selected: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellSelected: [linkField2.id, table2.records[0].id],
           };
 
-          const table2Candidate: IGetRecordsQuery = {
+          const table2Candidate: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellCandidate: [linkField1.id, table1.records[0].id],
           };
 
-          const table2Selected: IGetRecordsQuery = {
+          const table2Selected: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellSelected: [linkField1.id, table1.records[0].id],
           };
@@ -288,22 +288,22 @@ describe('OpenAPI link Select (e2e)', () => {
             await updateRecordByApi(table1.id, table1.records[0].id, linkField1.id, value);
           }
 
-          const table1Candidate: IGetRecordsQuery = {
+          const table1Candidate: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellCandidate: linkField2.id,
           };
 
-          const table1Selected: IGetRecordsQuery = {
+          const table1Selected: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellSelected: linkField2.id,
           };
 
-          const table2Candidate: IGetRecordsQuery = {
+          const table2Candidate: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellCandidate: linkField1.id,
           };
 
-          const table2Selected: IGetRecordsQuery = {
+          const table2Selected: IGetRecordsRo = {
             fieldKeyType: FieldKeyType.Id,
             filterLinkCellSelected: linkField1.id,
           };

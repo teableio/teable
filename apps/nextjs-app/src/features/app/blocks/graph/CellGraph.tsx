@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { ColorUtils } from '@teable-group/core';
 import { DraggableHandle, X } from '@teable-group/icons';
-import { getGraph } from '@teable-group/openapi';
+import { IdReturnType, getGraph, getIdsFromRanges } from '@teable-group/openapi';
 import { useBase, useTableId, useViewId } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { useEffect, useRef, useState } from 'react';
@@ -38,43 +38,55 @@ export const CellGraph: React.FC = () => {
   useEffect(() => {
     const cell = selection?.ranges?.[0];
     const isCell = selection?.isCellSelection;
-    if (!cell || !isCell || !tableId || !viewId || !base.id) {
+    if (!selection || !cell || !isCell || !tableId || !viewId || !base.id) {
       return;
     }
-    getGraphMutator({ baseId: base.id, tableId, viewId, cell: cell }).then((res) => {
-      if (res.data) {
-        const { nodes, edges, combos } = res.data;
-        const cache: Record<string, string> = {};
-        updateGraph({
-          nodes: nodes?.map((node) => {
-            const comboId = node.comboId || 'default';
-            const color = cache[comboId]
-              ? cache[comboId]
-              : ColorUtils.getRandomColorFromStr(comboId);
-            cache[comboId] = color;
-            const stroke = ColorUtils.getHexForColor(color);
-            return {
-              ...node,
-              label: `${node.fieldName}\n${node.label || '-'}`,
-              style: {
-                stroke,
-                lineWidth: node.isSelected ? 5 : 1,
-                fill: stroke,
-              },
-            };
-          }),
-          edges,
-        });
-        setTables(
-          combos.map((combo) => ({
-            name: combo.label,
-            color: cache[combo.id] || '',
-          }))
-        );
-      } else {
-        updateGraph();
-        setTables([]);
+    getIdsFromRanges(tableId, {
+      viewId: viewId,
+      ranges: selection.serialize(),
+      returnType: IdReturnType.All,
+    }).then((res) => {
+      const fieldId = res.data?.fieldIds?.[0];
+      const recordId = res.data?.recordIds?.[0];
+      if (!fieldId || !recordId) {
+        return;
       }
+
+      getGraphMutator({ baseId: base.id, tableId, cell: [fieldId, recordId] }).then((res) => {
+        if (res.data) {
+          const { nodes, edges, combos } = res.data;
+          const cache: Record<string, string> = {};
+          updateGraph({
+            nodes: nodes?.map((node) => {
+              const comboId = node.comboId || 'default';
+              const color = cache[comboId]
+                ? cache[comboId]
+                : ColorUtils.getRandomColorFromStr(comboId);
+              cache[comboId] = color;
+              const stroke = ColorUtils.getHexForColor(color);
+              return {
+                ...node,
+                label: `${node.fieldName}\n${node.label || '-'}`,
+                style: {
+                  stroke,
+                  lineWidth: node.isSelected ? 5 : 1,
+                  fill: stroke,
+                },
+              };
+            }),
+            edges,
+          });
+          setTables(
+            combos.map((combo) => ({
+              name: combo.label,
+              color: cache[combo.id] || '',
+            }))
+          );
+        } else {
+          updateGraph();
+          setTables([]);
+        }
+      });
     });
   }, [base.id, getGraphMutator, selection, tableId, updateGraph, viewId]);
 

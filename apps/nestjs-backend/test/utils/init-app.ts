@@ -16,7 +16,7 @@ import type {
   ICreateTableRo,
   IFilterRo,
   IViewRo,
-  IGetRecordsQuery,
+  IGetRecordsRo,
   IRecordsVo,
   IUpdateRecordRo,
   ITableFullVo,
@@ -75,6 +75,9 @@ export async function initApp() {
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
   app.use(cookieParser());
+  // const logger = new ConsoleLogger();
+  // logger.setLogLevels(['log', 'error']);
+  // app.useLogger(logger);
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
@@ -245,7 +248,7 @@ export async function getRecord(
   }
 }
 
-export async function getRecords(tableId: string, query?: IGetRecordsQuery): Promise<IRecordsVo> {
+export async function getRecords(tableId: string, query?: IGetRecordsRo): Promise<IRecordsVo> {
   const result = await apiGetRecords(tableId, query);
 
   return result.data;

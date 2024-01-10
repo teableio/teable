@@ -20,23 +20,24 @@ export function Timing(customLoggerKey?: string): MethodDecorator {
       const result = originalMethod.apply(this, args);
       const className = target.constructor.name;
 
-      if (result instanceof Promise) {
-        return result.then((data) => {
-          const end = process.hrtime.bigint();
-          logger.log(
-            `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${
-              (end - start) / BigInt(1000000)
-            } ms`
-          );
-          return data;
-        });
-      } else {
+      const printLog = () => {
         const end = process.hrtime.bigint();
         logger.log(
           `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${
             (end - start) / BigInt(1000000)
-          } ms`
+          } ms; Heap Usage: ${
+            Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
+          } MB}`
         );
+      };
+
+      if (result instanceof Promise) {
+        return result.then((data) => {
+          printLog();
+          return data;
+        });
+      } else {
+        printLog();
         return result;
       }
     };

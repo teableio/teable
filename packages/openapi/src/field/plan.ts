@@ -10,7 +10,6 @@ export const planFieldVoSchema = z.object({
   isAsync: z.boolean(),
   graph: graphVoSchema,
   updateCellCount: z.number(),
-  totalCellCount: z.number(),
 });
 
 export type IPlanFieldVo = z.infer<typeof planFieldVoSchema>;

@@ -15,12 +15,12 @@ import type {
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
-  IShareViewCopyRo,
   IShareViewLinkRecordsRo,
   ShareViewFormSubmitRo,
   ShareViewGetVo,
-  IShareViewRowCountQuery,
-  IShareViewAggregationsQuery,
+  IShareViewRowCountRo,
+  IShareViewAggregationsRo,
+  IRangesRo,
 } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -93,7 +93,7 @@ export class ShareService {
 
   async getViewAggregations(
     shareInfo: IShareViewInfo,
-    query: IShareViewAggregationsQuery = {}
+    query: IShareViewAggregationsRo = {}
   ): Promise<IAggregationVo> {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
@@ -118,15 +118,11 @@ export class ShareService {
 
   async getViewRowCount(
     shareInfo: IShareViewInfo,
-    query?: IShareViewRowCountQuery
+    query?: IShareViewRowCountRo
   ): Promise<IRowCountVo> {
-    const filter = query?.filter ?? null;
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
-    const result = await this.aggregationService.performRowCount({
-      tableId,
-      withView: { viewId, customFilter: filter },
-    });
+    const result = await this.aggregationService.performRowCount(tableId, { viewId, ...query });
 
     return {
       rowCount: result.rowCount,
@@ -145,8 +141,11 @@ export class ShareService {
     return records[0];
   }
 
-  async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IShareViewCopyRo) {
-    return this.selectionService.copy(shareInfo.tableId, shareInfo.view.id, shareViewCopyRo);
+  async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
+    return this.selectionService.copy(shareInfo.tableId, {
+      viewId: shareInfo.view.id,
+      ...shareViewCopyRo,
+    });
   }
 
   async getLinkRecords(shareInfo: IShareViewInfo, shareViewLinkRecordsRo: IShareViewLinkRecordsRo) {
