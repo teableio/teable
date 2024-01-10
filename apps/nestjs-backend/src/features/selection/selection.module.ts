@@ -12,10 +12,10 @@ import { SelectionService } from './selection.service';
   imports: [
     RecordModule,
     FieldModule,
+    AggregationModule,
     RecordOpenApiModule,
     FieldCalculateModule,
     CollaboratorModule,
-    AggregationModule,
   ],
   controllers: [SelectionController],
   providers: [SelectionService],

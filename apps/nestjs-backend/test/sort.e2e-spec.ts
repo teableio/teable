@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ISortItem, ITableFullVo, IGetRecordsQuery } from '@teable-group/core';
+import type { IFieldRo, ISortItem, ITableFullVo, IGetRecordsRo } from '@teable-group/core';
 import {
   CellValueType,
   FieldKeyType,
@@ -128,7 +128,7 @@ const createLink = async (mainTableId: string, subTableId: string) => {
   });
 };
 
-const getSortRecords = async (tableId: string, orderBy?: IGetRecordsQuery['orderBy']) => {
+const getSortRecords = async (tableId: string, orderBy?: IGetRecordsRo['orderBy']) => {
   const result = await getRecords(tableId, {
     orderBy: orderBy,
   });
@@ -201,8 +201,8 @@ describe('OpenAPI RecordController sort (e2e) base cellValueType', () => {
         await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
 
-      const ascOrders: IGetRecordsQuery['orderBy'] = [{ fieldId, order: 'asc' }];
-      const descOrders: IGetRecordsQuery['orderBy'] = [{ fieldId, order: 'desc' }];
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'asc' }];
+      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'desc' }];
       const ascOriginRecords = await getSortRecords(subTableId, ascOrders);
       const descOriginRecords = await getSortRecords(subTableId, descOrders);
 
@@ -278,8 +278,8 @@ describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
         ]);
       }
 
-      const ascOrders: IGetRecordsQuery['orderBy'] = [{ fieldId: lookupFieldId, order: 'asc' }];
-      const descOrders: IGetRecordsQuery['orderBy'] = [{ fieldId: lookupFieldId, order: 'desc' }];
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'asc' }];
+      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'desc' }];
       const ascOriginRecords = await getSortRecords(mainTableId, ascOrders);
       const descOriginRecords = await getSortRecords(mainTableId, descOrders);
 
@@ -323,10 +323,10 @@ describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () =>
         await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
 
-      const ascOrders: IGetRecordsQuery['orderBy'] = [{ fieldId, order: 'asc' }];
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'asc' }];
       await setRecordsOrder(subTableId, subTableDefaultViewId, ascOrders);
       const ascOriginRecords = await getSortRecords(subTableId);
-      const descOrders: IGetRecordsQuery['orderBy'] = [{ fieldId, order: 'desc' }];
+      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'desc' }];
       await setRecordsOrder(subTableId, subTableDefaultViewId, descOrders);
       const descOriginRecords = await getSortRecords(subTableId);
 
@@ -401,10 +401,10 @@ describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', (
         ]);
       }
 
-      const ascOrders: IGetRecordsQuery['orderBy'] = [{ fieldId: lookupFieldId, order: 'asc' }];
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'asc' }];
       await setRecordsOrder(mainTableId, mainDefaultViewId!, ascOrders);
       const ascOriginRecords = await getSortRecords(mainTableId);
-      const descOrders: IGetRecordsQuery['orderBy'] = [{ fieldId: lookupFieldId, order: 'desc' }];
+      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'desc' }];
       await setRecordsOrder(mainTableId, mainDefaultViewId!, descOrders);
       const descOriginRecords = await getSortRecords(mainTableId);
 

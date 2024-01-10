@@ -621,7 +621,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
       await apiGetGraph({
         baseId,
         tableId: table1.id,
-        cell: [0, 0],
+        cell: [table1.fields[0].id, table1.records[0].id],
       })
     ).data;
     expect(result?.nodes).toBeTruthy();

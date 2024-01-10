@@ -1,4 +1,4 @@
-import type { IGetRecordsQuery, ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
+import type { IGetRecordsRo, ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
 import { isMultiValueLink } from '@teable-group/core';
 import { Plus } from '@teable-group/icons';
 import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib';
@@ -69,7 +69,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     onReset,
   }));
 
-  const recordQuery = useMemo((): IGetRecordsQuery => {
+  const recordQuery = useMemo((): IGetRecordsRo => {
     if (viewType === ViewType.Selected) {
       return {
         filterLinkCellSelected: recordId ? [fieldId, recordId] : fieldId,

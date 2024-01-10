@@ -3,37 +3,28 @@ import { fieldVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { cellSchema, rangesSchema } from './range';
+import { cellSchema, rangesRoSchema } from './range';
 
-export const PASTE_URL = '/table/{tableId}/view/{viewId}/selection/paste';
+export const PASTE_URL = '/table/{tableId}/selection/paste';
 
-export const pasteRoSchema = z.object({
+export const pasteRoSchema = rangesRoSchema.extend({
   content: z.string().openapi({
     description: 'Content to paste',
     example: 'John\tDoe\tjohn.doe@example.com',
   }),
-  range: z.array(cellSchema).openapi({
-    description:
-      'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
-    example: [
-      [0, 0],
-      [1, 1],
-    ],
-  }),
-  type: rangesSchema.shape.type,
   header: z.array(fieldVoSchema).optional().openapi({
     description: 'Table header for paste operation',
     example: [],
   }),
 });
 
-export type PasteRo = z.infer<typeof pasteRoSchema>;
+export type IPasteRo = z.infer<typeof pasteRoSchema>;
 
 export const pasteVoSchema = z.object({
   ranges: z.tuple([cellSchema, cellSchema]),
 });
 
-export type PasteVo = z.infer<typeof pasteVoSchema>;
+export type IPasteVo = z.infer<typeof pasteVoSchema>;
 
 export const PasteRoute: RouteConfig = registerRoute({
   method: 'patch',
@@ -42,7 +33,6 @@ export const PasteRoute: RouteConfig = registerRoute({
   request: {
     params: z.object({
       tableId: z.string(),
-      viewId: z.string(),
     }),
     body: {
       content: {
@@ -65,11 +55,10 @@ export const PasteRoute: RouteConfig = registerRoute({
   tags: ['selection'],
 });
 
-export const paste = async (tableId: string, viewId: string, pasteRo: PasteRo) => {
+export const paste = async (tableId: string, pasteRo: IPasteRo) => {
   return axios.patch<null>(
     urlBuilder(PASTE_URL, {
       tableId,
-      viewId,
     }),
     pasteRo
   );

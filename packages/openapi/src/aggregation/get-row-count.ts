@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IRowCountRo, IRowCountVo } from '@teable-group/core';
-import { rowCountRoSchema, rowCountVoSchema } from '@teable-group/core';
+import type { IQueryBaseRo, IRowCountVo } from '@teable-group/core';
+import { queryBaseSchema, rowCountVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -15,7 +15,7 @@ export const GetRowCountRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
     }),
-    query: rowCountRoSchema,
+    query: queryBaseSchema,
   },
   responses: {
     200: {
@@ -30,6 +30,6 @@ export const GetRowCountRoute: RouteConfig = registerRoute({
   tags: ['aggregation'],
 });
 
-export const getRowCount = async (tableId: string, query?: IRowCountRo) => {
+export const getRowCount = async (tableId: string, query?: IQueryBaseRo) => {
   return axios.get<IRowCountVo>(urlBuilder(GET_ROW_COUNT, { tableId }), { params: query });
 };

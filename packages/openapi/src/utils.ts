@@ -1,5 +1,4 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { stringify } from 'qs';
 
 export const urlBuilder = (url: string, pathParams?: Record<string, unknown>) => {
   if (!pathParams) {
@@ -21,18 +20,4 @@ export const registerRoute = (route: RouteConfig) => {
 
 export const getRoutes = () => {
   return routes;
-};
-
-export const paramsSerializer = (params: Record<string, unknown>) => {
-  const paramsInner = Object.keys(params).reduce(
-    (acc, key) => {
-      const value = params[key];
-      if (value) {
-        acc[key] = value;
-      }
-      return acc;
-    },
-    {} as Record<string, unknown>
-  );
-  return stringify(paramsInner);
 };

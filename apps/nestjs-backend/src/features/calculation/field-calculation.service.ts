@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type { ILookupOptionsVo } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, uniq } from 'lodash';
@@ -45,24 +44,6 @@ export class FieldCalculationService {
       .$queryRawUnsafe<{ __id: string }[]>(nativeSql.sql, ...nativeSql.bindings);
 
     return results.map((item) => item.__id);
-  }
-
-  private async getOriginLookupRecords(lookupOptions: ILookupOptionsVo) {
-    const { selfKeyName, foreignKeyName, fkHostTableName } = lookupOptions;
-
-    const querySql = this.knex
-      .queryBuilder()
-      .whereNotNull(selfKeyName)
-      .whereNotNull(foreignKeyName)
-      .select(foreignKeyName)
-      .from(fkHostTableName)
-      .toQuery();
-
-    const results = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ [key: string]: string }[]>(querySql);
-
-    return results.map((item) => item[foreignKeyName]);
   }
 
   @Timing()

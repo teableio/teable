@@ -75,9 +75,9 @@ export class TableController {
   @Post(':tableId/graph')
   async getCellGraph(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(getGraphRoSchema)) { cell, viewId }: IGetGraphRo
+    @Body(new ZodValidationPipe(getGraphRoSchema)) { cell }: IGetGraphRo
   ) {
-    return await this.tableOpenApiService.getGraph(tableId, cell, viewId);
+    return await this.tableOpenApiService.getGraph(tableId, cell);
   }
 
   @Permissions('table|read')

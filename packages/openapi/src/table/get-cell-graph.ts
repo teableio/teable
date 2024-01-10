@@ -7,9 +7,8 @@ export const GET_CELL_GRAPH_URL = '/base/{baseId}/table/{tableId}/graph';
 
 export const getGraphRoSchema = z.object({
   cell: z
-    .tuple([z.number(), z.number()])
-    .openapi({ description: 'The cell coord, [colIndex, rowIndex]' }),
-  viewId: z.string().optional().openapi({ description: 'The view id' }),
+    .tuple([z.string(), z.string()])
+    .openapi({ description: 'The cell id coord, [fieldId, recordId]' }),
 });
 
 export type IGetGraphRo = z.infer<typeof getGraphRoSchema>;
@@ -85,19 +84,17 @@ export const GetCellGraphRoute: RouteConfig = registerRoute({
 export const getGraph = async ({
   baseId,
   tableId,
-  viewId,
   cell,
 }: {
   baseId: string;
   tableId: string;
-  viewId?: string;
-  cell: [number, number];
+  cell: IGetGraphRo['cell'];
 }) => {
   return axios.post<IGraphVo>(
     urlBuilder(GET_CELL_GRAPH_URL, {
       tableId,
       baseId,
     }),
-    { cell, viewId }
+    { cell }
   );
 };

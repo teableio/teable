@@ -47,11 +47,12 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [
             [0, 0],
             [0, 0],
-          ]),
+          ],
           returnType: IdReturnType.All,
         })
       ).data;
@@ -64,8 +65,9 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([[0, 1]]),
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [[0, 1]],
           type: RangeType.Rows,
           returnType: IdReturnType.All,
         })
@@ -79,8 +81,9 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([[0, 1]]),
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [[0, 1]],
           type: RangeType.Columns,
           returnType: IdReturnType.All,
         })
@@ -94,11 +97,12 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [
             [0, 0],
             [0, 1],
-          ]),
+          ],
           returnType: IdReturnType.RecordId,
         })
       ).data;
@@ -111,8 +115,9 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([[0, 1]]),
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [[0, 1]],
           type: RangeType.Rows,
           returnType: IdReturnType.RecordId,
         })
@@ -126,8 +131,9 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([[0, 0]]),
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [[0, 0]],
           type: RangeType.Columns,
           returnType: IdReturnType.RecordId,
         })
@@ -141,11 +147,12 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [
             [0, 0],
             [0, 1],
-          ]),
+          ],
           returnType: IdReturnType.FieldId,
         })
       ).data;
@@ -158,8 +165,9 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([[0, 1]]),
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [[0, 1]],
           type: RangeType.Rows,
           returnType: IdReturnType.FieldId,
         })
@@ -173,8 +181,9 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const viewId = table.views[0].id;
 
       const data = (
-        await apiGetIdsFromRanges(table.id, viewId, {
-          ranges: JSON.stringify([[0, 0]]),
+        await apiGetIdsFromRanges(table.id, {
+          viewId,
+          ranges: [[0, 0]],
           type: RangeType.Columns,
           returnType: IdReturnType.FieldId,
         })
@@ -235,9 +244,10 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const linkField1 = await createField(table1.id, table1LinkFieldRo);
       const linkField2 = await createField(table1.id, table1LinkFieldRo);
 
-      await apiPaste(table1.id, table1.views[0].id, {
+      await apiPaste(table1.id, {
+        viewId: table1.views[0].id,
         content: 'table2_1\ttable2_2',
-        range: [
+        ranges: [
           [1, 0],
           [1, 0],
         ],
@@ -270,9 +280,10 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const linkField1 = await createField(table1.id, table1LinkFieldRo);
       const linkField2 = await createField(table1.id, table1LinkFieldRo);
 
-      await apiPaste(table1.id, table1.views[0].id, {
+      await apiPaste(table1.id, {
+        viewId: table1.views[0].id,
         content: 'table2_1\ttable2_2',
-        range: [
+        ranges: [
           [1, 0],
           [1, 0],
         ],
@@ -349,17 +360,19 @@ describe('OpenAPI SelectionController (e2e)', () => {
 
     it('should paste expand col formula', async () => {
       const { content, header } = (
-        await apiCopy(table1.id, table1.views[0].id, {
-          ranges: JSON.stringify([
+        await apiCopy(table1.id, {
+          viewId: table1.views[0].id,
+          ranges: [
             [1, 0],
             [2, 3],
-          ]),
+          ],
         })
       ).data;
-      await apiPaste(table1.id, table1.views[0].id, {
+      await apiPaste(table1.id, {
+        viewId: table1.views[0].id,
         content,
         header,
-        range: [
+        ranges: [
           [3, 0],
           [3, 0],
         ],

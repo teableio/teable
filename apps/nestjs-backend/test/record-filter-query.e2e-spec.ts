@@ -19,7 +19,6 @@ import {
   TimeFormatting,
 } from '@teable-group/core';
 import { axios, GET_RECORDS_URL, urlBuilder } from '@teable-group/openapi';
-import qs from 'qs';
 import {
   createField,
   createRecords,
@@ -102,10 +101,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
       await axios.get(urlBuilder(GET_RECORDS_URL, { tableId }), {
         params: {
           fieldKeyType: FieldKeyType.Id,
-          filter: filter,
-        },
-        paramsSerializer: (params) => {
-          return qs.stringify(params);
+          filter: JSON.stringify(filter),
         },
       })
     ).data;

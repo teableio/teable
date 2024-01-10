@@ -34,6 +34,7 @@ export class MailSenderService {
         email,
         spaceName,
         inviteUrl,
+        year: new Date().getFullYear(),
       },
     };
   }
@@ -76,6 +77,7 @@ export class MailSenderService {
         fieldName,
         recordIds,
         viewRecordUrlPrefix,
+        year: new Date().getFullYear(),
       },
     };
   }

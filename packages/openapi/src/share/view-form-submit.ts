@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import type { IRecord } from '@teable-group/core';
 import { recordSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -11,10 +12,6 @@ export const shareViewFormSubmitRoSchema = z.object({
 });
 
 export type ShareViewFormSubmitRo = z.infer<typeof shareViewFormSubmitRoSchema>;
-
-export const shareViewFormSubmitVoSchema = recordSchema;
-
-export type ShareViewFormSubmitVo = z.infer<typeof shareViewFormSubmitVoSchema>;
 
 export const ShareViewFormSubmitRouter: RouteConfig = registerRoute({
   method: 'post',
@@ -37,7 +34,7 @@ export const ShareViewFormSubmitRouter: RouteConfig = registerRoute({
       description: 'Successfully submit',
       content: {
         'application/json': {
-          schema: shareViewFormSubmitVoSchema,
+          schema: recordSchema,
         },
       },
     },
@@ -50,7 +47,7 @@ export const shareViewFormSubmit = (params: {
   fields: Record<string, unknown>;
 }) => {
   const { shareId, fields } = params;
-  return axios.post<ShareViewFormSubmitVo>(urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId }), {
+  return axios.post<IRecord>(urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId }), {
     fields,
   });
 };

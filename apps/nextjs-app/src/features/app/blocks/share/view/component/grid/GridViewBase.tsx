@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import type { GridViewOptions } from '@teable-group/core';
 import { RowHeightLevel } from '@teable-group/core';
-import { shareViewCopy, type IShareViewCopyRo } from '@teable-group/openapi';
+import type { IRangesRo } from '@teable-group/openapi';
+import { shareViewCopy } from '@teable-group/openapi';
 import type {
   CombinedSelection,
   ICell,
@@ -63,7 +64,7 @@ export const GridViewBase = () => {
 
   const customIcons = useGridIcons();
   const { mutateAsync: copy } = useMutation({
-    mutationFn: (copyRo: IShareViewCopyRo) => shareViewCopy(router.query.shareId as string, copyRo),
+    mutationFn: (copyRo: IRangesRo) => shareViewCopy(router.query.shareId as string, copyRo),
   });
   const copyMethod = useCopy({ copyReq: copy });
 

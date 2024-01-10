@@ -262,12 +262,6 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
-  async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
-    const result = await this.getFieldsByQuery(tableId, { viewId });
-
-    return result[index].id;
-  }
-
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
     if (!opData.length) return;
 
@@ -278,7 +272,7 @@ export class FieldService implements IAdapterService {
 
     const fieldMap = keyBy(fieldRaw, 'id');
 
-    console.log('opData', JSON.stringify(opData, null, 2));
+    // console.log('opData', JSON.stringify(opData, null, 2));
     for (const { fieldId, ops } of opData) {
       const opContext = ops.map((op) => {
         const ctx = FieldOpBuilder.detect(op);

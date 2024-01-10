@@ -2,37 +2,16 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IAggregationVo } from '@teable-group/core';
 import { aggregationRoSchema, viewVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
-import { paramsSerializer, registerRoute, urlBuilder } from '../utils';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const SHARE_VIEW_AGGREGATIONS_LIST = '/share/{shareId}/view/aggregations';
 
-export const shareViewAggregationsQuerySchema = aggregationRoSchema.pick({
-  filter: true,
-  field: true,
+export const shareViewAggregationsRoSchema = aggregationRoSchema.omit({
+  viewId: true,
 });
 
-export const shareViewAggregationsQueryRoSchema = z.object({
-  query: z
-    .string()
-    .optional()
-    .transform((value, ctx) => {
-      if (value) {
-        const parsingResult = shareViewAggregationsQuerySchema.safeParse(JSON.parse(value));
-        if (!parsingResult.success) {
-          parsingResult.error.issues.forEach((issue) => {
-            ctx.addIssue(issue);
-          });
-          return z.NEVER;
-        }
-        return parsingResult.data;
-      }
-      return value;
-    }),
-});
-
-export type IShareViewAggregationsQuery = z.infer<typeof shareViewAggregationsQuerySchema>;
-export type IShareViewAggregationsQueryRo = z.infer<typeof shareViewAggregationsQueryRoSchema>;
+export type IShareViewAggregationsRo = z.infer<typeof shareViewAggregationsRoSchema>;
 
 export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -42,7 +21,7 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
-    query: shareViewAggregationsQueryRoSchema,
+    query: shareViewAggregationsRoSchema,
   },
   responses: {
     200: {
@@ -59,10 +38,12 @@ export const ShareViewAggregationsRoute: RouteConfig = registerRoute({
 
 export const getShareViewAggregations = async (
   shareId: string,
-  query?: IShareViewAggregationsQueryRo
+  query?: IShareViewAggregationsRo
 ) => {
   return axios.get<IAggregationVo>(urlBuilder(SHARE_VIEW_AGGREGATIONS_LIST, { shareId }), {
-    params: query,
-    paramsSerializer,
+    params: {
+      ...query,
+      filter: JSON.stringify(query?.filter),
+    },
   });
 };
