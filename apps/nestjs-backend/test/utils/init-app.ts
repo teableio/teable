@@ -121,8 +121,12 @@ export async function initApp() {
     return config;
   });
 
+  const now = new Date();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   console.log(`> Test NODE_ENV is ${process.env.NODE_ENV}`);
   console.log(`> Test Ready on ${url}`);
+  console.log('> Test System Time Zone:', timeZone);
+  console.log('> Test Current System Time:', now.toString());
 
   return { app, appUrl: url, cookie: cookie.join(';') };
 }

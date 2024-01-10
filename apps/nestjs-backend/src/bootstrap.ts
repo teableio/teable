@@ -93,8 +93,14 @@ export async function bootstrap() {
 
   const port = await getAvailablePort(configService.get<string>('PORT') as string);
   process.env.PORT = port.toString();
-  logger.log(`> Ready on http://${host}:${port}`);
+
+  const now = new Date();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   logger.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
+  logger.log(`> Ready on http://${host}:${port}`);
+  logger.log('> System Time Zone:', timeZone);
+  logger.log('> Current System Time:', now.toString());
+
   await app.listen(port);
   return app;
 }

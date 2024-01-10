@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+/* eslint-disable sonarjs/no-duplicate-string */
 import {
   Colors,
   DateFormattingPreset,
@@ -49,7 +50,8 @@ const dateField = {
     formatting: {
       date: DateFormattingPreset.ISO,
       time: TimeFormatting.None,
-      timeZone: 'utc',
+
+      timeZone: 'Asia/Singapore',
     },
   },
 };
@@ -169,7 +171,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 8',
         [numberField.name]: 8,
         [singleSelectField.name]: 'x',
-        [dateField.name]: new DateUtil('utc', true).offsetDay(1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offsetDay(1),
       },
     },
     {
@@ -177,7 +179,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 9',
         [numberField.name]: 9,
         [singleSelectField.name]: 'x',
-        [dateField.name]: new DateUtil('utc', true).offsetDay(-1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offsetDay(-1),
       },
     },
     {
@@ -185,7 +187,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 10',
         [numberField.name]: 10,
         [singleSelectField.name]: 'y',
-        [dateField.name]: new DateUtil('utc', true).offsetWeek(1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offsetWeek(1),
       },
     },
     {
@@ -193,7 +195,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 11',
         [numberField.name]: 11,
         [singleSelectField.name]: 'z',
-        [dateField.name]: new DateUtil('utc', true).offsetWeek(-1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offsetWeek(-1),
       },
     },
     {
@@ -202,7 +204,7 @@ export const x_20 = {
         [numberField.name]: 12,
         [checkboxField.name]: true,
         [singleSelectField.name]: 'z',
-        [dateField.name]: new DateUtil('utc', true).offsetMonth(1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offsetMonth(1),
       },
     },
     {
@@ -210,7 +212,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 13',
         [numberField.name]: 13,
         [singleSelectField.name]: 'y',
-        [dateField.name]: new DateUtil('utc', true).offsetMonth(-1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offsetMonth(-1),
       },
     },
     {
@@ -218,7 +220,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 14',
         [numberField.name]: 14,
         [singleSelectField.name]: 'y',
-        [dateField.name]: new DateUtil('utc', true).offset('year', 1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offset('year', 1),
       },
     },
     {
@@ -226,7 +228,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 15',
         [numberField.name]: 15,
         [multipleSelectField.name]: ['rock', 'hiphop'],
-        [dateField.name]: new DateUtil('utc', true).offset('year', -1),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).offset('year', -1),
       },
     },
     {
@@ -261,7 +263,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 20',
         [numberField.name]: 20,
         [checkboxField.name]: true,
-        [dateField.name]: new Date().toISOString(),
+        [dateField.name]: new DateUtil('Asia/Singapore', true).date().toISOString(),
       },
     },
     {

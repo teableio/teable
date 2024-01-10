@@ -46,7 +46,7 @@ export const IS_WITH_IN_SETS = [
       mode: nextWeek.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 2,
+    expectResultLength: 3,
   },
   {
     fieldIndex: 3,
@@ -55,7 +55,7 @@ export const IS_WITH_IN_SETS = [
       mode: nextMonth.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 3,
+    expectResultLength: 4,
   },
   {
     fieldIndex: 3,
@@ -64,7 +64,7 @@ export const IS_WITH_IN_SETS = [
       mode: nextYear.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 4,
+    expectResultLength: 5,
   },
   {
     fieldIndex: 3,
@@ -84,6 +84,6 @@ export const IS_WITH_IN_SETS = [
       numberOfDays: 1,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 1,
+    expectResultLength: 2,
   },
 ];
