@@ -268,7 +268,7 @@ export class GraphService {
     }, []);
 
     const { nodes, combos } = this.getFieldNodesAndCombos(field.id, fieldRawsMap, tableRaws);
-    const updateCellCount = await this.affectedRecordCount(
+    const updateCellCount = await this.affectedCellCount(
       field.id,
       [field.id],
       { [field.id]: field },
@@ -417,7 +417,7 @@ export class GraphService {
       fieldId2TableId,
     });
 
-    const updateCellCount = await this.affectedRecordCount(
+    const updateCellCount = await this.affectedCellCount(
       fieldId,
       topoFieldIds,
       fieldMap,
@@ -431,7 +431,7 @@ export class GraphService {
     };
   }
 
-  private async affectedRecordCount(
+  private async affectedCellCount(
     hostFieldId: string,
     fieldIds: string[],
     fieldMap: IFieldMap,
@@ -487,7 +487,7 @@ export class GraphService {
       fieldId2TableId,
     });
 
-    const updateCellCount = await this.affectedRecordCount(
+    const updateCellCount = await this.affectedCellCount(
       fieldId,
       topoFieldIds,
       fieldMap,
