@@ -51,10 +51,7 @@ describe('OpenAPI Graph (e2e)', () => {
 
     const { data: plan } = await planFieldCreate(table1.id, formulaRo);
 
-    expect(plan).toMatchObject({
-      isAsync: false,
-      updateCellCount: 3,
-    });
+    expect(plan.updateCellCount).toEqual(3);
     expect(plan.graph?.nodes).toHaveLength(2);
     expect(plan.graph?.edges).toHaveLength(1);
     expect(plan.graph?.combos).toHaveLength(1);

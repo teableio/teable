@@ -16,7 +16,6 @@ import { SelectionService } from './selection.service';
     RecordOpenApiModule,
     FieldCalculateModule,
     CollaboratorModule,
-    AggregationModule,
   ],
   controllers: [SelectionController],
   providers: [SelectionService],

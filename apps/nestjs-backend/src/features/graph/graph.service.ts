@@ -444,19 +444,21 @@ export class GraphService {
         const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = options;
         const query =
           relationship === Relationship.OneOne || relationship === Relationship.ManyOne
-            ? this.knex.count(foreignKeyName).from(fkHostTableName)
-            : this.knex.countDistinct(selfKeyName).from(fkHostTableName);
+            ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
+            : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
 
         return query.toQuery();
       } else {
         const dbTableName = fieldId2DbTableName[fieldId];
-        return this.knex.count('*').from(dbTableName).toQuery();
+        return this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
       }
     });
+    // console.log('queries', queries);
 
     let total = 0;
     for (const query of queries) {
       const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
+      // console.log('count', count);
       total += Number(count);
     }
     return total;
