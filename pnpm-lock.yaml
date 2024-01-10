@@ -554,8 +554,8 @@ importers:
         specifier: 10.1.0
         version: 10.1.0
       lucide-react:
-        specifier: 0.308.0
-        version: 0.308.0(react@18.2.0)
+        specifier: 0.309.0
+        version: 0.309.0(react@18.2.0)
       next:
         specifier: 13.0.2
         version: 13.0.2(@babel/core@7.23.7)(react-dom@18.2.0)(react@18.2.0)
@@ -1256,8 +1256,8 @@ importers:
         specifier: 10.1.0
         version: 10.1.0
       lucide-react:
-        specifier: 0.308.0
-        version: 0.308.0(react@18.2.0)
+        specifier: 0.309.0
+        version: 0.309.0(react@18.2.0)
       mousetrap:
         specifier: 1.6.5
         version: 1.6.5
@@ -17589,8 +17589,8 @@ packages:
     dependencies:
       yallist: 4.0.0
 
-  /lucide-react@0.308.0(react@18.2.0):
-    resolution: {integrity: sha512-QC3S4Qi6s5y/w4bhS7sauDG29MsPwV0C5g9/mKkY7/gm3tPpg9tyRQG33g597Q5M3vmE0APcPuOjyQKsF8gnIg==}
+  /lucide-react@0.309.0(react@18.2.0):
+    resolution: {integrity: sha512-zNVPczuwFrCfksZH3zbd1UDE6/WYhYAdbe2k7CImVyPAkXLgIwbs6eXQ4loigqDnUFjyFYCI5jZ1y10Kqal0dg==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0
     dependencies:

@@ -138,7 +138,7 @@
     "knex": "3.0.1",
     "lodash": "4.17.21",
     "lru-cache": "10.1.0",
-    "lucide-react": "0.308.0",
+    "lucide-react": "0.309.0",
     "next": "13.0.2",
     "next-i18next": "14.0.3",
     "next-secure-headers": "2.2.0",
