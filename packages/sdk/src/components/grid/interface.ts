@@ -1,5 +1,6 @@
 import type { IUser } from '../../context';
 import type { IGridTheme } from './configs/gridTheme';
+import type { ICell } from './renderers/cell-renderer/interface';
 export * from './renderers/cell-renderer/interface';
 
 export interface IScrollState {
@@ -35,10 +36,10 @@ export enum SelectionRegionType {
 export enum RegionType {
   Cell = 'Cell',
   ActiveCell = 'ActiveCell',
-  RowHeader = 'RowHeader',
   AppendRow = 'AppendRow',
-  ColumnHeader = 'ColumnHeader',
   AppendColumn = 'AppendColumn',
+  ColumnHeader = 'ColumnHeader',
+  ColumnStatistic = 'ColumnStatistic',
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnDescription = 'ColumnDescription',
   ColumnResizeHandler = 'ColumnResizeHandler',
@@ -46,8 +47,9 @@ export enum RegionType {
   RowHeaderDragHandler = 'RowHeaderDragHandler',
   RowHeaderExpandHandler = 'RowHeaderExpandHandler',
   RowHeaderCheckbox = 'RowHeaderCheckbox',
-  ColumnStatistic = 'ColumnStatistic',
+  RowGroupHeader = 'RowGroupHeader',
   RowCountLabel = 'RowCountLabel',
+  RowHeader = 'RowHeader',
   AllCheckbox = 'AllCheckbox',
   FillHandler = 'FillHandler',
   Blank = 'Blank',
@@ -63,35 +65,6 @@ export interface IMouseState extends IRegionPosition {
   type: RegionType;
   isOutOfBounds: boolean;
 }
-
-enum RowType {
-  Blank,
-  Cell,
-  Append,
-  GroupHeader,
-}
-
-interface IRowBase {
-  type: RowType;
-}
-
-interface ICellRow extends IRowBase {
-  type: RowType.Cell;
-}
-
-interface IAppendRow extends IRowBase {
-  type: RowType.Append;
-}
-
-interface IBlankRow extends IRowBase {
-  type: RowType.Blank;
-}
-
-interface IGroupHeaderRow extends IRowBase {
-  type: RowType.GroupHeader;
-}
-
-export type ILinearRow = ICellRow | IAppendRow | IGroupHeaderRow | IBlankRow;
 
 export interface IColumnStatistics {
   [columnId: string]: IColumnStatistic | null;
@@ -200,4 +173,53 @@ export interface IActiveCellBound {
   totalHeight: number;
   scrollTop: number;
   scrollEnable: boolean;
+}
+
+export enum LinearRowType {
+  Group = 0,
+  Row = 1,
+  Append = 2,
+}
+
+export interface IGroupHeaderPoint {
+  id: string;
+  type: LinearRowType.Group;
+  depth: number;
+  value?: unknown;
+}
+
+export interface IGroupRowPoint {
+  type: LinearRowType.Row;
+  count: number;
+}
+
+export interface IGroupAddButtonPoint {
+  type: LinearRowType.Append;
+}
+
+export type IGroupPoint = IGroupHeaderPoint | IGroupRowPoint | IGroupAddButtonPoint;
+
+export type ILinearRow =
+  | {
+      type: LinearRowType.Row;
+      displayIndex: number;
+      realIndex: number;
+    }
+  | {
+      id: string;
+      type: LinearRowType.Group;
+      value: unknown;
+      depth: number;
+      realIndex: number;
+      isCollapsed: boolean;
+    }
+  | {
+      type: LinearRowType.Append;
+      value: unknown;
+      realIndex: number;
+    };
+
+export interface IGroupCollection {
+  groupColumns: IGridColumn[];
+  getGroupCell: (cellValue: unknown, depth: number) => ICell;
 }

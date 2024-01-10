@@ -16,6 +16,7 @@ export enum OpName {
   SetViewDescription = 'setViewDescription',
   SetViewFilter = 'setViewFilter',
   SetViewSort = 'setViewSort',
+  SetViewGroup = 'setViewGroup',
   SetViewColumnMeta = 'setViewColumnMeta',
   SetViewOptions = 'setViewOptions',
   SetViewEnableShare = 'setViewEnableShare',

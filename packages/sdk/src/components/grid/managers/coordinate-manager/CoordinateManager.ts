@@ -261,22 +261,4 @@ export class CoordinateManager implements ICoordinate {
     this.columnWidthMap = columnWidthMap;
     this.lastColumnIndex = -1;
   }
-
-  public refreshRowDimensions({
-    rowCount,
-    pureRowCount,
-    rowInitSize = 0,
-    rowHeight,
-    rowHeightMap = {},
-  }: Pick<
-    ICoordinate,
-    'rowCount' | 'pureRowCount' | 'rowInitSize' | 'rowHeight' | 'rowHeightMap'
-  >) {
-    this.rowCount = rowCount;
-    this.pureRowCount = pureRowCount;
-    this.rowInitSize = rowInitSize;
-    this.rowHeight = rowHeight;
-    this.rowHeightMap = rowHeightMap;
-    this.lastRowIndex = -1;
-  }
 }

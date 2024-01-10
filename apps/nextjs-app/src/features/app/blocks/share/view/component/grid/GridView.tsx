@@ -3,7 +3,7 @@ import { ActionTriggerProvider, RecordProvider } from '@teable-group/sdk/context
 import { useIsHydrated, useView } from '@teable-group/sdk/hooks';
 import { useContext } from 'react';
 import { ShareViewPageContext } from '../../ShareViewPageContext';
-import { AggregationProvider, RowCountProvider } from './aggregation';
+import { AggregationProvider, RowCountProvider, GroupPointProvider } from './aggregation';
 import { GridViewBase } from './GridViewBase';
 import { Toolbar } from './toolbar';
 
@@ -31,9 +31,11 @@ export const GridView = () => {
           <RecordProvider serverRecords={records}>
             <AggregationProvider>
               <RowCountProvider>
-                <div className="w-full grow overflow-hidden">
-                  <GridViewBase />
-                </div>
+                <GroupPointProvider>
+                  <div className="w-full grow overflow-hidden">
+                    <GridViewBase />
+                  </div>
+                </GroupPointProvider>
               </RowCountProvider>
             </AggregationProvider>
           </RecordProvider>

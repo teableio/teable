@@ -5,6 +5,7 @@ import {
   createTable,
   deleteTable,
   getAggregation,
+  getGroupPoints,
   getRowCount,
   tableSqlQuery,
 } from '@teable-group/openapi';
@@ -24,6 +25,8 @@ export class Table extends TableCore {
   static getAggregations = requestWrap(getAggregation);
 
   static getRowCount = requestWrap(getRowCount);
+
+  static getGroupPoints = requestWrap(getGroupPoints);
 
   protected doc!: Doc<ITableVo>;
 

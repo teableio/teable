@@ -25,7 +25,7 @@ export type IRecordIndexMap = { [i: number | string]: Record };
 export const useGridAsyncRecords = (
   initRecords?: IRecord[],
   initQuery?: IGetRecordsQuery,
-  outerQuery?: Pick<IGetRecordsQuery, 'filter' | 'orderBy'>
+  outerQuery?: Pick<IGetRecordsQuery, 'filter' | 'orderBy' | 'groupBy'>
 ): IRes => {
   const [query, setQuery] = useState<IGetRecordsQuery>({
     skip: 0,

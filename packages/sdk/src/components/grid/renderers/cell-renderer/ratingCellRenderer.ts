@@ -11,6 +11,8 @@ import type {
 
 const gapSize = 3;
 
+const { cellHorizontalPadding } = GRID_DEFAULT;
+
 export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
   type: CellType.Rating,
   needsHover: true,
@@ -19,7 +21,6 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
     const { data, icon, color, max, readonly } = cell;
     const { ctx, theme, rect, hoverCellPosition, spriteManager } = props;
     const { x, y, width, height } = rect;
-    const { cellHorizontalPadding } = GRID_DEFAULT;
     const [hoverX, hoverY] = hoverCellPosition ?? [0, 0];
     const { iconSizeXS, iconFgHighlight, cellLineColor } = theme;
 
@@ -68,7 +69,6 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
     const { data, max, readonly } = cell;
     if (readonly) return { type: CellRegionType.Blank };
     const { hoverCellPosition, height, theme } = props;
-    const { cellHorizontalPadding } = GRID_DEFAULT;
     const [x, y] = hoverCellPosition;
     const { iconSizeXS } = theme;
     const minX = cellHorizontalPadding;

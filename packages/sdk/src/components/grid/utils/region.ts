@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { GRID_DEFAULT } from '../configs';
-import { RegionType, RowControlType } from '../interface';
+import { LinearRowType, RegionType, RowControlType } from '../interface';
 import type {
   IActiveCellBound,
   ICellItem,
@@ -25,12 +25,12 @@ interface ICheckRegionProps
     | 'coordInstance'
     | 'columnStatistics'
     | 'isMultiSelectionEnable'
+    | 'getLinearRow'
   > {
   rowControls: IRowControlItem[];
   position: IRegionPosition;
   isFreezing: boolean;
   isOutOfBounds: boolean;
-  isRowAppendEnable: boolean;
   isColumnFreezable: boolean;
   isColumnResizable: boolean;
   isColumnAppendEnable: boolean;
@@ -65,7 +65,6 @@ const {
   columnHeadPadding,
   columnHeadMenuClickableSize,
   columnResizeHandlerWidth,
-  fillHandlerSize,
   rowHeadIconPaddingTop,
   columnStatisticHeight,
   columnFreezeHandlerWidth,
@@ -85,7 +84,7 @@ export const getRegionData = (props: ICheckRegionProps): IRegionData => {
     checkIsAllCheckbox(props) ||
     checkIsAppendRow(props) ||
     checkIsRowHeader(props) ||
-    checkIsFillHandler(props) ||
+    // checkIsFillHandler(props) ||
     checkIsCell(props) ||
     checkIsColumnHeader(props) ||
     BLANK_REGION_DATA
@@ -233,10 +232,13 @@ const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {
 };
 
 const checkIsAppendRow = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, coordInstance, isRowAppendEnable } = props;
+  const { position, getLinearRow } = props;
   const { rowIndex, columnIndex } = position;
-  const { rowCount } = coordInstance;
-  if (isRowAppendEnable && rowIndex === rowCount - 1 && columnIndex >= -1) {
+  if (columnIndex >= -1 && rowIndex > -1) {
+    const { type } = getLinearRow(rowIndex);
+
+    if (type !== LinearRowType.Append) return null;
+
     return { ...BLANK_REGION_DATA, type: RegionType.AppendRow };
   }
   return null;
@@ -247,6 +249,14 @@ const checkIsRowHeader = (props: ICheckRegionProps): IRegionData | null => {
   const { x, y, rowIndex, columnIndex } = position;
 
   if (rowIndex <= -1 || columnIndex !== -1) return null;
+
+  const linearRow = props.getLinearRow(rowIndex);
+
+  if (linearRow.type === LinearRowType.Group) {
+    return { ...BLANK_REGION_DATA, type: RegionType.RowGroupHeader };
+  }
+
+  if (linearRow.type !== LinearRowType.Row) return null;
 
   const { iconSizeXS } = theme;
   const { scrollTop } = scrollState;
@@ -279,40 +289,44 @@ const checkIsRowHeader = (props: ICheckRegionProps): IRegionData | null => {
   return { ...BLANK_REGION_DATA, type: RegionType.RowHeader };
 };
 
-const checkIsFillHandler = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, selection, coordInstance: c, scrollState } = props;
-  const { isCellSelection, ranges } = selection;
-  const { scrollLeft, scrollTop } = scrollState;
-  const { x, y, rowIndex, columnIndex } = position;
-  if (!isCellSelection || rowIndex < 0 || columnIndex < 0) return null;
-  const [startColIndex, startRowIndex] = ranges[0];
-  const [endColIndex, endRowIndex] = ranges[1];
-  const maxColIndex = Math.max(startColIndex, endColIndex);
-  const maxRowIndex = Math.max(startRowIndex, endRowIndex);
-  const handlerOffsetX =
-    c.getColumnRelativeOffset(maxColIndex, scrollLeft) + c.getColumnWidth(maxColIndex);
-  const handlerOffsetY = c.getRowOffset(maxRowIndex) + c.getRowHeight(maxRowIndex) - scrollTop;
-  const halfSize = fillHandlerSize / 2 + 3;
+// const checkIsFillHandler = (props: ICheckRegionProps): IRegionData | null => {
+//   const { position, selection, coordInstance: c, scrollState } = props;
+//   const { isCellSelection, ranges } = selection;
+//   const { scrollLeft, scrollTop } = scrollState;
+//   const { x, y, rowIndex, columnIndex } = position;
+//   if (!isCellSelection || rowIndex < 0 || columnIndex < 0) return null;
+//   const [startColIndex, startRowIndex] = ranges[0];
+//   const [endColIndex, endRowIndex] = ranges[1];
+//   const maxColIndex = Math.max(startColIndex, endColIndex);
+//   const maxRowIndex = Math.max(startRowIndex, endRowIndex);
+//   const handlerOffsetX =
+//     c.getColumnRelativeOffset(maxColIndex, scrollLeft) + c.getColumnWidth(maxColIndex);
+//   const handlerOffsetY = c.getRowOffset(maxRowIndex) + c.getRowHeight(maxRowIndex) - scrollTop;
+//   const halfSize = fillHandlerSize / 2 + 3;
 
-  const minX = handlerOffsetX - halfSize;
-  const minY = handlerOffsetY - halfSize;
-  if (inRange(x, minX, minX + halfSize * 2) && inRange(y, minY, minY + halfSize * 2)) {
-    return {
-      type: RegionType.FillHandler,
-      x: minX,
-      y: minY,
-      width: halfSize * 2,
-      height: halfSize * 2,
-    };
-  }
-  return null;
-};
+//   const minX = handlerOffsetX - halfSize;
+//   const minY = handlerOffsetY - halfSize;
+//   if (inRange(x, minX, minX + halfSize * 2) && inRange(y, minY, minY + halfSize * 2)) {
+//     return {
+//       type: RegionType.FillHandler,
+//       x: minX,
+//       y: minY,
+//       width: halfSize * 2,
+//       height: halfSize * 2,
+//     };
+//   }
+//   return null;
+// };
 
 const checkIsCell = (props: ICheckRegionProps): IRegionData | null => {
-  const { coordInstance, position, scrollState } = props;
+  const { coordInstance, position, scrollState, getLinearRow } = props;
   const { rowIndex, columnIndex } = position;
   const { scrollLeft, scrollTop } = scrollState;
   if (rowIndex > -1 && columnIndex > -1) {
+    const linearRow = getLinearRow(rowIndex);
+
+    if (linearRow.type !== LinearRowType.Row) return null;
+
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
     const width = coordInstance.getColumnWidth(columnIndex);

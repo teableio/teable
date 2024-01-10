@@ -28,10 +28,13 @@ export interface IGridTheme {
   cellLineColorActived: string;
   cellTextColor: string;
   cellTextColorHighlight: string;
-  cellHorizontalPadding: number;
-  cellVerticalPadding: number;
   cellOptionBg: string;
+  cellOptionBgHighlight: string;
   cellOptionTextColor: string;
+  groupHeaderBgPrimary: string;
+  groupHeaderBgSecondary: string;
+  groupHeaderBgTertiary: string;
+  groupHeaderBgHovered: string;
   columnHeaderBg: string;
   columnHeaderBgHovered: string;
   columnHeaderBgSelected: string;
@@ -82,10 +85,15 @@ export const gridTheme: IGridTheme = {
   cellLineColorActived: colors.black,
   cellTextColor: colors.zinc[800],
   cellTextColorHighlight: colors.violet[500],
-  cellHorizontalPadding: 8,
-  cellVerticalPadding: 3,
   cellOptionBg: colors.gray[300],
+  cellOptionBgHighlight: colors.slate[200],
   cellOptionTextColor: colors.black,
+
+  // Group Header
+  groupHeaderBgPrimary: colors.slate[50],
+  groupHeaderBgSecondary: colors.slate[100],
+  groupHeaderBgTertiary: colors.slate[200],
+  groupHeaderBgHovered: colors.slate[300],
 
   // Column Header
   columnHeaderBg: colors.slate[50],

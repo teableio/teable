@@ -6,10 +6,14 @@ import type {
   IRawAggregationValue,
   IRawRowCountValue,
   IColumnMeta,
+  IGroupPoint,
+  IGroupPointsRo,
 } from '@teable-group/core';
 import {
+  GroupPointType,
   mergeWithDefaultFilter,
   nullsToUndefined,
+  parseGroup,
   StatisticsFunc,
   ViewType,
 } from '@teable-group/core';
@@ -17,12 +21,15 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { groupBy, isEmpty } from 'lodash';
+import { groupBy, isEmpty, isObject } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { string2Hash } from '../../utils';
+import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
+import { SortQueryTranslator } from '../record/translator/sort-query-translator';
 
 export type IWithView = {
   viewId?: string;
@@ -431,5 +438,88 @@ export class AggregationService {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (dbProvider.aggregationFunction(dbTableName, field) as any)[funcName]?.();
+  }
+
+  @Timing()
+  private groupDbCollection2GroupPoints(
+    groupResult: { [key: string]: unknown; count: number }[],
+    groupFields: IFieldInstance[]
+  ) {
+    const groupPoints: IGroupPoint[] = [];
+
+    let firstDbFieldValue: unknown = '';
+    let secondDbFieldValue: unknown = '';
+
+    groupResult.forEach((item) => {
+      const { count } = item;
+
+      groupFields.forEach((field, index) => {
+        const { id, dbFieldName } = field;
+        const fieldValue = isObject(item[dbFieldName])
+          ? String(item[dbFieldName])
+          : item[dbFieldName];
+        if (index === 0) {
+          if (firstDbFieldValue === fieldValue) return;
+          firstDbFieldValue = fieldValue;
+        }
+        if (index === 1) {
+          if (secondDbFieldValue === fieldValue) return;
+          secondDbFieldValue = fieldValue;
+        }
+        groupPoints.push({
+          id: String(string2Hash(`${id}_${fieldValue}`)),
+          type: GroupPointType.Header,
+          depth: index,
+          value: field.convertDBValue2CellValue(fieldValue),
+        });
+      });
+
+      groupPoints.push({ type: GroupPointType.Row, count: Number(count) });
+    });
+    return groupPoints;
+  }
+
+  public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
+    const { viewId, groupBy: extraGroupBy, filter } = query || {};
+
+    if (!viewId) return null;
+
+    const groupBy = parseGroup(extraGroupBy);
+
+    if (!groupBy?.length) return null;
+
+    const viewRaw = await this.findView(tableId, { viewId });
+    const { fieldInstanceMap } = await this.getFieldsData(tableId);
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+
+    const filterStr = viewRaw?.filter;
+    const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
+    const groupFieldIds = groupBy.map((item) => item.fieldId);
+    const groupDbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
+    const queryBuilder = this.knex(dbTableName);
+
+    if (mergedFilter) {
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter)
+        .appendQueryBuilder();
+    }
+
+    new SortQueryTranslator(
+      this.knex,
+      queryBuilder,
+      fieldInstanceMap,
+      groupBy
+    ).appendQueryBuilder();
+
+    queryBuilder.select(groupDbFieldNames).count({ count: '*' }).groupBy(groupDbFieldNames);
+
+    const groupSql = queryBuilder.toQuery();
+
+    const result =
+      await this.prisma.$queryRawUnsafe<{ [key: string]: unknown; count: number }[]>(groupSql);
+
+    const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]);
+
+    return this.groupDbCollection2GroupPoints(result, groupFields);
   }
 }

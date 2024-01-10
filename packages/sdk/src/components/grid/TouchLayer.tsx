@@ -12,7 +12,14 @@ import {
 import type { IGridProps } from './Grid';
 import { useSelection, useVisibleRegion } from './hooks';
 import { RegionType, SelectionRegionType } from './interface';
-import type { ICellItem, IMouseState, IRange, IRowControlItem, IScrollState } from './interface';
+import type {
+  ICellItem,
+  ILinearRow,
+  IMouseState,
+  IRange,
+  IRowControlItem,
+  IScrollState,
+} from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { emptySelection } from './managers';
 import { RenderLayer } from './RenderLayer';
@@ -45,6 +52,8 @@ export interface ITouchLayerProps
   spriteManager: SpriteManager;
   coordInstance: CoordinateManager;
   rowControls: IRowControlItem[];
+  real2RowIndex: (index: number) => number;
+  getLinearRow: (index: number) => ILinearRow;
   setMouseState: Dispatch<SetStateAction<IMouseState>>;
   setActiveCell: Dispatch<SetStateAction<ICellItem | null>>;
 }
@@ -67,7 +76,10 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     spriteManager,
     forceRenderFlag,
     rowIndexVisible,
+    groupCollection,
     getCellContent,
+    getLinearRow,
+    real2RowIndex,
     setActiveCell,
     setMouseState,
     onRowAppend,
@@ -85,11 +97,12 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
 
   const visibleRegion = useVisibleRegion(coordInstance, scrollState, forceRenderFlag);
 
-  const { selection, setSelection } = useSelection(
+  const { selection, setSelection } = useSelection({
     coordInstance,
+    getLinearRow,
     setActiveCell,
-    onSelectionChanged
-  );
+    onSelectionChanged,
+  });
 
   const getRangeByPosition = (x: number, y: number) => {
     const rowIndex =
@@ -170,6 +183,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}
           rowIndexVisible={rowIndexVisible}
+          groupCollection={groupCollection}
           activeCell={null}
           activeCellBound={null}
           mouseState={mouseState}
@@ -182,9 +196,11 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           columnResizeState={DEFAULT_COLUMN_RESIZE_STATE}
           hoverCellPosition={null}
           hoveredColumnResizeIndex={-1}
-          getCellContent={getCellContent}
           isRowAppendEnable={hasAppendRow}
           isColumnAppendEnable={hasAppendColumn}
+          getCellContent={getCellContent}
+          real2RowIndex={real2RowIndex}
+          getLinearRow={getLinearRow}
         />
       </div>
     </ReactHammer>

@@ -30,7 +30,7 @@ interface IComputeTextPositionProps {
   isActive: boolean;
 }
 
-const { cellHorizontalPadding, cellVerticalPadding, cellTextLineHeight, maxRowCount } =
+const { cellHorizontalPadding, cellVerticalPaddingMD, cellTextLineHeight, maxRowCount } =
   GRID_DEFAULT;
 
 const computeTextPositions = ({
@@ -44,13 +44,13 @@ const computeTextPositions = ({
   const { x, y, width, height } = rect;
   const { fontSizeSM } = theme;
   const drawWidth = width - 2 * cellHorizontalPadding;
-  const drawHeight = height - cellVerticalPadding;
+  const drawHeight = height - cellVerticalPaddingMD;
   const maxLines = isActive ? Infinity : Math.max(1, Math.floor(drawHeight / cellTextLineHeight));
 
   let row = 1;
   let index = 0;
   let drawX = x + cellHorizontalPadding;
-  let drawY = y + cellVerticalPadding;
+  let drawY = y + cellVerticalPaddingMD;
 
   for (const text of data) {
     const textLines = drawMultiLineText(ctx, {
@@ -108,7 +108,7 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     if (!positionLength) return { width, height, totalHeight: height };
 
     const totalHeight = textPositions[positionLength - 1].y + cellTextLineHeight;
-    const maxHeight = cellVerticalPadding + maxRowCount * cellTextLineHeight;
+    const maxHeight = cellVerticalPaddingMD + maxRowCount * cellTextLineHeight;
     const finalHeight = Math.max(Math.min(totalHeight, maxHeight), height);
 
     return {
@@ -218,7 +218,7 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
     const cellRegion = linkCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
     if (cellRegion.type === CellRegionType.Preview) {
-      cell.onClick(cellRegion.data as string);
+      cell.onClick?.(cellRegion.data as string);
     }
   },
 };

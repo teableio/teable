@@ -69,13 +69,15 @@ const createCellValue2GridDisplay =
 
     if (field == null) return { type: CellType.Loading };
 
-    const { id, type, isComputed, isMultipleCellValue: isMultiple, cellValueType } = field;
+    const { id: fieldId, type, isComputed, isMultipleCellValue: isMultiple, cellValueType } = field;
 
-    let cellValue = record.getCellValue(id);
+    let cellValue = record.getCellValue(fieldId);
     const validateCellValue = field.validateCellValue(cellValue);
     cellValue = validateCellValue.success ? validateCellValue.data : undefined;
 
     const readonly = isComputed || !editable;
+    const cellId = `${record.id}-${fieldId}`;
+    const baseCellProps = { id: cellId, readonly };
 
     switch (type) {
       case FieldType.SingleLineText: {
@@ -85,27 +87,27 @@ const createCellValue2GridDisplay =
           const { type } = showAs;
 
           return {
+            ...baseCellProps,
             type: CellType.Link,
             data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
             displayData: field.cellValue2String(cellValue),
-            readonly,
             onClick: (text) => onMixedTextClick(type, text),
           };
         }
 
         return {
+          ...baseCellProps,
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: field.cellValue2String(cellValue),
-          readonly,
         };
       }
       case FieldType.LongText: {
         return {
+          ...baseCellProps,
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData: field.cellValue2String(cellValue),
-          readonly,
           isWrap: true,
         };
       }
@@ -114,7 +116,7 @@ const createCellValue2GridDisplay =
       case FieldType.LastModifiedTime: {
         let displayData = '';
         const { date, time, timeZone } = field.options.formatting;
-        const cacheKey = `${id}-${cellValue}-${date}-${time}-${timeZone}`;
+        const cacheKey = `${fieldId}-${cellValue}-${date}-${time}-${timeZone}`;
 
         if (cellValueStringCache.has(cacheKey)) {
           displayData = cellValueStringCache.get(cacheKey) || '';
@@ -124,17 +126,17 @@ const createCellValue2GridDisplay =
         }
         if (type === FieldType.CreatedTime || type === FieldType.LastModifiedTime) {
           return {
+            ...baseCellProps,
             type: CellType.Text,
             data: (cellValue as string) || '',
             displayData,
-            readonly,
           };
         }
         return {
+          ...baseCellProps,
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData,
-          readonly,
           customEditor: (props, editorRef) => (
             <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
           ),
@@ -142,10 +144,10 @@ const createCellValue2GridDisplay =
       }
       case FieldType.AutoNumber: {
         return {
+          ...baseCellProps,
           type: CellType.Number,
           data: cellValue as number,
           displayData: field.cellValue2String(cellValue),
-          readonly,
         };
       }
       case FieldType.Number:
@@ -153,19 +155,19 @@ const createCellValue2GridDisplay =
       case FieldType.Formula: {
         if (cellValueType === CellValueType.Boolean) {
           return {
+            ...baseCellProps,
             type: CellType.Boolean,
             data: (cellValue as boolean) || false,
-            readonly,
             isMultiple,
           };
         }
 
         if (cellValueType === CellValueType.DateTime) {
           return {
+            ...baseCellProps,
             type: CellType.Text,
             data: (cellValue as string) || '',
             displayData: field.cellValue2String(cellValue),
-            readonly,
           };
         }
 
@@ -176,19 +178,19 @@ const createCellValue2GridDisplay =
             const { type } = showAs;
 
             return {
+              ...baseCellProps,
               type: CellType.Link,
               data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
               displayData: field.cellValue2String(cellValue),
-              readonly,
               onClick: (text) => onMixedTextClick(type, text),
             };
           }
 
           return {
+            ...baseCellProps,
             type: CellType.Text,
             data: (cellValue as string) || '',
             displayData: field.cellValue2String(cellValue),
-            readonly,
           };
         }
 
@@ -203,23 +205,23 @@ const createCellValue2GridDisplay =
 
         if (showAs && isMultiple && Array.isArray(cellValue)) {
           return {
+            ...baseCellProps,
             type: CellType.Chart,
             data: cellValue as number[],
             displayData: cellValue.map((v) => field.item2String(v)),
-            readonly,
             chartType: showAs.type as unknown as ChartType,
             color: showAs.color,
           };
         }
 
         return {
+          ...baseCellProps,
           type: CellType.Number,
           data: cellValue as number,
           displayData:
             isMultiple && Array.isArray(cellValue)
               ? cellValue.map((v) => field.item2String(v))
               : field.cellValue2String(cellValue),
-          readonly,
           showAs: showAs as unknown as IGridNumberShowAs,
           customEditor: (props, editorRef) => (
             <GridNumberEditor
@@ -242,11 +244,11 @@ const createCellValue2GridDisplay =
           };
         });
         return {
+          ...baseCellProps,
           type: CellType.Select,
           data,
           displayData: data,
           choices,
-          readonly,
           isMultiple,
           editWhenClicked: true,
           customEditor: (props, editorRef) => (
@@ -259,11 +261,11 @@ const createCellValue2GridDisplay =
         const displayData = cv.map(({ title }) => title || 'Untitled');
         const choices = cv.map(({ id, title }) => ({ id, name: title }));
         return {
+          ...baseCellProps,
           type: CellType.Select,
           data: cv,
           displayData,
           choices,
-          readonly,
           isMultiple,
           customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
         };
@@ -273,10 +275,10 @@ const createCellValue2GridDisplay =
         const data = cv.map(({ id, mimetype, url }) => ({ id, url: getFileCover(mimetype, url) }));
         const displayData = data.map(({ url }) => url);
         return {
+          ...baseCellProps,
           type: CellType.Image,
           data,
           displayData,
-          readonly,
           customEditor: (props) => (
             <GridAttachmentEditor field={field} record={record} {...props} />
           ),
@@ -284,9 +286,9 @@ const createCellValue2GridDisplay =
       }
       case FieldType.Checkbox: {
         return {
+          ...baseCellProps,
           type: CellType.Boolean,
           data: (cellValue as boolean) || false,
-          readonly,
           isMultiple,
         };
       }
@@ -295,17 +297,17 @@ const createCellValue2GridDisplay =
 
         if (isMultiple) {
           return {
+            ...baseCellProps,
             type: CellType.Number,
             data: cellValue as number,
             displayData: field.cellValue2String(cellValue),
-            readonly,
           };
         }
 
         return {
+          ...baseCellProps,
           type: CellType.Rating,
           data: (cellValue as number) || 0,
-          readonly,
           icon,
           color: ColorUtils.getHexForColor(color),
           max,
@@ -316,9 +318,9 @@ const createCellValue2GridDisplay =
         const data = cv.map(({ id, title }) => ({ id, name: title }));
 
         return {
+          ...baseCellProps,
           type: CellType.User,
           data: data,
-          readonly,
           customEditor: (props) => <GridUserEditor field={field} record={record} {...props} />,
         };
       }

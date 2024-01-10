@@ -8,6 +8,7 @@ export const GRID_DEFAULT = {
   rowHeadWidth: 70,
   rowHeadIconPaddingTop: 8,
   appendRowHeight: 32,
+  groupHeaderHeight: 48,
   maxRowCount: 5,
 
   // Column
@@ -24,7 +25,10 @@ export const GRID_DEFAULT = {
 
   // Cell
   cellHorizontalPadding: 8,
-  cellVerticalPadding: 10,
+  cellVerticalPaddingXS: 3,
+  cellVerticalPaddingSM: 6,
+  cellVerticalPaddingMD: 10,
+  cellVerticalPaddingLG: 16,
   cellTextLineHeight: 22,
   fillHandlerSize: 5,
 

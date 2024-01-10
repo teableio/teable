@@ -1,3 +1,4 @@
+import { GRID_DEFAULT } from '../../configs';
 import { GridInnerIcon } from '../../managers';
 import { isPointInsideRectangle } from '../../utils';
 import { drawRect } from '../base-renderer';
@@ -11,6 +12,8 @@ import type {
 import { CellRegionType, CellType } from './interface';
 
 const INNER_PADDING = 4;
+
+const { cellHorizontalPadding, cellVerticalPaddingXS } = GRID_DEFAULT;
 
 const getImages = (
   urls: string[],
@@ -37,12 +40,12 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
   draw: (cell: IImageCell, props: ICellRenderProps) => {
     const { rect, columnIndex, rowIndex, theme, ctx, imageManager, isActive, spriteManager } =
       props;
-    const { cellVerticalPadding, cellHorizontalPadding, iconSizeSM } = theme;
+    const { iconSizeSM } = theme;
     const { displayData: urls, readonly } = cell;
     const { x, y, width, height } = rect;
     const editable = !readonly && isActive;
     const initPadding = editable ? iconSizeSM + 2 : 0;
-    const imgHeight = height - cellVerticalPadding * 2;
+    const imgHeight = height - cellVerticalPaddingXS * 2;
 
     const images = getImages(urls, (url) =>
       imageManager.loadOrGetImage(url, columnIndex, rowIndex)
@@ -74,13 +77,13 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
       ctx.save();
       drawRect(ctx, {
         x: drawX,
-        y: y + cellVerticalPadding,
+        y: y + cellVerticalPaddingXS,
         width: imgWidth,
         height: imgHeight,
         radius: INNER_PADDING,
       });
       ctx.clip();
-      ctx.drawImage(img, drawX, y + cellVerticalPadding, imgWidth, imgHeight);
+      ctx.drawImage(img, drawX, y + cellVerticalPaddingXS, imgWidth, imgHeight);
       ctx.restore();
 
       drawX += imgWidth + INNER_PADDING;
@@ -94,7 +97,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
     const editable = !readonly && isActive;
     if (!editable) return { type: CellRegionType.Blank };
 
-    const { cellHorizontalPadding, iconSizeSM } = theme;
+    const { iconSizeSM } = theme;
     const [hoverX, hoverY] = hoverCellPosition;
     const startX = cellHorizontalPadding;
     const startY = (height - iconSizeSM) / 2;

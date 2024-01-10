@@ -7,6 +7,7 @@ import type {
   IViewVo,
   IColumnMetaRo,
   IManualSortRo,
+  IGroup,
 } from '@teable-group/core';
 import {
   sortSchema,
@@ -14,6 +15,7 @@ import {
   ViewCore,
   ViewOpBuilder,
   generateShareId,
+  groupSchema,
 } from '@teable-group/core';
 import {
   createView,
@@ -101,6 +103,16 @@ export abstract class View extends ViewCore {
     const viewOperation = ViewOpBuilder.editor.setViewSort.build({
       newSort: validSort,
       oldSort: this.sort,
+    });
+    return await this.submitOperation(viewOperation);
+  }
+
+  async setGroup(newGroup?: IGroup | null) {
+    const validGroup = newGroup && (await groupSchema.parseAsync(newGroup));
+
+    const viewOperation = ViewOpBuilder.editor.setViewGroup.build({
+      newGroup: validGroup,
+      oldGroup: this.group,
     });
     return await this.submitOperation(viewOperation);
   }

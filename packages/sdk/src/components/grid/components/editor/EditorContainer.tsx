@@ -21,6 +21,7 @@ export interface IEditorContainerProps
     | 'theme'
     | 'coordInstance'
     | 'scrollToItem'
+    | 'real2RowIndex'
     | 'getCellContent'
     | 'onCopy'
     | 'onPaste'
@@ -84,14 +85,21 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setEditing,
     setActiveCell,
     setSelection,
+    real2RowIndex,
     getCellContent,
   } = props;
   const { scrollLeft, scrollTop } = scrollState;
-  const [columnIndex, rowIndex] = activeCell ?? [-1, -1];
-  const cellContent = useMemo(
-    () => getCellContent([columnIndex, rowIndex]) as IInnerCell,
-    [columnIndex, getCellContent, rowIndex]
-  );
+  const { rowIndex, realRowIndex, columnIndex } = useMemo(() => {
+    const [columnIndex, realRowIndex] = activeCell ?? [-1, -1];
+    return {
+      rowIndex: real2RowIndex(realRowIndex) ?? -1,
+      realRowIndex,
+      columnIndex,
+    };
+  }, [activeCell, real2RowIndex]);
+  const cellContent = useMemo(() => {
+    return getCellContent([columnIndex, realRowIndex]) as IInnerCell;
+  }, [columnIndex, realRowIndex, getCellContent]);
   const { type: cellType, readonly } = cellContent;
   const editingEnable = !readonly && isEditing && activeCell;
   const width = coordInstance.getColumnWidth(columnIndex);
@@ -112,11 +120,11 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   }, [cellContent, activeCell, isEditing]);
 
   useKeyboardSelection({
+    editorRef,
     isEditing,
     activeCell,
     selection,
     coordInstance,
-    scrollToItem,
     onCopy,
     onDelete,
     onRowAppend,
@@ -124,7 +132,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     setEditing,
     setActiveCell,
     setSelection,
-    editorRef,
+    scrollToItem,
   });
 
   const editorStyle = useMemo(
@@ -159,7 +167,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if (readonly) return null;
 
     const onChangeInner = (value: unknown) => {
-      onChange?.([columnIndex, rowIndex], {
+      onChange?.([columnIndex, realRowIndex], {
         ...cellContent,
         data: value,
       } as IInnerCell);
@@ -240,10 +248,10 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     readonly,
     cellType,
     cellContent,
-    rowIndex,
     columnIndex,
-    isEditing,
+    realRowIndex,
     editorStyle,
+    isEditing,
     onChange,
     setEditing,
   ]);

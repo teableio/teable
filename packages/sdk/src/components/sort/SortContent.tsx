@@ -6,15 +6,17 @@ import { SortFieldCommand } from './SortFieldCommand';
 
 interface ISortProps {
   sortValues?: ISort['sortObjs'];
+  limit?: number;
+  addBtnText?: string;
   onChange: (sort?: ISort['sortObjs']) => void;
 }
 
 export function SortContent(props: ISortProps) {
-  const { onChange, sortValues = [] } = props;
+  const { onChange, sortValues = [], addBtnText, limit = Infinity } = props;
 
   const selectedFields = useMemo(() => sortValues.map((sort) => sort.fieldId) || [], [sortValues]);
 
-  const fieldSelectHandler = (fieldId: string) => {
+  const onFieldSelect = (fieldId: string) => {
     onChange([
       {
         fieldId: fieldId,
@@ -23,7 +25,7 @@ export function SortContent(props: ISortProps) {
     ]);
   };
 
-  const fieldAddHandler = (value: string) => {
+  const onFieldAdd = (value: string) => {
     onChange(
       sortValues.concat({
         fieldId: value,
@@ -32,30 +34,30 @@ export function SortContent(props: ISortProps) {
     );
   };
 
-  const sortChangeHandler = (sorts: ISort['sortObjs']) => {
-    if (sorts?.length) {
-      onChange(sorts);
-    } else {
-      onChange(undefined);
-    }
+  const onSortChange = (sorts: ISort['sortObjs']) => {
+    onChange(sorts?.length ? sorts : undefined);
   };
 
   if (!sortValues.length) {
-    return <SortFieldCommand onSelect={fieldSelectHandler} />;
+    return <SortFieldCommand onSelect={onFieldSelect} />;
   }
 
   return (
     <div className="flex flex-col">
       <div className="max-h-96 overflow-auto p-3">
-        {
-          <DraggableSortList
-            sorts={sortValues}
-            onChange={sortChangeHandler}
-            selectedFields={selectedFields}
-          />
-        }
+        <DraggableSortList
+          sorts={sortValues}
+          selectedFields={selectedFields}
+          onChange={onSortChange}
+        />
       </div>
-      <SortFieldAddButton onSelect={fieldAddHandler} selectedFields={selectedFields} />
+      {selectedFields.length < limit && (
+        <SortFieldAddButton
+          addBtnText={addBtnText}
+          selectedFields={selectedFields}
+          onSelect={onFieldAdd}
+        />
+      )}
     </div>
   );
 }

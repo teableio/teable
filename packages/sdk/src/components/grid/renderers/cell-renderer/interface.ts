@@ -27,6 +27,7 @@ export enum EditorType {
 export type ICustomEditor = ForwardRefRenderFunction<IEditorRef, IEditorProps>;
 
 export interface IBaseCell {
+  id?: string;
   readonly?: boolean;
   cursor?: CSSProperties['cursor'];
   contentAlign?: 'left' | 'right' | 'center';
@@ -54,7 +55,7 @@ export interface ILinkCell extends IEditableCell {
   type: CellType.Link;
   data: string[];
   displayData: string;
-  onClick: (value: string) => void;
+  onClick?: (value: string) => void;
 }
 
 export enum NumberDisplayType {
@@ -161,7 +162,7 @@ export type ICellRenderProps = {
   columnIndex: number;
   imageManager: ImageManager;
   spriteManager: SpriteManager;
-  hoverCellPosition: ICellPosition | null;
+  hoverCellPosition?: ICellPosition | null;
   isActive?: boolean;
 };
 

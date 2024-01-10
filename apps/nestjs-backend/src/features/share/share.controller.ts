@@ -12,11 +12,12 @@ import {
   Query,
 } from '@nestjs/common';
 import {
-  type IAggregationVo,
-  type IRowCountVo,
   rowCountRoSchema,
+  groupPointsRoSchema,
   IRowCountRo,
+  IGroupPointsRo,
 } from '@teable-group/core';
+import type { IGroupPointsVo, IAggregationVo, IRowCountVo } from '@teable-group/core';
 import {
   ShareViewFormSubmitRo,
   shareViewCopyRoSchema,
@@ -117,5 +118,15 @@ export class ShareController {
   ): Promise<IShareViewLinkRecordsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareService.getLinkRecords(shareInfo, shareViewLinkRecordsRo);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/view/groupPoints')
+  async getViewGroupPoints(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(groupPointsRoSchema)) query?: IGroupPointsRo
+  ): Promise<IGroupPointsVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return await this.shareService.getViewGroupPoints(shareInfo, query);
   }
 }

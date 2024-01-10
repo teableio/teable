@@ -26,9 +26,18 @@ import type {
   IRowControlItem,
   IColumnStatistics,
   ICollaborator,
+  IGroupPoint,
+  ILinearRow,
+  IGroupCollection,
 } from './interface';
-import { RegionType, RowControlType, DraggableType, SelectableType } from './interface';
-import type { ISpriteMap, CombinedSelection } from './managers';
+import {
+  RegionType,
+  RowControlType,
+  DraggableType,
+  SelectableType,
+  LinearRowType,
+} from './interface';
+import type { ISpriteMap, CombinedSelection, IIndicesMap } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import { getCellRenderer, type ICell, type IInnerCell } from './renderers';
 import { TouchLayer } from './TouchLayer';
@@ -74,16 +83,21 @@ export interface IGridExternalProps {
    */
   isMultiSelectionEnable?: boolean;
 
-  onRowAppend?: () => void;
-  onColumnAppend?: () => void;
+  groupCollection?: IGroupCollection | null;
+  collapsedGroupIds?: Set<string> | null;
+  groupPoints?: IGroupPoint[] | null;
+
   onCopy?: (selection: CombinedSelection) => void;
   onPaste?: (selection: CombinedSelection, e: React.ClipboardEvent) => void;
   onDelete?: (selection: CombinedSelection) => void;
   onCellEdited?: (cell: ICellItem, newValue: IInnerCell) => void;
   onSelectionChanged?: (selection: CombinedSelection) => void;
   onVisibleRegionChanged?: (rect: IRectangle) => void;
+  onCollapsedGroupChanged?: (collapsedGroupIds: Set<string>) => void;
   onColumnFreeze?: (freezeColumnCount: number) => void;
+  onColumnAppend?: () => void;
   onRowExpand?: (rowIndex: number) => void;
+  onRowAppend?: (targetIndex?: number) => void;
   onRowOrdered?: (dragRowIndexCollection: number[], dropRowIndex: number) => void;
   onColumnOrdered?: (dragColIndexCollection: number[], dropColIndex: number) => void;
   onColumnResize?: (column: IGridColumn, newSize: number, colIndex: number) => void;
@@ -125,6 +139,7 @@ export interface IGridRef {
 
 const {
   appendRowHeight,
+  groupHeaderHeight,
   cellScrollBuffer,
   columnAppendBtnWidth,
   columnStatisticHeight,
@@ -136,6 +151,8 @@ const {
 const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forwardRef) => {
   const {
     columns,
+    groupCollection,
+    collapsedGroupIds,
     draggable = DraggableType.All,
     selectable = SelectableType.All,
     columnStatistics,
@@ -155,6 +172,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     style,
     customIcons,
     collaborators,
+    groupPoints,
     getCellContent,
     onCopy,
     onPaste,
@@ -174,6 +192,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
+    onCollapsedGroupChanged,
     onItemHovered,
     onItemClick,
   } = props;
@@ -191,10 +210,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
   const rowControlCount = rowControls.length;
-  const rowCount = hasAppendRow ? originRowCount + 1 : originRowCount;
-  const totalHeight =
-    (hasAppendRow ? (rowCount - 1) * rowHeight + appendRowHeight : rowCount * rowHeight) +
-    scrollBufferY;
   const totalWidth = columns.reduce(
     (prev, column) => prev + (column.width || defaultColumnWidth),
     hasAppendColumn ? scrollBufferX + columnAppendBtnWidth : scrollBufferX
@@ -223,9 +238,128 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     return !rowIndexVisible && !rowControlCount ? 0 : Math.max(rowControlCount, 2) * iconSizeMD;
   }, [rowControlCount, rowIndexVisible, iconSizeMD]);
 
-  const rowHeightMap = useMemo(() => {
-    return hasAppendRow ? { [rowCount - 1]: appendRowHeight } : undefined;
-  }, [rowCount, hasAppendRow]);
+  const defaultRowsInfo = useMemo(() => {
+    return {
+      linearRows: [],
+      real2LinearRowMap: null,
+      pureRowCount: originRowCount,
+      rowCount: hasAppendRow ? originRowCount + 1 : originRowCount,
+      rowHeightMap: hasAppendRow ? { [originRowCount]: appendRowHeight } : undefined,
+    };
+  }, [hasAppendRow, originRowCount]);
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  const groupRowsInfo = useMemo(() => {
+    if (!groupPoints?.length) return null;
+    let rowIndex = 0;
+    let totalIndex = 0;
+    let currentValue: unknown = null;
+    let collapsedDepth = Number.MAX_VALUE;
+    const linearRows: ILinearRow[] = [];
+    const rowHeightMap: IIndicesMap = {};
+    const real2LinearRowMap: Record<number, number> = {};
+    const collapsedGroupSet: Set<string> = collapsedGroupIds ?? new Set();
+
+    groupPoints.forEach((point) => {
+      const { type } = point;
+      if (type === LinearRowType.Group) {
+        const { id, value, depth } = point;
+        const isCollapsed = collapsedGroupSet.has(id);
+        const isSubGroup = depth > collapsedDepth;
+
+        if (isCollapsed) {
+          collapsedDepth = Math.min(collapsedDepth, depth);
+          if (isSubGroup) return;
+        } else if (!isSubGroup) {
+          collapsedDepth = Number.MAX_VALUE;
+        } else {
+          return;
+        }
+
+        rowHeightMap[totalIndex] = groupHeaderHeight;
+        linearRows.push({
+          id,
+          type: LinearRowType.Group,
+          depth,
+          value,
+          realIndex: rowIndex,
+          isCollapsed,
+        });
+        currentValue = value;
+        totalIndex++;
+      }
+      if (type === LinearRowType.Row) {
+        const count = point.count;
+        const isCollapsed = collapsedDepth !== Number.MAX_VALUE;
+
+        if (isCollapsed) return;
+
+        for (let i = 0; i < count; i++) {
+          real2LinearRowMap[rowIndex + i] = totalIndex + i;
+          linearRows.push({
+            type: LinearRowType.Row,
+            displayIndex: i + 1,
+            realIndex: rowIndex + i,
+          });
+        }
+
+        rowIndex += count;
+        totalIndex += count;
+
+        if (hasAppendRow) {
+          rowHeightMap[totalIndex] = appendRowHeight;
+          linearRows.push({
+            type: LinearRowType.Append,
+            value: currentValue,
+            realIndex: rowIndex - 1,
+          });
+          totalIndex++;
+        }
+      }
+    });
+
+    return {
+      linearRows,
+      real2LinearRowMap,
+      pureRowCount: rowIndex,
+      rowCount: totalIndex,
+      rowHeightMap,
+    };
+  }, [groupPoints, hasAppendRow, collapsedGroupIds]);
+
+  const { rowCount, pureRowCount, rowHeightMap, linearRows, real2LinearRowMap } = useMemo(() => {
+    return { ...defaultRowsInfo, ...groupRowsInfo };
+  }, [defaultRowsInfo, groupRowsInfo]);
+
+  const getLinearRow = useCallback(
+    (index: number) => {
+      if (!linearRows.length) {
+        return (
+          index >= pureRowCount
+            ? {
+                type: LinearRowType.Append,
+                realIndex: index - 1,
+                value: null,
+              }
+            : {
+                type: LinearRowType.Row,
+                displayIndex: index + 1,
+                realIndex: index,
+              }
+        ) as ILinearRow;
+      }
+      return linearRows[index];
+    },
+    [linearRows, pureRowCount]
+  );
+
+  const real2RowIndex = useCallback(
+    (index: number) => {
+      if (real2LinearRowMap == null) return index;
+      return real2LinearRowMap[index];
+    },
+    [real2LinearRowMap]
+  );
 
   const columnWidthMap = useMemo(() => {
     return columns.reduce(
@@ -241,7 +375,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     return new CoordinateManager({
       rowHeight,
       columnWidth: defaultColumnWidth,
-      pureRowCount: originRowCount,
+      pureRowCount,
       rowCount,
       columnCount,
       freezeColumnCount,
@@ -253,7 +387,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       columnWidthMap,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowHeight, originRowCount, rowCount, rowHeightMap]);
+  }, [rowHeight, pureRowCount, rowCount, rowHeightMap]);
+
+  const totalHeight = coordInstance.totalHeight + scrollBufferY;
 
   useMemo(() => {
     coordInstance.refreshColumnDimensions({ columnInitSize, columnCount, columnWidthMap });
@@ -275,7 +411,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     const cell = getCellContent([activeColumnIndex, activeRowIndex]);
     const cellRenderer = getCellRenderer(cell.type);
     const originWidth = coordInstance.getColumnWidth(activeColumnIndex);
-    const originHeight = coordInstance.getRowHeight(activeRowIndex);
+    const originHeight = coordInstance.getRowHeight(real2RowIndex(activeRowIndex));
 
     if (cellRenderer?.measure && measuredCanvas?.ctx != null) {
       const { width, height, totalHeight } = cellRenderer.measure(cell as never, {
@@ -303,7 +439,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       scrollTop: 0,
       scrollEnable: false,
     };
-  }, [activeColumnIndex, activeRowIndex, coordInstance, getCellContent, theme]);
+  }, [activeColumnIndex, activeRowIndex, coordInstance, theme, getCellContent, real2RowIndex]);
 
   const scrollEnable =
     hoverRegionType !== RegionType.None &&
@@ -333,7 +469,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       const { containerHeight, containerWidth, freezeRegionWidth, freezeColumnCount, rowInitSize } =
         coordInstance;
       const { scrollTop, scrollLeft } = scrollState;
-      const [columnIndex, rowIndex] = position;
+      const [columnIndex, _rowIndex] = position;
+      const rowIndex = real2RowIndex(_rowIndex);
       const isFreezeColumn = columnIndex < freezeColumnCount;
 
       if (!isFreezeColumn) {
@@ -358,7 +495,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         scrollTo(undefined, st);
       }
     },
-    [coordInstance, scrollState, scrollTo]
+    [coordInstance, scrollState, scrollTo, real2RowIndex]
   );
 
   const onMouseDown = () => {
@@ -392,6 +529,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             columnStatistics={columnStatistics}
             forceRenderFlag={forceRenderFlag}
             rowIndexVisible={rowIndexVisible}
+            groupCollection={groupCollection}
+            getLinearRow={getLinearRow}
+            real2RowIndex={real2RowIndex}
             getCellContent={getCellContent}
             setMouseState={setMouseState}
             setActiveCell={setActiveCell}
@@ -420,6 +560,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             spriteManager={spriteManager}
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
+            collapsedGroupIds={collapsedGroupIds}
             isMultiSelectionEnable={isMultiSelectionEnable}
             activeCell={activeCell}
             mouseState={mouseState}
@@ -428,6 +569,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             forceRenderFlag={forceRenderFlag}
             rowCounterVisible={rowCounterVisible}
             rowIndexVisible={rowIndexVisible}
+            groupCollection={groupCollection}
+            getLinearRow={getLinearRow}
+            real2RowIndex={real2RowIndex}
             getCellContent={getCellContent}
             setMouseState={setMouseState}
             setActiveCell={setActiveCell}
@@ -445,11 +589,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnResize={onColumnResize}
             onColumnOrdered={onColumnOrdered}
             onColumnHeaderClick={onColumnHeaderClick}
+            onColumnStatisticClick={onColumnStatisticClick}
             onColumnHeaderDblClick={onColumnHeaderDblClick}
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
-            onColumnStatisticClick={onColumnStatisticClick}
-            onColumnFreeze={onColumnFreeze}
+            onCollapsedGroupChanged={onCollapsedGroupChanged}
             onSelectionChanged={onSelectionChanged}
+            onColumnFreeze={onColumnFreeze}
             onItemHovered={onItemHovered}
             onItemClick={onItemClick}
           />
@@ -469,8 +614,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         smoothScrollY={smoothScrollY}
         containerRef={containerRef}
         scrollState={scrollState}
-        setScrollState={setScrollState}
         scrollEnable={scrollEnable}
+        getLinearRow={getLinearRow}
+        setScrollState={setScrollState}
         onVisibleRegionChanged={onVisibleRegionChanged}
       />
     </div>

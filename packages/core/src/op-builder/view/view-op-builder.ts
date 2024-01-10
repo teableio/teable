@@ -5,6 +5,7 @@ import { SetViewColumnMetaBuilder } from './set-view-column-meta';
 import { SetViewDescriptionBuilder } from './set-view-description';
 import { SetViewEnableShareBuilder } from './set-view-enable-share';
 import { SetViewFilterBuilder } from './set-view-filter';
+import { SetViewGroupBuilder } from './set-view-group';
 import { SetViewNameBuilder } from './set-view-name';
 import { SetViewOptionBuilder } from './set-view-option';
 import { SetViewShareIdBuilder } from './set-view-share-id';
@@ -18,6 +19,7 @@ export class ViewOpBuilder {
     [OpName.SetViewDescription]: new SetViewDescriptionBuilder(),
     [OpName.SetViewFilter]: new SetViewFilterBuilder(),
     [OpName.SetViewSort]: new SetViewSortBuilder(),
+    [OpName.SetViewGroup]: new SetViewGroupBuilder(),
     [OpName.SetViewOptions]: new SetViewOptionBuilder(),
     [OpName.SetViewColumnMeta]: new SetViewColumnMetaBuilder(),
     [OpName.SetViewEnableShare]: new SetViewEnableShareBuilder(),

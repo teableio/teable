@@ -9,6 +9,7 @@ import type {
   IInnerCell,
   Record,
   GridView,
+  IGroupPoint,
 } from '@teable-group/sdk';
 import {
   Grid,
@@ -28,10 +29,13 @@ import {
   useGridTooltipStore,
   hexToRGBA,
   emptySelection,
+  useGridGroupCollection,
+  useGridCollapsedGroup,
 } from '@teable-group/sdk';
 import { useScrollFrameRate } from '@teable-group/sdk/components/grid/hooks';
 import {
   useFields,
+  useGroupPoint,
   useIsTouchDevice,
   useRowCount,
   useSSRRecord,
@@ -69,6 +73,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
   const rowCount = useRowCount();
+  const groupPoints = useGroupPoint();
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const theme = useGridTheme();
@@ -90,6 +95,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
   const sort = view?.sort;
+  const group = view?.group;
   const frozenColumnCount = view?.options?.frozenColumnCount ?? 1;
   const isAutoSort = sort && !sort?.manualSort;
   const isTouchDevice = useIsTouchDevice();
@@ -98,8 +104,18 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
-  const { onVisibleRegionChanged, onRowOrdered, onReset, recordMap } =
-    useGridAsyncRecords(ssrRecords);
+  const groupCollection = useGridGroupCollection();
+
+  const { viewGroupQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
+    `${tableId}-${activeViewId}`,
+    groupPoints
+  );
+
+  const { onVisibleRegionChanged, onRowOrdered, onReset, recordMap } = useGridAsyncRecords(
+    ssrRecords,
+    undefined,
+    viewGroupQuery
+  );
 
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {
@@ -267,8 +283,22 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [view]
   );
 
-  const onRowAppended = () => {
-    table?.createRecord({});
+  const onRowAppend = (targetIndex?: number) => {
+    if (group?.length && targetIndex != null) {
+      const record = recordMap[targetIndex];
+
+      if (record == null) return table?.createRecord({});
+
+      const fields = group.reduce(
+        (prev, { fieldId }) => {
+          prev[fieldId] = record.getCellValue(fieldId);
+          return prev;
+        },
+        {} as { [key: string]: unknown }
+      );
+      return table?.createRecord(fields);
+    }
+    return table?.createRecord({});
   };
 
   const onColumnAppend = () => {
@@ -462,6 +492,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           rowCounterVisible
           customIcons={customIcons}
           rowControls={rowControls}
+          collapsedGroupIds={collapsedGroupIds}
+          groupCollection={groupCollection}
+          groupPoints={groupPoints as unknown as IGroupPoint[]}
           collaborators={collaborators}
           style={{
             width: '100%',
@@ -469,7 +502,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           }}
           getCellContent={getCellContent}
           onDelete={getAuthorizedFunction(onDelete, 'record|update')}
-          onRowAppend={getAuthorizedFunction(onRowAppended, 'record|create')}
+          onRowAppend={getAuthorizedFunction(onRowAppend, 'record|create')}
           onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
           onRowOrdered={onRowOrdered}
           onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
@@ -483,6 +516,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           onSelectionChanged={onSelectionChanged}
           onColumnHeaderDblClick={onColumnHeaderDblClick}
           onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+          onCollapsedGroupChanged={onCollapsedGroupChanged}
           onCopy={onCopy}
           onPaste={onPaste}
           onRowExpand={onRowExpandInner}

@@ -14,6 +14,8 @@ import type {
   IAggregationRo,
   ILinkFieldOptions,
   IAggregationVo,
+  IGroupPointsVo,
+  IGroupPointsRo,
 } from '@teable-group/core';
 import { ANONYMOUS_USER_ID, FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -214,5 +216,17 @@ export class ShareService {
       projection,
       fieldKeyType,
     });
+  }
+
+  async getViewGroupPoints(
+    shareInfo: IShareViewInfo,
+    query?: IGroupPointsRo
+  ): Promise<IGroupPointsVo> {
+    const viewId = shareInfo.view.id;
+    const tableId = shareInfo.tableId;
+
+    if (viewId == null) return null;
+
+    return await this.aggregationService.getGroupPoints(tableId, { ...query, viewId });
   }
 }

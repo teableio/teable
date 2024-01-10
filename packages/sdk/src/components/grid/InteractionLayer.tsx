@@ -31,12 +31,19 @@ import type {
   ICellPosition,
   ICellRegionWithData,
   IInnerCell,
+  ILinearRow,
   IMouseState,
   IRange,
   IRowControlItem,
   IScrollState,
 } from './interface';
-import { MouseButtonType, RegionType, DragRegionType, SelectionRegionType } from './interface';
+import {
+  RegionType,
+  LinearRowType,
+  DragRegionType,
+  MouseButtonType,
+  SelectionRegionType,
+} from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CombinedSelection } from './managers';
 import { CellRegionType, getCellRenderer } from './renderers';
@@ -69,6 +76,8 @@ export interface IInteractionLayerProps
   coordInstance: CoordinateManager;
   activeCell: ICellItem | null;
   activeCellBound: IActiveCellBound | null;
+  real2RowIndex: (index: number) => number;
+  getLinearRow: (index: number) => ILinearRow;
   setActiveCell: Dispatch<SetStateAction<ICellItem | null>>;
   setMouseState: Dispatch<SetStateAction<IMouseState>>;
   scrollBy: (deltaX: number, deltaY: number) => void;
@@ -100,11 +109,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     columnStatistics,
     forceRenderFlag,
     rowIndexVisible,
+    groupCollection,
     rowCounterVisible,
     isMultiSelectionEnable,
     activeCellBound: _activeCellBound,
+    collapsedGroupIds,
     collaborators,
     activeCell,
+    getLinearRow,
+    real2RowIndex,
     setActiveCell,
     setMouseState,
     scrollToItem,
@@ -129,6 +142,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
+    onCollapsedGroupChanged,
   } = props;
 
   useImperativeHandle(ref, () => ({
@@ -200,13 +214,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onSelectionEnd,
     onSelectionClick,
     onSelectionContextMenu,
-  } = useSelection(
+  } = useSelection({
+    selectable,
     coordInstance,
+    isMultiSelectionEnable,
+    getLinearRow,
     setActiveCell,
     onSelectionChanged,
-    selectable,
-    isMultiSelectionEnable
-  );
+  });
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
     scrollState,
@@ -303,7 +318,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       isFreezing,
       isOutOfBounds,
       columnStatistics,
-      isRowAppendEnable,
       isColumnResizable,
       isColumnAppendEnable,
       isMultiSelectionEnable,
@@ -314,6 +328,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       columns,
       height,
       theme,
+      getLinearRow,
     });
 
     hoveredRegionRef.current = regionData;
@@ -336,13 +351,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         if (activeCell != null) return;
         return setCursor('pointer');
       }
+      case RegionType.AllCheckbox:
       case RegionType.AppendColumn:
+      case RegionType.ColumnStatistic:
       case RegionType.ColumnHeaderMenu:
       case RegionType.ColumnDescription:
+      case RegionType.RowGroupHeader:
       case RegionType.RowHeaderCheckbox:
       case RegionType.RowHeaderExpandHandler:
-      case RegionType.ColumnStatistic:
-      case RegionType.AllCheckbox:
         return setCursor('pointer');
       case RegionType.ColumnFreezeHandler:
         return setCursor('grab');
@@ -373,12 +389,23 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         if (activeCell != null) {
           setSelection(selection.reset());
           return setActiveCell(null);
-        } else {
-          const range = [0, rowIndex] as IRange;
-          setActiveCell(range);
-          setSelection(new CombinedSelection(SelectionRegionType.Cells, [range, range]));
         }
-        return onRowAppend?.();
+        let targetIndex: number | undefined = rowIndex;
+        if (rowIndex <= 0) {
+          targetIndex = undefined;
+        } else {
+          const linearRow = getLinearRow(rowIndex - 1);
+          if (linearRow.type === LinearRowType.Row) {
+            targetIndex = linearRow.realIndex;
+          }
+        }
+        onRowAppend?.(targetIndex);
+
+        const { realIndex } = getLinearRow(rowIndex);
+        const range = [0, realIndex + 1] as IRange;
+        setActiveCell(range);
+        setSelection(new CombinedSelection(SelectionRegionType.Cells, [range, range]));
+        return;
       }
       case RegionType.AppendColumn:
         return onColumnAppend?.();
@@ -443,6 +470,24 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
             }
           );
         }
+        return;
+      }
+      case RegionType.RowGroupHeader: {
+        const { rowIndex } = mouseState;
+        const linearRow = getLinearRow(rowIndex);
+        if (linearRow.type !== LinearRowType.Group) return;
+        const { id } = linearRow;
+
+        if (collapsedGroupIds == null) {
+          return onCollapsedGroupChanged?.(new Set([id]));
+        }
+
+        if (collapsedGroupIds.has(id)) {
+          const newCollapsedGroupIds = new Set(collapsedGroupIds);
+          newCollapsedGroupIds.delete(id);
+          return onCollapsedGroupChanged?.(newCollapsedGroupIds);
+        }
+        return onCollapsedGroupChanged?.(new Set([...collapsedGroupIds, id]));
       }
     }
 
@@ -453,11 +498,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onDblClick = () => {
     const mouseState = getMouseState();
     const { type, rowIndex, columnIndex } = mouseState;
+    const { realIndex } = getLinearRow(rowIndex);
     if (
       [RegionType.Cell, RegionType.ActiveCell].includes(type) &&
-      isEqual(selectionRanges[0], [columnIndex, rowIndex])
+      isEqual(selectionRanges[0], [columnIndex, realIndex])
     ) {
-      const cell = getCellContent([columnIndex, rowIndex]) as IInnerCell;
+      const cell = getCellContent([columnIndex, realIndex]) as IInnerCell;
       if (cell.readonly) return;
       editorContainerRef.current?.focus?.();
       return setEditing(true);
@@ -470,7 +516,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
         y: 0,
         width: coordInstance.getColumnWidth(columnIndex),
-        height: GRID_DEFAULT.columnHeadHeight,
+        height: columnHeadHeight,
       });
     }
   };
@@ -647,6 +693,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           selection={selection}
           isSelecting={isSelecting}
           isInteracting={isInteracting}
+          groupCollection={groupCollection}
           forceRenderFlag={forceRenderFlag}
           rowIndexVisible={rowIndexVisible}
           rowCounterVisible={rowCounterVisible}
@@ -655,12 +702,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}
           columnFreezeState={columnFreezeState}
           isMultiSelectionEnable={isMultiSelectionEnable}
-          getCellContent={getCellContent}
           isRowAppendEnable={isRowAppendEnable}
           isColumnFreezable={isColumnFreezable}
           isColumnResizable={isColumnResizable}
           isColumnAppendEnable={isColumnAppendEnable}
           isColumnHeaderMenuVisible={isColumnHeaderMenuVisible}
+          getCellContent={getCellContent}
+          real2RowIndex={real2RowIndex}
+          getLinearRow={getLinearRow}
         />
       </div>
 
@@ -684,22 +733,23 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         ref={editorContainerRef}
         theme={theme}
         isEditing={isEditing}
-        scrollToItem={scrollToItem}
-        setEditing={setEditing}
-        activeCell={activeCell}
-        setActiveCell={setActiveCell}
-        activeCellBound={activeCellBound}
         selection={selection}
-        setSelection={setSelection}
-        getCellContent={getCellContent}
+        activeCell={activeCell}
         scrollState={scrollState}
         coordInstance={coordInstance}
+        activeCellBound={activeCellBound}
         onCopy={onCopy}
         onPaste={onPaste}
         onDelete={onDelete}
         onChange={onCellEdited}
         onRowAppend={onRowAppend}
         onRowExpand={onRowExpand}
+        setEditing={setEditing}
+        setSelection={setSelection}
+        setActiveCell={setActiveCell}
+        getCellContent={getCellContent}
+        real2RowIndex={real2RowIndex}
+        scrollToItem={scrollToItem}
       />
     </div>
   );

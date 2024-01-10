@@ -2,6 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   IAggregationRo,
   IAggregationVo,
+  IGroupPointsRo,
+  IGroupPointsVo,
   IRowCountRo,
   IRowCountVo,
   StatisticsFunc,
@@ -52,6 +54,10 @@ export class AggregationOpenApiService {
     return {
       rowCount: result.rowCount,
     };
+  }
+
+  async getGroupPoints(tableId: string, query?: IGroupPointsRo): Promise<IGroupPointsVo> {
+    return await this.aggregationService.getGroupPoints(tableId, query);
   }
 
   private async validFieldStats(

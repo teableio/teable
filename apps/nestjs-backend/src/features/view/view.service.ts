@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException } from '@
 import type {
   ISetViewFilterOpContext,
   ISetViewSortOpContext,
+  ISetViewGroupOpContext,
   ISetViewNameOpContext,
   ISetViewOptionsOpContext,
   ISnapshotBase,
@@ -36,6 +37,7 @@ type IViewOpContext =
   | ISetViewFilterOpContext
   | ISetViewOptionsOpContext
   | ISetViewSortOpContext
+  | ISetViewGroupOpContext
   | ISetViewShareMetaOpContext
   | ISetViewEnableShareOpContext
   | ISetViewShareIdOpContext
@@ -334,6 +336,9 @@ export class ViewService implements IAdapterService {
           break;
         case OpName.SetViewSort:
           updateData['sort'] = JSON.stringify(opContext.newSort) ?? null;
+          break;
+        case OpName.SetViewGroup:
+          updateData['group'] = JSON.stringify(opContext.newGroup) ?? null;
           break;
         case OpName.SetViewOptions:
           updateData['options'] = JSON.stringify(opContext.newOptions) ?? null;

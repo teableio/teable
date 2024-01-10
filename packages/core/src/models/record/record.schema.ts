@@ -3,7 +3,7 @@
 import { TQL_README } from '../../query/README';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { filterSchema, sortItemSchema } from '../view';
+import { filterSchema, groupSchema, sortItemSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
@@ -112,6 +112,10 @@ export const getRecordsQuerySchema = getRecordQuerySchema.extend({
   orderBy: sortItemSchema.array().nonempty().optional().openapi({
     type: 'array',
     description: 'An array of sort objects that specifies how the records should be ordered.',
+  }),
+  groupBy: groupSchema.nonempty().optional().openapi({
+    type: 'array',
+    description: 'An array of group objects that specifies how the records should be grouped.',
   }),
   filterByTql: z.string().optional().openapi({
     example: "{field} = 'Completed' AND {field} > 5",

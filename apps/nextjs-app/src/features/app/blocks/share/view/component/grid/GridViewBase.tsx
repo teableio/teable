@@ -1,8 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
-import type { GridViewOptions } from '@teable-group/core';
-import { RowHeightLevel } from '@teable-group/core';
+import type { GridViewOptions, IFilter, IGetRecordsQuery } from '@teable-group/core';
+import { RowHeightLevel, mergeFilter } from '@teable-group/core';
 import { shareViewCopy, type IShareViewCopyRo } from '@teable-group/openapi';
-import type { CombinedSelection, ICell, ICellItem, IGridRef } from '@teable-group/sdk/components';
+import type {
+  CombinedSelection,
+  ICell,
+  ICellItem,
+  IGridRef,
+  IGroupPoint,
+} from '@teable-group/sdk/components';
 import {
   DraggableType,
   Grid,
@@ -14,13 +20,17 @@ import {
   useGridTheme,
   RowControlType,
   CellType,
+  useGridGroupCollection,
+  useGridCollapsedGroup,
 } from '@teable-group/sdk/components';
 import {
+  useGroupPoint,
   useIsHydrated,
   useIsTouchDevice,
   useRowCount,
   useSSRRecord,
   useSSRRecords,
+  useTableId,
   useView,
 } from '@teable-group/sdk/hooks';
 import { Skeleton, useToast } from '@teable-group/ui-lib/shadcn';
@@ -36,8 +46,10 @@ import { useGridViewStore } from '../../../../view/grid/store/gridView';
 
 export const GridViewBase = () => {
   const view = useView();
+  const tableId = useTableId();
   const router = useRouter();
   const isHydrated = useIsHydrated();
+  const groupPoints = useGroupPoint();
   const prepare = isHydrated && view;
   const gridRef = useRef<IGridRef>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -57,13 +69,24 @@ export const GridViewBase = () => {
     mutationFn: (copyRo: IShareViewCopyRo) => shareViewCopy(router.query.shareId as string, copyRo),
   });
   const copyMethod = useCopy({ copyReq: copy });
+  const { filter, sort, group } = view ?? {};
+
+  const groupCollection = useGridGroupCollection();
+
+  const { viewGroupQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
+    `${tableId}-${view?.id}`,
+    groupPoints
+  );
 
   const viewQuery = useMemo(() => {
-    const filter = view?.filter;
-    const orderBy = view?.sort?.sortObjs;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return { filter, orderBy: orderBy as any };
-  }, [view?.filter, view?.sort?.sortObjs]);
+    const mergedFilter = mergeFilter(filter, viewGroupQuery?.filter);
+    return {
+      filter: mergedFilter as IFilter,
+      orderBy: sort?.sortObjs as IGetRecordsQuery['orderBy'],
+      groupBy: group as IGetRecordsQuery['groupBy'],
+    };
+  }, [filter, sort?.sortObjs, group, viewGroupQuery]);
+
   const { onVisibleRegionChanged, recordMap } = useGridAsyncRecords(
     ssrRecords,
     undefined,
@@ -177,11 +200,15 @@ export const GridViewBase = () => {
             width: '100%',
             height: '100%',
           }}
+          collapsedGroupIds={collapsedGroupIds}
+          groupCollection={groupCollection}
+          groupPoints={groupPoints as unknown as IGroupPoint[]}
           getCellContent={getCellContent}
           onVisibleRegionChanged={onVisibleRegionChanged}
           onSelectionChanged={onSelectionChanged}
           onCopy={onCopy}
           onRowExpand={onRowExpandInner}
+          onCollapsedGroupChanged={onCollapsedGroupChanged}
         />
       ) : (
         <div className="flex w-full items-center space-x-4">

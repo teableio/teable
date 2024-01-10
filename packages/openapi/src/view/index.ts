@@ -6,6 +6,7 @@ export * from './manual-sort';
 export * from './set-fields-column-meta';
 export * from './set-filter';
 export * from './set-sort';
+export * from './set-group';
 export * from './set-option';
 export * from './share-disable';
 export * from './share-enable';
