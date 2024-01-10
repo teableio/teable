@@ -33,7 +33,6 @@ export interface IRenderLayerProps
     | 'columnStatistics'
     | 'groupCollection'
     | 'rowIndexVisible'
-    | 'rowCounterVisible'
     | 'isMultiSelectionEnable'
     | 'collaborators'
   > {
@@ -88,7 +87,6 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
-    rowCounterVisible,
     hoveredColumnResizeIndex,
     isColumnFreezable,
     isRowAppendEnable,
@@ -161,7 +159,6 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       rowIndexVisible,
       columnStatistics,
       columnResizeState,
-      rowCounterVisible,
       hoveredColumnResizeIndex,
       isColumnFreezable,
       isRowAppendEnable,
@@ -202,7 +199,6 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
-    rowCounterVisible,
     hoverCellPosition,
     hoveredColumnResizeIndex,
     isColumnFreezable,

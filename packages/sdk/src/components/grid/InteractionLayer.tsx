@@ -110,7 +110,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     forceRenderFlag,
     rowIndexVisible,
     groupCollection,
-    rowCounterVisible,
     isMultiSelectionEnable,
     activeCellBound: _activeCellBound,
     collapsedGroupIds,
@@ -696,7 +695,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           groupCollection={groupCollection}
           forceRenderFlag={forceRenderFlag}
           rowIndexVisible={rowIndexVisible}
-          rowCounterVisible={rowCounterVisible}
           columnResizeState={columnResizeState}
           hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}

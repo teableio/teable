@@ -1,5 +1,11 @@
 import { GroupPointType, hasNoneOf, FieldType, isNot, isNotEmpty, and } from '@teable-group/core';
-import type { IFilter, IGroupHeaderPoint, IGroupPointsVo, IOperator } from '@teable-group/core';
+import type {
+  IFilter,
+  IGetRecordsQuery,
+  IGroupHeaderPoint,
+  IGroupPointsVo,
+  IOperator,
+} from '@teable-group/core';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../../config';
@@ -74,7 +80,7 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
     }
 
     if (groupId2DataMap == null || collapsedGroupIds == null || !collapsedGroupIds.size) {
-      return { groupBy: group };
+      return { groupBy: group as IGetRecordsQuery['groupBy'] };
     }
 
     const filterQuery: IFilter = {
@@ -113,7 +119,7 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
       });
     }
 
-    return { filter: filterQuery, groupBy: group };
+    return { filter: filterQuery, groupBy: group as IGetRecordsQuery['groupBy'] };
   }, [groupId2DataMap, collapsedGroupIds, fieldId2DataMap, group]);
 
   useEffect(() => {

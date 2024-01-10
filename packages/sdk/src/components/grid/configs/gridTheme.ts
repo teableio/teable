@@ -34,7 +34,6 @@ export interface IGridTheme {
   groupHeaderBgPrimary: string;
   groupHeaderBgSecondary: string;
   groupHeaderBgTertiary: string;
-  groupHeaderBgHovered: string;
   columnHeaderBg: string;
   columnHeaderBgHovered: string;
   columnHeaderBgSelected: string;
@@ -93,7 +92,6 @@ export const gridTheme: IGridTheme = {
   groupHeaderBgPrimary: colors.slate[50],
   groupHeaderBgSecondary: colors.slate[100],
   groupHeaderBgTertiary: colors.slate[200],
-  groupHeaderBgHovered: colors.slate[300],
 
   // Column Header
   columnHeaderBg: colors.slate[50],

@@ -1421,49 +1421,6 @@ export const drawColumnStatistics = (
   ctx.restore();
 };
 
-export const drawRowCounter = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { coordInstance, theme, height, rowCounterVisible } = props;
-
-  if (!rowCounterVisible) return;
-
-  const { pureRowCount } = coordInstance;
-  const { fontSizeXS, fontFamily, rowHeaderTextColor, columnHeaderBgSelected } = theme;
-  const y = height - columnStatisticHeight + 0.5;
-
-  ctx.save();
-  ctx.beginPath();
-
-  ctx.font = `${fontSizeXS}px ${fontFamily}`;
-
-  const text = `${pureRowCount} records`;
-
-  const { width } = drawSingleLineText(ctx, {
-    text,
-    fontSize: fontSizeXS,
-    fill: rowHeaderTextColor,
-    needRender: false,
-  });
-
-  drawRect(ctx, {
-    x: cellHorizontalPadding / 2,
-    y: y + cellVerticalPaddingMD / 2,
-    width: width + cellHorizontalPadding,
-    height: columnStatisticHeight - 2 * cellVerticalPaddingMD,
-    fill: columnHeaderBgSelected,
-    radius: 4,
-  });
-
-  drawSingleLineText(ctx, {
-    x: cellHorizontalPadding,
-    y: y + cellVerticalPaddingMD,
-    text,
-    fontSize: fontSizeXS,
-    fill: rowHeaderTextColor,
-  });
-
-  ctx.restore();
-};
-
 export const drawColumnStatisticsRegion = (
   ctx: CanvasRenderingContext2D,
   props: ILayoutDrawerProps
@@ -1608,8 +1565,6 @@ export const drawGrid = (
   drawCollaborators(mainCtx, props);
 
   drawColumnStatisticsRegion(mainCtx, props);
-
-  drawRowCounter(mainCtx, props);
 
   columnStatistics != null && drawFreezeRegionDivider(mainCtx, props, DividerRegion.Bottom);
 

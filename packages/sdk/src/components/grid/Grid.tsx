@@ -51,7 +51,6 @@ export interface IGridExternalProps {
   smoothScrollY?: boolean;
   scrollBufferX?: number;
   scrollBufferY?: number;
-  rowCounterVisible?: boolean;
   rowIndexVisible?: boolean;
   collaborators?: ICollaborator;
 
@@ -166,7 +165,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     smoothScrollY,
     scrollBufferX = 100,
     scrollBufferY = 100,
-    rowCounterVisible,
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
     style,
@@ -567,7 +565,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             scrollState={scrollState}
             activeCellBound={activeCellBound}
             forceRenderFlag={forceRenderFlag}
-            rowCounterVisible={rowCounterVisible}
             rowIndexVisible={rowIndexVisible}
             groupCollection={groupCollection}
             getLinearRow={getLinearRow}

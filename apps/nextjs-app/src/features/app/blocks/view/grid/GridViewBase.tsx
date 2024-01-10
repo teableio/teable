@@ -31,6 +31,7 @@ import {
   emptySelection,
   useGridGroupCollection,
   useGridCollapsedGroup,
+  RowCounter,
 } from '@teable-group/sdk';
 import { useScrollFrameRate } from '@teable-group/sdk/components/grid/hooks';
 import {
@@ -477,52 +478,54 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   return (
     <div ref={container} className="relative h-full w-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
-        <Grid
-          ref={gridRef}
-          theme={theme}
-          draggable={draggable}
-          isTouchDevice={isTouchDevice}
-          rowCount={realRowCount}
-          rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
-          freezeColumnCount={isTouchDevice ? 0 : frozenColumnCount}
-          columnStatistics={columnStatistics}
-          columns={columns}
-          smoothScrollX
-          smoothScrollY
-          rowCounterVisible
-          customIcons={customIcons}
-          rowControls={rowControls}
-          collapsedGroupIds={collapsedGroupIds}
-          groupCollection={groupCollection}
-          groupPoints={groupPoints as unknown as IGroupPoint[]}
-          collaborators={collaborators}
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-          getCellContent={getCellContent}
-          onDelete={getAuthorizedFunction(onDelete, 'record|update')}
-          onRowAppend={getAuthorizedFunction(onRowAppend, 'record|create')}
-          onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
-          onRowOrdered={onRowOrdered}
-          onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
-          onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
-          onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
-          onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
-          onContextMenu={onContextMenu}
-          onColumnHeaderClick={onColumnHeaderClick}
-          onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
-          onVisibleRegionChanged={onVisibleRegionChanged}
-          onSelectionChanged={onSelectionChanged}
-          onColumnHeaderDblClick={onColumnHeaderDblClick}
-          onColumnHeaderMenuClick={onColumnHeaderMenuClick}
-          onCollapsedGroupChanged={onCollapsedGroupChanged}
-          onCopy={onCopy}
-          onPaste={onPaste}
-          onRowExpand={onRowExpandInner}
-          onItemClick={onItemClick}
-          onItemHovered={onItemHovered}
-        />
+        <>
+          <Grid
+            ref={gridRef}
+            theme={theme}
+            draggable={draggable}
+            isTouchDevice={isTouchDevice}
+            rowCount={realRowCount}
+            rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
+            freezeColumnCount={isTouchDevice ? 0 : frozenColumnCount}
+            columnStatistics={columnStatistics}
+            columns={columns}
+            smoothScrollX
+            smoothScrollY
+            customIcons={customIcons}
+            rowControls={rowControls}
+            collapsedGroupIds={collapsedGroupIds}
+            groupCollection={groupCollection}
+            groupPoints={groupPoints as unknown as IGroupPoint[]}
+            collaborators={collaborators}
+            style={{
+              width: '100%',
+              height: '100%',
+            }}
+            getCellContent={getCellContent}
+            onDelete={getAuthorizedFunction(onDelete, 'record|update')}
+            onRowAppend={getAuthorizedFunction(onRowAppend, 'record|create')}
+            onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
+            onRowOrdered={onRowOrdered}
+            onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
+            onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
+            onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
+            onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
+            onContextMenu={onContextMenu}
+            onColumnHeaderClick={onColumnHeaderClick}
+            onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}
+            onVisibleRegionChanged={onVisibleRegionChanged}
+            onSelectionChanged={onSelectionChanged}
+            onColumnHeaderDblClick={onColumnHeaderDblClick}
+            onColumnHeaderMenuClick={onColumnHeaderMenuClick}
+            onCollapsedGroupChanged={onCollapsedGroupChanged}
+            onCopy={onCopy}
+            onPaste={onPaste}
+            onRowExpand={onRowExpandInner}
+            onItemClick={onItemClick}
+            onItemHovered={onItemHovered}
+          />
+          <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
+        </>
       ) : (
         <div className="flex w-full items-center space-x-4">
           <div className="w-full space-y-3 px-2">
