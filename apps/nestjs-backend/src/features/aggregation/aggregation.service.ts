@@ -442,7 +442,7 @@ export class AggregationService {
 
   @Timing()
   private groupDbCollection2GroupPoints(
-    groupResult: { [key: string]: unknown; count: number }[],
+    groupResult: { [key: string]: unknown; __c: number }[],
     groupFields: IFieldInstance[]
   ) {
     const groupPoints: IGroupPoint[] = [];
@@ -451,7 +451,7 @@ export class AggregationService {
     let secondDbFieldValue: unknown = '';
 
     groupResult.forEach((item) => {
-      const { count } = item;
+      const { __c: count } = item;
 
       groupFields.forEach((field, index) => {
         const { id, dbFieldName } = field;
@@ -511,12 +511,12 @@ export class AggregationService {
       groupBy
     ).appendQueryBuilder();
 
-    queryBuilder.select(groupDbFieldNames).count({ count: '*' }).groupBy(groupDbFieldNames);
+    queryBuilder.select(groupDbFieldNames).count({ __c: '*' }).groupBy(groupDbFieldNames);
 
     const groupSql = queryBuilder.toQuery();
 
     const result =
-      await this.prisma.$queryRawUnsafe<{ [key: string]: unknown; count: number }[]>(groupSql);
+      await this.prisma.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(groupSql);
 
     const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]);
 
