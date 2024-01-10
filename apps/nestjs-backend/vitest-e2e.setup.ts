@@ -64,11 +64,11 @@ async function setup() {
   console.log('driver: ', driver);
   globalThis.testConfig.driver = driver;
 
+  prepareSqliteEnv();
   const prismaClient = new PrismaClient();
 
   const salt = await bcrypt.genSalt(10);
   const hashPassword = await bcrypt.hash(password, salt);
-  prepareSqliteEnv();
   // init data exists
   await prismaClient.$transaction(
     async (prisma) => {
