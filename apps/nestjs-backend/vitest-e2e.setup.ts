@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { DriverClient, parseDsn } from '@teable-group/core';
 import bcrypt from 'bcrypt';
 import dotenv from 'dotenv-flow';
@@ -46,58 +46,61 @@ async function setup() {
   const hashPassword = await bcrypt.hash(password, salt);
 
   // init data exists
-  await prismaClient.$transaction(async (prisma) => {
-    const existsEmail = await prismaClient.user.findFirst({ where: { email } });
-    const existsSpace = await prismaClient.space.findFirst({ where: { id: spaceId } });
-    const existsBase = await prismaClient.base.findFirst({ where: { id: baseId } });
-    if (!existsEmail) {
-      await prisma.user.create({
-        data: {
-          id: userId,
-          name: email.split('@')[0],
-          email,
-          salt,
-          password: hashPassword,
-        },
-      });
-    }
-    if (!existsSpace) {
-      await prisma.space.create({
-        data: {
-          id: spaceId,
-          name: 'test space',
-          createdBy: userId,
-          lastModifiedBy: userId,
-        },
-      });
-
-      await prisma.collaborator.create({
-        data: {
-          spaceId,
-          roleName: 'owner',
-          userId,
-          createdBy: userId,
-          lastModifiedBy: userId,
-        },
-      });
-    }
-    if (!existsBase) {
-      if (driver !== DriverClient.Sqlite) {
-        await prisma.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
-        await prisma.$executeRawUnsafe(`revoke all on schema "${baseId}" from public`);
+  await prismaClient.$transaction(
+    async (prisma) => {
+      const existsEmail = await prismaClient.user.findFirst({ where: { email } });
+      const existsSpace = await prismaClient.space.findFirst({ where: { id: spaceId } });
+      const existsBase = await prismaClient.base.findFirst({ where: { id: baseId } });
+      if (!existsEmail) {
+        await prisma.user.create({
+          data: {
+            id: userId,
+            name: email.split('@')[0],
+            email,
+            salt,
+            password: hashPassword,
+          },
+        });
       }
-      await prisma.base.create({
-        data: {
-          id: baseId,
-          spaceId,
-          name: 'test base',
-          order: 1,
-          createdBy: userId,
-          lastModifiedBy: userId,
-        },
-      });
-    }
-  });
+      if (!existsSpace) {
+        await prisma.space.create({
+          data: {
+            id: spaceId,
+            name: 'test space',
+            createdBy: userId,
+            lastModifiedBy: userId,
+          },
+        });
+
+        await prisma.collaborator.create({
+          data: {
+            spaceId,
+            roleName: 'owner',
+            userId,
+            createdBy: userId,
+            lastModifiedBy: userId,
+          },
+        });
+      }
+      if (!existsBase) {
+        if (driver !== DriverClient.Sqlite) {
+          await prisma.$executeRawUnsafe(`create schema if not exists "${baseId}"`);
+          await prisma.$executeRawUnsafe(`revoke all on schema "${baseId}" from public`);
+        }
+        await prisma.base.create({
+          data: {
+            id: baseId,
+            spaceId,
+            name: 'test base',
+            order: 1,
+            createdBy: userId,
+            lastModifiedBy: userId,
+          },
+        });
+      }
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+  );
 }
 
 export default setup();
