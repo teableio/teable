@@ -36,7 +36,6 @@
     }
   },
   "filter": {
-    "description": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。",
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
     "linkInputPlaceholder": "输入值",

@@ -1,4 +1,6 @@
-import { DriverClient, parseDsn } from '@teable-group/core';
+import fs from 'fs';
+import path from 'path';
+import { DriverClient, getRandomString, parseDsn } from '@teable-group/core';
 import dotenv from 'dotenv-flow';
 
 interface ITestConfig {
@@ -25,6 +27,28 @@ globalThis.testConfig = {
   driver: DriverClient.Sqlite,
 };
 
+function prepareSqliteEnv() {
+  if (!process.env.PRISMA_DATABASE_URL?.startsWith('file:')) {
+    return;
+  }
+  const prevFilePath = process.env.PRISMA_DATABASE_URL.substring(5);
+  const prevDir = path.dirname(prevFilePath);
+  const baseName = path.basename(prevFilePath);
+
+  const newFileName = 'test-' + getRandomString(12) + '-' + baseName;
+  const newFilePath = path.join(prevDir, 'test', newFileName);
+
+  process.env.PRISMA_DATABASE_URL = 'file:' + newFilePath;
+  console.log('TEST PRISMA_DATABASE_URL:', process.env.PRISMA_DATABASE_URL);
+
+  const dbPath = '../../packages/db-main-prisma/db/';
+  const testDbPath = path.join(dbPath, 'test');
+  if (!fs.existsSync(testDbPath)) {
+    fs.mkdirSync(testDbPath, { recursive: true });
+  }
+  fs.copyFileSync(path.join(dbPath, baseName), path.join(testDbPath, newFileName));
+}
+
 async function setup() {
   console.log('node-env', process.env.NODE_ENV);
   dotenv.config({ path: '../nextjs-app' });
@@ -37,6 +61,8 @@ async function setup() {
   const { driver } = parseDsn(databaseUrl);
   console.log('driver: ', driver);
   globalThis.testConfig.driver = driver;
+
+  prepareSqliteEnv();
 }
 
 export default setup();

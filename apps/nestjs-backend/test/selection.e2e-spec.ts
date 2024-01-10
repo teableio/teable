@@ -1,13 +1,21 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Relationship } from '@teable-group/core';
+import {
+  Colors,
+  FieldType,
+  MultiNumberDisplayType,
+  Relationship,
+  defaultNumberFormatting,
+} from '@teable-group/core';
 import type { IFieldRo, ITableFullVo } from '@teable-group/core';
 import {
   RangeType,
   IdReturnType,
   getIdsFromRanges as apiGetIdsFromRanges,
+  copy as apiCopy,
   paste as apiPaste,
+  getFields,
 } from '@teable-group/openapi';
 import { createField, getRecord, initApp, createTable, deleteTable } from './utils/init-app';
 
@@ -285,6 +293,80 @@ describe('OpenAPI SelectionController (e2e)', () => {
           title: 'table2_2',
         },
       ]);
+    });
+  });
+
+  describe('past expand col formula', () => {
+    let table1: ITableFullVo;
+    const numberField = {
+      name: 'count',
+      type: FieldType.Number,
+      options: {
+        formatting: defaultNumberFormatting,
+        showAs: {
+          type: MultiNumberDisplayType.Bar,
+          color: Colors.Blue,
+          showValue: true,
+          maxValue: 100,
+        },
+      },
+    };
+    beforeEach(async () => {
+      // create tables
+      const fields: IFieldRo[] = [
+        {
+          name: 'name',
+          type: FieldType.SingleLineText,
+        },
+        numberField,
+      ];
+
+      table1 = await createTable(baseId, {
+        name: 'table1',
+        fields: fields,
+        records: [{ fields: { count: 1 } }, { fields: { count: 2 } }, { fields: { count: 3 } }],
+      });
+
+      const numberFieldId = table1.fields.find((f) => f.name === 'count')!.id;
+      const formulaField: IFieldRo = {
+        type: FieldType.Formula,
+        name: 'formula',
+        options: {
+          expression: `{${numberFieldId}}`,
+          formatting: numberField.options.formatting,
+          showAs: numberField.options.showAs,
+        },
+      };
+      await createField(table1.id, formulaField);
+      await createField(table1.id, {
+        type: FieldType.SingleLineText,
+      });
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, table1.id);
+    });
+
+    it('should paste expand col formula', async () => {
+      const { content, header } = (
+        await apiCopy(table1.id, table1.views[0].id, {
+          ranges: JSON.stringify([
+            [1, 0],
+            [2, 3],
+          ]),
+        })
+      ).data;
+      await apiPaste(table1.id, table1.views[0].id, {
+        content,
+        header,
+        range: [
+          [3, 0],
+          [3, 0],
+        ],
+      });
+      const fields = (await getFields(table1.id, { viewId: table1.views[0].id })).data;
+      expect(fields[4].type).toEqual(numberField.type);
+      expect(fields[4].options).toEqual(numberField.options);
     });
   });
 });

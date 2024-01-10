@@ -129,7 +129,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                     >
                       <FilePreviewItem
                         className="flex items-center justify-center"
-                        src={fileCover(attachment)}
+                        src={attachment.presignedUrl || ''}
                         name={attachment.name}
                         mimetype={attachment.mimetype}
                         size={attachment.size}
@@ -140,7 +140,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                           alt={attachment.name}
                         />
                       </FilePreviewItem>
-                      <ul className="absolute right-0 top-0 hidden w-full justify-end space-x-1 bg-foreground/20 p-1 group-hover:flex">
+                      <ul className="absolute right-0 top-0 hidden w-full justify-end space-x-1 bg-black/40 p-1 group-hover:flex">
                         {/* <li>
                       <button className="btn btn-xs btn-circle bg-neutral/50 border-none">
                         <FullscreenIcon />

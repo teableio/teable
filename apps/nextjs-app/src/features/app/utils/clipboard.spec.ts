@@ -17,7 +17,7 @@ vi.mock('@teable-group/core', () => {
   return {
     __esModule: true,
     IFieldVo: {},
-    parseClipboardText: () => ({ data: parseData }),
+    parseClipboardText: () => parseData,
     fieldVoSchema: {
       safeParse: () => ({ success: true }),
     },
