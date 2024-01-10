@@ -28,7 +28,7 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
               <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
+              <p className="truncate text-sm font-medium">{userName}</p>
             </div>
           </li>
         ))}
