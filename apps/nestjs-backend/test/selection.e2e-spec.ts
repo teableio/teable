@@ -360,17 +360,19 @@ describe('OpenAPI SelectionController (e2e)', () => {
 
     it('should paste expand col formula', async () => {
       const { content, header } = (
-        await apiCopy(table1.id, table1.views[0].id, {
-          ranges: JSON.stringify([
+        await apiCopy(table1.id, {
+          viewId: table1.views[0].id,
+          ranges: [
             [1, 0],
             [2, 3],
-          ]),
+          ],
         })
       ).data;
-      await apiPaste(table1.id, table1.views[0].id, {
+      await apiPaste(table1.id, {
+        viewId: table1.views[0].id,
         content,
         header,
-        range: [
+        ranges: [
           [3, 0],
           [3, 0],
         ],
