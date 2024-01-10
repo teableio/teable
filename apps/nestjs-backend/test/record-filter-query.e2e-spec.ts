@@ -4,16 +4,16 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFilter, ITableFullVo } from '@teable-group/core';
 import { and, FieldKeyType } from '@teable-group/core';
-import { axios, GET_RECORDS_URL, urlBuilder } from '@teable-group/openapi';
+import { getRecords as apiGetRecords } from '@teable-group/openapi';
 import { x_20 } from './data-helpers/20x';
 import {
   CHECKBOX_FIELD_CASES,
   DATE_FIELD_CASES,
+  MULTIPLE_SELECT_FIELD_CASES,
   NUMBER_FIELD_CASES,
   SINGLE_SELECT_FIELD_CASES,
   TEXT_FIELD_CASES,
   USER_FIELD_CASES,
-  MULTIPLE_SELECT_FIELD_CASES,
 } from './data-helpers/caces';
 import { createTable, deleteTable, initApp } from './utils/init-app';
 
@@ -32,11 +32,9 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
 
   async function getFilterRecord(tableId: string, viewId: string, filter: IFilter) {
     return (
-      await axios.get(urlBuilder(GET_RECORDS_URL, { tableId }), {
-        params: {
-          fieldKeyType: FieldKeyType.Id,
-          filter: JSON.stringify(filter),
-        },
+      await apiGetRecords(tableId, {
+        fieldKeyType: FieldKeyType.Id,
+        filter: filter,
       })
     ).data;
   }
