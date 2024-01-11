@@ -1032,6 +1032,7 @@ export class RecordService implements IAdapterService {
       take,
       filter,
       orderBy,
+      groupBy,
       fieldKeyType,
       cellFormat,
       projection,
@@ -1047,6 +1048,7 @@ export class RecordService implements IAdapterService {
       filterLinkCellCandidate,
       filter,
       orderBy,
+      groupBy,
     });
     queryBuilder.select(fieldNames.concat('__id'));
     queryBuilder.offset(skip);

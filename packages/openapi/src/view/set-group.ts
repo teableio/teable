@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IGroup } from '@teable-group/core';
+import type { IViewGroupRo } from '@teable-group/core';
 import { groupSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -32,7 +32,7 @@ export const SetViewGroupRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewGroup = async (tableId: string, viewId: string, groupViewRo: IGroup) => {
+export const setViewGroup = async (tableId: string, viewId: string, groupViewRo: IViewGroupRo) => {
   return axios.put<void>(
     urlBuilder(VIEW_GROUP, {
       tableId,

@@ -10,12 +10,12 @@ import {
   columnMetaRoSchema,
   IFilterRo,
   IViewSortRo,
+  IViewGroupRo,
   viewOptionRoSchema,
   IViewOptionRo,
-  groupSchema,
-  IGroup,
   filterRoSchema,
   viewSortRoSchema,
+  viewGroupRoSchema,
 } from '@teable-group/core';
 import type { EnableShareViewVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
@@ -111,8 +111,8 @@ export class ViewOpenApiController {
   async updateViewGroup(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(groupSchema))
-    updateViewGroupRo: IGroup
+    @Body(new ZodValidationPipe(viewGroupRoSchema))
+    updateViewGroupRo: IViewGroupRo
   ): Promise<void> {
     return await this.viewOpenApiService.setViewGroup(tableId, viewId, updateViewGroupRo);
   }

@@ -21,16 +21,12 @@ import {
   shareViewGroupPointsRoSchema,
   IShareViewLinkRecordsRo,
   IShareViewRowCountRo,
+  IShareViewGroupPointsRo,
   IShareViewAggregationsRo,
   rangesQuerySchema,
   IRangesRo,
 } from '@teable-group/openapi';
-import type {
-  ICopyVo,
-  IShareViewGroupPointsRo,
-  IShareViewLinkRecordsVo,
-  ShareViewGetVo,
-} from '@teable-group/openapi';
+import type { ICopyVo, IShareViewLinkRecordsVo, ShareViewGetVo } from '@teable-group/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
@@ -127,7 +123,8 @@ export class ShareController {
   @Get('/:shareId/view/groupPoints')
   async getViewGroupPoints(
     @Request() req: any,
-    @Query(new ZodValidationPipe(shareViewGroupPointsRoSchema)) query?: IShareViewGroupPointsRo
+    @Query(new ZodValidationPipe(shareViewGroupPointsRoSchema))
+    query?: IShareViewGroupPointsRo
   ): Promise<IGroupPointsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return await this.shareService.getViewGroupPoints(shareInfo, query);

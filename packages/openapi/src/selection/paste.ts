@@ -60,6 +60,11 @@ export const paste = async (tableId: string, pasteRo: IPasteRo) => {
     urlBuilder(PASTE_URL, {
       tableId,
     }),
-    pasteRo
+    {
+      ...pasteRo,
+      filter: JSON.stringify(pasteRo.filter),
+      orderBy: JSON.stringify(pasteRo.orderBy),
+      groupBy: JSON.stringify(pasteRo.groupBy),
+    }
   );
 };

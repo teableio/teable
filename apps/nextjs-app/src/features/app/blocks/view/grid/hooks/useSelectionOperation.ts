@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue } from '@teable-group/core';
+import type { IAttachmentCellValue, IGroup } from '@teable-group/core';
 import { AttachmentFieldCore } from '@teable-group/core';
 import type { ICopyVo, IPasteRo, IRangesRo } from '@teable-group/openapi';
 import { clear, copy, paste, RangeType } from '@teable-group/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable-group/sdk';
-import { SelectionRegionType, useFields, useTableId, useViewId } from '@teable-group/sdk';
+import { SelectionRegionType, useFields, useTableId, useView, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
@@ -28,8 +28,9 @@ enum ClipboardTypes {
 
 export const useCopy = (props: {
   copyReq: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, IRangesRo, unknown>;
+  groupBy?: IGroup;
 }) => {
-  const { copyReq } = props;
+  const { copyReq, groupBy } = props;
 
   return useCallback(
     async (selection: CombinedSelection) => {
@@ -39,6 +40,7 @@ export const useCopy = (props: {
 
       const { data } = await copyReq({
         ranges,
+        groupBy,
         ...(type ? { type } : {}),
       });
       const { content, header } = data;
@@ -52,7 +54,7 @@ export const useCopy = (props: {
         }),
       ]);
     },
-    [copyReq]
+    [copyReq, groupBy]
   );
 };
 
@@ -60,6 +62,8 @@ export const useSelectionOperation = () => {
   const tableId = useTableId();
   const viewId = useViewId();
   const fields = useFields();
+  const view = useView();
+  const groupBy = view?.group;
 
   const { mutateAsync: copyReq } = useMutation({
     mutationFn: (copyRo: IRangesRo) => copy(tableId!, copyRo),
@@ -74,7 +78,7 @@ export const useSelectionOperation = () => {
   });
 
   const { toast } = useToast();
-  const copyMethod = useCopy({ copyReq });
+  const copyMethod = useCopy({ copyReq, groupBy });
 
   const handleFilePaste = useCallback(
     async (
@@ -111,11 +115,12 @@ export const useSelectionOperation = () => {
           content: attachmentsStrings,
           ranges: selection.serialize(),
           type: rangeTypes[selection.type],
+          groupBy,
         });
       }
       toaster.update({ id: toaster.id, title: 'Pasted success!' });
     },
-    [fields, pasteReq]
+    [fields, pasteReq, groupBy]
   );
   const handleTextPaste = useCallback(
     async (selection: CombinedSelection, toaster: ReturnType<typeof toast>) => {
@@ -137,10 +142,11 @@ export const useSelectionOperation = () => {
         ranges: selection.serialize(),
         type: rangeTypes[selection.type],
         header: header.result,
+        groupBy,
       });
       toaster.update({ id: toaster.id, title: 'Pasted success!' });
     },
-    [pasteReq]
+    [pasteReq, groupBy]
   );
 
   const doCopy = useCallback(
@@ -188,12 +194,13 @@ export const useSelectionOperation = () => {
 
       await clearReq({
         ranges,
+        groupBy,
         ...(type ? { type } : {}),
       });
 
       toaster.update({ id: toaster.id, title: 'Clear success!' });
     },
-    [tableId, toast, viewId, clearReq]
+    [tableId, toast, viewId, clearReq, groupBy]
   );
 
   return { copy: doCopy, paste: doPaste, clear: doClear };

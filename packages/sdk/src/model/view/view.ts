@@ -66,7 +66,7 @@ export abstract class View extends ViewCore {
   }
 
   async setViewGroup(group: IGroup) {
-    return await requestWrap(setViewGroup)(this.tableId, this.id, group);
+    return await requestWrap(setViewGroup)(this.tableId, this.id, { group });
   }
 
   async submitOperation(operation: IOtOperation) {

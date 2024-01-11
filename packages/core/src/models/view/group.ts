@@ -8,6 +8,12 @@ export const groupItemSchema = z.object({
 
 export const groupSchema = groupItemSchema.array().nullable();
 
+export const viewGroupRoSchema = z.object({
+  group: groupSchema.nullable(),
+});
+
+export type IViewGroupRo = z.infer<typeof viewGroupRoSchema>;
+
 export type IGroupItem = z.infer<typeof groupItemSchema>;
 
 export type IGroup = z.infer<typeof groupSchema>;

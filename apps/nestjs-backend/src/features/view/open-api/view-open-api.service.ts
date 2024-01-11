@@ -12,9 +12,9 @@ import type {
   IViewVo,
   IFilterRo,
   IViewSortRo,
+  IViewGroupRo,
   IViewOptionRo,
   IColumnMetaRo,
-  IGroup,
 } from '@teable-group/core';
 import {
   ViewType,
@@ -232,7 +232,8 @@ export class ViewOpenApiService {
     });
   }
 
-  async setViewGroup(tableId: string, viewId: string, group: IGroup) {
+  async setViewGroup(tableId: string, viewId: string, groupRo: IViewGroupRo) {
+    const { group } = groupRo;
     const curView = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
