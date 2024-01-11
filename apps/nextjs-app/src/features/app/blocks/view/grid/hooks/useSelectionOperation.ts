@@ -3,7 +3,7 @@ import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import type { IAttachmentCellValue } from '@teable-group/core';
 import { AttachmentFieldCore } from '@teable-group/core';
-import type { ClearRo, ICopyRo, ICopyVo, PasteRo } from '@teable-group/openapi';
+import type { ICopyVo, IPasteRo, IRangesRo } from '@teable-group/openapi';
 import { clear, copy, paste, RangeType } from '@teable-group/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable-group/sdk';
 import { SelectionRegionType, useFields, useTableId, useViewId } from '@teable-group/sdk';
@@ -20,14 +20,20 @@ const rangeTypes = {
   [SelectionRegionType.None]: undefined,
 };
 
+enum ClipboardTypes {
+  'text' = 'text/plain',
+  'html' = 'text/html',
+  'Files' = 'Files',
+}
+
 export const useCopy = (props: {
-  copyReq: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, ICopyRo, unknown>;
+  copyReq: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, IRangesRo, unknown>;
 }) => {
   const { copyReq } = props;
 
   return useCallback(
     async (selection: CombinedSelection) => {
-      const ranges = JSON.stringify(selection.serialize());
+      const ranges = selection.serialize();
 
       const type = rangeTypes[selection.type];
 
@@ -39,8 +45,10 @@ export const useCopy = (props: {
 
       await navigator.clipboard.write([
         new ClipboardItem({
-          ['text/plain']: new Blob([content], { type: 'text/plain' }),
-          ['text/html']: new Blob([serializerHtml(content, header)], { type: 'text/html' }),
+          [ClipboardTypes.text]: new Blob([content], { type: ClipboardTypes.text }),
+          [ClipboardTypes.html]: new Blob([serializerHtml(content, header)], {
+            type: ClipboardTypes.html,
+          }),
         }),
       ]);
     },
@@ -54,15 +62,15 @@ export const useSelectionOperation = () => {
   const fields = useFields();
 
   const { mutateAsync: copyReq } = useMutation({
-    mutationFn: (copyRo: ICopyRo) => copy(tableId!, viewId!, copyRo),
+    mutationFn: (copyRo: IRangesRo) => copy(tableId!, copyRo),
   });
 
   const { mutateAsync: pasteReq } = useMutation({
-    mutationFn: (pasteRo: PasteRo) => paste(tableId!, viewId!, pasteRo),
+    mutationFn: (pasteRo: IPasteRo) => paste(tableId!, pasteRo),
   });
 
   const { mutateAsync: clearReq } = useMutation({
-    mutationFn: (clearRo: ClearRo) => clear(tableId!, viewId!, clearRo),
+    mutationFn: (clearRo: IRangesRo) => clear(tableId!, clearRo),
   });
 
   const { toast } = useToast();
@@ -95,13 +103,13 @@ export const useSelectionOperation = () => {
       } else {
         const attachments = await uploadFiles(files);
         const attachmentsStrings = attachments
-          .map(({ name, url }) => {
-            return AttachmentFieldCore.itemString(name, url);
+          .map(({ name, token }) => {
+            return AttachmentFieldCore.itemString(name, token);
           })
           .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER);
         await pasteReq({
           content: attachmentsStrings,
-          range: selection.serialize(),
+          ranges: selection.serialize(),
           type: rangeTypes[selection.type],
         });
       }
@@ -126,7 +134,7 @@ export const useSelectionOperation = () => {
 
       await pasteReq({
         content: text,
-        range: selection.serialize(),
+        ranges: selection.serialize(),
         type: rangeTypes[selection.type],
         header: header.result,
       });
@@ -156,9 +164,9 @@ export const useSelectionOperation = () => {
         return;
       }
 
-      const files = e.clipboardData.files;
+      const { files, types } = e.clipboardData;
       const toaster = toast({ title: 'Pasting...' });
-      if (files.length > 0) {
+      if (files.length > 0 && !types.includes(ClipboardTypes.text)) {
         await handleFilePaste(files, selection, recordMap, toaster);
       } else {
         await handleTextPaste(selection, toaster);

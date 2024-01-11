@@ -6,29 +6,15 @@ import {
   GroupPointProvider,
 } from '@teable-group/sdk/context';
 import { useIsHydrated } from '@teable-group/sdk/hooks';
-import { Skeleton } from '@teable-group/ui-lib/shadcn';
-import dynamic from 'next/dynamic';
-import { useGraphStore } from '../../graph/useGraphStore';
+import { DynamicCellGraph } from '../../graph/DynamicCellGraph';
+import { useCellGraphStore } from '../../graph/useCellGraphStore';
 import { GridToolBar } from '../tool-bar/GridToolBar';
 import type { IViewBaseProps } from '../types';
 import { GridViewBase } from './GridViewBase';
 
-const Graph = dynamic(() => import('../../graph/Graph').then<React.FC>((mod) => mod.Graph), {
-  loading: () => (
-    <div className="absolute right-10 top-20 w-96 space-y-2 rounded border bg-background p-4 shadow">
-      <Skeleton className="h-6 w-full" />
-      <Skeleton className="h-6 w-full" />
-      <Skeleton className="h-6 w-full" />
-      <Skeleton className="h-6 w-full" />
-      <Skeleton className="h-6 w-full" />
-    </div>
-  ),
-  ssr: false,
-});
-
 export const GridView = (props: IViewBaseProps) => {
   const { recordServerData, recordsServerData } = props;
-  const { graphOpen } = useGraphStore();
+  const { graphOpen } = useCellGraphStore();
   const isHydrated = useIsHydrated();
 
   if (!isHydrated) {
@@ -44,7 +30,7 @@ export const GridView = (props: IViewBaseProps) => {
             <GroupPointProvider>
               <div className="w-full grow overflow-hidden sm:pl-2">
                 <GridViewBase />
-                {graphOpen && <Graph />}
+                {graphOpen && <DynamicCellGraph />}
               </div>
             </GroupPointProvider>
           </RowCountProvider>

@@ -4,7 +4,7 @@ import type {
   IAggregationVo,
   IGroupPointsRo,
   IGroupPointsVo,
-  IRowCountRo,
+  IQueryBaseRo,
   IRowCountVo,
   StatisticsFunc,
 } from '@teable-group/core';
@@ -38,19 +38,15 @@ export class AggregationOpenApiService {
       withView = { ...withView, customFieldStats: validFieldStats };
     }
 
-    const result = await this.aggregationService.performAggregation({ tableId: tableId, withView });
+    const result = await this.aggregationService.performAggregation({
+      tableId: tableId,
+      withView,
+    });
     return { aggregations: result?.aggregations };
   }
 
-  async getRowCount(tableId: string, query?: IRowCountRo): Promise<IRowCountVo> {
-    const { viewId, filter, filterLinkCellCandidate, filterLinkCellSelected } = query || {};
-
-    const result = await this.aggregationService.performRowCount({
-      tableId,
-      filterLinkCellCandidate,
-      filterLinkCellSelected,
-      withView: { viewId, customFilter: filter },
-    });
+  async getRowCount(tableId: string, query: IQueryBaseRo = {}): Promise<IRowCountVo> {
+    const result = await this.aggregationService.performRowCount(tableId, query);
     return {
       rowCount: result.rowCount,
     };

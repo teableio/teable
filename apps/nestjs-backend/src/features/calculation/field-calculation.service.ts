@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import type { ILookupOptionsVo } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, uniq } from 'lodash';
@@ -18,6 +17,7 @@ import { nameConsole } from './utils/name-console';
 
 export interface ITopoOrdersContext {
   fieldMap: IFieldMap;
+  allFieldIds: string[];
   startFieldIds: string[];
   directedGraph: IGraphItem[];
   fieldId2DbTableName: { [fieldId: string]: string };
@@ -36,7 +36,7 @@ export class FieldCalculationService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  private async getSelfOriginRecords(dbTableName: string) {
+  async getSelfOriginRecords(dbTableName: string) {
     const nativeSql = this.knex.queryBuilder().select('__id').from(dbTableName).toSQL().toNative();
 
     const results = await this.prismaService
@@ -44,24 +44,6 @@ export class FieldCalculationService {
       .$queryRawUnsafe<{ __id: string }[]>(nativeSql.sql, ...nativeSql.bindings);
 
     return results.map((item) => item.__id);
-  }
-
-  private async getOriginLookupRecords(lookupOptions: ILookupOptionsVo) {
-    const { selfKeyName, foreignKeyName, fkHostTableName } = lookupOptions;
-
-    const querySql = this.knex
-      .queryBuilder()
-      .whereNotNull(selfKeyName)
-      .whereNotNull(foreignKeyName)
-      .select(foreignKeyName)
-      .from(fkHostTableName)
-      .toQuery();
-
-    const results = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ [key: string]: string }[]>(querySql);
-
-    return results.map((item) => item[foreignKeyName]);
   }
 
   @Timing()
@@ -92,8 +74,11 @@ export class FieldCalculationService {
     await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
   }
 
-  async getTopoOrdersContext(fieldIds: string[]): Promise<ITopoOrdersContext> {
-    const directedGraph = await this.referenceService.getFieldGraphItems(fieldIds);
+  async getTopoOrdersContext(
+    fieldIds: string[],
+    customGraph?: IGraphItem[]
+  ): Promise<ITopoOrdersContext> {
+    const directedGraph = customGraph || (await this.referenceService.getFieldGraphItems(fieldIds));
 
     // get all related field by undirected graph
     const allFieldIds = uniq(this.referenceService.flatGraph(directedGraph).concat(fieldIds));
@@ -113,6 +98,7 @@ export class FieldCalculationService {
 
     return {
       startFieldIds: fieldIds,
+      allFieldIds,
       fieldMap,
       directedGraph,
       topoOrdersByFieldId,
@@ -123,7 +109,7 @@ export class FieldCalculationService {
     };
   }
 
-  private async getRecordItems(params: {
+  async getRecordItems(params: {
     tableId: string;
     startFieldIds: string[];
     itemsToCalculate: string[];

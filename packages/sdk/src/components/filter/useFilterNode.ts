@@ -17,7 +17,7 @@ export const useFilterNode = (filters?: IFilter | null) => {
   );
 
   const preOrder = useCallback(
-    (filter: IFilter['filterSet']): Set<string> => {
+    (filter: NonNullable<IFilter>['filterSet']): Set<string> => {
       const filterIds = new Set<string>();
 
       filter.forEach((item) => {

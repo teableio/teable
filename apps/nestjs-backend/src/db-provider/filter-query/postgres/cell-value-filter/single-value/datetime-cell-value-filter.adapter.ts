@@ -1,84 +1,90 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../../features/field/model/factory';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
-    return queryBuilder;
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereBetween(this.columnName, dateTimeRange);
+    return builderClient;
   }
 
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereNotBetween(field.dbFieldName, dateTimeRange);
-    return queryBuilder;
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereNotBetween(this.columnName, dateTimeRange);
+    return builderClient;
   }
 
   isGreaterOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.where(field.dbFieldName, '>', dateTimeRange[1]);
-    return queryBuilder;
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.where(this.columnName, '>', dateTimeRange[1]);
+    return builderClient;
   }
 
   isGreaterEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.where(field.dbFieldName, '>=', dateTimeRange[0]);
-    return queryBuilder;
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.where(this.columnName, '>=', dateTimeRange[0]);
+    return builderClient;
   }
 
   isLessOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.where(field.dbFieldName, '<', dateTimeRange[0]);
-    return queryBuilder;
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.where(this.columnName, '<', dateTimeRange[0]);
+    return builderClient;
   }
 
   isLessEqualOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.where(field.dbFieldName, '<=', dateTimeRange[1]);
-    return queryBuilder;
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.where(this.columnName, '<=', dateTimeRange[1]);
+    return builderClient;
   }
 
   isWithInOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IDateFilter }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IDateFilter
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { options } = this.field;
 
-    const dateTimeRange = this.getFilterDateTimeRange(field.options as IDateFieldOptions, value);
-    queryBuilder.whereBetween(field.dbFieldName, dateTimeRange);
-    return queryBuilder;
+    const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
+    builderClient.whereBetween(this.columnName, dateTimeRange);
+    return builderClient;
   }
 }

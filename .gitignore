@@ -47,7 +47,6 @@ pnpm-debug.log*
 # IDE
 .idea/*
 !.idea/modules.xml
-!.idea/nextjs-monorepo-example.iml
 .project
 .classpath
 *.launch

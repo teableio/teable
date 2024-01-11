@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation, IRecord } from '@teable-group/core';
 import {
   FieldOpBuilder,
@@ -19,6 +19,7 @@ import { FieldService } from '../features/field/field.service';
 import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
+import type { IClsStore } from '../types/cls';
 import type { IAdapterService } from './interface';
 
 export interface ICollectionSnapshot {
@@ -31,10 +32,12 @@ type IProjection = { [fieldNameOrId: string]: boolean };
 
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
+  private logger = new Logger(ShareDbAdapter.name);
+
   closed: boolean;
 
   constructor(
-    private readonly clsService: ClsService,
+    private readonly cls: ClsService<IClsStore>,
     private readonly tableService: TableService,
     private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
@@ -68,9 +71,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (err: any, snapshots: Snapshot[], extra?: any) => void
   ) => {
-    // console.log(`query: ${collection} ${JSON.stringify(query)}`);
     this.queryPoll(collection, query, options, (error, results, extra) => {
-      // console.log('query pull result: ', ids);
       if (error) {
         return callback(error, []);
       }
@@ -109,7 +110,6 @@ export class ShareDbAdapter extends ShareDb.DB {
         collectionId,
         query
       );
-      // console.log('queryPollResult:', collection, ids);
       callback(null, queryResult.ids, queryResult.extra);
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -204,7 +204,6 @@ export class ShareDbAdapter extends ShareDb.DB {
      * }
      * snapshot: PostgresSnapshot
      */
-    // console.log('commit', collection, id, options, rawOp.op);
 
     const [docType, collectionId] = collection.split('_');
 
@@ -218,7 +217,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         const maxVersion = opsResult._max.version == null ? 0 : opsResult._max.version + 1;
 
         if (rawOp.v !== maxVersion) {
-          console.log('crashed', rawOp.op);
+          this.logger.log({ message: 'op crashed', crashed: rawOp.op });
           throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
         }
 
@@ -230,7 +229,7 @@ export class ShareDbAdapter extends ShareDb.DB {
             collection: collectionId,
             version: rawOp.v,
             operation: JSON.stringify(rawOp),
-            createdBy: this.clsService.get('user.id'),
+            createdBy: this.cls.get('user.id'),
           },
         });
 
@@ -272,7 +271,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: unknown,
     callback: (err: ShareDb.Error | null, data?: Record<string, Snapshot>) => void
   ) {
-    // console.log('getSnapshotBulk:', { options, collection, ids });
     try {
       const [docType, collectionId] = collection.split('_');
 
@@ -311,7 +309,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: unknown,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-    // console.log('getSnapshot:', { options, collection });
     this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
       if (err) {
         callback(err);
@@ -340,7 +337,6 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
-      // console.log('getOps:', { options, collection });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
       const nativeSql = this.knex('ops')

@@ -192,6 +192,7 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) =
         <Label className="font-normal">{timeZone.label}</Label>
         <Selector
           className="w-full"
+          contentClassName="w-[333px]"
           candidates={timeZone.list.map((item) => ({ id: item.value, name: item.text }))}
           selectedId={formatting.timeZone}
           onChange={(value) => onFormattingChange(value, 'timeZone')}

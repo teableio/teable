@@ -19,6 +19,8 @@ import { RedocModule } from 'nestjs-redoc';
 import { AppModule } from './app.module';
 import type { ISecurityWebConfig, ISwaggerConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
+import otelSDK from './tracing';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const module: any;
 
@@ -62,7 +64,9 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 }
 
 export async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { snapshot: true });
+  otelSDK.start();
+
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
   const configService = app.get(ConfigService);
 
   if (module.hot) {
@@ -72,6 +76,7 @@ export async function bootstrap() {
 
   const logger = app.get(Logger);
   app.useLogger(logger);
+  app.flushLogs();
 
   app.enableShutdownHooks();
 
@@ -88,8 +93,14 @@ export async function bootstrap() {
 
   const port = await getAvailablePort(configService.get<string>('PORT') as string);
   process.env.PORT = port.toString();
-  logger.log(`> Ready on http://${host}:${port}`);
+
+  const now = new Date();
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   logger.log(`> NODE_ENV is ${process.env.NODE_ENV}`);
+  logger.log(`> Ready on http://${host}:${port}`);
+  logger.log('> System Time Zone:', timeZone);
+  logger.log('> Current System Time:', now.toString());
+
   await app.listen(port);
   return app;
 }

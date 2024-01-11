@@ -10,8 +10,8 @@ import type {
   IOtOperation,
   IViewRo,
   IViewVo,
-  IFilter,
-  ISort,
+  IFilterRo,
+  IViewSortRo,
   IViewOptionRo,
   IColumnMetaRo,
   IGroup,
@@ -190,7 +190,8 @@ export class ViewOpenApiService {
     });
   }
 
-  async setViewFilter(tableId: string, viewId: string, filter: IFilter) {
+  async setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
+    const { filter } = filterRo;
     const curView = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
@@ -210,7 +211,8 @@ export class ViewOpenApiService {
     });
   }
 
-  async setViewSort(tableId: string, viewId: string, sort: ISort) {
+  async setViewSort(tableId: string, viewId: string, sortRo: IViewSortRo) {
+    const { sort } = sortRo;
     const curView = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({

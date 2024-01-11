@@ -32,14 +32,15 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.3.0",
+    "@asteasolutions/zod-to-openapi": "6.3.1",
     "@soluble/dsn-parser": "1.9.2",
+    "@types/color": "3.0.6",
     "antlr4ts": "0.5.0-alpha.4",
     "class-transformer": "0.5.1",
+    "color": "4.2.3",
     "dayjs": "1.11.10",
     "lodash": "4.17.21",
     "nanoid": "3.3.6",
-    "papaparse": "5.4.1",
     "reflect-metadata": "0.1.13",
     "zod": "3.22.4"
   },
@@ -48,7 +49,6 @@
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/lodash": "4.14.202",
     "@types/node": "18.18.2",
-    "@types/papaparse": "5.3.14",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.1.1",
@@ -58,7 +58,7 @@
     "rimraf": "5.0.5",
     "size-limit": "11.0.1",
     "typescript": "5.3.3",
-    "vite-tsconfig-paths": "4.2.2",
+    "vite-tsconfig-paths": "4.2.3",
     "vitest": "1.1.0"
   }
 }

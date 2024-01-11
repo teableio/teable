@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -12,17 +11,19 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
 import type { IBaseConfig } from '../../configs/base.config';
+import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class DbConnectionService {
   private readonly baseConfig: IBaseConfig;
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
-    @Inject('DbProvider') private dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {
     this.baseConfig = this.configService.get<IBaseConfig>('base')!;
   }

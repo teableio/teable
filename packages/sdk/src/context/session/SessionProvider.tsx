@@ -39,7 +39,26 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
     return data;
   }, [getUser]);
 
-  const value = useMemo(() => ({ user: currentUser, refresh }), [currentUser, refresh]);
+  const refreshAvatar = useCallback(async () => {
+    if (currentUser?.avatar) {
+      // Since the avatar url remains the same,
+      // you need to add v to trigger the img tag to be re-requested
+      const url = new URL(currentUser.avatar);
+      const v = url.searchParams.get('v') ?? '0';
+      url.searchParams.set('v', `${parseInt(v) + 1}`);
+      setCurrentUser({
+        ...currentUser,
+        avatar: url.href,
+      });
+      return;
+    }
+    refresh?.();
+  }, [currentUser, refresh]);
+
+  const value = useMemo(
+    () => ({ user: currentUser, refresh, refreshAvatar }),
+    [currentUser, refresh, refreshAvatar]
+  );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

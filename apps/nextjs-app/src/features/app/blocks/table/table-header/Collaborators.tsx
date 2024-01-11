@@ -1,5 +1,5 @@
-import { ColorUtils, getCollaboratorsChannel } from '@teable-group/core';
-import { useSession } from '@teable-group/sdk';
+import { ColorUtils, getCollaboratorsChannel, contractColorForTheme } from '@teable-group/core';
+import { useSession, useTheme } from '@teable-group/sdk';
 import type { IUser } from '@teable-group/sdk';
 import { useConnection } from '@teable-group/sdk/hooks';
 import {
@@ -31,6 +31,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const { connection } = useConnection();
   const { nodeId: tableId } = router.query;
   const { user: sessionUser } = useSession();
+  const { theme } = useTheme();
   const [presence, setPresence] = useState<Presence>();
   const user = useMemo(
     () => ({
@@ -98,7 +99,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       <Avatar
         className="h-6 w-6 cursor-pointer border-2"
         style={{
-          borderColor: borderColor,
+          borderColor: contractColorForTheme(borderColor, theme),
         }}
       >
         <AvatarImage src={avatar as string} alt={`${name} avatar`} />

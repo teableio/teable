@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { IdPrefix, ViewOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { noop } from 'lodash';
@@ -35,6 +36,7 @@ export class ShareDbService extends ShareDBClass {
     authMiddleware(this, this.shareDbPermissionService);
     derivateMiddleware(this, this.cls, this.wsDerivateService);
 
+    // this.use('submit', this.onSubmit);
     this.use('commit', this.onCommit);
 
     // broadcast raw op events to client
@@ -104,5 +106,21 @@ export class ShareDbService extends ShareDBClass {
     }
 
     next();
+  };
+
+  private onSubmit = (
+    _context: ShareDBClass.middleware.SubmitContext,
+    next: (err?: unknown) => void
+  ) => {
+    const tracer = otelTrace.getTracer('default');
+    const currentSpan = tracer.startSpan('Submit Op');
+
+    // console.log('onSubmit start');
+
+    otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
+      next();
+    });
+
+    // console.log('onSubmit end');
   };
 }

@@ -1,10 +1,11 @@
 import swc from 'unplugin-swc';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
 const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
-  plugins: [swc.vite({})],
+  plugins: [swc.vite({}), tsconfigPaths()],
   test: {
     globals: true,
     environment: 'node',
@@ -15,7 +16,7 @@ export default defineConfig({
       },
     },
     cache: {
-      dir: '../../.cache/vitest/nestjs-backend',
+      dir: '../../.cache/vitest/nestjs-backend/unit',
     },
     coverage: {
       provider: 'v8',

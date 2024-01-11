@@ -1,9 +1,10 @@
 import colors from 'tailwindcss/colors';
 import { ThemeKey } from '../../../context';
 import { useTheme } from '../../../hooks/use-theme';
+import type { IGridTheme } from '../../grid/configs';
 import { hexToRGBA } from '../../grid/utils';
 
-const lightTheme = {};
+const lightTheme = {} as IGridTheme;
 
 const darkTheme = {
   // Common
@@ -47,15 +48,17 @@ const darkTheme = {
   avatarSizeSM: 20,
   avatarSizeMD: 24,
 
+  themeKey: ThemeKey.Dark,
+
   // ScrollBar
   scrollBarBg: colors.gray[600],
 
   // interaction
   interactionLineColorCommon: colors.gray[500],
   interactionLineColorHighlight: colors.violet[700],
-};
+} as IGridTheme;
 
-export function useGridTheme() {
+export function useGridTheme(): IGridTheme {
   const { theme } = useTheme();
   return theme === ThemeKey.Dark ? darkTheme : lightTheme;
 }

@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IGetRecordsQuery, IRecordsVo } from '@teable-group/core';
-import { getRecordsQuerySchema, recordsVoSchema } from '@teable-group/core';
+import type { IGetRecordsRo, IRecordsVo } from '@teable-group/core';
+import { getRecordsRoSchema, recordsVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -15,7 +15,7 @@ export const GetRecordsRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
     }),
-    query: getRecordsQuerySchema,
+    query: getRecordsRoSchema,
   },
   responses: {
     200: {
@@ -30,11 +30,17 @@ export const GetRecordsRoute: RouteConfig = registerRoute({
   tags: ['record'],
 });
 
-export const getRecords = async (tableId: string, query?: IGetRecordsQuery) => {
+export const getRecords = async (tableId: string, query?: IGetRecordsRo) => {
   return axios.get<IRecordsVo>(
     urlBuilder(GET_RECORDS_URL, {
       tableId,
     }),
-    { params: query }
+    {
+      params: {
+        ...query,
+        filter: JSON.stringify(query?.filter),
+        orderBy: JSON.stringify(query?.orderBy),
+      },
+    }
   );
 };

@@ -13,14 +13,12 @@ import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
 import {
   createRecordsRoSchema,
   getRecordQuerySchema,
-  updateRecordByIndexRoSchema,
-  updateRecordRoSchema,
-  getRecordsQuerySchema,
-  IGetRecordsQuery,
-  IGetRecordQuery,
+  getRecordsRoSchema,
+  IGetRecordsRo,
   ICreateRecordsRo,
-  IUpdateRecordByIndexRo,
+  IGetRecordQuery,
   IUpdateRecordRo,
+  updateRecordRoSchema,
 } from '@teable-group/core';
 import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -28,7 +26,7 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { RecordService } from '../record.service';
 import { RecordOpenApiService } from './record-open-api.service';
-import { RecordPipe } from './record.pipe';
+import { TqlPipe } from './tql.pipe';
 
 @Controller('api/table/:tableId/record')
 @UseGuards(PermissionGuard)
@@ -42,7 +40,7 @@ export class RecordOpenApiController {
   @Get()
   async getRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsQuerySchema), RecordPipe) query: IGetRecordsQuery
+    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
   ): Promise<IRecordsVo> {
     return await this.recordService.getRecords(tableId, query);
   }
@@ -65,16 +63,6 @@ export class RecordOpenApiController {
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
     return await this.recordOpenApiService.updateRecordById(tableId, recordId, updateRecordRo);
-  }
-
-  @Permissions('record|update')
-  @Patch()
-  async updateRecordByIndex(
-    @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(updateRecordByIndexRoSchema))
-    updateRecordRoByIndexRo: IUpdateRecordByIndexRo
-  ): Promise<IRecord> {
-    return await this.recordOpenApiService.updateRecordByIndex(tableId, updateRecordRoByIndexRo);
   }
 
   @Permissions('record|create')

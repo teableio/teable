@@ -1,4 +1,5 @@
 import colors from 'tailwindcss/colors';
+import { ThemeKey } from '../../../context';
 import { hexToRGBA } from '../utils';
 
 export interface IGridTheme {
@@ -48,6 +49,7 @@ export interface IGridTheme {
   avatarSizeXS: number;
   avatarSizeSM: number;
   avatarSizeMD: number;
+  themeKey: ThemeKey;
   scrollBarBg: string;
   interactionLineColorCommon: string;
   interactionLineColorHighlight: string;
@@ -114,6 +116,8 @@ export const gridTheme: IGridTheme = {
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,
+
+  themeKey: ThemeKey.Light,
 
   // ScrollBar
   scrollBarBg: colors.gray[400],

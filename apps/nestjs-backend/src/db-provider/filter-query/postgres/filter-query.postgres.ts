@@ -1,3 +1,4 @@
+import type { IFieldInstance } from '../../../features/field/model/factory';
 import { AbstractFilterQuery } from '../filter-query.abstract';
 import {
   BooleanCellValueFilterAdapter,
@@ -14,58 +15,43 @@ import {
 import type { CellValueFilterPostgres } from './cell-value-filter/cell-value-filter.postgres';
 
 export class FilterQueryPostgres extends AbstractFilterQuery {
-  booleanFilter(isMultipleCellValue?: boolean): CellValueFilterPostgres {
+  booleanFilter(field: IFieldInstance): CellValueFilterPostgres {
+    const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
-      return new MultipleBooleanCellValueFilterAdapter(
-        this.originQueryBuilder,
-        this.fields,
-        this.filter
-      );
+      return new MultipleBooleanCellValueFilterAdapter(this._table, field);
     }
-    return new BooleanCellValueFilterAdapter(this.originQueryBuilder, this.fields, this.filter);
+    return new BooleanCellValueFilterAdapter(this._table, field);
   }
 
-  numberFilter(isMultipleCellValue?: boolean): CellValueFilterPostgres {
+  numberFilter(field: IFieldInstance): CellValueFilterPostgres {
+    const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
-      return new MultipleNumberCellValueFilterAdapter(
-        this.originQueryBuilder,
-        this.fields,
-        this.filter
-      );
+      return new MultipleNumberCellValueFilterAdapter(this._table, field);
     }
-    return new NumberCellValueFilterAdapter(this.originQueryBuilder, this.fields, this.filter);
+    return new NumberCellValueFilterAdapter(this._table, field);
   }
 
-  dateTimeFilter(isMultipleCellValue?: boolean): CellValueFilterPostgres {
+  dateTimeFilter(field: IFieldInstance): CellValueFilterPostgres {
+    const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
-      return new MultipleDatetimeCellValueFilterAdapter(
-        this.originQueryBuilder,
-        this.fields,
-        this.filter
-      );
+      return new MultipleDatetimeCellValueFilterAdapter(this._table, field);
     }
-    return new DatetimeCellValueFilterAdapter(this.originQueryBuilder, this.fields, this.filter);
+    return new DatetimeCellValueFilterAdapter(this._table, field);
   }
 
-  stringFilter(isMultipleCellValue?: boolean): CellValueFilterPostgres {
+  stringFilter(field: IFieldInstance): CellValueFilterPostgres {
+    const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
-      return new MultipleStringCellValueFilterAdapter(
-        this.originQueryBuilder,
-        this.fields,
-        this.filter
-      );
+      return new MultipleStringCellValueFilterAdapter(this._table, field);
     }
-    return new StringCellValueFilterAdapter(this.originQueryBuilder, this.fields, this.filter);
+    return new StringCellValueFilterAdapter(this._table, field);
   }
 
-  jsonFilter(isMultipleCellValue?: boolean): CellValueFilterPostgres {
+  jsonFilter(field: IFieldInstance): CellValueFilterPostgres {
+    const { isMultipleCellValue } = field;
     if (isMultipleCellValue) {
-      return new MultipleJsonCellValueFilterAdapter(
-        this.originQueryBuilder,
-        this.fields,
-        this.filter
-      );
+      return new MultipleJsonCellValueFilterAdapter(this._table, field);
     }
-    return new JsonCellValueFilterAdapter(this.originQueryBuilder, this.fields, this.filter);
+    return new JsonCellValueFilterAdapter(this._table, field);
   }
 }

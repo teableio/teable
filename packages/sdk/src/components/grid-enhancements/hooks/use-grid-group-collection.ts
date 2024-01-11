@@ -211,7 +211,10 @@ const generateGroupCellFn =
       }
       case FieldType.Attachment: {
         const cv = (cellValue ?? []) as IAttachmentCellValue;
-        const data = cv.map(({ id, mimetype, url }) => ({ id, url: getFileCover(mimetype, url) }));
+        const data = cv.map(({ id, mimetype, presignedUrl }) => ({
+          id,
+          url: getFileCover(mimetype, presignedUrl),
+        }));
         const displayData = data.map(({ url }) => url);
         return {
           type: CellType.Image,

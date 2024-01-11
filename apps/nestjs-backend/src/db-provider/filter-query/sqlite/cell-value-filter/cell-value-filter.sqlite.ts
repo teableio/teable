@@ -12,46 +12,36 @@ import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';
 
 export class CellValueFilterSqlite extends AbstractCellValueFilter {
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-    const parseValue = field.cellValueType === CellValueType.Number ? Number(value) : value;
+    const { cellValueType } = this.field;
+    const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') != ?`, [parseValue]);
-    return queryBuilder;
+    builderClient.whereRaw(`ifnull(${this.columnName}, '') != ?`, [parseValue]);
+    return builderClient;
   }
 
   doesNotContainOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: IFilterValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
-
-    queryBuilder.whereRaw(`ifnull(${field.dbFieldName}, '') not like ?`, [`%${value}%`]);
-    return queryBuilder;
+    builderClient.whereRaw(`ifnull(${this.columnName}, '') not like ?`, [`%${value}%`]);
+    return builderClient;
   }
 
   isNoneOfOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: {
-      field: IFieldInstance;
-      operator: IFilterOperator;
-      value: IFilterValue;
-    }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: IFilterValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
     const valueList = literalValueListSchema.parse(value);
 
-    const sql = `ifnull(${field.dbFieldName}, '') not in (${this.createSqlPlaceholders(
-      valueList
-    )})`;
-    queryBuilder.whereRaw(sql, [...valueList]);
-    return queryBuilder;
-  }
-
-  protected tableDbFieldName(field: IFieldInstance): string {
-    return `${this._table}.${field.dbFieldName}`;
+    const sql = `ifnull(${this.columnName}, '') not in (${this.createSqlPlaceholders(valueList)})`;
+    builderClient.whereRaw(sql, [...valueList]);
+    return builderClient;
   }
 
   protected getJsonQueryColumn(field: IFieldInstance, operator: IFilterOperator): string {

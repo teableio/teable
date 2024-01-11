@@ -1,15 +1,16 @@
 import type { DynamicModule } from '@nestjs/common';
 import { Module, RequestMethod } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { trace, context } from '@opentelemetry/api';
 import { ClsService } from 'nestjs-cls';
-import { LoggerModule } from 'nestjs-pino';
+import { LoggerModule as BaseLoggerModule } from 'nestjs-pino';
 import type { ILoggerConfig } from '../configs/logger.config';
 import { X_REQUEST_ID } from '../const';
 
 @Module({})
-export class TeableLoggerModule {
+export class LoggerModule {
   static register(): DynamicModule {
-    return LoggerModule.forRootAsync({
+    return BaseLoggerModule.forRootAsync({
       inject: [ClsService, ConfigService],
       useFactory: (cls: ClsService, config: ConfigService) => {
         const { level } = config.getOrThrow<ILoggerConfig>('logger');
@@ -29,6 +30,14 @@ export class TeableLoggerModule {
             },
             transport:
               process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
+            formatters: {
+              log(object) {
+                const span = trace.getSpan(context.active());
+                if (!span) return { ...object };
+                const { traceId, spanId } = span.spanContext();
+                return { ...object, spanId, traceId };
+              },
+            },
           },
           exclude: [
             '_next/(.*)',

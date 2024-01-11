@@ -1,14 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { identify, IdPrefix } from '@teable-group/core';
 import type { TopLevelCondition } from 'json-rules-engine';
-import { findLast, omit, keyBy, head, join, tail } from 'lodash';
+import { findLast, head, join, keyBy, omit, tail } from 'lodash';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';
 import { JsonSchemaParser } from '../../engine/json-schema/parser';
 import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
 import type { WorkflowActionVo } from '../../model/workflow-action.vo';
 import { WorkflowService } from '../../workflow/workflow.service';
-import { ActionResponseStatus } from '../action-core';
 import type { IActionInputSchema } from '../action-core';
+import { ActionResponseStatus } from '../action-core';
 import type { IDecision, IDecisionGroups, IDecisionSchema } from '../decision';
 
 @Injectable()
@@ -106,7 +106,7 @@ export abstract class TriggerCore<TEvent> {
       );
 
       const dynamicLogic = {
-        [`${decision.condition.logical === 'and' ? 'all' : 'any'}`]: conditions,
+        ...(decision.condition.logical === 'and' ? { all: conditions } : { any: conditions }),
       } as TopLevelCondition;
 
       resultCondition.push(dynamicLogic);

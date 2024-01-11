@@ -14,31 +14,39 @@ import {
   getFilterOperatorMapping,
   getValidFilterSubOperators,
   isEmpty,
+  isMeTag,
   isNotEmpty,
 } from '@teable-group/core';
 import type { Knex } from 'knex';
-import { includes, invert, isObject } from 'lodash';
+import { get, includes, invert, isObject } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import type { IFilterQueryExtra } from '../db.provider.interface';
 import type { AbstractCellValueFilter } from './cell-value-filter.abstract';
 import type { IFilterQueryInterface } from './filter-query.interface';
 
 export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   private logger = new Logger(AbstractFilterQuery.name);
+
+  protected _table: string;
+
   constructor(
     protected readonly originQueryBuilder: Knex.QueryBuilder,
-    protected readonly fields?: { [p: string]: IFieldInstance },
-    protected readonly filter?: IFilter | null
-  ) {}
+    protected readonly fields?: { [fieldId: string]: IFieldInstance },
+    protected readonly filter?: IFilter,
+    protected readonly extra?: IFilterQueryExtra
+  ) {
+    this._table = get(originQueryBuilder, ['_single', 'table']);
+  }
 
   appendQueryBuilder(): Knex.QueryBuilder {
-    this.filterNullValues(this.filter);
+    this.preProcessRemoveNullAndReplaceMe(this.filter);
 
     return this.parseFilters(this.originQueryBuilder, this.filter);
   }
 
   private parseFilters(
     queryBuilder: Knex.QueryBuilder,
-    filter?: IFilter | null,
+    filter?: IFilter,
     parentConjunction?: IConjunction
   ): Knex.QueryBuilder {
     if (!filter || !filter.filterSet) {
@@ -102,42 +110,41 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     }
 
     queryBuilder = queryBuilder[conjunction];
-    this.getFilterAdapter(field).filterStrategies(convertOperator as IFilterOperator, {
-      queryBuilder,
-      field,
-      value,
-    });
+
+    this.getFilterAdapter(field).compiler(queryBuilder, convertOperator as IFilterOperator, value);
     return queryBuilder;
   }
 
   private getFilterAdapter(field: IFieldInstance): AbstractCellValueFilter {
-    const { isMultipleCellValue, dbFieldType } = field;
+    const { dbFieldType } = field;
     switch (field.cellValueType) {
       case CellValueType.Boolean:
-        return this.booleanFilter(isMultipleCellValue);
+        return this.booleanFilter(field);
       case CellValueType.Number:
-        return this.numberFilter(isMultipleCellValue);
+        return this.numberFilter(field);
       case CellValueType.DateTime:
-        return this.dateTimeFilter(isMultipleCellValue);
+        return this.dateTimeFilter(field);
       case CellValueType.String: {
         if (dbFieldType === DbFieldType.Json) {
-          return this.jsonFilter(isMultipleCellValue);
+          return this.jsonFilter(field);
         }
-        return this.stringFilter(isMultipleCellValue);
+        return this.stringFilter(field);
       }
     }
   }
 
-  private filterNullValues(filter?: IFilter | null) {
+  private preProcessRemoveNullAndReplaceMe(filter?: IFilter) {
     // If the filter is not defined or has no keys, exit the function
     if (!filter || !Object.keys(filter).length) {
       return;
     }
+    const replaceUserId = this.extra?.withUserId;
+
     filter.filterSet = filter.filterSet.filter((filterItem) => {
       // If 'filterSet' exists in filterItem, recursively call filterNullValues
       // Always keep the filterItem, as we are modifying it in-place
       if ('filterSet' in filterItem) {
-        this.filterNullValues(filterItem as IFilter);
+        this.preProcessRemoveNullAndReplaceMe(filterItem as IFilter);
         return true;
       }
       const { fieldId, operator, value } = filterItem;
@@ -145,6 +152,11 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
       // If it doesn't exist, filter out the item
       const field = this.fields?.[fieldId];
       if (!field) return false;
+
+      // Replace 'me' tag with actual user ID in case of a user field
+      if (field.type === FieldType.User && isMeTag(value as string) && replaceUserId) {
+        filterItem.value = replaceUserId;
+      }
 
       // Keep the filterItem if any of the following conditions are met:
       // - The value is not null
@@ -158,13 +170,13 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     });
   }
 
-  abstract booleanFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract booleanFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract numberFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract numberFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract dateTimeFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract dateTimeFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract stringFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract stringFilter(field: IFieldInstance): AbstractCellValueFilter;
 
-  abstract jsonFilter(isMultipleCellValue?: boolean): AbstractCellValueFilter;
+  abstract jsonFilter(field: IFieldInstance): AbstractCellValueFilter;
 }

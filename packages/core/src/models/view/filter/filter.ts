@@ -15,12 +15,27 @@ export const nestedFilterItemSchema: z.ZodType<IFilterSet> = baseFilterSetSchema
   filterSet: z.lazy(() => z.union([filterItemSchema, nestedFilterItemSchema]).array()),
 });
 
-export const filterSchema = z.object({
-  filterSet: z.union([filterItemSchema, nestedFilterItemSchema]).array(),
-  conjunction: conjunctionSchema,
-});
+export const FILTER_DESCRIPTION =
+  'A filter object used to filter results. It allows complex query conditions based on fields, operators, and values. For a more convenient experience, filterByTql is recommended, notice: if filterByTql is provided, current filter option will not take effect.';
+
+export const filterSchema = z
+  .object({
+    filterSet: z.union([filterItemSchema, nestedFilterItemSchema]).array(),
+    conjunction: conjunctionSchema,
+  })
+  .nullable()
+  .openapi({
+    type: 'object',
+    description: FILTER_DESCRIPTION,
+  });
 
 export type IFilter = z.infer<typeof filterSchema>;
+
+export const filterRoSchema = z.object({
+  filter: filterSchema,
+});
+
+export type IFilterRo = z.infer<typeof filterRoSchema>;
 
 export const filterStringSchema = z.string().transform((val, ctx) => {
   let jsonValue;

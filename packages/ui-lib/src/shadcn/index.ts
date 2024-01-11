@@ -27,3 +27,5 @@ export * from './ui/textarea';
 export * from './ui/hover-card';
 export * from './ui/alert-dialog';
 export * from './ui/radio-group';
+export * from './ui/resizable';
+export * from './ui/badge';

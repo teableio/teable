@@ -1,22 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {
   IFilter,
+  ISort,
   IOtOperation,
   IShareViewMeta,
-  ISort,
   IViewVo,
   IColumnMetaRo,
   IManualSortRo,
   IGroup,
 } from '@teable-group/core';
-import {
-  sortSchema,
-  filterSchema,
-  ViewCore,
-  ViewOpBuilder,
-  generateShareId,
-  groupSchema,
-} from '@teable-group/core';
+import { ViewCore, ViewOpBuilder, generateShareId } from '@teable-group/core';
 import {
   createView,
   deleteView,
@@ -25,7 +18,11 @@ import {
   getViewList,
   setViewColumnMeta,
   manualSortView,
+  setViewFilter,
+  setViewSort,
+  setViewGroup,
 } from '@teable-group/openapi';
+import type { AxiosResponse } from 'axios';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 
@@ -39,6 +36,10 @@ export abstract class View extends ViewCore {
   static createView = requestWrap(createView);
 
   static deleteView = requestWrap(deleteView);
+
+  abstract setOption(
+    option: object // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<AxiosResponse<void, any>> | void;
 
   async apiEnableShare() {
     return await requestWrap(enableShareView)({ tableId: this.tableId, viewId: this.id });
@@ -54,6 +55,18 @@ export abstract class View extends ViewCore {
 
   async setViewColumnMeta(columnMetaRo: IColumnMetaRo) {
     return await requestWrap(setViewColumnMeta)(this.tableId, this.id, columnMetaRo);
+  }
+
+  async setViewFilter(filter: IFilter) {
+    return await requestWrap(setViewFilter)(this.tableId, this.id, { filter });
+  }
+
+  async setViewSort(sort: ISort) {
+    return await requestWrap(setViewSort)(this.tableId, this.id, { sort });
+  }
+
+  async setViewGroup(group: IGroup) {
+    return await requestWrap(setViewGroup)(this.tableId, this.id, group);
   }
 
   async submitOperation(operation: IOtOperation) {
@@ -83,37 +96,6 @@ export abstract class View extends ViewCore {
       oldDescription: this.description,
     });
 
-    return await this.submitOperation(viewOperation);
-  }
-
-  async setFilter(newFilter?: IFilter | null) {
-    const validFilter = newFilter && (await filterSchema.parseAsync(newFilter));
-
-    const viewOperation = ViewOpBuilder.editor.setViewFilter.build({
-      newFilter: validFilter,
-      oldFilter: this.filter,
-    });
-
-    return await this.submitOperation(viewOperation);
-  }
-
-  async setSort(newSort?: ISort | null) {
-    const validSort = newSort && (await sortSchema.parseAsync(newSort));
-
-    const viewOperation = ViewOpBuilder.editor.setViewSort.build({
-      newSort: validSort,
-      oldSort: this.sort,
-    });
-    return await this.submitOperation(viewOperation);
-  }
-
-  async setGroup(newGroup?: IGroup | null) {
-    const validGroup = newGroup && (await groupSchema.parseAsync(newGroup));
-
-    const viewOperation = ViewOpBuilder.editor.setViewGroup.build({
-      newGroup: validGroup,
-      oldGroup: this.group,
-    });
     return await this.submitOperation(viewOperation);
   }
 

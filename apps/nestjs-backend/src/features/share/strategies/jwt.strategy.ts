@@ -2,21 +2,18 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import type { Request } from 'express';
-import { ClsService } from 'nestjs-cls';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { authConfig } from '../../../configs/auth.config';
 import { AuthConfig } from '../../../configs/auth.config';
-import type { IClsStore } from '../../../types/cls';
 import { SHARE_JWT_STRATEGY } from '../guard/constant';
-import { ShareService } from '../share.service';
+import { ShareAuthService } from '../share-auth.service';
 import type { IJwtShareInfo } from '../share.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, SHARE_JWT_STRATEGY) {
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
-    private readonly cls: ClsService<IClsStore>,
-    private readonly shareService: ShareService
+    private readonly shareAuthService: ShareAuthService
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([JwtStrategy.fromAuthCookieAsToken]),
@@ -32,11 +29,10 @@ export class JwtStrategy extends PassportStrategy(Strategy, SHARE_JWT_STRATEGY) 
 
   async validate(payload: IJwtShareInfo) {
     const { shareId, password } = payload;
-    const authShareId = await this.shareService.authShareView(shareId, password);
+    const authShareId = await this.shareAuthService.authShareView(shareId, password);
     if (!authShareId) {
       throw new UnauthorizedException();
     }
-    this.cls.set('shareViewId', authShareId);
     return authShareId;
   }
 }

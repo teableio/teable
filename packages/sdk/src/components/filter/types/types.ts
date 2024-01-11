@@ -1,4 +1,4 @@
-import type { IFilter, IFilterItem, IFilterSet } from '@teable-group/core';
+import type { IFilter, IFilterItem, IFilterSet, IConjunction } from '@teable-group/core';
 import type { IFieldInstance } from '../../../model';
 
 enum ConditionAddType {
@@ -10,6 +10,7 @@ type IFiltersPath = (string | number)[];
 
 interface IFilterProps {
   filters: IFilter | null;
+  contentHeader?: React.ReactNode;
   onChange?: (filters: IFilter | null) => void;
   children?: (text: string, isActive?: boolean) => React.ReactNode;
 }
@@ -19,11 +20,12 @@ interface IFilterBaseProps {
   fields: IFieldInstance[];
   onChange?: (filters: IFilter | null) => void;
   children?: React.ReactNode;
+  contentHeader?: React.ReactNode;
 }
 
 interface IConditionCommon {
   index: number;
-  conjunction: IFilter['conjunction'];
+  conjunction: IConjunction;
   level: number;
   path: IFiltersPath;
 }

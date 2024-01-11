@@ -2,12 +2,12 @@ import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { parseDsn } from '@teable-group/core';
-import { KnexModule } from 'nest-knexjs';
+import { KnexModule as BaseKnexModule } from 'nest-knexjs';
 
 @Module({})
-export class TeableKnexModule {
+export class KnexModule {
   static register(): DynamicModule {
-    return KnexModule.forRootAsync(
+    return BaseKnexModule.forRootAsync(
       {
         inject: [ConfigService],
         useFactory: (config: ConfigService) => {

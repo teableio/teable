@@ -1,9 +1,16 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IColumn, IFieldVo, ITableFullVo, IViewRo, IViewVo } from '@teable-group/core';
+import type { IColumn, IFieldVo, ITableFullVo, IViewRo } from '@teable-group/core';
 import { FieldType, ViewType } from '@teable-group/core';
-import type supertest from 'supertest';
-import { createField, getFields, initApp, creteView } from './utils/init-app';
+import {
+  createField,
+  getFields,
+  initApp,
+  createView,
+  deleteTable,
+  createTable,
+  getViews,
+} from './utils/init-app';
 
 const defaultViews = [
   {
@@ -15,13 +22,11 @@ const defaultViews = [
 describe('OpenAPI ViewController (e2e)', () => {
   let app: INestApplication;
   let table: ITableFullVo;
-  let request: supertest.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -29,20 +34,17 @@ describe('OpenAPI ViewController (e2e)', () => {
   });
 
   beforeEach(async () => {
-    const result = await request.post(`/api/base/${baseId}/table`).send({
-      name: 'table1',
-    });
-    table = result.body;
+    table = await createTable(baseId, { name: 'table1' });
   });
 
   afterEach(async () => {
-    const result = await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
-    console.log('clear table: ', result.body);
+    const result = await deleteTable(baseId, table.id);
+    console.log('clear table: ', result);
   });
 
   it('/api/table/{tableId}/view (GET)', async () => {
-    const viewsResult = await request.get(`/api/table/${table.id}/view`);
-    expect(viewsResult.body).toMatchObject(defaultViews);
+    const viewsResult = await getViews(table.id);
+    expect(viewsResult).toMatchObject(defaultViews);
   });
 
   it('/api/table/{tableId}/view (POST)', async () => {
@@ -52,17 +54,10 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await request.post(`/api/table/${table.id}/view`).send(viewRo).expect(201);
+    await createView(table.id, viewRo);
 
-    const result = await request
-      .get(`/api/table/${table.id}/view`)
-      .query({
-        skip: 0,
-        take: 1000,
-      })
-      .expect(200);
-
-    expect(result.body).toMatchObject([
+    const result = await getViews(table.id);
+    expect(result).toMatchObject([
       ...defaultViews,
       {
         name: 'New view',
@@ -70,7 +65,6 @@ describe('OpenAPI ViewController (e2e)', () => {
         type: ViewType.Grid,
       },
     ]);
-    // console.log('result: ', result.body);
   });
 
   it('should create view with field order', async () => {
@@ -87,7 +81,7 @@ describe('OpenAPI ViewController (e2e)', () => {
       {} as Record<string, IColumn>
     );
 
-    const viewResponse = await creteView(table.id, {
+    const viewResponse = await createView(table.id, {
       name: 'view',
       columnMeta,
       type: ViewType.Grid,
@@ -111,8 +105,7 @@ describe('OpenAPI ViewController (e2e)', () => {
     oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
     oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
 
-    const result = await request.post(`/api/table/${table.id}/view`).send(viewRo).expect(201);
-    const newView = result.body as IViewVo;
+    const newView = await createView(table.id, viewRo);
     const newFields = await getFields(table.id, newView.id);
 
     expect(newFields.slice(3)).toMatchObject(oldFields);

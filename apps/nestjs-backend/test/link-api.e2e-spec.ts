@@ -4,38 +4,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type {
-  IFieldRo,
-  ILinkFieldOptions,
-  IRecord,
-  ITableFullVo,
-  IUpdateRecordRo,
-} from '@teable-group/core';
+import type { IFieldRo, ILinkFieldOptions, IRecord, ITableFullVo } from '@teable-group/core';
 import {
-  FieldType,
-  Relationship,
-  NumberFormattingType,
   FieldKeyType,
+  FieldType,
   IdPrefix,
+  NumberFormattingType,
   RecordOpBuilder,
+  Relationship,
 } from '@teable-group/core';
-import { deleteField, deleteRecord, getRecords, updateRecord } from '@teable-group/openapi';
 import type { Connection, Doc } from 'sharedb/lib/client';
-import type request from 'supertest';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import {
-  initApp,
-  updateRecordByApi,
   createField,
-  getField,
-  getRecord,
   createRecords,
+  createTable,
+  deleteField,
+  deleteRecord,
+  deleteTable,
+  getField,
   getFields,
+  getRecord,
+  getRecords,
+  initApp,
+  updateRecord,
+  updateRecordByApi,
 } from './utils/init-app';
 
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
   const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';
   let cookie: string;
@@ -44,8 +41,8 @@ describe('OpenAPI link (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
     cookie = appCtx.cookie;
+
     const shareDbService = app.get(ShareDbService);
     connection = shareDbService.connect(undefined, {
       headers: {
@@ -92,8 +89,8 @@ describe('OpenAPI link (e2e)', () => {
     let table2: ITableFullVo;
 
     afterEach(async () => {
-      table1 && (await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`));
-      table2 && (await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`));
+      table1 && (await deleteTable(baseId, table1.id));
+      table2 && (await deleteTable(baseId, table2.id));
     });
 
     it('should create foreign link field when create a new table with many-one link field', async () => {
@@ -110,19 +107,14 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
-
-      table1 = createTable1Result.body;
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -132,45 +124,40 @@ describe('OpenAPI link (e2e)', () => {
           foreignTableId: table1.id,
         },
       };
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo, linkFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo, linkFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-      table2 = createTable2Result.body;
+      const getTable1FieldsResult = await getFields(table1.id);
 
-      const getTable1FieldsResult = await request.get(`/api/table/${table1.id}/field`).expect(200);
-
-      expect(getTable1FieldsResult.body).toHaveLength(3);
-      expect(getTable1FieldsResult.body[2]).toMatchObject({
+      expect(getTable1FieldsResult).toHaveLength(3);
+      expect(getTable1FieldsResult[2]).toMatchObject({
         type: FieldType.Link,
         options: {
           relationship: Relationship.OneMany,
           foreignTableId: table2.id,
-          lookupFieldId: createTable2Result.body.fields[0].id,
-          selfKeyName: '__fk_' + createTable2Result.body.fields[2].id,
+          lookupFieldId: table2.fields[0].id,
+          selfKeyName: '__fk_' + table2.fields[2].id,
           foreignKeyName: '__id',
-          symmetricFieldId: createTable2Result.body.fields[2].id,
+          symmetricFieldId: table2.fields[2].id,
         },
       });
 
-      expect(createTable2Result.body.fields[2]).toMatchObject({
+      expect(table2.fields[2]).toMatchObject({
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyOne,
           foreignTableId: table1.id,
-          lookupFieldId: getTable1FieldsResult.body[0].id,
-          foreignKeyName: '__fk_' + createTable2Result.body.fields[2].id,
+          lookupFieldId: getTable1FieldsResult[0].id,
+          foreignKeyName: '__fk_' + table2.fields[2].id,
           selfKeyName: '__id',
-          symmetricFieldId: getTable1FieldsResult.body[2].id,
+          symmetricFieldId: getTable1FieldsResult[2].id,
         },
       });
     });
@@ -189,19 +176,14 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
-
-      table1 = createTable1Result.body;
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -211,24 +193,19 @@ describe('OpenAPI link (e2e)', () => {
           foreignTableId: table1.id,
         },
       };
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo, linkFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo, linkFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-      table2 = createTable2Result.body as ITableFullVo;
-
-      const getTable1FieldsResult = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      expect(getTable1FieldsResult.body).toHaveLength(3);
-      table1.fields = getTable1FieldsResult.body;
+      const getTable1FieldsResult = await getFields(table1.id);
+      expect(getTable1FieldsResult).toHaveLength(3);
+      table1.fields = getTable1FieldsResult;
 
       const fkHostTableName = `${baseId}${split}junction_${table2.fields[2].id}_${
         (table2.fields[2].options as ILinkFieldOptions).symmetricFieldId
@@ -275,13 +252,9 @@ describe('OpenAPI link (e2e)', () => {
         type: FieldType.SingleLineText,
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [numberFieldRo, textFieldRo],
-        })
-        .expect(201);
-      table1 = createTable1Result.body;
+      table1 = await createTable(baseId, {
+        fields: [numberFieldRo, textFieldRo],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -292,39 +265,35 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [numberFieldRo, textFieldRo, linkFieldRo],
-        })
-        .expect(201);
-      table2 = createTable2Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [numberFieldRo, textFieldRo, linkFieldRo],
+      });
 
-      const getTable1FieldsResult = await request.get(`/api/table/${table1.id}/field`).expect(200);
+      const getTable1FieldsResult = await getFields(table1.id);
 
-      expect(getTable1FieldsResult.body).toHaveLength(3);
-      expect(getTable1FieldsResult.body[2]).toMatchObject({
+      expect(getTable1FieldsResult).toHaveLength(3);
+      expect(getTable1FieldsResult[2]).toMatchObject({
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyOne,
           foreignTableId: table2.id,
-          lookupFieldId: createTable2Result.body.fields[0].id,
+          lookupFieldId: table2.fields[0].id,
           selfKeyName: '__id',
-          foreignKeyName: '__fk_' + getTable1FieldsResult.body[2].id,
-          symmetricFieldId: createTable2Result.body.fields[2].id,
+          foreignKeyName: '__fk_' + getTable1FieldsResult[2].id,
+          symmetricFieldId: table2.fields[2].id,
         },
       });
 
-      expect(createTable2Result.body.fields[2]).toMatchObject({
+      expect(table2.fields[2]).toMatchObject({
         type: FieldType.Link,
         options: {
           relationship: Relationship.OneMany,
           foreignTableId: table1.id,
-          lookupFieldId: getTable1FieldsResult.body[0].id,
+          lookupFieldId: getTable1FieldsResult[0].id,
           foreignKeyName: '__id',
-          selfKeyName: '__fk_' + getTable1FieldsResult.body[2].id,
-          symmetricFieldId: getTable1FieldsResult.body[2].id,
+          selfKeyName: '__fk_' + getTable1FieldsResult[2].id,
+          symmetricFieldId: getTable1FieldsResult[2].id,
         },
       });
     });
@@ -343,19 +312,14 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
-
-      table1 = createTable1Result.body;
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -366,24 +330,20 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo, linkFieldRo],
-          records: [
-            {
-              fields: {
-                'text field': 'table2_1',
-                'link field': [{ id: table1.records[0].id }, { id: table1.records[1].id }],
-              },
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo, linkFieldRo],
+        records: [
+          {
+            fields: {
+              'text field': 'table2_1',
+              'link field': [{ id: table1.records[0].id }, { id: table1.records[1].id }],
             },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-      table2 = createTable2Result.body;
+          },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
       expect(table2.records).toHaveLength(3);
       expect(table2.records[0].fields['link field']).toEqual([
@@ -406,19 +366,14 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
-
-      table1 = createTable1Result.body;
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -429,9 +384,9 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
+      await createTable(
+        baseId,
+        {
           name: 'table2',
           fields: [textFieldRo, numberFieldRo, linkFieldRo],
           records: [
@@ -444,8 +399,9 @@ describe('OpenAPI link (e2e)', () => {
             { fields: { 'text field': 'table2_2' } },
             { fields: { 'text field': 'table2_3' } },
           ],
-        })
-        .expect(400);
+        },
+        400
+      );
     });
 
     it('should have correct title when create a new table with manyOne link field', async () => {
@@ -454,19 +410,14 @@ describe('OpenAPI link (e2e)', () => {
         type: FieldType.SingleLineText,
       };
 
-      const result1 = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
-
-      table1 = result1.body;
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -477,27 +428,23 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const result2 = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, linkFieldRo],
-          records: [
-            {
-              fields: {
-                'text field': 'table2_1',
-                'link field': { id: table1.records[0].id },
-              },
+      const table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, linkFieldRo],
+        records: [
+          {
+            fields: {
+              'text field': 'table2_1',
+              'link field': { id: table1.records[0].id },
             },
-          ],
-        })
-        .expect(201);
-      const table2 = result2.body as ITableFullVo;
+          },
+        ],
+      });
       expect(table2.records[0].fields['link field']).toEqual({
         title: 'table1_1',
         id: table1.records[0].id,
       });
-      const table1Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       const table1Fields = await getFields(table1.id);
 
       expect(table1Records.records[0].fields[table1Fields[1].id]).toEqual([
@@ -514,19 +461,14 @@ describe('OpenAPI link (e2e)', () => {
         type: FieldType.SingleLineText,
       };
 
-      const result1 = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
-
-      table1 = result1.body;
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
       const linkFieldRo: IFieldRo = {
         name: 'link field',
@@ -536,30 +478,25 @@ describe('OpenAPI link (e2e)', () => {
           foreignTableId: table1.id,
         },
       };
-
-      const result2 = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, linkFieldRo],
-          records: [
-            {
-              fields: {
-                'text field': 'table2_1',
-                'link field': [{ id: table1.records[0].id }],
-              },
+      const table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, linkFieldRo],
+        records: [
+          {
+            fields: {
+              'text field': 'table2_1',
+              'link field': [{ id: table1.records[0].id }],
             },
-          ],
-        })
-        .expect(201);
-      const table2 = result2.body as ITableFullVo;
+          },
+        ],
+      });
       expect(table2.records[0].fields['link field']).toEqual([
         {
           title: 'table1_1',
           id: table1.records[0].id,
         },
       ]);
-      const table1Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       const table1Fields = await getFields(table1.id);
 
       expect(table1Records.records[0].fields[table1Fields[1].id]).toEqual({
@@ -587,45 +524,32 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
-      table1 = createTable1Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-
-      table2 = createTable2Result.body;
-
-      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
-
-      table1.fields = getFields1Result.body;
-      table2.fields = getFields2Result.body;
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should create two way, many many link', async () => {
@@ -797,11 +721,12 @@ describe('OpenAPI link (e2e)', () => {
 
       await createRecords(
         table1.id,
-        [
-          { fields: { [linkField1.id]: { id: table2.records[0].id } } },
-          { fields: { [linkField1.id]: { id: table2.records[0].id } } },
-        ],
-        false,
+        {
+          records: [
+            { fields: { [linkField1.id]: { id: table2.records[0].id } } },
+            { fields: { [linkField1.id]: { id: table2.records[0].id } } },
+          ],
+        },
         400
       );
     });
@@ -825,34 +750,24 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
-      table1 = createTable1Result.body;
-
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-
-      table2 = createTable2Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
       // create link field
       const table2LinkFieldRo: IFieldRo = {
@@ -866,16 +781,13 @@ describe('OpenAPI link (e2e)', () => {
 
       await createField(table2.id, table2LinkFieldRo);
 
-      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
-
-      table1.fields = getFields1Result.body;
-      table2.fields = getFields2Result.body;
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -889,10 +801,10 @@ describe('OpenAPI link (e2e)', () => {
         id: table1.records[1].id,
       });
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toBeUndefined();
-      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
           id: table2.records[0].id,
@@ -916,9 +828,9 @@ describe('OpenAPI link (e2e)', () => {
         id: table1.records[0].id,
       });
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
         {
           title: 'B1',
           id: table2.records[0].id,
@@ -931,9 +843,9 @@ describe('OpenAPI link (e2e)', () => {
 
       await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'AX');
 
-      const table2RecordResult2 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const table2RecordResult2 = await getRecords(table2.id);
 
-      expect(table2RecordResult2.body.records[0].fields[table2.fields[2].name!]).toEqual({
+      expect(table2RecordResult2.records[0].fields[table2.fields[2].name!]).toEqual({
         title: 'AX',
         id: table1.records[0].id,
       });
@@ -953,9 +865,9 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'B2', id: table2.records[1].id },
       ]);
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
         {
           title: 'B1',
           id: table2.records[0].id,
@@ -980,33 +892,24 @@ describe('OpenAPI link (e2e)', () => {
           expression: `{${table2.fields[2].id}}`,
         },
       };
-
-      await request
-        .post(`/api/table/${table2.id}/field`)
-        .send(table2FormulaFieldRo as IFieldRo)
-        .expect(201);
+      await createField(table2.id, table2FormulaFieldRo);
 
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
         title: 'illegal title',
         id: table1.records[1].id,
       });
 
-      const table1RecordResult = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult = await getRecords(table1.id);
+      const table2RecordResult = await getRecords(table2.id);
 
-      const table2RecordResult = await request.get(`/api/table/${table2.id}/record`).expect(200);
-
-      expect(table1RecordResult.body.records[0].fields[table1.fields[2].name]).toBeUndefined();
-
-      expect(table1RecordResult.body.records[1].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
           id: table2.records[0].id,
         },
       ]);
-
-      expect(table2RecordResult.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(
-        'table1_2'
-      );
+      expect(table2RecordResult.records[0].fields[table2FormulaFieldRo.name!]).toEqual('table1_2');
     });
 
     it('should update formula field when change oneMany link cell', async () => {
@@ -1023,33 +926,26 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      await request
-        .post(`/api/table/${table1.id}/field`)
-        .send(table1FormulaFieldRo as IFieldRo)
-        .expect(201);
+      await createField(table1.id, table1FormulaFieldRo);
 
-      await request
-        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
-        .send({
-          record: {
-            fields: {
-              [table1.fields[2].name]: [
-                { title: 'illegal test1', id: table2.records[0].id },
-                { title: 'illegal test2', id: table2.records[1].id },
-              ],
-            },
+      await updateRecord(table1.id, table1.records[0].id, {
+        record: {
+          fields: {
+            [table1.fields[2].name]: [
+              { title: 'illegal test1', id: table2.records[0].id },
+              { title: 'illegal test2', id: table2.records[1].id },
+            ],
           },
-        } as IUpdateRecordRo)
-        .expect(200);
+        },
+      });
+      const table1RecordResult = await getRecords(table1.id);
 
-      const table1RecordResult = await request.get(`/api/table/${table1.id}/record`).expect(200);
-
-      expect(table1RecordResult.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toEqual([
         { title: 'table2_1', id: table2.records[0].id },
         { title: 'table2_2', id: table2.records[1].id },
       ]);
 
-      expect(table1RecordResult.body.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
         'table2_1',
         'table2_2',
       ]);
@@ -1075,37 +971,38 @@ describe('OpenAPI link (e2e)', () => {
         400
       );
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
         { title: 'B1', id: table2.records[0].id },
         { title: 'B2', id: table2.records[1].id },
       ]);
-
-      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should throw error when add a duplicate record in oneMany link field in create record', async () => {
       await createRecords(
         table1.id,
-        [
-          {
-            fields: {
-              [table1.fields[2].id]: [{ id: table2.records[0].id }, { id: table2.records[0].id }],
+        {
+          records: [
+            {
+              fields: {
+                [table1.fields[2].id]: [{ id: table2.records[0].id }, { id: table2.records[0].id }],
+              },
             },
-          },
-        ],
-        false,
+          ],
+        },
         400
       );
 
       await createRecords(
         table1.id,
-        [
-          { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
-          { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
-        ],
-        false,
+        {
+          records: [
+            { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
+            { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
+          ],
+        },
         400
       );
     });
@@ -1116,45 +1013,45 @@ describe('OpenAPI link (e2e)', () => {
       // // reject data when typecast is false
       await createRecords(
         table2.id,
-        [
-          {
-            fields: {
-              [table2.fields[2].id]: ['A1'],
+        {
+          typecast: false,
+          records: [
+            {
+              fields: {
+                [table2.fields[2].id]: ['A1'],
+              },
             },
-          },
-        ],
-        false,
+          ],
+        },
         400
       );
 
-      const { records } = await createRecords(
-        table2.id,
-        [
+      const { records } = await createRecords(table2.id, {
+        typecast: true,
+        records: [
           {
             fields: {
               [table2.fields[2].id]: 'A1',
             },
           },
         ],
-        true
-      );
+      });
 
       expect(records[0].fields[table2.fields[2].id]).toEqual({
         id: table1.records[0].id,
         title: 'A1',
       });
 
-      const { records: records2 } = await createRecords(
-        table1.id,
-        [
+      const { records: records2 } = await createRecords(table1.id, {
+        typecast: true,
+        records: [
           {
             fields: {
               [table1.fields[2].id]: 'B2',
             },
           },
         ],
-        true
-      );
+      });
 
       expect(records2[0].fields[table1.fields[2].id]).toEqual([
         {
@@ -1229,34 +1126,24 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
-      table1 = createTable1Result.body;
-
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-
-      table2 = createTable2Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
       // create link field
       const table2LinkFieldRo: IFieldRo = {
@@ -1270,16 +1157,13 @@ describe('OpenAPI link (e2e)', () => {
 
       await createField(table2.id, table2LinkFieldRo);
 
-      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
-
-      table1.fields = getFields1Result.body;
-      table2.fields = getFields2Result.body;
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -1297,10 +1181,10 @@ describe('OpenAPI link (e2e)', () => {
         },
       ]);
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toBeUndefined();
-      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
           id: table2.records[0].id,
@@ -1328,9 +1212,9 @@ describe('OpenAPI link (e2e)', () => {
         },
       ]);
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
         {
           title: 'B1',
           id: table2.records[0].id,
@@ -1343,9 +1227,9 @@ describe('OpenAPI link (e2e)', () => {
 
       await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'AX');
 
-      const table2RecordResult2 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const table2RecordResult2 = await getRecords(table2.id);
 
-      expect(table2RecordResult2.body.records[0].fields[table2.fields[2].name!]).toEqual([
+      expect(table2RecordResult2.records[0].fields[table2.fields[2].name!]).toEqual([
         {
           title: 'AX',
           id: table1.records[0].id,
@@ -1369,9 +1253,9 @@ describe('OpenAPI link (e2e)', () => {
         { title: 'B2', id: table2.records[1].id },
       ]);
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
         {
           title: 'B1',
           id: table2.records[0].id,
@@ -1399,10 +1283,7 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      await request
-        .post(`/api/table/${table2.id}/field`)
-        .send(table2FormulaFieldRo as IFieldRo)
-        .expect(201);
+      await createField(table2.id, table2FormulaFieldRo);
 
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
         {
@@ -1411,20 +1292,18 @@ describe('OpenAPI link (e2e)', () => {
         },
       ]);
 
-      const table1RecordResult = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult = await getRecords(table1.id);
 
-      const table2RecordResult = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const table2RecordResult = await getRecords(table2.id);
 
-      expect(table1RecordResult.body.records[0].fields[table1.fields[2].name]).toBeUndefined();
-
-      expect(table1RecordResult.body.records[1].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult.records[1].fields[table1.fields[2].name]).toEqual([
         {
           title: 'table2_1',
           id: table2.records[0].id,
         },
       ]);
-
-      expect(table2RecordResult.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual([
+      expect(table2RecordResult.records[0].fields[table2FormulaFieldRo.name!]).toEqual([
         'table1_2',
       ]);
     });
@@ -1443,23 +1322,20 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      await request
-        .post(`/api/table/${table2.id}/field`)
-        .send(table2FormulaFieldRo as IFieldRo)
-        .expect(201);
+      await createField(table2.id, table2FormulaFieldRo);
 
-      const t2r1 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const t2r1 = await getRecords(table2.id);
 
-      expect(t2r1.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+      expect(t2r1.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
 
       // replace
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
         { id: table1.records[1].id },
       ]);
 
-      const t2r2 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const t2r2 = await getRecords(table2.id);
 
-      expect(t2r2.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+      expect(t2r2.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
 
       // add
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
@@ -1467,18 +1343,18 @@ describe('OpenAPI link (e2e)', () => {
         { id: table1.records[2].id },
       ]);
 
-      const t2r3 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const t2r3 = await getRecords(table2.id);
 
-      expect(t2r3.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+      expect(t2r3.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
 
       // remove
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, [
         { id: table1.records[1].id },
       ]);
 
-      const t2r4 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const t2r4 = await getRecords(table2.id);
 
-      expect(t2r4.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
+      expect(t2r4.records[0].fields[table2FormulaFieldRo.name!]).toEqual(true);
     });
 
     it('should update formula field when change many many link cell', async () => {
@@ -1498,53 +1374,44 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      await request
-        .post(`/api/table/${table1.id}/field`)
-        .send(table1FormulaFieldRo as IFieldRo)
-        .expect(201);
-      await request
-        .post(`/api/table/${table2.id}/field`)
-        .send(table2FormulaFieldRo as IFieldRo)
-        .expect(201);
+      await createField(table1.id, table1FormulaFieldRo);
+      await createField(table2.id, table2FormulaFieldRo);
 
-      await request
-        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
-        .send({
-          record: {
-            fields: {
-              [table1.fields[2].name]: [
-                { title: 'illegal test1', id: table2.records[0].id },
-                { title: 'illegal test2', id: table2.records[1].id },
-              ],
-            },
+      await updateRecord(table1.id, table1.records[0].id, {
+        record: {
+          fields: {
+            [table1.fields[2].name]: [
+              { title: 'illegal test1', id: table2.records[0].id },
+              { title: 'illegal test2', id: table2.records[1].id },
+            ],
           },
-        } as IUpdateRecordRo)
-        .expect(200);
+        },
+      });
 
-      const table1RecordResult = await request.get(`/api/table/${table1.id}/record`).expect(200);
-      const table2RecordResult = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const table1RecordResult = await getRecords(table1.id);
+      const table2RecordResult = await getRecords(table2.id);
 
-      expect(table1RecordResult.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toEqual([
         { title: 'table2_1', id: table2.records[0].id },
         { title: 'table2_2', id: table2.records[1].id },
       ]);
 
-      expect(table2RecordResult.body.records[0].fields[table2.fields[2].name]).toEqual([
+      expect(table2RecordResult.records[0].fields[table2.fields[2].name]).toEqual([
         { title: 'table1_1', id: table1.records[0].id },
       ]);
-      expect(table2RecordResult.body.records[1].fields[table2.fields[2].name]).toEqual([
+      expect(table2RecordResult.records[1].fields[table2.fields[2].name]).toEqual([
         { title: 'table1_1', id: table1.records[0].id },
       ]);
 
-      expect(table1RecordResult.body.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
         'table2_1',
         'table2_2',
       ]);
 
-      expect(table2RecordResult.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual([
+      expect(table2RecordResult.records[0].fields[table2FormulaFieldRo.name!]).toEqual([
         'table1_1',
       ]);
-      expect(table2RecordResult.body.records[1].fields[table2FormulaFieldRo.name!]).toEqual([
+      expect(table2RecordResult.records[1].fields[table2FormulaFieldRo.name!]).toEqual([
         'table1_1',
       ]);
     });
@@ -1577,14 +1444,14 @@ describe('OpenAPI link (e2e)', () => {
         400
       );
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
         { title: 'B1', id: table2.records[0].id },
         { title: 'B2', id: table2.records[1].id },
       ]);
 
-      expect(table1RecordResult2.body.records[2].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[2].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should set a text value in a link record with typecast', async () => {
@@ -1593,28 +1460,29 @@ describe('OpenAPI link (e2e)', () => {
       // // reject data when typecast is false
       await createRecords(
         table2.id,
-        [
-          {
-            fields: {
-              [table2.fields[2].id]: ['A1'],
+        {
+          typecast: false,
+          records: [
+            {
+              fields: {
+                [table2.fields[2].id]: ['A1'],
+              },
             },
-          },
-        ],
-        false,
+          ],
+        },
         400
       );
 
-      const { records } = await createRecords(
-        table2.id,
-        [
+      const { records } = await createRecords(table2.id, {
+        typecast: true,
+        records: [
           {
             fields: {
               [table2.fields[2].id]: 'A1',
             },
           },
         ],
-        true
-      );
+      });
 
       expect(records[0].fields[table2.fields[2].id]).toEqual([
         {
@@ -1623,17 +1491,16 @@ describe('OpenAPI link (e2e)', () => {
         },
       ]);
 
-      const { records: records2 } = await createRecords(
-        table1.id,
-        [
+      const { records: records2 } = await createRecords(table1.id, {
+        typecast: true,
+        records: [
           {
             fields: {
               [table1.fields[2].id]: 'B2',
             },
           },
         ],
-        true
-      );
+      });
 
       expect(records2[0].fields[table1.fields[2].id]).toEqual([
         {
@@ -1664,34 +1531,24 @@ describe('OpenAPI link (e2e)', () => {
           },
         };
 
-        const createTable1Result = await request
-          .post(`/api/base/${baseId}/table`)
-          .send({
-            fields: [textFieldRo, numberFieldRo],
-            records: [
-              { fields: { 'text field': 'table1_1' } },
-              { fields: { 'text field': 'table1_2' } },
-              { fields: { 'text field': 'table1_3' } },
-            ],
-          })
-          .expect(201);
+        table1 = await createTable(baseId, {
+          fields: [textFieldRo, numberFieldRo],
+          records: [
+            { fields: { 'text field': 'table1_1' } },
+            { fields: { 'text field': 'table1_2' } },
+            { fields: { 'text field': 'table1_3' } },
+          ],
+        });
 
-        table1 = createTable1Result.body;
-
-        const createTable2Result = await request
-          .post(`/api/base/${baseId}/table`)
-          .send({
-            name: 'table2',
-            fields: [textFieldRo, numberFieldRo],
-            records: [
-              { fields: { 'text field': 'table2_1' } },
-              { fields: { 'text field': 'table2_2' } },
-              { fields: { 'text field': 'table2_3' } },
-            ],
-          })
-          .expect(201);
-
-        table2 = createTable2Result.body;
+        table2 = await createTable(baseId, {
+          name: 'table2',
+          fields: [textFieldRo, numberFieldRo],
+          records: [
+            { fields: { 'text field': 'table2_1' } },
+            { fields: { 'text field': 'table2_2' } },
+            { fields: { 'text field': 'table2_3' } },
+          ],
+        });
 
         // create link field
         const table2LinkFieldRo: IFieldRo = {
@@ -1706,16 +1563,13 @@ describe('OpenAPI link (e2e)', () => {
 
         await createField(table2.id, table2LinkFieldRo);
 
-        const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-        const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
-
-        table1.fields = getFields1Result.body;
-        table2.fields = getFields2Result.body;
+        table1.fields = await getFields(table1.id);
+        table2.fields = await getFields(table2.id);
       });
 
       afterEach(async () => {
-        await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-        await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+        await deleteTable(baseId, table1.id);
+        await deleteTable(baseId, table2.id);
       });
 
       it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -1729,15 +1583,15 @@ describe('OpenAPI link (e2e)', () => {
           id: table1.records[1].id,
         });
 
-        const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+        const table1RecordResult2 = await getRecords(table1.id);
 
         if (type === 'isOneWay') {
           expect(table1.fields[2]).toBeUndefined();
         }
 
         if (type === 'isTwoWay') {
-          expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toBeUndefined();
-          expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toEqual({
+          expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
+          expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toEqual({
             title: 'table2_1',
             id: table2.records[0].id,
           });
@@ -1751,9 +1605,9 @@ describe('OpenAPI link (e2e)', () => {
         });
         await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'AX');
 
-        const table2RecordResult2 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+        const table2RecordResult2 = await getRecords(table2.id);
 
-        expect(table2RecordResult2.body.records[0].fields[table2.fields[2].name!]).toEqual({
+        expect(table2RecordResult2.records[0].fields[table2.fields[2].name!]).toEqual({
           title: 'AX',
           id: table1.records[0].id,
         });
@@ -1767,14 +1621,14 @@ describe('OpenAPI link (e2e)', () => {
         // set text for lookup field
         await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
 
-        const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+        const table1RecordResult2 = await getRecords(table1.id);
 
         if (type === 'isOneWay') {
           expect(table1.fields[2]).toBeUndefined();
         }
 
         if (type === 'isTwoWay') {
-          expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual({
+          expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual({
             title: 'B1',
             id: table2.records[0].id,
           });
@@ -1833,22 +1687,24 @@ describe('OpenAPI link (e2e)', () => {
         if (type === 'isTwoWay') {
           await createRecords(
             table1.id,
-            [
-              { fields: { [table1.fields[2].id]: { id: table2.records[0].id } } },
-              { fields: { [table1.fields[2].id]: { id: table2.records[0].id } } },
-            ],
-            false,
+            {
+              records: [
+                { fields: { [table1.fields[2].id]: { id: table2.records[0].id } } },
+                { fields: { [table1.fields[2].id]: { id: table2.records[0].id } } },
+              ],
+            },
             400
           );
         }
 
         await createRecords(
           table2.id,
-          [
-            { fields: { [table2.fields[2].id]: { id: table1.records[0].id } } },
-            { fields: { [table2.fields[2].id]: { id: table1.records[0].id } } },
-          ],
-          false,
+          {
+            records: [
+              { fields: { [table2.fields[2].id]: { id: table1.records[0].id } } },
+              { fields: { [table2.fields[2].id]: { id: table1.records[0].id } } },
+            ],
+          },
           400
         );
       });
@@ -1913,34 +1769,24 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
-      table1 = createTable1Result.body;
-
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo, numberFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-
-      table2 = createTable2Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
 
       // create link field
       const table1LinkFieldRo: IFieldRo = {
@@ -1967,16 +1813,13 @@ describe('OpenAPI link (e2e)', () => {
       await createField(table1.id, table1LinkFieldRo);
       await createField(table2.id, table2LinkFieldRo);
 
-      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
-
-      table1.fields = getFields1Result.body;
-      table2.fields = getFields2Result.body;
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -1990,10 +1833,10 @@ describe('OpenAPI link (e2e)', () => {
         id: table1.records[1].id,
       });
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toBeUndefined();
-      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should update foreign link field when change lookupField value', async () => {
@@ -2010,15 +1853,15 @@ describe('OpenAPI link (e2e)', () => {
         id: table1.records[0].id,
       });
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toBeUndefined();
 
       await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'AX');
 
-      const table2RecordResult2 = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const table2RecordResult2 = await getRecords(table2.id);
 
-      expect(table2RecordResult2.body.records[0].fields[table2.fields[2].name!]).toEqual({
+      expect(table2RecordResult2.records[0].fields[table2.fields[2].name!]).toEqual({
         title: 'AX',
         id: table1.records[0].id,
       });
@@ -2033,21 +1876,15 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      await request
-        .post(`/api/table/${table2.id}/field`)
-        .send(table2FormulaFieldRo as IFieldRo)
-        .expect(201);
-
+      await createField(table2.id, table2FormulaFieldRo);
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
         title: 'illegal title',
         id: table1.records[1].id,
       });
 
-      const table2RecordResult = await request.get(`/api/table/${table2.id}/record`).expect(200);
+      const table2RecordResult = await getRecords(table2.id);
 
-      expect(table2RecordResult.body.records[0].fields[table2FormulaFieldRo.name!]).toEqual(
-        'table1_2'
-      );
+      expect(table2RecordResult.records[0].fields[table2FormulaFieldRo.name!]).toEqual('table1_2');
     });
 
     it('should update formula field when change oneMany link cell', async () => {
@@ -2059,33 +1896,25 @@ describe('OpenAPI link (e2e)', () => {
         },
       };
 
-      await request
-        .post(`/api/table/${table1.id}/field`)
-        .send(table1FormulaFieldRo as IFieldRo)
-        .expect(201);
+      await createField(table1.id, table1FormulaFieldRo);
 
-      await request
-        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
-        .send({
-          record: {
-            fields: {
-              [table1.fields[2].name]: [
-                { title: 'illegal test1', id: table2.records[0].id },
-                { title: 'illegal test2', id: table2.records[1].id },
-              ],
-            },
+      await updateRecord(table1.id, table1.records[0].id, {
+        record: {
+          fields: {
+            [table1.fields[2].name]: [
+              { title: 'illegal test1', id: table2.records[0].id },
+              { title: 'illegal test2', id: table2.records[1].id },
+            ],
           },
-        } as IUpdateRecordRo)
-        .expect(200);
+        },
+      });
+      const table1RecordResult = await getRecords(table1.id);
 
-      const table1RecordResult = await request.get(`/api/table/${table1.id}/record`).expect(200);
-
-      expect(table1RecordResult.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1.fields[2].name]).toEqual([
         { title: 'table2_1', id: table2.records[0].id },
         { title: 'table2_2', id: table2.records[1].id },
       ]);
-
-      expect(table1RecordResult.body.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
+      expect(table1RecordResult.records[0].fields[table1FormulaFieldRo.name!]).toEqual([
         'table2_1',
         'table2_2',
       ]);
@@ -2111,37 +1940,39 @@ describe('OpenAPI link (e2e)', () => {
         400
       );
 
-      const table1RecordResult2 = await request.get(`/api/table/${table1.id}/record`).expect(200);
+      const table1RecordResult2 = await getRecords(table1.id);
 
-      expect(table1RecordResult2.body.records[0].fields[table1.fields[2].name]).toEqual([
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
         { title: 'B1', id: table2.records[0].id },
         { title: 'B2', id: table2.records[1].id },
       ]);
 
-      expect(table1RecordResult2.body.records[1].fields[table1.fields[2].name]).toBeUndefined();
+      expect(table1RecordResult2.records[1].fields[table1.fields[2].name]).toBeUndefined();
     });
 
     it('should throw error when add a duplicate record in oneMany link field in create record', async () => {
       await createRecords(
         table1.id,
-        [
-          {
-            fields: {
-              [table1.fields[2].id]: [{ id: table2.records[0].id }, { id: table2.records[0].id }],
+        {
+          records: [
+            {
+              fields: {
+                [table1.fields[2].id]: [{ id: table2.records[0].id }, { id: table2.records[0].id }],
+              },
             },
-          },
-        ],
-        false,
+          ],
+        },
         400
       );
 
       await createRecords(
         table1.id,
-        [
-          { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
-          { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
-        ],
-        false,
+        {
+          records: [
+            { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
+            { fields: { [table1.fields[2].id]: [{ id: table2.records[0].id }] } },
+          ],
+        },
         400
       );
     });
@@ -2152,45 +1983,45 @@ describe('OpenAPI link (e2e)', () => {
       // // reject data when typecast is false
       await createRecords(
         table2.id,
-        [
-          {
-            fields: {
-              [table2.fields[2].id]: ['A1'],
+        {
+          typecast: false,
+          records: [
+            {
+              fields: {
+                [table2.fields[2].id]: ['A1'],
+              },
             },
-          },
-        ],
-        false,
+          ],
+        },
         400
       );
 
-      const { records } = await createRecords(
-        table2.id,
-        [
+      const { records } = await createRecords(table2.id, {
+        typecast: true,
+        records: [
           {
             fields: {
               [table2.fields[2].id]: 'A1',
             },
           },
         ],
-        true
-      );
+      });
 
       expect(records[0].fields[table2.fields[2].id]).toEqual({
         id: table1.records[0].id,
         title: 'A1',
       });
 
-      const { records: records2 } = await createRecords(
-        table1.id,
-        [
+      const { records: records2 } = await createRecords(table1.id, {
+        typecast: true,
+        records: [
           {
             fields: {
               [table1.fields[2].id]: 'B2',
             },
           },
         ],
-        true
-      );
+      });
 
       expect(records2[0].fields[table1.fields[2].id]).toEqual([
         {
@@ -2247,17 +2078,13 @@ describe('OpenAPI link (e2e)', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({});
-      table1 = result1.body;
-      const result2 = await request.post(`/api/base/${baseId}/table`).send({
-        name: 'table2',
-      });
-      table2 = result2.body;
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should update many-one record when add both many-one and many-one link', async () => {
@@ -2289,9 +2116,9 @@ describe('OpenAPI link (e2e)', () => {
 
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'y');
 
-      const { records: table1Records } = (
-        await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })
-      ).data;
+      const { records: table1Records } = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
       expect(table1Records[0].fields[manyOneField.id]).toEqual({
         title: 'y',
         id: table2.records[0].id,
@@ -2370,9 +2197,9 @@ describe('OpenAPI link (e2e)', () => {
           id: table2.records[0].id,
         },
       ]);
-      const { records: table1Records1 } = (
-        await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })
-      ).data;
+      const { records: table1Records1 } = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
       expect(table1Records1[0].fields[oneManyField.id]).toEqual([
         {
           title: 'x',
@@ -2382,9 +2209,9 @@ describe('OpenAPI link (e2e)', () => {
 
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'y');
 
-      const { records: table1Records2 } = (
-        await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })
-      ).data;
+      const { records: table1Records2 } = await getRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
       expect(table1Records2[0].fields[oneManyField.id]).toEqual([
         {
           title: 'y',
@@ -2402,17 +2229,17 @@ describe('OpenAPI link (e2e)', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({});
-      table1 = result1.body;
-      const result2 = await request.post(`/api/base/${baseId}/table`).send({
+      table1 = await createTable(baseId, {
+        name: 'table1',
+      });
+      table2 = await createTable(baseId, {
         name: 'table2',
       });
-      table2 = result2.body;
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should clean single link record when delete a record', async () => {
@@ -2539,39 +2366,29 @@ describe('OpenAPI link (e2e)', () => {
         type: FieldType.SingleLineText,
       };
 
-      const createTable1Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          fields: [textFieldRo],
-          records: [
-            { fields: { 'text field': 'table1_1' } },
-            { fields: { 'text field': 'table1_2' } },
-            { fields: { 'text field': 'table1_3' } },
-          ],
-        })
-        .expect(201);
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
 
-      table1 = createTable1Result.body;
-
-      const createTable2Result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table2',
-          fields: [textFieldRo],
-          records: [
-            { fields: { 'text field': 'table2_1' } },
-            { fields: { 'text field': 'table2_2' } },
-            { fields: { 'text field': 'table2_3' } },
-          ],
-        })
-        .expect(201);
-
-      table2 = createTable2Result.body;
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table2_1' } },
+          { fields: { 'text field': 'table2_2' } },
+          { fields: { 'text field': 'table2_3' } },
+        ],
+      });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should update record in two same manyOne link', async () => {
@@ -2588,29 +2405,22 @@ describe('OpenAPI link (e2e)', () => {
       await createField(table1.id, table1LinkFieldRo);
       await createField(table1.id, table1LinkFieldRo);
 
-      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
 
-      table1.fields = getFields1Result.body;
-      table2.fields = getFields2Result.body;
-
-      const result = await request
-        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
-        .send({
-          fieldKeyType: FieldKeyType.Id,
-          record: {
-            fields: {
-              [table1.fields[1].id]: {
-                id: table2.records[0].id,
-              },
-              [table1.fields[2].id]: {
-                id: table2.records[0].id,
-              },
+      const record = await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table1.fields[1].id]: {
+              id: table2.records[0].id,
+            },
+            [table1.fields[2].id]: {
+              id: table2.records[0].id,
             },
           },
-        } as IUpdateRecordRo)
-        .expect(200);
-      const record = result.body as IRecord;
+        },
+      });
       expect(record.fields[table1.fields[1].id]).toEqual({
         id: table2.records[0].id,
         title: 'table2_1',
@@ -2635,33 +2445,26 @@ describe('OpenAPI link (e2e)', () => {
       await createField(table1.id, table1LinkFieldRo);
       await createField(table1.id, table1LinkFieldRo);
 
-      const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-      const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
 
-      table1.fields = getFields1Result.body;
-      table2.fields = getFields2Result.body;
-
-      const result = await request
-        .patch(`/api/table/${table1.id}/record/${table1.records[0].id}`)
-        .send({
-          fieldKeyType: FieldKeyType.Id,
-          record: {
-            fields: {
-              [table1.fields[1].id]: [
-                {
-                  id: table2.records[0].id,
-                },
-              ],
-              [table1.fields[2].id]: [
-                {
-                  id: table2.records[0].id,
-                },
-              ],
-            },
+      const record = await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table1.fields[1].id]: [
+              {
+                id: table2.records[0].id,
+              },
+            ],
+            [table1.fields[2].id]: [
+              {
+                id: table2.records[0].id,
+              },
+            ],
           },
-        } as IUpdateRecordRo)
-        .expect(200);
-      const record = result.body as IRecord;
+        },
+      });
       expect(record.fields[table1.fields[1].id]).toEqual([
         {
           id: table2.records[0].id,
@@ -2681,17 +2484,17 @@ describe('OpenAPI link (e2e)', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
-      const result1 = await request.post(`/api/base/${baseId}/table`).send({});
-      table1 = result1.body;
-      const result2 = await request.post(`/api/base/${baseId}/table`).send({
+      table1 = await createTable(baseId, {
+        name: 'table1',
+      });
+      table2 = await createTable(baseId, {
         name: 'table2',
       });
-      table2 = result2.body;
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
     });
 
     it('should update primary field cell with another cell', async () => {
@@ -2750,34 +2553,24 @@ describe('OpenAPI link (e2e)', () => {
           },
         };
 
-        const createTable1Result = await request
-          .post(`/api/base/${baseId}/table`)
-          .send({
-            fields: [textFieldRo, numberFieldRo],
-            records: [
-              { fields: { 'text field': 'table1_1' } },
-              { fields: { 'text field': 'table1_2' } },
-              { fields: { 'text field': 'table1_3' } },
-            ],
-          })
-          .expect(201);
+        table1 = await createTable(baseId, {
+          fields: [textFieldRo, numberFieldRo],
+          records: [
+            { fields: { 'text field': 'table1_1' } },
+            { fields: { 'text field': 'table1_2' } },
+            { fields: { 'text field': 'table1_3' } },
+          ],
+        });
 
-        table1 = createTable1Result.body;
-
-        const createTable2Result = await request
-          .post(`/api/base/${baseId}/table`)
-          .send({
-            name: 'table2',
-            fields: [textFieldRo, numberFieldRo],
-            records: [
-              { fields: { 'text field': 'table2_1' } },
-              { fields: { 'text field': 'table2_2' } },
-              { fields: { 'text field': 'table2_3' } },
-            ],
-          })
-          .expect(201);
-
-        table2 = createTable2Result.body;
+        table2 = await createTable(baseId, {
+          name: 'table2',
+          fields: [textFieldRo, numberFieldRo],
+          records: [
+            { fields: { 'text field': 'table2_1' } },
+            { fields: { 'text field': 'table2_2' } },
+            { fields: { 'text field': 'table2_3' } },
+          ],
+        });
 
         // create link field
         const table2LinkFieldRo: IFieldRo = {
@@ -2792,16 +2585,13 @@ describe('OpenAPI link (e2e)', () => {
 
         await createField(table2.id, table2LinkFieldRo);
 
-        const getFields1Result = await request.get(`/api/table/${table1.id}/field`).expect(200);
-        const getFields2Result = await request.get(`/api/table/${table2.id}/field`).expect(200);
-
-        table1.fields = getFields1Result.body;
-        table2.fields = getFields2Result.body;
+        table1.fields = await getFields(table1.id);
+        table2.fields = await getFields(table2.id);
       });
 
       afterEach(async () => {
-        await request.delete(`/api/base/${baseId}/table/arbitrary/${table1.id}`);
-        await request.delete(`/api/base/${baseId}/table/arbitrary/${table2.id}`);
+        await deleteTable(baseId, table1.id);
+        await deleteTable(baseId, table2.id);
       });
 
       it('should safe delete link field', async () => {

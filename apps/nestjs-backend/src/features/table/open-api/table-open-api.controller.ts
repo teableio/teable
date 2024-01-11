@@ -2,19 +2,21 @@
 import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
-  getGraphRoSchema,
   getTableQuerySchema,
   ICreateTableRo,
-  IGetGraphRo,
   IGetTableQuery,
   tableRoSchema,
 } from '@teable-group/core';
-import { ISqlQuerySchema, sqlQuerySchema } from '@teable-group/openapi';
+import {
+  getGraphRoSchema,
+  IGetGraphRo,
+  ISqlQuerySchema,
+  sqlQuerySchema,
+} from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { TableService } from '../table.service';
-import { GraphService } from './graph.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
@@ -23,8 +25,7 @@ import { TablePipe } from './table.pipe';
 export class TableController {
   constructor(
     private readonly tableService: TableService,
-    private readonly tableOpenApiService: TableOpenApiService,
-    private readonly graphService: GraphService
+    private readonly tableOpenApiService: TableOpenApiService
   ) {}
 
   @Permissions('table|read')
@@ -74,9 +75,9 @@ export class TableController {
   @Post(':tableId/graph')
   async getCellGraph(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(getGraphRoSchema)) { cell, viewId }: IGetGraphRo
+    @Body(new ZodValidationPipe(getGraphRoSchema)) { cell }: IGetGraphRo
   ) {
-    return await this.graphService.getGraph(tableId, cell, viewId);
+    return await this.tableOpenApiService.getGraph(tableId, cell);
   }
 
   @Permissions('table|read')

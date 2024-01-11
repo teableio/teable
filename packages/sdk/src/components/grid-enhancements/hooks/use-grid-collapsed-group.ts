@@ -1,7 +1,7 @@
 import { GroupPointType, hasNoneOf, FieldType, isNot, isNotEmpty, and } from '@teable-group/core';
 import type {
   IFilter,
-  IGetRecordsQuery,
+  IGetRecordsRo,
   IGroupHeaderPoint,
   IGroupPointsVo,
   IOperator,
@@ -80,7 +80,7 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
     }
 
     if (groupId2DataMap == null || collapsedGroupIds == null || !collapsedGroupIds.size) {
-      return { groupBy: group as IGetRecordsQuery['groupBy'] };
+      return { groupBy: group as IGetRecordsRo['groupBy'] };
     }
 
     const filterQuery: IFilter = {
@@ -119,7 +119,7 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
       });
     }
 
-    return { filter: filterQuery, groupBy: group as IGetRecordsQuery['groupBy'] };
+    return { filter: filterQuery, groupBy: group as IGetRecordsRo['groupBy'] };
   }, [groupId2DataMap, collapsedGroupIds, fieldId2DataMap, group]);
 
   useEffect(() => {

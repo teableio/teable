@@ -1,15 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
+  IAttachmentCellValue,
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecord,
-  IUpdateRecordByIndexRo,
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { UploadType } from '@teable-group/openapi';
 import { forEach, map } from 'lodash';
+import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
+import StorageAdapter from '../../attachments/plugins/adapter';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
@@ -22,7 +25,8 @@ export class RecordOpenApiService {
     private readonly recordCalculateService: RecordCalculateService,
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
-    private readonly fieldConvertingService: FieldConvertingService
+    private readonly fieldConvertingService: FieldConvertingService,
+    private readonly attachmentsStorageService: AttachmentsStorageService
   ) {}
 
   async multipleCreateRecords(
@@ -139,6 +143,35 @@ export class RecordOpenApiService {
           recordField[fieldIdOrName] = newCellValues[i];
         }
       });
+
+      if (field.type === FieldType.Attachment) {
+        // attachment presignedUrl reparation
+        for (const recordField of newRecordsFields) {
+          const attachmentCellValue = recordField[fieldIdOrName] as IAttachmentCellValue;
+          if (!attachmentCellValue) {
+            continue;
+          }
+          recordField[fieldIdOrName] = await Promise.all(
+            attachmentCellValue.map(async (item) => {
+              const { path, mimetype, token } = item;
+              const presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
+                StorageAdapter.getBucket(UploadType.Table),
+                path,
+                token,
+                undefined,
+                {
+                  // eslint-disable-next-line @typescript-eslint/naming-convention
+                  'Content-Type': mimetype,
+                }
+              );
+              return {
+                ...item,
+                presignedUrl,
+              };
+            })
+          );
+        }
+      }
     }
 
     return records.map((record, i) => ({
@@ -181,13 +214,6 @@ export class RecordOpenApiService {
       }
       return snapshots[0].data;
     });
-  }
-
-  async updateRecordByIndex(tableId: string, updateRecordRoByIndexRo: IUpdateRecordByIndexRo) {
-    const { viewId, index, ...updateRecordRo } = updateRecordRoByIndexRo;
-    const recordId = await this.recordService.getRecordIdByIndex(tableId, viewId, index);
-
-    return await this.updateRecordById(tableId, recordId, updateRecordRo);
   }
 
   async deleteRecord(tableId: string, recordId: string) {

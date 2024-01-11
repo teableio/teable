@@ -5,10 +5,10 @@ import { SortFieldAddButton } from './SortFieldAddButton';
 import { SortFieldCommand } from './SortFieldCommand';
 
 interface ISortProps {
-  sortValues?: ISort['sortObjs'];
+  sortValues?: NonNullable<ISort>['sortObjs'];
   limit?: number;
   addBtnText?: string;
-  onChange: (sort?: ISort['sortObjs']) => void;
+  onChange: (sort?: NonNullable<ISort>['sortObjs']) => void;
 }
 
 export function SortContent(props: ISortProps) {
@@ -34,7 +34,7 @@ export function SortContent(props: ISortProps) {
     );
   };
 
-  const onSortChange = (sorts: ISort['sortObjs']) => {
+  const onSortChange = (sorts: NonNullable<ISort>['sortObjs']) => {
     onChange(sorts?.length ? sorts : undefined);
   };
 

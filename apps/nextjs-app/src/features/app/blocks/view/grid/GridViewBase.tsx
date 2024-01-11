@@ -1,5 +1,5 @@
 import type { PermissionAction } from '@teable-group/core';
-import { RowHeightLevel } from '@teable-group/core';
+import { RowHeightLevel, contractColorForTheme } from '@teable-group/core';
 import type {
   IRectangle,
   IPosition,
@@ -434,11 +434,12 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           text: collaboratorText,
           position: {
             x: x,
-            y: y + 8,
+            y: y + 9,
             width: width,
             height: height,
           },
-          contentClassName: 'items-center py-0 px-2 absolute truncate whitespace-nowrap',
+          contentClassName:
+            'items-center py-0 px-2 absolute truncate whitespace-nowrap rounded-t-md',
           contentStyle: {
             right: `-${width / 2}px`,
             top: `-${hoverHeight}px`,
@@ -447,7 +448,12 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             direction: 'rtl',
             lineHeight: `${hoverHeight}px`,
             // multiple collaborators only display the latest one
-            backgroundColor: hexToRGBA(hoverCollaborators.slice(-1)[0].borderColor),
+            backgroundColor: hexToRGBA(
+              contractColorForTheme(
+                hoverCollaborators.slice(-1)[0].borderColor,
+                theme.themeKey ?? 'light'
+              )
+            ),
           },
         });
     }

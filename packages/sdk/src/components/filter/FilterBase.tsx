@@ -1,7 +1,7 @@
-import type { IFilter, IFilterItem } from '@teable-group/core';
+import type { IFilter, IFilterItem, IConjunction } from '@teable-group/core';
 import { getValidFilterOperators } from '@teable-group/core';
 
-import { Plus, Share2 } from '@teable-group/icons';
+import { Plus } from '@teable-group/icons';
 
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
 
@@ -18,27 +18,23 @@ import { isFilterItem, ConditionAddType } from './types';
 
 const title = 'In this view, show records';
 const emptyText = 'No filter conditions are applied';
-const defaultFilter: IFilter = {
+const defaultFilter: NonNullable<IFilter> = {
   conjunction: 'and',
   filterSet: [],
 };
-const defaultGroupFilter: IFilter = {
+const defaultGroupFilter: NonNullable<IFilter> = {
   ...defaultFilter,
   conjunction: 'or',
 };
 
 function FilterBase(props: IFilterBaseProps) {
-  const { onChange, filters: initFilter, fields, children } = props;
+  const { onChange, filters: initFilter, fields, children, contentHeader } = props;
   const { t } = useTranslation();
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
 
   const setFilterHandler = (
     path: IFiltersPath,
-    value:
-      | IFilterItem['value']
-      | IFilter['conjunction']
-      | IFilterItem['fieldId']
-      | IFilterItem['operator']
+    value: IFilterItem['value'] | IConjunction | IFilterItem['fieldId'] | IFilterItem['operator']
   ) => {
     if (filters) {
       const newFilters = produce(filters, (draft) => {
@@ -176,10 +172,7 @@ function FilterBase(props: IFilterBaseProps) {
           align="start"
           className="w-min min-w-[544px] max-w-screen-md p-0"
         >
-          <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
-            <Share2 className="mr-4 h-4 w-4 shrink-0" />
-            <span className="text-muted-foreground">{t('filter.description')}</span>
-          </div>
+          {contentHeader}
           <div className="text-[13px]">
             {filters?.filterSet?.length ? (
               <div className="px-4 pt-3">{title}</div>

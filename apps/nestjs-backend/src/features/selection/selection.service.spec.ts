@@ -1,15 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { faker } from '@faker-js/faker';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldVo, IRecord } from '@teable-group/core';
+import type { IFieldOptionsVo, IFieldVo, IRecord } from '@teable-group/core';
 import {
   CellValueType,
+  Colors,
   DbFieldType,
   FieldKeyType,
   FieldType,
-  SpaceRole,
+  MultiNumberDisplayType,
+  NumberFormattingType,
+  SingleLineTextDisplayType,
+  SingleNumberDisplayType,
+  TIME_ZONE_LIST,
+  defaultUserFieldOptions,
   getPermissions,
   nullsToUndefined,
+  SpaceRole,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { RangeType } from '@teable-group/openapi';
@@ -19,6 +27,7 @@ import type { DeepMockProxy } from 'vitest-mock-extended';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
+import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -36,6 +45,7 @@ describe('selectionService', () => {
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
   let clsService: ClsService<IClsStore>;
+  let aggregationService: AggregationService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -51,6 +61,7 @@ describe('selectionService', () => {
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
     clsService = module.get<ClsService<IClsStore>>(ClsService);
+    aggregationService = module.get<AggregationService>(AggregationService);
 
     prismaService = module.get<PrismaService>(
       PrismaService
@@ -62,8 +73,6 @@ describe('selectionService', () => {
   const viewId = 'view1';
 
   describe('copy', () => {
-    const range = '[[0, 0], [1, 1]]';
-
     it('should return merged ranges data', async () => {
       const mockSelectionCtxRecords = [
         {
@@ -93,8 +102,12 @@ describe('selectionService', () => {
         fields: mockSelectionCtxFields,
       });
 
-      const result = await selectionService.copy(tableId, viewId, {
-        ranges: range,
+      const result = await selectionService.copy(tableId, {
+        viewId,
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
       });
 
       expect(result?.content).toEqual('1\t2\n1\t2');
@@ -236,15 +249,14 @@ describe('selectionService', () => {
         }),
       ];
       const tableData: string[][] = [
-        ['file1.png (https://xxx.xxx/token1),file2.png (https://xxx.xxx/token2)'],
-        ['file3.png (https://xxx.xxx/token3)'],
+        ['file1.png (token1),file2.png (token2)'],
+        ['file3.png (token3)'],
       ];
 
       const mockAttachment: any[] = [
         {
           token: 'token1',
           path: '',
-          url: '',
           size: 1,
           mimetype: 'image/png',
           width: null,
@@ -253,7 +265,6 @@ describe('selectionService', () => {
         {
           token: 'token2',
           path: '',
-          url: '',
           size: 1,
           mimetype: 'image/png',
           width: 10,
@@ -262,7 +273,6 @@ describe('selectionService', () => {
         {
           token: 'token3',
           path: '',
-          url: '',
           size: 1,
           mimetype: 'image/png',
           width: 10,
@@ -290,7 +300,6 @@ describe('selectionService', () => {
           width: true,
           height: true,
           path: true,
-          url: true,
         },
       });
       // Assert the result based on the mocked attachments
@@ -496,7 +505,7 @@ describe('selectionService', () => {
       ].map(createFieldInstanceByVo);
 
       const pasteRo = {
-        range: [
+        ranges: [
           [2, 1],
           [2, 1],
         ] as [number, number][],
@@ -539,9 +548,11 @@ describe('selectionService', () => {
 
       vi.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
 
-      vi.spyOn(recordService, 'getRowCount').mockResolvedValue(mockRecords.length);
+      vi.spyOn(aggregationService, 'performRowCount').mockResolvedValue({
+        rowCount: mockRecords.length,
+      });
       vi.spyOn(recordService, 'getRecordsFields').mockResolvedValue(
-        mockRecords.slice(pasteRo.range[0][1])
+        mockRecords.slice(pasteRo.ranges[0][1])
       );
 
       vi.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
@@ -564,15 +575,18 @@ describe('selectionService', () => {
           tx: {},
           permissions: getPermissions(SpaceRole.Owner),
         },
-        async () => await selectionService.paste(tableId, viewId, pasteRo)
+        async () => await selectionService.paste(tableId, { viewId, ...pasteRo })
       );
 
       // Assertions
       expect(selectionService['parseCopyContent']).toHaveBeenCalledWith(content);
-      expect(recordService.getRowCount).toHaveBeenCalledWith(tableId, viewId);
+      expect(aggregationService.performRowCount).toHaveBeenCalledWith(tableId, { viewId });
       expect(recordService.getRecordsFields).toHaveBeenCalledWith(tableId, {
         viewId,
         skip: 1,
+        projection: {
+          fieldId3: true,
+        },
         take: tableData.length,
         fieldKeyType: 'id',
       });
@@ -637,15 +651,13 @@ describe('selectionService', () => {
       recordOpenApiService.updateRecords = vi.fn().mockResolvedValue(null);
 
       // Call the clear method
-      await selectionService.clear(tableId, viewId, clearRo);
+      await selectionService.clear(tableId, { viewId, ...clearRo });
 
       // Expect the methods to have been called with the correct parameters
-      expect(selectionService['getSelectionCtxByRange']).toHaveBeenCalledWith(
-        tableId,
+      expect(selectionService['getSelectionCtxByRange']).toHaveBeenCalledWith(tableId, {
         viewId,
-        clearRo.ranges,
-        undefined
-      );
+        ranges: clearRo.ranges,
+      });
       expect(selectionService['fillCells']).toHaveBeenCalledWith({
         tableId,
         tableData: [],
@@ -653,6 +665,319 @@ describe('selectionService', () => {
         records,
       });
       expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith(tableId, updateRecordsRo);
+    });
+  });
+
+  describe('optionsRoToVoByCvType', () => {
+    it('should return correct options for Number type', () => {
+      const cellValueType = CellValueType.Number;
+      const options: IFieldOptionsVo = {
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 3,
+        },
+        showAs: {
+          type: faker.helpers.arrayElement(Object.values(SingleNumberDisplayType)),
+          color: faker.helpers.arrayElement(Object.values(Colors)),
+          showValue: faker.datatype.boolean(),
+          maxValue: faker.number.int(),
+        },
+      };
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.Number,
+        options,
+      });
+    });
+
+    it('should return correct options for DateTime type', () => {
+      const cellValueType = CellValueType.DateTime;
+      const options: IFieldOptionsVo = {
+        formatting: {
+          date: 'MM/DD/YYYY',
+          time: 'HH:mm',
+          timeZone: TIME_ZONE_LIST[0],
+        },
+      };
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.Date,
+        options,
+      });
+    });
+
+    it('should return correct options for String type', () => {
+      const cellValueType = CellValueType.String;
+      const options: IFieldOptionsVo = {
+        showAs: {
+          type: faker.helpers.arrayElement(Object.values(SingleLineTextDisplayType)),
+        },
+      };
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.SingleLineText,
+        options,
+      });
+    });
+
+    it('should return correct options for Boolean type', () => {
+      const cellValueType = CellValueType.Boolean;
+      const options: IFieldOptionsVo = {};
+
+      const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
+
+      expect(result).toEqual({
+        type: FieldType.Checkbox,
+        options: {},
+      });
+    });
+
+    it('should throw BadRequestException for invalid cellValueType', () => {
+      const cellValueType = 'InvalidType' as any;
+      const options: IFieldOptionsVo = {};
+
+      expect(() => selectionService['optionsRoToVoByCvType'](cellValueType, options)).toThrowError(
+        'Invalid cellValueType'
+      );
+    });
+  });
+
+  describe('fieldVoToRo', () => {
+    it('should return default SingleLineText field if no field is provided', () => {
+      const result = selectionService['fieldVoToRo'](undefined);
+
+      expect(result).toEqual({
+        type: FieldType.SingleLineText,
+      });
+    });
+
+    it('should return correct User field for CreatedBy and LastModifiedBy types', () => {
+      const createdByField: IFieldVo = {
+        type: FieldType.CreatedBy,
+        id: '',
+        name: '',
+        description: '',
+        isComputed: true,
+        options: undefined as any,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const lastModifiedByField: IFieldVo = {
+        type: FieldType.LastModifiedBy,
+        id: '',
+        options: undefined as any,
+        name: '',
+        isComputed: true,
+        description: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const createdByResult = selectionService['fieldVoToRo'](createdByField);
+      const lastModifiedByResult = selectionService['fieldVoToRo'](lastModifiedByField);
+
+      expect(createdByResult).toEqual({
+        type: FieldType.User,
+        options: defaultUserFieldOptions,
+        name: '',
+        description: '',
+      });
+
+      expect(lastModifiedByResult).toEqual({
+        type: FieldType.User,
+        options: defaultUserFieldOptions,
+        name: '',
+        description: '',
+      });
+    });
+
+    it('should handle computed fields with valid cellValueType', () => {
+      const computedField: IFieldVo = {
+        id: '',
+        name: '',
+        description: '',
+        type: FieldType.Formula,
+        isComputed: true,
+        cellValueType: CellValueType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const optionsRoToVoByCvTypeMock = vitest.spyOn(
+        selectionService as any,
+        'optionsRoToVoByCvType'
+      );
+
+      const result = selectionService['fieldVoToRo'](computedField);
+
+      expect(result).toEqual({
+        name: '',
+        description: '',
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+      });
+
+      expect(optionsRoToVoByCvTypeMock).toHaveBeenCalledWith(
+        computedField.cellValueType,
+        computedField.options
+      );
+
+      optionsRoToVoByCvTypeMock.mockRestore();
+    });
+
+    it('should handle computed fields with invalid cellValueType', () => {
+      const computedField: IFieldVo = {
+        id: '',
+        name: '',
+        description: '',
+        type: FieldType.Number,
+        isComputed: false,
+        cellValueType: CellValueType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+        dbFieldType: DbFieldType.Integer,
+        dbFieldName: '',
+      };
+
+      const optionsRoToVoByCvTypeMock = vitest.spyOn(
+        selectionService as any,
+        'optionsRoToVoByCvType'
+      );
+
+      const result = selectionService['fieldVoToRo'](computedField);
+
+      expect(result).toEqual({
+        name: '',
+        description: '',
+        type: FieldType.Number,
+        options: {
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+          showAs: {
+            type: MultiNumberDisplayType.Bar,
+            color: Colors.Blue,
+            showValue: true,
+            maxValue: 100,
+          },
+        },
+      });
+
+      expect(optionsRoToVoByCvTypeMock).not.toHaveBeenCalled();
+
+      optionsRoToVoByCvTypeMock.mockRestore();
+    });
+  });
+
+  describe('lookupOptionsRoToVo', () => {
+    it('should return MultipleSelect options for SingleSelect with isMultipleCellValue', () => {
+      const field: IFieldVo = {
+        type: FieldType.SingleSelect,
+        isMultipleCellValue: true,
+        options: {
+          choices: [],
+        },
+        id: '',
+        name: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const result = selectionService['lookupOptionsRoToVo'](field);
+
+      expect(result).toEqual({
+        type: FieldType.MultipleSelect,
+        options: field.options,
+      });
+    });
+
+    it('should return User options with isMultiple true for FieldType User with isMultipleCellValue', () => {
+      const field: IFieldVo = {
+        type: FieldType.User,
+        isMultipleCellValue: true,
+        options: {
+          isMultiple: false,
+          shouldNotify: false,
+        },
+        id: '',
+        name: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+      const result = selectionService['lookupOptionsRoToVo'](field);
+
+      expect(result).toEqual({
+        type: FieldType.User,
+        options: {
+          ...field.options,
+          isMultiple: true,
+        },
+      });
+    });
+
+    it('should return the same type and options for other cases', () => {
+      const field: IFieldVo = {
+        type: FieldType.SingleLineText,
+        isMultipleCellValue: false,
+        options: {},
+        id: '',
+        name: '',
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        dbFieldName: '',
+      };
+
+      const result = selectionService['lookupOptionsRoToVo'](field);
+
+      expect(result).toEqual({
+        type: field.type,
+        options: field.options,
+      });
     });
   });
 });

@@ -1,20 +1,17 @@
-import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
-import type { ITableFullVo } from '@teable-group/core';
-import { StatisticsFunc } from '@teable-group/core';
+import type { ITableFullVo, StatisticsFunc } from '@teable-group/core';
 import { getAggregation, getRowCount } from '@teable-group/openapi';
-import type request from 'supertest';
-import { createRecords, initApp } from './utils/init-app';
+import { x_20 } from './data-helpers/20x';
+import { SIMPLE_AGGREGATION_CACES } from './data-helpers/caces';
+import { createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AggregationController (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -41,367 +38,43 @@ describe('OpenAPI AggregationController (e2e)', () => {
 
   describe('simple aggregation', () => {
     let table: ITableFullVo;
-    beforeEach(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-        })
-        .expect(201);
-      table = result.body;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'agg_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
     });
 
-    afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
+    afterAll(async () => {
+      await deleteTable(baseId, table.id);
     });
 
     it('should get rowCount', async () => {
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
-            [table.fields[1].id]: faker.number.int(),
-          },
-        },
-      ]);
-
       const { rowCount } = await getViewRowCount(table.id, table.views[0].id);
-      expect(rowCount).toEqual(4);
+      expect(rowCount).toEqual(23);
     });
 
-    it('should get empty number', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const aggFunc = StatisticsFunc.Empty;
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[0].id,
-            total: {
-              aggFunc,
-              value: 3,
-            },
-          },
-        ]),
-      });
+    test.each(SIMPLE_AGGREGATION_CACES)(
+      `should agg func [$aggFunc] value: $expectValue`,
+      async ({ fieldIndex, aggFunc, expectValue }) => {
+        const tableId = table.id;
+        const viewId = table.views[0].id;
+        const fieldId = table.fields[fieldIndex].id;
 
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
-          },
-        },
-      ]);
+        const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+        expect(result).toBeDefined();
+        expect(result.aggregations?.length).toBeGreaterThan(0);
 
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: 4,
-            },
-          },
-        ]),
-      });
-    });
+        const [{ total }] = result.aggregations!;
+        expect(total?.aggFunc).toBe(aggFunc);
 
-    it('should get filled number', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const aggFunc = StatisticsFunc.Filled;
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[0].id,
-            total: {
-              aggFunc,
-              value: 0,
-            },
-          },
-        ]),
-      });
-
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
-          },
-        },
-      ]);
-
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[0].id,
-            total: {
-              aggFunc,
-              value: 1,
-            },
-          },
-        ]),
-      });
-    });
-
-    it('should get unique number', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const aggFunc = StatisticsFunc.Unique;
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[0].id,
-            total: {
-              aggFunc,
-              value: 0,
-            },
-          },
-        ]),
-      });
-
-      const identicalStr = faker.string.sample();
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[0].id]: identicalStr,
-          },
-        },
-        {
-          fields: {
-            [table.fields[0].id]: identicalStr,
-          },
-        },
-      ]);
-
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[0].id,
-            total: {
-              aggFunc,
-              value: 1,
-            },
-          },
-        ]),
-      });
-
-      await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: faker.string.sample(),
-          },
-        },
-      ]);
-
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[0].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[0].id,
-            total: {
-              aggFunc,
-              value: 2,
-            },
-          },
-        ]),
-      });
-    });
-
-    it('should get max number', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const aggFunc = StatisticsFunc.Max;
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: null,
-            },
-          },
-        ]),
-      });
-
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 9,
-          },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 11,
-          },
-        },
-      ]);
-
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: 11,
-            },
-          },
-        ]),
-      });
-    });
-
-    it('should get min number', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const aggFunc = StatisticsFunc.Min;
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: null,
-            },
-          },
-        ]),
-      });
-
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 22,
-          },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 0,
-          },
-        },
-      ]);
-
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: 0,
-            },
-          },
-        ]),
-      });
-    });
-
-    it('should get sum number', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const aggFunc = StatisticsFunc.Sum;
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: null,
-            },
-          },
-        ]),
-      });
-
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 6,
-          },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 60,
-          },
-        },
-      ]);
-
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: 66,
-            },
-          },
-        ]),
-      });
-    });
-
-    it('should get average number', async () => {
-      const tableId = table.id;
-      const viewId = table.views[0].id;
-      const aggFunc = StatisticsFunc.Average;
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: null,
-            },
-          },
-        ]),
-      });
-
-      await createRecords(tableId, [
-        {
-          fields: {
-            [table.fields[1].id]: 6.6,
-          },
-        },
-        {
-          fields: {
-            [table.fields[1].id]: 9.9,
-          },
-        },
-      ]);
-
-      expect(
-        await getViewAggregations(tableId, viewId, aggFunc, [table.fields[1].id])
-      ).toMatchObject({
-        aggregations: expect.objectContaining([
-          {
-            fieldId: table.fields[1].id,
-            total: {
-              aggFunc,
-              value: 8.25,
-            },
-          },
-        ]),
-      });
-    });
+        if (typeof expectValue === 'string') {
+          expect(total?.value).toBe(expectValue);
+        } else {
+          expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      }
+    );
   });
 });

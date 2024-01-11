@@ -1,7 +1,6 @@
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { getRecordsQuerySchema } from '../record/record.schema';
-import { filterSchema } from '../view/filter/filter';
+import { contentQueryBaseSchema, queryBaseSchema } from '../record/record.schema';
 import { StatisticsFunc } from './statistics-func.enum';
 
 export const aggFuncSchema = z.nativeEnum(StatisticsFunc);
@@ -53,31 +52,24 @@ export const rawRowCountValueSchema = baseRawAggregationValueSchema.pick({
 
 export type IRawRowCountValue = z.infer<typeof rawRowCountValueSchema>;
 
-export const rowCountRoSchema = getRecordsQuerySchema.pick({
-  viewId: true,
-  filter: true,
-  filterByTql: true,
-  filterLinkCellCandidate: true,
-  filterLinkCellSelected: true,
-});
-
-export type IRowCountRo = z.infer<typeof rowCountRoSchema>;
-
 export const rowCountVoSchema = rawRowCountValueSchema;
 
 export type IRowCountVo = z.infer<typeof rowCountVoSchema>;
 
-export const aggregationRoSchema = z.object({
-  viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
-    description: 'The id of the view.',
-  }),
+export const aggregationFieldSchema = z.object({
+  fieldId: z.string(),
+  statisticFunc: z.nativeEnum(StatisticsFunc),
+});
+
+export type IAggregationField = z.infer<typeof aggregationFieldSchema>;
+
+export const aggregationRoSchema = queryBaseSchema.extend({
   field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
-  filter: filterSchema.optional(),
 });
 
 export type IAggregationRo = z.infer<typeof aggregationRoSchema>;
 
-export const groupPointsRoSchema = getRecordsQuerySchema.pick({
+export const groupPointsRoSchema = contentQueryBaseSchema.pick({
   viewId: true,
   filter: true,
   groupBy: true,

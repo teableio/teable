@@ -1,11 +1,13 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
+  IAggregationField,
+  IColumnMeta,
   IFilter,
-  IGetRecordsQuery,
+  IGetRecordsRo,
+  IQueryBaseRo,
   IRawAggregations,
   IRawAggregationValue,
   IRawRowCountValue,
-  IColumnMeta,
   IGroupPoint,
   IGroupPointsRo,
 } from '@teable-group/core';
@@ -21,15 +23,17 @@ import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { groupBy, isEmpty, isObject } from 'lodash';
+import { groupBy, isDate, isEmpty, isObject } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IClsStore } from '../../types/cls';
 import { string2Hash } from '../../utils';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
-import { SortQueryTranslator } from '../record/translator/sort-query-translator';
 
 export type IWithView = {
   viewId?: string;
@@ -45,12 +49,7 @@ type ICustomFieldStats = {
 type IStatisticsData = {
   viewId?: string;
   filter?: IFilter;
-  statisticFields?: IStatisticField[];
-};
-
-type IStatisticField = {
-  field: IFieldInstance;
-  statisticFunc: StatisticsFunc;
+  statisticFields?: IAggregationField[];
 };
 
 @Injectable()
@@ -58,10 +57,11 @@ export class AggregationService {
   private logger = new Logger(AggregationService.name);
 
   constructor(
-    private recordService: RecordService,
-    private prisma: PrismaService,
+    private readonly recordService: RecordService,
+    private readonly prisma: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @Inject('DbProvider') private dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async performAggregation(params: {
@@ -70,6 +70,8 @@ export class AggregationService {
     withView?: IWithView;
   }): Promise<IRawAggregationValue> {
     const { tableId, withFieldIds, withView } = params;
+    // Retrieve the current user's ID to build user-related query conditions
+    const currentUserId = this.cls.get('user.id');
 
     const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
       tableId,
@@ -86,6 +88,7 @@ export class AggregationService {
       fieldInstanceMap,
       filter,
       statisticFields,
+      withUserId: currentUserId,
     });
 
     const aggregationResult = rawAggregationData && rawAggregationData[0];
@@ -108,17 +111,17 @@ export class AggregationService {
     return { aggregations };
   }
 
-  async performRowCount(params: {
-    tableId: string;
-    filterLinkCellCandidate?: IGetRecordsQuery['filterLinkCellCandidate'];
-    filterLinkCellSelected?: IGetRecordsQuery['filterLinkCellSelected'];
-    withView?: IWithView;
-  }): Promise<IRawRowCountValue> {
-    const { tableId, filterLinkCellCandidate, filterLinkCellSelected, withView } = params;
+  async performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue> {
+    const { filterLinkCellCandidate, filterLinkCellSelected } = queryRo;
+    // Retrieve the current user's ID to build user-related query conditions
+    const currentUserId = this.cls.get('user.id');
 
     const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
       tableId,
-      withView,
+      withView: {
+        viewId: queryRo.viewId,
+        customFilter: queryRo.filter,
+      },
     });
 
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
@@ -137,6 +140,7 @@ export class AggregationService {
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      withUserId: currentUserId,
     });
     return {
       rowCount: Number(rawRowCountData[0]?.count ?? 0),
@@ -251,7 +255,7 @@ export class AggregationService {
     columnMeta?: IColumnMeta,
     customFieldStats?: ICustomFieldStats[]
   ) {
-    let calculatedStatisticFields: IStatisticField[] | undefined;
+    let calculatedStatisticFields: IAggregationField[] | undefined;
     const customFieldStatsGrouped = groupBy(customFieldStats, 'fieldId');
 
     fieldInstances.forEach((fieldInstance) => {
@@ -272,7 +276,7 @@ export class AggregationService {
         if (hidden !== true && funcList && funcList.length) {
           const statisticFieldList = funcList.map((item) => {
             return {
-              field: fieldInstance,
+              fieldId,
               statisticFunc: item,
             };
           });
@@ -287,9 +291,10 @@ export class AggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
-    statisticFields?: IStatisticField[];
+    statisticFields?: IAggregationField[];
+    withUserId?: string;
   }) {
-    const { dbTableName, fieldInstanceMap, filter, statisticFields } = params;
+    const { dbTableName, fieldInstanceMap, filter, statisticFields, withUserId } = params;
     if (!statisticFields?.length) {
       return;
     }
@@ -299,16 +304,16 @@ export class AggregationService {
       .with(tableAlias, (qb) => {
         qb.select('*').from(dbTableName);
         if (filter) {
-          this.dbProvider.filterQuery(qb, fieldInstanceMap, filter).appendQueryBuilder();
+          this.dbProvider
+            .filterQuery(qb, fieldInstanceMap, filter, { withUserId })
+            .appendQueryBuilder();
         }
       })
       .from(tableAlias);
 
-    statisticFields.forEach(({ field, statisticFunc }) => {
-      this.getAggregationFunc(queryBuilder, tableAlias, field, statisticFunc);
-    });
-
-    const aggSql = queryBuilder.toQuery();
+    const aggSql = this.dbProvider
+      .aggregationQuery(queryBuilder, tableAlias, fieldInstanceMap, statisticFields)
+      .toQuerySql();
     return this.prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
   }
 
@@ -317,14 +322,18 @@ export class AggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
-    filterLinkCellCandidate?: IGetRecordsQuery['filterLinkCellCandidate'];
+    filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
+    withUserId?: string;
   }) {
-    const { tableId, dbTableName, fieldInstanceMap, filter, filterLinkCellCandidate } = params;
+    const { tableId, dbTableName, fieldInstanceMap, filter, filterLinkCellCandidate, withUserId } =
+      params;
 
     const queryBuilder = this.knex(dbTableName);
 
     if (filter) {
-      this.dbProvider.filterQuery(queryBuilder, fieldInstanceMap, filter).appendQueryBuilder();
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
+        .appendQueryBuilder();
     }
 
     if (filterLinkCellCandidate) {
@@ -338,25 +347,32 @@ export class AggregationService {
     return this.getRowCount(this.prisma, queryBuilder);
   }
 
+  private convertValueToNumberOrString(currentValue: unknown): number | string | null {
+    if (typeof currentValue === 'bigint' || typeof currentValue === 'number') {
+      return Number(currentValue);
+    }
+    if (isDate(currentValue)) {
+      return currentValue.toISOString();
+    }
+    return currentValue?.toString() ?? null;
+  }
+
+  private calculateDateRangeOfMonths(currentValue: string): number {
+    const [maxTime, minTime] = currentValue.split(',');
+    return maxTime && minTime ? dayjs(maxTime).diff(minTime, 'month') : 0;
+  }
+
   private formatConvertValue = (currentValue: unknown, aggFunc?: StatisticsFunc) => {
-    let convertValue =
-      typeof currentValue === 'bigint' || typeof currentValue === 'number'
-        ? Number(currentValue)
-        : currentValue?.toString() ?? null;
+    let convertValue = this.convertValueToNumberOrString(currentValue);
 
     if (!aggFunc) {
       return convertValue;
     }
 
-    if (aggFunc === StatisticsFunc.DateRangeOfMonths && currentValue) {
-      const [maxTime, minTime] = (currentValue as string).split(',');
-
-      if (!maxTime || !minTime) {
-        convertValue = 0;
-      } else {
-        convertValue = dayjs(maxTime).diff(minTime, 'month');
-      }
+    if (aggFunc === StatisticsFunc.DateRangeOfMonths && typeof currentValue === 'string') {
+      convertValue = this.calculateDateRangeOfMonths(currentValue);
     }
+
     const defaultToZero = [
       StatisticsFunc.PercentEmpty,
       StatisticsFunc.PercentFilled,
@@ -364,47 +380,12 @@ export class AggregationService {
       StatisticsFunc.PercentChecked,
       StatisticsFunc.PercentUnChecked,
     ];
+
     if (defaultToZero.includes(aggFunc)) {
       convertValue = convertValue ?? 0;
     }
     return convertValue;
   };
-
-  private getAggregationFunc(
-    kq: Knex.QueryBuilder,
-    dbTableName: string,
-    field: IFieldInstance,
-    func: StatisticsFunc
-  ) {
-    let rawSql: string;
-
-    const { id: fieldId, isMultipleCellValue } = field;
-
-    const ignoreMcvFunc = [
-      StatisticsFunc.Empty,
-      StatisticsFunc.UnChecked,
-      StatisticsFunc.Filled,
-      StatisticsFunc.Checked,
-      StatisticsFunc.PercentEmpty,
-      StatisticsFunc.PercentUnChecked,
-      StatisticsFunc.PercentFilled,
-      StatisticsFunc.PercentChecked,
-    ];
-
-    if (isMultipleCellValue && !ignoreMcvFunc.includes(func)) {
-      const joinTable = `${fieldId}_mcv`;
-
-      const withRawSql = this.getDatabaseAggFunc(this.dbProvider, dbTableName, field, func);
-      kq.with(`${fieldId}_mcv`, this.knex.raw(withRawSql));
-      kq.joinRaw(`, ${this.knex.ref(joinTable)}`);
-
-      rawSql = `MAX(${this.knex.ref(`${joinTable}.value`)})`;
-    } else {
-      rawSql = this.getDatabaseAggFunc(this.dbProvider, dbTableName, field, func);
-    }
-
-    return kq.select(this.knex.raw(`${rawSql} AS ??`, [`${fieldId}_${func}`]));
-  }
 
   private async getDbTableName(prisma: Prisma.TransactionClient, tableId: string) {
     const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
@@ -426,18 +407,6 @@ export class AggregationService {
     const rowCountSql = queryBuilder.count({ count: '*' });
 
     return prisma.$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
-  }
-
-  private getDatabaseAggFunc(
-    dbProvider: IDbProvider,
-    dbTableName: string,
-    field: IFieldInstance,
-    func: StatisticsFunc
-  ): string {
-    const funcName = func.toString();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (dbProvider.aggregationFunction(dbTableName, field) as any)[funcName]?.();
   }
 
   @Timing()
@@ -504,12 +473,7 @@ export class AggregationService {
         .appendQueryBuilder();
     }
 
-    new SortQueryTranslator(
-      this.knex,
-      queryBuilder,
-      fieldInstanceMap,
-      groupBy
-    ).appendQueryBuilder();
+    this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
 
     queryBuilder.select(groupDbFieldNames).count({ __c: '*' }).groupBy(groupDbFieldNames);
 

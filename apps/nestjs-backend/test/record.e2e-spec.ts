@@ -1,34 +1,29 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type {
-  ICreateRecordsRo,
-  IFieldRo,
-  IRecordsVo,
-  ISelectFieldOptions,
-  ITableFullVo,
-  IUpdateRecordByIndexRo,
-} from '@teable-group/core';
+import type { IFieldRo, ISelectFieldOptions, ITableFullVo } from '@teable-group/core';
 import { CellFormat, FieldKeyType, FieldType } from '@teable-group/core';
-import { getRecords } from '@teable-group/openapi';
-import type request from 'supertest';
 import {
   createField,
   createRecords,
+  createTable,
+  deleteRecord,
+  deleteRecords,
+  deleteTable,
   getField,
   getRecord,
+  getRecords,
+  getViews,
   initApp,
   updateRecordByApi,
 } from './utils/init-app';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
@@ -38,39 +33,34 @@ describe('OpenAPI RecordController (e2e)', () => {
   describe('simple curd', () => {
     let table: ITableFullVo;
     beforeEach(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-        })
-        .expect(201);
-      table = result.body;
+      table = await createTable(baseId, { name: 'table1' });
     });
 
     afterEach(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
+      await deleteTable(baseId, table.id);
     });
 
     it('should get records', async () => {
-      const result = await request.get(`/api/table/${table.id}/record`).expect(200);
-      expect(result.body.records).toBeInstanceOf(Array);
-      // console.log('result: ', result.body);
+      const result = await getRecords(table.id);
+      expect(result.records).toBeInstanceOf(Array);
     });
 
     it('should get string records', async () => {
-      const createdRecord = await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: 'text value',
-            [table.fields[1].id]: 123,
+      const createdRecord = await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: 'text value',
+              [table.fields[1].id]: 123,
+            },
           },
-        },
-      ]);
+        ],
+      });
 
-      const { records } = (
-        await getRecords(table.id, { cellFormat: CellFormat.Text, fieldKeyType: FieldKeyType.Id })
-      ).data;
-
+      const { records } = await getRecords(table.id, {
+        cellFormat: CellFormat.Text,
+        fieldKeyType: FieldKeyType.Id,
+      });
       expect(records[3].fields[table.fields[0].id]).toEqual('text value');
       expect(records[3].fields[table.fields[1].id]).toEqual('123.00');
 
@@ -82,65 +72,52 @@ describe('OpenAPI RecordController (e2e)', () => {
 
     it('should create a record', async () => {
       const value1 = 'New Record' + new Date();
-      const res1 = await request
-        .post(`/api/table/${table.id}/record`)
-        .send({
-          records: [
-            {
-              fields: {
-                [table.fields[0].name]: value1,
-              },
+      const res1 = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
             },
-          ],
-        })
-        .expect(201);
-      expect(res1.body.records[0].fields[table.fields[0].name]).toEqual(value1);
+          },
+        ],
+      });
+      expect(res1.records[0].fields[table.fields[0].name]).toEqual(value1);
 
-      const result = await request
-        .get(`/api/table/${table.id}/record`)
-        .query({
-          skip: 0,
-          take: 1000,
-        })
-        .expect(200);
-      expect(result.body.records).toHaveLength(4);
+      const result = await getRecords(table.id, { skip: 0, take: 1000 });
+      expect(result.records).toHaveLength(4);
 
       const value2 = 'New Record' + new Date();
       // test fieldKeyType is id
-      const res2 = await request
-        .post(`/api/table/${table.id}/record`)
-        .send({
-          fieldKeyType: FieldKeyType.Id,
-          records: [
-            {
-              fields: {
-                [table.fields[0].id]: value2,
-              },
+      const res2 = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: value2,
             },
-          ],
-        } as ICreateRecordsRo)
-        .expect(201);
+          },
+        ],
+      });
 
-      expect(res2.body.records[0].fields[table.fields[0].id]).toEqual(value2);
+      expect(res2.records[0].fields[table.fields[0].id]).toEqual(value2);
     });
 
     it('should create a record with order', async () => {
-      const viewResponse = await request.get(`/api/table/${table.id}/view`).expect(200);
-      const viewId = viewResponse.body[0].id;
-      const res = await request
-        .post(`/api/table/${table.id}/record`)
-        .send({
-          records: [
-            {
-              fields: {},
-              recordOrder: {
-                [viewId]: 0.6,
-              },
+      const viewResponse = await getViews(table.id);
+      const viewId = viewResponse[0].id;
+      const res = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+            recordOrder: {
+              [viewId]: 0.6,
             },
-          ],
-        })
-        .expect(201);
-      expect(res.body.records[0].recordOrder[viewId]).toEqual(0.6);
+          },
+        ],
+      });
+
+      expect(res.records[0].recordOrder[viewId]).toEqual(0.6);
     });
 
     it('should update record', async () => {
@@ -153,47 +130,10 @@ describe('OpenAPI RecordController (e2e)', () => {
 
       expect(record.fields[table.fields[0].id]).toEqual('new value');
 
-      const result = await request
-        .get(`/api/table/${table.id}/record`)
-        .query({
-          skip: 0,
-          take: 1000,
-        })
-        .expect(200);
-      expect(result.body.records).toHaveLength(3);
-      expect(result.body.records[0].fields[table.fields[0].name]).toEqual('new value');
-    });
+      const result = await getRecords(table.id, { skip: 0, take: 1000 });
 
-    it('should update record by index', async () => {
-      const viewResponse = await request.get(`/api/table/${table.id}/view`).expect(200);
-
-      const firstTextField = table.fields.find((field) => field.type === FieldType.SingleLineText);
-      if (!firstTextField) {
-        throw new Error('can not find text field');
-      }
-
-      await request
-        .patch(`/api/table/${table.id}/record`)
-        .send({
-          viewId: viewResponse.body[0].id,
-          index: 1,
-          record: {
-            fields: {
-              [firstTextField.name]: 'new value',
-            },
-          },
-        } as IUpdateRecordByIndexRo)
-        .expect(200);
-
-      const result = await request
-        .get(`/api/table/${table.id}/record`)
-        .query({
-          skip: 0,
-          take: 1000,
-        })
-        .expect(200);
-      expect(result.body.records).toHaveLength(3);
-      expect(result.body.records[1].fields[firstTextField.name]).toEqual('new value');
+      expect(result.records).toHaveLength(3);
+      expect(result.records[0].fields[table.fields[0].name]).toEqual('new value');
     });
 
     it('should batch create records', async () => {
@@ -207,111 +147,92 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
       }));
 
-      await request
-        .post(`/api/table/${table.id}/record`)
-        .send({
-          records,
-        })
-        .expect(201);
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records,
+      });
 
       console.timeEnd(`create ${count} records`);
     });
 
     it('should delete a record', async () => {
       const value1 = 'New Record' + new Date();
-      const addRecordRes = await request
-        .post(`/api/table/${table.id}/record`)
-        .send({
-          records: [
-            {
-              fields: {
-                [table.fields[0].name]: value1,
-              },
+      const addRecordRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
             },
-          ],
-        })
-        .expect(201);
+          },
+        ],
+      });
 
-      await request
-        .get(`/api/table/${table.id}/record/${addRecordRes.body.records[0].id}`)
-        .expect(200);
+      await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
 
-      await request
-        .delete(`/api/table/${table.id}/record/${addRecordRes.body.records[0].id}`)
-        .expect(200);
+      await deleteRecord(table.id, addRecordRes.records[0].id);
 
-      await request
-        .get(`/api/table/${table.id}/record/${addRecordRes.body.records[0].id}`)
-        .expect(404);
+      await getRecord(table.id, addRecordRes.records[0].id, undefined, 404);
     });
 
     it('should batch delete records', async () => {
       const value1 = 'New Record' + new Date();
-      const addRecordsRes = await request
-        .post(`/api/table/${table.id}/record`)
-        .send({
-          records: [
-            {
-              fields: {
-                [table.fields[0].name]: value1,
-              },
+      const addRecordsRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
             },
-            {
-              fields: {
-                [table.fields[0].name]: value1,
-              },
+          },
+          {
+            fields: {
+              [table.fields[0].name]: value1,
             },
-          ],
-        })
-        .expect(201);
-      const records = (addRecordsRes.body as IRecordsVo).records;
-      await request.get(`/api/table/${table.id}/record/${records[0].id}`).expect(200);
-      await request.get(`/api/table/${table.id}/record/${records[1].id}`).expect(200);
+          },
+        ],
+      });
+      const records = addRecordsRes.records;
 
-      await request
-        .delete(`/api/table/${table.id}/record`)
-        .query({
-          recordIds: records.map((record) => record.id),
-        })
-        .expect(200);
+      await getRecord(table.id, records[0].id, undefined, 200);
+      await getRecord(table.id, records[1].id, undefined, 200);
 
-      await request.get(`/api/table/${table.id}/record/${records[0].id}`).expect(404);
-      await request.get(`/api/table/${table.id}/record/${records[1].id}`).expect(404);
+      await deleteRecords(
+        table.id,
+        records.map((record) => record.id)
+      );
+
+      await getRecord(table.id, records[0].id, undefined, 404);
+      await getRecord(table.id, records[1].id, undefined, 404);
     });
 
     it('should create a record after delete a record', async () => {
       const value1 = 'New Record' + new Date();
-      await request.delete(`/api/table/${table.id}/record/${table.records[0].id}`).expect(200);
+      await deleteRecord(table.id, table.records[0].id);
 
-      await request
-        .post(`/api/table/${table.id}/record`)
-        .send({
-          records: [
-            {
-              fields: {
-                [table.fields[0].name]: value1,
-              },
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
             },
-          ],
-        })
-        .expect(201);
+          },
+        ],
+      });
     });
   });
 
   describe('calculate', () => {
     let table: ITableFullVo;
     beforeAll(async () => {
-      const result = await request
-        .post(`/api/base/${baseId}/table`)
-        .send({
-          name: 'table1',
-        })
-        .expect(201);
-      table = result.body;
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
     });
 
     afterAll(async () => {
-      await request.delete(`/api/base/${baseId}/table/arbitrary/${table.id}`);
+      await deleteTable(baseId, table.id);
     });
 
     it('should create a record and auto calculate computed field', async () => {
@@ -332,13 +253,15 @@ describe('OpenAPI RecordController (e2e)', () => {
       const formulaField1 = await createField(table.id, formulaFieldRo1);
       const formulaField2 = await createField(table.id, formulaFieldRo2);
 
-      const { records } = await createRecords(table.id, [
-        {
-          fields: {
-            [table.fields[0].id]: 'text value',
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: 'text value',
+            },
           },
-        },
-      ]);
+        ],
+      });
 
       expect(records[0].fields[formulaField1.id]).toEqual(2);
       expect(records[0].fields[formulaField2.id]).toEqual('text value1');
@@ -354,28 +277,28 @@ describe('OpenAPI RecordController (e2e)', () => {
       // reject data when typecast is false
       await createRecords(
         table.id,
-        [
-          {
-            fields: {
-              [selectField.id]: 'select value',
+        {
+          records: [
+            {
+              fields: {
+                [selectField.id]: 'select value',
+              },
             },
-          },
-        ],
-        false,
+          ],
+        },
         400
       );
 
-      const { records } = await createRecords(
-        table.id,
-        [
+      const { records } = await createRecords(table.id, {
+        typecast: true,
+        records: [
           {
             fields: {
               [selectField.id]: 'select value',
             },
           },
         ],
-        true
-      );
+      });
 
       const fieldAfter = await getField(table.id, selectField.id);
 

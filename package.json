@@ -49,8 +49,8 @@
   "devDependencies": {
     "@changesets/changelog-github": "0.5.0",
     "@changesets/cli": "2.27.1",
-    "@commitlint/cli": "18.4.3",
-    "@commitlint/config-conventional": "18.4.3",
+    "@commitlint/cli": "18.4.4",
+    "@commitlint/config-conventional": "18.4.4",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/prettier": "2.7.3",
     "@types/shell-quote": "1.7.5",
@@ -67,8 +67,8 @@
   },
   "engines": {
     "node": ">=18.17.0",
-    "pnpm": ">=8.11.0",
+    "pnpm": ">=8.12.1",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.12.1"
+  "packageManager": "pnpm@8.14.0"
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type {
   IFieldVo,
   IGetFieldsQuery,
@@ -16,6 +16,7 @@ import { Knex } from 'knex';
 import { keyBy, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
@@ -39,7 +40,7 @@ export class FieldService implements IAdapterService {
     private readonly prismaService: PrismaService,
     private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
-    @Inject('DbProvider') private dbProvider: IDbProvider,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -241,7 +242,6 @@ export class FieldService implements IAdapterService {
         result = result.filter((field) => !view?.columnMeta[field.id].hidden);
       }
       result = sortBy(result, (field) => {
-        console.log('fieldOrder', field.name, view?.columnMeta[field.id].order);
         return view?.columnMeta[field.id].order;
       });
     }
@@ -262,12 +262,6 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
-  async getFieldIdByIndex(tableId: string, viewId: string, index: number) {
-    const result = await this.getFieldsByQuery(tableId, { viewId });
-
-    return result[index].id;
-  }
-
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
     if (!opData.length) return;
 
@@ -278,6 +272,7 @@ export class FieldService implements IAdapterService {
 
     const fieldMap = keyBy(fieldRaw, 'id');
 
+    // console.log('opData', JSON.stringify(opData, null, 2));
     for (const { fieldId, ops } of opData) {
       const opContext = ops.map((op) => {
         const ctx = FieldOpBuilder.detect(op);

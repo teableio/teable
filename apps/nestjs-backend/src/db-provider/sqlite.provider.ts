@@ -1,15 +1,22 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IFilter } from '@teable-group/core';
+import type { IAggregationField, IFilter, ISortItem } from '@teable-group/core';
 import { DriverClient } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
-import type { IAggregationFunctionInterface } from './aggregation/aggregation-function.interface';
-import { AggregationFunctionSqlite } from './aggregation/aggregation-function.sqlite';
-import type { IDbProvider } from './db.provider.interface';
+import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
+import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
+import type {
+  IAggregationQueryExtra,
+  IDbProvider,
+  IFilterQueryExtra,
+  ISortQueryExtra,
+} from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
+import type { ISortQueryInterface } from './sort-query/sort-query.interface';
+import { SortQuerySqlite } from './sort-query/sort-query.sqlite';
 
 export class SqliteProvider implements IDbProvider {
   private readonly logger = new Logger(SqliteProvider.name);
@@ -107,15 +114,38 @@ export class SqliteProvider implements IDbProvider {
     return { insertTempTableSql, updateRecordSql };
   }
 
-  aggregationFunction(dbTableName: string, field: IFieldInstance): IAggregationFunctionInterface {
-    return new AggregationFunctionSqlite(this.knex, dbTableName, field);
+  aggregationQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    fields?: { [fieldId: string]: IFieldInstance },
+    aggregationFields?: IAggregationField[],
+    extra?: IAggregationQueryExtra
+  ): IAggregationQueryInterface {
+    return new AggregationQuerySqlite(
+      this.knex,
+      originQueryBuilder,
+      dbTableName,
+      fields,
+      aggregationFields,
+      extra
+    );
   }
 
   filterQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fields?: { [p: string]: IFieldInstance },
-    filter?: IFilter | null
+    filter?: IFilter,
+    extra?: IFilterQueryExtra
   ): IFilterQueryInterface {
-    return new FilterQuerySqlite(originQueryBuilder, fields, filter);
+    return new FilterQuerySqlite(originQueryBuilder, fields, filter, extra);
+  }
+
+  sortQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fields?: { [fieldId: string]: IFieldInstance },
+    sortObjs?: ISortItem[],
+    extra?: ISortQueryExtra
+  ): ISortQueryInterface {
+    return new SortQuerySqlite(this.knex, originQueryBuilder, fields, sortObjs, extra);
   }
 }

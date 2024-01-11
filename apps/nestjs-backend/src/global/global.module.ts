@@ -5,19 +5,20 @@ import { PrismaModule } from '@teable-group/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsMiddleware, ClsModule } from 'nestjs-cls';
+import { CacheModule } from '../cache/cache.module';
 import type { IAuthConfig } from '../configs/auth.config';
 import { authConfig } from '../configs/auth.config';
-import { TeableConfigModule } from '../configs/config.module';
+import { ConfigModule } from '../configs/config.module';
 import { X_REQUEST_ID } from '../const';
-import { TeableEventEmitterModule } from '../event-emitter/event-emitter.module';
+import { EventEmitterModule } from '../event-emitter/event-emitter.module';
 import { PermissionModule } from '../features/auth/permission.module';
 import { MailSenderModule } from '../features/mail-sender/mail-sender.module';
-import { TeableKnexModule } from './knex';
+import { KnexModule } from './knex';
 
 @Global()
 @Module({
   imports: [
-    TeableConfigModule.register(),
+    ConfigModule.register(),
     ClsModule.forRoot({
       global: true,
       middleware: {
@@ -37,10 +38,11 @@ import { TeableKnexModule } from './knex';
       inject: [authConfig.KEY],
     }),
     MailSenderModule.register({ global: true }),
-    TeableEventEmitterModule.register({ global: true }),
-    TeableKnexModule.register(),
+    EventEmitterModule.register({ global: true }),
+    KnexModule.register(),
     PrismaModule,
     PermissionModule,
+    CacheModule,
   ],
 })
 export class GlobalModule implements NestModule {

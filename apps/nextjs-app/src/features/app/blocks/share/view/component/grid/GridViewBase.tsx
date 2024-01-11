@@ -1,13 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
-import type { GridViewOptions, IFilter, IGetRecordsQuery } from '@teable-group/core';
+import type { GridViewOptions, IFilter, IGetRecordsRo } from '@teable-group/core';
 import { RowHeightLevel, mergeFilter } from '@teable-group/core';
-import { shareViewCopy, type IShareViewCopyRo } from '@teable-group/openapi';
+import type { IRangesRo } from '@teable-group/openapi';
+import { shareViewCopy } from '@teable-group/openapi';
 import type {
   CombinedSelection,
   ICell,
   ICellItem,
   IGridRef,
   IGroupPoint,
+  IRectangle,
 } from '@teable-group/sdk/components';
 import {
   DraggableType,
@@ -23,6 +25,7 @@ import {
   useGridGroupCollection,
   useGridCollapsedGroup,
   RowCounter,
+  useGridColumnOrder,
 } from '@teable-group/sdk/components';
 import {
   useGroupPoint,
@@ -61,13 +64,15 @@ export const GridViewBase = () => {
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const isTouchDevice = useIsTouchDevice();
-  const { setSelection } = useGridViewStore();
+  const { setSelection, openStatisticMenu } = useGridViewStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
-  const { columns } = useGridColumnResize(originalColumns);
+  const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
+  const { onColumnOrdered } = useGridColumnOrder();
+
   const customIcons = useGridIcons();
   const { mutateAsync: copy } = useMutation({
-    mutationFn: (copyRo: IShareViewCopyRo) => shareViewCopy(router.query.shareId as string, copyRo),
+    mutationFn: (copyRo: IRangesRo) => shareViewCopy(router.query.shareId as string, copyRo),
   });
   const copyMethod = useCopy({ copyReq: copy });
   const { filter, sort, group } = view ?? {};
@@ -84,8 +89,8 @@ export const GridViewBase = () => {
     const mergedFilter = mergeFilter(filter, viewGroupQuery?.filter);
     return {
       filter: mergedFilter as IFilter,
-      orderBy: sort?.sortObjs as IGetRecordsQuery['orderBy'],
-      groupBy: group as IGetRecordsQuery['groupBy'],
+      orderBy: sort?.sortObjs as IGetRecordsRo['orderBy'],
+      groupBy: group as IGetRecordsRo['groupBy'],
     };
   }, [filter, sort?.sortObjs, group, viewGroupQuery]);
 
@@ -180,6 +185,15 @@ export const GridViewBase = () => {
     [copyMethod, view?.shareMeta?.allowCopy, toast]
   );
 
+  const onColumnStatisticClick = useCallback(
+    (colIndex: number, bounds: IRectangle) => {
+      const { x, y, width, height } = bounds;
+      const fieldId = columns[colIndex].id;
+      openStatisticMenu({ fieldId, position: { x, y, width, height } });
+    },
+    [columns, openStatisticMenu]
+  );
+
   return (
     <div ref={container} className="relative h-full w-full overflow-hidden">
       {prepare ? (
@@ -210,6 +224,9 @@ export const GridViewBase = () => {
             onSelectionChanged={onSelectionChanged}
             onCopy={onCopy}
             onRowExpand={onRowExpandInner}
+            onColumnResize={onColumnResize}
+            onColumnOrdered={onColumnOrdered}
+            onColumnStatisticClick={onColumnStatisticClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
           />
           <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />

@@ -1,47 +1,36 @@
 import type { IAttachmentCellValue, IAttachmentItem } from '@teable-group/core';
 import { AttachmentFieldCore, generateAttachmentId } from '@teable-group/core';
-import { baseConfig } from '../../../../configs/base.config';
-import { getFullStorageUrl } from '../../../../utils/full-storage-url';
+import { omit } from 'lodash';
 import type { IFieldBase } from '../field-base';
 
 export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBase {
   static getTokenAndNameByString(value: string): { token: string; name: string } | undefined {
-    const obj = value.match(/(.+?)\s\(([^)]+)/);
-    const url = obj?.[2];
-    const paths = url?.split('/') || [];
-    return { name: obj?.[1] || '', token: paths[paths.length - 1] };
+    const openParenIndex = value.lastIndexOf('(');
+
+    if (openParenIndex === -1) {
+      return;
+    }
+    const name = value.slice(0, openParenIndex).trim();
+    const token = value.slice(openParenIndex + 1, -1).trim();
+    return { name, token };
   }
 
   convertCellValue2DBValue(value: unknown): unknown {
-    const storagePrefix = baseConfig().storagePrefix;
-
     return (
       value &&
-      JSON.stringify(
-        (value as IAttachmentCellValue).map((item) => ({
-          ...item,
-          url: item.url.includes(storagePrefix) ? item.url.split(storagePrefix)[1] : item.url,
-        }))
-      )
+      JSON.stringify((value as IAttachmentCellValue).map((item) => omit(item, ['presignedUrl'])))
     );
   }
 
   convertDBValue2CellValue(value: unknown): unknown {
-    const cellValue =
-      value == null || typeof value === 'object' ? value : JSON.parse(value as string);
-    return cellValue
-      ? cellValue.map((item: IAttachmentItem) => ({
-          ...item,
-          url: getFullStorageUrl(item.url),
-        }))
-      : null;
+    return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
   }
 
   override convertStringToCellValue(
     value: string,
     attachments?: Omit<IAttachmentItem, 'id' | 'name'>[]
   ) {
-    // value is ddd.svg (https://xxx.xxx/xxx)
+    // value is ddd.svg (token)
     if (!attachments?.length || !value) {
       return null;
     }

@@ -1,13 +1,15 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IRowCountVo } from '@teable-group/core';
-import { rowCountRoSchema, rowCountVoSchema } from '@teable-group/core';
+import { rowCountVoSchema, queryBaseSchema } from '@teable-group/core';
 import { axios } from '../axios';
-import { paramsSerializer, registerRoute, urlBuilder } from '../utils';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/rowCount';
 
-export const shareViewRowCountRoSchema = rowCountRoSchema.pick({ filter: true });
+export const shareViewRowCountRoSchema = queryBaseSchema.omit({
+  viewId: true,
+});
 
 export type IShareViewRowCountRo = z.infer<typeof shareViewRowCountRoSchema>;
 
@@ -34,9 +36,11 @@ export const ShareViewRowCountRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const getShareViewRowCount = async (shareId: string, query?: IShareViewRowCountRo) => {
+export const getShareViewRowCount = async (shareId: string, query: IShareViewRowCountRo) => {
   return axios.get<IRowCountVo>(urlBuilder(SHARE_VIEW_ROW_COUNT, { shareId }), {
-    params: query,
-    paramsSerializer,
+    params: {
+      ...query,
+      filter: JSON.stringify(query.filter),
+    },
   });
 };

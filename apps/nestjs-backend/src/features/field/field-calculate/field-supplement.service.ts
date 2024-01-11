@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   IFieldRo,
   IFieldVo,
@@ -14,31 +14,31 @@ import type {
   IUserFieldOptions,
 } from '@teable-group/core';
 import {
-  ColorUtils,
-  generateChoiceId,
-  getFormattingSchema,
-  getShowAsSchema,
+  assertNever,
+  AttachmentFieldCore,
+  AutoNumberFieldCore,
   CellValueType,
-  getDefaultFormatting,
+  CheckboxFieldCore,
+  ColorUtils,
+  CreatedTimeFieldCore,
+  DateFieldCore,
+  DbFieldType,
   FieldType,
+  generateChoiceId,
   generateFieldId,
+  getDefaultFormatting,
+  getFormattingSchema,
+  getRandomString,
+  getShowAsSchema,
+  isMultiValueLink,
+  LastModifiedTimeFieldCore,
+  LongTextFieldCore,
+  NumberFieldCore,
+  RatingFieldCore,
   Relationship,
   RelationshipRevert,
-  DbFieldType,
-  assertNever,
-  SingleLineTextFieldCore,
-  NumberFieldCore,
   SelectFieldCore,
-  AttachmentFieldCore,
-  DateFieldCore,
-  CheckboxFieldCore,
-  RatingFieldCore,
-  LongTextFieldCore,
-  CreatedTimeFieldCore,
-  AutoNumberFieldCore,
-  LastModifiedTimeFieldCore,
-  isMultiValueLink,
-  getRandomString,
+  SingleLineTextFieldCore,
   UserFieldCore,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -47,10 +47,13 @@ import { keyBy, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { ReferenceService } from '../../calculation/reference.service';
+import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
-import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import type { IFieldInstance } from '../model/factory';
+import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
@@ -60,7 +63,8 @@ export class FieldSupplementService {
   constructor(
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
-    @Inject('DbProvider') private dbProvider: IDbProvider,
+    private readonly referenceService: ReferenceService,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -449,7 +453,16 @@ export class FieldSupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
-      return merge({}, oldFieldVo, fieldRo);
+      return merge(
+        {},
+        fieldRo.options
+          ? {
+              ...oldFieldVo,
+              options: { ...oldFieldVo.options, showAs: undefined }, // clean showAs
+            }
+          : oldFieldVo,
+        fieldRo
+      );
     }
 
     return this.prepareLookupField(fieldRo);
@@ -685,7 +698,9 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateUserField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
-    return merge({}, oldFieldVo, fieldRo);
+    const mergeObj = merge({}, oldFieldVo, fieldRo);
+
+    return this.prepareUserField(mergeObj);
   }
 
   private prepareUserField(field: IFieldRo) {
@@ -1097,17 +1112,14 @@ export class FieldSupplementService {
 
   async createReference(field: IFieldInstance) {
     if (field.isLookup) {
-      return await this.createLookupReference(field);
+      return this.createComputedFieldReference(field);
     }
 
     switch (field.type) {
       case FieldType.Formula:
-        return await this.createFormulaReference(field);
       case FieldType.Rollup:
-        // rollup use same reference logic as lookup
-        return await this.createLookupReference(field);
       case FieldType.Link:
-        return await this.createLinkReference(field);
+        return this.createComputedFieldReference(field);
       default:
         break;
     }
@@ -1158,36 +1170,35 @@ export class FieldSupplementService {
     return lookupFieldIds;
   }
 
-  private async createLookupReference(field: IFieldInstance) {
-    const toFieldId = field.id;
-    if (!field.lookupOptions) {
-      throw new Error('lookupOptions is required');
+  getFieldReferenceIds(field: IFieldInstance): string[] {
+    if (field.lookupOptions) {
+      return [field.lookupOptions.lookupFieldId];
     }
-    const { lookupFieldId } = field.lookupOptions;
 
-    await this.prismaService.txClient().reference.create({
-      data: {
-        fromFieldId: lookupFieldId,
-        toFieldId,
-      },
-    });
+    if (field.type === FieldType.Link) {
+      return [field.options.lookupFieldId];
+    }
+
+    if (field.type === FieldType.Formula) {
+      return (field as FormulaFieldDto).getReferenceFieldIds();
+    }
+
+    return [];
   }
 
-  private async createLinkReference(field: LinkFieldDto) {
+  private async createComputedFieldReference(field: IFieldInstance) {
     const toFieldId = field.id;
-    const fromFieldId = field.options.lookupFieldId;
 
-    await this.prismaService.txClient().reference.create({
-      data: {
-        fromFieldId,
-        toFieldId,
-      },
+    const graphItems = await this.referenceService.getFieldGraphItems([field.id]);
+    const fieldIds = this.getFieldReferenceIds(field);
+
+    fieldIds.forEach((fromFieldId) => {
+      graphItems.push({ fromFieldId, toFieldId });
     });
-  }
 
-  private async createFormulaReference(field: FormulaFieldDto) {
-    const fieldIds = field.getReferenceFieldIds();
-    const toFieldId = field.id;
+    if (hasCycle(graphItems)) {
+      throw new BadRequestException('field reference has cycle');
+    }
 
     for (const fromFieldId of fieldIds) {
       await this.prismaService.txClient().reference.create({

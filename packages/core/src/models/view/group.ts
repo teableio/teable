@@ -6,7 +6,7 @@ export const groupItemSchema = z.object({
   order: orders,
 });
 
-export const groupSchema = groupItemSchema.array();
+export const groupSchema = groupItemSchema.array().nullable();
 
 export type IGroupItem = z.infer<typeof groupItemSchema>;
 
@@ -30,5 +30,5 @@ export function parseGroup(queryGroup?: IGroup): IGroup | undefined {
   if (queryGroup == null) return;
 
   const parsedGroup = groupSchema.safeParse(queryGroup);
-  return parsedGroup.success ? parsedGroup.data.slice(0, 3) : undefined;
+  return parsedGroup.success ? parsedGroup.data?.slice(0, 3) : undefined;
 }

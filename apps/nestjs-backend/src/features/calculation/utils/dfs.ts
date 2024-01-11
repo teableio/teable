@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 import { uniq } from 'lodash';
 
 // topo item is for field level reference, all id stands for fieldId;
@@ -63,7 +64,6 @@ export function buildCompressedAdjacencyMap(
   const adjMap = buildAdjacencyMap(graph);
   const compressedAdjMap: IAdjacencyMap = {};
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   Object.keys(adjMap).forEach((from) => {
     const queue = [from];
     const visited = new Set<string>();
@@ -95,6 +95,47 @@ export function buildCompressedAdjacencyMap(
   return compressedAdjMap;
 }
 
+export function hasCycle(graphItems: IGraphItem[]): boolean {
+  const adjList: Record<string, string[]> = {};
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  // Build adjacency list
+  graphItems.forEach((item) => {
+    if (!adjList[item.fromFieldId]) {
+      adjList[item.fromFieldId] = [];
+    }
+    adjList[item.fromFieldId].push(item.toFieldId);
+  });
+
+  function dfs(node: string): boolean {
+    if (visiting.has(node)) return true;
+    if (visited.has(node)) return false;
+
+    visiting.add(node);
+
+    if (adjList[node]) {
+      for (const neighbor of adjList[node]) {
+        if (dfs(neighbor)) return true;
+      }
+    }
+
+    visiting.delete(node);
+    visited.add(node);
+
+    return false;
+  }
+
+  // Check for cycles
+  for (const node of Object.keys(adjList)) {
+    if (!visited.has(node) && dfs(node)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /**
  * Generate a topological order based on the starting node ID.
  *
@@ -102,12 +143,59 @@ export function buildCompressedAdjacencyMap(
  * @param graph - The input graph.
  * @returns An array of ITopoItem representing the topological order.
  */
-export function getTopologicalOrder(
-  startNodeId: string,
-  graph: { toFieldId: string; fromFieldId: string }[]
-): ITopoItem[] {
+export function topoOrderWithDepends(startNodeId: string, graph: IGraphItem[]): ITopoItem[] {
   const visitedNodes = new Set<string>();
+  const visitingNodes = new Set<string>();
   const sortedNodes: ITopoItem[] = [];
+
+  // Build adjacency list and reverse adjacency list
+  const adjList: Record<string, string[]> = {};
+  const reverseAdjList: Record<string, string[]> = {};
+  for (const edge of graph) {
+    if (!adjList[edge.fromFieldId]) adjList[edge.fromFieldId] = [];
+    adjList[edge.fromFieldId].push(edge.toFieldId);
+
+    if (!reverseAdjList[edge.toFieldId]) reverseAdjList[edge.toFieldId] = [];
+    reverseAdjList[edge.toFieldId].push(edge.fromFieldId);
+  }
+
+  function visit(node: string) {
+    if (visitingNodes.has(node)) {
+      throw new Error(`Detected a cycle: ${node} is part of a circular dependency`);
+    }
+
+    if (!visitedNodes.has(node)) {
+      visitingNodes.add(node);
+
+      // Get incoming edges (dependencies)
+      const dependencies = reverseAdjList[node] || [];
+
+      // Process outgoing edges
+      if (adjList[node]) {
+        for (const neighbor of adjList[node]) {
+          visit(neighbor);
+        }
+      }
+
+      visitingNodes.delete(node);
+      visitedNodes.add(node);
+      sortedNodes.push({ id: node, dependencies: dependencies });
+    }
+  }
+
+  visit(startNodeId);
+  return sortedNodes.reverse().map((node) => ({
+    id: node.id,
+    dependencies: uniq(node.dependencies),
+  }));
+}
+
+/**
+ * Generate a topological order with based on the starting node ID.
+ */
+export function topoOrderWithStart(startNodeId: string, graph: IGraphItem[]): string[] {
+  const visitedNodes = new Set<string>();
+  const sortedNodes: string[] = [];
 
   // Build adjacency list and reverse adjacency list
   const adjList: Record<string, string[]> = {};
@@ -124,9 +212,6 @@ export function getTopologicalOrder(
     if (!visitedNodes.has(node)) {
       visitedNodes.add(node);
 
-      // Get incoming edges (dependencies)
-      const dependencies = reverseAdjList[node] || [];
-
       // Process outgoing edges
       if (adjList[node]) {
         for (const neighbor of adjList[node]) {
@@ -134,21 +219,62 @@ export function getTopologicalOrder(
         }
       }
 
-      sortedNodes.push({ id: node, dependencies: dependencies });
+      sortedNodes.push(node);
     }
   }
 
   visit(startNodeId);
-  return sortedNodes.reverse().map((node) => ({
-    id: node.id,
-    dependencies: uniq(node.dependencies),
-  }));
+  return sortedNodes.reverse();
+}
+
+// simple topological sort
+export function topologicalSort(graph: IGraphItem[]): string[] {
+  const adjList: Record<string, string[]> = {};
+  const visited = new Set<string>();
+  const currentStack = new Set<string>();
+  const result: string[] = [];
+
+  graph.forEach((node) => {
+    if (!adjList[node.fromFieldId]) {
+      adjList[node.fromFieldId] = [];
+    }
+    adjList[node.fromFieldId].push(node.toFieldId);
+  });
+
+  function dfs(node: string) {
+    if (currentStack.has(node)) {
+      throw new Error(`Detected a cycle involving node '${node}'`);
+    }
+
+    if (visited.has(node)) {
+      return;
+    }
+
+    currentStack.add(node);
+    visited.add(node);
+
+    const neighbors = adjList[node] || [];
+    neighbors.forEach((neighbor) => dfs(neighbor));
+
+    currentStack.delete(node);
+    result.push(node);
+  }
+
+  graph.forEach((node) => {
+    if (!visited.has(node.fromFieldId)) {
+      dfs(node.fromFieldId);
+    }
+    if (!visited.has(node.toFieldId)) {
+      dfs(node.toFieldId);
+    }
+  });
+
+  return result.reverse();
 }
 
 /**
  * Returns all relations related to the given fieldIds.
  */
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function filterDirectedGraph(
   undirectedGraph: IGraphItem[],
   fieldIds: string[]
@@ -210,4 +336,34 @@ export function filterDirectedGraph(
   }
 
   return result;
+}
+
+export function pruneGraph(node: string, graph: IGraphItem[]): IGraphItem[] {
+  const relatedNodes = new Set<string>();
+  const prunedGraph: IGraphItem[] = [];
+
+  function dfs(currentNode: string) {
+    relatedNodes.add(currentNode);
+    for (const edge of graph) {
+      if (edge.fromFieldId === currentNode && !relatedNodes.has(edge.toFieldId)) {
+        dfs(edge.toFieldId);
+      }
+    }
+  }
+
+  dfs(node);
+
+  for (const edge of graph) {
+    if (relatedNodes.has(edge.fromFieldId) || relatedNodes.has(edge.toFieldId)) {
+      prunedGraph.push(edge);
+      if (!relatedNodes.has(edge.fromFieldId)) {
+        dfs(edge.fromFieldId);
+      }
+      if (!relatedNodes.has(edge.toFieldId)) {
+        dfs(edge.toFieldId);
+      }
+    }
+  }
+
+  return prunedGraph;
 }

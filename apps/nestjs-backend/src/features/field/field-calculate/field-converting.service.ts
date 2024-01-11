@@ -98,7 +98,6 @@ export class FieldConvertingService {
     return FieldOpBuilder.editor.setFieldProperty.build({ key, oldValue, newValue: value });
   }
 
-  // TODO: formatting should be validate before inherit
   /**
    * 1. check if the lookup field is valid, if not mark error
    * 2. update lookup field properties
@@ -109,12 +108,12 @@ export class FieldConvertingService {
     const lookupOptions = field.lookupOptions as ILookupOptionsVo;
     const linkField = fieldMap[lookupOptions.linkFieldId] as LinkFieldDto;
     const lookupField = fieldMap[lookupOptions.lookupFieldId];
-    const { formatting, showAs, ...inheritOptions } = field.options as Record<string, unknown>;
+    const { showAs: _, ...inheritableOptions } = lookupField.options as Record<string, unknown>;
     const {
-      formatting: _0,
-      showAs: _1,
-      ...inheritableOptions
-    } = lookupField.options as Record<string, unknown>;
+      formatting = inheritableOptions.formatting,
+      showAs,
+      ...inheritOptions
+    } = field.options as Record<string, unknown>;
     const cellValueTypeChanged = field.cellValueType !== lookupField.cellValueType;
 
     if (field.type !== lookupField.type) {
@@ -966,7 +965,7 @@ export class FieldConvertingService {
     this.logger.log('changed Keys:' + JSON.stringify(keys));
 
     let result: IModifiedResult | undefined;
-    // 0.1. collect changes effect by the updated field
+    // 1. collect changes effect by the current updated field
     if (newField.isLookup && oldField.isLookup) {
       if (keys.includes('lookupOptions')) {
         await this.modifyLookupOptions(newField, oldField);
@@ -986,43 +985,65 @@ export class FieldConvertingService {
       }
     }
 
-    // 0.2. collect changes effect by the supplement(link) field
+    // 2. collect changes effect by the supplement(link) field
     const supplementFieldChange = await this.fieldConvertingLinkService.supplementLink(
       tableId,
       newField,
       oldField
     );
 
-    // 1. apply current field changes
+    // 3. apply current field changes
     await this.fieldService.batchUpdateFields(tableId, [
       { fieldId: newField.id, ops: ops.concat(result?.fieldOps || []) },
     ]);
 
-    // 2. apply supplement(link) field changes
+    // 4. apply supplement(link) field changes
     if (supplementFieldChange) {
       const { tableId, newField, oldField } = supplementFieldChange;
       const { ops } = this.getOriginFieldOps(newField, oldField);
       await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
     }
 
-    // 3. apply referenced fields changes
+    // 5. apply referenced fields changes
     await this.updateReferencedFields(newField, oldField);
 
-    // 4. apply referenced fields from supplement(link) field changes
+    // 6. apply referenced fields from supplement(link) field changes
     if (supplementFieldChange) {
       const { newField, oldField } = supplementFieldChange;
       await this.updateReferencedFields(newField, oldField);
     }
 
-    // 5. calculate and submit records
+    // 7. calculate and submit records
     await this.calculateAndSaveRecords(tableId, newField, result?.recordOpsMap);
 
-    // 6. calculate computed fields
-    await this.calculateField(keys, tableId, newField, oldField);
+    // 8. calculate computed fields
+    await this.calculateField(tableId, newField, oldField);
+  }
+
+  majorKeysChanged(oldField: IFieldInstance, newField: IFieldInstance) {
+    const { keys } = this.getOriginFieldOps(newField, oldField);
+
+    // filter property
+    const majorKeys = difference(keys, ['name', 'description', 'dbFieldName']);
+
+    if (!majorKeys.length) {
+      return false;
+    }
+
+    // expression not change
+    if (
+      majorKeys.length === 1 &&
+      majorKeys[0] === 'options' &&
+      (oldField.options as { expression: string }).expression ===
+        (newField.options as { expression: string }).expression
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   private async calculateField(
-    keys: string[],
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance
@@ -1030,20 +1051,8 @@ export class FieldConvertingService {
     if (!newField.isComputed) {
       return;
     }
-    // safe property
-    const differenceKeys = difference(keys, ['name', 'description', 'dbFieldName']);
 
-    if (!differenceKeys.length) {
-      return;
-    }
-
-    // expression not change
-    if (
-      differenceKeys.length === 1 &&
-      differenceKeys[0] === 'options' &&
-      (oldField.options as { expression: string }).expression ===
-        (newField.options as { expression: string }).expression
-    ) {
+    if (!this.majorKeysChanged(oldField, newField)) {
       return;
     }
 

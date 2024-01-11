@@ -6,10 +6,10 @@ import { UploadAttachment } from './upload-attachment/UploadAttachment';
 type IAttachmentEditor = ICellEditor<IAttachmentCellValue>;
 
 export const AttachmentEditor = (props: IAttachmentEditor) => {
-  const { value, onChange = noop, readonly } = props;
+  const { className, value, onChange = noop, readonly } = props;
   return (
     <UploadAttachment
-      className="min-h-[100px]"
+      className={className}
       attachments={value || []}
       onChange={onChange}
       readonly={readonly}

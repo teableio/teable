@@ -1,34 +1,37 @@
 import type { IFilterOperator, ILiteralValue } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../../features/field/model/factory';
 import { CellValueFilterSqlite } from '../cell-value-filter.sqlite';
 
 export class StringCellValueFilterAdapter extends CellValueFilterSqlite {
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.isOperatorHandler(queryBuilder, params);
+    return super.isOperatorHandler(builderClient, operator, value);
   }
 
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.isNotOperatorHandler(queryBuilder, params);
+    return super.isNotOperatorHandler(builderClient, operator, value);
   }
 
   containsOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.containsOperatorHandler(queryBuilder, params);
+    return super.containsOperatorHandler(builderClient, operator, value);
   }
 
   doesNotContainOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    return super.doesNotContainOperatorHandler(queryBuilder, params);
+    return super.doesNotContainOperatorHandler(builderClient, operator, value);
   }
 }

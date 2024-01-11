@@ -1,4 +1,4 @@
-import type { IRecord, IGetRecordsQuery } from '@teable-group/core';
+import type { IRecord, IGetRecordsRo } from '@teable-group/core';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
@@ -24,10 +24,10 @@ export type IRecordIndexMap = { [i: number | string]: Record };
 
 export const useGridAsyncRecords = (
   initRecords?: IRecord[],
-  initQuery?: IGetRecordsQuery,
-  outerQuery?: Pick<IGetRecordsQuery, 'filter' | 'orderBy' | 'groupBy'>
+  initQuery?: IGetRecordsRo,
+  outerQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'groupBy'>
 ): IRes => {
-  const [query, setQuery] = useState<IGetRecordsQuery>({
+  const [query, setQuery] = useState<IGetRecordsRo>({
     skip: 0,
     take: LOAD_PAGE_SIZE,
     ...initQuery,

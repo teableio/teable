@@ -2,10 +2,12 @@
 import type {
   IAggregationRo,
   IGroupPointsRo,
-  IRowCountRo,
+  IFieldRo,
+  IQueryBaseRo,
+  IUpdateFieldRo,
   NotificationStatesEnum,
 } from '@teable-group/core';
-import type { IShareViewAggregationsRo, IShareViewRowCountRo } from '@teable-group/openapi';
+import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable-group/openapi';
 
 export type ReactQueryKeys = {
   spaceCollaboratorList: (spaceId: string) => [string, string];
@@ -15,14 +17,14 @@ export type ReactQueryKeys = {
   notifyList: (filter: { status: NotificationStatesEnum }) => [string, string, unknown];
   notifyUnreadCount: () => [string, string];
 
-  rowCount: (tableId: string, query: IRowCountRo) => [string, string, IRowCountRo];
+  rowCount: (tableId: string, query: IQueryBaseRo) => [string, string, IQueryBaseRo];
   groupPoints: (tableId: string, query: IGroupPointsRo) => [string, string, IGroupPointsRo];
   aggregations: (tableId: string, query: IAggregationRo) => [string, string, IAggregationRo];
 
   shareViewRowCount: (
     shareId: string,
     query: IShareViewRowCountRo
-  ) => [string, string, IRowCountRo];
+  ) => [string, string, IShareViewRowCountRo];
   shareViewGroupPoints: (
     shareId: string,
     query: IGroupPointsRo
@@ -30,7 +32,16 @@ export type ReactQueryKeys = {
   shareViewAggregations: (
     shareId: string,
     query: IShareViewAggregationsRo
-  ) => [string, string, IAggregationRo];
+  ) => [string, string, IShareViewAggregationsRo];
+  planFieldCreate: (tableId: string, fieldRo: IFieldRo) => [string, string, IFieldRo];
+
+  planFieldUpdate: (
+    tableId: string,
+    fieldId: string,
+    fieldRo: IUpdateFieldRo
+  ) => [string, string, string, IUpdateFieldRo];
+
+  planField: (tableId: string, fieldId: string) => [string, string, string];
 };
 
 export const ReactQueryKeys: ReactQueryKeys = {
@@ -48,4 +59,10 @@ export const ReactQueryKeys: ReactQueryKeys = {
   shareViewRowCount: (shareId, query) => ['share-view-row-count', shareId, query],
   shareViewGroupPoints: (shareId, query) => ['share-view-group-points', shareId, query],
   shareViewAggregations: (shareId, query) => ['share-view-aggregations', shareId, query],
+
+  planFieldCreate: (tableId, fieldRo) => ['create-field-plan', tableId, fieldRo],
+
+  planFieldUpdate: (tableId, fieldId, fieldRo) => ['create-field-plan', tableId, fieldId, fieldRo],
+
+  planField: (tableId, fieldId) => ['field-plan', tableId, fieldId],
 };

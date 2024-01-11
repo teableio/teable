@@ -48,7 +48,7 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        url: '/attachment/xxxxxx',
+        path: '/attachment/xxxxxx',
       },
       {
         id: 'actxxxxxxxy',
@@ -56,17 +56,13 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        url: '/attachment/xxxxxx',
+        path: '/attachment/xxxxxx',
       },
     ];
     expect(field.cellValue2String(null as any)).toBe('');
-    expect(field.cellValue2String(cellValue)).toEqual(
-      'test.txt (/attachment/xxxxxx),graph.png (/attachment/xxxxxx)'
-    );
+    expect(field.cellValue2String(cellValue)).toEqual('test.txt (token),graph.png (token)');
     expect(lookupField.cellValue2String(null as any)).toEqual('');
-    expect(lookupField.cellValue2String(cellValue)).toEqual(
-      'test.txt (/attachment/xxxxxx),graph.png (/attachment/xxxxxx)'
-    );
+    expect(lookupField.cellValue2String(cellValue)).toEqual('test.txt (token),graph.png (token)');
   });
 
   it('should validate cellValue', () => {
@@ -77,7 +73,7 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        url: '/attachment/xxxxxx',
+        path: '/attachment/xxxxxx',
       },
       {
         id: 'actxxxxxxxy',
@@ -85,7 +81,7 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        url: '/attachment/xxxxxx',
+        path: '/attachment/xxxxxx',
       },
     ];
     expect(field.validateCellValue(null as any).success).toBe(true);
@@ -112,7 +108,7 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        url: '/attachment/xxxxxx',
+        path: '/attachment/xxxxxx',
       },
       {
         id: 'actxxxxxxxy',
@@ -120,7 +116,7 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        url: '/attachment/xxxxxx',
+        path: '/attachment/xxxxxx',
       },
     ];
     expect(field.repair(cellValue)).toEqual(cellValue);
@@ -137,10 +133,9 @@ describe('AttachmentFieldCore', () => {
         token: 'token',
         size: 2333,
         mimetype: 'text/plain',
-        path: '/attachment',
-        url: '/attachment/xxxxxx',
+        path: '/attachment/xxxxxx',
       })
-    ).toBe('test.txt (/attachment/xxxxxx)');
+    ).toBe('test.txt (token)');
     expect(field.item2String(null)).toBe('');
   });
 

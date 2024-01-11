@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["tracing"]
 }
 
 datasource db {
@@ -177,12 +178,12 @@ model User {
 
 model Attachments {
   id             String    @id @default(cuid())
+  bucket         String
   token          String    @unique
   hash           String
   size           Int
   mimetype       String
   path           String
-  url            String
   width          Int?
   height         Int?
   deletedTime    DateTime? @map("deleted_time")

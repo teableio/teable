@@ -1,164 +1,171 @@
 import type { IFilterOperator, ILiteralValue, ILiteralValueList } from '@teable-group/core';
 import { FieldType } from '@teable-group/core';
 import type { Knex } from 'knex';
-import type { IFieldInstance } from '../../../../../features/field/model/factory';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres {
   isOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValueList }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValueList
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
 
-    if (field.type === FieldType.Link) {
+    if (type === FieldType.Link) {
       const parseValue = JSON.stringify({ title: value });
 
-      queryBuilder.whereRaw(`??::jsonb @> ?::jsonb`, [field.dbFieldName, parseValue]);
+      builderClient.whereRaw(`??::jsonb @> ?::jsonb`, [this.columnName, parseValue]);
     } else {
-      queryBuilder.whereRaw(`??::jsonb \\? ?`, [field.dbFieldName, value]);
+      builderClient.whereRaw(`??::jsonb \\? ?`, [this.columnName, value]);
     }
-    return queryBuilder;
+    return builderClient;
   }
 
   isNotOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValueList }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValueList
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
 
-    if (field.type === FieldType.Link) {
+    if (type === FieldType.Link) {
       const parseValue = JSON.stringify({ title: value });
 
-      queryBuilder.whereRaw(`NOT COALESCE(??, '[]')::jsonb @> ?::jsonb`, [
-        field.dbFieldName,
+      builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @> ?::jsonb`, [
+        this.columnName,
         parseValue,
       ]);
     } else {
-      queryBuilder.whereRaw(`NOT COALESCE(??, '[]')::jsonb \\? ?`, [field.dbFieldName, value]);
+      builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb \\? ?`, [this.columnName, value]);
     }
-    return queryBuilder;
+    return builderClient;
   }
 
   isExactlyOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValueList }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValueList
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link || field.type === FieldType.User) {
-      queryBuilder.whereRaw(
+    if (type === FieldType.Link || type === FieldType.User) {
+      builderClient.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') @> to_jsonb(ARRAY[${sqlPlaceholders}]) AND to_jsonb(ARRAY[${sqlPlaceholders}]) @> jsonb_path_query_array(??::jsonb, '$[*].id')`,
-        [field.dbFieldName, ...value, ...value, field.dbFieldName]
+        [this.columnName, ...value, ...value, this.columnName]
       );
     } else {
-      queryBuilder.whereRaw(
+      builderClient.whereRaw(
         `??::jsonb @> to_jsonb(ARRAY[${sqlPlaceholders}]) AND to_jsonb(ARRAY[${sqlPlaceholders}]) @> ??::jsonb`,
-        [field.dbFieldName, ...value, ...value, field.dbFieldName]
+        [this.columnName, ...value, ...value, this.columnName]
       );
     }
-    return queryBuilder;
+    return builderClient;
   }
 
   isAnyOfOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValueList }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValueList
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link || field.type === FieldType.User) {
-      queryBuilder.whereRaw(
+    if (type === FieldType.Link || type === FieldType.User) {
+      builderClient.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') \\?| ARRAY[${sqlPlaceholders}]`,
-        [field.dbFieldName, ...value]
+        [this.columnName, ...value]
       );
     } else {
-      queryBuilder.whereRaw(`??::jsonb \\?| ARRAY[${sqlPlaceholders}]`, [
-        field.dbFieldName,
+      builderClient.whereRaw(`??::jsonb \\?| ARRAY[${sqlPlaceholders}]`, [
+        this.columnName,
         ...value,
       ]);
     }
-    return queryBuilder;
+    return builderClient;
   }
 
   isNoneOfOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValueList }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValueList
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link || field.type === FieldType.User) {
-      queryBuilder.whereRaw(
+    if (type === FieldType.Link || type === FieldType.User) {
+      builderClient.whereRaw(
         `NOT jsonb_path_query_array(COALESCE(??, '[]')::jsonb, '$[*].id') \\?| ARRAY[${sqlPlaceholders}]`,
-        [field.dbFieldName, ...value]
+        [this.columnName, ...value]
       );
     } else {
-      queryBuilder.whereRaw(`NOT COALESCE(??, '[]')::jsonb \\?| ARRAY[${sqlPlaceholders}]`, [
-        field.dbFieldName,
+      builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb \\?| ARRAY[${sqlPlaceholders}]`, [
+        this.columnName,
         ...value,
       ]);
     }
-    return queryBuilder;
+    return builderClient;
   }
 
   hasAllOfOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValueList }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValueList
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (field.type === FieldType.Link || field.type === FieldType.User) {
-      queryBuilder.whereRaw(
+    if (type === FieldType.Link || type === FieldType.User) {
+      builderClient.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') @> to_jsonb(ARRAY[${sqlPlaceholders}])`,
-        [field.dbFieldName, ...value]
+        [this.columnName, ...value]
       );
     } else {
-      queryBuilder.whereRaw(`??::jsonb @> to_jsonb(ARRAY[${sqlPlaceholders}])`, [
-        field.dbFieldName,
+      builderClient.whereRaw(`??::jsonb @> to_jsonb(ARRAY[${sqlPlaceholders}])`, [
+        this.columnName,
         ...value,
       ]);
     }
-    return queryBuilder;
+    return builderClient;
   }
 
   containsOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
 
-    if (field.type === FieldType.Link) {
-      queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@.title like_regex "${value}" flag "i")'`, [
-        field.dbFieldName,
+    if (type === FieldType.Link) {
+      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@.title like_regex "${value}" flag "i")'`, [
+        this.columnName,
       ]);
     } else {
-      queryBuilder.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
-        field.dbFieldName,
+      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
+        this.columnName,
       ]);
     }
-    return queryBuilder;
+    return builderClient;
   }
 
   doesNotContainOperatorHandler(
-    queryBuilder: Knex.QueryBuilder,
-    params: { field: IFieldInstance; operator: IFilterOperator; value: ILiteralValue }
+    builderClient: Knex.QueryBuilder,
+    _operator: IFilterOperator,
+    value: ILiteralValue
   ): Knex.QueryBuilder {
-    const { field, value } = params;
+    const { type } = this.field;
 
-    if (field.type === FieldType.Link) {
-      queryBuilder.whereRaw(
+    if (type === FieldType.Link) {
+      builderClient.whereRaw(
         `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@.title like_regex "${value}" flag "i")'`,
-        [field.dbFieldName]
+        [this.columnName]
       );
     } else {
-      queryBuilder.whereRaw(
+      builderClient.whereRaw(
         `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`,
-        [field.dbFieldName]
+        [this.columnName]
       );
     }
-    return queryBuilder;
+    return builderClient;
   }
 }

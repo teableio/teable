@@ -9,7 +9,8 @@ import {
   identify,
   IdPrefix,
 } from '@teable-group/core';
-import type request from 'supertest';
+import { axios } from '@teable-group/openapi';
+import { expect } from 'vitest';
 import { ActionTypeEnums } from '../src/features/automation/enums/action-type.enum';
 import { TriggerTypeEnums } from '../src/features/automation/enums/trigger-type.enum';
 import type { CreateWorkflowActionRo } from '../src/features/automation/model/create-workflow-action.ro';
@@ -17,41 +18,33 @@ import type { CreateWorkflowTriggerRo } from '../src/features/automation/model/c
 import type { CreateWorkflowRo } from '../src/features/automation/model/create-workflow.ro';
 import type { UpdateWorkflowActionRo } from '../src/features/automation/model/update-workflow-action.ro';
 import type { UpdateWorkflowTriggerRo } from '../src/features/automation/model/update-workflow-trigger.ro';
-import { initApp } from './utils/init-app';
+import { createTable, getFields, initApp } from './utils/init-app';
 
 describe.skip('AutomationController (e2e)', () => {
   let app: INestApplication;
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
   });
 
   afterAll(async () => {
     await app.close();
   });
 
-  const createTable = async (tableName = 'automation-table'): Promise<string> => {
-    const result = await request.post(`/api/base/${baseId}/table`).send({
-      name: tableName,
-    });
-    return result.body.id;
-  };
-
   const createWorkflow = async () => {
     const workflowId = generateWorkflowId();
     const workflowRo: CreateWorkflowRo = {
       name: 'Automation 1',
     };
-    await request
-      .post(`/api/workflow/${workflowId}`)
-      .send(workflowRo)
-      .expect(201)
-      .expect({ success: true });
 
+    const axiosRes = await axios.post(`/api/workflow/${workflowId}`, workflowRo);
+
+    expect(axiosRes.status).toBe(201);
+    expect(axiosRes.data).toMatchObject({
+      success: true,
+    });
     return workflowId;
   };
 
@@ -63,21 +56,22 @@ describe.skip('AutomationController (e2e)', () => {
     }
   ) => {
     const triggerId = generateWorkflowTriggerId();
-    await request
-      .post(`/api/workflowTrigger/${triggerId}`)
-      .send(createRo)
-      .expect(201)
-      .expect({ success: true });
+    const axiosRes = await axios.post(`/api/workflowTrigger/${triggerId}`, createRo);
 
+    expect(axiosRes.status).toBe(201);
+    expect(axiosRes.data).toMatchObject({
+      success: true,
+    });
     return triggerId;
   };
 
   const updateWorkflowTrigger = async (triggerId: string, updateRo: UpdateWorkflowTriggerRo) => {
-    await request
-      .put(`/api/workflowTrigger/${triggerId}/updateConfig`)
-      .send(updateRo)
-      .expect(200)
-      .expect({ success: true });
+    const axiosRes = await axios.put(`/api/workflowTrigger/${triggerId}/updateConfig`, updateRo);
+
+    expect(axiosRes.status).toBe(200);
+    expect(axiosRes.data).toMatchObject({
+      success: true,
+    });
   };
 
   const createWorkflowAction = async (workflowId: string, createRo: CreateWorkflowActionRo) => {
@@ -91,8 +85,12 @@ describe.skip('AutomationController (e2e)', () => {
       url1 = `/api/workflowDecision/${actionId}`;
     }
 
-    await request.post(url1).send(createRo).expect(201).expect({ success: true });
+    const axiosRes = await axios.post(url1, createRo);
 
+    expect(axiosRes.status).toBe(201);
+    expect(axiosRes.data).toMatchObject({
+      success: true,
+    });
     return actionId;
   };
 
@@ -103,11 +101,16 @@ describe.skip('AutomationController (e2e)', () => {
       url2 = `/api/workflowDecision/${actionId}/updateConfig`;
     }
 
-    await request.put(url2).send(updateRo).expect(200).expect({ success: true });
+    const axiosRes = await axios.put(url2, updateRo);
+
+    expect(axiosRes.status).toBe(200);
+    expect(axiosRes.data).toMatchObject({
+      success: true,
+    });
   };
 
   // const deleteWorkflow = async (workflowId: string) => {
-  //   await request
+  //   await axios
   //     .delete(`/api/workflow/${workflowId}/delete`)
   //     .expect(200)
   //     .expect({ success: true });
@@ -444,13 +447,11 @@ describe.skip('AutomationController (e2e)', () => {
   };
 
   it('Simulate the creation of a `create table record` trigger without a logical group', async () => {
-    const tableId = await createTable();
+    const tableId = (await createTable(baseId, { name: 'automation-table-1' })).id;
 
-    const newTableId = await createTable('automation-table-1');
+    const newTableId = (await createTable(baseId, { name: 'automation-table-2' })).id;
 
-    const fieldsResult = await request.get(`/api/table/${newTableId}/field`);
-    const fields: IFieldVo[] = fieldsResult.body;
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const fields: IFieldVo[] = await getFields(newTableId);
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
 
     // Step.1
@@ -547,9 +548,9 @@ describe.skip('AutomationController (e2e)', () => {
     );
 
     // Verify
-    const result = await request.get(`/api/workflow/${workflowId}`).expect(200);
+    const result = await axios.get(`/api/workflow/${workflowId}`);
 
-    expect(result.body).toStrictEqual(
+    expect(result.data).toStrictEqual(
       expect.objectContaining({
         id: workflowId,
         deploymentStatus: 'undeployed',
@@ -569,9 +570,8 @@ describe.skip('AutomationController (e2e)', () => {
   });
 
   it('Simulate the creation of a `create table record` trigger with a logical group', async () => {
-    const tableId = await createTable('Automation-RecordUpdated-SendMail');
-    const fieldsResult = await request.get(`/api/table/${tableId}/field`);
-    const fields: IFieldVo[] = fieldsResult.body;
+    const tableId = (await createTable(baseId, { name: 'Automation-RecordUpdated-SendMail' })).id;
+    const fields: IFieldVo[] = await getFields(tableId);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -726,12 +726,12 @@ The following is a <font color=orange> Markdown </font> grammatical sugar
     );
 
     // Verify
-    const result = await request.get(`/api/workflow/${workflowId}`).expect(200);
+    const result = await axios.get(`/api/workflow/${workflowId}`);
 
     // clean data
     // await deleteWorkflow(workflowId);
 
-    expect(result.body).toStrictEqual(
+    expect(result.data).toStrictEqual(
       expect.objectContaining({
         id: workflowId,
         actions: expect.objectContaining({
@@ -753,10 +753,9 @@ The following is a <font color=orange> Markdown </font> grammatical sugar
   });
 
   it('Simulate the creation of `modify table record` triggers', async () => {
-    const tableId = await createTable('Automation-RecordUpdated');
+    const tableId = (await createTable(baseId, { name: 'Automation-RecordUpdated' })).id;
 
-    const fieldsResult = await request.get(`/api/table/${tableId}/field`);
-    const fields: IFieldVo[] = fieldsResult.body;
+    const fields: IFieldVo[] = await getFields(tableId);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const firstTextField = fields.find((field) => field.type === FieldType.SingleLineText)!;
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -885,9 +884,9 @@ The following is a <font color=orange> Markdown </font> grammatical sugar
     );
 
     // Verify
-    const result = await request.get(`/api/workflow/${workflowId}`).expect(200);
+    const result = await axios.get(`/api/workflow/${workflowId}`);
 
-    expect(result.body).toStrictEqual(
+    expect(result.data).toStrictEqual(
       expect.objectContaining({
         id: workflowId,
         deploymentStatus: 'undeployed',

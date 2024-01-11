@@ -2,17 +2,17 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable-group/core';
 import {
-  IAggregationRo,
   aggregationRoSchema,
-  rowCountRoSchema,
-  IRowCountRo,
   IGroupPointsRo,
   groupPointsRoSchema,
+  IAggregationRo,
+  queryBaseSchema,
+  IQueryBaseRo,
 } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
-import { RecordPipe } from '../../record/open-api/record.pipe';
+import { TqlPipe } from '../../record/open-api/tql.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
@@ -24,7 +24,7 @@ export class AggregationOpenApiController {
   @Permissions('table|read')
   async getAggregation(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(aggregationRoSchema)) query?: IAggregationRo
+    @Query(new ZodValidationPipe(aggregationRoSchema), TqlPipe) query?: IAggregationRo
   ): Promise<IAggregationVo> {
     return await this.aggregationOpenApiService.getAggregation(tableId, query);
   }
@@ -33,7 +33,7 @@ export class AggregationOpenApiController {
   @Permissions('table|read')
   async getRowCount(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(rowCountRoSchema), RecordPipe) query?: IRowCountRo
+    @Query(new ZodValidationPipe(queryBaseSchema), TqlPipe) query?: IQueryBaseRo
   ): Promise<IRowCountVo> {
     return await this.aggregationOpenApiService.getRowCount(tableId, query);
   }
@@ -42,7 +42,7 @@ export class AggregationOpenApiController {
   @Permissions('table|read')
   async getGroupPoints(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(groupPointsRoSchema), RecordPipe) query?: IGroupPointsRo
+    @Query(new ZodValidationPipe(groupPointsRoSchema), TqlPipe) query?: IGroupPointsRo
   ): Promise<IGroupPointsVo> {
     return await this.aggregationOpenApiService.getGroupPoints(tableId, query);
   }

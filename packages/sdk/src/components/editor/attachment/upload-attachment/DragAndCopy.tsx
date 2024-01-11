@@ -1,4 +1,6 @@
 import classNames from 'classnames';
+import { debounce } from 'lodash';
+import { useEffect, useMemo, useState } from 'react';
 import { useDrop, useDropArea } from 'react-use';
 import { useTranslation } from '../../../../context/app/i18n';
 
@@ -17,17 +19,26 @@ export const DragAndCopy = (props: IDragAndCopyProps) => {
   const [bound, { over }] = useDropArea({
     onFiles: onChange,
   });
+  const [dragFileEnter, setDragFileEnter] = useState<boolean>(false);
 
-  if (!hasOver && children) {
+  const updateDragFileEnter = useMemo(() => {
+    return debounce(setDragFileEnter, 30);
+  }, []);
+
+  useEffect(() => {
+    updateDragFileEnter(hasOver);
+  }, [updateDragFileEnter, hasOver]);
+
+  if (!dragFileEnter && children) {
     return (
-      <div className="min-h-full" tabIndex={0} role="button" {...bound}>
+      <div className="min-h-full cursor-default" tabIndex={0} role="button" {...bound}>
         {children}
       </div>
     );
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full min-h-[100px] w-full flex-col">
       <div
         tabIndex={0}
         role="button"

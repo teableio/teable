@@ -2,27 +2,23 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import { cloneDeep } from 'lodash';
-import type request from 'supertest';
 import { FIELD_MOCK_DATA } from './field-mock';
-import { initApp } from './init-app';
+import { createTable, initApp, createRecords, createField, getFields } from './init-app';
 
 describe('Performance test data generator', () => {
   let app: INestApplication;
   let tableId = '';
   let fields: IFieldVo[] = [];
-  let request: request.SuperAgentTest;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    request = appCtx.request;
 
-    const result = await request.post(`/api/base/${baseId}/table`).send({
-      name: 'table1',
-    });
-    tableId = result.body.id;
-    console.log('createTable', result.body);
+    const table = await createTable(baseId, { name: 'table1' });
+
+    tableId = table.id;
+    console.log('createTable', table);
   });
 
   afterAll(async () => {
@@ -48,7 +44,7 @@ describe('Performance test data generator', () => {
       return { fields: value };
     });
 
-    return request.post(`/api/table/${tableId}/record`).send({
+    return createRecords(tableId, {
       fieldKeyType: FieldKeyType.Id,
       records,
     });
@@ -63,17 +59,14 @@ describe('Performance test data generator', () => {
       const fieldRo: IFieldRo = cloneDeep(FIELD_MOCK_DATA[i % 3]);
       fieldRo.name = 'field' + i;
 
-      await request.post(`/api/table/${tableId}/field`).send(fieldRo).expect(201);
+      await createField(tableId, fieldRo);
     }
 
-    const fieldsResult = await request.get(`/api/table/${tableId}/field`).expect(200);
-    fields = fieldsResult.body;
-
-    // await addRecords(1).expect(201).expect({});
+    fields = await getFields(tableId);
 
     console.time(`create ${count} records`);
     for (let i = 0; i < count / batchCount; i++) {
-      await addRecords(batchCount).expect(201);
+      await addRecords(batchCount);
     }
     console.timeEnd(`create ${count} records`);
     console.log(`new table: ${tableId} created`);

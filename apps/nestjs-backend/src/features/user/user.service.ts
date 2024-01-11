@@ -1,16 +1,22 @@
+import { join } from 'path';
 import { Injectable } from '@nestjs/common';
 import { generateSpaceId, SpaceRole } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import type { ICreateSpaceRo, IUserNotifyMeta } from '@teable-group/openapi';
+import { UploadType, type ICreateSpaceRo, type IUserNotifyMeta } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { getFullStorageUrl } from '../../utils/full-storage-url';
+import StorageAdapter from '../attachments/plugins/adapter';
+import type { LocalStorage } from '../attachments/plugins/local';
+import { InjectStorageAdapter } from '../attachments/plugins/storage';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
   ) {}
 
   async getUserById(id: string) {
@@ -19,6 +25,7 @@ export class UserService {
     return (
       userRaw && {
         ...userRaw,
+        avatar: userRaw.avatar && getFullStorageUrl(userRaw.avatar),
         notifyMeta: userRaw.notifyMeta && JSON.parse(userRaw.notifyMeta),
       }
     );
@@ -87,10 +94,62 @@ export class UserService {
     });
   }
 
-  async updateAvatar(id: string, avatar: string) {
+  async updateAvatar(id: string, avatarFile: Express.Multer.File) {
+    const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
+    const bucket = StorageAdapter.getBucket(UploadType.Avatar);
+    const url = await this.storageAdapter.uploadFileWidthPath(bucket, path, avatarFile.path, {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': avatarFile.mimetype,
+    });
+
+    const localStorage = this.storageAdapter as LocalStorage;
+    const { size, mimetype, path: filePath } = avatarFile;
+    const hash = await localStorage.getHash(filePath);
+    const { width, height } = await localStorage.getFileMate(filePath);
+
+    const isExist = await this.prismaService.txClient().attachments.count({
+      where: {
+        deletedTime: null,
+        token: id,
+      },
+    });
+    if (isExist) {
+      await this.prismaService.txClient().attachments.update({
+        where: {
+          deletedTime: null,
+          token: id,
+        },
+        data: {
+          bucket,
+          hash,
+          size,
+          mimetype,
+          token: id,
+          path,
+          width,
+          height,
+          lastModifiedBy: id,
+        },
+      });
+    } else {
+      await this.prismaService.txClient().attachments.create({
+        data: {
+          bucket,
+          hash,
+          size,
+          mimetype,
+          token: id,
+          path,
+          width,
+          height,
+          createdBy: id,
+          lastModifiedBy: id,
+        },
+      });
+    }
     await this.prismaService.txClient().user.update({
       data: {
-        avatar,
+        avatar: url,
       },
       where: { id, deletedTime: null },
     });

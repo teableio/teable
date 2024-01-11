@@ -8,14 +8,14 @@ import {
   IViewRo,
   IColumnMetaRo,
   columnMetaRoSchema,
-  IFilter,
-  filterSchema,
-  ISort,
-  sortSchema,
+  IFilterRo,
+  IViewSortRo,
   viewOptionRoSchema,
   IViewOptionRo,
   groupSchema,
   IGroup,
+  filterRoSchema,
+  viewSortRoSchema,
 } from '@teable-group/core';
 import type { EnableShareViewVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
@@ -89,8 +89,8 @@ export class ViewOpenApiController {
   async updateViewFilter(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(filterSchema))
-    updateViewFilterRo: IFilter
+    @Body(new ZodValidationPipe(filterRoSchema))
+    updateViewFilterRo: IFilterRo
   ): Promise<void> {
     return await this.viewOpenApiService.setViewFilter(tableId, viewId, updateViewFilterRo);
   }
@@ -100,8 +100,8 @@ export class ViewOpenApiController {
   async updateViewSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(sortSchema))
-    updateViewSortRo: ISort
+    @Body(new ZodValidationPipe(viewSortRoSchema))
+    updateViewSortRo: IViewSortRo
   ): Promise<void> {
     return await this.viewOpenApiService.setViewSort(tableId, viewId, updateViewSortRo);
   }

@@ -93,10 +93,11 @@ export const SpaceInnerPage: React.FC = () => {
           )}
         </div>
 
-        <div className="ml-16 w-64 min-w-[16rem]">
+        <div className="ml-16 w-60 min-w-60">
           <SpaceActionBar
-            className="flex items-center justify-between pb-8 text-right"
+            className="flex shrink-0 items-center justify-end gap-3 pb-8"
             space={space}
+            buttonSize={'xs'}
             invQueryFilters={['base-list', space.id]}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
