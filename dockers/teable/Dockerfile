@@ -7,17 +7,16 @@
 #          and generates node_modules folder(s)                   #
 ###################################################################
 
-ARG NODE_VERSION=18
-ARG ALPINE_VERSION=3.18
+ARG NODE_VERSION=18.18.2
 
 
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS deps
+FROM node:${NODE_VERSION}-bookworm AS deps
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && pnpm add is-ci husky -g
 
 # Disabling some well-known postinstall scripts
-ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 ENV HUSKY=0
-
-RUN apk add --no-cache make bash rsync && corepack enable
 
 WORKDIR /workspace-install
 
@@ -27,7 +26,6 @@ RUN pnpm fetch
 
 COPY --link . .
 
-RUN npm install is-ci husky -g
 RUN pnpm install --prefer-offline --frozen-lockfile
 
 ###################################################################
@@ -56,7 +54,6 @@ RUN if [ -n "$INTEGRATION_TEST" ];  \
     else pnpm g:build; \
     fi
 
-
 ##################################################################
 # Stage 3: Post Builder                                          #
 ##################################################################
@@ -67,8 +64,8 @@ WORKDIR /app
 
 RUN rm -fr node_modules && pnpm nuke:node_modules && \
       rm -fr ./packages/eslint-config-bases ./packages/ui-lib && \
-      pnpm install --prod --prefer-offline --frozen-lockfile && \
       chmod +x ./scripts/post-build-cleanup.sh && bash ./scripts/post-build-cleanup.sh && \
+      pnpm install --prod --prefer-offline --frozen-lockfile && \
       pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 
@@ -76,12 +73,15 @@ RUN rm -fr node_modules && pnpm nuke:node_modules && \
 # Stage 4: Extract a minimal image from the build                #
 ##################################################################
 
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS runner
+FROM node:${NODE_VERSION}-bookworm-slim AS runner
 
 ENV NODE_ENV=production
+ENV TZ=UTC
 ENV PORT=${NEXTJS_APP_PORT:-3000}
 
-RUN apk add --no-cache bash && corepack enable
+RUN npm install pm2 -g && \
+      apt-get update && apt-get install -y openssl && \
+      rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -114,7 +114,8 @@ COPY --from=post-builder /app/packages ./packages
 COPY --from=post-builder /app/node_modules ./node_modules
 COPY --from=post-builder /app/package.json ./package.json
 
+COPY --from=post-builder /app/apps/nestjs-backend/ecosystem.config.js ./ecosystem.config.js
 
 EXPOSE ${PORT}
 
-CMD ["bash", "-c", "cd ./apps/nestjs-backend && node ./dist"]
+CMD ["pm2-runtime", "ecosystem.config.js"]

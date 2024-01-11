@@ -1,7 +1,7 @@
 name: Build and Push to Alibaba Cloud Registry
 
 on:
-  push:
+  pull_request:
     branches:
       - develop
 
@@ -19,15 +19,17 @@ jobs:
       - name: Login to Alibaba Cloud Docker Registry
         run: |
           docker login --username=${{ secrets.ALI_DOCKER_USERNAME }} registry.cn-beijing.aliyuncs.com --password=${{ secrets.ALI_DOCKER_PASSWORD }}
-          docker login --username=${{ secrets.DOCKER_USERNAME }} --password=${{ secrets.DOCKER_PASSWORD }}
+          docker login --username=${{ github.actor }} ghcr.io --password=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
         run: |
           # --platform linux/amd64,linux/arm64
           docker buildx build \
-          --cache-from type=registry,ref=docker.io/teablecloud/teable:build-cache \
-          --cache-to type=registry,ref=docker.io/teablecloud/teable:build-cache,mode=max \
+          --cache-from ghcr.io/teableio/teable:build-cache \
+          --cache-to type=registry,ref=ghcr.io/teableio/teable:build-cache,mode=max \
           --file dockers/teable/Dockerfile \
           --tag registry.cn-beijing.aliyuncs.com/bieber/teable:latest \
           --tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} \
+          --tag ghcr.io/teableio/teable:latest \
+          --tag ghcr.io/teableio/teable:${GITHUB_SHA} \
           --push .

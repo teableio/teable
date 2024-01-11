@@ -10,7 +10,7 @@ rm -fr /app/apps/nextjs-app/.next/cache || { echo "Next build cache does not exi
 root_dir="/app/packages"
 
 # Define an array containing the files and directories to keep
-declare -a keep_list=("dist" "node_modules" "package.json" "prisma" ".env")
+declare -a keep_list=("dist" "node_modules" "package.json" "prisma" ".env" "ecosystem.config.js")
 
 # Navigate to the root directory; exit if the directory does not exist
 cd "$root_dir" || { echo "Directory $root_dir does not exist."; exit 1; }

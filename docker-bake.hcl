@@ -14,5 +14,5 @@ target "teable" {
   context = "."
   dockerfile = "dockers/teable/Dockerfile"
   platforms = ["linux/amd64", "linux/arm64"]
-  tags = ["${IMAGE_REGISTRY}/teable:latest", "${IMAGE_REGISTRY}/teable:${IMAGE_TAG}"]
+  tags = ["${IMAGE_REGISTRY}/teablecloud/teable:latest", "${IMAGE_REGISTRY}/teablecloud/teable:${IMAGE_TAG}"]
 }
