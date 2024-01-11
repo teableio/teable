@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IGroupPointsRo, IGroupPointsVo } from '@teable-group/core';
+import type { IGroupPointsVo } from '@teable-group/core';
 import { groupPointsRoSchema, groupPointsVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -21,7 +21,7 @@ export const ShareViewGroupPointsRoute: RouteConfig = registerRoute({
     params: z.object({
       shareId: z.string(),
     }),
-    query: groupPointsRoSchema,
+    query: shareViewGroupPointsRoSchema,
   },
   responses: {
     200: {

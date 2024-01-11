@@ -31,11 +31,13 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
   const query = useGroupPointsQuery();
+  const view = useView(viewId);
+  const group = view?.group;
 
   const { data: resGroupPoints } = useQuery({
     queryKey: ReactQueryKeys.groupPoints(tableId as string, query),
     queryFn: ({ queryKey }) => getGroupPoints(queryKey[1], queryKey[2]),
-    enabled: !!tableId && isHydrated,
+    enabled: !!tableId && isHydrated && !!group?.length,
     refetchOnWindowFocus: false,
   });
 
@@ -45,7 +47,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   );
 
   useEffect(() => {
-    if (tableId == null) return;
+    if (tableId == null || !group?.length) return;
 
     const relevantProps = [
       'tableAdd',
@@ -56,7 +58,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
     ] as PropKeys[];
 
     listener?.(relevantProps, () => updateGroupPoints(), [tableId, viewId]);
-  }, [listener, tableId, updateGroupPoints, viewId]);
+  }, [listener, tableId, updateGroupPoints, viewId, group]);
 
   const groupPoints = useMemo(() => resGroupPoints?.data || null, [resGroupPoints]);
 
