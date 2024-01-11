@@ -150,8 +150,8 @@ const checkIsFreezeColumnHandler = (props: ICheckRegionProps): IRegionData | nul
   if (!isColumnFreezable) return null;
   const { x, y } = position;
   const { scrollTop } = scrollState;
-  const { freezeRegionWidth, rowInitSize, pureRowCount, containerHeight } = coordInstance;
-  const offsetY = coordInstance.getRowOffset(pureRowCount) - scrollTop;
+  const { freezeRegionWidth, rowInitSize, rowCount, containerHeight } = coordInstance;
+  const offsetY = coordInstance.getRowOffset(rowCount) - scrollTop;
   const maxY = Math.min(offsetY, containerHeight - columnStatisticHeight);
   const halfWidth = columnFreezeHandlerWidth / 2;
   if (
