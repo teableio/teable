@@ -20,6 +20,12 @@ const rangeTypes = {
   [SelectionRegionType.None]: undefined,
 };
 
+enum ClipboardTypes {
+  'text' = 'text/plain',
+  'html' = 'text/html',
+  'Files' = 'Files',
+}
+
 export const useCopy = (props: {
   copyReq: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, IRangesRo, unknown>;
 }) => {
@@ -39,8 +45,10 @@ export const useCopy = (props: {
 
       await navigator.clipboard.write([
         new ClipboardItem({
-          ['text/plain']: new Blob([content], { type: 'text/plain' }),
-          ['text/html']: new Blob([serializerHtml(content, header)], { type: 'text/html' }),
+          [ClipboardTypes.text]: new Blob([content], { type: ClipboardTypes.text }),
+          [ClipboardTypes.html]: new Blob([serializerHtml(content, header)], {
+            type: ClipboardTypes.html,
+          }),
         }),
       ]);
     },
@@ -156,9 +164,9 @@ export const useSelectionOperation = () => {
         return;
       }
 
-      const files = e.clipboardData.files;
+      const { files, types } = e.clipboardData;
       const toaster = toast({ title: 'Pasting...' });
-      if (files.length > 0) {
+      if (files.length > 0 && !types.includes(ClipboardTypes.text)) {
         await handleFilePaste(files, selection, recordMap, toaster);
       } else {
         await handleTextPaste(selection, toaster);

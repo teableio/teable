@@ -50,29 +50,24 @@ export class PermissionGuard {
     if (!permissions?.length) {
       return true;
     }
-    const req = context.switchToHttp().getRequest();
-    const spaceId = req.params.spaceId;
-    const baseId = req.params.baseId;
-    const tableId = req.params.tableId;
     const resourceId = this.getResourceId(context);
     if (!resourceId) {
       throw new ForbiddenException('permission check ID does not exist');
     }
-
     let permissionsByCheck: PermissionAction[] = [];
     if (resourceId.startsWith(IdPrefix.Space)) {
       permissionsByCheck = await this.permissionService.checkPermissionBySpaceId(
-        spaceId,
+        resourceId,
         permissions
       );
     } else if (resourceId.startsWith(IdPrefix.Base)) {
       permissionsByCheck = await this.permissionService.checkPermissionByBaseId(
-        baseId,
+        resourceId,
         permissions
       );
     } else if (resourceId.startsWith(IdPrefix.Table)) {
       permissionsByCheck = await this.permissionService.checkPermissionByTableId(
-        tableId,
+        resourceId,
         permissions
       );
     } else {
