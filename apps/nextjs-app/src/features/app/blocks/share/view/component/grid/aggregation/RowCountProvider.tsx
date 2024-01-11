@@ -35,7 +35,12 @@ export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
   );
 
   useEffect(() => {
-    const relevantProps = ['tableAdd', 'tableDelete', 'applyViewFilter'] as PropKeys[];
+    const relevantProps = [
+      'tableUpdate',
+      'tableAdd',
+      'tableDelete',
+      'applyViewFilter',
+    ] as PropKeys[];
 
     listener?.(relevantProps, () => updateViewRowCount(), [tableId, viewId]);
   }, [listener, tableId, updateViewRowCount, viewId]);
