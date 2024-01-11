@@ -19,7 +19,7 @@ jobs:
       - name: Login to Alibaba Cloud Docker Registry
         run: |
           docker login --username=${{ secrets.ALI_DOCKER_USERNAME }} registry.cn-beijing.aliyuncs.com --password=${{ secrets.ALI_DOCKER_PASSWORD }}
-          docker login --username=${{ github.actor }} ghcr.io --password=${{ secrets.PACKAGES_KEY }}
+          docker login --username=${{ github.actor }} ghcr.io --password=${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
         run: |
