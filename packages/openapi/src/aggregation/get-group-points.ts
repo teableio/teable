@@ -32,6 +32,10 @@ export const GetGroupPointsRoute: RouteConfig = registerRoute({
 
 export const getGroupPoints = async (tableId: string, query?: IGroupPointsRo) => {
   return axios.get<IGroupPointsVo>(urlBuilder(GET_GROUP_POINTS, { tableId }), {
-    params: query,
+    params: {
+      ...query,
+      filter: JSON.stringify(query?.filter),
+      groupBy: JSON.stringify(query?.groupBy),
+    },
   });
 };

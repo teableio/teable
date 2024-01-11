@@ -1,4 +1,11 @@
-import type { IOtOperation, IViewVo, ISort, IColumnMetaRo, IFilter } from '@teable-group/core';
+import type {
+  IOtOperation,
+  IViewVo,
+  ISort,
+  IColumnMetaRo,
+  IFilter,
+  IGroup,
+} from '@teable-group/core';
 import { ViewContext, createViewInstance, useView } from '@teable-group/sdk';
 import type { IViewInstance } from '@teable-group/sdk';
 import { useEffect, useRef, useState } from 'react';
@@ -15,12 +22,13 @@ interface IViewProxyProps {
 
 type IProxyViewInstance = Omit<
   IViewInstance,
-  'setViewFilter' | 'setViewSort' | 'setOption' | 'setViewColumnMeta'
+  'setViewFilter' | 'setViewSort' | 'setViewGroup' | 'setOption' | 'setViewColumnMeta'
 >;
 
 interface IProxyView extends IProxyViewInstance {
   setViewFilter: (filter: IFilter) => void;
   setViewSort: (sort: ISort) => void;
+  setViewGroup: (group: IGroup) => void;
   setOption: (option: object) => void;
   setViewColumnMeta: (columnMeta: IColumnMetaRo) => void;
 }
@@ -61,6 +69,13 @@ export const ViewProxy = (props: IViewProxyProps) => {
       setViewData({
         ...viewData,
         filter,
+      });
+    };
+
+    newViewProxy.setViewGroup = (group: IGroup) => {
+      setViewData({
+        ...viewData,
+        group,
       });
     };
 

@@ -7,6 +7,12 @@ import { z } from '../zod';
 
 export const SHARE_VIEW_GROUP_POINTS = '/share/{shareId}/view/groupPoints';
 
+export const shareViewGroupPointsRoSchema = groupPointsRoSchema.omit({
+  viewId: true,
+});
+
+export type IShareViewGroupPointsRo = z.infer<typeof shareViewGroupPointsRoSchema>;
+
 export const ShareViewGroupPointsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: SHARE_VIEW_GROUP_POINTS,
@@ -30,8 +36,11 @@ export const ShareViewGroupPointsRoute: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const getShareViewGroupPoints = async (shareId: string, query?: IGroupPointsRo) => {
+export const getShareViewGroupPoints = async (shareId: string, query?: IShareViewGroupPointsRo) => {
   return axios.get<IGroupPointsVo>(urlBuilder(SHARE_VIEW_GROUP_POINTS, { shareId }), {
-    params: query,
+    params: {
+      filter: JSON.stringify(query?.filter),
+      groupBy: JSON.stringify(query?.groupBy),
+    },
   });
 };

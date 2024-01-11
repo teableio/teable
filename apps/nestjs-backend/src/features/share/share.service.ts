@@ -11,7 +11,6 @@ import type {
   ILinkFieldOptions,
   IAggregationVo,
   IGroupPointsVo,
-  IGroupPointsRo,
   StatisticsFunc,
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
@@ -23,6 +22,7 @@ import type {
   IShareViewRowCountRo,
   IShareViewAggregationsRo,
   IRangesRo,
+  IShareViewGroupPointsRo,
 } from '@teable-group/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -178,7 +178,7 @@ export class ShareService {
 
   async getViewGroupPoints(
     shareInfo: IShareViewInfo,
-    query?: IGroupPointsRo
+    query?: IShareViewGroupPointsRo
   ): Promise<IGroupPointsVo> {
     const viewId = shareInfo.view.id;
     const tableId = shareInfo.tableId;
