@@ -1,7 +1,7 @@
 name: Build and Push to Alibaba Cloud Registry
 
 on:
-  pull_request:
+  push:
     branches:
       - develop
 
@@ -29,6 +29,8 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
+            # set latest tag for default branch
+            type=raw,value=latest,enable={{is_default_branch}}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -57,15 +59,3 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-#      - name: Build and push Docker image
-#        run: |
-#          # --platform linux/amd64,linux/arm64
-#          docker buildx build \
-#          --cache-from ghcr.io/teableio/teable:build-cache \
-#          --cache-to type=registry,ref=ghcr.io/teableio/teable:build-cache,mode=max \
-#          --file dockers/teable/Dockerfile \
-#          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:latest \
-#          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} \
-#          --tag ghcr.io/teableio/teable:latest \
-#          --tag ghcr.io/teableio/teable:${GITHUB_SHA} \
-#          --push .
