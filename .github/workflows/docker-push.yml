@@ -1,7 +1,7 @@
 name: Build and Push to Alibaba Cloud Registry
 
 on:
-  push:
+  pull_request:
     branches:
       - develop
 
@@ -12,24 +12,59 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            registry.cn-beijing.aliyuncs.com/bieber/teable
+            ghcr.io/teableio/teable
+          # generate Docker tags based on the following events/attributes
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Alibaba Cloud Docker Registry
-        run: |
-          docker login --username=${{ secrets.ALI_DOCKER_USERNAME }} registry.cn-beijing.aliyuncs.com --password=${{ secrets.ALI_DOCKER_PASSWORD }}
-          docker login --username=${{ github.actor }} ghcr.io --password=${{ secrets.GITHUB_TOKEN }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PACKAGES_KEY }}
 
-      - name: Build and push Docker image
-        run: |
-          # --platform linux/amd64,linux/arm64
-          docker buildx build \
-          --cache-from ghcr.io/teableio/teable:build-cache \
-          --cache-to type=registry,ref=ghcr.io/teableio/teable:build-cache,mode=max \
-          --file dockers/teable/Dockerfile \
-          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:latest \
-          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} \
-          --tag ghcr.io/teableio/teable:latest \
-          --tag ghcr.io/teableio/teable:${GITHUB_SHA} \
-          --push .
+      - name: Login to Aliyuncs Registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.cn-beijing.aliyuncs.com
+          username: ${{ secrets.ALI_DOCKER_USERNAME }}
+          password: ${{ secrets.ALI_DOCKER_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+#      - name: Build and push Docker image
+#        run: |
+#          # --platform linux/amd64,linux/arm64
+#          docker buildx build \
+#          --cache-from ghcr.io/teableio/teable:build-cache \
+#          --cache-to type=registry,ref=ghcr.io/teableio/teable:build-cache,mode=max \
+#          --file dockers/teable/Dockerfile \
+#          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:latest \
+#          --tag registry.cn-beijing.aliyuncs.com/bieber/teable:${GITHUB_SHA} \
+#          --tag ghcr.io/teableio/teable:latest \
+#          --tag ghcr.io/teableio/teable:${GITHUB_SHA} \
+#          --push .
