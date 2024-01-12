@@ -54,6 +54,6 @@ jobs:
           file: dockers/teable/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          platforms: linux/amd64,linux/arm64
+          # platforms: linux/amd64,linux/arm64
           cache-from: type=registry,ref=ghcr.io/teableio/teable:buildcache
           cache-to: type=registry,ref=ghcr.io/teableio/teable:buildcache,mode=max
