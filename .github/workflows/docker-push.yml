@@ -22,12 +22,9 @@ jobs:
             ghcr.io/teableio/teable
           # generate Docker tags based on the following events/attributes
           tags: |
-            type=schedule
             type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
             type=sha
             # set latest tag for default branch
             type=raw,value=latest,enable={{is_default_branch}}
@@ -58,5 +55,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           # platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=ghcr.io/teableio/teable:buildcache
+          cache-to: type=registry,ref=ghcr.io/teableio/teable:buildcache,mode=max
