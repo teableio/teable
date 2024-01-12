@@ -9,6 +9,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        platforms: [linux/amd64, linux/arm64]
+        cache-image-tag: [buildcache-amd64, buildcache-arm64]
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,13 +53,16 @@ jobs:
           username: ${{ secrets.ALI_DOCKER_USERNAME }}
           password: ${{ secrets.ALI_DOCKER_PASSWORD }}
 
-      - name: Build and push
+      # Why not specify multiple platforms directly?
+      # The reason is that sometimes the action may suffer from prolonged build times or even freeze due to insufficient machine resources.
+      # Therefore, for the sake of stability, it's better to use matrix builds for multi-architecture images.
+      - name: Build and push (${{ matrix.platforms }})
         uses: docker/build-push-action@v5
         with:
           context: .
           file: dockers/teable/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          # platforms: linux/amd64,linux/arm64
-          cache-from: type=registry,ref=ghcr.io/teableio/teable:buildcache
-          cache-to: type=registry,ref=ghcr.io/teableio/teable:buildcache,mode=max
+          platforms: ${{ matrix.platforms }}
+          cache-from: type=registry,ref=ghcr.io/teableio/teable:${{ matrix.cache-image-tag }}
+          cache-to: type=registry,ref=ghcr.io/teableio/teable:${{ matrix.cache-image-tag }},mode=max
