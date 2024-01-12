@@ -11,10 +11,14 @@ jobs:
 
     strategy:
       matrix:
-        platforms: [linux/amd64, linux/arm64]
+        #        platforms: [linux/amd64, linux/arm64]
+        #        include:
+        #          - platforms: linux/amd64
+        #            cache-image-tag: buildcache-amd64
+        #          - platforms: linux/arm64
+        #            cache-image-tag: buildcache-arm64
+        platforms: [linux/arm64]
         include:
-          - platforms: linux/amd64
-            cache-image-tag: buildcache-amd64
           - platforms: linux/arm64
             cache-image-tag: buildcache-arm64
 
