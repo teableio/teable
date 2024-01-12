@@ -1,5 +1,10 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { contentQueryBaseSchema, filterSchema, orderBySchema } from '@teable-group/core';
+import {
+  contentQueryBaseSchema,
+  filterSchema,
+  groupSchema,
+  orderBySchema,
+} from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -27,6 +32,7 @@ export const rangesSchema = z.array(cellSchema).min(1, {
 export const rangesRoSchema = contentQueryBaseSchema.extend({
   filter: filterSchema.optional(),
   orderBy: orderBySchema.optional(),
+  groupBy: groupSchema.optional(),
   ranges: rangesSchema.openapi({
     description:
       'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
