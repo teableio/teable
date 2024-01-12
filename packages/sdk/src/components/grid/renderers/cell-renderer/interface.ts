@@ -37,7 +37,6 @@ export interface IBaseCell {
 
 export interface IEditableCell extends IBaseCell {
   customEditor?: ICustomEditor;
-  editWhenClicked?: boolean; // When activated, clicking can edit the cell
 }
 
 export interface ILoadingCell extends IBaseCell {

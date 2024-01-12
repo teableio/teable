@@ -250,7 +250,6 @@ const createCellValue2GridDisplay =
           displayData: data,
           choices,
           isMultiple,
-          editWhenClicked: true,
           customEditor: (props, editorRef) => (
             <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
           ),
