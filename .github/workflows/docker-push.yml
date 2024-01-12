@@ -10,10 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
-      fail-fast: false
       matrix:
         platforms: [linux/amd64, linux/arm64]
-        cache-image-tag: [buildcache-amd64, buildcache-arm64]
+        include:
+          - platforms: linux/amd64
+            cache-image-tag: buildcache-amd64
+          - platforms: linux/arm64
+            cache-image-tag: buildcache-arm64
 
     steps:
       - name: Checkout code
