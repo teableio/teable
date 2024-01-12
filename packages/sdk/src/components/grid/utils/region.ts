@@ -37,6 +37,7 @@ interface ICheckRegionProps
   isColumnHeaderMenuVisible: boolean;
   activeCell: ICellItem | null;
   activeCellBound: IActiveCellBound | null;
+  real2RowIndex: (index: number) => number;
 }
 
 export interface IRegionData extends IRectangle {
@@ -98,12 +99,14 @@ const checkIfFreezing = (props: ICheckRegionProps): IRegionData | null => {
 };
 
 const checkIsActiveCell = (props: ICheckRegionProps): IRegionData | null => {
-  const { coordInstance, scrollState, position, activeCell, activeCellBound } = props;
+  const { coordInstance, scrollState, position, activeCell, activeCellBound, real2RowIndex } =
+    props;
   if (activeCell == null || activeCellBound == null) return null;
   const { x, y } = position;
   const { scrollTop, scrollLeft } = scrollState;
   const [columnIndex, rowIndex] = activeCell;
-  const offsetY = coordInstance.getRowOffset(rowIndex) - scrollTop;
+  const linearRowIndex = real2RowIndex(rowIndex);
+  const offsetY = coordInstance.getRowOffset(linearRowIndex) - scrollTop;
   const offsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
   const { width, height } = activeCellBound;
 
@@ -114,7 +117,7 @@ const checkIsActiveCell = (props: ICheckRegionProps): IRegionData | null => {
       y: offsetY,
       width,
       height,
-      rowIndex,
+      rowIndex: linearRowIndex,
       columnIndex,
       isOutOfBounds: false,
     };

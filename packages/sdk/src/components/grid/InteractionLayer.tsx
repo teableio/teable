@@ -260,17 +260,18 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const getHoverCellPosition = (mouseState: IMouseState) => {
     const { rowIndex, columnIndex, x, y } = mouseState;
-    const isCellRange = columnIndex > -1 && rowIndex > -1;
+    const { realIndex, type } = getLinearRow(rowIndex);
+    const isCellRange = columnIndex > -1 && type === LinearRowType.Row;
 
     if (isCellRange) {
-      const cell = getCellContent([columnIndex, rowIndex]);
+      const cell = getCellContent([columnIndex, realIndex]);
       const cellRenderer = getCellRenderer(cell.type);
 
       if (
         cellRenderer.needsHoverPosition ||
         (cellRenderer.needsHoverPositionWhenActive &&
           activeCell &&
-          isEqual(activeCell, [columnIndex, rowIndex]))
+          isEqual(activeCell, [columnIndex, realIndex]))
       ) {
         const offsetX = coordInstance.getColumnOffset(columnIndex);
         return [
@@ -328,6 +329,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       height,
       theme,
       getLinearRow,
+      real2RowIndex,
     });
 
     hoveredRegionRef.current = regionData;
@@ -380,8 +382,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const mouseState = getMouseState();
     onSelectionClick(event, mouseState);
-    const { type, rowIndex, columnIndex } = mouseState;
+    const { type, rowIndex: hoverRowIndex, columnIndex } = mouseState;
     if (regionType !== type) return;
+
+    const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
 
     switch (type) {
       case RegionType.AppendRow: {
@@ -389,19 +393,18 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           setSelection(selection.reset());
           return setActiveCell(null);
         }
-        let targetIndex: number | undefined = rowIndex;
-        if (rowIndex <= 0) {
+        let targetIndex: number | undefined = hoverRowIndex;
+        if (hoverRowIndex <= 0) {
           targetIndex = undefined;
         } else {
-          const linearRow = getLinearRow(rowIndex - 1);
+          const linearRow = getLinearRow(hoverRowIndex - 1);
           if (linearRow.type === LinearRowType.Row) {
             targetIndex = linearRow.realIndex;
           }
         }
         onRowAppend?.(targetIndex);
 
-        const { realIndex } = getLinearRow(rowIndex);
-        const range = [0, realIndex + 1] as IRange;
+        const range = [0, rowIndex + 1] as IRange;
         setActiveCell(range);
         setSelection(new CombinedSelection(SelectionRegionType.Cells, [range, range]));
         return;
@@ -434,7 +437,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       }
       case RegionType.Cell:
       case RegionType.ActiveCell: {
-        const { columnIndex, rowIndex } = mouseState;
         const cell = getCellContent([columnIndex, rowIndex]) as IInnerCell;
         const cellRenderer = getCellRenderer(cell.type);
         const onCellClick = cellRenderer.onClick;
@@ -447,7 +449,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
             cell as never,
             {
               width: coordInstance.getColumnWidth(columnIndex),
-              height: coordInstance.getRowHeight(rowIndex),
+              height: coordInstance.getRowHeight(hoverRowIndex),
               theme,
               hoverCellPosition,
               activeCellBound,
@@ -537,7 +539,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     if (event.button === MouseButtonType.Right) return;
     const mouseState = getMouseState();
     setMouseState(mouseState);
-    const { rowIndex, columnIndex } = mouseState;
+    const { rowIndex: hoverRowIndex, columnIndex } = mouseState;
+    const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
     if (!(isCellSelection && isEqual(selectionRanges[0], [columnIndex, rowIndex]))) {
       setEditing(false);
       editorContainerRef.current?.saveValue?.();
@@ -551,7 +554,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const onCellPosition = (mouseState: IMouseState) => {
     const { columnIndex, rowIndex, type } = mouseState;
-    const cell = getCellContent([columnIndex, rowIndex]);
+    const { realIndex } = getLinearRow(rowIndex);
+    const cell = getCellContent([columnIndex, realIndex]);
     const cellRenderer = getCellRenderer(cell.type);
     const { needsHover, needsHoverPosition, needsHoverWhenActive, needsHoverPositionWhenActive } =
       cellRenderer;

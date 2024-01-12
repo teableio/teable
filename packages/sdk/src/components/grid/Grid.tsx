@@ -346,7 +346,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
               }
         ) as ILinearRow;
       }
-      return linearRows[index];
+      return linearRows[index] ?? { realIndex: -2 };
     },
     [linearRows, pureRowCount]
   );

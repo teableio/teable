@@ -557,9 +557,8 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
 
   const { scrollTop, scrollLeft } = scrollState;
   const { width, height, columnIndex, rowIndex: activeRowIndex } = activeCellBound;
-  const { rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex } = mouseState;
+  const { rowIndex: hoverLinearRowIndex, columnIndex: hoverColumnIndex } = mouseState;
   const { cellBg, cellLineColorActived, fontSizeSM, fontFamily, scrollBarBg } = theme;
-  const rowIndex = real2RowIndex(activeRowIndex);
   const {
     freezeColumnCount,
     freezeRegionWidth,
@@ -568,13 +567,15 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     columnCount,
     rowInitSize,
   } = coordInstance;
-  const linearRow = getLinearRow(rowIndex);
+  const activeLinearRowIndex = real2RowIndex(activeRowIndex);
+  const linearRow = getLinearRow(activeLinearRowIndex);
 
   if (columnIndex >= columnCount || linearRow?.type !== LinearRowType.Row) return;
 
   const isFreezeRegion = columnIndex < freezeColumnCount;
   const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
-  const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+  const y = coordInstance.getRowOffset(activeLinearRowIndex) - scrollTop;
+  const { realIndex: hoverRowIndex } = getLinearRow(hoverLinearRowIndex);
 
   ctx.save();
   ctx.beginPath();
@@ -632,7 +633,9 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     rowIndex: activeRowIndex,
     columnIndex,
     hoverCellPosition:
-      hoverRowIndex === rowIndex && hoverColumnIndex === columnIndex ? hoverCellPosition : null,
+      hoverRowIndex === activeRowIndex && hoverColumnIndex === columnIndex
+        ? hoverCellPosition
+        : null,
     getCellContent,
     isActive: true,
     imageManager,
