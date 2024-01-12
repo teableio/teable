@@ -3,7 +3,7 @@ import { isEqual, groupBy } from 'lodash';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import { getDropTargetIndex } from '../../hooks';
 import type { IRectangle } from '../../interface';
-import { DragRegionType, RegionType, RowControlType } from '../../interface';
+import { DragRegionType, LinearRowType, RegionType, RowControlType } from '../../interface';
 import { GridInnerIcon } from '../../managers';
 import {
   checkIfRowOrCellActive,
@@ -23,22 +23,23 @@ import { getCellRenderer, getCellScrollState } from '../cell-renderer';
 import type {
   ICacheDrawerProps,
   ICellDrawerProps,
+  IGroupRowDrawerProps,
   IFieldHeadDrawerProps,
   IGridHeaderDrawerProps,
   ILayoutDrawerProps,
   IRowHeaderDrawerProps,
+  IGroupRowHeaderDrawerProps,
+  IAppendRowDrawerProps,
 } from './interface';
 import { RenderRegion, DividerRegion } from './interface';
 
 const spriteIconMap = {
   [RowControlType.Drag]: GridInnerIcon.Drag,
-  [RowControlType.Expand]: GridInnerIcon.Expand,
+  [RowControlType.Expand]: GridInnerIcon.Detail,
 };
 
 const {
   fillHandlerSize,
-  cellVerticalPadding,
-  cellHorizontalPadding,
   rowHeadIconPaddingTop,
   columnStatisticHeight,
   columnHeadHeight,
@@ -50,6 +51,9 @@ const {
   cellScrollBarWidth,
   cellScrollBarPaddingX,
   cellScrollBarPaddingY,
+  cellVerticalPaddingSM,
+  cellVerticalPaddingMD,
+  cellHorizontalPadding,
   columnFreezeHandlerWidth,
   columnFreezeHandlerHeight,
 } = GRID_DEFAULT;
@@ -63,11 +67,11 @@ export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawe
     theme,
     rowIndex,
     columnIndex,
-    hoverCellPosition,
     imageManager,
     spriteManager,
-    getCellContent,
     isActive,
+    hoverCellPosition,
+    getCellContent,
   } = props;
 
   const cell = getCellContent([columnIndex, rowIndex]);
@@ -102,38 +106,43 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     isSelecting,
     rowControls,
     rowIndexVisible,
-    isRowAppendEnable,
     hoverCellPosition,
-    getCellContent,
     theme,
     imageManager,
     spriteManager,
+    groupCollection,
+    getLinearRow,
+    getCellContent,
   } = props;
   const {
     startRowIndex,
-    stopRowIndex: originStopRowIndex,
+    stopRowIndex,
     startColumnIndex: originStartColumnIndex,
     stopColumnIndex: originStopColumnIndex,
   } = visibleRegion;
-  const { rowHeight, freezeColumnCount, columnInitSize } = coordInstance;
+  const { freezeColumnCount, columnInitSize, totalWidth } = coordInstance;
   const { isRowSelection, isColumnSelection } = selection;
+  const { cellBg, cellBgHovered, cellBgSelected } = theme;
   const { scrollLeft, scrollTop } = scrollState;
-  const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const {
     columnIndex: hoverColumnIndex,
     rowIndex: hoverRowIndex,
     type: hoverRegionType,
     isOutOfBounds,
   } = mouseState;
+
+  const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
     : originStopColumnIndex;
-  const stopRowIndex = isRowAppendEnable ? Math.max(0, originStopRowIndex - 1) : originStopRowIndex;
-  const { cellBg, cellBgHovered, cellBgSelected } = theme;
+  const isFreezeWithoutColumns = isFreezeRegion && freezeColumnCount === 0;
 
   const cellPropList: ICellDrawerProps[] = [];
-  const rowHeaderPropList = [];
+  const rowHeaderPropList: IRowHeaderDrawerProps[] = [];
+  const groupRowList: IGroupRowDrawerProps[] = [];
+  const groupRowHeaderList: IGroupRowHeaderDrawerProps[] = [];
+  const appendRowList: IAppendRowDrawerProps[] = [];
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
@@ -143,7 +152,67 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     const isColumnHovered = hoverColumnIndex === columnIndex;
 
     for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
+      const linearRow = getLinearRow(rowIndex);
+      const { type: linearRowType } = linearRow;
+      const rowHeight = coordInstance.getRowHeight(rowIndex);
       const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+
+      if (linearRowType === LinearRowType.Group) {
+        const { depth, value, isCollapsed } = linearRow;
+        if (isFirstColumn) {
+          groupRowHeaderList.push({
+            x: 0.5,
+            y,
+            width: columnInitSize,
+            height: rowHeight,
+            spriteManager,
+            depth,
+            theme,
+            isCollapsed,
+            groupCollection,
+          });
+        }
+
+        if (isFreezeWithoutColumns) continue;
+
+        groupRowList.push({
+          x: x + 0.5,
+          y,
+          width: columnWidth,
+          height: rowHeight,
+          columnIndex,
+          rowIndex,
+          depth,
+          theme,
+          value,
+          isHover: false,
+          isCollapsed,
+          imageManager,
+          spriteManager,
+          groupCollection,
+        });
+        continue;
+      }
+
+      if (linearRowType === LinearRowType.Append) {
+        if (isFirstColumn) {
+          const isHover = hoverRegionType === RegionType.AppendRow && hoverRowIndex === rowIndex;
+
+          appendRowList.push({
+            x: 0.5,
+            y: y + 0.5,
+            width: totalWidth - scrollLeft,
+            height: rowHeight,
+            theme,
+            isHover,
+            spriteManager,
+            coordInstance,
+          });
+        }
+        continue;
+      }
+
+      const { displayIndex, realIndex: realRowIndex } = linearRow;
       const isRowHovered =
         !isOutOfBounds &&
         !isSelecting &&
@@ -151,12 +220,12 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         rowIndex === hoverRowIndex;
       const { isCellActive, isRowActive } = checkIfRowOrCellActive(
         activeCell,
-        rowIndex,
+        realRowIndex,
         columnIndex
       );
       const { isRowSelected, isCellSelected } = checkIfRowOrCellSelected(
         selection,
-        rowIndex,
+        realRowIndex,
         columnIndex
       );
       let fill;
@@ -173,7 +242,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
           y: y + 0.5,
           width: columnInitSize + 0.5,
           height: rowHeight,
-          displayIndex: String(rowIndex + 1),
+          displayIndex: String(displayIndex),
           isHover: isRowHovered || isRowActive,
           isChecked: isRowSelection && isRowSelected,
           rowIndexVisible,
@@ -183,14 +252,14 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         });
       }
 
-      if (isFreezeRegion && freezeColumnCount === 0) continue;
+      if (isFreezeWithoutColumns) continue;
 
       cellPropList.push({
         x: x + 0.5,
         y: y + 0.5,
         width: columnWidth,
         height: rowHeight,
-        rowIndex,
+        rowIndex: realRowIndex,
         columnIndex,
         hoverCellPosition: isColumnHovered && isRowHovered ? hoverCellPosition : null,
         getCellContent,
@@ -205,6 +274,9 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
   return {
     cellPropList,
     rowHeaderPropList,
+    groupRowList,
+    groupRowHeaderList,
+    appendRowList,
   };
 };
 
@@ -231,16 +303,18 @@ export const drawCells = (
 ) => {
   const { coordInstance, theme, shouldRerender } = props;
   const { fontFamily, fontSizeSM, fontSizeXS, cellLineColor } = theme;
-  const { pureRowCount, rowInitSize, freezeRegionWidth, containerWidth, containerHeight } =
-    coordInstance;
+  const { rowInitSize, freezeRegionWidth, containerWidth, containerHeight } = coordInstance;
 
-  if (pureRowCount === 0) return;
+  const { cellPropList: otherCellPropList, groupRowList } = calcCells(props, RenderRegion.Other);
+  const {
+    cellPropList: freezeCellPropList,
+    groupRowList: freezeGroupRowList,
+    rowHeaderPropList,
+    groupRowHeaderList,
+    appendRowList,
+  } = calcCells(props, RenderRegion.Freeze);
 
-  const { cellPropList: otherCellPropList } = calcCells(props, RenderRegion.Other);
-  const { cellPropList: freezeCellPropList, rowHeaderPropList } = calcCells(
-    props,
-    RenderRegion.Freeze
-  );
+  appendRowList.forEach((props) => drawAppendRow(mainCtx, props));
 
   // Render freeze region
   drawClipRegion(
@@ -265,6 +339,8 @@ export const drawCells = (
       });
       ctx.font = `${fontSizeXS}px ${fontFamily}`;
       rowHeaderPropList.forEach((rowHeaderProps) => drawRowHeader(ctx, rowHeaderProps));
+      freezeGroupRowList.forEach((props) => drawGroupRow(ctx, props));
+      groupRowHeaderList.forEach((props) => drawGroupRowHeader(ctx, props));
     }
   );
 
@@ -289,6 +365,7 @@ export const drawCells = (
           stroke: cellLineColor,
         });
       });
+      groupRowList.forEach((props) => drawGroupRow(ctx, props));
     }
   );
 
@@ -328,40 +405,177 @@ export const drawCells = (
   }
 };
 
+export const drawGroupRowHeader = (
+  ctx: CanvasRenderingContext2D,
+  props: IGroupRowHeaderDrawerProps
+) => {
+  const { x, y, width, height, theme, depth, isCollapsed, spriteManager, groupCollection } = props;
+  const {
+    iconSizeSM,
+    cellLineColor,
+    groupHeaderBgPrimary,
+    groupHeaderBgSecondary,
+    groupHeaderBgTertiary,
+  } = theme;
+
+  if (groupCollection == null) return;
+
+  const { groupColumns } = groupCollection;
+
+  if (!groupColumns.length) return;
+
+  const bgList = [groupHeaderBgTertiary, groupHeaderBgSecondary, groupHeaderBgPrimary].slice(
+    -groupColumns.length
+  );
+
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height,
+    fill: bgList[depth],
+  });
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height: 1,
+    fill: cellLineColor,
+  });
+
+  spriteManager.drawSprite(ctx, {
+    sprite: isCollapsed ? GridInnerIcon.Collapse : GridInnerIcon.Expand,
+    x: (width - iconSizeSM) / 2 + (depth - 1) * 16,
+    y: y + (height - iconSizeSM) / 2,
+    size: iconSizeSM,
+    theme,
+  });
+};
+
+export const drawGroupRow = (ctx: CanvasRenderingContext2D, props: IGroupRowDrawerProps) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    theme,
+    columnIndex,
+    rowIndex,
+    depth,
+    value,
+    imageManager,
+    spriteManager,
+    groupCollection,
+  } = props;
+  const {
+    fontSizeSM,
+    fontFamily,
+    cellLineColor,
+    rowHeaderTextColor,
+    groupHeaderBgPrimary,
+    groupHeaderBgTertiary,
+    groupHeaderBgSecondary,
+  } = theme;
+
+  if (groupCollection == null) return;
+
+  const { groupColumns, getGroupCell } = groupCollection;
+
+  if (!groupColumns.length) return;
+
+  const bgList = [groupHeaderBgTertiary, groupHeaderBgSecondary, groupHeaderBgPrimary].slice(
+    -groupColumns.length
+  );
+
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height,
+    fill: bgList[depth],
+  });
+  drawRect(ctx, {
+    x,
+    y,
+    width,
+    height: 1,
+    fill: cellLineColor,
+  });
+
+  if (columnIndex !== 0) return;
+
+  const groupColumn = groupColumns[depth];
+
+  if (groupColumn == null) return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.font = `${fontSizeSM}px ${fontFamily}`;
+
+  drawSingleLineText(ctx, {
+    x: x + cellHorizontalPadding,
+    y: y + cellVerticalPaddingSM,
+    text: groupColumn.name,
+    fill: rowHeaderTextColor,
+  });
+
+  const cell = getGroupCell(value, depth);
+  const cellRenderer = getCellRenderer(cell.type);
+  cellRenderer.draw(cell as never, {
+    ctx,
+    theme,
+    rect: {
+      x,
+      y: y + 18,
+      width,
+      height,
+    },
+    rowIndex,
+    columnIndex,
+    imageManager,
+    spriteManager,
+  });
+  ctx.restore();
+};
+
 export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
   const {
+    theme,
     mouseState,
     scrollState,
     coordInstance,
     activeCellBound,
     hoverCellPosition,
-    getCellContent,
     imageManager,
     spriteManager,
-    theme,
+    real2RowIndex,
+    getLinearRow,
+    getCellContent,
   } = props;
 
   if (activeCellBound == null) return;
 
   const { scrollTop, scrollLeft } = scrollState;
-  const { width, height, columnIndex, rowIndex } = activeCellBound;
-  const { rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex } = mouseState;
+  const { width, height, columnIndex, rowIndex: activeRowIndex } = activeCellBound;
+  const { rowIndex: hoverLinearRowIndex, columnIndex: hoverColumnIndex } = mouseState;
   const { cellBg, cellLineColorActived, fontSizeSM, fontFamily, scrollBarBg } = theme;
   const {
     freezeColumnCount,
     freezeRegionWidth,
     containerWidth,
     containerHeight,
-    pureRowCount,
     columnCount,
     rowInitSize,
   } = coordInstance;
+  const activeLinearRowIndex = real2RowIndex(activeRowIndex);
+  const linearRow = getLinearRow(activeLinearRowIndex);
 
-  if (columnIndex >= columnCount || rowIndex >= pureRowCount) return;
+  if (columnIndex >= columnCount || linearRow?.type !== LinearRowType.Row) return;
 
   const isFreezeRegion = columnIndex < freezeColumnCount;
   const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
-  const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+  const y = coordInstance.getRowOffset(activeLinearRowIndex) - scrollTop;
+  const { realIndex: hoverRowIndex } = getLinearRow(hoverLinearRowIndex);
 
   ctx.save();
   ctx.beginPath();
@@ -416,10 +630,12 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
     y: y + 0.5,
     width,
     height,
-    rowIndex,
+    rowIndex: activeRowIndex,
     columnIndex,
     hoverCellPosition:
-      hoverRowIndex === rowIndex && hoverColumnIndex === columnIndex ? hoverCellPosition : null,
+      hoverRowIndex === activeRowIndex && hoverColumnIndex === columnIndex
+        ? hoverCellPosition
+        : null,
     getCellContent,
     isActive: true,
     imageManager,
@@ -432,7 +648,8 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
 };
 
 export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { collaborators, scrollState, coordInstance, activeCellBound, theme } = props;
+  const { collaborators, scrollState, coordInstance, activeCellBound, theme, real2RowIndex } =
+    props;
   const { scrollTop, scrollLeft } = scrollState;
   const { themeKey } = theme;
 
@@ -453,7 +670,8 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     // for conflict cell, we'd like to show the latest collaborator
     const conflictCollaborators = groupedCollaborators[i].sort((a, b) => b.timeStamp - a.timeStamp);
     const { activeCell, borderColor } = conflictCollaborators[0];
-    const [columnIndex, rowIndex] = activeCell;
+    const [columnIndex, _rowIndex] = activeCell;
+    const rowIndex = real2RowIndex(_rowIndex);
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
     const width = coordInstance.getColumnWidth(columnIndex);
@@ -628,7 +846,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   }
   drawSingleLineText(ctx, {
     x: x + width / 2,
-    y: y + cellVerticalPadding + 1,
+    y: y + cellVerticalPaddingMD + 1,
     text: displayIndex,
     textAlign: 'center',
     fill: rowHeaderTextColor,
@@ -707,7 +925,7 @@ export const drawColumnHeader = (ctx: CanvasRenderingContext2D, props: IFieldHea
 
   drawSingleLineText(ctx, {
     x: x + iconSizeXS + columnHeadPadding + columnHeadPadding / 2,
-    y: y + cellVerticalPadding,
+    y: y + cellVerticalPaddingMD,
     text: name,
     fill: columnHeaderNameColor,
     fontSize: fontSizeSM,
@@ -769,7 +987,6 @@ export const drawColumnHeaders = (
     selection,
     rowControls,
     isInteracting,
-    isRowAppendEnable,
     isColumnHeaderMenuVisible,
     isMultiSelectionEnable,
   } = props;
@@ -781,7 +998,7 @@ export const drawColumnHeaders = (
     rowInitSize,
     columnInitSize,
     freezeColumnCount,
-    rowCount,
+    pureRowCount,
   } = coordInstance;
   const { scrollLeft } = scrollState;
   const { isColumnSelection, isRowSelection, ranges: selectionRanges } = selection;
@@ -791,7 +1008,7 @@ export const drawColumnHeaders = (
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
     : originStopColumnIndex;
-  const endRowIndex = isRowAppendEnable ? rowCount - 2 : rowCount - 1;
+  const endRowIndex = pureRowCount - 1;
 
   ctx.save();
   ctx.beginPath();
@@ -851,41 +1068,31 @@ export const drawColumnHeaders = (
   ctx.restore();
 };
 
-export const drawAppendRow = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const {
-    scrollState,
-    coordInstance,
-    mouseState,
-    theme,
-    isRowAppendEnable,
-    spriteManager,
-    visibleRegion,
-  } = props;
-  const { stopRowIndex } = visibleRegion;
-  const { totalWidth, pureRowCount, columnInitSize } = coordInstance;
-  if (!isRowAppendEnable || stopRowIndex < pureRowCount) return;
-
-  const { scrollLeft, scrollTop } = scrollState;
-  const { type, rowIndex, isOutOfBounds } = mouseState;
-  const { appendRowBg, appendRowBgHovered, iconSizeSM } = theme;
+export const drawAppendRow = (ctx: CanvasRenderingContext2D, props: IAppendRowDrawerProps) => {
+  const { x, y, width, height, theme, isHover, coordInstance, spriteManager } = props;
+  const { appendRowBgHovered, iconSizeSM, cellBg, cellLineColor } = theme;
+  const { columnInitSize } = coordInstance;
   const halfIconSize = iconSizeSM / 2;
-  const isHover = !isOutOfBounds && type === RegionType.AppendRow && rowIndex === pureRowCount;
-  const width = totalWidth - scrollLeft;
-  const height = coordInstance.getRowHeight(pureRowCount) + 0.5;
-  const y = coordInstance.getRowOffset(pureRowCount) - scrollTop;
 
   ctx.save();
   ctx.beginPath();
   drawRect(ctx, {
-    x: 0.5,
+    x: x + 0.5,
     y: y + 0.5,
     width,
     height,
-    fill: isHover ? appendRowBgHovered : appendRowBg,
+    fill: isHover ? appendRowBgHovered : cellBg,
+  });
+  drawRect(ctx, {
+    x,
+    y: y + height,
+    width,
+    height: 1,
+    fill: cellLineColor,
   });
   spriteManager.drawSprite(ctx, {
     sprite: GridInnerIcon.Add,
-    x: columnInitSize / 2 - halfIconSize + 0.5,
+    x: x + columnInitSize / 2 - halfIconSize + 0.5,
     y: y + height / 2 - halfIconSize + 0.5,
     size: iconSizeSM,
     theme,
@@ -1102,35 +1309,31 @@ export const drawFreezeRegionDivider = (
   dividerRegion: DividerRegion
 ) => {
   const { theme, coordInstance, scrollState, height } = props;
-  const { cellLineColor, interactionLineColorCommon } = theme;
+  const { interactionLineColorCommon } = theme;
   const { scrollLeft } = scrollState;
-  const { freezeRegionWidth, containerHeight, freezeColumnCount } = coordInstance;
+  const { freezeRegionWidth, containerHeight } = coordInstance;
   const isTop = dividerRegion === DividerRegion.Top;
-
-  if (scrollLeft === 0) {
-    return (
-      isTop &&
-      freezeColumnCount > 1 &&
-      drawRect(ctx, {
-        x: freezeRegionWidth,
-        y: 0.5,
-        width: 1,
-        height: containerHeight,
-        fill: interactionLineColorCommon,
-      })
-    );
-  }
 
   const startY = isTop ? 0 : containerHeight;
   const endY = isTop ? containerHeight : height;
 
+  if (scrollLeft === 0) {
+    return drawRect(ctx, {
+      x: freezeRegionWidth,
+      y: startY + 0.5,
+      width: 1,
+      height: endY - startY,
+      fill: interactionLineColorCommon,
+    });
+  }
+
   ctx.save();
   ctx.beginPath();
 
-  ctx.shadowColor = cellLineColor;
+  ctx.shadowColor = interactionLineColorCommon;
   ctx.shadowBlur = 5;
   ctx.shadowOffsetX = 3;
-  ctx.strokeStyle = cellLineColor;
+  ctx.strokeStyle = interactionLineColorCommon;
 
   ctx.moveTo(freezeRegionWidth + 0.5, startY);
   ctx.lineTo(freezeRegionWidth + 0.5, endY);
@@ -1210,7 +1413,7 @@ export const drawColumnStatistics = (
     const text = columnStatistics[columnId ?? name]?.total;
     const textProp: Omit<ISingleLineTextProps, 'text'> = {
       x: x + 0.5,
-      y: y + cellVerticalPadding,
+      y: y + cellVerticalPaddingMD,
       textAlign: 'right',
       maxWidth: columnWidth - 4,
       fill: rowHeaderTextColor,
@@ -1224,49 +1427,6 @@ export const drawColumnStatistics = (
       drawSingleLineText(ctx, { ...textProp, text });
     }
   }
-
-  ctx.restore();
-};
-
-export const drawRowCounter = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { coordInstance, theme, height, rowCounterVisible } = props;
-
-  if (!rowCounterVisible) return;
-
-  const { pureRowCount } = coordInstance;
-  const { fontSizeXS, fontFamily, rowHeaderTextColor, columnHeaderBgSelected } = theme;
-  const y = height - columnStatisticHeight + 0.5;
-
-  ctx.save();
-  ctx.beginPath();
-
-  ctx.font = `${fontSizeXS}px ${fontFamily}`;
-
-  const text = `${pureRowCount} records`;
-
-  const { width } = drawSingleLineText(ctx, {
-    text,
-    fontSize: fontSizeXS,
-    fill: rowHeaderTextColor,
-    needRender: false,
-  });
-
-  drawRect(ctx, {
-    x: cellHorizontalPadding / 2,
-    y: y + cellVerticalPadding / 2,
-    width: width + cellHorizontalPadding,
-    height: columnStatisticHeight - 2 * cellVerticalPadding,
-    fill: columnHeaderBgSelected,
-    radius: 4,
-  });
-
-  drawSingleLineText(ctx, {
-    x: cellHorizontalPadding,
-    y: y + cellVerticalPadding,
-    text,
-    fontSize: fontSizeXS,
-    fill: rowHeaderTextColor,
-  });
 
   ctx.restore();
 };
@@ -1305,6 +1465,8 @@ export const computeShouldRerender = (current: ILayoutDrawerProps, last?: ILayou
   return !(
     current.theme === last.theme &&
     current.columns === last.columns &&
+    current.getLinearRow === last.getLinearRow &&
+    current.real2RowIndex === last.real2RowIndex &&
     current.getCellContent === last.getCellContent &&
     current.coordInstance === last.coordInstance &&
     current.visibleRegion === last.visibleRegion &&
@@ -1389,8 +1551,6 @@ export const drawGrid = (
   mainCtx.rect(0, 0, containerWidth, originHeight);
   mainCtx.clip();
 
-  drawAppendRow(mainCtx, props);
-
   drawCacheContent(cacheCanvas, {
     containerWidth,
     containerHeight: originHeight,
@@ -1415,8 +1575,6 @@ export const drawGrid = (
   drawActiveCell(mainCtx, props);
 
   drawColumnStatisticsRegion(mainCtx, props);
-
-  drawRowCounter(mainCtx, props);
 
   columnStatistics != null && drawFreezeRegionDivider(mainCtx, props, DividerRegion.Bottom);
 

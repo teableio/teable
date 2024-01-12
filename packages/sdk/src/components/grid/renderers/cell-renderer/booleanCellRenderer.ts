@@ -1,3 +1,4 @@
+import { GRID_DEFAULT } from '../../configs';
 import { inRange } from '../../utils';
 import { drawCheckbox } from '../base-renderer';
 import { CellRegionType, CellType } from './interface';
@@ -9,6 +10,8 @@ import type {
   ICellClickCallback,
 } from './interface';
 
+const { cellHorizontalPadding } = GRID_DEFAULT;
+
 export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
   type: CellType.Boolean,
   needsHover: true,
@@ -17,8 +20,7 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
     const { data, isMultiple } = cell;
     const { ctx, rect, theme } = props;
     const { x, y, width, height } = rect;
-    const { iconSizeSM, staticWhite, iconBgSelected, rowHeaderTextColor, cellHorizontalPadding } =
-      theme;
+    const { iconSizeSM, staticWhite, iconBgSelected, rowHeaderTextColor } = theme;
     const halfIconSize = iconSizeSM / 2;
 
     if (!isMultiple) {

@@ -25,7 +25,8 @@ const OPTION_RADIUS = 6;
 const OPTION_GAP_SIZE = 6;
 const OPTION_PADDING_HORIZONTAL = 8;
 const SELECT_CELL_PADDING_TOP = 6;
-const { maxRowCount } = GRID_DEFAULT;
+
+const { cellHorizontalPadding, maxRowCount } = GRID_DEFAULT;
 
 const drawLabel = (
   ctx: CanvasRenderingContext2D,
@@ -81,7 +82,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   measure: (cell: ISelectCell, props: ICellMeasureProps) => {
     const { displayData, readonly } = cell;
     const { ctx, theme, width, height } = props;
-    const { cellTextColor, cellHorizontalPadding, fontSizeXS, iconSizeSM, iconSizeXS } = theme;
+    const { cellTextColor, fontSizeXS, iconSizeSM, iconSizeXS } = theme;
 
     if (!displayData.length) return { width, height, totalHeight: height };
 
@@ -145,15 +146,8 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const { displayData, choices, readonly } = cell;
     const { x: _x, y: _y, width, height } = rect;
     const clipEnable = !isActive && displayData.length;
-    const {
-      fontSizeXS,
-      fontFamily,
-      iconSizeXS,
-      iconSizeSM,
-      cellOptionBg,
-      cellOptionTextColor,
-      cellHorizontalPadding,
-    } = theme;
+    const { fontSizeXS, fontFamily, iconSizeXS, iconSizeSM, cellOptionBg, cellOptionTextColor } =
+      theme;
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,

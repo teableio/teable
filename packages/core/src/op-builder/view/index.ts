@@ -4,6 +4,7 @@ export * from './set-view-name';
 export * from './set-view-description';
 export * from './set-view-filter';
 export * from './set-view-sort';
+export * from './set-view-group';
 export * from './set-view-option';
 export * from './set-view-enable-share';
 export * from './set-view-share-id';

@@ -33,7 +33,12 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   useEffect(() => {
     if (tableId == null) return;
 
-    const relevantProps = ['tableAdd', 'tableDelete', 'applyViewFilter'] as PropKeys[];
+    const relevantProps = [
+      'tableUpdate',
+      'tableAdd',
+      'tableDelete',
+      'applyViewFilter',
+    ] as PropKeys[];
 
     listener?.(relevantProps, () => updateRowCount(), [tableId, viewId]);
   }, [listener, tableId, updateRowCount, viewId]);

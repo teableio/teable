@@ -48,6 +48,7 @@ export const copy = async (tableId: string, copyRo: IRangesRo) => {
         ...copyRo,
         filter: JSON.stringify(copyRo.filter),
         orderBy: JSON.stringify(copyRo.orderBy),
+        groupBy: JSON.stringify(copyRo.groupBy),
         ranges: JSON.stringify(copyRo.ranges),
       },
     }

@@ -7,11 +7,12 @@ import { SortFieldCommand } from './SortFieldCommand';
 
 interface ISortFieldSelectProps {
   selectedFields?: string[];
+  addBtnText?: string;
   onSelect: (colum: string) => void;
 }
 
 function SortFieldAddButton(props: ISortFieldSelectProps) {
-  const { selectedFields = [], onSelect } = props;
+  const { selectedFields = [], addBtnText, onSelect } = props;
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -25,7 +26,7 @@ function SortFieldAddButton(props: ISortFieldSelectProps) {
       <PopoverTrigger asChild>
         <Button variant="ghost">
           <Plus></Plus>
-          <span>{t('sort.addButton')}</span>
+          <span>{addBtnText ?? t('sort.addButton')}</span>
         </Button>
       </PopoverTrigger>
 

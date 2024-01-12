@@ -21,7 +21,7 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
   const { id: fieldId, type, name, description, isLookup } = field;
   const Icon = getFieldStatic(type, isLookup).Icon;
 
-  const required = view?.columnMeta[activeViewId]?.required;
+  const required = view?.columnMeta[fieldId]?.required;
   const isError = errors.has(fieldId);
 
   return (

@@ -52,5 +52,9 @@
   "sort": {
     "title": "Sort by",
     "addButton": "Add another sort"
+  },
+  "group": {
+    "title": "Group by",
+    "addButton": "Add Subgroup"
   }
 }

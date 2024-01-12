@@ -37,13 +37,20 @@ export class ActionTriggerListener {
     }
 
     const { tableId, view } = event;
-    const { id: viewId, filter, columnMeta } = view;
+    const { id: viewId, filter, columnMeta, group } = view;
 
     let buffer: IActionTriggerBuffer = {};
     if (filter) {
       buffer = {
         ...buffer,
         applyViewFilter: [tableId, viewId],
+      };
+    }
+
+    if (group) {
+      buffer = {
+        ...buffer,
+        applyViewGroup: [tableId, viewId],
       };
     }
 
@@ -87,7 +94,7 @@ export class ActionTriggerListener {
   }
 
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
-    const operationNames = ['setViewFilter', 'setViewColumnMeta'];
+    const operationNames = ['setViewFilter', 'setViewGroup', 'setViewColumnMeta'];
     const { name } = event.context.opMeta || {};
     return name && operationNames.includes(name);
   }

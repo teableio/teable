@@ -8,7 +8,7 @@ import type {
   ICellMeasureProps,
 } from './interface';
 
-const { maxRowCount, cellHorizontalPadding, cellVerticalPadding, cellTextLineHeight } =
+const { maxRowCount, cellHorizontalPadding, cellVerticalPaddingMD, cellTextLineHeight } =
   GRID_DEFAULT;
 
 export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
@@ -31,12 +31,12 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
       needRender: false,
     }).length;
 
-    const totalHeight = cellVerticalPadding + lineCount * cellTextLineHeight;
+    const totalHeight = cellVerticalPaddingMD + lineCount * cellTextLineHeight;
     const displayRowCount = Math.min(maxRowCount, lineCount);
 
     return {
       width,
-      height: Math.max(height, cellVerticalPadding + displayRowCount * cellTextLineHeight),
+      height: Math.max(height, cellVerticalPaddingMD + displayRowCount * cellTextLineHeight),
       totalHeight,
     };
   },
@@ -48,11 +48,11 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
     if (!displayData) return;
 
     const { cellTextColor } = theme;
-    const renderHeight = height - cellVerticalPadding;
+    const renderHeight = height - cellVerticalPaddingMD;
 
     drawMultiLineText(ctx, {
       x: x + cellHorizontalPadding,
-      y: y + cellVerticalPadding,
+      y: y + cellVerticalPaddingMD,
       text: displayData,
       maxLines: isActive ? Infinity : Math.floor(renderHeight / cellTextLineHeight),
       lineHeight: cellTextLineHeight,

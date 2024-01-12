@@ -12,6 +12,7 @@ import type {
   IViewVo,
   IFilterRo,
   IViewSortRo,
+  IViewGroupRo,
   IViewOptionRo,
   IColumnMetaRo,
 } from '@teable-group/core';
@@ -225,6 +226,27 @@ export class ViewOpenApiService {
     const ops = ViewOpBuilder.editor.setViewSort.build({
       newSort: sort,
       oldSort: oldSort ? JSON.parse(oldSort) : oldSort,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    });
+  }
+
+  async setViewGroup(tableId: string, viewId: string, groupRo: IViewGroupRo) {
+    const { group } = groupRo;
+    const curView = await this.prismaService
+      .txClient()
+      .view.findFirstOrThrow({
+        select: { group: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View not found');
+      });
+    const { group: oldGroup } = curView;
+    const ops = ViewOpBuilder.editor.setViewGroup.build({
+      newGroup: group,
+      oldGroup: oldGroup ? JSON.parse(oldGroup) : oldGroup,
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [ops]);

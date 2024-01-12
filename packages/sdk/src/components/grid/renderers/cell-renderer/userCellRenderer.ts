@@ -1,12 +1,12 @@
+import { GRID_DEFAULT } from '../../configs';
 import type { IRectangle } from '../../interface';
 import { drawAvatar, drawRect, drawSingleLineText } from '../base-renderer';
 import { CellType } from './interface';
 import type { IInternalCellRenderer, ICellRenderProps, IUserCell } from './interface';
 
 const OPTION_RADIUS = 6;
-const OPTION_GAP_SIZE = 6;
-const OPTION_PADDING_HORIZONTAL = 25;
-const SELECT_CELL_PADDING_TOP = 6;
+
+const { cellHorizontalPadding, cellVerticalPaddingSM } = GRID_DEFAULT;
 
 export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
   type: CellType.User,
@@ -21,7 +21,6 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
       fontSizeSM,
       fontFamily,
       iconSizeSM,
-      cellHorizontalPadding,
       cellOptionBg,
       cellOptionTextColor,
       avatarBg,
@@ -31,15 +30,15 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,
-      y: _y + SELECT_CELL_PADDING_TOP,
+      y: _y + cellVerticalPaddingSM,
       width: width - 2 * cellHorizontalPadding,
-      height: height - SELECT_CELL_PADDING_TOP,
+      height: height - cellVerticalPaddingSM,
     };
     const rows = Math.max(
       1,
-      Math.floor((drawArea.height - iconSizeSM) / (iconSizeSM + OPTION_GAP_SIZE)) + 1
+      Math.floor((drawArea.height - iconSizeSM) / (iconSizeSM + cellHorizontalPadding)) + 1
     );
-    const maxTextWidth = drawArea.width - OPTION_GAP_SIZE * 2;
+    const maxTextWidth = drawArea.width - cellHorizontalPadding * 2;
 
     ctx.save();
     ctx.beginPath();
@@ -66,16 +65,16 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         fontSize: fontSizeXS,
       });
 
-      const width = displayWidth + OPTION_PADDING_HORIZONTAL + 6;
+      const width = displayWidth + avatarSizeMD + 6;
 
       if (x !== drawArea.x && x + width > drawArea.x + drawArea.width && row < rows) {
         row++;
-        y += iconSizeSM + OPTION_GAP_SIZE;
+        y += iconSizeSM + cellVerticalPaddingSM;
         x = drawArea.x;
       }
 
       drawRect(ctx, {
-        x,
+        x: x + 4,
         y,
         width,
         height: iconSizeSM,
@@ -84,14 +83,14 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
       });
       drawSingleLineText(ctx, {
         text: displayText,
-        x: x + OPTION_PADDING_HORIZONTAL,
+        x: x + avatarSizeMD + 4,
         y: y + 4,
         fill: cellOptionTextColor,
         maxWidth: maxTextWidth,
       });
 
       drawAvatar(ctx, {
-        x: x - 4,
+        x,
         y: y - 2,
         width: avatarSizeMD,
         height: avatarSizeMD,

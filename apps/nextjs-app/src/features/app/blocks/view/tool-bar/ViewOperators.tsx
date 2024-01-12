@@ -1,13 +1,13 @@
 import type { GridViewOptions } from '@teable-group/core';
 import {
   ArrowUpDown,
-  LayoutList,
   PaintBucket,
   Filter as FilterIcon,
   EyeOff,
+  LayoutList,
   Share2,
 } from '@teable-group/icons';
-import { Filter, HideFields, RowHeight, useFields, Sort } from '@teable-group/sdk';
+import { Filter, HideFields, RowHeight, useFields, Sort, Group } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
 import { useTranslation } from 'react-i18next';
 import { viewConfig } from '@/features/i18n/view.config';
@@ -19,7 +19,7 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const view = useView();
   const fields = useFields();
 
-  const { onFilterChange, onRowHeightChange, onSortChange } = useToolbarChange();
+  const { onFilterChange, onRowHeightChange, onSortChange, onGroupChange } = useToolbarChange();
   const { t } = useTranslation(viewConfig.i18nNamespaces);
   if (!view || !fields.length) {
     return <div></div>;
@@ -59,9 +59,13 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </Sort>
-      <ToolBarButton disabled={disabled} text="Group">
-        <LayoutList className="h-4 w-4 text-sm" />
-      </ToolBarButton>
+      <Group group={view?.group || null} onChange={onGroupChange}>
+        {(text: string, isActive) => (
+          <ToolBarButton disabled={disabled} isActive={isActive} text={text}>
+            <LayoutList className="h-4 w-4 text-sm" />
+          </ToolBarButton>
+        )}
+      </Group>
       <ToolBarButton disabled={disabled} text="Color">
         <PaintBucket className="h-4 w-4 text-sm" />
       </ToolBarButton>

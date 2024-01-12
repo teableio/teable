@@ -52,5 +52,9 @@
   "sort": {
     "title": "排序方式",
     "addButton": "添加另一个排序"
+  },
+  "group": {
+    "title": "分组方式",
+    "addButton": "添加另一个分组"
   }
 }

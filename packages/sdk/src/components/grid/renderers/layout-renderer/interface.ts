@@ -1,6 +1,6 @@
 import type { IGridTheme } from '../../configs';
 import type { ICellPosition, IGridColumn, IRectangle, IRowControlItem } from '../../interface';
-import type { ImageManager, SpriteManager } from '../../managers';
+import type { CoordinateManager, ImageManager, SpriteManager } from '../../managers';
 import type { IRenderLayerProps } from '../../RenderLayer';
 
 export interface ICellDrawerProps extends IRectangle {
@@ -13,7 +13,7 @@ export interface ICellDrawerProps extends IRectangle {
   columnIndex: number;
   imageManager: ImageManager;
   spriteManager: SpriteManager;
-  hoverCellPosition: ICellPosition | null;
+  hoverCellPosition?: ICellPosition | null;
 }
 
 export interface IRowHeaderDrawerProps extends IRectangle {
@@ -26,6 +26,29 @@ export interface IRowHeaderDrawerProps extends IRectangle {
   stroke?: string;
   isChecked?: boolean;
   rowIndexVisible?: boolean;
+}
+
+export interface IGroupRowHeaderDrawerProps extends IRectangle {
+  depth: number;
+  theme: IGridTheme;
+  isCollapsed: boolean;
+  spriteManager: SpriteManager;
+  groupCollection: IRenderLayerProps['groupCollection'];
+}
+
+export interface IGroupRowDrawerProps extends IGroupRowHeaderDrawerProps {
+  columnIndex: number;
+  rowIndex: number;
+  value: unknown;
+  isHover: boolean;
+  imageManager: ImageManager;
+}
+
+export interface IAppendRowDrawerProps extends IRectangle {
+  theme: IGridTheme;
+  isHover: boolean;
+  spriteManager: SpriteManager;
+  coordInstance: CoordinateManager;
 }
 
 export interface IFieldHeadDrawerProps extends IRectangle {

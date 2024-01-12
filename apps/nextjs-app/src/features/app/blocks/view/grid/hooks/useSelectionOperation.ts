@@ -6,7 +6,7 @@ import { AttachmentFieldCore } from '@teable-group/core';
 import type { ICopyVo, IPasteRo, IRangesRo } from '@teable-group/openapi';
 import { clear, copy, paste, RangeType } from '@teable-group/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable-group/sdk';
-import { SelectionRegionType, useFields, useTableId, useViewId } from '@teable-group/sdk';
+import { SelectionRegionType, useFields, useTableId, useView, useViewId } from '@teable-group/sdk';
 import { useToast } from '@teable-group/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
@@ -60,17 +60,19 @@ export const useSelectionOperation = () => {
   const tableId = useTableId();
   const viewId = useViewId();
   const fields = useFields();
+  const view = useView();
+  const groupBy = view?.group;
 
   const { mutateAsync: copyReq } = useMutation({
-    mutationFn: (copyRo: IRangesRo) => copy(tableId!, copyRo),
+    mutationFn: (copyRo: IRangesRo) => copy(tableId!, { ...copyRo, viewId, groupBy }),
   });
 
   const { mutateAsync: pasteReq } = useMutation({
-    mutationFn: (pasteRo: IPasteRo) => paste(tableId!, pasteRo),
+    mutationFn: (pasteRo: IPasteRo) => paste(tableId!, { ...pasteRo, viewId, groupBy }),
   });
 
   const { mutateAsync: clearReq } = useMutation({
-    mutationFn: (clearRo: IRangesRo) => clear(tableId!, clearRo),
+    mutationFn: (clearRo: IRangesRo) => clear(tableId!, { ...clearRo, viewId, groupBy }),
   });
 
   const { toast } = useToast();

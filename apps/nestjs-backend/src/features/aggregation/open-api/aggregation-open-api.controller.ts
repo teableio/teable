@@ -1,7 +1,10 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import type { IAggregationVo, IRowCountVo } from '@teable-group/core';
+import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable-group/core';
 import {
   aggregationRoSchema,
+  IGroupPointsRo,
+  groupPointsRoSchema,
   IAggregationRo,
   queryBaseSchema,
   IQueryBaseRo,
@@ -33,5 +36,14 @@ export class AggregationOpenApiController {
     @Query(new ZodValidationPipe(queryBaseSchema), TqlPipe) query?: IQueryBaseRo
   ): Promise<IRowCountVo> {
     return await this.aggregationOpenApiService.getRowCount(tableId, query);
+  }
+
+  @Get('/groupPoints')
+  @Permissions('table|read')
+  async getGroupPoints(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(groupPointsRoSchema), TqlPipe) query?: IGroupPointsRo
+  ): Promise<IGroupPointsVo> {
+    return await this.aggregationOpenApiService.getGroupPoints(tableId, query);
   }
 }

@@ -29,7 +29,13 @@ const SELECTION_MOVE_HOTKEYS = [
 interface ISelectionKeyboardProps
   extends Omit<
     IEditorContainerProps,
-    'theme' | 'onChange' | 'scrollState' | 'activeCellBound' | 'getCellContent' | 'onCellActivated'
+    | 'theme'
+    | 'onChange'
+    | 'scrollState'
+    | 'activeCellBound'
+    | 'real2RowIndex'
+    | 'getCellContent'
+    | 'onCellActivated'
   > {
   editorRef: React.MutableRefObject<IEditorRef | null>;
 }

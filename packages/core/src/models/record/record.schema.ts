@@ -3,7 +3,7 @@
 import { TQL_README } from '../../query/README';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { FILTER_DESCRIPTION, filterSchema, sortItemSchema } from '../view';
+import { FILTER_DESCRIPTION, filterSchema, sortItemSchema, groupSchema } from '../view';
 import { CellFormat, FieldKeyType } from './record';
 
 export const recordSchema = z.object({
@@ -159,6 +159,27 @@ export const contentQueryBaseSchema = queryBaseSchema.extend({
     .openapi({
       type: 'string',
       description: orderByDescription,
+    }),
+  groupBy: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (value == null) {
+        return value;
+      }
+
+      const parsingResult = groupSchema.safeParse(JSON.parse(value));
+      if (!parsingResult.success) {
+        parsingResult.error.issues.forEach((issue) => {
+          ctx.addIssue(issue);
+        });
+        return z.NEVER;
+      }
+      return parsingResult.data;
+    })
+    .openapi({
+      type: 'string',
+      description: 'An array of group objects that specifies how the records should be grouped.',
     }),
 });
 

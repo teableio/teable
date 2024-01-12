@@ -11,6 +11,7 @@ import type {
   IExtraResult,
   IFilter,
   IGetRecordQuery,
+  IGroup,
   IGetRecordsRo,
   ILinkCellValue,
   IRecord,
@@ -32,6 +33,7 @@ import {
   mergeWithDefaultSort,
   OpName,
   Relationship,
+  parseGroup,
 } from '@teable-group/core';
 import type { Field, Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
@@ -357,8 +359,13 @@ export class RecordService implements IAdapterService {
     }
   }
 
-  private async getNecessaryFieldMap(tableId: string, filter?: IFilter, orderBy?: ISortItem[]) {
-    if (filter || orderBy?.length) {
+  private async getNecessaryFieldMap(
+    tableId: string,
+    filter?: IFilter,
+    orderBy?: ISortItem[],
+    groupBy?: IGroup
+  ) {
+    if (filter || orderBy?.length || groupBy?.length) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(tableId);
       return fields.reduce(
@@ -380,7 +387,7 @@ export class RecordService implements IAdapterService {
     return this.prismaService
       .txClient()
       .view.findFirstOrThrow({
-        select: { id: true, filter: true, sort: true },
+        select: { id: true, filter: true, sort: true, group: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
@@ -388,8 +395,11 @@ export class RecordService implements IAdapterService {
       });
   }
 
-  async prepareQuery(tableId: string, query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'filter'>) {
-    const { viewId, orderBy: extraOrderBy, filter: extraFilter } = query;
+  async prepareQuery(
+    tableId: string,
+    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'groupBy' | 'filter'>
+  ) {
+    const { viewId, orderBy: extraOrderBy, groupBy: extraGroupBy, filter: extraFilter } = query;
 
     const dbTableName = await this.getDbTableName(tableId);
 
@@ -399,12 +409,14 @@ export class RecordService implements IAdapterService {
 
     const filter = mergeWithDefaultFilter(view?.filter, extraFilter);
     const orderBy = mergeWithDefaultSort(view?.sort, extraOrderBy);
-    const fieldMap = await this.getNecessaryFieldMap(tableId, filter, orderBy);
+    const groupBy = parseGroup(extraGroupBy);
+    const fieldMap = await this.getNecessaryFieldMap(tableId, filter, orderBy, groupBy);
 
     return {
       queryBuilder,
       filter,
       orderBy,
+      groupBy,
       fieldMap,
     };
   }
@@ -422,10 +434,16 @@ export class RecordService implements IAdapterService {
    */
   async buildFilterSortQuery(
     tableId: string,
-    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'filter' | 'filterLinkCellCandidate'>
+    query: Pick<
+      IGetRecordsRo,
+      'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'filterLinkCellCandidate'
+    >
   ): Promise<Knex.QueryBuilder> {
-    // Prepare the base query builder, filtering conditions, sorting rules, and field mapping
-    const { queryBuilder, filter, orderBy, fieldMap } = await this.prepareQuery(tableId, query);
+    // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
+    const { queryBuilder, filter, orderBy, groupBy, fieldMap } = await this.prepareQuery(
+      tableId,
+      query
+    );
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -440,7 +458,9 @@ export class RecordService implements IAdapterService {
       .appendQueryBuilder();
 
     // Add sorting rules to the query builder
-    this.dbProvider.sortQuery(queryBuilder, fieldMap, orderBy).appendSortBuilder();
+    this.dbProvider
+      .sortQuery(queryBuilder, fieldMap, [...orderBy, ...(groupBy ?? [])])
+      .appendSortBuilder();
 
     // view sorting added by default
     queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
@@ -558,6 +578,7 @@ export class RecordService implements IAdapterService {
       take: query.take,
       filter: query.filter,
       orderBy: query.orderBy,
+      groupBy: query.groupBy,
       filterLinkCellCandidate: query.filterLinkCellCandidate,
       filterLinkCellSelected: query.filterLinkCellSelected,
     });
@@ -1011,6 +1032,7 @@ export class RecordService implements IAdapterService {
       take,
       filter,
       orderBy,
+      groupBy,
       fieldKeyType,
       cellFormat,
       projection,
@@ -1026,6 +1048,7 @@ export class RecordService implements IAdapterService {
       filterLinkCellCandidate,
       filter,
       orderBy,
+      groupBy,
     });
     queryBuilder.select(fieldNames.concat('__id'));
     queryBuilder.offset(skip);

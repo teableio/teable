@@ -24,7 +24,7 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
   };
 
   const saveValue = () => {
-    onChange?.(text);
+    onChange?.(text || null);
   };
 
   return (

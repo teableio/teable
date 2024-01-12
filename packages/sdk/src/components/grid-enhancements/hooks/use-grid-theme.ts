@@ -21,6 +21,11 @@ const darkTheme = {
   cellOptionBg: colors.gray[600],
   cellOptionTextColor: colors.white,
 
+  // Group Header
+  groupHeaderBgPrimary: colors.zinc[900],
+  groupHeaderBgSecondary: colors.zinc[800],
+  groupHeaderBgTertiary: colors.zinc[700],
+
   // Column Header
   columnHeaderBg: colors.zinc[900],
   columnHeaderBgHovered: colors.zinc[800],

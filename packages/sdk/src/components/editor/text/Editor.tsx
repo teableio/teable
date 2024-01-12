@@ -28,7 +28,7 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
   };
 
   const saveValue = () => {
-    onChange?.(text);
+    onChange?.(text || null);
   };
 
   const onJump = (type: SingleLineTextDisplayType) => {

@@ -75,3 +75,21 @@ export function mergeWithDefaultFilter(
   }
   return mergeFilter;
 }
+
+export const mergeFilter = (filter1?: IFilter, filter2?: IFilter) => {
+  const parsedFilter1 = filterSchema.safeParse(filter1);
+  const finalFilter1 = parsedFilter1.success ? parsedFilter1.data : undefined;
+  const parsedFilter2 = filterSchema.safeParse(filter2);
+  const finalFilter2 = parsedFilter2.success ? parsedFilter2.data : undefined;
+
+  if (!finalFilter1 && !finalFilter2) return;
+
+  if (!finalFilter1) return finalFilter2;
+
+  if (!finalFilter2) return finalFilter1;
+
+  return {
+    filterSet: [{ filterSet: [finalFilter1, finalFilter2], conjunction: 'and' }],
+    conjunction: 'and',
+  };
+};

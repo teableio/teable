@@ -6,7 +6,7 @@ import { Scroller } from 'scroller';
 import { useIsTouchDevice } from '../../hooks';
 import type { IGridProps } from './Grid';
 import { getHorizontalRangeInfo, getVerticalRangeInfo, useEventListener } from './hooks';
-import type { IScrollState } from './interface';
+import type { ILinearRow, IScrollState } from './interface';
 import type { CoordinateManager } from './managers';
 import type { ITimeoutID } from './utils';
 import { cancelTimeout, isWindowsOS, requestTimeout } from './utils/utils';
@@ -23,6 +23,7 @@ export interface ScrollerProps
   top?: number;
   scrollEnable?: boolean;
   scrollState: IScrollState;
+  getLinearRow: (index: number) => ILinearRow;
   setScrollState: React.Dispatch<React.SetStateAction<IScrollState>>;
 }
 
@@ -45,6 +46,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     smoothScrollY,
     scrollEnable = true,
     scrollState,
+    getLinearRow,
     setScrollState,
     onVisibleRegionChanged,
   } = props;
@@ -124,11 +126,14 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       scrollProps.scrollLeft ?? scrollState.scrollLeft
     );
 
+    const realStartRowIndex = getLinearRow(startRowIndex).realIndex;
+    const realStopRowIndex = getLinearRow(stopRowIndex).realIndex;
+
     onVisibleRegionChanged?.({
       x: startColumnIndex,
-      y: startRowIndex,
+      y: realStartRowIndex,
       width: stopColumnIndex - startColumnIndex,
-      height: stopRowIndex - stopColumnIndex,
+      height: realStopRowIndex - realStartRowIndex,
     });
 
     setScrollState((prev) => {

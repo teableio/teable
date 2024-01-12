@@ -57,7 +57,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   publishOpsMap(rawOpMap: IRawOpMap) {
-    const { setViewSort, setViewFilter } = ViewOpBuilder.editor;
+    const { setViewSort, setViewFilter, setViewGroup } = ViewOpBuilder.editor;
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
       for (const docId in data) {
@@ -75,7 +75,7 @@ export class ShareDbService extends ShareDBClass {
         if (ops?.[0]) {
           const [, tableId] = collection.split('_');
 
-          const detectFns = [setViewFilter, setViewSort];
+          const detectFns = [setViewFilter, setViewSort, setViewGroup];
           const action = ops.some((op) => detectFns.some((fn) => fn?.detect(op)));
 
           if (action) {
@@ -95,8 +95,8 @@ export class ShareDbService extends ShareDBClass {
 
     // Additional publish/subscribe `record channels` are required for changes to view properties
     if (docType === IdPrefix.View && context.op.op) {
-      const { setViewFilter, setViewSort } = ViewOpBuilder.editor;
-      const detectFns = [setViewFilter, setViewSort];
+      const { setViewFilter, setViewSort, setViewGroup } = ViewOpBuilder.editor;
+      const detectFns = [setViewFilter, setViewSort, setViewGroup];
       const action = context.op.op.some((op) => detectFns.some((fn) => fn?.detect(op)));
 
       if (action) {

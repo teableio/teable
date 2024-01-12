@@ -7,6 +7,7 @@ import type {
   IViewVo,
   IColumnMetaRo,
   IManualSortRo,
+  IGroup,
 } from '@teable-group/core';
 import { ViewCore, ViewOpBuilder, generateShareId } from '@teable-group/core';
 import {
@@ -19,6 +20,7 @@ import {
   manualSortView,
   setViewFilter,
   setViewSort,
+  setViewGroup,
 } from '@teable-group/openapi';
 import type { AxiosResponse } from 'axios';
 import type { Doc } from 'sharedb/lib/client';
@@ -61,6 +63,10 @@ export abstract class View extends ViewCore {
 
   async setViewSort(sort: ISort) {
     return await requestWrap(setViewSort)(this.tableId, this.id, { sort });
+  }
+
+  async setViewGroup(group: IGroup) {
+    return await requestWrap(setViewGroup)(this.tableId, this.id, { group });
   }
 
   async submitOperation(operation: IOtOperation) {

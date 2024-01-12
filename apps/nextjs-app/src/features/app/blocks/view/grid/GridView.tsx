@@ -3,6 +3,7 @@ import {
   RecordProvider,
   RowCountProvider,
   ActionTriggerProvider,
+  GroupPointProvider,
 } from '@teable-group/sdk/context';
 import { useIsHydrated } from '@teable-group/sdk/hooks';
 import { DynamicCellGraph } from '../../graph/DynamicCellGraph';
@@ -26,10 +27,12 @@ export const GridView = (props: IViewBaseProps) => {
       <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
         <AggregationProvider>
           <RowCountProvider>
-            <div className="w-full grow overflow-hidden sm:pl-2">
-              <GridViewBase />
-              {graphOpen && <DynamicCellGraph />}
-            </div>
+            <GroupPointProvider>
+              <div className="w-full grow overflow-hidden sm:pl-2">
+                <GridViewBase />
+                {graphOpen && <DynamicCellGraph />}
+              </div>
+            </GroupPointProvider>
           </RowCountProvider>
         </AggregationProvider>
       </RecordProvider>

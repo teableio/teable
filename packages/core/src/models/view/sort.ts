@@ -8,7 +8,7 @@ export type IOrder = z.infer<typeof orders>;
 
 export const orderTypeEnum = z.enum([asc.value, desc.value]);
 
-const orders = z.union([asc, desc]);
+export const orders = z.union([asc, desc]);
 
 export const sortItemSchema = z.object({
   fieldId: z.string(),

@@ -2,16 +2,17 @@ import type { FC } from 'react';
 import { useRef, useEffect, useMemo } from 'react';
 import type { IVisibleRegion } from './hooks';
 import type { IInteractionLayerProps } from './InteractionLayer';
-import {
-  type ICellItem,
-  type IPosition,
-  type IDragState,
-  type IMouseState,
-  type IColumnResizeState,
-  type ICellPosition,
-  type IActiveCellBound,
-  type IColumnFreezeState,
-  RegionType,
+import { RegionType } from './interface';
+import type {
+  ILinearRow,
+  ICellItem,
+  IPosition,
+  IDragState,
+  IMouseState,
+  IColumnResizeState,
+  ICellPosition,
+  IActiveCellBound,
+  IColumnFreezeState,
 } from './interface';
 import type { CombinedSelection } from './managers';
 import { drawGrid } from './renderers';
@@ -30,8 +31,8 @@ export interface IRenderLayerProps
     | 'getCellContent'
     | 'coordInstance'
     | 'columnStatistics'
+    | 'groupCollection'
     | 'rowIndexVisible'
-    | 'rowCounterVisible'
     | 'isMultiSelectionEnable'
     | 'collaborators'
   > {
@@ -54,6 +55,8 @@ export interface IRenderLayerProps
   isColumnResizable?: boolean;
   isColumnAppendEnable?: boolean;
   isColumnHeaderMenuVisible?: boolean;
+  real2RowIndex: (index: number) => number;
+  getLinearRow: (index: number) => ILinearRow;
 }
 
 export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (props) => {
@@ -80,11 +83,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isInteracting: _isInteracting,
     coordInstance,
     forceRenderFlag,
-    getCellContent,
+    groupCollection,
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
-    rowCounterVisible,
     hoveredColumnResizeIndex,
     isColumnFreezable,
     isRowAppendEnable,
@@ -92,6 +94,9 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isColumnAppendEnable,
     isColumnHeaderMenuVisible,
     isMultiSelectionEnable,
+    getCellContent,
+    real2RowIndex,
+    getLinearRow,
   } = props;
   const { containerWidth } = coordInstance;
   const { x, y, columnIndex, rowIndex, type, isOutOfBounds } = originMouseState;
@@ -150,11 +155,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       isInteracting,
       coordInstance,
       forceRenderFlag,
-      getCellContent,
+      groupCollection,
       rowIndexVisible,
       columnStatistics,
       columnResizeState,
-      rowCounterVisible,
       hoveredColumnResizeIndex,
       isColumnFreezable,
       isRowAppendEnable,
@@ -162,6 +166,9 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       isColumnAppendEnable,
       isColumnHeaderMenuVisible,
       isMultiSelectionEnable,
+      getCellContent,
+      real2RowIndex,
+      getLinearRow,
     };
     lastPropsRef.current = props;
     drawGrid(mainCanvas, cacheCanvas, props, lastProps);
@@ -188,11 +195,10 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isInteracting,
     coordInstance,
     forceRenderFlag,
-    getCellContent,
+    groupCollection,
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
-    rowCounterVisible,
     hoverCellPosition,
     hoveredColumnResizeIndex,
     isColumnFreezable,
@@ -202,6 +208,9 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     isColumnHeaderMenuVisible,
     isMultiSelectionEnable,
     cacheCanvas,
+    getCellContent,
+    real2RowIndex,
+    getLinearRow,
   ]);
 
   return (
