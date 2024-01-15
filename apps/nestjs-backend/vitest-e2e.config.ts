@@ -21,6 +21,8 @@ export default defineConfig({
       extension: ['js', 'ts'],
       all: true,
     },
+    logHeapUsage: true,
+    reporters: ['verbose'],
     include: testFiles,
     exclude: [
       '**/node_modules/**',
