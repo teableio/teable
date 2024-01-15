@@ -228,6 +228,9 @@ importers:
       minio:
         specifier: 7.1.3
         version: 7.1.3
+      ms:
+        specifier: 2.1.3
+        version: 2.1.3
       multer:
         specifier: 1.4.5-lts.1
         version: 1.4.5-lts.1
@@ -337,6 +340,9 @@ importers:
       '@types/minio':
         specifier: 7.1.1
         version: 7.1.1
+      '@types/ms':
+        specifier: 0.7.34
+        version: 0.7.34
       '@types/multer':
         specifier: 1.4.11
         version: 1.4.11

@@ -5,6 +5,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
+  Button,
   Input,
   Label,
   Separator,
@@ -14,6 +15,7 @@ import {
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn';
 import React from 'react';
+import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 
 export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
@@ -53,6 +55,7 @@ export const Account: React.FC = () => {
       <div>
         <h3 className="text-lg font-medium">My profile</h3>
       </div>
+      <Separator />
       <div className="flex">
         <TooltipProvider>
           <Tooltip>
@@ -90,24 +93,33 @@ export const Account: React.FC = () => {
             defaultValue={sessionUser.name}
             onBlur={(e) => toggleRenameUser(e)}
           />
-          <Label className="text-sm text-muted-foreground" htmlFor="Preferred name">
+          <Label className="text-xs text-muted-foreground" htmlFor="Preferred name">
             Your name will be displayed on contributions and mentions. You can change it anytime.
           </Label>
         </div>
       </div>
       <div>
-        <h3 className="text-lg font-medium">Account security</h3>
+        <h3 className="text-base font-medium">Account security</h3>
         <Separator className="my-2" />
-        <div className="grid grid-flow-col grid-rows-3 gap-4">
-          <div>
-            <Label>Email</Label>
-            <div className="text-sm text-muted-foreground">{sessionUser.email}</div>
-          </div>
-          <div className="row-span-2">
-            <Label>Password</Label>
-            <div className="text-sm text-muted-foreground">
-              Set a permanent password to login to your account.
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Email</Label>
+              <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
             </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Password</Label>
+              <div className="text-xs text-muted-foreground">
+                Set a permanent password to login to your account.
+              </div>
+            </div>
+            <ChangePasswordDialog>
+              <Button className="float-right" size={'sm'} variant={'outline'}>
+                Change password
+              </Button>
+            </ChangePasswordDialog>
           </div>
         </div>
       </div>
