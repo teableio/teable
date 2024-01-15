@@ -1,5 +1,5 @@
 const instanceCount = Number(process.env.INSTANCE_COUNT ?? '1');
-const instanceMaxMemory = process.env.INSTANCE_MAX_MEMORY ?? '4G';
+const instanceMaxMemory = process.env.INSTANCE_MAX_MEMORY ?? '1536M';
 
 module.exports = {
   apps: [
