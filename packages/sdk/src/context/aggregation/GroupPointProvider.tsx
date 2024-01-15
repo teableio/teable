@@ -47,18 +47,17 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   );
 
   useEffect(() => {
-    if (tableId == null || !group?.length) return;
+    if (tableId == null) return;
 
     const relevantProps = [
       'tableAdd',
       'tableDelete',
       'tableUpdate',
       'applyViewFilter',
-      'applyViewGroup',
     ] as PropKeys[];
 
     listener?.(relevantProps, () => updateGroupPoints(), [tableId, viewId]);
-  }, [listener, tableId, updateGroupPoints, viewId, group]);
+  }, [listener, tableId, updateGroupPoints, viewId]);
 
   const groupPoints = useMemo(() => resGroupPoints?.data || null, [resGroupPoints]);
 

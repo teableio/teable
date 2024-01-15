@@ -40,6 +40,7 @@ export const getRecords = async (tableId: string, query?: IGetRecordsRo) => {
         ...query,
         filter: JSON.stringify(query?.filter),
         orderBy: JSON.stringify(query?.orderBy),
+        groupBy: JSON.stringify(query?.groupBy),
       },
     }
   );
