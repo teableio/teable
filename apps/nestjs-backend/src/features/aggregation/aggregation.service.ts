@@ -464,7 +464,6 @@ export class AggregationService {
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
     const groupFieldIds = groupBy.map((item) => item.fieldId);
-    const groupDbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
     const queryBuilder = this.knex(dbTableName);
 
     if (mergedFilter) {
@@ -475,12 +474,33 @@ export class AggregationService {
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
 
-    queryBuilder.select(groupDbFieldNames).count({ __c: '*' }).groupBy(groupDbFieldNames);
+    queryBuilder.count({ __c: '*' });
+
+    groupFieldIds.forEach((fieldId) => {
+      const field = fieldInstanceMap[fieldId];
+
+      if (!field) return;
+
+      const { dbFieldType, dbFieldName } = field;
+
+      const column =
+        dbFieldType === 'JSON'
+          ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
+          : this.knex.ref(dbFieldName).toQuery();
+
+      queryBuilder
+        .select(this.knex.raw(`${column}`))
+        .groupByRaw(this.knex.raw(`${column}`).toQuery());
+    });
 
     const groupSql = queryBuilder.toQuery();
 
     const result =
       await this.prisma.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(groupSql);
+
+    const isGroupPointCountExceeded = result.length > 5000;
+
+    if (isGroupPointCountExceeded) return null;
 
     const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]);
 
