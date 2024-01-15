@@ -361,7 +361,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [setSelection]
   );
 
-  const [collaborators] = useCollaborate(selection);
+  const collaborators = useCollaborate(selection);
+
+  const groupedCollaborators = useMemo(() => {
+    return groupBy(collaborators, 'activeCell');
+  }, [collaborators]);
 
   const onRowExpandInner = (rowIndex: number) => {
     const recordId = recordMap[rowIndex]?.id;
@@ -420,7 +424,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     if ([RegionType.Cell, RegionType.ActiveCell].includes(type) && collaborators.length) {
       const { x, y, width, height } = bounds;
       const [rowIndex, columnIndex] = cellItem;
-      const groupedCollaborators = groupBy(collaborators, 'activeCell');
       const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`]?.sort(
         (a, b) => a.timeStamp - b.timeStamp
       );
