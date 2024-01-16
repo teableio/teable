@@ -36,6 +36,7 @@ export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
     queryFn: ({ queryKey }) => getShareViewGroupPoints(queryKey[1], queryKey[2]),
     enabled: !!tableId && !!group?.length,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const updateGroupPoints = useCallback(

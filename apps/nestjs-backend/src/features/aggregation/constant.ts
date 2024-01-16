@@ -1,0 +1,1 @@
+export const MAX_GROUP_POINT_COUNT = 5000;

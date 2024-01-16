@@ -39,6 +39,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
     queryFn: ({ queryKey }) => getGroupPoints(queryKey[1], queryKey[2]),
     enabled: !!tableId && isHydrated && !!group?.length,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const updateGroupPoints = useCallback(
