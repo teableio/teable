@@ -17,15 +17,23 @@ export const booleanCellRenderer: IInternalCellRenderer<IBooleanCell> = {
   needsHover: true,
   needsHoverPosition: true,
   draw: (cell: IBooleanCell, props: ICellRenderProps) => {
-    const { data, isMultiple } = cell;
+    const { data, isMultiple, contentAlign = 'center' } = cell;
     const { ctx, rect, theme } = props;
     const { x, y, width, height } = rect;
     const { iconSizeSM, staticWhite, iconBgSelected, rowHeaderTextColor } = theme;
     const halfIconSize = iconSizeSM / 2;
 
     if (!isMultiple) {
+      let textOffsetX = width / 2 - halfIconSize;
+
+      if (contentAlign === 'left') {
+        textOffsetX = cellHorizontalPadding;
+      } else if (contentAlign === 'right') {
+        textOffsetX = width - cellHorizontalPadding - iconSizeSM;
+      }
+
       return drawCheckbox(ctx, {
-        x: x + width / 2 - halfIconSize,
+        x: x + textOffsetX,
         y: y + height / 2 - halfIconSize,
         size: iconSizeSM,
         stroke: data ? staticWhite : rowHeaderTextColor,

@@ -418,8 +418,8 @@ export class AggregationService {
   ) {
     const groupPoints: IGroupPoint[] = [];
 
-    let firstDbFieldValue: unknown = '';
-    let secondDbFieldValue: unknown = '';
+    let firstDbFieldValue: unknown = Symbol();
+    let secondDbFieldValue: unknown = Symbol();
 
     groupResult.forEach((item) => {
       const { __c: count } = item;
@@ -432,6 +432,7 @@ export class AggregationService {
         if (index === 0) {
           if (firstDbFieldValue === fieldValue) return;
           firstDbFieldValue = fieldValue;
+          secondDbFieldValue = Symbol();
         }
         if (index === 1) {
           if (secondDbFieldValue === fieldValue) return;
