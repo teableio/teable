@@ -201,7 +201,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     (selection: CombinedSelection, position: IPosition) => {
       const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
-      function extract<T>(start: number, end: number, source: T[] | { [key: number]: T }): T[] {
+      function extract<T>(_start: number, _end: number, source: T[] | { [key: number]: T }): T[] {
+        const start = Math.min(_start, _end);
+        const end = Math.max(_start, _end);
         return Array.from({ length: end - start + 1 })
           .map((_, index) => {
             return source[start + index];
