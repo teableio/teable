@@ -17,6 +17,7 @@ import {
   viewSortRoSchema,
   viewGroupRoSchema,
 } from '@teable-group/core';
+import { IViewOrderRo, viewOrderRoSchema } from '@teable-group/openapi';
 import type { EnableShareViewVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -126,6 +127,17 @@ export class ViewOpenApiController {
     updateViewOptionRo: IViewOptionRo
   ): Promise<void> {
     return await this.viewOpenApiService.setViewOption(tableId, viewId, updateViewOptionRo);
+  }
+
+  @Permissions('view|update')
+  @Patch('/:viewId/order')
+  async updateViewOrder(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(viewOrderRoSchema))
+    updateOrderRo: IViewOrderRo
+  ): Promise<void> {
+    return await this.viewOpenApiService.setViewOrder(tableId, viewId, updateOrderRo);
   }
 
   @Permissions('view|update')

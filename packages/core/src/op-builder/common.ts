@@ -22,6 +22,7 @@ export enum OpName {
   SetViewEnableShare = 'setViewEnableShare',
   SetViewShareId = 'setViewShareId',
   SetViewShareMeta = 'setViewShareMeta',
+  SetViewOrder = 'setViewOrder',
 }
 
 export function pathMatcher<T>(path: (string | number)[], matchList: string[]): T | null {

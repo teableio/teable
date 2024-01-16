@@ -1,16 +1,14 @@
 import { useTableId, useTablePermission } from '@teable-group/sdk/hooks';
 import type { IViewInstance } from '@teable-group/sdk/model';
-import { Button } from '@teable-group/ui-lib/shadcn';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn/ui/dropdown-menu';
+  Button,
+  Separator,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@teable-group/ui-lib/shadcn';
 import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import classnames from 'classnames';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { VIEW_ICON_MAP } from '../constant';
@@ -29,82 +27,34 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const deleteView = useDeleteView(view.id);
   const permission = useTablePermission();
 
-  const ViewButton = () => {
-    const ViewIcon = VIEW_ICON_MAP[view.type];
-
-    return (
-      <Button
-        className={classnames('w-full px-1', { 'bg-secondary': isActive })}
-        variant="ghost"
-        size="xs"
-        asChild
-      >
-        <Link
-          href={{
-            pathname: '/base/[baseId]/[nodeId]/[viewId]',
-            query: { baseId, nodeId: tableId, viewId: view.id },
-          }}
-          title={view.name}
-          onDoubleClick={() => {
-            permission['view|update'] && setIsEditing(true);
-          }}
-          shallow={true}
-          onClick={(e) => {
-            if (isActive) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <ViewIcon className="h-4 w-4 shrink-0" />
-          <p className="shrink-1 truncate">{view.name}</p>
-        </Link>
-      </Button>
+  const navigateHandler = () => {
+    router.push(
+      {
+        pathname: '/base/[baseId]/[nodeId]/[viewId]',
+        query: { baseId, nodeId: tableId, viewId: view.id },
+      },
+      undefined,
+      { shallow: Boolean(view.id) }
     );
   };
+  const ViewIcon = VIEW_ICON_MAP[view.type];
 
   const showViewMenu =
     permission['view|delete'] || permission['view|update'] || permission['view|create'];
-  return (
-    <div className={'relative flex min-w-[100px] max-w-[33%] items-center justify-start'}>
-      {!isEditing && (
-        <>
-          <DropdownMenu>
-            {isActive && showViewMenu ? (
-              <DropdownMenuTrigger className="w-full">
-                <ViewButton />
-              </DropdownMenuTrigger>
-            ) : (
-              <ViewButton />
-            )}
-            <DropdownMenuContent side="bottom" align="start">
-              {permission['view|update'] && (
-                <DropdownMenuItem onSelect={() => setIsEditing(true)}>Rename view</DropdownMenuItem>
-              )}
-              {permission['view|create'] && <DropdownMenuItem>Duplicate view</DropdownMenuItem>}
-              {permission['view|delete'] && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    disabled={!removable}
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      deleteView();
-                    }}
-                  >
-                    Delete view
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
-      )}
-      {isEditing && (
+
+  const commonPart = (
+    <div className="flex w-full items-center overflow-hidden px-0.5">
+      <ViewIcon className="mr-1 h-4 w-4 shrink-0" />
+      {!isEditing ? (
+        <div className="flex flex-1 items-center justify-center overflow-hidden">
+          <div className="truncate text-xs font-medium leading-5">{view.name}</div>
+        </div>
+      ) : (
         <Input
           type="text"
           placeholder="name"
           defaultValue={view.name}
-          className="h-6 min-w-[150px] cursor-text py-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+          className="h-6 cursor-text py-0 text-xs focus-visible:ring-transparent focus-visible:ring-offset-0"
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           onBlur={(e) => {
@@ -123,6 +73,84 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           }}
         />
       )}
+    </div>
+  );
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      className={classnames(
+        'mx-0.5 flex h-7 w-28 items-center overflow-hidden rounded-md bg-popover p-1 text-sm hover:bg-secondary',
+        {
+          'bg-secondary': isActive,
+        }
+      )}
+      onDoubleClick={() => {
+        permission['view|update'] && setIsEditing(true);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          navigateHandler();
+        }
+      }}
+      onClick={() => {
+        navigateHandler();
+      }}
+    >
+      {!isActive
+        ? commonPart
+        : showViewMenu && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className={classnames('m-0 flex w-full rounded-sm p-0', {
+                    'bg-secondary': isActive,
+                  })}
+                >
+                  {commonPart}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-32 p-1">
+                <div className="flex flex-col">
+                  {permission['view|update'] && (
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => {
+                        setIsEditing(true);
+                      }}
+                    >
+                      Rename view
+                    </Button>
+                  )}
+                  {permission['view|create'] && (
+                    <Button variant="ghost" size="xs">
+                      Duplicate view
+                    </Button>
+                  )}
+                  {permission['view|delete'] && (
+                    <>
+                      <Separator className="my-0.5" />
+                      <Button
+                        size="xs"
+                        disabled={!removable}
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          deleteView();
+                        }}
+                      >
+                        Delete view
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
     </div>
   );
 };

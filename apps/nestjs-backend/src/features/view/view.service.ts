@@ -24,6 +24,7 @@ import { Knex } from 'knex';
 import { maxBy, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import type { ISetViewOrderOpContext } from '../../../../../packages/core/src/op-builder/view/set-view-order';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -41,6 +42,7 @@ type IViewOpContext =
   | ISetViewShareMetaOpContext
   | ISetViewEnableShareOpContext
   | ISetViewShareIdOpContext
+  | ISetViewOrderOpContext
   | ISetViewColumnMetaOpContext;
 
 @Injectable()
@@ -348,6 +350,9 @@ export class ViewService implements IAdapterService {
           break;
         case OpName.SetViewShareMeta:
           updateData['shareMeta'] = JSON.stringify(opContext.newShareMeta) ?? null;
+          break;
+        case OpName.SetViewOrder:
+          updateData['order'] = opContext.newOrder;
           break;
         case OpName.SetViewEnableShare:
           updateData['enableShare'] = opContext.newEnableShare;
