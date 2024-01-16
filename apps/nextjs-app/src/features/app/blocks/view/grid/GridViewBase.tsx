@@ -32,6 +32,7 @@ import {
   useGridGroupCollection,
   useGridCollapsedGroup,
   RowCounter,
+  generateLocalId,
 } from '@teable-group/sdk';
 import { useScrollFrameRate } from '@teable-group/sdk/components/grid/hooks';
 import {
@@ -108,7 +109,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const groupCollection = useGridGroupCollection();
 
   const { viewGroupQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
-    `${tableId}-${activeViewId}`,
+    generateLocalId(tableId, activeViewId),
     groupPoints
   );
 

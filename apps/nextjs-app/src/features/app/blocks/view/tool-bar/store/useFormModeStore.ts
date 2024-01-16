@@ -1,7 +1,6 @@
+import { LocalStorageKeys } from '@teable-group/sdk/config';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
-export const FORM_MODE_LOCAL_STORAGE_KEY = '__t-form-mode';
 
 export enum FormMode {
   Edit = 'Edit',
@@ -27,7 +26,7 @@ export const useFormModeStore = create<IFormModeState>()(
       },
     }),
     {
-      name: FORM_MODE_LOCAL_STORAGE_KEY,
+      name: LocalStorageKeys.ViewFromMode,
     }
   )
 );
