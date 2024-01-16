@@ -650,6 +650,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   useClickAway(containerRef, () => {
     setEditing(false);
+    editorContainerRef.current?.saveValue?.();
   });
 
   useLayoutEffect(() => {
