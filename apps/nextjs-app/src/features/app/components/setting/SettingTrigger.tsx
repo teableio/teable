@@ -18,14 +18,14 @@ export const SettingTrigger: React.FC<{ children: React.ReactNode }> = ({ childr
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="flex h-5/6 max-h-[800px] max-w-6xl flex-col">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             Manage your account settings and set e-mail preferences.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="profile" className="flex min-h-[40rem] gap-4 pt-4">
+        <Tabs defaultValue="profile" className="flex gap-4 overflow-y-auto pt-4">
           <TabsList className="grid-row-2 grid w-36 gap-2 bg-inherit">
             <TabsTrigger value="profile" className="w-36 data-[state=active]:bg-muted">
               My Account
