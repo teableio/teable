@@ -27,6 +27,7 @@ import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty, isObject } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -35,7 +36,6 @@ import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
-import { MAX_GROUP_POINT_COUNT } from './constant';
 
 export type IWithView = {
   viewId?: string;
@@ -63,7 +63,8 @@ export class AggregationService {
     private readonly prisma: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async performAggregation(params: {
@@ -475,7 +476,7 @@ export class AggregationService {
     );
     const distinctCount = Number(distinctResult[0].count);
 
-    return distinctCount > MAX_GROUP_POINT_COUNT;
+    return distinctCount > this.thresholdConfig.maxGroupPoints;
   }
 
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
