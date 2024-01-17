@@ -1,14 +1,15 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { GlobalModule } from '../global/global.module';
-import { ShareDbModule } from '../share-db/share-db.module';
 import { WsGateway } from './ws.gateway';
+import { ShareDbModule } from '../share-db/share-db.module';
+import { SessionHandleModule } from '../features/auth/session/session-handle.module';
 
 describe('WSGateway', () => {
   let service: WsGateway;
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [GlobalModule, ShareDbModule],
+      imports: [GlobalModule, ShareDbModule, SessionHandleModule],
       providers: [WsGateway],
     }).compile();
 
