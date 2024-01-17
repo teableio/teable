@@ -18,6 +18,7 @@ import {
 } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fromZodError } from 'zod-validation-error';
 
 interface IChangePasswordDialogProps {
@@ -25,6 +26,7 @@ interface IChangePasswordDialogProps {
 }
 export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   const { children } = props;
+  const { t } = useTranslation('common');
   const router = useRouter();
   const { toast } = useToast();
   const [newPassword, setNewPassword] = useState('');
@@ -35,8 +37,8 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   const { mutate: changePasswordMutate, isLoading } = useMutation(changePassword, {
     onSuccess: () => {
       toast({
-        title: 'Change password successfully',
-        description: 'You will be redirected to the login page in 2 seconds.',
+        title: t('settings.account.changePasswordSuccess.title'),
+        description: t('settings.account.changePasswordSuccess.desc'),
       });
       setTimeout(() => {
         router.push('/auth/login', {
@@ -45,17 +47,18 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
       }, 2000);
     },
     onError: (err: HttpError) => {
-      setError(err.message);
+      console.error(err.message);
+      setError(t('settings.account.changePasswordError.invalid'));
     },
   });
 
   const checkConfirmEqual = () => {
     if (newPassword && confirmPassword && newPassword !== confirmPassword) {
-      setError('Your new password does not match.');
+      setError(t('settings.account.changePasswordError.disMatch'));
       return;
     }
     if (newPassword && confirmPassword && currentPassword === newPassword) {
-      setError('Your new password must be different from your current password.');
+      setError(t('settings.account.changePasswordError.equal'));
       return;
     }
     setError('');
@@ -74,7 +77,8 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   const handleSubmit = async () => {
     const valid = changePasswordRoSchema.safeParse({ password: currentPassword, newPassword });
     if (!valid.success) {
-      setError(fromZodError(valid.error).message);
+      console.error(fromZodError(valid.error).message);
+      setError(t('settings.account.changePasswordError.invalidNew'));
       return;
     }
     changePasswordMutate({ password: currentPassword, newPassword });
@@ -85,15 +89,17 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="md:w-80">
         <DialogHeader>
-          <DialogTitle className="text-center text-sm">Change Password</DialogTitle>
+          <DialogTitle className="text-center text-sm">
+            {t('settings.account.changePassword.title')}
+          </DialogTitle>
           <DialogDescription className="text-center text-xs">
-            Please enter your current password and your new password.
+            {t('settings.account.changePassword.desc')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground" htmlFor="currentPassword">
-              Enter your current password
+              {t('settings.account.changePassword.current')}
             </Label>
             <Input
               className="h-7"
@@ -107,7 +113,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground" htmlFor="newPassword">
-              Enter a new password
+              {t('settings.account.changePassword.new')}
             </Label>
             <Input
               className="h-7"
@@ -122,7 +128,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
           </div>
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground" htmlFor="confirmPassword">
-              Confirm your new password
+              {t('settings.account.changePassword.confirm')}
             </Label>
             <Input
               className="h-7"
@@ -146,11 +152,11 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
             onClick={handleSubmit}
           >
             {isLoading && <Spin className="mr-1 h-4 w-4" />}
-            Change password
+            {t('settings.account.changePassword.title')}
           </Button>
           <DialogClose asChild>
             <Button size={'sm'} className="w-full" variant={'ghost'}>
-              Cancel
+              {t('actions.cancel')}
             </Button>
           </DialogClose>
         </DialogFooter>

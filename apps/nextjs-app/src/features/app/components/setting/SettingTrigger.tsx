@@ -7,11 +7,13 @@ import {
   TabsList,
   TabsTrigger,
 } from '@teable-group/ui-lib/shadcn';
+import { useTranslation } from 'react-i18next';
 import { System } from '@/features/app/components/setting/System';
 import { Account } from './Account';
 import { Notifications } from './Notifications';
 
 export const SettingTrigger: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation('common');
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -22,16 +24,16 @@ export const SettingTrigger: React.FC<{ children: React.ReactNode }> = ({ childr
               value="profile"
               className="w-36 justify-start data-[state=active]:bg-muted"
             >
-              My Account
+              {t('settings.account.tab')}
             </TabsTrigger>
             <TabsTrigger value="system" className="justify-start data-[state=active]:bg-muted">
-              My Settings
+              {t('settings.setting.title')}
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
               className="justify-start data-[state=active]:bg-muted"
             >
-              My Notifications
+              {t('settings.notify.title')}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="profile" className="mt-0 w-full">

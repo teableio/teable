@@ -7,5 +7,48 @@
     "cancel": "Cancel",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out"
+  },
+  "settings": {
+    "title": "Settings",
+    "account": {
+      "title": "My profile",
+      "tab": "My Account",
+      "updatePhoto": "Update photo",
+      "updateNameDesc": "Your name will be displayed on contributions and mentions. You can change it anytime.",
+      "securityTitle": "Account security",
+      "email": "Email",
+      "password": "Password",
+      "passwordDesc": "Set a permanent password to login to your account.",
+      "changePassword": {
+        "title": "Change password",
+        "desc": "Please enter your current password and your new password.",
+        "current": "Enter your current password",
+        "new": "Enter your new password",
+        "confirm": "Confirm your new password"
+      },
+      "changePasswordError": {
+        "disMatch": "Your new password does not match.",
+        "equal": "Your new password must be different from your current password.",
+        "invalid": "Your current password is invalid.",
+        "invalidNew": "Your new password is invalid, minimum 8 chars."
+      },
+      "changePasswordSuccess": {
+        "title": "Change password successfully.",
+        "desc": "You will be redirected to the login page in 2 seconds."
+      }
+    },
+    "notify": {
+      "title": "My Notifications",
+      "label": "Activity in your workspace",
+      "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
+    },
+    "setting": {
+      "title": "My Settings",
+      "theme": "Theme",
+      "themeDesc": "Select the theme for the dashboard.",
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System"
+    }
   }
 }

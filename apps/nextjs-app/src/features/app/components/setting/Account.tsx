@@ -15,10 +15,12 @@ import {
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 
 export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
+  const { t } = useTranslation('common');
 
   const updateUserAvatarMutation = useMutation(updateUserAvatar, {
     onSuccess: () => {
@@ -53,7 +55,7 @@ export const Account: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">My profile</h3>
+        <h3 className="text-lg font-medium">{t('settings.account.title')}</h3>
       </div>
       <Separator />
       <div className="flex">
@@ -83,7 +85,7 @@ export const Account: React.FC = () => {
               </div>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Upload photo</p>
+              <p>{t('settings.account.updatePhoto')}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -94,30 +96,30 @@ export const Account: React.FC = () => {
             onBlur={(e) => toggleRenameUser(e)}
           />
           <Label className="text-xs text-muted-foreground" htmlFor="Preferred name">
-            Your name will be displayed on contributions and mentions. You can change it anytime.
+            {t('settings.account.updateNameDesc')}
           </Label>
         </div>
       </div>
       <div>
-        <h3 className="text-base font-medium">Account security</h3>
+        <h3 className="text-base font-medium">{t('settings.account.securityTitle')}</h3>
         <Separator className="my-2" />
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label>Email</Label>
+              <Label>{t('settings.account.email')}</Label>
               <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
             </div>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <Label>Password</Label>
+              <Label>{t('settings.account.password')}</Label>
               <div className="text-xs text-muted-foreground">
-                Set a permanent password to login to your account.
+                {t('settings.account.passwordDesc')}
               </div>
             </div>
             <ChangePasswordDialog>
               <Button className="float-right" size={'sm'} variant={'outline'}>
-                Change password
+                {t('settings.account.changePassword.title')}
               </Button>
             </ChangePasswordDialog>
           </div>
