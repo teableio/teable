@@ -2,7 +2,7 @@ import type { NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { SessionHandleModule } from './session-handle.module';
 import { SessionHandleService } from './session-handle.service';
-import { SessionStoreService } from './session.service';
+import { SessionStoreService } from './session-store.service';
 
 @Module({
   imports: [SessionHandleModule],

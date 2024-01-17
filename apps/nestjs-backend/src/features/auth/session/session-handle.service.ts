@@ -3,7 +3,7 @@ import type { Request, RequestHandler } from 'express';
 import session from 'express-session';
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import { AUTH_SESSION_COOKIE_NAME } from '../../../const';
-import { SessionStoreService } from './session.service';
+import { SessionStoreService } from './session-store.service';
 
 @Injectable()
 export class SessionHandleService {

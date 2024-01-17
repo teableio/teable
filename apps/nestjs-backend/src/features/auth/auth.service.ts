@@ -1,27 +1,48 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { generateUserId } from '@teable-group/core';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IChangePasswordRo } from '@teable-group/openapi';
 import * as bcrypt from 'bcrypt';
 import { ClsService } from 'nestjs-cls';
-import { CacheService } from '../../cache/cache.service';
-import { AuthConfig, IAuthConfig } from '../../configs/auth.config';
 import type { IClsStore } from '../../types/cls';
 import { UserService } from '../user/user.service';
+import { SessionStoreService } from './session/session-store.service';
 
 @Injectable()
 export class AuthService {
   constructor(
+    private readonly prismaService: PrismaService,
     private readonly userService: UserService,
-    private readonly cacheService: CacheService,
     private readonly cls: ClsService<IClsStore>,
-    @AuthConfig() private readonly authConfig: IAuthConfig
+    private readonly sessionStoreService: SessionStoreService
   ) {}
+
+  private async encodePassword(password: string) {
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
+    return { salt, hashPassword };
+  }
+
+  private async comparePassword(
+    password: string,
+    hashPassword: string | null,
+    salt: string | null
+  ) {
+    const _hashPassword = await bcrypt.hash(password || '', salt || '');
+    return _hashPassword === hashPassword;
+  }
 
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);
     if (user) {
       const { password, salt, ...result } = user;
-      const hashPassword = await bcrypt.hash(pass || '', salt || '');
-      return hashPassword === password ? result : null;
+      return (await this.comparePassword(pass, password, salt)) ? result : null;
     }
     return null;
   }
@@ -31,8 +52,7 @@ export class AuthService {
     if (user) {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
     }
-    const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(password, salt);
+    const { salt, hashPassword } = await this.encodePassword(password);
     return await this.userService.createUser({
       id: generateUserId(),
       name: email.split('@')[0],
@@ -53,5 +73,27 @@ export class AuthService {
         resolve();
       });
     });
+  }
+
+  async changePassword({ password, newPassword }: IChangePasswordRo) {
+    const userId = this.cls.get('user.id');
+    const user = await this.userService.getUserById(userId);
+    if (!user) {
+      throw new InternalServerErrorException('User not found');
+    }
+    const { password: currentHashPassword, salt } = user;
+    if (!(await this.comparePassword(password, currentHashPassword, salt))) {
+      throw new BadRequestException('Password is incorrect');
+    }
+    const { salt: newSalt, hashPassword: newHashPassword } = await this.encodePassword(newPassword);
+    await this.prismaService.txClient().user.update({
+      where: { id: userId, deletedTime: null },
+      data: {
+        password: newHashPassword,
+        salt: newSalt,
+      },
+    });
+    // clear session
+    await this.sessionStoreService.clearByUserId(userId);
   }
 }

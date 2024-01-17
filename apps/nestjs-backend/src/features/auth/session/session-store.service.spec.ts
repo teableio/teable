@@ -8,8 +8,8 @@ import type { IAuthConfig } from '../../../configs/auth.config';
 import { AuthConfig } from '../../../configs/auth.config';
 import { GlobalModule } from '../../../global/global.module';
 import type { ISessionData } from '../../../types/session';
+import { SessionStoreService } from './session-store.service';
 import { SessionModule } from './session.module';
-import { SessionStoreService } from './session.service';
 
 describe('SessionStoreService', () => {
   let sessionStoreService: SessionStoreService;
