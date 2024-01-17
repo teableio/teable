@@ -26,7 +26,7 @@ export class PassportSessionStrategy extends Strategy {
     }
     options = options || {};
 
-    const { success, fail, pass, _key, _deserializeUser } = this;
+    const { success, fail, _key, _deserializeUser } = this;
     const user: any = req.session?.[_key]?.user;
 
     if (user) {
@@ -39,7 +39,6 @@ export class PassportSessionStrategy extends Strategy {
         if (!user) {
           delete req.session[_key].user;
           fail('No user session found');
-          pass();
         } else {
           const property = req._userProperty || 'user';
           req[property] = user;
