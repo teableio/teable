@@ -32,6 +32,7 @@ import {
   useGridGroupCollection,
   useGridCollapsedGroup,
   RowCounter,
+  generateLocalId,
 } from '@teable-group/sdk';
 import { useScrollFrameRate } from '@teable-group/sdk/components/grid/hooks';
 import {
@@ -108,7 +109,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const groupCollection = useGridGroupCollection();
 
   const { viewGroupQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
-    `${tableId}-${activeViewId}`,
+    generateLocalId(tableId, activeViewId),
     groupPoints
   );
 
@@ -200,7 +201,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     (selection: CombinedSelection, position: IPosition) => {
       const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
-      function extract<T>(start: number, end: number, source: T[] | { [key: number]: T }): T[] {
+      function extract<T>(_start: number, _end: number, source: T[] | { [key: number]: T }): T[] {
+        const start = Math.min(_start, _end);
+        const end = Math.max(_start, _end);
         return Array.from({ length: end - start + 1 })
           .map((_, index) => {
             return source[start + index];
@@ -361,7 +364,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [setSelection]
   );
 
-  const [collaborators] = useCollaborate(selection);
+  const collaborators = useCollaborate(selection);
+
+  const groupedCollaborators = useMemo(() => {
+    return groupBy(collaborators, 'activeCell');
+  }, [collaborators]);
 
   const onRowExpandInner = (rowIndex: number) => {
     const recordId = recordMap[rowIndex]?.id;
@@ -420,7 +427,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     if ([RegionType.Cell, RegionType.ActiveCell].includes(type) && collaborators.length) {
       const { x, y, width, height } = bounds;
       const [rowIndex, columnIndex] = cellItem;
-      const groupedCollaborators = groupBy(collaborators, 'activeCell');
       const hoverCollaborators = groupedCollaborators?.[`${rowIndex},${columnIndex}`]?.sort(
         (a, b) => a.timeStamp - b.timeStamp
       );

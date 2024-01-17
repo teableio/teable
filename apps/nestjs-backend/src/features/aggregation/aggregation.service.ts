@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type {
   IAggregationField,
   IColumnMeta,
@@ -12,6 +12,7 @@ import type {
   IGroupPointsRo,
 } from '@teable-group/core';
 import {
+  DbFieldType,
   GroupPointType,
   mergeWithDefaultFilter,
   nullsToUndefined,
@@ -26,6 +27,7 @@ import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty, isObject } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -61,7 +63,8 @@ export class AggregationService {
     private readonly prisma: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async performAggregation(params: {
@@ -416,8 +419,8 @@ export class AggregationService {
   ) {
     const groupPoints: IGroupPoint[] = [];
 
-    let firstDbFieldValue: unknown = '';
-    let secondDbFieldValue: unknown = '';
+    let firstDbFieldValue: unknown = Symbol();
+    let secondDbFieldValue: unknown = Symbol();
 
     groupResult.forEach((item) => {
       const { __c: count } = item;
@@ -430,6 +433,7 @@ export class AggregationService {
         if (index === 0) {
           if (firstDbFieldValue === fieldValue) return;
           firstDbFieldValue = fieldValue;
+          secondDbFieldValue = Symbol();
         }
         if (index === 1) {
           if (secondDbFieldValue === fieldValue) return;
@@ -448,6 +452,33 @@ export class AggregationService {
     return groupPoints;
   }
 
+  private async checkGroupingOverLimit(
+    fieldIds: string[],
+    fieldInstanceMap: Record<string, IFieldInstance>,
+    queryBuilder: Knex.QueryBuilder
+  ) {
+    fieldIds.forEach((fieldId) => {
+      const field = fieldInstanceMap[fieldId];
+
+      if (!field) return;
+
+      const { dbFieldType, dbFieldName } = field;
+      const column =
+        dbFieldType === DbFieldType.Json
+          ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
+          : this.knex.ref(dbFieldName).toQuery();
+
+      queryBuilder.countDistinct(this.knex.raw(`${column}`));
+    });
+
+    const distinctResult = await this.prisma.$queryRawUnsafe<{ count: number }[]>(
+      queryBuilder.toQuery()
+    );
+    const distinctCount = Number(distinctResult[0].count);
+
+    return distinctCount > this.thresholdConfig.maxGroupPoints;
+  }
+
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
     const { viewId, groupBy: extraGroupBy, filter } = query || {};
 
@@ -464,18 +495,50 @@ export class AggregationService {
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
     const groupFieldIds = groupBy.map((item) => item.fieldId);
-    const groupDbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
+
     const queryBuilder = this.knex(dbTableName);
+    const distinctQueryBuilder = this.knex(dbTableName);
 
     if (mergedFilter) {
       this.dbProvider
         .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter)
         .appendQueryBuilder();
+      this.dbProvider
+        .filterQuery(distinctQueryBuilder, fieldInstanceMap, mergedFilter)
+        .appendQueryBuilder();
+    }
+
+    const isGroupingOverLimit = await this.checkGroupingOverLimit(
+      groupFieldIds,
+      fieldInstanceMap,
+      distinctQueryBuilder
+    );
+    if (isGroupingOverLimit) {
+      throw new HttpException(
+        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.',
+        HttpStatus.PAYLOAD_TOO_LARGE
+      );
     }
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
 
-    queryBuilder.select(groupDbFieldNames).count({ __c: '*' }).groupBy(groupDbFieldNames);
+    queryBuilder.count({ __c: '*' });
+
+    groupFieldIds.forEach((fieldId) => {
+      const field = fieldInstanceMap[fieldId];
+
+      if (!field) return;
+
+      const { dbFieldType, dbFieldName } = field;
+      const column =
+        dbFieldType === DbFieldType.Json
+          ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
+          : this.knex.ref(dbFieldName).toQuery();
+
+      queryBuilder
+        .select(this.knex.raw(`${column}`))
+        .groupByRaw(this.knex.raw(`${column}`).toQuery());
+    });
 
     const groupSql = queryBuilder.toQuery();
 

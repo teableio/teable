@@ -88,5 +88,5 @@ export const useCollaborate = (selection?: CombinedSelection) => {
     }
   }, [activeCell, localPresence, tableId, user]);
 
-  return [collaborators];
+  return collaborators;
 };

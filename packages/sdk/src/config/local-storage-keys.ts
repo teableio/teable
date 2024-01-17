@@ -6,5 +6,6 @@ export enum LocalStorageKeys {
   ExpandRecordPanelSize = 'ls_expand_record_panel_size',
   DashboardKey = 'ls_dashboard_key',
   ViewFromData = 'ls_view_form_data',
+  ViewFromMode = 'ls_view_form_mode',
   ViewGridCollapsedGroup = 'ls_view_grid_collapsed_group',
 }

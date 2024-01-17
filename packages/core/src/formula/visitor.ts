@@ -178,7 +178,7 @@ export class EvalVisitor
         break;
       }
       case Boolean(ctx.SLASH()): {
-        value = lv / rv;
+        value = !rv ? null : lv / rv;
         break;
       }
       case Boolean(ctx.PLUS()): {
@@ -186,7 +186,7 @@ export class EvalVisitor
         break;
       }
       case Boolean(ctx.PERCENT()): {
-        value = lv % rv;
+        value = !rv ? null : lv % rv;
         break;
       }
       case Boolean(ctx.MINUS()): {

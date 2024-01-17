@@ -227,6 +227,7 @@ const generateGroupCellFn =
           type: CellType.Boolean,
           data: (cellValue as boolean) || false,
           isMultiple,
+          contentAlign: 'left',
         };
       }
       case FieldType.Rating: {

@@ -521,14 +521,15 @@ export const drawGroupRow = (ctx: CanvasRenderingContext2D, props: IGroupRowDraw
 
   const cell = getGroupCell(value, depth);
   const cellRenderer = getCellRenderer(cell.type);
+  const offsetY = 18;
   cellRenderer.draw(cell as never, {
     ctx,
     theme,
     rect: {
       x,
-      y: y + 18,
+      y: y + offsetY,
       width,
-      height,
+      height: height - offsetY,
     },
     rowIndex,
     columnIndex,

@@ -26,6 +26,7 @@ import {
   useGridCollapsedGroup,
   RowCounter,
   useGridColumnOrder,
+  generateLocalId,
 } from '@teable-group/sdk/components';
 import {
   useGroupPoint,
@@ -81,7 +82,7 @@ export const GridViewBase = () => {
   const groupCollection = useGridGroupCollection();
 
   const { viewGroupQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
-    `${tableId}-${view?.id}`,
+    generateLocalId(tableId, view?.id),
     groupPoints
   );
 
