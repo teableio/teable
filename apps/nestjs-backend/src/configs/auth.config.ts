@@ -12,7 +12,7 @@ export const authConfig = registerAs('auth', () => ({
     secret:
       process.env.BACKEND_SESSION_SECRET ??
       'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
-    expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
+    expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '5s',
   },
 }));
 

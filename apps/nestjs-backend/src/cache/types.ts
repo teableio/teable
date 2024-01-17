@@ -1,4 +1,4 @@
-import type { SessionData } from 'express-session';
+import type { ISessionData } from '../types/session';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 export interface ICacheStore {
@@ -6,7 +6,9 @@ export interface ICacheStore {
   [key: `attachment:upload:${string}`]: IAttachmentUploadCache;
   [key: `attachment:local-signature:${string}`]: IAttachmentLocalTokenCache;
   [key: `attachment:preview:${string}`]: IAttachmentPreviewCache;
-  [key: `auth:session-store:${string}`]: SessionData;
+  [key: `auth:session-store:${string}`]: ISessionData;
+  [key: `auth:session-user:${string}`]: Record<string, number>;
+  [key: `auth:session-expire:${string}`]: boolean;
 }
 
 export interface IAttachmentSignatureCache {

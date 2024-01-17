@@ -35,8 +35,7 @@ export class SessionHandleService {
 
   async getUserId(sessionId: string) {
     return new Promise<string | undefined>((resolve, reject) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.sessionStoreService.get(sessionId, (err, session: any) => {
+      this.sessionStoreService.get(sessionId, (err, session) => {
         if (err) {
           return reject(err);
         }
