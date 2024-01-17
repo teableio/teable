@@ -5,20 +5,23 @@ import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guard/auth.guard';
-import { JwtStrategy } from './strategies/jwt.strategy';
+import { SessionModule } from './session/session.module';
+import { SessionSerializer } from './session/session.serializer';
 import { LocalStrategy } from './strategies/local.strategy';
+import { SessionStrategy } from './strategies/session.strategy';
 
 @Module({
-  imports: [UserModule, PassportModule],
+  imports: [UserModule, PassportModule.register({ session: true }), SessionModule],
   providers: [
     AuthService,
     LocalStrategy,
-    JwtStrategy,
+    SessionStrategy,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,
     },
     AuthGuard,
+    SessionSerializer,
   ],
   exports: [AuthService, AuthGuard],
   controllers: [AuthController],

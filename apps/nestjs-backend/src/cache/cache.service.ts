@@ -24,7 +24,7 @@ export class CacheService {
     await this.cacheManager.del(key);
   }
 
-  async reset(): Promise<void> {
-    await this.cacheManager.reset();
+  async keys(pattern?: string): Promise<string[]> {
+    return this.cacheManager.store.keys(pattern);
   }
 }

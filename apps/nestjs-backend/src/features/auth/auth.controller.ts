@@ -1,8 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, Request, Res, UseGuards } from '@nestjs/common';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import { Body, Controller, Get, HttpCode, Post, Request, UseGuards } from '@nestjs/common';
 import { ISignup, signupSchema } from '@teable-group/openapi';
-import { Response } from 'express';
-import { AUTH_COOKIE } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
@@ -17,35 +14,20 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @HttpCode(200)
   @Post('signin')
-  async signin(@Request() req: Express.Request, @Res({ passthrough: true }) res: Response) {
-    const user = req.user as Prisma.UserGetPayload<null>;
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const { access_token } = await this.authService.signin(user);
-    res.cookie(AUTH_COOKIE, access_token, {
-      httpOnly: true,
-    });
-    return { access_token };
+  async signin(@Request() req: Express.Request) {
+    return req.user;
   }
 
   @Post('signout')
   @HttpCode(200)
-  async signout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(AUTH_COOKIE);
-    return null;
+  async signout(@Request() req: Express.Request) {
+    return await this.authService.signout(req);
   }
 
   @Public()
   @Post('signup')
-  async signup(
-    @Body(new ZodValidationPipe(signupSchema)) body: ISignup,
-    @Res({ passthrough: true }) res: Response
-  ) {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const { access_token } = await this.authService.signup(body.email, body.password);
-    res.cookie(AUTH_COOKIE, access_token, {
-      httpOnly: true,
-    });
-    return { access_token };
+  async signup(@Body(new ZodValidationPipe(signupSchema)) body: ISignup) {
+    return await this.authService.signup(body.email, body.password);
   }
 
   @UseGuards(AuthGuard)

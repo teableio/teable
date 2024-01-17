@@ -1,9 +1,12 @@
+import type { SessionData } from 'express-session';
+
 /* eslint-disable @typescript-eslint/naming-convention */
 export interface ICacheStore {
   [key: `attachment:signature:${string}`]: IAttachmentSignatureCache;
   [key: `attachment:upload:${string}`]: IAttachmentUploadCache;
   [key: `attachment:local-signature:${string}`]: IAttachmentLocalTokenCache;
   [key: `attachment:preview:${string}`]: IAttachmentPreviewCache;
+  [key: `auth:session-store:${string}`]: SessionData;
 }
 
 export interface IAttachmentSignatureCache {

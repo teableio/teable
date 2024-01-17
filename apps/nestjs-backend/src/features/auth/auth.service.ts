@@ -1,24 +1,20 @@
-import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { generateUserId } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
 import * as bcrypt from 'bcrypt';
+import { ClsService } from 'nestjs-cls';
+import { CacheService } from '../../cache/cache.service';
+import { AuthConfig, IAuthConfig } from '../../configs/auth.config';
+import type { IClsStore } from '../../types/cls';
 import { UserService } from '../user/user.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly userService: UserService,
-    private readonly jwtService: JwtService
+    private readonly cacheService: CacheService,
+    private readonly cls: ClsService<IClsStore>,
+    @AuthConfig() private readonly authConfig: IAuthConfig
   ) {}
-
-  async validateJwtToken(token: string) {
-    try {
-      return await this.jwtService.verifyAsync<{ id: string }>(token);
-    } catch {
-      throw new UnauthorizedException();
-    }
-  }
 
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);
@@ -30,12 +26,6 @@ export class AuthService {
     return null;
   }
 
-  async signin(user: Prisma.UserGetPayload<null>) {
-    return {
-      access_token: await this.jwtService.signAsync({ id: user.id }),
-    };
-  }
-
   async signup(email: string, password: string) {
     const user = await this.userService.getUserByEmail(email);
     if (user) {
@@ -43,15 +33,25 @@ export class AuthService {
     }
     const salt = await bcrypt.genSalt(10);
     const hashPassword = await bcrypt.hash(password, salt);
-    const newUser = await this.userService.createUser({
+    return await this.userService.createUser({
       id: generateUserId(),
       name: email.split('@')[0],
       email,
       salt,
       password: hashPassword,
     });
-    return {
-      access_token: await this.jwtService.signAsync({ id: newUser.id }),
-    };
+  }
+
+  async signout(req: Express.Request) {
+    await new Promise<void>((resolve, reject) => {
+      req.session.destroy(function (err) {
+        // cannot access session here
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
   }
 }
