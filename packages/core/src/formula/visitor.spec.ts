@@ -112,10 +112,12 @@ describe('EvalVisitor', () => {
 
   it('division', () => {
     expect(evalFormula('12 / 4')).toBe(3);
+    expect(evalFormula('12 / 0')).toBe(null);
   });
 
   it('mode', () => {
     expect(evalFormula('8 % 3')).toBe(2);
+    expect(evalFormula('12 % 0')).toBe(null);
   });
 
   it('concat', () => {
