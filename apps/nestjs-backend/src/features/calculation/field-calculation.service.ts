@@ -135,13 +135,11 @@ export class FieldCalculationService {
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
         .concat([...systemDbFieldNames]);
-      const nativeSql = this.knex(dbTableName).select(dbFieldNames).toSQL().toNative();
+      const nativeSql = this.knex(dbTableName).select(dbFieldNames).toQuery();
+
       const result = await this.prismaService
         .txClient()
-        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
-          nativeSql.sql,
-          ...nativeSql.bindings
-        );
+        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(nativeSql);
       results[dbTableName] = result;
     }
 

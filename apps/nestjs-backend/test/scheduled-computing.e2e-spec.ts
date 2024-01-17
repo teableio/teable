@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType, type ITableFullVo } from '@teable-group/core';
 import { deleteTableArbitrary, getRecords } from '@teable-group/openapi';
-import { initApp, createTable, createField } from './utils/init-app';
+import { initApp, createTable, createField, deleteField, updateField } from './utils/init-app';
 import { seeding } from './utils/record-mock';
 
 describe('Test Scheduled Computing', () => {
@@ -21,6 +21,7 @@ describe('Test Scheduled Computing', () => {
 
   beforeEach(async () => {
     table = await createTable(baseId, { name: 'table1', records: [] });
+    // await seeding(table.id, 3);
     await seeding(table.id, 10_000);
   }, 100_000);
 
@@ -29,7 +30,7 @@ describe('Test Scheduled Computing', () => {
     console.log('clear table: ', table.id);
   });
 
-  it('should create formula field with 10000 rows scheduled', async () => {
+  it('should create/modify/delete formula field with 10000 rows scheduled', async () => {
     const formulaFieldRo = {
       name: 'formula',
       type: FieldType.Formula,
@@ -44,6 +45,22 @@ describe('Test Scheduled Computing', () => {
       skip: 0,
       take: 10,
     });
-    expect(result.data.records[0].fields[formulaField.id]).toBeTruthy();
+    expect(result.data.records[1].fields[formulaField.id]).toBeTruthy();
+
+    const newFormulaFieldRo = {
+      type: FieldType.Formula,
+      options: {
+        expression: `2 + 2`,
+      },
+    };
+    const newFormulaField = await updateField(table.id, formulaField.id, newFormulaFieldRo);
+    const newResult = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 10,
+    });
+    expect(newResult.data.records[1].fields[newFormulaField.id]).toEqual(4);
+
+    await deleteField(table.id, formulaField.id);
   }, 1_000_000);
 });

@@ -359,7 +359,7 @@ export class FieldService implements IAdapterService {
     await this.alterTableAddField(dbTableName, [fieldInstance]);
   }
 
-  async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {
+  private async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {
     const userId = this.cls.get('user.id');
     await this.attachmentService.deleteFields(
       tableId,

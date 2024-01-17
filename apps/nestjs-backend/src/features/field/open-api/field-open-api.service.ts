@@ -56,7 +56,7 @@ export class FieldOpenApiService {
           }
         }
       },
-      { timeout: 1_000_000 }
+      { timeout: 5 * 60 * 1000 }
     );
 
     return fieldVo;
@@ -91,14 +91,17 @@ export class FieldOpenApiService {
     });
 
     // 3. stage apply record changes and calculate field
-    await this.prismaService.$tx(async () => {
-      await this.fieldConvertingService.stageCalculate(tableId, newField, oldField, modifiedOps);
+    await this.prismaService.$tx(
+      async () => {
+        await this.fieldConvertingService.stageCalculate(tableId, newField, oldField, modifiedOps);
 
-      if (supplementChange) {
-        const { tableId, newField, oldField } = supplementChange;
-        await this.fieldConvertingService.stageCalculate(tableId, newField, oldField);
-      }
-    });
+        if (supplementChange) {
+          const { tableId, newField, oldField } = supplementChange;
+          await this.fieldConvertingService.stageCalculate(tableId, newField, oldField);
+        }
+      },
+      { timeout: 5 * 60 * 1000 }
+    );
 
     return instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
   }

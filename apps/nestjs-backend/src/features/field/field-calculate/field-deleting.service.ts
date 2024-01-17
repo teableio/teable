@@ -1,11 +1,11 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
-import type { IFieldInstance } from '../model/factory';
-import { createFieldInstanceByRaw } from '../model/factory';
+import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
 import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
@@ -66,19 +66,6 @@ export class FieldDeletingService {
     await this.fieldService.batchDeleteFields(tableId, [field.id]);
   }
 
-  async resetFields(tableId: string, field: IFieldInstance) {
-    const { id: fieldId, type, isLookup } = field;
-    if (type === FieldType.Link && !isLookup) {
-      const linkFieldOptions = field.options;
-      const { foreignTableId, symmetricFieldId } = linkFieldOptions;
-      if (symmetricFieldId) {
-        await this.fieldBatchCalculationService.resetFields(foreignTableId, [symmetricFieldId]);
-      }
-    }
-
-    await this.fieldBatchCalculationService.resetFields(tableId, [fieldId]);
-  }
-
   async getField(tableId: string, fieldId: string): Promise<IFieldInstance> {
     const fieldRaw = await this.prismaService.field
       .findFirstOrThrow({
@@ -90,6 +77,7 @@ export class FieldDeletingService {
     return createFieldInstanceByRaw(fieldRaw);
   }
 
+  @Timing()
   async alterDeleteField(
     tableId: string,
     field: IFieldInstance
