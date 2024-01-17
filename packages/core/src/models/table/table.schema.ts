@@ -100,6 +100,13 @@ export const tableRoSchema = tableFullVoSchema
 
 export type ICreateTableRo = z.infer<typeof tableRoSchema>;
 
+export const tableRoWithDefaultSchema = tableRoSchema.required({
+  fields: true,
+  views: true,
+});
+
+export type ICreateTableWithDefault = z.infer<typeof tableRoWithDefaultSchema>;
+
 export const tablePropertyKeySchema = tableRoSchema.pick({
   name: true,
   dbTableName: true,

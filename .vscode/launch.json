@@ -12,7 +12,7 @@
       "runtimeExecutable": "sh",
       "autoAttachChildProcesses": true,
       "program": "./node_modules/.bin/vitest",
-      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest-e2e.config.ts"],
+      "args": ["run", "${workspaceFolder}/${relativeFile}", "--config", "./vitest-e2e.config.ts", "--hideSkippedTests"],
       "smartStep": true,
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"],

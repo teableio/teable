@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DbProvider } from '../../../db-provider/db.provider';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { GraphModule } from '../../graph/graph.module';
@@ -20,7 +21,7 @@ import { FieldOpenApiService } from './field-open-api.service';
     GraphModule,
   ],
   controllers: [FieldOpenApiController],
-  providers: [FieldOpenApiService],
+  providers: [DbProvider, FieldOpenApiService],
   exports: [FieldOpenApiService],
 })
 export class FieldOpenApiModule {}

@@ -29,6 +29,7 @@ import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
+import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
@@ -44,6 +45,7 @@ describe('selectionService', () => {
   let prismaService: DeepMockProxy<PrismaService>;
   let recordOpenApiService: RecordOpenApiService;
   let fieldCreatingService: FieldCreatingService;
+  let fieldSupplementService: FieldSupplementService;
   let clsService: ClsService<IClsStore>;
   let aggregationService: AggregationService;
 
@@ -60,6 +62,7 @@ describe('selectionService', () => {
     recordService = module.get<RecordService>(RecordService);
     recordOpenApiService = module.get<RecordOpenApiService>(RecordOpenApiService);
     fieldCreatingService = module.get<FieldCreatingService>(FieldCreatingService);
+    fieldSupplementService = module.get<FieldSupplementService>(FieldSupplementService);
     clsService = module.get<ClsService<IClsStore>>(ClsService);
     aggregationService = module.get<AggregationService>(AggregationService);
 
@@ -217,8 +220,11 @@ describe('selectionService', () => {
         { id: '4', name: 'Phone', type: FieldType.SingleLineText },
       ] as IFieldVo[];
       const numColsToExpand = 2;
-      vi.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[0]);
-      vi.spyOn(fieldCreatingService, 'createField').mockResolvedValueOnce(header[1]);
+      vi.spyOn(fieldSupplementService, 'prepareCreateField').mockResolvedValueOnce(header[0]);
+      vi.spyOn(fieldSupplementService, 'prepareCreateField').mockResolvedValueOnce(header[1]);
+      vi.spyOn(fieldCreatingService, 'alterCreateField').mockImplementation(
+        (() => undefined) as any
+      );
 
       // Perform expanding columns
       const result = await selectionService['expandColumns']({
@@ -228,7 +234,7 @@ describe('selectionService', () => {
       });
 
       // Verify the createField calls
-      expect(fieldCreatingService.createField).toHaveBeenCalledTimes(2);
+      expect(fieldCreatingService.alterCreateField).toHaveBeenCalledTimes(2);
 
       // Verify the result
       expect(result.length).toEqual(2);
@@ -565,7 +571,7 @@ describe('selectionService', () => {
       vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
 
       prismaService.$tx.mockImplementation(async (fn, _options) => {
-        await fn(prismaService);
+        return await fn(prismaService);
       });
 
       // Call the method

@@ -121,7 +121,7 @@ export class FieldService implements IAdapterService {
     return multiFieldData;
   }
 
-  async alterTableAddField(
+  private async alterTableAddField(
     dbTableName: string,
     fieldInstances: { dbFieldType: DbFieldType; dbFieldName: string }[]
   ) {
@@ -180,15 +180,21 @@ export class FieldService implements IAdapterService {
       select: { dbFieldName: true, table: { select: { dbTableName: true } } },
     });
 
+    const dbTableName = table.dbTableName;
     const schemaType = dbType2knexFormat(this.knex, newDbFieldType);
 
-    const alterTableSql = this.dbProvider.modifyColumnSchema(
-      table.dbTableName,
+    const resetFieldQuery = this.knex(dbTableName)
+      .update({ [dbFieldName]: null })
+      .toQuery();
+    await this.prismaService.txClient().$executeRawUnsafe(resetFieldQuery);
+
+    const modifyColumnSql = this.dbProvider.modifyColumnSchema(
+      dbTableName,
       dbFieldName,
       schemaType
     );
 
-    for (const alterTableQuery of alterTableSql) {
+    for (const alterTableQuery of modifyColumnSql) {
       await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
     }
   }
@@ -383,7 +389,7 @@ export class FieldService implements IAdapterService {
     await this.deleteMany(tableId, [{ docId: fieldId, version }]);
   }
 
-  private async handleFieldProperty(_fieldId: string, opContext: IOpContext) {
+  private async handleFieldProperty(fieldId: string, opContext: IOpContext) {
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
     if (key === 'options') {
       if (!newValue) {
@@ -400,13 +406,13 @@ export class FieldService implements IAdapterService {
       };
     }
 
-    // if (key === 'dbFieldType') {
-    //   await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
-    // }
+    if (key === 'dbFieldType') {
+      await this.alterTableModifyFieldType(fieldId, newValue as DbFieldType);
+    }
 
-    // if (key === 'dbFieldName') {
-    //   await this.alterTableModifyFieldName(fieldId, newValue as string);
-    // }
+    if (key === 'dbFieldName') {
+      await this.alterTableModifyFieldName(fieldId, newValue as string);
+    }
 
     return { [key]: newValue ?? null };
   }

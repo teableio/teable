@@ -8,12 +8,34 @@ import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import type { IClsStore } from '../types/cls';
+import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
-import type { IRawOpMap } from './interface';
+import { IRawOpMap } from './interface';
 import { ShareDbPermissionService } from './share-db-permission.service';
 import { ShareDbAdapter } from './share-db.adapter';
 import { WsDerivateService } from './ws-derivate.service';
+
+// 1 million op in 400ms
+function fastMergeRawOpMaps<T>(objects: { [k1: string]: { [k2: string]: T } }[]): {
+  [k1: string]: { [k2: string]: T };
+} {
+  const result: { [k1: string]: { [k2: string]: T } } = {};
+
+  objects.forEach((obj) => {
+    Object.keys(obj).forEach((k1) => {
+      if (!result[k1]) {
+        result[k1] = { ...obj[k1] };
+      } else {
+        Object.keys(obj[k1]).forEach((k2) => {
+          result[k1][k2] = obj[k1][k2];
+        });
+      }
+    });
+  });
+
+  return result;
+}
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
@@ -41,10 +63,10 @@ export class ShareDbService extends ShareDBClass {
 
     // broadcast raw op events to client
     this.prismaService.bindAfterTransaction(() => {
-      const rawOpMap = this.cls.get('tx.rawOpMap');
+      const rawOpMaps = this.cls.get('tx.rawOpMaps');
       const stashOpMap = this.cls.get('tx.stashOpMap');
-
-      rawOpMap && this.publishOpsMap(rawOpMap);
+      const rawOpMap = fastMergeRawOpMaps(rawOpMaps || []);
+      this.publishOpsMap(rawOpMap);
       (rawOpMap || stashOpMap) && this.eventEmitterService.ops2Event(stashOpMap, rawOpMap);
     });
   }
@@ -56,6 +78,7 @@ export class ShareDbService extends ShareDBClass {
     return connection;
   }
 
+  @Timing()
   publishOpsMap(rawOpMap: IRawOpMap) {
     const { setViewSort, setViewFilter, setViewGroup } = ViewOpBuilder.editor;
     for (const collection in rawOpMap) {

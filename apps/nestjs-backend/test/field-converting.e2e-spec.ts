@@ -1716,9 +1716,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       // make sure records has been updated
       const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[newLinkField.id]).toEqual({ id: table3.records[0].id, title: 'C1' });
-      expect(records[0].fields[targetLookupField.id]).toBeUndefined();
+      expect(records[0].fields[targetLookupField.id]).toEqual('B1');
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('C1');
-      expect(records[0].fields[targetFormulaLookupField.id]).toBeUndefined();
+      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
     });
 
     it('should mark lookupField error when convert link to text', async () => {
@@ -1796,9 +1796,9 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       // make sure records has been updated
       const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[newField.id]).toEqual('txt');
-      expect(records[0].fields[targetLookupField.id]).toBeUndefined();
+      expect(records[0].fields[targetLookupField.id]).toEqual('B1');
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('txt');
-      expect(records[0].fields[targetFormulaLookupField.id]).toBeUndefined();
+      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
     });
 
     it('should convert link from one table to another and change relationship', async () => {
@@ -2419,7 +2419,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const record = await getRecord(table1.id, table1.records[0].id);
       expect(record.fields[newField.id]).toEqual('x');
-      expect(record.fields[lookupField.id]).toEqual(undefined);
+      expect(record.fields[lookupField.id]).toEqual('x');
     });
 
     it('should update lookup when the options of the fields being lookup are updated', async () => {
