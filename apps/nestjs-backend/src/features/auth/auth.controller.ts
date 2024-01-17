@@ -1,5 +1,7 @@
-import { Body, Controller, Get, HttpCode, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Request, Res, UseGuards } from '@nestjs/common';
 import { ISignup, signupSchema } from '@teable-group/openapi';
+import { Response } from 'express';
+import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
@@ -20,8 +22,9 @@ export class AuthController {
 
   @Post('signout')
   @HttpCode(200)
-  async signout(@Request() req: Express.Request) {
-    return await this.authService.signout(req);
+  async signout(@Request() req: Express.Request, @Res({ passthrough: true }) res: Response) {
+    await this.authService.signout(req);
+    res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 
   @Public()
