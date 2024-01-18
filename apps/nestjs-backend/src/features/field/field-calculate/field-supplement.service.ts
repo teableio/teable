@@ -30,6 +30,7 @@ import {
   getFormattingSchema,
   getRandomString,
   getShowAsSchema,
+  getUniqName,
   isMultiValueLink,
   LastModifiedTimeFieldCore,
   LongTextFieldCore,
@@ -910,9 +911,10 @@ export class FieldSupplementService {
     const field = await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos);
 
     const fieldId = field.id || generateFieldId();
+    const fieldName = await this.uniqFieldName(tableId, field.name);
 
     const dbFieldName =
-      fieldRo.dbFieldName ?? (await this.fieldService.generateDbFieldName(tableId, field.name));
+      fieldRo.dbFieldName ?? (await this.fieldService.generateDbFieldName(tableId, fieldName));
 
     if (fieldRo.dbFieldName) {
       const existField = await this.prismaService.txClient().field.findFirst({
@@ -927,6 +929,7 @@ export class FieldSupplementService {
     const fieldVo = {
       ...field,
       id: fieldId,
+      name: fieldName,
       dbFieldName,
     } as IFieldVo;
 
@@ -956,6 +959,20 @@ export class FieldSupplementService {
     };
   }
 
+  private async uniqFieldName(tableId: string, fieldName: string) {
+    const fieldRaw = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { name: true },
+    });
+
+    const names = fieldRaw.map((item) => item.name);
+    const uniqName = getUniqName(fieldName, names);
+    if (uniqName !== fieldName) {
+      return uniqName;
+    }
+    return fieldName;
+  }
+
   async generateSymmetricField(tableId: string, field: LinkFieldDto) {
     if (!field.options.symmetricFieldId) {
       throw new Error('symmetricFieldId is required');
@@ -967,6 +984,8 @@ export class FieldSupplementService {
       select: { name: true },
     });
 
+    const fieldName = await this.uniqFieldName(tableId, tableName);
+
     // lookup field id is the primary field of the table to which it is linked
     const { id: lookupFieldId } = await prisma.field.findFirstOrThrow({
       where: { tableId, isPrimary: true },
@@ -977,12 +996,12 @@ export class FieldSupplementService {
     const isMultipleCellValue = isMultiValueLink(relationship) || undefined;
     const dbFieldName = await this.fieldService.generateDbFieldName(
       field.options.foreignTableId,
-      tableName
+      fieldName
     );
 
     return createFieldInstanceByVo({
       id: field.options.symmetricFieldId,
-      name: tableName,
+      name: fieldName,
       dbFieldName,
       type: FieldType.Link,
       options: {

@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
+  ICreateTableWithDefault,
   IFieldRo,
   IFieldVo,
   IGetTableQuery,
@@ -11,6 +12,8 @@ import type {
 } from '@teable-group/core';
 import { FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
@@ -31,7 +34,8 @@ export class TableOpenApiService {
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
     private readonly fieldCreatingService: FieldCreatingService,
-    private readonly fieldSupplementService: FieldSupplementService
+    private readonly fieldSupplementService: FieldSupplementService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -43,10 +47,15 @@ export class TableOpenApiService {
 
   private async createField(tableId: string, fieldVos: IFieldVo[]) {
     const fieldSnapshots: IFieldVo[] = [];
+    const fieldNameSet = new Set<string>();
     for (const fieldVo of fieldVos) {
+      if (fieldNameSet.has(fieldVo.name)) {
+        throw new BadRequestException(`duplicate field name: ${fieldVo.name}`);
+      }
+      fieldNameSet.add(fieldVo.name);
       const fieldInstance = createFieldInstanceByVo(fieldVo);
-      const fieldSnapshot = await this.fieldCreatingService.createField(tableId, fieldInstance);
-      fieldSnapshots.push(fieldSnapshot);
+      await this.fieldCreatingService.alterCreateField(tableId, fieldInstance);
+      fieldSnapshots.push(fieldVo);
     }
     return fieldSnapshots;
   }
@@ -84,32 +93,38 @@ export class TableOpenApiService {
     return fields;
   }
 
-  async createTable(baseId: string, tableRo: ICreateTableRo): Promise<ITableFullVo> {
-    return await this.prismaService.$tx(async () => {
-      if (!tableRo.fields || !tableRo.views || !tableRo.records) {
-        throw new Error('table fields views and rows are required.');
-      }
+  async createTable(baseId: string, tableRo: ICreateTableWithDefault): Promise<ITableFullVo> {
+    const schema = await this.prismaService.$tx(async () => {
       const tableVo = await this.createTableMeta(baseId, tableRo);
-
       const tableId = tableVo.id;
-
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
       const fieldVos = await this.createField(tableId, preparedFields);
       const viewVos = await this.createView(tableId, tableRo.views);
-      const { records } = await this.createRecords(tableId, {
-        records: tableRo.records,
-        fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,
-      });
 
       return {
         ...tableVo,
-        total: tableRo.records.length,
+        total: tableRo.records?.length || 0,
         fields: fieldVos,
         views: viewVos,
         defaultViewId: viewVos[0].id,
-        records,
       };
     });
+
+    const records = await this.prismaService.$tx(async () => {
+      const recordsVo =
+        tableRo.records?.length &&
+        (await this.createRecords(schema.id, {
+          records: tableRo.records,
+          fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,
+        }));
+
+      return recordsVo ? recordsVo.records : [];
+    });
+
+    return {
+      ...schema,
+      records,
+    };
   }
 
   async createTableMeta(baseId: string, tableRo: ICreateTableRo) {
@@ -148,9 +163,14 @@ export class TableOpenApiService {
     });
   }
 
-  async deleteTable(baseId: string, tableId: string) {
+  async deleteTable(baseId: string, tableId: string, arbitrary = false) {
     return await this.prismaService.$tx(
       async (prisma) => {
+        const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
+          where: { id: tableId, deletedTime: null },
+          select: { dbTableName: true },
+        });
+
         await this.tableService.deleteTable(baseId, tableId);
 
         // delete field for table
@@ -172,10 +192,12 @@ export class TableOpenApiService {
         await prisma.ops.deleteMany({
           where: { docId: tableId },
         });
+        if (arbitrary) {
+          await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS ${dbTableName}`);
+        }
       },
       {
-        maxWait: 100000,
-        timeout: 100000,
+        timeout: 100_000,
       }
     );
   }

@@ -13,7 +13,7 @@ export interface IClsStore extends ClsStore {
     client?: Prisma.TransactionClient;
     timeStr?: string;
     id?: string;
-    rawOpMap?: IRawOpMap;
+    rawOpMaps?: IRawOpMap[];
     stashOpMap?: IRawOpMap;
   };
   shareViewId?: string;

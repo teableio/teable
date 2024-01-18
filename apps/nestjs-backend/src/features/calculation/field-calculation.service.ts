@@ -3,6 +3,9 @@ import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import type { Observable } from 'rxjs';
+import { concatMap, from, lastValueFrom, map, range, toArray } from 'rxjs';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { Timing } from '../../utils/timing';
 import { systemDbFieldNames } from '../field/constant';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
@@ -33,18 +36,9 @@ export class FieldCalculationService {
     private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
-
-  async getSelfOriginRecords(dbTableName: string) {
-    const nativeSql = this.knex.queryBuilder().select('__id').from(dbTableName).toSQL().toNative();
-
-    const results = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string }[]>(nativeSql.sql, ...nativeSql.bindings);
-
-    return results.map((item) => item.__id);
-  }
 
   @Timing()
   async resetFields(tableId: string, fieldIds: string[]) {
@@ -141,13 +135,11 @@ export class FieldCalculationService {
       const dbFieldNames = dbTableName2fields[dbTableName]
         .map((f) => f.dbFieldName)
         .concat([...systemDbFieldNames]);
-      const nativeSql = this.knex(dbTableName).select(dbFieldNames).toSQL().toNative();
+      const nativeSql = this.knex(dbTableName).select(dbFieldNames).toQuery();
+
       const result = await this.prismaService
         .txClient()
-        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(
-          nativeSql.sql,
-          ...nativeSql.bindings
-        );
+        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(nativeSql);
       results[dbTableName] = result;
     }
 
@@ -234,7 +226,6 @@ export class FieldCalculationService {
     return { opsMap, fieldMap, tableId2DbTableName };
   }
 
-  @Timing()
   async getChangedOpsMap(tableId: string, fieldIds: string[], recordIds?: string[]) {
     if (!fieldIds.length) {
       return undefined;
@@ -242,7 +233,7 @@ export class FieldCalculationService {
 
     const context = await this.getTopoOrdersContext(fieldIds);
     const { fieldMap, tableId2DbTableName } = context;
-    const changes = await this.calculateChanges(tableId, context, undefined, recordIds);
+    const changes = await this.calculateChanges(tableId, context, [], recordIds);
     if (!changes.length) {
       return;
     }
@@ -251,11 +242,12 @@ export class FieldCalculationService {
     return { opsMap, fieldMap, tableId2DbTableName };
   }
 
-  private async calculateChanges(
+  @Timing()
+  private async calculateChangesTask(
     tableId: string,
     context: ITopoOrdersContext,
-    resetFieldIds?: string[],
-    recordIds?: string[]
+    resetFieldIds: string[],
+    recordIds: string[]
   ) {
     const {
       fieldMap,
@@ -269,11 +261,10 @@ export class FieldCalculationService {
     } = context;
 
     const dbTableName = tableId2DbTableName[tableId];
-    const initialRecordIds = recordIds ? recordIds : await this.getSelfOriginRecords(dbTableName);
 
     const relatedRecordItems = await this.getRecordItems({
       tableId,
-      itemsToCalculate: initialRecordIds,
+      itemsToCalculate: recordIds,
       startFieldIds,
       directedGraph,
       fieldMap,
@@ -284,12 +275,12 @@ export class FieldCalculationService {
       fieldMap,
       fieldId2DbTableName,
       dbTableName2fields,
-      initialRecordIdMap: { [dbTableName]: new Set(initialRecordIds) },
+      initialRecordIdMap: { [dbTableName]: new Set(recordIds) },
       modifiedRecords: [],
       relatedRecordItems,
     });
 
-    if (resetFieldIds) {
+    if (resetFieldIds.length) {
       Object.values(dbTableName2recordMap).forEach((records) => {
         Object.values(records).forEach((record) => {
           resetFieldIds.forEach((fieldId) => {
@@ -312,6 +303,64 @@ export class FieldCalculationService {
         this.referenceService.collectChanges(orderWithRecords, fieldMap, fieldId2TableId)
       );
     }, []);
+  }
+
+  private processRecordIds(
+    recordIds$: Observable<string[]>,
+    taskFunction: (recordIds: string[]) => Promise<ICellChange[]>
+  ): Promise<ICellChange[]> {
+    return lastValueFrom(
+      recordIds$.pipe(
+        concatMap((ids) => from(taskFunction(ids))),
+        toArray(),
+        map((computedRecords) => computedRecords.flat())
+      )
+    );
+  }
+
+  @Timing()
+  async getRowCount(dbTableName: string) {
+    const query = this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
+    const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
+    return Number(count);
+  }
+
+  private async getRecordIds(dbTableName: string, page: number, chunkSize: number) {
+    const query = this.knex(dbTableName)
+      .select({ id: '__id' })
+      .limit(chunkSize)
+      .offset(page * chunkSize)
+      .toQuery();
+    const result = await this.prismaService.$queryRawUnsafe<{ id: string }[]>(query);
+    return result.map((item) => item.id);
+  }
+
+  @Timing()
+  private async calculateChanges(
+    tableId: string,
+    context: ITopoOrdersContext,
+    resetFieldIds: string[],
+    recordIds?: string[]
+  ) {
+    const dbTableName = context.tableId2DbTableName[tableId];
+    const chunkSize = this.thresholdConfig.calcChunkSize;
+
+    const taskFunction = async (ids: string[]) =>
+      this.calculateChangesTask(tableId, context, resetFieldIds, ids);
+
+    if (recordIds && recordIds.length > 0) {
+      return this.processRecordIds(from([recordIds]), taskFunction);
+    } else {
+      const rowCount = await this.getRowCount(dbTableName);
+
+      const totalPages = Math.ceil(rowCount / chunkSize);
+
+      const recordIds$ = range(0, totalPages).pipe(
+        concatMap((page) => this.getRecordIds(dbTableName, page, chunkSize))
+      );
+
+      return this.processRecordIds(recordIds$, taskFunction);
+    }
   }
 
   async calculateFieldsByRecordIds(tableId: string, recordIds: string[]) {

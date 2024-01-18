@@ -134,13 +134,24 @@ export class TypeCastAndValidate {
       color: colors[index],
     }));
 
-    await this.services.fieldConvertingService.updateFieldById(this.tableId, id, {
-      type,
-      options: {
-        ...options,
-        choices: options.choices.concat(newChoices),
-      },
-    });
+    const { newField, modifiedOps } = await this.services.fieldConvertingService.stageAnalysis(
+      this.tableId,
+      id,
+      {
+        type,
+        options: {
+          ...options,
+          choices: options.choices.concat(newChoices),
+        },
+      }
+    );
+
+    await this.services.fieldConvertingService.stageAlter(
+      this.tableId,
+      newField,
+      this.field,
+      modifiedOps
+    );
   }
 
   /**

@@ -11,6 +11,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
   maxDeleteRows: Number(process.env.MAX_DELETE_ROWS ?? 1_000),
   maxSyncUpdateCells: Number(process.env.MAX_SYNC_UPDATE_CELLS ?? 10_000),
   maxGroupPoints: Number(process.env.MAX_GROUP_POINTS ?? 5_000),
+  calcChunkSize: Number(process.env.CALC_CHUNK_SIZE ?? 1_000),
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);

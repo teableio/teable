@@ -19,9 +19,9 @@ import { ClsService } from 'nestjs-cls';
 import type { GroupedObservable, Observable } from 'rxjs';
 import { catchError, EMPTY, from, groupBy, map, mergeMap, toArray } from 'rxjs';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
-import type { IRawOpMap } from '../share-db/interface';
-import { RawOpType } from '../share-db/interface';
+import { IRawOpMap, RawOpType } from '../share-db/interface';
 import type { IClsStore } from '../types/cls';
+import { Timing } from '../utils/timing';
 import type { Events } from './model';
 import {
   FieldCreateEvent,
@@ -84,6 +84,7 @@ export class EventEmitterService {
     return this.eventEmitter.emitAsync(event, data);
   }
 
+  @Timing()
   async ops2Event(stashOpMap?: IRawOpMap, publishOpMap?: IRawOpMap): Promise<void> {
     const generatedEvents = this.collectEventsFromRawOpMap(stashOpMap, publishOpMap);
     if (!generatedEvents) {

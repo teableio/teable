@@ -3,9 +3,9 @@ import { Body, Controller, Delete, Get, Param, Post, Query, UseGuards } from '@n
 import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
   getTableQuerySchema,
-  ICreateTableRo,
   IGetTableQuery,
   tableRoSchema,
+  ICreateTableWithDefault,
 } from '@teable-group/core';
 import {
   getGraphRoSchema,
@@ -54,7 +54,7 @@ export class TableController {
   @Permissions('table|create')
   async createTable(
     @Param('baseId') baseId: string,
-    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableRo
+    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableWithDefault
   ): Promise<ITableFullVo> {
     return await this.tableOpenApiService.createTable(baseId, createTableRo);
   }
@@ -68,7 +68,7 @@ export class TableController {
   @Delete('arbitrary/:tableId')
   @Permissions('table|delete')
   deleteTableArbitrary(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
-    return this.tableOpenApiService.deleteTable(baseId, tableId);
+    return this.tableOpenApiService.deleteTable(baseId, tableId, true);
   }
 
   @Permissions('table|read')

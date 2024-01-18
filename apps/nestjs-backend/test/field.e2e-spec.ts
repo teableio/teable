@@ -515,10 +515,10 @@ describe('OpenAPI FieldController (e2e)', () => {
       });
       expect(referenceAfter.length).toBe(0);
 
-      // lookup cell and formula cell should be clean
+      // lookup cell and formula cell should be keep
       const recordAfter = await getRecord(table1.id, table1.records[0].id);
-      expect(recordAfter.fields[lookupField.id]).toBe(undefined);
-      expect(recordAfter.fields[formulaField.id]).toBe('formula');
+      expect(recordAfter.fields[lookupField.id]).toBe('text');
+      expect(recordAfter.fields[formulaField.id]).toBe('textformula');
 
       // lookup field should be marked as error
       const fieldRaw = await prisma.field.findUnique({

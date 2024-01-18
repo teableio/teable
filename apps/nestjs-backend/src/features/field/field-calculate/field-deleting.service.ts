@@ -1,10 +1,11 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable-group/core';
 import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
+import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
 import { FieldSupplementService } from './field-supplement.service';
 
 @Injectable()
@@ -37,13 +38,14 @@ export class FieldDeletingService {
     const errorLookupFieldIds =
       await this.fieldSupplementService.deleteLookupFieldReference(fieldId);
     await this.markFieldsAsError(tableId, errorLookupFieldIds);
-    await this.cleanField(tableId, errorLookupFieldIds);
   }
 
-  async cleanRef(fieldId: string, isLinkField?: boolean) {
-    const errorRefFieldIds = await this.fieldSupplementService.deleteReference(fieldId);
+  async cleanRef(field: IFieldInstance) {
+    const errorRefFieldIds = await this.fieldSupplementService.deleteReference(field.id);
     const errorLookupFieldIds =
-      isLinkField && (await this.fieldSupplementService.deleteLookupFieldReference(fieldId));
+      !field.isLookup &&
+      field.type === FieldType.Link &&
+      (await this.fieldSupplementService.deleteLookupFieldReference(field.id));
 
     const errorFieldIds = errorRefFieldIds.concat(errorLookupFieldIds || []);
 
@@ -55,29 +57,32 @@ export class FieldDeletingService {
     for (const fieldRaw of fieldRaws) {
       const { id, tableId } = fieldRaw;
       await this.markFieldsAsError(tableId, [id]);
-      await this.cleanField(tableId, [id]);
     }
   }
 
-  async delateAndCleanRef(tableId: string, fieldId: string, isLinkField?: boolean) {
-    await this.cleanRef(fieldId, isLinkField);
-    await this.fieldService.batchDeleteFields(tableId, [fieldId]);
+  async delateFieldItem(tableId: string, field: IFieldInstance) {
+    await this.cleanRef(field);
+    await this.viewService.deleteColumnMetaOrder(tableId, [field.id]);
+    await this.fieldService.batchDeleteFields(tableId, [field.id]);
   }
 
-  async cleanField(tableId: string, fieldIds: string[]) {
-    await this.fieldBatchCalculationService.resetFields(tableId, fieldIds);
-  }
-
-  async deleteField(tableId: string, fieldId: string) {
-    const { type, isLookup, options, isPrimary } = await this.prismaService
-      .txClient()
-      .field.findUniqueOrThrow({
-        where: { id: fieldId },
-        select: { type: true, isLookup: true, options: true, isPrimary: true },
+  async getField(tableId: string, fieldId: string): Promise<IFieldInstance> {
+    const fieldRaw = await this.prismaService.field
+      .findFirstOrThrow({
+        where: { tableId, id: fieldId, deletedTime: null },
       })
       .catch(() => {
         throw new NotFoundException(`field ${fieldId} not found`);
       });
+    return createFieldInstanceByRaw(fieldRaw);
+  }
+
+  @Timing()
+  async alterDeleteField(
+    tableId: string,
+    field: IFieldInstance
+  ): Promise<{ tableId: string; fieldId: string }[]> {
+    const { id: fieldId, type, isLookup, isPrimary } = field;
 
     // forbid delete primary field
     if (isPrimary) {
@@ -85,18 +90,23 @@ export class FieldDeletingService {
     }
 
     if (type === FieldType.Link && !isLookup) {
-      const linkFieldOptions: ILinkFieldOptions = JSON.parse(options as string);
+      const linkFieldOptions = field.options;
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
       await this.fieldSupplementService.cleanForeignKey(linkFieldOptions);
-      await this.delateAndCleanRef(tableId, fieldId, true);
+      await this.delateFieldItem(tableId, field);
+
       if (symmetricFieldId) {
-        await this.delateAndCleanRef(foreignTableId, symmetricFieldId, true);
+        const symmetricField = await this.getField(foreignTableId, symmetricFieldId);
+        await this.delateFieldItem(foreignTableId, symmetricField);
+        return [
+          { tableId, fieldId },
+          { tableId: foreignTableId, fieldId: symmetricFieldId },
+        ];
       }
-      await this.viewService.deleteColumnMetaOrder(tableId, [fieldId]);
-      return;
+      return [{ tableId, fieldId }];
     }
 
-    await this.delateAndCleanRef(tableId, fieldId);
-    await this.viewService.deleteColumnMetaOrder(tableId, [fieldId]);
+    await this.delateFieldItem(tableId, field);
+    return [{ tableId, fieldId }];
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldVo } from '@teable-group/core';
-import { FieldOpBuilder, getUniqName, FieldType } from '@teable-group/core';
+import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -21,26 +21,8 @@ export class FieldCreatingService {
     private readonly viewService: ViewService
   ) {}
 
-  async uniqFieldName(tableId: string, fieldName: string) {
-    const fieldRaw = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { name: true },
-    });
-
-    const names = fieldRaw.map((item) => item.name);
-    const uniqName = getUniqName(fieldName, names);
-    if (uniqName !== fieldName) {
-      return uniqName;
-    }
-    return fieldName;
-  }
-
-  async createAndCalculate(tableId: string, field: IFieldInstance) {
+  async createFieldItem(tableId: string, field: IFieldInstance) {
     const fieldId = field.id;
-
-    const uniqName = await this.uniqFieldName(tableId, field.name);
-
-    field.name = uniqName;
 
     await this.fieldSupplementService.createReference(field);
 
@@ -51,15 +33,12 @@ export class FieldCreatingService {
 
     await this.fieldService.batchCreateFields(tableId, dbTableName, [field]);
 
-    if (field.isComputed) {
-      await this.fieldCalculationService.calculateFields(tableId, [fieldId]);
-    }
-
     await this.viewService.updateViewColumnMetaOrder(tableId, [fieldId]);
     return this.createField2Ops(field);
   }
 
-  async createField(tableId: string, field: IFieldInstance): Promise<IFieldVo> {
+  async alterCreateField(tableId: string, field: IFieldInstance) {
+    const newFields: { tableId: string; field: IFieldInstance }[] = [];
     if (field.type === FieldType.Link && !field.isLookup) {
       await this.fieldSupplementService.createForeignKey(field.options);
       if (field.options.symmetricFieldId) {
@@ -68,15 +47,19 @@ export class FieldCreatingService {
           field
         );
 
-        await this.createAndCalculate(field.options.foreignTableId, symmetricField);
+        await this.createFieldItem(field.options.foreignTableId, symmetricField);
+        newFields.push({ tableId: field.options.foreignTableId, field: symmetricField });
       }
-      return this.createAndCalculate(tableId, field);
+      await this.createFieldItem(tableId, field);
+      newFields.push({ tableId, field });
+      return newFields;
     }
 
-    return this.createAndCalculate(tableId, field);
+    await this.createFieldItem(tableId, field);
+    return [{ tableId, field: field }];
   }
 
-  createField2Ops(fieldInstance: IFieldInstance) {
+  private createField2Ops(fieldInstance: IFieldInstance) {
     return FieldOpBuilder.creator.build(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as IFieldVo
