@@ -16,6 +16,7 @@ import type {
   ISetViewEnableShareOpContext,
   ISetViewColumnMetaOpContext,
   IColumnMeta,
+  ISetViewOrderOpContext,
 } from '@teable-group/core';
 import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -24,7 +25,6 @@ import { Knex } from 'knex';
 import { maxBy, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import type { ISetViewOrderOpContext } from '../../../../../packages/core/src/op-builder/view/set-view-order';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
