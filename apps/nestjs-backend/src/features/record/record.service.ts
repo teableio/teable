@@ -465,7 +465,7 @@ export class RecordService implements IAdapterService {
     // view sorting added by default
     queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
 
-    this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
+    this.logger.log('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder };
@@ -902,9 +902,9 @@ export class RecordService implements IAdapterService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]>(
-        nativeQuery
-      );
+      .$queryRawUnsafe<
+        ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
+      >(nativeQuery);
 
     const recordIdsMap = recordIds.reduce(
       (acc, recordId, currentIndex) => {
@@ -1058,9 +1058,9 @@ export class RecordService implements IAdapterService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<(Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(
-        queryBuilder.toQuery()
-      );
+      .$queryRawUnsafe<
+        (Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]
+      >(queryBuilder.toQuery());
 
     return result.map((record) => {
       return {

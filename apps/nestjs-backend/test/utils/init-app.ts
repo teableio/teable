@@ -54,6 +54,7 @@ import { NextService } from '../../src/features/next/next.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
+import { TestingLogger } from './testing-logger';
 
 export async function initApp() {
   const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -68,16 +69,15 @@ export async function initApp() {
     .overrideProvider(DevWsGateway)
     .useClass(WsGateway)
     .compile();
-  const app = moduleFixture.createNestApplication();
+  const app = moduleFixture.createNestApplication({
+    logger: new TestingLogger(),
+  });
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
   app.use(cookieParser());
-  // const logger = new ConsoleLogger();
-  // logger.setLogLevels(['log', 'error']);
-  // app.useLogger(logger);
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));

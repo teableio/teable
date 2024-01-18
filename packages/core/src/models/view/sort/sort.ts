@@ -1,18 +1,14 @@
-import { z } from 'zod';
+import { IdPrefix } from '../../../utils';
+import { z } from '../../../zod';
+import { SortFunc } from './sort-func.enum';
 
-export const asc = z.literal('asc');
-
-export const desc = z.literal('desc');
-
-export type IOrder = z.infer<typeof orders>;
-
-export const orderTypeEnum = z.enum([asc.value, desc.value]);
-
-export const orders = z.union([asc, desc]);
+export const orderSchema = z.nativeEnum(SortFunc);
 
 export const sortItemSchema = z.object({
-  fieldId: z.string(),
-  order: orders,
+  fieldId: z.string().startsWith(IdPrefix.Field).openapi({
+    description: 'The id of the field.',
+  }),
+  order: orderSchema,
 });
 
 export const sortSchema = z

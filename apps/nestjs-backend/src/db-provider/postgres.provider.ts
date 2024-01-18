@@ -14,8 +14,8 @@ import type {
 } from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
+import { SortQueryPostgres } from './sort-query/postgres/sort-query.postgres';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
-import { SortQueryPostgres } from './sort-query/sort-query.postgres';
 
 export class PostgresProvider implements IDbProvider {
   private readonly logger = new Logger(PostgresProvider.name);

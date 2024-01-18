@@ -1,4 +1,5 @@
 import type { ISort } from '@teable-group/core';
+import { SortFunc } from '@teable-group/core';
 import { useMemo } from 'react';
 import { DraggableSortList } from './DraggableSortList';
 import { SortFieldAddButton } from './SortFieldAddButton';
@@ -20,7 +21,7 @@ export function SortContent(props: ISortProps) {
     onChange([
       {
         fieldId: fieldId,
-        order: 'asc',
+        order: SortFunc.Asc,
       },
     ]);
   };
@@ -29,7 +30,7 @@ export function SortContent(props: ISortProps) {
     onChange(
       sortValues.concat({
         fieldId: value,
-        order: 'asc',
+        order: SortFunc.Asc,
       })
     );
   };

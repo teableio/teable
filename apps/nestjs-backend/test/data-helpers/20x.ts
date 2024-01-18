@@ -5,20 +5,17 @@ import {
   DateFormattingPreset,
   DateUtil,
   FieldType,
-  generateFieldId,
   NumberFormattingType,
   TimeFormatting,
 } from '@teable-group/core';
 
 const textField = {
-  id: generateFieldId(),
   name: 'text field',
   description: 'the text field',
   type: FieldType.SingleLineText,
 };
 
 const numberField = {
-  id: generateFieldId(),
   name: 'Number field',
   description: 'the number field',
   type: FieldType.Number,
@@ -28,7 +25,6 @@ const numberField = {
 };
 
 const singleSelectField = {
-  id: generateFieldId(),
   name: 'singleSelect field',
   description: 'the singleSelect field',
   type: FieldType.SingleSelect,
@@ -42,7 +38,6 @@ const singleSelectField = {
 };
 
 const dateField = {
-  id: generateFieldId(),
   name: 'date field',
   description: 'the date field',
   type: FieldType.Date,
@@ -57,21 +52,18 @@ const dateField = {
 };
 
 const checkboxField = {
-  id: generateFieldId(),
   name: 'checkbox field',
   description: 'the checkbox field',
   type: FieldType.Checkbox,
 };
 
 const userField = {
-  id: generateFieldId(),
   name: 'user field',
   description: 'the user field',
   type: FieldType.User,
 };
 
 const multipleSelectField = {
-  id: generateFieldId(),
   name: 'multipleSelect field',
   description: 'the multipleSelect field',
   type: FieldType.MultipleSelect,
