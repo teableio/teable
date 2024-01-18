@@ -29,7 +29,7 @@ export const FormViewBase = () => {
   };
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex size-full">
       {isEditMode && !isMobile ? <FormEditor /> : <FormPreviewer submit={submitForm} />}
     </div>
   );

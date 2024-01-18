@@ -44,7 +44,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
 
   const commonPart = (
     <div className="flex w-full items-center overflow-hidden px-0.5">
-      <ViewIcon className="mr-1 h-4 w-4 shrink-0" />
+      <ViewIcon className="mr-1 size-4 shrink-0" />
       {!isEditing ? (
         <div className="flex flex-1 items-center justify-center overflow-hidden">
           <div className="truncate text-xs font-medium leading-5">{view.name}</div>

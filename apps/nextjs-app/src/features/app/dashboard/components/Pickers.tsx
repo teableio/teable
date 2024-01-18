@@ -64,7 +64,7 @@ export const Pickers: React.FC<{
       <Filter filters={view?.filter as IFilter} onChange={onFilterChange}>
         {(text) => (
           <Button variant={'outline'} className={'font-normal'}>
-            <FilterIcon className="h-4 w-4 text-sm" />
+            <FilterIcon className="size-4 text-sm" />
             <span className="truncate">{text}</span>
           </Button>
         )}

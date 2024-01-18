@@ -19,21 +19,21 @@ export const Toolbar = () => {
       <Filter filters={view?.filter || null} onChange={onFilterChange}>
         {(text, isActive) => (
           <ToolBarButton isActive={isActive} text={text} className="max-w-xs">
-            <FilterIcon className="h-4 w-4 text-sm" />
+            <FilterIcon className="size-4 text-sm" />
           </ToolBarButton>
         )}
       </Filter>
       <Sort sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton isActive={isActive} text={text}>
-            <ArrowUpDown className="h-4 w-4 text-sm" />
+            <ArrowUpDown className="size-4 text-sm" />
           </ToolBarButton>
         )}
       </Sort>
       <Group group={view?.group || null} onChange={onGroupChange}>
         {(text: string, isActive) => (
           <ToolBarButton isActive={isActive} text={text}>
-            <LayoutList className="h-4 w-4 text-sm" />
+            <LayoutList className="size-4 text-sm" />
           </ToolBarButton>
         )}
       </Group>

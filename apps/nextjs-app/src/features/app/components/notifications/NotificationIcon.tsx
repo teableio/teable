@@ -20,7 +20,7 @@ const NotificationIcon = (props: NotificationIconProps) => {
       case NotificationTypeEnum.System: {
         const { iconUrl } = notifyIcon as INotificationSystemIcon;
         return (
-          <Avatar className="h-9 w-9">
+          <Avatar className="size-9">
             <AvatarImage src={iconUrl} alt={'System'} />
             <AvatarFallback>{'System'.slice(0, 1)}</AvatarFallback>
           </Avatar>
@@ -30,7 +30,7 @@ const NotificationIcon = (props: NotificationIconProps) => {
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { userAvatarUrl, userName } = notifyIcon as INotificationUserIcon;
         return (
-          <Avatar className="h-9 w-9">
+          <Avatar className="size-9">
             <AvatarImage src={userAvatarUrl as string} alt={userName} />
             <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
           </Avatar>

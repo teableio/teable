@@ -28,7 +28,7 @@ export const TableHeader: React.FC = () => {
         }}
       >
         <Button variant="default" size="xs" className="hidden sm:flex">
-          <UserPlus className="h-4 w-4" /> Invite
+          <UserPlus className="size-4" /> Invite
         </Button>
       </SpaceCollaboratorModalTrigger>
     </div>

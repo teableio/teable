@@ -31,15 +31,15 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
 
   return (
     <div className="group/header m-2 flex items-center gap-1">
-      <div className="group relative h-6 w-6 shrink-0 cursor-pointer" onClick={backSpace}>
-        <div className="absolute top-0 h-6 w-6 group-hover:opacity-0">
+      <div className="group relative size-6 shrink-0 cursor-pointer" onClick={backSpace}>
+        <div className="absolute top-0 size-6 group-hover:opacity-0">
           {data?.data.icon ? (
             <Emoji emoji={data.data.icon} size={'1.5rem'} />
           ) : (
-            <TeableNew className="h-6 w-6 text-black" />
+            <TeableNew className="size-6 text-black" />
           )}
         </div>
-        <ChevronsLeft className="absolute top-0 h-6 w-6 opacity-0 group-hover:opacity-100" />
+        <ChevronsLeft className="absolute top-0 size-6 opacity-0 group-hover:opacity-100" />
       </div>
       <p className="truncate text-sm">{data?.data.name}</p>
       <div className="grow basis-0"></div>
@@ -49,7 +49,7 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="xs" onClick={() => expandSideBar?.()}>
-                <Sidebar className="h-5 w-5"></Sidebar>
+                <Sidebar className="size-5"></Sidebar>
               </Button>
             </TooltipTrigger>
             <TooltipContent hideWhenDetached={true}>

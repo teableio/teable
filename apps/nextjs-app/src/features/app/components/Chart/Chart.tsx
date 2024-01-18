@@ -40,7 +40,7 @@ export const Chart = (props: { chartInstance: Pie | Bar | Line }) => {
   return (
     <div
       ref={chartContainerRef}
-      className={'h-full w-full overflow-hidden	p-2	'}
+      className={'size-full overflow-hidden p-2'}
       style={{ minHeight: '300px', minWidth: '200px' }}
     />
   );

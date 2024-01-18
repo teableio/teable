@@ -75,7 +75,7 @@ export const ResizablePane: React.FC<{
                 leftMenuRef?.current?.expand();
               }}
             >
-              <ChevronsLeft className="h-5 w-5 rotate-180" />
+              <ChevronsLeft className="size-5 rotate-180" />
             </Button>
           </HoverWraper.Trigger>
           <HoverWraper.content>

@@ -73,7 +73,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
               <Input className="h-8 flex-1" value={inviteUrl} readOnly />
               <Copy
                 onClick={() => copyInviteUrl(inviteUrl)}
-                className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100"
+                className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100"
               />
             </div>
             <div className="text-xs text-muted-foreground">
@@ -97,7 +97,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
                     disabled={deleteInviteLinkLoading}
                     onClick={() => deleteInviteLink({ spaceId, invitationId })}
                   >
-                    <X className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
+                    <X className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>

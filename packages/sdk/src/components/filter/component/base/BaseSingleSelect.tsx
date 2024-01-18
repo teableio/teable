@@ -86,7 +86,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
                 <span className="truncate">{label}</span>
               )
             : 'Select'}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className={classNames('p-1', popoverClassName)}>

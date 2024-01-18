@@ -38,11 +38,11 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
   const getIcon = (type: SingleLineTextDisplayType) => {
     switch (type) {
       case SingleLineTextDisplayType.Url:
-        return <Link className="h-4 w-4" />;
+        return <Link className="size-4" />;
       case SingleLineTextDisplayType.Email:
-        return <Mail className="h-4 w-4" />;
+        return <Mail className="size-4" />;
       case SingleLineTextDisplayType.Phone:
-        return <Phone className="h-4 w-4" />;
+        return <Phone className="size-4" />;
       default:
         return null;
     }

@@ -42,7 +42,7 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
       <SortItem value={value} index={index} onSelect={onSelect} selectedFields={selectedFields} />
 
       <Button variant="outline" size="sm" onClick={() => deleteHandler(index)}>
-        <Trash2 className="h-4 w-4"></Trash2>
+        <Trash2 className="size-4"></Trash2>
       </Button>
 
       <div

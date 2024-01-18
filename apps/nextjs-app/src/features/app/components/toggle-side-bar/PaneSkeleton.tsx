@@ -2,7 +2,7 @@ import { Skeleton, Separator } from '@teable-group/ui-lib';
 
 export const PaneSkeleton = () => {
   return (
-    <div className="fixed flex h-full w-full overflow-hidden">
+    <div className="fixed flex size-full overflow-hidden">
       <div className="flex h-full w-1/4 flex-col justify-between border-r p-2">
         <div className="w-full space-y-2">
           <Skeleton className="h-6" />

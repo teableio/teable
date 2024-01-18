@@ -30,7 +30,7 @@ const SelectFieldByTableId: React.FC<{
           return {
             id: f.id,
             name: f.name,
-            icon: <Icon className="h-4 w-4 shrink-0" />,
+            icon: <Icon className="size-4 shrink-0" />,
           };
         })}
       />
