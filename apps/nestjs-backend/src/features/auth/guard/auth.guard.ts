@@ -10,9 +10,7 @@ export class AuthGuard extends PassportAuthGuard(['session']) {
   }
 
   async validate(context: ExecutionContext) {
-    const activate = await super.canActivate(context);
-    const req = context.switchToHttp().getRequest();
-    return activate && req.session?.passport?.user;
+    return super.canActivate(context) as Promise<boolean>;
   }
 
   async canActivate(context: ExecutionContext) {

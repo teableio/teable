@@ -11,6 +11,7 @@ import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import { LocalAuthGuard } from './guard/local-auth.guard';
+import { pickUserMe } from './utils';
 
 @Controller('api/auth')
 export class AuthController {
@@ -33,8 +34,17 @@ export class AuthController {
 
   @Public()
   @Post('signup')
-  async signup(@Body(new ZodValidationPipe(signupSchema)) body: ISignup) {
-    return await this.authService.signup(body.email, body.password);
+  async signup(
+    @Body(new ZodValidationPipe(signupSchema)) body: ISignup,
+    @Res({ passthrough: true }) res: Response,
+    @Req() req: Express.Request
+  ) {
+    const user = pickUserMe(await this.authService.signup(body.email, body.password));
+    // set cookie, passport login
+    await new Promise<void>((resolve, reject) => {
+      req.login(user, (err) => (err ? reject(err) : resolve()));
+    });
+    return user;
   }
 
   @Get('/user/me')

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Request, RequestHandler } from 'express';
 import session from 'express-session';
+import ms from 'ms';
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import { AUTH_SESSION_COOKIE_NAME } from '../../../const';
 import { SessionStoreService } from './session-store.service';
@@ -17,6 +18,9 @@ export class SessionHandleService {
       secret: this.authConfig.session.secret,
       resave: false,
       saveUninitialized: false,
+      cookie: {
+        maxAge: ms(this.authConfig.session.expiresIn),
+      },
       store: this.sessionStoreService,
     });
   }

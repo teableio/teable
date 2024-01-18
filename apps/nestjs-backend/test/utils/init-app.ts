@@ -87,10 +87,8 @@ export async function initApp() {
 
   console.log('url', url);
 
-  axios.interceptors.request.use((config) => {
-    config.baseURL = url + '/api';
-    return config;
-  });
+  axios.defaults.baseURL = url + '/api';
+
   const cookie = (
     await getCookie(globalThis.testConfig.email, globalThis.testConfig.password)
   ).cookie.join(';');
