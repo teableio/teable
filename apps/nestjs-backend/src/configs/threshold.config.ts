@@ -12,6 +12,10 @@ export const thresholdConfig = registerAs('threshold', () => ({
   maxSyncUpdateCells: Number(process.env.MAX_SYNC_UPDATE_CELLS ?? 10_000),
   maxGroupPoints: Number(process.env.MAX_GROUP_POINTS ?? 5_000),
   calcChunkSize: Number(process.env.CALC_CHUNK_SIZE ?? 1_000),
+  estimateCalcCelPerMs: Number(process.env.CALC_CEL_PER_MS ?? 3),
+  fieldTransactionTimeout: Number(
+    process.env.FIELD_TRANSACTION_TIMEOUT ?? 10 * 60 * 1000 /* 10 mins */
+  ),
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);

@@ -221,6 +221,10 @@ export class GraphService {
     };
   }
 
+  private getEstimateTime(cellCount: number) {
+    return Math.floor(cellCount / this.thresholdConfig.estimateCalcCelPerMs);
+  }
+
   async planFieldCreate(tableId: string, fieldRo: IFieldRo): Promise<IPlanFieldVo> {
     const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
     const field = createFieldInstanceByVo(fieldVo);
@@ -276,13 +280,13 @@ export class GraphService {
     );
 
     return {
-      isAsync: updateCellCount > this.thresholdConfig.maxSyncUpdateCells,
       graph: {
         nodes,
         edges,
         combos,
       },
       updateCellCount,
+      estimateTime: this.getEstimateTime(updateCellCount),
     };
   }
 
@@ -425,9 +429,9 @@ export class GraphService {
     );
 
     return {
-      isAsync: updateCellCount > this.thresholdConfig.maxSyncUpdateCells,
       graph,
       updateCellCount,
+      estimateTime: this.getEstimateTime(updateCellCount),
     };
   }
 
@@ -495,9 +499,9 @@ export class GraphService {
     );
 
     return {
-      isAsync: updateCellCount > this.thresholdConfig.maxSyncUpdateCells,
       graph,
       updateCellCount,
+      estimateTime: this.getEstimateTime(updateCellCount),
     };
   }
 }

@@ -3,7 +3,6 @@ import type { IFieldVo } from '@teable-group/core';
 import { FieldOpBuilder, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
@@ -14,11 +13,10 @@ export class FieldCreatingService {
   private logger = new Logger(FieldCreatingService.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
+    private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
-    private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldCalculationService: FieldCalculationService,
-    private readonly viewService: ViewService
+    private readonly prismaService: PrismaService,
+    private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
   async createFieldItem(tableId: string, field: IFieldInstance) {
