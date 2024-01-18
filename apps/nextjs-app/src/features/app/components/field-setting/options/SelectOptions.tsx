@@ -1,17 +1,9 @@
-import type { DragEndEvent, DragStartEvent, UniqueIdentifier } from '@dnd-kit/core';
-import {
-  DndContext,
-  DragOverlay,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import { SortableContext, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable-group/core';
 import { COLOR_PALETTE, ColorUtils } from '@teable-group/core';
 import { DraggableHandle, Plus, Trash } from '@teable-group/icons';
+import { DndKitContext, Droppable, Draggable } from '@teable-group/ui-lib/base/dnd-kit';
+import type { DragEndEvent } from '@teable-group/ui-lib/base/dnd-kit';
+
 import { Input } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
@@ -28,9 +20,9 @@ interface IOptionItemProps {
   onInputRef: (el: HTMLInputElement | null, index: number) => void;
 }
 
-const getChoiceId = (choice: ISelectFieldChoice) => {
+const getChoiceId = (choice: ISelectFieldChoice, index: number) => {
   const { id, color, name } = choice;
-  return id ?? `${color}-${name}`;
+  return id ?? `${color}-${name}-${index}`;
 };
 
 export const SelectOptions = (props: {
@@ -40,23 +32,11 @@ export const SelectOptions = (props: {
 }) => {
   const { options, isLookup, onChange } = props;
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [draggingId, setDraggingId] = useState<UniqueIdentifier | null>('');
 
   const choices = useMemo(() => options?.choices ?? [], [options?.choices]);
-  const choiceIds = useMemo(() => choices.map((choice) => getChoiceId(choice)), [choices]);
-
-  const sensors = useSensors(
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250,
-        tolerance: 5,
-      },
-    }),
-    useSensor(MouseSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
+  const choiceIds = useMemo(
+    () => choices.map((choice, index) => getChoiceId(choice, index)),
+    [choices]
   );
 
   const updateOptionChange = (index: number, key: keyof ISelectFieldChoice, value: string) => {
@@ -98,11 +78,6 @@ export const SelectOptions = (props: {
     }
   };
 
-  const onDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    setDraggingId(active.id);
-  };
-
   const onDragEnd = async (event: DragEndEvent) => {
     const { over, active } = event;
 
@@ -116,57 +91,47 @@ export const SelectOptions = (props: {
     list.splice(to, 0, choice);
 
     onChange?.({ choices: list });
-    setDraggingId(null);
-  };
-
-  const overLayRender = () => {
-    const choiceIndex = choices.findIndex((choice) => getChoiceId(choice) === draggingId);
-    if (choiceIndex === -1) return null;
-    const choice = choices[choiceIndex];
-    return (
-      <div className="flex cursor-grabbing items-center">
-        <DraggableHandle className="mr-1 h-4 w-4" />
-        <ChoiceItem
-          choice={choice}
-          index={choiceIndex}
-          readonly={isLookup}
-          onChange={updateOptionChange}
-          onDelete={deleteChoice}
-          onKeyDown={onKeyDown}
-          onInputRef={(el, index) => (inputRefs.current[index] = el)}
-        />
-      </div>
-    );
   };
 
   return (
     <ul className="space-y-2">
-      <DndContext onDragStart={onDragStart} onDragEnd={onDragEnd} sensors={sensors}>
-        <SortableContext items={choiceIds}>
+      <DndKitContext onDragEnd={onDragEnd}>
+        <Droppable items={choiceIds}>
           {choices.map((choice, i) => {
             const { name } = choice;
             return (
-              <DraggableContainer
-                key={`${name}-${i}`}
-                id={getChoiceId(choice)}
-                index={i}
-                disabled={isLookup}
-              >
-                <ChoiceItem
-                  choice={choice}
-                  index={i}
-                  readonly={isLookup}
-                  onChange={updateOptionChange}
-                  onDelete={deleteChoice}
-                  onKeyDown={onKeyDown}
-                  onInputRef={(el, index) => (inputRefs.current[index] = el)}
-                />
-              </DraggableContainer>
+              <Draggable key={`${name}-${i}`} id={getChoiceId(choice, i)}>
+                {({ setNodeRef, style, attributes, listeners, isDragging }) => (
+                  <div
+                    ref={setNodeRef}
+                    style={style}
+                    {...attributes}
+                    className={classNames(
+                      isDragging ? 'opacity-60' : null,
+                      isLookup && 'cursor-default'
+                    )}
+                  >
+                    <div className="flex items-center">
+                      {!isLookup && (
+                        <DraggableHandle {...listeners} className="mr-1 h-4 w-4 cursor-grabbing" />
+                      )}
+                      <ChoiceItem
+                        choice={choice}
+                        index={i}
+                        readonly={isLookup}
+                        onChange={updateOptionChange}
+                        onDelete={deleteChoice}
+                        onKeyDown={onKeyDown}
+                        onInputRef={(el, index) => (inputRefs.current[index] = el)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </Draggable>
             );
           })}
-          {<DragOverlay>{overLayRender()}</DragOverlay>}
-        </SortableContext>
-      </DndContext>
+        </Droppable>
+      </DndKitContext>
       {!isLookup && (
         <li className="mt-1">
           <Button
@@ -181,37 +146,6 @@ export const SelectOptions = (props: {
         </li>
       )}
     </ul>
-  );
-};
-
-const DraggableContainer = (props: {
-  children: React.ReactElement;
-  id: string;
-  index: number;
-  disabled?: boolean;
-}) => {
-  const { id, index, disabled, children } = props;
-  const dragProps = useSortable({ id, data: { index }, disabled });
-  const { setNodeRef, transition, transform, attributes, listeners, isDragging } = dragProps;
-  const style = {
-    transition,
-    transform: CSS.Transform.toString(transform),
-  };
-
-  return (
-    <div
-      style={style}
-      ref={setNodeRef}
-      {...attributes}
-      className={classNames(
-        'flex items-center',
-        isDragging ? 'opacity-60' : null,
-        disabled && 'cursor-default'
-      )}
-    >
-      {!disabled && <DraggableHandle {...listeners} className="mr-1 h-4 w-4 cursor-grabbing" />}
-      {children}
-    </div>
   );
 };
 

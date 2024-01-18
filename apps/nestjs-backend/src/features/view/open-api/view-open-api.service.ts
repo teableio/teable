@@ -24,6 +24,7 @@ import {
   validateOptionType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IViewOrderRo } from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';
@@ -280,6 +281,39 @@ export class ViewOpenApiService {
       },
       oldOptions: oldOptions,
     });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    });
+  }
+
+  async setViewOrder(tableId: string, viewId: string, orderRo: IViewOrderRo) {
+    const { order } = orderRo;
+
+    const views = await this.prismaService.txClient().view.findMany({
+      select: { order: true, id: true },
+      where: { tableId, deletedTime: null },
+    });
+
+    const curView = views.find(({ id }) => id === viewId);
+
+    if (!curView) {
+      throw new BadRequestException('View not found in the table');
+    }
+
+    const orders = views.filter(({ id }) => id !== viewId).map(({ order }) => order);
+
+    if (orders.includes(order)) {
+      // validate repeatability, because of order should be unique key
+      throw new BadRequestException('View order could not be duplicate');
+    }
+
+    const { order: oldOrder } = curView;
+
+    const ops = ViewOpBuilder.editor.setViewOrder.build({
+      newOrder: order,
+      oldOrder,
+    });
+
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });

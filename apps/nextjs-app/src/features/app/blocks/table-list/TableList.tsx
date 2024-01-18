@@ -11,7 +11,7 @@ export const TableList: React.FC = () => {
   const permission = useTablePermission();
 
   return (
-    <div className="flex flex-col gap-2 overflow-hidden pt-4">
+    <div className="flex flex-col gap-2 overflow-auto pt-4">
       <div className="px-3">
         {permission['table|create'] && (
           <Button variant={'outline'} size={'xs'} className="w-full" onClick={addTable}>

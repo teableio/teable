@@ -3,7 +3,8 @@ import { useBase } from '@teable-group/sdk/hooks';
 import { Button } from '@teable-group/ui-lib/shadcn';
 
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
-import { ViewList } from '../../view/list/ViewList';
+import { DraggableViewList } from '../../view/list/DraggableViewList';
+
 import { AddView } from './AddView';
 import { Collaborators } from './Collaborators';
 import { TableInfo } from './TableInfo';
@@ -13,7 +14,9 @@ export const TableHeader: React.FC = () => {
   return (
     <div className="flex h-[42px] shrink-0 flex-row items-center gap-2 px-4">
       <TableInfo className="shrink-0 grow-0" />
-      <ViewList className="overflow-x-auto" />
+      <div className="flex overflow-x-auto">
+        <DraggableViewList />
+      </div>
       <AddView />
       <div className="grow basis-0"></div>
       <Collaborators />
