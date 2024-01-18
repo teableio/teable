@@ -3,12 +3,28 @@ import { Trash, Copy, ArrowUp, ArrowDown } from '@teable-group/icons';
 import { deleteRecords } from '@teable-group/openapi';
 import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
 import { Record } from '@teable-group/sdk/model';
-import { Command, CommandGroup, CommandItem, CommandList } from '@teable-group/ui-lib/shadcn';
+import {
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { useSelectionOperation } from '../hooks/useSelectionOperation';
 import { useGridViewStore } from '../store/gridView';
+
+export interface IMenuItemProps<T> {
+  type: T;
+  name: string;
+  icon: React.ReactNode;
+  hidden?: boolean;
+  disabled?: boolean;
+  className?: string;
+  onClick: () => void;
+}
 
 enum MenuItemType {
   Copy = 'Copy',
@@ -46,84 +62,89 @@ export const RecordMenu = () => {
       }
     : {};
 
-  const menuItems = [
-    {
-      type: MenuItemType.InsertAbove,
-      name: 'Insert record above',
-      icon: <ArrowUp className={iconClassName} />,
-      hidden: records.length !== 1 || !permission['record|create'],
-      onClick: async () => {
-        if (!tableId || !viewId) return;
-        let finalSort;
-        const [aboveRecord] = neighborRecords;
-        const sort = records[0].recordOrder[viewId];
+  const menuItemGroups: IMenuItemProps<MenuItemType>[][] = [
+    [
+      {
+        type: MenuItemType.InsertAbove,
+        name: 'Insert record above',
+        icon: <ArrowUp className={iconClassName} />,
+        hidden: records.length !== 1 || !permission['record|create'],
+        onClick: async () => {
+          if (!tableId || !viewId) return;
+          let finalSort;
+          const [aboveRecord] = neighborRecords;
+          const sort = records[0].recordOrder[viewId];
 
-        if (aboveRecord == null) {
-          finalSort = sort - 1;
-        } else {
-          const aboveSort = aboveRecord.recordOrder[viewId];
-          finalSort = (sort + aboveSort) / 2;
-        }
+          if (aboveRecord == null) {
+            finalSort = sort - 1;
+          } else {
+            const aboveSort = aboveRecord.recordOrder[viewId];
+            finalSort = (sort + aboveSort) / 2;
+          }
 
-        await Record.createRecords(tableId, {
-          fieldKeyType: FieldKeyType.Id,
-          records: [
-            {
-              fields: {},
-              recordOrder: { [viewId]: finalSort },
-            },
-          ],
-        });
+          await Record.createRecords(tableId, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [
+              {
+                fields: {},
+                recordOrder: { [viewId]: finalSort },
+              },
+            ],
+          });
+        },
       },
-    },
-    {
-      type: MenuItemType.InsertBelow,
-      name: 'Insert record below',
-      icon: <ArrowDown className={iconClassName} />,
-      hidden: records.length !== 1 || !permission['record|create'],
-      onClick: async () => {
-        if (!tableId || !viewId) return;
-        let finalSort;
-        const [, blewRecord] = neighborRecords;
-        const sort = records[0].recordOrder[viewId];
+      {
+        type: MenuItemType.InsertBelow,
+        name: 'Insert record below',
+        icon: <ArrowDown className={iconClassName} />,
+        hidden: records.length !== 1 || !permission['record|create'],
+        onClick: async () => {
+          if (!tableId || !viewId) return;
+          let finalSort;
+          const [, blewRecord] = neighborRecords;
+          const sort = records[0].recordOrder[viewId];
 
-        if (blewRecord == null) {
-          finalSort = sort + 1;
-        } else {
-          const aboveSort = blewRecord.recordOrder[viewId];
-          finalSort = (sort + aboveSort) / 2;
-        }
+          if (blewRecord == null) {
+            finalSort = sort + 1;
+          } else {
+            const aboveSort = blewRecord.recordOrder[viewId];
+            finalSort = (sort + aboveSort) / 2;
+          }
 
-        await Record.createRecords(tableId, {
-          fieldKeyType: FieldKeyType.Id,
-          records: [
-            {
-              fields: {},
-              recordOrder: { [viewId]: finalSort },
-            },
-          ],
-        });
+          await Record.createRecords(tableId, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [
+              {
+                fields: {},
+                recordOrder: { [viewId]: finalSort },
+              },
+            ],
+          });
+        },
       },
-    },
-    {
-      type: MenuItemType.Copy,
-      name: 'Copy cells',
-      icon: <Copy className={iconClassName} />,
-      onClick: async () => {
-        selection && (await copy(selection));
+    ],
+    [
+      {
+        type: MenuItemType.Copy,
+        name: 'Copy cells',
+        icon: <Copy className={iconClassName} />,
+        onClick: async () => {
+          selection && (await copy(selection));
+        },
       },
-    },
-    {
-      type: MenuItemType.Delete,
-      name: records.length > 1 ? 'Delete all selected records' : 'Delete record',
-      icon: <Trash className={iconClassName} />,
-      hidden: !permission['record|delete'],
-      onClick: async () => {
-        const recordIds = records.map((r) => r.id);
-        tableId && (await deleteRecords(tableId, recordIds));
+      {
+        type: MenuItemType.Delete,
+        name: records.length > 1 ? 'Delete all selected records' : 'Delete record',
+        icon: <Trash className={iconClassName} />,
+        hidden: !permission['record|delete'],
+        className: 'text-red-500 aria-selected:text-red-500',
+        onClick: async () => {
+          const recordIds = records.map((r) => r.id);
+          tableId && (await deleteRecords(tableId, recordIds));
+        },
       },
-    },
-  ].filter(({ hidden }) => !hidden);
+    ],
+  ].map((items) => (items as IMenuItemProps<MenuItemType>[]).filter(({ hidden }) => !hidden));
 
   return (
     <Command
@@ -134,22 +155,32 @@ export const RecordMenu = () => {
       style={style}
     >
       <CommandList>
-        <CommandGroup className="p-0" aria-valuetext="name">
-          {menuItems.map(({ type, name, icon, onClick }) => (
-            <CommandItem
-              className="px-4 py-2"
-              key={type}
-              value={name}
-              onSelect={async () => {
-                await onClick();
-                closeRecordMenu();
-              }}
-            >
-              {icon}
-              {name}
-            </CommandItem>
-          ))}
-        </CommandGroup>
+        {menuItemGroups.map((items, index) => {
+          const nextItems = menuItemGroups[index + 1] ?? [];
+          if (!items.length) return null;
+
+          return (
+            <>
+              <CommandGroup key={`rm-group-${index}`} aria-valuetext="name">
+                {items.map(({ type, name, icon, className, onClick }) => (
+                  <CommandItem
+                    className={classNames('px-4 py-2', className)}
+                    key={type}
+                    value={name}
+                    onSelect={async () => {
+                      await onClick();
+                      closeRecordMenu();
+                    }}
+                  >
+                    {icon}
+                    {name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              {nextItems.length > 0 && <CommandSeparator key={`rm-separator-${index}`} />}
+            </>
+          );
+        })}
       </CommandList>
     </Command>
   );

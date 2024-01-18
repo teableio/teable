@@ -45,7 +45,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
         size={'xs'}
         asChild
         className={classNames(
-          'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group',
+          'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group bg-popover',
           className,
           {
             'bg-secondary/90': isActive,

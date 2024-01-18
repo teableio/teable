@@ -412,8 +412,9 @@ export class SelectionService {
       const field = this.fieldVoToRo(header[i]);
       const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, field);
       const fieldInstance = createFieldInstanceByVo(fieldVo);
-      const newField = await this.fieldCreatingService.createField(tableId, fieldInstance);
-      res.push(newField);
+      // expend columns do not need to calculate
+      await this.fieldCreatingService.alterCreateField(tableId, fieldInstance);
+      res.push(fieldVo);
     }
     return res;
   }
@@ -703,14 +704,16 @@ export class SelectionService {
 
     const updateRange: IPasteVo['ranges'] = [cell, cell];
 
-    await this.prismaService.$tx(async () => {
+    const expandColumns = await this.prismaService.$tx(async () => {
       // Expansion col
-      const expandColumns = await this.expandColumns({
+      return await this.expandColumns({
         tableId,
         header,
         numColsToExpand,
       });
+    });
 
+    await this.prismaService.$tx(async () => {
       // Expansion row
       const expandRows = await this.expandRows({ tableId, numRowsToExpand });
 

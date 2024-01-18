@@ -39,6 +39,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
     queryFn: ({ queryKey }) => getGroupPoints(queryKey[1], queryKey[2]),
     enabled: !!tableId && isHydrated && !!group?.length,
     refetchOnWindowFocus: false,
+    retry: 1,
   });
 
   const updateGroupPoints = useCallback(
@@ -47,18 +48,17 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   );
 
   useEffect(() => {
-    if (tableId == null || !group?.length) return;
+    if (tableId == null) return;
 
     const relevantProps = [
       'tableAdd',
       'tableDelete',
       'tableUpdate',
       'applyViewFilter',
-      'applyViewGroup',
     ] as PropKeys[];
 
     listener?.(relevantProps, () => updateGroupPoints(), [tableId, viewId]);
-  }, [listener, tableId, updateGroupPoints, viewId, group]);
+  }, [listener, tableId, updateGroupPoints, viewId]);
 
   const groupPoints = useMemo(() => resGroupPoints?.data || null, [resGroupPoints]);
 

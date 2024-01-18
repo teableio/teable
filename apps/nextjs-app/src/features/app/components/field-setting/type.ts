@@ -11,9 +11,13 @@ export interface IFieldSetting {
   order?: number;
   field?: IFieldVo;
   operator: FieldOperator;
-  onConfirm?: (field: IFieldRo) => void;
+  onConfirm?: () => void;
   onCancel?: () => void;
 }
+
+export type IFieldSettingBase = IFieldSetting & {
+  onConfirm?: (field: IFieldRo) => void;
+};
 
 export type IFieldEditorRo = Partial<IFieldRo> & {
   cellValueType?: CellValueType;

@@ -35,19 +35,18 @@ describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
   const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';
-  let cookie: string;
   let connection: Connection;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    cookie = appCtx.cookie;
 
     const shareDbService = app.get(ShareDbService);
     connection = shareDbService.connect(undefined, {
       headers: {
-        cookie: cookie,
+        cookie: appCtx.cookie,
       },
+      sessionID: appCtx.sessionID,
     });
   });
 

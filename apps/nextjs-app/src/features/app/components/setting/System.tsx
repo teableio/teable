@@ -1,19 +1,21 @@
 import { ThemeKey, useTheme } from '@teable-group/sdk';
 import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable-group/ui-lib/shadcn';
+import { useTranslation } from 'react-i18next';
 
 export const System: React.FC = () => {
+  const { t } = useTranslation('common');
   const { theme, isAutoTheme, setTheme } = useTheme();
   const value = isAutoTheme ? 'system' : theme;
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">My settings</h3>
+        <h3 className="text-lg font-medium">{t('settings.setting.title')}</h3>
       </div>
       <Separator />
       <div className="space-y-1">
         <div>
-          <Label>Theme</Label>
-          <div className="text-sm text-muted-foreground">Select the theme for the dashboard.</div>
+          <Label>{t('settings.setting.theme')}</Label>
+          <div className="text-sm text-muted-foreground">{t('settings.setting.themeDesc')}</div>
         </div>
         <RadioGroup
           className="grid max-w-screen-md grid-cols-3 gap-8 pt-2"
@@ -45,7 +47,9 @@ export const System: React.FC = () => {
                 </div>
               </div>
             </Label>
-            <span className="block w-full p-2 text-center font-normal">Light</span>
+            <span className="block w-full p-2 text-center font-normal">
+              {t('settings.setting.light')}
+            </span>
           </div>
           <div>
             <RadioGroupItem value={ThemeKey.Dark} id={ThemeKey.Dark} className="peer sr-only" />
@@ -70,7 +74,9 @@ export const System: React.FC = () => {
                 </div>
               </div>
             </Label>
-            <span className="block w-full p-2 text-center font-normal">Dark</span>
+            <span className="block w-full p-2 text-center font-normal">
+              {t('settings.setting.dark')}
+            </span>
           </div>
           <div>
             <RadioGroupItem value="system" id="system" className="peer sr-only" />
@@ -93,7 +99,9 @@ export const System: React.FC = () => {
                 </div>
               </div>
             </Label>
-            <span className="block w-full p-2 text-center font-normal">System</span>
+            <span className="block w-full p-2 text-center font-normal">
+              {t('settings.setting.system')}
+            </span>
           </div>
         </RadioGroup>
       </div>

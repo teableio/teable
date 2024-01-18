@@ -1,4 +1,12 @@
-import { GroupPointType, hasNoneOf, FieldType, isNot, isNotEmpty, and } from '@teable-group/core';
+import {
+  is,
+  and,
+  isNot,
+  hasNoneOf,
+  isNotEmpty,
+  FieldType,
+  GroupPointType,
+} from '@teable-group/core';
 import type {
   IFilter,
   IGetRecordsRo,
@@ -6,11 +14,10 @@ import type {
   IGroupPointsVo,
   IOperator,
 } from '@teable-group/core';
-import { useCallback, useEffect, useMemo } from 'react';
-import { useLocalStorage } from 'react-use';
-import { LocalStorageKeys } from '../../../config';
+import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
 import type { GridView, IFieldInstance } from '../../../model';
+import { useGridCollapsedGroupStore } from '../store';
 
 const FILTER_RELATED_FILED_TYPE_SET = new Set([
   FieldType.MultipleSelect,
@@ -22,33 +29,20 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
   const totalFields = useFields({ withHidden: true });
-  const [groupCollapsedMap, setGroupCollapsedMap] = useLocalStorage<Record<string, string[]>>(
-    LocalStorageKeys.ViewGridCollapsedGroup,
-    {}
-  );
+  const { collapsedGroupMap, setCollapsedGroupMap } = useGridCollapsedGroupStore();
 
   const group = view?.group;
 
   const collapsedGroupIds = useMemo(() => {
-    const collapsedGroupIds = groupCollapsedMap?.[cacheKey];
+    const collapsedGroupIds = collapsedGroupMap?.[cacheKey];
     return collapsedGroupIds?.length ? new Set(collapsedGroupIds) : null;
-  }, [cacheKey, groupCollapsedMap]);
+  }, [cacheKey, collapsedGroupMap]);
 
   const onCollapsedGroupChanged = useCallback(
     (groupIds: Set<string>) => {
-      setGroupCollapsedMap((prev) => {
-        const newGroupCollapsedMap = { ...prev };
-
-        if (groupIds.size === 0) {
-          delete newGroupCollapsedMap[cacheKey];
-          return newGroupCollapsedMap;
-        }
-
-        newGroupCollapsedMap[cacheKey] = [...groupIds];
-        return newGroupCollapsedMap;
-      });
+      setCollapsedGroupMap(cacheKey, [...groupIds]);
     },
-    [cacheKey, setGroupCollapsedMap]
+    [cacheKey, setCollapsedGroupMap]
   );
 
   const groupId2DataMap = useMemo(() => {
@@ -74,6 +68,7 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
     );
   }, [totalFields]);
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const viewGroupQuery = useMemo(() => {
     if (!group?.length) {
       return undefined;
@@ -93,7 +88,8 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
 
       if (groupData == null) continue;
 
-      const { value, depth } = groupData;
+      const { depth } = groupData;
+      let value = groupData.value;
       const curGroup = group[depth];
 
       if (curGroup == null) continue;
@@ -106,7 +102,10 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
       let operator: IOperator = isNot.value;
       const { type, isMultipleCellValue } = field;
 
-      if (value == null) {
+      if (type === FieldType.Checkbox) {
+        operator = is.value;
+        value = !value || null;
+      } else if (value == null) {
         operator = isNotEmpty.value;
       } else if (FILTER_RELATED_FILED_TYPE_SET.has(type) && isMultipleCellValue) {
         operator = hasNoneOf.value;
@@ -121,14 +120,6 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
 
     return { filter: filterQuery, groupBy: group as IGetRecordsRo['groupBy'] };
   }, [groupId2DataMap, collapsedGroupIds, fieldId2DataMap, group]);
-
-  useEffect(() => {
-    setGroupCollapsedMap((prev) => {
-      const newGroupCollapsedMap = { ...prev };
-      delete newGroupCollapsedMap[cacheKey];
-      return newGroupCollapsedMap;
-    });
-  }, [cacheKey, group, setGroupCollapsedMap]);
 
   return useMemo(
     () => ({

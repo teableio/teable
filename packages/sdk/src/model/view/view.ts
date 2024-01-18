@@ -21,6 +21,7 @@ import {
   setViewFilter,
   setViewSort,
   setViewGroup,
+  setViewOrder,
 } from '@teable-group/openapi';
 import type { AxiosResponse } from 'axios';
 import type { Doc } from 'sharedb/lib/client';
@@ -67,6 +68,10 @@ export abstract class View extends ViewCore {
 
   async setViewGroup(group: IGroup) {
     return await requestWrap(setViewGroup)(this.tableId, this.id, { group });
+  }
+
+  async setViewOrder(order: number) {
+    return await requestWrap(setViewOrder)(this.tableId, this.id, { order });
   }
 
   async submitOperation(operation: IOtOperation) {

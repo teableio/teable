@@ -5,6 +5,8 @@ import { ssrApi } from '@/backend/api/rest/table.ssr';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
+import { viewConfig } from '@/features/i18n/view.config';
+import { getTranslationsProps } from '@/lib/i18n';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
@@ -54,6 +56,7 @@ export const getServerSideProps: GetServerSideProps<IRecordPageProps> =
           props: {
             ...viewPageServerData,
             recordServerData,
+            ...(await getTranslationsProps(context, viewConfig.i18nNamespaces)),
           },
         };
       }

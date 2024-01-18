@@ -20,7 +20,9 @@ export class UserService {
   ) {}
 
   async getUserById(id: string) {
-    const userRaw = await this.prismaService.user.findUnique({ where: { id, deletedTime: null } });
+    const userRaw = await this.prismaService
+      .txClient()
+      .user.findUnique({ where: { id, deletedTime: null } });
 
     return (
       userRaw && {
@@ -32,7 +34,9 @@ export class UserService {
   }
 
   async getUserByEmail(email: string) {
-    return await this.prismaService.user.findUnique({ where: { email, deletedTime: null } });
+    return await this.prismaService
+      .txClient()
+      .user.findUnique({ where: { email, deletedTime: null } });
   }
 
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {

@@ -32,8 +32,8 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
     onOpenChange,
     children,
     content,
-    cancelText = 'Cancel',
-    confirmText = 'Continue',
+    cancelText,
+    confirmText,
     onConfirm,
     onCancel,
   } = props;

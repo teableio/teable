@@ -1,64 +1,26 @@
-import type { DragStartEvent, DragEndEvent, UniqueIdentifier } from '@dnd-kit/core';
+import { useTableId, useTables, useIsHydrated, reorder } from '@teable-group/sdk';
 import {
-  DndContext,
-  DragOverlay,
-  useSensor,
-  useSensors,
-  MouseSensor,
-  TouchSensor,
-} from '@dnd-kit/core';
-import { useSortable, SortableContext } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { useTableId, useTables, useIsHydrated } from '@teable-group/sdk';
+  DndKitContext,
+  Droppable,
+  Draggable,
+  type DragEndEvent,
+} from '@teable-group/ui-lib/base/dnd-kit';
 import classNames from 'classnames';
-import { isEqual } from 'lodash';
 import { useState, useEffect } from 'react';
 import { TableListItem } from './TableListItem';
 
-const DraggableContainer = (props: { children: React.ReactElement; id: string }) => {
-  const { id, children } = props;
-  const dragProps = useSortable({ id });
-  const { setNodeRef, transition, transform, attributes, listeners, isDragging } = dragProps;
-  const style = {
-    transition,
-    transform: CSS.Transform.toString(transform),
-  };
-
-  return (
-    <div
-      style={style}
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={classNames(
-        'group relative overflow-y-auto cursor-pointer',
-        isDragging ? 'opacity-60' : null
-      )}
-    >
-      {children}
-    </div>
-  );
-};
-
-export const DraggableList: React.FC = () => {
+export const DraggableList = () => {
   const tables = useTables();
+
   const tableId = useTableId();
 
   const isHydrated = useIsHydrated();
-  const [draggingId, setDraggingId] = useState<UniqueIdentifier | null>('');
 
   const [innerTables, setInnerTables] = useState([...tables]);
 
   useEffect(() => {
-    if (!isEqual(innerTables, tables)) {
-      setInnerTables([...tables]);
-    }
-  }, [innerTables, tables]);
-
-  const onDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    setDraggingId(active.id);
-  };
+    setInnerTables(tables);
+  }, [tables]);
 
   const onDragEnd = async (event: DragEndEvent) => {
     const { over, active } = event;
@@ -69,61 +31,46 @@ export const DraggableList: React.FC = () => {
       return;
     }
 
-    let newOrder = 0;
-    const list = [...innerTables];
+    const list = [...tables];
     const [table] = list.splice(from, 1);
-    if (to === 0) {
-      newOrder = list[0].order - 1;
-    } else if (to > list.length - 1) {
-      newOrder = list[list.length - 1].order + 1;
-    } else {
-      const prevOrder = list[to - 1].order;
-      const nextOrder = list[to].order;
-      newOrder = (prevOrder + nextOrder) / 2;
-    }
+
+    const newOrder = reorder(1, to, list.length, (index: number) => {
+      return list[index].order;
+    })[0];
+
     if (newOrder === table.order) {
       return;
     }
-
-    table.updateOrder(newOrder);
     list.splice(to, 0, table);
     setInnerTables(list);
-
-    setDraggingId(null);
-  };
-
-  const sensors = useSensors(
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 250,
-        tolerance: 5,
-      },
-    }),
-    useSensor(MouseSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
-  const overLayRender = () => {
-    const table = tables.find(({ id }) => id === draggingId);
-    if (!table) {
-      return null;
-    }
-    return <TableListItem isActive={false} isDragging table={table} className="cursor-grabbing" />;
+    table.updateOrder(newOrder);
   };
 
   return isHydrated ? (
-    <DndContext onDragEnd={onDragEnd} onDragStart={onDragStart} sensors={sensors}>
-      <SortableContext items={innerTables}>
+    <DndKitContext onDragEnd={onDragEnd}>
+      <Droppable items={innerTables.map(({ id }) => ({ id }))}>
         {innerTables.map((table) => (
-          <DraggableContainer key={table.id} id={table.id}>
-            <TableListItem table={table} isActive={table.id === tableId} />
-          </DraggableContainer>
+          <Draggable key={table.id} id={table.id}>
+            {({ setNodeRef, attributes, listeners, style, isDragging }) => (
+              <div
+                ref={setNodeRef}
+                {...attributes}
+                {...listeners}
+                style={style}
+                className={classNames('group relative overflow-y-auto cursor-pointer', {
+                  'opacity-60': isDragging,
+                })}
+              >
+                <TableListItem
+                  table={table}
+                  isActive={table.id === tableId}
+                  isDragging={isDragging}
+                />
+              </div>
+            )}
+          </Draggable>
         ))}
-        {<DragOverlay>{overLayRender()}</DragOverlay>}
-      </SortableContext>
-    </DndContext>
+      </Droppable>
+    </DndKitContext>
   ) : null;
 };

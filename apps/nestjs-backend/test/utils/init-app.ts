@@ -47,9 +47,9 @@ import {
   setViewFilter as apiSetViewFilter,
   createView as apiCreateView,
 } from '@teable-group/openapi';
-import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import { AppModule } from '../../src/app.module';
+import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
 import { NextService } from '../../src/features/next/next.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import { WsGateway } from '../../src/ws/ws.gateway';
@@ -77,7 +77,6 @@ export async function initApp() {
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
-  app.use(cookieParser());
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
@@ -88,14 +87,14 @@ export async function initApp() {
 
   console.log('url', url);
 
-  axios.interceptors.request.use((config) => {
-    config.baseURL = url + '/api';
-    return config;
-  });
-  const { cookie } = await getCookie(globalThis.testConfig.email, globalThis.testConfig.password);
+  axios.defaults.baseURL = url + '/api';
+
+  const cookie = (
+    await getCookie(globalThis.testConfig.email, globalThis.testConfig.password)
+  ).cookie.join(';');
 
   axios.interceptors.request.use((config) => {
-    config.headers.Cookie = cookie.join(';');
+    config.headers.Cookie = cookie;
     return config;
   });
 
@@ -105,8 +104,17 @@ export async function initApp() {
   console.log(`> Test Ready on ${url}`);
   console.log('> Test System Time Zone:', timeZone);
   console.log('> Test Current System Time:', now.toString());
-
-  return { app, appUrl: url, cookie: cookie.join(';') };
+  const sessionHandleService = app.get<SessionHandleService>(SessionHandleService);
+  return {
+    app,
+    appUrl: url,
+    cookie,
+    sessionID: await sessionHandleService.getSessionIdFromRequest({
+      headers: { cookie },
+      url: `${url}/socket`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any),
+  };
 }
 
 export async function createTable(baseId: string, tableVo: ICreateTableRo, expectStatus = 201) {

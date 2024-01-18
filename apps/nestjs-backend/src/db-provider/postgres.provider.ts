@@ -77,14 +77,18 @@ export class PostgresProvider implements IDbProvider {
   }
 
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
-    return [this.knex(tableName).update(columnName, null).toQuery()].concat(
+    return [
       this.knex.schema
         .alterTable(tableName, (table) => {
-          table[schemaType](columnName).alter();
+          table.dropColumn(columnName);
         })
-        .toSQL()
-        .map((item) => item.sql)
-    );
+        .toQuery(),
+      this.knex.schema
+        .alterTable(tableName, (table) => {
+          table[schemaType](columnName);
+        })
+        .toQuery(),
+    ];
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

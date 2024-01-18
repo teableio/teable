@@ -8,5 +8,6 @@ export * from './set-filter';
 export * from './set-sort';
 export * from './set-group';
 export * from './set-option';
+export * from './set-order';
 export * from './share-disable';
 export * from './share-enable';

@@ -1,39 +1,50 @@
-import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { generateUserId } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IChangePasswordRo } from '@teable-group/openapi';
 import * as bcrypt from 'bcrypt';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
 import { UserService } from '../user/user.service';
+import { SessionStoreService } from './session/session-store.service';
 
 @Injectable()
 export class AuthService {
   constructor(
+    private readonly prismaService: PrismaService,
     private readonly userService: UserService,
-    private readonly jwtService: JwtService
+    private readonly cls: ClsService<IClsStore>,
+    private readonly sessionStoreService: SessionStoreService
   ) {}
 
-  async validateJwtToken(token: string) {
-    try {
-      return await this.jwtService.verifyAsync<{ id: string }>(token);
-    } catch {
-      throw new UnauthorizedException();
-    }
+  private async encodePassword(password: string) {
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
+    return { salt, hashPassword };
+  }
+
+  private async comparePassword(
+    password: string,
+    hashPassword: string | null,
+    salt: string | null
+  ) {
+    const _hashPassword = await bcrypt.hash(password || '', salt || '');
+    return _hashPassword === hashPassword;
   }
 
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);
     if (user) {
       const { password, salt, ...result } = user;
-      const hashPassword = await bcrypt.hash(pass || '', salt || '');
-      return hashPassword === password ? result : null;
+      return (await this.comparePassword(pass, password, salt)) ? result : null;
     }
     return null;
-  }
-
-  async signin(user: Prisma.UserGetPayload<null>) {
-    return {
-      access_token: await this.jwtService.signAsync({ id: user.id }),
-    };
   }
 
   async signup(email: string, password: string) {
@@ -41,17 +52,48 @@ export class AuthService {
     if (user) {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
     }
-    const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(password, salt);
-    const newUser = await this.userService.createUser({
+    const { salt, hashPassword } = await this.encodePassword(password);
+    return await this.userService.createUser({
       id: generateUserId(),
       name: email.split('@')[0],
       email,
       salt,
       password: hashPassword,
     });
-    return {
-      access_token: await this.jwtService.signAsync({ id: newUser.id }),
-    };
+  }
+
+  async signout(req: Express.Request) {
+    await new Promise<void>((resolve, reject) => {
+      req.session.destroy(function (err) {
+        // cannot access session here
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
+  async changePassword({ password, newPassword }: IChangePasswordRo) {
+    const userId = this.cls.get('user.id');
+    const user = await this.userService.getUserById(userId);
+    if (!user) {
+      throw new InternalServerErrorException('User not found');
+    }
+    const { password: currentHashPassword, salt } = user;
+    if (!(await this.comparePassword(password, currentHashPassword, salt))) {
+      throw new BadRequestException('Password is incorrect');
+    }
+    const { salt: newSalt, hashPassword: newHashPassword } = await this.encodePassword(newPassword);
+    await this.prismaService.txClient().user.update({
+      where: { id: userId, deletedTime: null },
+      data: {
+        password: newHashPassword,
+        salt: newSalt,
+      },
+    });
+    // clear session
+    await this.sessionStoreService.clearByUserId(userId);
   }
 }

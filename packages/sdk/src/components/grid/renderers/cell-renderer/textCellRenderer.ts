@@ -54,7 +54,7 @@ export const textCellRenderer: IInternalCellRenderer<ITextCell> = {
       x: x + cellHorizontalPadding,
       y: y + cellVerticalPaddingMD,
       text: displayData,
-      maxLines: isActive ? Infinity : Math.floor(renderHeight / cellTextLineHeight),
+      maxLines: isActive ? Infinity : Math.max(Math.floor(renderHeight / cellTextLineHeight), 1),
       lineHeight: cellTextLineHeight,
       maxWidth: width - cellHorizontalPadding * 2,
       fill: cellTextColor,

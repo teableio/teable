@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useQuery } from '@tanstack/react-query';
-import { ChevronsLeft, TeableNew, FreezeColumn } from '@teable-group/icons';
+import { ChevronsLeft, TeableNew, Sidebar } from '@teable-group/icons';
 import { getBaseById } from '@teable-group/openapi';
 import {
   Tooltip,
@@ -49,7 +49,7 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="xs" onClick={() => expandSideBar?.()}>
-                <FreezeColumn className="h-5 w-5"></FreezeColumn>
+                <Sidebar className="h-5 w-5"></Sidebar>
               </Button>
             </TooltipTrigger>
             <TooltipContent hideWhenDetached={true}>

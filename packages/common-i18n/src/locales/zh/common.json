@@ -7,5 +7,48 @@
     "cancel": "取消",
     "zoomIn": "放大",
     "zoomOut": "缩小"
+  },
+  "settings": {
+    "title": "设置",
+    "account": {
+      "title": "我的档案",
+      "tab": "我的帐户",
+      "updatePhoto": "更新照片",
+      "updateNameDesc": "您的姓名将显示在贡献和提及中。您随时可以更改它。",
+      "securityTitle": "帐户安全",
+      "email": "电子邮件",
+      "password": "密码",
+      "passwordDesc": "设置一个永久密码以登录您的帐户。",
+      "changePassword": {
+        "title": "更改密码",
+        "desc": "请输入您的当前密码和新密码。",
+        "current": "输入您的当前密码",
+        "new": "输入您的新密码",
+        "confirm": "确认您的新密码"
+      },
+      "changePasswordError": {
+        "disMatch": "您的新密码不匹配。",
+        "equal": "您的新密码必须与当前密码不同。",
+        "invalid": "您当前的密码无效。",
+        "invalidNew": "您的新密码无效，至少需要8个字符。"
+      },
+      "changePasswordSuccess": {
+        "title": "密码更改成功。",
+        "desc": "您将在2秒内重定向到登录页面。"
+      }
+    },
+    "notify": {
+      "title": "我的通知",
+      "label": "您工作区的活动",
+      "desc": "在收到评论、提及、页面邀请、提醒、访问请求和属性更改时接收电子邮件通知。"
+    },
+    "setting": {
+      "title": "我的设置",
+      "theme": "主题",
+      "themeDesc": "选择仪表板的主题。",
+      "dark": "深色",
+      "light": "浅色",
+      "system": "系统"
+    }
   }
 }

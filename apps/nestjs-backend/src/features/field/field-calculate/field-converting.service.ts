@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import type {
   IFieldPropertyKey,
-  IFieldVo,
   ILookupOptionsVo,
   IOtOperation,
   ISelectFieldChoice,
@@ -23,9 +22,8 @@ import {
   RecordOpBuilder,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
-import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
-import { difference, differenceBy, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
+import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -49,7 +47,7 @@ import type { UserFieldDto } from '../model/field-dto/user-field.dto';
 import { FieldConvertingLinkService } from './field-converting-link.service';
 import { FieldSupplementService } from './field-supplement.service';
 
-interface IModifiedResult {
+interface IModifiedOps {
   recordOpsMap?: IOpsMap;
   fieldOps?: IOtOperation[];
 }
@@ -201,7 +199,7 @@ export class FieldConvertingService {
     return ops.filter(Boolean) as IOtOperation[];
   }
 
-  private async updateDbFieldType(dbTableName: string, field: IFieldInstance) {
+  private updateDbFieldType(field: IFieldInstance) {
     const ops: IOtOperation[] = [];
     const dbFieldType = this.fieldSupplementService.getDbFieldType(
       field.type,
@@ -211,10 +209,7 @@ export class FieldConvertingService {
 
     if (field.dbFieldType !== dbFieldType) {
       const op1 = this.buildOpAndMutateField(field, 'dbFieldType', dbFieldType);
-      const op2 = this.buildOpAndMutateField(field, 'dbFieldName', field.dbFieldName + '_');
       op1 && ops.push(op1);
-      op2 && ops.push(op2);
-      await this.fieldService.alterTableAddField(dbTableName, [field]);
     }
     return ops;
   }
@@ -222,8 +217,7 @@ export class FieldConvertingService {
   private async generateReferenceFieldOps(fieldId: string) {
     const topoOrdersContext = await this.fieldCalculationService.getTopoOrdersContext([fieldId]);
 
-    const { fieldMap, topoOrdersByFieldId, fieldId2TableId, tableId2DbTableName } =
-      topoOrdersContext;
+    const { fieldMap, topoOrdersByFieldId, fieldId2TableId } = topoOrdersContext;
     const topoOrders = topoOrdersByFieldId[fieldId];
     if (topoOrders.length <= 1) {
       return {};
@@ -236,7 +230,6 @@ export class FieldConvertingService {
       // curField will be mutate in loop
       const curField = fieldMap[topoOrder.id];
       const tableId = fieldId2TableId[curField.id];
-      const dbTableName = tableId2DbTableName[tableId];
       if (curField.isLookup) {
         pushOpsMap(tableId, curField.id, this.updateLookupField(curField, fieldMap));
       } else if (curField.type === FieldType.Formula) {
@@ -244,8 +237,7 @@ export class FieldConvertingService {
       } else if (curField.type === FieldType.Rollup) {
         pushOpsMap(tableId, curField.id, this.updateRollupField(curField, fieldMap));
       }
-      const ops = await this.updateDbFieldType(dbTableName, curField);
-      pushOpsMap(tableId, curField.id, ops);
+      pushOpsMap(tableId, curField.id, this.updateDbFieldType(curField));
     }
 
     return getOpsMap();
@@ -327,58 +319,6 @@ export class FieldConvertingService {
     await this.submitFieldOpsMap(fieldOpsMap);
   }
 
-  private async updateFieldReferences(
-    fieldId: string,
-    oldReferenceFieldIds: string[],
-    newReferenceFieldIds: string[]
-  ) {
-    const addedReferenceFieldIds = differenceBy(newReferenceFieldIds, oldReferenceFieldIds);
-    const removedReferenceFieldIds = differenceBy(oldReferenceFieldIds, newReferenceFieldIds);
-
-    if (removedReferenceFieldIds.length) {
-      await this.prismaService.txClient().reference.deleteMany({
-        where: {
-          fromFieldId: { in: removedReferenceFieldIds },
-        },
-      });
-    }
-
-    if (addedReferenceFieldIds.length) {
-      await Promise.all(
-        addedReferenceFieldIds.map((fromFieldId) => {
-          return this.prismaService.txClient().reference.create({
-            data: { fromFieldId, toFieldId: fieldId },
-          });
-        })
-      );
-    }
-  }
-
-  private async modifyFormulaOptions(
-    newField: RollupFieldDto | FormulaFieldDto,
-    oldField: RollupFieldDto | FormulaFieldDto
-  ): Promise<undefined> {
-    if (newField.options.expression === oldField.options.expression) {
-      return;
-    }
-
-    const oldReferenceRaw = await this.prismaService.txClient().reference.findMany({
-      where: { toFieldId: oldField.id },
-      select: { fromFieldId: true },
-    });
-    const oldReferenceFieldIds = oldReferenceRaw.map((item) => item.fromFieldId);
-
-    let newReferenceFieldIds: string[] = [];
-    if (newField.type === FieldType.Formula) {
-      newReferenceFieldIds = newField.getReferenceFieldIds();
-    }
-    if (newField.type === FieldType.Rollup) {
-      newReferenceFieldIds.push(newField.lookupOptions.lookupFieldId);
-    }
-
-    await this.updateFieldReferences(newField.id, oldReferenceFieldIds, newReferenceFieldIds);
-  }
-
   private async updateOptionsFromMultiSelectField(
     tableId: string,
     updatedChoiceMap: { [old: string]: string | null },
@@ -406,10 +346,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
@@ -461,10 +400,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
@@ -541,10 +479,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as number;
@@ -629,7 +566,7 @@ export class FieldConvertingService {
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance
-  ): Promise<IModifiedResult | undefined> {
+  ): Promise<IModifiedOps | undefined> {
     if (newField.isLookup) {
       return;
     }
@@ -641,10 +578,6 @@ export class FieldConvertingService {
           newField as LinkFieldDto,
           oldField as LinkFieldDto
         );
-      case FieldType.Rollup:
-        return this.modifyFormulaOptions(newField as RollupFieldDto, oldField as RollupFieldDto);
-      case FieldType.Formula:
-        return this.modifyFormulaOptions(newField as FormulaFieldDto, oldField as FormulaFieldDto);
       case FieldType.SingleSelect:
       case FieldType.MultipleSelect: {
         const rawOpsMap = await this.modifySelectOptions(
@@ -673,38 +606,18 @@ export class FieldConvertingService {
     }
   }
 
-  private async modifyLookupOptions(newField: IFieldInstance, oldField: IFieldInstance) {
-    const oldReferenceRaw = await this.prismaService.txClient().reference.findMany({
-      where: { toFieldId: oldField.id },
-      select: { fromFieldId: true },
-    });
-    const oldReferenceFieldIds = oldReferenceRaw.map((item) => item.fromFieldId);
-
-    const newReferenceFieldIds = newField.lookupOptions
-      ? [newField.lookupOptions.lookupFieldId]
-      : [];
-
-    await this.updateFieldReferences(newField.id, oldReferenceFieldIds, newReferenceFieldIds);
+  private getOriginFieldKeys(newField: IFieldInstance, oldField: IFieldInstance) {
+    return FIELD_VO_PROPERTIES.filter((key) => !isEqual(newField[key], oldField[key]));
   }
 
   private getOriginFieldOps(newField: IFieldInstance, oldField: IFieldInstance) {
-    const ops: IOtOperation[] = [];
-    const keys: IFieldPropertyKey[] = [];
-    FIELD_VO_PROPERTIES.forEach((key) => {
-      if (isEqual(newField[key], oldField[key])) {
-        return;
-      }
-      ops.push(
-        FieldOpBuilder.editor.setFieldProperty.build({
-          key,
-          newValue: newField[key],
-          oldValue: oldField[key],
-        })
-      );
-      keys.push(key);
-    });
-
-    return { ops, keys };
+    return this.getOriginFieldKeys(newField, oldField).map((key) =>
+      FieldOpBuilder.editor.setFieldProperty.build({
+        key,
+        newValue: newField[key],
+        oldValue: oldField[key],
+      })
+    );
   }
 
   private async getDerivateByLink(tableId: string, innerOpsMap: IOpsMap['key']) {
@@ -926,14 +839,7 @@ export class FieldConvertingService {
   }
 
   private async modifyType(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
-    if (oldField.isComputed) {
-      await this.prismaService.txClient().reference.deleteMany({
-        where: { toFieldId: oldField.id },
-      });
-    }
-
     if (newField.isComputed) {
-      await this.fieldSupplementService.createReference(newField);
       return;
     }
 
@@ -952,76 +858,67 @@ export class FieldConvertingService {
     return this.basalConvert(tableId, newField, oldField);
   }
 
-  /**
-   * convert a field to another field type
-   * 1. create supplement field if needed (link field target foreignTableId changed)
-   * 2. convert all cellValue to match new field type
-   * 3. update current field vo(dbFieldName, cellValueType, dbFieldType)
-   * 4. re-generate new cellValue type and dbFieldType to all reference field
-   * 5. re-calculate from current field
-   */
-  private async updateField(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
-    const { ops, keys } = this.getOriginFieldOps(newField, oldField);
-    this.logger.log('changed Keys:' + JSON.stringify(keys));
+  private async updateReference(newField: IFieldInstance, oldField: IFieldInstance) {
+    if (!this.shouldUpdateReference(newField, oldField)) {
+      return;
+    }
 
-    let result: IModifiedResult | undefined;
-    // 1. collect changes effect by the current updated field
+    await this.prismaService.txClient().reference.deleteMany({
+      where: { toFieldId: oldField.id },
+    });
+
+    await this.fieldSupplementService.createReference(newField);
+  }
+
+  private shouldUpdateReference(newField: IFieldInstance, oldField: IFieldInstance) {
+    const keys = this.getOriginFieldKeys(newField, oldField);
+
+    // lookup options change
     if (newField.isLookup && oldField.isLookup) {
-      if (keys.includes('lookupOptions')) {
-        await this.modifyLookupOptions(newField, oldField);
-      }
-    } else if (keys.includes('type') || keys.includes('isComputed') || keys.includes('isLookup')) {
-      // for field type change, isLookup change, isComputed change
-      result = await this.modifyType(tableId, newField, oldField);
-    } else {
-      // for same field with options change
-      if (keys.includes('options')) {
-        result = await this.modifyOptions(tableId, newField, oldField);
-      }
-
-      // for same field with lookup options change
-      if (keys.includes('lookupOptions')) {
-        await this.modifyLookupOptions(newField, oldField);
-      }
+      return keys.includes('lookupOptions');
     }
 
-    // 2. collect changes effect by the supplement(link) field
-    const supplementFieldChange = await this.fieldConvertingLinkService.supplementLink(
-      tableId,
-      newField,
-      oldField
-    );
-
-    // 3. apply current field changes
-    await this.fieldService.batchUpdateFields(tableId, [
-      { fieldId: newField.id, ops: ops.concat(result?.fieldOps || []) },
-    ]);
-
-    // 4. apply supplement(link) field changes
-    if (supplementFieldChange) {
-      const { tableId, newField, oldField } = supplementFieldChange;
-      const { ops } = this.getOriginFieldOps(newField, oldField);
-      await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
+    // major change
+    if (keys.includes('type') || keys.includes('isComputed') || keys.includes('isLookup')) {
+      return true;
     }
 
-    // 5. apply referenced fields changes
-    await this.updateReferencedFields(newField, oldField);
-
-    // 6. apply referenced fields from supplement(link) field changes
-    if (supplementFieldChange) {
-      const { newField, oldField } = supplementFieldChange;
-      await this.updateReferencedFields(newField, oldField);
+    // for same field with options change
+    if (keys.includes('options')) {
+      return (
+        (newField.type === FieldType.Rollup || newField.type === FieldType.Formula) &&
+        newField.options.expression !== (oldField as FormulaFieldDto).options.expression
+      );
     }
 
-    // 7. calculate and submit records
-    await this.calculateAndSaveRecords(tableId, newField, result?.recordOpsMap);
+    // for same field with lookup options change
+    return keys.includes('lookupOptions');
+  }
 
-    // 8. calculate computed fields
-    await this.calculateField(tableId, newField, oldField);
+  private async generateModifiedOps(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance
+  ): Promise<IModifiedOps | undefined> {
+    const keys = this.getOriginFieldKeys(newField, oldField);
+
+    if (newField.isLookup && oldField.isLookup) {
+      return;
+    }
+
+    // for field type change, isLookup change, isComputed change
+    if (keys.includes('type') || keys.includes('isComputed') || keys.includes('isLookup')) {
+      return this.modifyType(tableId, newField, oldField);
+    }
+
+    // for same field with options change
+    if (keys.includes('options')) {
+      return await this.modifyOptions(tableId, newField, oldField);
+    }
   }
 
   majorKeysChanged(oldField: IFieldInstance, newField: IFieldInstance) {
-    const { keys } = this.getOriginFieldOps(newField, oldField);
+    const keys = this.getOriginFieldKeys(newField, oldField);
 
     // filter property
     const majorKeys = difference(keys, ['name', 'description', 'dbFieldName']);
@@ -1079,37 +976,78 @@ export class FieldConvertingService {
     }
   }
 
-  // we should create a new field in visual db, because we can not modify a field in sqlite.
-  // so we should generate a new dbFieldName for the modified field.
-  private async updateDbFieldName(tableId: string, newField: IFieldVo, oldField: IFieldVo) {
-    if (newField.dbFieldType === oldField.dbFieldType) {
-      return;
-    }
-    newField.dbFieldName = newField.dbFieldName + '_';
-    const dbTableName = await this.fieldService.getDbTableName(tableId);
+  async alterSupplementLink(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance,
+    supplementChange?: { tableId: string; newField: IFieldInstance; oldField: IFieldInstance }
+  ) {
+    // for link ref and create or delete supplement link, (create, delete do not need calculate)
+    await this.fieldConvertingLinkService.alterSupplementLink(tableId, newField, oldField);
 
-    await this.fieldService.alterTableAddField(dbTableName, [newField]);
+    // for modify supplement link
+    if (supplementChange) {
+      const { tableId, newField, oldField } = supplementChange;
+      await this.stageAlter(tableId, newField, oldField);
+    }
   }
 
-  async updateFieldById(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
-    const fieldVo = await this.fieldService.getField(tableId, fieldId);
-    if (!fieldVo) {
+  async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
+    const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
+    if (!oldFieldVo) {
       throw new BadRequestException(`Not found fieldId(${fieldId})`);
     }
 
-    const oldFieldInstance = createFieldInstanceByVo(fieldVo);
+    const oldField = createFieldInstanceByVo(oldFieldVo);
     const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
       tableId,
       updateFieldRo,
-      oldFieldInstance
+      oldField
     );
 
-    await this.updateDbFieldName(tableId, newFieldVo, fieldVo);
+    const newField = createFieldInstanceByVo(newFieldVo);
+    const modifiedOps = await this.generateModifiedOps(tableId, newField, oldField);
 
-    const newFieldInstance = createFieldInstanceByVo(newFieldVo);
+    // 2. collect changes effect by the supplement(link) field
+    const supplementChange = await this.fieldConvertingLinkService.analysisLink(newField, oldField);
 
-    await this.updateField(tableId, newFieldInstance, oldFieldInstance);
+    return {
+      newField,
+      oldField,
+      modifiedOps,
+      supplementChange,
+    };
+  }
 
-    return instanceToPlain(newFieldInstance, { excludePrefixes: ['_'] }) as IFieldVo;
+  async stageAlter(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance,
+    modifiedOps?: IModifiedOps
+  ) {
+    const ops = this.getOriginFieldOps(newField, oldField);
+
+    // apply current field changes
+    await this.fieldService.batchUpdateFields(tableId, [
+      { fieldId: newField.id, ops: ops.concat(modifiedOps?.fieldOps || []) },
+    ]);
+
+    // apply referenced fields changes
+    await this.updateReferencedFields(newField, oldField);
+  }
+
+  async stageCalculate(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance,
+    modifiedOps?: IModifiedOps
+  ) {
+    await this.updateReference(newField, oldField);
+
+    // calculate and submit records
+    await this.calculateAndSaveRecords(tableId, newField, modifiedOps?.recordOpsMap);
+
+    // calculate computed fields
+    await this.calculateField(tableId, newField, oldField);
   }
 }

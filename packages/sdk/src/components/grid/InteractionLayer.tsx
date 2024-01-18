@@ -594,7 +594,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     if (!isInteracting && !isEqual(hoveredRegionRef.current, previousHoveredRegionRef.current)) {
       const { type, ...rest } = hoveredRegionRef.current;
       const { columnIndex, rowIndex } = mouseState;
-      onItemHovered?.(type, rest, [columnIndex, rowIndex]);
+      onItemHovered?.(type, rest, [columnIndex, getLinearRow(rowIndex).realIndex]);
     }
     previousHoveredRegionRef.current = { ...hoveredRegionRef.current };
   };
@@ -650,6 +650,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   useClickAway(containerRef, () => {
     setEditing(false);
+    editorContainerRef.current?.saveValue?.();
   });
 
   useLayoutEffect(() => {

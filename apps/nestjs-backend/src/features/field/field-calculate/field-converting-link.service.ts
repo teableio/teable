@@ -32,37 +32,7 @@ export class FieldConvertingLinkService {
     private readonly fieldCalculationService: FieldCalculationService
   ) {}
 
-  private async generateSymmetricFieldChange(
-    tableId: string,
-    oldField: LinkFieldDto,
-    newField: LinkFieldDto
-  ) {
-    // noting change
-    if (!newField.options.symmetricFieldId && !oldField.options.symmetricFieldId) {
-      return;
-    }
-
-    // delete old symmetric link
-    if (oldField.options.symmetricFieldId !== newField.options.symmetricFieldId) {
-      if (oldField.options.symmetricFieldId) {
-        await this.fieldDeletingService.delateAndCleanRef(
-          oldField.options.foreignTableId,
-          oldField.options.symmetricFieldId
-        );
-      }
-      if (newField.options.symmetricFieldId) {
-        const symmetricField = await this.fieldSupplementService.generateSymmetricField(
-          tableId,
-          newField
-        );
-        await this.fieldCreatingService.createAndCalculate(
-          newField.options.foreignTableId,
-          symmetricField
-        );
-      }
-      return;
-    }
-
+  private async symLinkRelationshipChange(newField: LinkFieldDto) {
     // field options has been modified but symmetricFieldId not change
     const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { id: newField.options.symmetricFieldId, deletedTime: null },
@@ -85,12 +55,46 @@ export class FieldConvertingLinkService {
     };
   }
 
+  private async alterSymmetricFieldChange(
+    tableId: string,
+    oldField: LinkFieldDto,
+    newField: LinkFieldDto
+  ) {
+    // noting change
+    if (
+      (!newField.options.symmetricFieldId && !oldField.options.symmetricFieldId) ||
+      newField.options.symmetricFieldId === oldField.options.symmetricFieldId
+    ) {
+      return;
+    }
+
+    // delete old symmetric link
+    if (oldField.options.symmetricFieldId) {
+      const { foreignTableId, symmetricFieldId } = oldField.options;
+      const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
+      await this.fieldDeletingService.delateFieldItem(foreignTableId, symField);
+    }
+
+    // create new symmetric link
+    if (newField.options.symmetricFieldId) {
+      const symmetricField = await this.fieldSupplementService.generateSymmetricField(
+        tableId,
+        newField
+      );
+      await this.fieldCreatingService.createFieldItem(
+        newField.options.foreignTableId,
+        symmetricField
+      );
+    }
+  }
+
   private async linkOptionsChange(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
     if (
       newField.options.foreignTableId === oldField.options.foreignTableId &&
-      newField.options.relationship === oldField.options.relationship
+      newField.options.relationship === oldField.options.relationship &&
+      newField.options.symmetricFieldId === oldField.options.symmetricFieldId
     ) {
-      throw new Error('only support modify link foreignTableId or relationship');
+      return;
     }
 
     if (newField.options.foreignTableId !== oldField.options.foreignTableId) {
@@ -111,7 +115,7 @@ export class FieldConvertingLinkService {
       await this.fieldSupplementService.createForeignKey(newField.options);
     }
 
-    return this.generateSymmetricFieldChange(tableId, oldField, newField);
+    await this.alterSymmetricFieldChange(tableId, oldField, newField);
   }
 
   private async otherToLink(tableId: string, newField: LinkFieldDto) {
@@ -122,7 +126,7 @@ export class FieldConvertingLinkService {
         tableId,
         newField
       );
-      await this.fieldCreatingService.createAndCalculate(
+      await this.fieldCreatingService.createFieldItem(
         newField.options.foreignTableId,
         symmetricField
       );
@@ -133,11 +137,9 @@ export class FieldConvertingLinkService {
     await this.fieldDeletingService.cleanLookupRollupRef(tableId, oldField.id);
 
     if (oldField.options.symmetricFieldId) {
-      await this.fieldDeletingService.delateAndCleanRef(
-        oldField.options.foreignTableId,
-        oldField.options.symmetricFieldId,
-        true
-      );
+      const { foreignTableId, symmetricFieldId } = oldField.options;
+      const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
+      await this.fieldDeletingService.delateFieldItem(foreignTableId, symField);
     }
   }
 
@@ -146,11 +148,7 @@ export class FieldConvertingLinkService {
    * 2. other field to link field
    * 3. link field to other field
    */
-  async supplementLink(
-    tableId: string,
-    newField: IFieldInstance,
-    oldField: IFieldInstance
-  ): Promise<{ tableId: string; newField: IFieldInstance; oldField: IFieldInstance } | void> {
+  async alterSupplementLink(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const isLink = (field: IFieldInstance): field is LinkFieldDto =>
       !field.isLookup && field.type === FieldType.Link;
 
@@ -164,6 +162,23 @@ export class FieldConvertingLinkService {
 
     if (isLink(newField) && !isLink(oldField)) {
       return this.otherToLink(tableId, newField);
+    }
+  }
+
+  async analysisLink(newField: IFieldInstance, oldField: IFieldInstance) {
+    const isLink = (field: IFieldInstance): field is LinkFieldDto =>
+      !field.isLookup && field.type === FieldType.Link;
+
+    if (
+      isLink(newField) &&
+      isLink(oldField) &&
+      !isEqual(newField.options, oldField.options) &&
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.symmetricFieldId &&
+      newField.options.symmetricFieldId === oldField.options.symmetricFieldId &&
+      newField.options.relationship !== oldField.options.relationship
+    ) {
+      return this.symLinkRelationshipChange(newField);
     }
   }
 

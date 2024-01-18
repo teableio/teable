@@ -459,7 +459,7 @@ export class RecordService implements IAdapterService {
 
     // Add sorting rules to the query builder
     this.dbProvider
-      .sortQuery(queryBuilder, fieldMap, [...orderBy, ...(groupBy ?? [])])
+      .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
     // view sorting added by default
