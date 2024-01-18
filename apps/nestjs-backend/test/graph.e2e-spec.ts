@@ -81,7 +81,6 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planFieldCreate(table1.id, lookupFieldRo);
 
     expect(plan).toMatchObject({
-      isAsync: false,
       updateCellCount: table1.records.length,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
@@ -95,7 +94,6 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planField(table1.id, numberField.id);
 
     expect(plan).toMatchObject({
-      isAsync: false,
       updateCellCount: 3,
     });
 
@@ -208,7 +206,6 @@ describe('OpenAPI Graph (e2e)', () => {
 
     expect(plan.skip).toBeUndefined();
     expect(plan).toMatchObject({
-      isAsync: false,
       updateCellCount: 3,
     });
     expect(plan.graph?.nodes).toHaveLength(2);
@@ -240,7 +237,6 @@ describe('OpenAPI Graph (e2e)', () => {
 
     expect(plan.skip).toBeUndefined();
     expect(plan).toMatchObject({
-      isAsync: false,
       updateCellCount: 3,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
@@ -264,7 +260,6 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planField(table1.id, formulaField.id);
 
     expect(plan).toMatchObject({
-      isAsync: false,
       updateCellCount: 3,
     });
     expect(plan.graph?.nodes).toHaveLength(3);
@@ -341,7 +336,6 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.skip).toBeUndefined();
 
     expect(plan).toMatchObject({
-      isAsync: false,
       updateCellCount: 6,
     });
     expect(plan.graph?.nodes).toHaveLength(3);

@@ -328,6 +328,7 @@ export class FieldCalculationService {
   private async getRecordIds(dbTableName: string, page: number, chunkSize: number) {
     const query = this.knex(dbTableName)
       .select({ id: '__id' })
+      .orderBy('__id')
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();

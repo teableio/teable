@@ -3,8 +3,7 @@ import { IFieldRo } from '@teable-group/core';
 import type { IFieldVo, IUpdateFieldRo } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
-import { InjectDbProvider } from '../../../db-provider/db.provider';
-import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { GraphService } from '../../graph/graph.service';
@@ -18,14 +17,14 @@ import { createFieldInstanceByVo } from '../model/factory';
 export class FieldOpenApiService {
   private logger = new Logger(FieldOpenApiService.name);
   constructor(
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
     private readonly fieldCreatingService: FieldCreatingService,
-    private readonly fieldCalculationService: FieldCalculationService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldConvertingService: FieldConvertingService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly graphService: GraphService
+    private readonly fieldCalculationService: FieldCalculationService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async planField(tableId: string, fieldId: string) {
@@ -56,7 +55,7 @@ export class FieldOpenApiService {
           }
         }
       },
-      { timeout: 5 * 60 * 1000 }
+      { timeout: this.thresholdConfig.fieldTransactionTimeout }
     );
 
     return fieldVo;
@@ -100,7 +99,7 @@ export class FieldOpenApiService {
           await this.fieldConvertingService.stageCalculate(tableId, newField, oldField);
         }
       },
-      { timeout: 5 * 60 * 1000 }
+      { timeout: this.thresholdConfig.fieldTransactionTimeout }
     );
 
     return instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
