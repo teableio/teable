@@ -27,7 +27,7 @@ const host = 'localhost';
 
 export async function setUpAppMiddleware(app: INestApplication, configService: ConfigService) {
   app.useWebSocketAdapter(new WsAdapter(app));
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter(configService));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );

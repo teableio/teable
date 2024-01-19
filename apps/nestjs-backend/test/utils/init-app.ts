@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
@@ -69,10 +70,14 @@ export async function initApp() {
     .overrideProvider(DevWsGateway)
     .useClass(WsGateway)
     .compile();
+
   const app = moduleFixture.createNestApplication({
     logger: new TestingLogger(),
   });
-  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  const configService = app.get(ConfigService);
+
+  app.useGlobalFilters(new GlobalExceptionFilter(configService));
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })

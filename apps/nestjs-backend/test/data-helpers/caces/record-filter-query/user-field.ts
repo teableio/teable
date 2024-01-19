@@ -1,4 +1,16 @@
-import { is, isAnyOf, isEmpty, isNoneOf, isNot, isNotEmpty } from '@teable-group/core';
+import {
+  hasAllOf,
+  hasAnyOf,
+  hasNoneOf,
+  is,
+  isAnyOf,
+  isEmpty,
+  isExactly,
+  isNoneOf,
+  isNot,
+  isNotEmpty,
+  Me,
+} from '@teable-group/core';
 
 export const USER_FIELD_CASES = [
   {
@@ -24,6 +36,13 @@ export const USER_FIELD_CASES = [
   },
   {
     fieldIndex: 5,
+    operator: is.value,
+    queryValue: Me,
+    expectResultLength: 1,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 5,
     operator: isNot.value,
     queryValue: 'usrTestUserId',
     expectResultLength: 22,
@@ -39,6 +58,58 @@ export const USER_FIELD_CASES = [
   {
     fieldIndex: 5,
     operator: isNoneOf.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 22,
+    expectMoreResults: false,
+  },
+];
+
+export const MULTIPLE_USER_FIELD_CASES = [
+  {
+    fieldIndex: 7,
+    operator: isEmpty.value,
+    queryValue: null,
+    expectResultLength: 21,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 7,
+    operator: isNotEmpty.value,
+    queryValue: null,
+    expectResultLength: 2,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 7,
+    operator: hasAnyOf.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 1,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 7,
+    operator: hasAnyOf.value,
+    queryValue: [Me],
+    expectResultLength: 1,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 7,
+    operator: hasAllOf.value,
+    queryValue: ['usrTestUserId_1'],
+    expectResultLength: 2,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 7,
+    operator: isExactly.value,
+    queryValue: ['usrTestUserId', 'usrTestUserId_1'],
+    expectResultLength: 1,
+    expectMoreResults: true,
+  },
+  {
+    fieldIndex: 7,
+    operator: hasNoneOf.value,
     queryValue: ['usrTestUserId'],
     expectResultLength: 22,
     expectMoreResults: false,

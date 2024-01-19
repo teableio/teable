@@ -5,8 +5,8 @@ import {
   FieldKeyType,
   FieldType,
   NumberFormattingType,
+  SortFunc,
   TimeFormatting,
-  orderTypeEnum,
 } from '@teable-group/core';
 import type { ITableFullVo, IFieldRo, IGetRecordsRo, IGroupItem } from '@teable-group/core';
 import { setViewGroup, setViewSort } from '@teable-group/openapi';
@@ -161,7 +161,7 @@ describe('OpenAPI ViewController view group (e2e)', () => {
       group: [
         {
           fieldId: fields[0].id as string,
-          order: orderTypeEnum.Enum.asc,
+          order: SortFunc.Asc,
         },
       ],
     };
@@ -202,10 +202,10 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
         await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
 
-      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'asc' }];
+      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Asc }];
       await setViewGroup(subTableId, subTableDefaultViewId, { group: ascGroups });
       const ascOriginRecords = (await getRecords(subTableId, { groupBy: ascGroups })).records;
-      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'desc' }];
+      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Desc }];
       await setViewGroup(subTableId, subTableDefaultViewId, { group: descGroups });
       const descOriginRecords = (await getRecords(subTableId, { groupBy: descGroups })).records;
 
@@ -235,8 +235,8 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
         await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
       }
 
-      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'asc' }];
-      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'desc' }];
+      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Asc }];
+      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Desc }];
 
       await setViewGroup(subTableId, subTableDefaultViewId, { group: ascGroups });
       await setViewSort(subTableId, subTableDefaultViewId, { sort: { sortObjs: descGroups } });

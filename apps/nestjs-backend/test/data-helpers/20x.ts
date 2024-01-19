@@ -76,7 +76,25 @@ const multipleSelectField = {
   },
 };
 
+const multipleUserField = {
+  name: 'multiple user field',
+  description: 'the multiple user field',
+  type: FieldType.User,
+  options: {
+    isMultiple: true,
+    shouldNotify: false,
+  },
+};
+
 export const x_20 = {
+  // textField                => 0
+  // numberField              => 1
+  // singleSelectField        => 2
+  // dateField                => 3
+  // checkboxField            => 4
+  // userField                => 5
+  // multipleSelectField      => 6
+  // multipleUserField        => 7
   fields: [
     textField,
     numberField,
@@ -85,6 +103,7 @@ export const x_20 = {
     checkboxField,
     userField,
     multipleSelectField,
+    multipleUserField,
   ],
 
   // actual number of items: 23
@@ -97,8 +116,12 @@ export const x_20 = {
         [textField.name]: 'Text Field 0',
         [numberField.name]: 0,
         [dateField.name]: '2019-12-31T16:00:00.000Z',
-        [userField.name]: { id: 'usrTestUserId', title: 'e2e' },
+        [userField.name]: { id: 'usrTestUserId', title: 'test' },
         [multipleSelectField.name]: ['rap', 'rock', 'hiphop'],
+        [multipleUserField.name]: [
+          { id: 'usrTestUserId', title: 'test' },
+          { id: 'usrTestUserId_1', title: 'test_1' },
+        ],
       },
     },
     {
@@ -106,6 +129,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 1',
         [numberField.name]: 1,
         [multipleSelectField.name]: ['rap', 'rock'],
+        [multipleUserField.name]: [{ id: 'usrTestUserId_1', title: 'test_1' }],
       },
     },
     {

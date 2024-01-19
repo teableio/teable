@@ -16,7 +16,7 @@ export class StringSortAdapter extends SortFunctionPostgres {
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(
       `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) ASC NULLS FIRST`,
-      [this.columnName]
+      [...optionSets, this.columnName]
     );
     return builderClient;
   }
@@ -33,7 +33,7 @@ export class StringSortAdapter extends SortFunctionPostgres {
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(
       `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) DESC NULLS LAST`,
-      [this.columnName]
+      [...optionSets, this.columnName]
     );
     return builderClient;
   }

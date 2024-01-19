@@ -32,7 +32,7 @@ export const getValidStatisticFunc = (field?: FieldCore): StatisticsFunc[] => {
     return statisticSet;
   }
 
-  const { cellValueType, type } = field;
+  const { type, cellValueType, isMultipleCellValue } = field;
 
   if (type === FieldType.Link) {
     statisticSet = [
@@ -41,6 +41,20 @@ export const getValidStatisticFunc = (field?: FieldCore): StatisticsFunc[] => {
       StatisticsFunc.PercentEmpty,
       StatisticsFunc.PercentFilled,
     ];
+    return statisticSet;
+  }
+
+  if ([FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(type)) {
+    statisticSet = [
+      StatisticsFunc.Empty,
+      StatisticsFunc.Filled,
+      StatisticsFunc.PercentEmpty,
+      StatisticsFunc.PercentFilled,
+    ];
+    if (!isMultipleCellValue) {
+      statisticSet.splice(2, 0, StatisticsFunc.Unique);
+      statisticSet.push(StatisticsFunc.PercentUnique);
+    }
     return statisticSet;
   }
 
