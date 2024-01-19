@@ -148,10 +148,9 @@ export class TableService implements IAdapterService {
 
     const results = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ tableId: string; lastModifiedTime: Date }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { tableId: string; lastModifiedTime: Date }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     return tableIds.map((tableId) => {
       const item = results.find((result) => result.tableId === tableId);

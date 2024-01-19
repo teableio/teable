@@ -105,9 +105,9 @@ export class CollaboratorService {
 
     const collaborators = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<ListSpaceCollaboratorVo | ListBaseCollaboratorVo>(
-        getCollaboratorsSql.toQuery()
-      );
+      .$queryRawUnsafe<
+        ListSpaceCollaboratorVo | ListBaseCollaboratorVo
+      >(getCollaboratorsSql.toQuery());
 
     return collaborators.map((collaborator) => {
       if (isDate(collaborator.createdTime)) {
