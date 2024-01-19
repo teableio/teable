@@ -960,6 +960,7 @@ export class FieldConvertingService {
     } else {
       await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
     }
+    await this.fieldService.resolvePending(tableId, [newField.id]);
   }
 
   private async submitFieldOpsMap(fieldOpsMap: IOpsMap | undefined) {

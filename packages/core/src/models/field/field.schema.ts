@@ -148,6 +148,10 @@ export const fieldVoSchema = z.object({
       'Whether this field is computed field, you can not modify cellValue in computed field.',
   }),
 
+  isPending: z.boolean().optional().openapi({
+    description: "Whether this field's calculation is pending.",
+  }),
+
   hasError: z.boolean().optional().openapi({
     description:
       "Whether This field has a configuration error. Check the fields referenced by this field's formula or configuration.",
@@ -208,6 +212,7 @@ export const FIELD_VO_PROPERTIES = [
   'unique',
   'isPrimary',
   'isComputed',
+  'isPending',
   'hasError',
   'cellValueType',
   'isMultipleCellValue',

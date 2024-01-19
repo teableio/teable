@@ -266,6 +266,22 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
+  async resolvePending(tableId: string, fieldIds: string[]) {
+    await this.batchUpdateFields(
+      tableId,
+      fieldIds.map((fieldId) => ({
+        fieldId,
+        ops: [
+          FieldOpBuilder.editor.setFieldProperty.build({
+            key: 'isPending',
+            newValue: null,
+            oldValue: true,
+          }),
+        ],
+      }))
+    );
+  }
+
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
     if (!opData.length) return;
 

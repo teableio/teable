@@ -908,7 +908,7 @@ export class FieldSupplementService {
    * this method do not do any db update
    */
   async prepareCreateField(tableId: string, fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
-    const field = await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos);
+    const field = (await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos)) as IFieldVo;
 
     const fieldId = field.id || generateFieldId();
     const fieldName = await this.uniqFieldName(tableId, field.name);
@@ -926,19 +926,24 @@ export class FieldSupplementService {
       }
     }
 
-    const fieldVo = {
+    const fieldVo: IFieldVo = {
       ...field,
       id: fieldId,
       name: fieldName,
       dbFieldName,
-    } as IFieldVo;
+      isPending: field.isComputed ? true : undefined,
+    };
 
     this.validateFormattingShowAs(fieldVo);
 
     return fieldVo;
   }
 
-  async prepareUpdateField(tableId: string, fieldRo: IUpdateFieldRo, oldField: IFieldInstance) {
+  async prepareUpdateField(
+    tableId: string,
+    fieldRo: IUpdateFieldRo,
+    oldField: IFieldInstance
+  ): Promise<IFieldVo> {
     const fieldVo = (await this.prepareUpdateFieldInner(
       tableId,
       {
@@ -956,6 +961,7 @@ export class FieldSupplementService {
       ...fieldVo,
       id: oldField.id,
       isPrimary: oldField.isPrimary,
+      isPending: fieldVo.isComputed ? true : undefined,
     };
   }
 

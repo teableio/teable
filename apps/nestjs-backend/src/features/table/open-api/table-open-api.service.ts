@@ -98,6 +98,8 @@ export class TableOpenApiService {
       const tableVo = await this.createTableMeta(baseId, tableRo);
       const tableId = tableVo.id;
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
+      // create teable should not set computed field isPending, because noting need to calculate when create
+      preparedFields.forEach((field) => delete field.isPending);
       const fieldVos = await this.createField(tableId, preparedFields);
       const viewVos = await this.createView(tableId, tableRo.views);
 
@@ -166,11 +168,6 @@ export class TableOpenApiService {
   async deleteTable(baseId: string, tableId: string, arbitrary = false) {
     return await this.prismaService.$tx(
       async (prisma) => {
-        const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
-          where: { id: tableId, deletedTime: null },
-          select: { dbTableName: true },
-        });
-
         await this.tableService.deleteTable(baseId, tableId);
 
         // delete field for table
@@ -192,7 +189,24 @@ export class TableOpenApiService {
         await prisma.ops.deleteMany({
           where: { docId: tableId },
         });
+
+        const fieldRaws = await prisma.field.findMany({
+          where: { tableId, deletedTime: null },
+          select: { id: true, options: true },
+        });
+        const fieldIds = fieldRaws.map((field) => field.id);
+
+        // TODO: markErrors
+        // TODO: delete Junction tables
+        await prisma.reference.deleteMany({
+          where: { OR: [{ fromFieldId: { in: fieldIds } }, { toFieldId: { in: fieldIds } }] },
+        });
+
         if (arbitrary) {
+          const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
+            where: { id: tableId, deletedTime: null },
+            select: { dbTableName: true },
+          });
           await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS ${dbTableName}`);
         }
       },

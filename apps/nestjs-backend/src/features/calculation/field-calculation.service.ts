@@ -33,9 +33,9 @@ export interface ITopoOrdersContext {
 @Injectable()
 export class FieldCalculationService {
   constructor(
-    private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
+    private readonly referenceService: ReferenceService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
