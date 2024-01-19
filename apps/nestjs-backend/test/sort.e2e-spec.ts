@@ -2,9 +2,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IGetRecordsRo, ISortItem, ITableFullVo } from '@teable-group/core';
-import { CellValueType, SortFunc } from '@teable-group/core';
+import { FieldType, CellValueType, SortFunc } from '@teable-group/core';
 import { setViewSort as apiSetViewSort } from '@teable-group/openapi';
 import { isEmpty, orderBy } from 'lodash';
+import type { SingleSelectOptionsDto } from '../src/features/field/model/field-dto/single-select-field.dto';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import {
@@ -36,9 +37,13 @@ const typeTests = [
   },
 ];
 
-const getSortRecords = async (tableId: string, orderBy?: IGetRecordsRo['orderBy']) => {
+const getSortRecords = async (
+  tableId: string,
+  query?: Pick<IGetRecordsRo, 'viewId' | 'orderBy'>
+) => {
   const result = await getRecords(tableId, {
-    orderBy: orderBy,
+    viewId: query?.viewId,
+    orderBy: query?.orderBy,
   });
   return result.records;
 };
@@ -58,14 +63,19 @@ const getRecordsByOrder = (
   const fns = conditions.map((condition) => {
     const { fieldId } = condition;
     const field = fields.find((field) => field.id === fieldId) as ITableFullVo['fields'][number];
-    const { name, isMultipleCellValue } = field;
+    const { name, type, options, isMultipleCellValue } = field;
     return (record: ITableFullVo['records'][number]) => {
-      if (isEmpty(record?.fields?.[name])) {
+      const cellValue = record?.fields?.[name];
+      if (isEmpty(cellValue)) {
         return -Infinity;
+      }
+      if (type === FieldType.SingleSelect && !isMultipleCellValue) {
+        const { choices } = options as SingleSelectOptionsDto;
+        return choices.map(({ name }) => name).indexOf(cellValue as string);
       }
       if (isMultipleCellValue) {
         // return JSON.stringify(record?.fields?.[name]);
-        return (record?.fields?.[name] as any)[0];
+        return (cellValue as any)[0];
       }
     };
   });
@@ -141,8 +151,8 @@ describe('OpenAPI Sort (e2e) Base CellValueType', () => {
 
       const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
       const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Desc }];
-      const ascOriginRecords = await getSortRecords(subTableId, ascOrders);
-      const descOriginRecords = await getSortRecords(subTableId, descOrders);
+      const ascOriginRecords = await getSortRecords(subTableId, { orderBy: ascOrders });
+      const descOriginRecords = await getSortRecords(subTableId, { orderBy: descOrders });
 
       const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
       const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
@@ -163,10 +173,10 @@ describe('OpenAPI Sort (e2e) Base CellValueType', () => {
 
       const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
       await setRecordsOrder(subTableId, defaultViewId!, ascOrders);
-      const ascOriginRecords = await getSortRecords(subTableId);
+      const ascOriginRecords = await getSortRecords(subTableId, { viewId: defaultViewId });
       const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Desc }];
       await setRecordsOrder(subTableId, defaultViewId!, descOrders);
-      const descOriginRecords = await getSortRecords(subTableId);
+      const descOriginRecords = await getSortRecords(subTableId, { viewId: defaultViewId });
 
       const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
       const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
@@ -175,6 +185,23 @@ describe('OpenAPI Sort (e2e) Base CellValueType', () => {
       expect(descOriginRecords).toEqual(descManualSortRecords);
     }
   );
+
+  test('SingleSelect field sorting should be sorted based on option value', async () => {
+    const { id: subTableId, fields: fields2 } = table;
+    const singleSelectField = fields2.find((field) => field.type === FieldType.SingleSelect);
+    const { id: fieldId } = singleSelectField!;
+
+    const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
+    const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Desc }];
+    const ascOriginRecords = await getSortRecords(subTableId, { orderBy: ascOrders });
+    const descOriginRecords = await getSortRecords(subTableId, { orderBy: descOrders });
+
+    const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
+    const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
+
+    expect(ascOriginRecords).toEqual(ascManualSortRecords);
+    expect(descOriginRecords).toEqual(descManualSortRecords);
+  });
 });
 
 describe('OpenAPI Sort (e2e) Multiple CellValueType', () => {
@@ -220,8 +247,8 @@ describe('OpenAPI Sort (e2e) Multiple CellValueType', () => {
       const descOrders: IGetRecordsRo['orderBy'] = [
         { fieldId: lookupFieldId, order: SortFunc.Desc },
       ];
-      const ascOriginRecords = await getSortRecords(subTableId, ascOrders);
-      const descOriginRecords = await getSortRecords(subTableId, descOrders);
+      const ascOriginRecords = await getSortRecords(subTableId, { orderBy: ascOrders });
+      const descOriginRecords = await getSortRecords(subTableId, { orderBy: descOrders });
 
       const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
       const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
@@ -241,12 +268,12 @@ describe('OpenAPI Sort (e2e) Multiple CellValueType', () => {
 
       const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: SortFunc.Asc }];
       await setRecordsOrder(subTableId, subDefaultViewId!, ascOrders);
-      const ascOriginRecords = await getSortRecords(subTableId);
+      const ascOriginRecords = await getSortRecords(subTableId, { viewId: subDefaultViewId });
       const descOrders: IGetRecordsRo['orderBy'] = [
         { fieldId: lookupFieldId, order: SortFunc.Desc },
       ];
       await setRecordsOrder(subTableId, subDefaultViewId!, descOrders);
-      const descOriginRecords = await getSortRecords(subTableId);
+      const descOriginRecords = await getSortRecords(subTableId, { viewId: subDefaultViewId });
 
       const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
       const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);

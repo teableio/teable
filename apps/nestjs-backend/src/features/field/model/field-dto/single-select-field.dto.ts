@@ -37,7 +37,7 @@ export class SingleSelectOptionsDto implements ISelectFieldOptions {
 export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFieldBase {
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return JSON.stringify(value);
+      return value == null ? value : JSON.stringify(value);
     }
     return value;
   }

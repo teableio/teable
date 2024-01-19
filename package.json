@@ -59,7 +59,7 @@
     "is-ci": "3.0.1",
     "lint-staged": "15.2.0",
     "npm-run-all": "4.1.5",
-    "openapi-typescript": "6.7.3",
+    "openapi-typescript": "6.7.4",
     "prettier": "3.2.4",
     "rimraf": "5.0.5",
     "shell-quote": "1.8.1",

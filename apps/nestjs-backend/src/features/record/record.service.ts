@@ -465,7 +465,7 @@ export class RecordService implements IAdapterService {
     // view sorting added by default
     queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
 
-    this.logger.log('buildFilterSortQuery: %s', queryBuilder.toQuery());
+    this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder };
@@ -561,19 +561,8 @@ export class RecordService implements IAdapterService {
   }
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
-    const defaultView = await this.prismaService.txClient().view.findFirstOrThrow({
-      select: { id: true, filter: true, sort: true },
-      where: {
-        tableId,
-        ...(query.viewId ? { id: query.viewId } : {}),
-        deletedTime: null,
-      },
-      orderBy: { order: 'asc' },
-    });
-    const viewId = defaultView.id;
-
     const queryResult = await this.getDocIdsByQuery(tableId, {
-      viewId,
+      viewId: query.viewId,
       skip: query.skip,
       take: query.take,
       filter: query.filter,
