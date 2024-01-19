@@ -295,6 +295,36 @@ describe('LocalStorage', () => {
       });
     });
 
+    it('should get object metadata not image', async () => {
+      const mockBucket = 'mock-bucket';
+      const mockPath = 'mock/file/path';
+      const mockToken = 'mock-token';
+      const mockCacheValue = {
+        mimetype: 'text/plain',
+        hash: 'mock-hash',
+        size: 1024,
+      };
+      const mockUrl = 'url';
+
+      vi.spyOn(mockCacheService, 'get').mockResolvedValueOnce(mockCacheValue);
+      vi.spyOn(storage as any, 'getUrl').mockReturnValue(mockUrl);
+
+      const result = await storage.getObject(mockBucket, mockPath, mockToken);
+
+      expect(mockCacheService.get).toHaveBeenCalledWith(`attachment:upload:${mockToken}`);
+      expect(storage['getUrl']).toHaveBeenCalledWith(mockPath, {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        respHeaders: { 'Content-Type': 'text/plain' },
+        expiresDate: -1,
+      });
+      expect(result).toEqual({
+        hash: 'mock-hash',
+        mimetype: 'text/plain',
+        size: 1024,
+        url: mockUrl,
+      });
+    });
+
     it('should throw BadRequestException for invalid token', async () => {
       vi.spyOn(mockCacheService, 'get').mockResolvedValueOnce(null);
 

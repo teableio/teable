@@ -190,7 +190,8 @@ export class LocalStorage implements StorageAdapter {
       throw new BadRequestException(`Invalid token: ${token}`);
     }
     const { mimetype, hash, size } = uploadCache;
-    return {
+
+    const meta = {
       hash,
       mimetype,
       size,
@@ -198,6 +199,13 @@ export class LocalStorage implements StorageAdapter {
         respHeaders: { 'Content-Type': mimetype },
         expiresDate: -1,
       }),
+    };
+
+    if (!mimetype?.startsWith('image/')) {
+      return meta;
+    }
+    return {
+      ...meta,
       ...(await this.getFileMate(resolve(this.storageDir, bucket, path))),
     };
   }
