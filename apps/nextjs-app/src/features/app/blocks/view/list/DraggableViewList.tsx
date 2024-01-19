@@ -1,5 +1,5 @@
 import { useTablePermission, useViewId, useViews, useIsHydrated } from '@teable-group/sdk';
-import { reorder } from '@teable-group/sdk/utils';
+import { swapReorder } from '@teable-group/sdk/utils';
 import {
   DndKitContext,
   Draggable,
@@ -23,7 +23,7 @@ export const DraggableViewList = () => {
     setInnerViews(views);
   }, [views]);
 
-  const onDragEndHandler = (event: DragEndEvent) => {
+  const onDragEndHandler = async (event: DragEndEvent) => {
     const { over, active } = event;
     const to = over?.data?.current?.sortable?.index;
     const from = active?.data?.current?.sortable?.index;
@@ -35,14 +35,15 @@ export const DraggableViewList = () => {
       return;
     }
 
-    const newOrder = reorder(1, to, views?.length, (index) => views?.[index].order)[0];
+    const newOrder = swapReorder(1, from, to, views?.length, (index) => views?.[index].order)[0];
 
     const view = views[from];
 
     newViews.splice(to, 0, moveView);
 
     setInnerViews(newViews);
-    view?.setViewOrder(newOrder);
+
+    await view?.setViewOrder(newOrder);
   };
 
   return isHydrated ? (

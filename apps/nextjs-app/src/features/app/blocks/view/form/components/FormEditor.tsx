@@ -13,11 +13,12 @@ import {
   useFields,
   useIsHydrated,
   useGridColumnOrder,
+  swapReorder,
+  reorder,
 } from '@teable-group/sdk';
 import type { IFieldInstance } from '@teable-group/sdk/model';
 import { useMemo, useState } from 'react';
 import { FieldSetting } from '../../grid/components';
-import { reorder } from '../../grid/utils';
 import { FormEditorMain } from './FormEditorMain';
 import { FormFieldEditor } from './FormFieldEditor';
 import { DragItem, FormSidebar } from './FormSidebar';
@@ -101,11 +102,16 @@ export const FormEditor = () => {
   const onDragEnd = async (event: DragEndEvent) => {
     const { over } = event;
     const overData = over?.data?.current || {};
+
     const { index: targetIndex, isContainer } = overData;
+
+    if (!view) {
+      return;
+    }
 
     onClean();
 
-    if (activeSidebarField && (targetIndex != null || isContainer) && view) {
+    if (activeSidebarField && (targetIndex != null || isContainer)) {
       const sourceDragId = activeSidebarField.id;
       const sourceIndex = allFields.findIndex((f) => f.id === sourceDragId);
       const draggingField = allFields[sourceIndex];
@@ -138,10 +144,24 @@ export const FormEditor = () => {
       const sourceDragId = activeField.id;
       const sourceIndex = visibleFields.findIndex((f) => f.id === sourceDragId);
       if (sourceIndex === targetIndex) return;
-      return onColumnOrdered(
-        [sourceIndex],
-        sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
+      const newOrders = swapReorder(
+        1,
+        sourceIndex,
+        targetIndex ?? 0,
+        visibleFields.length,
+        (index: number) => {
+          const fieldId = visibleFields[index].id;
+          return view?.columnMeta[fieldId].order;
+        }
       );
+      await view?.setViewColumnMeta([
+        {
+          fieldId: sourceDragId,
+          columnMeta: {
+            order: newOrders[0],
+          },
+        },
+      ]);
     }
   };
 

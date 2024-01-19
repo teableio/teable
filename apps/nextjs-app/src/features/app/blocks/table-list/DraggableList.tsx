@@ -1,4 +1,4 @@
-import { useTableId, useTables, useIsHydrated, reorder } from '@teable-group/sdk';
+import { useTableId, useTables, useIsHydrated, swapReorder } from '@teable-group/sdk';
 import {
   DndKitContext,
   Droppable,
@@ -34,8 +34,8 @@ export const DraggableList = () => {
     const list = [...tables];
     const [table] = list.splice(from, 1);
 
-    const newOrder = reorder(1, to, list.length, (index: number) => {
-      return list[index].order;
+    const newOrder = swapReorder(1, from, to, tables.length, (index: number) => {
+      return tables[index].order;
     })[0];
 
     if (newOrder === table.order) {
