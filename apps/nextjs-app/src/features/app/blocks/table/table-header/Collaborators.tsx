@@ -29,7 +29,7 @@ type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta'>;
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
   const router = useRouter();
   const { connection } = useConnection();
-  const { nodeId: tableId } = router.query;
+  const { tableId } = router.query;
   const { user: sessionUser } = useSession();
   const { theme } = useTheme();
   const [presence, setPresence] = useState<Presence>();

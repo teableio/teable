@@ -30,8 +30,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const navigateHandler = () => {
     router.push(
       {
-        pathname: '/base/[baseId]/[nodeId]/[viewId]',
-        query: { baseId, nodeId: tableId, viewId: view.id },
+        pathname: '/base/[baseId]/[tableId]/[viewId]',
+        query: { baseId, tableId: tableId, viewId: view.id },
       },
       undefined,
       { shallow: Boolean(view.id) }

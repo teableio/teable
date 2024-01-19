@@ -16,7 +16,7 @@ export function createAISyntaxParser() {
       baseId = router.query.baseId as string;
     }
     if (!tableId) {
-      tableId = router.query.nodeId as string;
+      tableId = router.query.tableId as string;
     }
     if (!viewId) {
       viewId = router.query.viewId as string;
@@ -37,8 +37,8 @@ export function createAISyntaxParser() {
         const views = (await View.getViews(tableId)).data;
         viewId = views[0].id;
         router.push({
-          pathname: '/base/[baseId]/[nodeId]/[viewId]',
-          query: { baseId, nodeId: tableId, viewId },
+          pathname: '/base/[baseId]/[tableId]/[viewId]',
+          query: { baseId, tableId, viewId },
         });
         return;
       }
@@ -68,9 +68,9 @@ export function createAISyntaxParser() {
       }
       case 'generate-chart': {
         const chartTypeArray = Object.values(ChartType);
-        const { nodeId, viewId } = router.query;
+        const { tableId, viewId } = router.query;
         const result = (
-          await Record.getRecords(nodeId as string, {
+          await Record.getRecords(tableId as string, {
             viewId: viewId as string,
             fieldKeyType: FieldKeyType.Name,
           })

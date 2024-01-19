@@ -23,7 +23,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const base = useBase();
   const tables = useTables();
   const router = useRouter();
-  const { baseId, nodeId: routerTableId } = router.query;
+  const { baseId, tableId: routerTableId } = router.query;
 
   const menuPermission = useMemo(() => {
     return {
@@ -42,8 +42,8 @@ export const TableOperation = (props: ITableOperationProps) => {
       router.push(
         firstTableId
           ? {
-              pathname: '/base/[baseId]/[nodeId]',
-              query: { baseId, nodeId: firstTableId },
+              pathname: '/base/[baseId]/[tableId]',
+              query: { baseId, tableId: firstTableId },
             }
           : {
               pathname: '/base/[baseId]',
