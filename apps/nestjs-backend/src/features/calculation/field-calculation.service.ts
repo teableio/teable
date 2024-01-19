@@ -126,21 +126,52 @@ export class FieldCalculationService {
     );
   }
 
+  private async getRecordsByPage(
+    dbTableName: string,
+    dbFieldNames: string[],
+    page: number,
+    chunkSize: number
+  ) {
+    const query = this.knex(dbTableName)
+      .select([...dbFieldNames, ...systemDbFieldNames])
+      .where((builder) => {
+        dbFieldNames.forEach((fieldNames, index) => {
+          if (index === 0) {
+            builder.whereNotNull(fieldNames);
+          } else {
+            builder.orWhereNotNull(fieldNames);
+          }
+        });
+      })
+      .orderBy('__id')
+      .limit(chunkSize)
+      .offset(page * chunkSize)
+      .toQuery();
+    return this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(query);
+  }
+
   async getRecordsBatchByFields(dbTableName2fields: { [dbTableName: string]: IFieldInstance[] }) {
     const results: {
       [dbTableName: string]: { [dbFieldName: string]: unknown }[];
     } = {};
+    const chunkSize = this.thresholdConfig.calcChunkSize;
     for (const dbTableName in dbTableName2fields) {
       // deduplication is needed
-      const dbFieldNames = dbTableName2fields[dbTableName]
-        .map((f) => f.dbFieldName)
-        .concat([...systemDbFieldNames]);
-      const nativeSql = this.knex(dbTableName).select(dbFieldNames).toQuery();
+      const rowCount = await this.getRowCount(dbTableName);
+      const dbFieldNames = dbTableName2fields[dbTableName].map((f) => f.dbFieldName);
+      const totalPages = Math.ceil(rowCount / chunkSize);
 
-      const result = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(nativeSql);
-      results[dbTableName] = result;
+      const records = await lastValueFrom(
+        range(0, totalPages).pipe(
+          concatMap((page) => this.getRecordsByPage(dbTableName, dbFieldNames, page, chunkSize)),
+          toArray(),
+          map((records) => records.flat())
+        )
+      );
+
+      results[dbTableName] = records;
     }
 
     return this.referenceService.formatRecordQueryResult(results, dbTableName2fields);
