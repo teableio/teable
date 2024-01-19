@@ -6,6 +6,7 @@ import { ConfigModule as BaseConfigModule } from '@nestjs/config';
 import { authConfig } from './auth.config';
 import { baseConfig } from './base.config';
 import { bootstrapConfigs, nextJsConfig } from './bootstrap.config';
+import { cacheConfig } from './cache.config';
 import { envValidationSchema } from './env.validation.schema';
 import { loggerConfig } from './logger.config';
 import { mailConfig } from './mail.config';
@@ -20,6 +21,7 @@ const configurations = [
   baseConfig,
   storageConfig,
   thresholdConfig,
+  cacheConfig,
 ];
 
 @Module({})
