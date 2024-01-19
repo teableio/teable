@@ -51,7 +51,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   } = props;
   const defaultViewId = useViews()?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
-  const view = useViews()?.[0];
+  const columnMeta = useViews()?.[0]?.columnMeta;
   const allFields = useFields({ withHidden: true });
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
@@ -59,13 +59,13 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const permission = useTablePermission();
 
   const fields = useMemo(
-    () => (viewId ? allFields.filter((field) => !view.columnMeta?.[field.id]?.hidden) : []),
-    [allFields, view.columnMeta, viewId]
+    () => (viewId ? allFields.filter((field) => !columnMeta?.[field.id]?.hidden) : []),
+    [allFields, columnMeta, viewId]
   );
 
   const hiddenFields = useMemo(
-    () => (viewId ? allFields.filter((field) => view.columnMeta?.[field.id]?.hidden) : []),
-    [allFields, view.columnMeta, viewId]
+    () => (viewId ? allFields.filter((field) => columnMeta?.[field.id]?.hidden) : []),
+    [allFields, columnMeta, viewId]
   );
 
   const nextRecordIndex = useMemo(() => {
