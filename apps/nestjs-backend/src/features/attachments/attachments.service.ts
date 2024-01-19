@@ -8,6 +8,7 @@ import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { StorageConfig, IStorageConfig } from '../../configs/storage';
 import type { IClsStore } from '../../types/cls';
+import { second } from '../../utils/second';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
@@ -41,7 +42,7 @@ export class AttachmentsService {
     await this.cacheService.set(
       `attachment:upload:${token}`,
       { mimetype: file.mimetype, hash, size: file.size },
-      60 * 60 * 24 * 7
+      second(this.storageConfig.tokenExpireIn)
     );
   }
 
@@ -103,7 +104,7 @@ export class AttachmentsService {
     await this.cacheService.set(
       `attachment:signature:${token}`,
       { path, bucket, hash },
-      signatureRo.expiresIn ?? this.storageConfig.tokenExpireIn
+      signatureRo.expiresIn ?? second(this.storageConfig.tokenExpireIn)
     );
     return res;
   }

@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
 import { Store } from 'express-session';
-import ms from 'ms';
 import { CacheService } from '../../../cache/cache.service';
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import type { ISessionData } from '../../../types/session';
+import { second } from '../../../utils/second';
 
 @Injectable()
 export class SessionStoreService extends Store {
@@ -16,7 +16,7 @@ export class SessionStoreService extends Store {
     @AuthConfig() private readonly authConfig: IAuthConfig
   ) {
     super();
-    this.ttl = Math.floor(ms(this.authConfig.session.expiresIn) / 1000);
+    this.ttl = second(this.authConfig.session.expiresIn);
     this.userSessionExpire = this.ttl + 60 * 2;
   }
 

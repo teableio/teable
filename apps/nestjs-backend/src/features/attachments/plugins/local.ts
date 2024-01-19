@@ -11,6 +11,7 @@ import { CacheService } from '../../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { Encryptor } from '../../../utils/encryptor';
 import { getFullStorageUrl } from '../../../utils/full-storage-url';
+import { second } from '../../../utils/second';
 import type StorageAdapter from './adapter';
 import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
 
@@ -65,7 +66,7 @@ export class LocalStorage implements StorageAdapter {
   async presigned(_bucket: string, dir: string, params: IPresignParams) {
     const { contentType, contentLength, hash } = params;
     const token = getRandomString(12);
-    const expiresIn = params?.expiresIn ?? this.config.tokenExpireIn;
+    const expiresIn = params?.expiresIn ?? second(this.config.tokenExpireIn);
     await this.cacheService.set(
       `attachment:local-signature:${token}`,
       {
@@ -213,7 +214,7 @@ export class LocalStorage implements StorageAdapter {
   async getPreviewUrl(
     _bucket: string,
     path: string,
-    expiresIn: number = this.config.urlExpireIn,
+    expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ): Promise<string> {
     const url = this.getUrl(path, {

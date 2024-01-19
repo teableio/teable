@@ -41,8 +41,8 @@ describe('LocalStorage', () => {
       key: '73b00476e456323e',
       iv: '8c9183e4c175f63c',
     },
-    tokenExpireIn: 3600,
-    urlExpireIn: 3600,
+    tokenExpireIn: '7d',
+    urlExpireIn: '7d',
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
