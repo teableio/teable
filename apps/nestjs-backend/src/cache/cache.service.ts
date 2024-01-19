@@ -1,6 +1,7 @@
 import sqliteKeyv from '@keyv/sqlite';
 import { Injectable } from '@nestjs/common';
 import { getRandomInt } from '@teable-group/core';
+import * as fse from 'fs-extra';
 import keyv from 'keyv';
 import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import type { ICacheStore } from './types';
@@ -14,6 +15,7 @@ export class CacheService {
     // eslint-disable-next-line sonarjs/no-small-switch
     switch (provider) {
       case 'sqlite':
+        fse.ensureFileSync(sqlite.uri);
         store = new sqliteKeyv(sqlite);
         break;
       default:
