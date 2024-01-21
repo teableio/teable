@@ -13,10 +13,8 @@ export const HideFields: React.FC<{
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>
     fields.filter(
-      ({ isPrimary, id }) =>
-        activeViewId &&
-        !isPrimary &&
-        (!shouldBeHidden || view?.columnMeta?.[id]?.hidden === shouldBeHidden)
+      ({ id }) =>
+        activeViewId && (!shouldBeHidden || view?.columnMeta?.[id]?.hidden === shouldBeHidden)
     );
 
   const fieldData = filterFields(fields);

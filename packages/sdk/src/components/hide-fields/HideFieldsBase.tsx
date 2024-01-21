@@ -11,6 +11,10 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable-group/ui-lib';
 import {
   DndKitContext,
@@ -23,7 +27,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFieldStaticGetter, useView } from '../../hooks';
 import type { IFieldInstance } from '../../model';
-import { reorder } from '../../utils/order';
+import { swapReorder } from '../../utils/order';
 
 interface IHideFieldsBaseProps {
   fields: IFieldInstance[];
@@ -76,19 +80,15 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
     const to = over?.data?.current?.sortable?.index;
     const from = active?.data?.current?.sortable?.index;
 
-    if (!over) {
-      return;
-    }
-
-    if (!view) {
+    if (!over || !view || to === from) {
       return;
     }
 
     const list = [...fields];
     const [field] = list.splice(from, 1);
 
-    const newOrder = reorder(1, to, list.length, (index) => {
-      const fieldId = list[index].id;
+    const newOrder = swapReorder(1, from, to, fields.length, (index) => {
+      const fieldId = fields[index].id;
       return view?.columnMeta[fieldId].order;
     })[0];
 
@@ -136,45 +136,62 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
           <DndKitContext onDragEnd={dragEndHandler}>
             <Droppable items={innerFields.map(({ id }) => ({ id }))}>
               {innerFields.map((field) => {
-                const { id, name, type, isLookup } = field;
+                const { id, name, type, isLookup, isPrimary } = field;
                 const { Icon } = fieldStaticGetter(type, isLookup);
                 return (
                   <Draggable key={id} id={id}>
                     {({ setNodeRef, listeners, attributes, style, isDragging }) => (
                       <>
-                        <CommandItem
-                          className="flex flex-1 p-0"
-                          key={id}
-                          value={id}
-                          ref={setNodeRef}
-                          style={{
-                            ...style,
-                            opacity: isDragging ? '0.6' : '1',
-                          }}
-                        >
-                          <Label
-                            htmlFor={id}
-                            className="flex flex-1 cursor-pointer items-center truncate p-2"
+                        {
+                          <CommandItem
+                            className="flex flex-1 p-0"
+                            key={id}
+                            value={id}
+                            ref={setNodeRef}
+                            style={{
+                              ...style,
+                              opacity: isDragging ? '0.6' : '1',
+                            }}
                           >
-                            <Switch
-                              id={id}
-                              className="scale-75"
-                              checked={statusMap[id]}
-                              onCheckedChange={(checked) => {
-                                switchChange(id, checked);
-                              }}
-                            />
-                            <Icon className="ml-2 shrink-0" />
-                            <span className="h-full flex-1 cursor-pointer truncate pl-1 text-sm">
-                              {name}
-                            </span>
-                          </Label>
-                          {dragHandleVisible && (
-                            <div {...attributes} {...listeners} className="pr-1">
-                              <DraggableHandle></DraggableHandle>
-                            </div>
-                          )}
-                        </CommandItem>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex flex-1 items-center p-0">
+                                    <Label
+                                      htmlFor={id}
+                                      className="flex flex-1 cursor-pointer items-center truncate p-2"
+                                    >
+                                      <Switch
+                                        id={id}
+                                        className="scale-75"
+                                        checked={statusMap[id]}
+                                        onCheckedChange={(checked) => {
+                                          switchChange(id, checked);
+                                        }}
+                                        disabled={isPrimary}
+                                      />
+                                      <Icon className="ml-2 shrink-0" />
+                                      <span className="h-full flex-1 cursor-pointer truncate pl-1 text-sm">
+                                        {name}
+                                      </span>
+                                    </Label>
+                                    {/* forbid drag when search */}
+                                    {dragHandleVisible && (
+                                      <div {...attributes} {...listeners} className="pr-1">
+                                        <DraggableHandle></DraggableHandle>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                {isPrimary ? (
+                                  <TooltipContent>
+                                    <p>{t('hidden.forbidHiddenPrimaryTip')}</p>
+                                  </TooltipContent>
+                                ) : null}
+                              </Tooltip>
+                            </TooltipProvider>
+                          </CommandItem>
+                        }
                       </>
                     )}
                   </Draggable>
