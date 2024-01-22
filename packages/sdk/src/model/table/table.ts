@@ -35,7 +35,7 @@ export class Table extends TableCore {
   }
 
   async updateName(name: string) {
-    const fieldOperation = TableOpBuilder.editor.setTableProperty.build({
+    const operation = TableOpBuilder.editor.setTableProperty.build({
       key: 'name',
       newValue: name,
       oldValue: this.name,
@@ -43,7 +43,43 @@ export class Table extends TableCore {
 
     try {
       return await new Promise((resolve, reject) => {
-        this.doc.submitOp([fieldOperation], undefined, (error) => {
+        this.doc.submitOp([operation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
+      });
+    } catch (error) {
+      return error;
+    }
+  }
+
+  async updateDbTableName(dbTableName: string) {
+    const operation = TableOpBuilder.editor.setTableProperty.build({
+      key: 'dbTableName',
+      newValue: dbTableName,
+      oldValue: this.dbTableName,
+    });
+
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([operation], undefined, (error) => {
+          error ? reject(error) : resolve(undefined);
+        });
+      });
+    } catch (error) {
+      return error;
+    }
+  }
+
+  async updateDescription(description: string) {
+    const operation = TableOpBuilder.editor.setTableProperty.build({
+      key: 'description',
+      newValue: description,
+      oldValue: this.description,
+    });
+
+    try {
+      return await new Promise((resolve, reject) => {
+        this.doc.submitOp([operation], undefined, (error) => {
           error ? reject(error) : resolve(undefined);
         });
       });
