@@ -1,4 +1,4 @@
-import { MoreHorizontal, Trash2 } from '@teable-group/icons';
+import { MoreHorizontal, Settings, Trash2 } from '@teable-group/icons';
 import { useBase, useTablePermission, useTables } from '@teable-group/sdk/hooks';
 import type { Table } from '@teable-group/sdk/model';
 import { ConfirmDialog } from '@teable-group/ui-lib/base';
@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@teable-group/ui-lib/shadcn';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useMemo } from 'react';
 
@@ -59,25 +60,37 @@ export const TableOperation = (props: ITableOperationProps) => {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <div>
-            <MoreHorizontal className={className} />
-          </div>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="min-w-[160px]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {menuPermission.deleteTable && (
+      {menuPermission.deleteTable && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div>
+              <MoreHorizontal className={className} />
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            className="min-w-[160px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenuItem asChild>
+              <Link
+                href={{
+                  pathname: '/base/[baseId]/[tableId]/design',
+                  query: { baseId, tableId: table.id },
+                }}
+                title="Design"
+              >
+                <Settings className="mr-2" />
+                Design
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
               <Trash2 className="mr-2" />
               Delete
             </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
