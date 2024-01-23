@@ -5,8 +5,8 @@ import { useState, useRef, useMemo, useCallback, useImperativeHandle, forwardRef
 import { useRafState } from 'react-use';
 import type { IGridTheme } from './configs';
 import {
-  GRID_DEFAULT,
   gridTheme,
+  GRID_DEFAULT,
   DEFAULT_SCROLL_STATE,
   DEFAULT_MOUSE_STATE,
   GRID_CONTAINER_ID,
@@ -51,6 +51,7 @@ export interface IGridExternalProps {
   smoothScrollY?: boolean;
   scrollBufferX?: number;
   scrollBufferY?: number;
+  scrollBarVisible?: boolean;
   rowIndexVisible?: boolean;
   collaborators?: ICollaborator;
 
@@ -105,6 +106,7 @@ export interface IGridExternalProps {
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
+  onScrollUpdate?: (scrollLeft: number, scrollTop: number) => void;
 
   /**
    * Triggered when the mouse hovers over the every type of region
@@ -124,6 +126,7 @@ export interface IGridProps extends IGridExternalProps {
   rowHeight?: number;
   style?: CSSProperties;
   isTouchDevice?: boolean;
+  columnHeaderVisible?: boolean;
   columnStatistics?: IColumnStatistics;
   getCellContent: (cell: ICellItem) => ICell;
 }
@@ -131,12 +134,16 @@ export interface IGridProps extends IGridExternalProps {
 export interface IGridRef {
   resetState: () => void;
   forceUpdate: () => void;
+  getActiveCell: () => ICellItem | null;
+  getRowOffset: (rowIndex: number) => number;
   setSelection: (selection: CombinedSelection) => void;
-  scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
   scrollBy: (deltaX: number, deltaY: number) => void;
+  scrollTo: (scrollLeft?: number, scrollTop?: number) => void;
+  scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
 }
 
 const {
+  scrollBuffer,
   appendRowHeight,
   groupHeaderHeight,
   cellScrollBuffer,
@@ -161,16 +168,18 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     rowControls = [{ type: RowControlType.Checkbox }],
     theme: customTheme,
     isTouchDevice,
-    smoothScrollX,
-    smoothScrollY,
-    scrollBufferX = 100,
-    scrollBufferY = 100,
+    smoothScrollX = true,
+    smoothScrollY = true,
+    scrollBufferX = scrollBuffer,
+    scrollBufferY = scrollBuffer,
+    scrollBarVisible = true,
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
     style,
     customIcons,
     collaborators,
     groupPoints,
+    columnHeaderVisible = true,
     getCellContent,
     onCopy,
     onPaste,
@@ -193,16 +202,24 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onCollapsedGroupChanged,
     onItemHovered,
     onItemClick,
+    onScrollUpdate,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
-    scrollToItem,
-    scrollBy,
     resetState: () => interactionLayerRef.current?.resetState(),
     forceUpdate: () => setForceRenderFlag(uniqueId('grid_')),
+    getActiveCell: () => activeCell,
     setSelection: (selection: CombinedSelection) => {
       interactionLayerRef.current?.setSelection(selection);
     },
+    getRowOffset: (rowIndex: number) => {
+      const { scrollTop } = scrollState;
+      const realRowIndex = real2RowIndex(rowIndex);
+      return coordInstance.getRowOffset(realRowIndex) - scrollTop;
+    },
+    scrollBy,
+    scrollTo,
+    scrollToItem,
   }));
 
   const hasAppendRow = onRowAppend != null;
@@ -379,13 +396,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       freezeColumnCount,
       containerWidth: width,
       containerHeight,
-      rowInitSize: defaultColumnHeaderHeight,
+      rowInitSize: columnHeaderVisible ? defaultColumnHeaderHeight : 0,
       columnInitSize,
       rowHeightMap,
       columnWidthMap,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowHeight, pureRowCount, rowCount, rowHeightMap]);
+  }, [rowHeight, pureRowCount, rowCount, rowHeightMap, columnHeaderVisible]);
 
   const totalHeight = coordInstance.totalHeight + scrollBufferY;
 
@@ -537,11 +554,11 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onRowAppend={onRowAppend}
             onRowExpand={onRowExpand}
             onCellEdited={onCellEdited}
-            onSelectionChanged={onSelectionChanged}
             onContextMenu={onContextMenu}
             onColumnAppend={onColumnAppend}
             onColumnHeaderClick={onColumnHeaderClick}
             onColumnStatisticClick={onColumnStatisticClick}
+            onSelectionChanged={onSelectionChanged}
           />
         ) : (
           <InteractionLayer
@@ -559,6 +576,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
             collapsedGroupIds={collapsedGroupIds}
+            columnHeaderVisible={columnHeaderVisible}
             isMultiSelectionEnable={isMultiSelectionEnable}
             activeCell={activeCell}
             mouseState={mouseState}
@@ -609,11 +627,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         scrollHeight={totalHeight}
         smoothScrollX={smoothScrollX}
         smoothScrollY={smoothScrollY}
+        scrollBarVisible={scrollBarVisible}
         containerRef={containerRef}
         scrollState={scrollState}
         scrollEnable={scrollEnable}
         getLinearRow={getLinearRow}
         setScrollState={setScrollState}
+        onScrollUpdate={onScrollUpdate}
         onVisibleRegionChanged={onVisibleRegionChanged}
       />
     </div>

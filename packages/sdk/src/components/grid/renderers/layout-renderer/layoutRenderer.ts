@@ -1347,6 +1347,10 @@ export const drawColumnHeadersRegion = (
   ctx: CanvasRenderingContext2D,
   props: ILayoutDrawerProps
 ) => {
+  const { columnHeaderVisible } = props;
+
+  if (!columnHeaderVisible) return;
+
   [RenderRegion.Freeze, RenderRegion.Other].forEach((r) => drawColumnHeaders(ctx, props, r));
   drawAppendColumn(ctx, props);
 };

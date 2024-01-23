@@ -1,5 +1,9 @@
 {
   "toolbar": {
     "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。"
+  },
+  "grid": {
+    "prefillingRowTitle": "此行已移动",
+    "prefillingRowTooltip": "当您选择另一行时，此行将移动到其新的位置"
   }
 }

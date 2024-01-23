@@ -61,7 +61,7 @@ const generateColumns = (
   })[];
 };
 
-const createCellValue2GridDisplay =
+export const createCellValue2GridDisplay =
   (fields: IFieldInstance[], editable: boolean) =>
   // eslint-disable-next-line sonarjs/cognitive-complexity
   (record: Record, col: number): ICell => {

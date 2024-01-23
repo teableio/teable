@@ -87,7 +87,6 @@ export const ratingCellRenderer: IInternalCellRenderer<IRatingCell> = {
   onClick: (cell: IRatingCell, props: ICellClickProps, callback: ICellClickCallback) => {
     const cellRegion = ratingCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion || cellRegion.type === CellRegionType.Blank) return;
-    console.log('cellRegion', cellRegion);
     callback(cellRegion);
   },
 };
