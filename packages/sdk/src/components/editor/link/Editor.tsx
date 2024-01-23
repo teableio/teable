@@ -67,13 +67,15 @@ export const LinkEditor = (props: ILinkEditorProps) => {
           onDelete={() => onDeleteRecord(id)}
         />
       ))}
-      <ExpandRecorder
-        tableId={foreignTableId}
-        recordId={expandRecordId}
-        recordIds={recordIds}
-        onUpdateRecordIdCallback={updateExpandRecordId}
-        onClose={() => updateExpandRecordId(undefined)}
-      />
+      {!readonly && (
+        <ExpandRecorder
+          tableId={foreignTableId}
+          recordId={expandRecordId}
+          recordIds={recordIds}
+          onUpdateRecordIdCallback={updateExpandRecordId}
+          onClose={() => updateExpandRecordId(undefined)}
+        />
+      )}
       {!readonly && (
         <Dialog open={isEditing} onOpenChange={onOpenChange}>
           <DialogTrigger asChild>

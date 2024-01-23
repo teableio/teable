@@ -21,7 +21,7 @@ export const LinkCard = (props: ILinkCardProps) => {
         'group relative w-full cursor-pointer rounded-md border px-4 py-2 shadow-sm',
         wrapClassName
       )}
-      onClick={onClick}
+      onClick={readonly ? undefined : onClick}
       onKeyDown={noop}
     >
       <div className={cn('w-full font-mono text-sm', className)} title={title || 'Unnamed record'}>
