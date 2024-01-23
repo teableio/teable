@@ -54,7 +54,7 @@ export const FieldSetting = (props: IFieldSetting) => {
         const result = await table?.createField(field);
         const fieldId = result?.data?.id;
         if (view && order != null && fieldId && table?.id) {
-          await view.setViewColumnMeta([{ fieldId, columnMeta: { order } }]);
+          await view.updateColumnMeta([{ fieldId, columnMeta: { order } }]);
         }
       }
 

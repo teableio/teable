@@ -30,7 +30,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
 
   const onHidden = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     event.stopPropagation();
-    view.setViewColumnMeta([
+    view.updateColumnMeta([
       {
         fieldId: fieldId,
         columnMeta: {
@@ -41,7 +41,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   };
 
   const onRequiredChange = (checked: boolean) => {
-    view.setViewColumnMeta([
+    view.updateColumnMeta([
       {
         fieldId: fieldId,
         columnMeta: {

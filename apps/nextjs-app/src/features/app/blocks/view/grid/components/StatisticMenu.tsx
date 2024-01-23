@@ -40,7 +40,7 @@ export const StatisticMenu = () => {
   const onSelect = (type: NoneFunc | StatisticsFunc) => {
     closeStatisticMenu();
     view &&
-      view.setViewColumnMeta([
+      view.updateColumnMeta([
         {
           fieldId,
           columnMeta: {

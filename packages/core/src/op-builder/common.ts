@@ -12,17 +12,8 @@ export enum OpName {
   SetFieldProperty = 'setFieldProperty',
 
   AddView = 'addView',
-  SetViewName = 'setViewName',
-  SetViewDescription = 'setViewDescription',
-  SetViewFilter = 'setViewFilter',
-  SetViewSort = 'setViewSort',
-  SetViewGroup = 'setViewGroup',
-  SetViewColumnMeta = 'setViewColumnMeta',
-  SetViewOptions = 'setViewOptions',
-  SetViewEnableShare = 'setViewEnableShare',
-  SetViewShareId = 'setViewShareId',
-  SetViewShareMeta = 'setViewShareMeta',
-  SetViewOrder = 'setViewOrder',
+  SetViewProperty = 'setViewProperty',
+  UpdateViewColumnMeta = 'updateViewColumnMeta',
 }
 
 export function pathMatcher<T>(path: (string | number)[], matchList: string[]): T | null {

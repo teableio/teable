@@ -10,18 +10,17 @@ import type {
   IOtOperation,
   IViewRo,
   IViewVo,
-  IFilterRo,
-  IViewSortRo,
-  IViewGroupRo,
-  IViewOptionRo,
   IColumnMetaRo,
+  IViewPropertyKeys,
+  IViewOptions,
 } from '@teable-group/core';
 import {
   ViewType,
   IManualSortRo,
   ViewOpBuilder,
   generateShareId,
-  validateOptionType,
+  VIEW_JSON_KEYS,
+  validateOptionsType,
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { IViewOrderRo } from '@teable-group/openapi';
@@ -131,7 +130,7 @@ export class ViewOpenApiService {
     });
   }
 
-  async setViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
+  async updateViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
     const view = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
@@ -184,77 +183,43 @@ export class ViewOpenApiService {
         newColumnMeta: { ...curColumnMeta[fieldId], ...columnMeta },
         oldColumnMeta: curColumnMeta[fieldId] ? curColumnMeta[fieldId] : undefined,
       };
-      ops.push(ViewOpBuilder.editor.setViewColumnMeta.build(obj));
+      ops.push(ViewOpBuilder.editor.updateViewColumnMeta.build(obj));
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, ops);
     });
   }
 
-  async setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
-    const { filter } = filterRo;
+  async setViewProperty(
+    tableId: string,
+    viewId: string,
+    key: IViewPropertyKeys,
+    newValue: unknown
+  ) {
     const curView = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
-        select: { filter: true },
-        where: { tableId, id: viewId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new BadRequestException('View filter not found');
-      });
-    const { filter: oldFilter } = curView;
-    const ops = ViewOpBuilder.editor.setViewFilter.build({
-      newFilter: filter,
-      oldFilter: oldFilter ? JSON.parse(oldFilter) : oldFilter,
-    });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-    });
-  }
-
-  async setViewSort(tableId: string, viewId: string, sortRo: IViewSortRo) {
-    const { sort } = sortRo;
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
-        select: { sort: true },
+        select: { [key]: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
         throw new BadRequestException('View not found');
       });
-    const { sort: oldSort } = curView;
-    const ops = ViewOpBuilder.editor.setViewSort.build({
-      newSort: sort,
-      oldSort: oldSort ? JSON.parse(oldSort) : oldSort,
+    const oldValue =
+      curView[key] != null && VIEW_JSON_KEYS.includes(key)
+        ? JSON.parse(curView[key])
+        : curView[key];
+    const ops = ViewOpBuilder.editor.setViewProperty.build({
+      key,
+      newValue,
+      oldValue,
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });
   }
 
-  async setViewGroup(tableId: string, viewId: string, groupRo: IViewGroupRo) {
-    const { group } = groupRo;
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
-        select: { group: true },
-        where: { tableId, id: viewId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new BadRequestException('View not found');
-      });
-    const { group: oldGroup } = curView;
-    const ops = ViewOpBuilder.editor.setViewGroup.build({
-      newGroup: group,
-      oldGroup: oldGroup ? JSON.parse(oldGroup) : oldGroup,
-    });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-    });
-  }
-
-  async setViewOption(tableId: string, viewId: string, viewOption: IViewOptionRo) {
+  async patchViewOptions(tableId: string, viewId: string, viewOptions: IViewOptions) {
     const curView = await this.prismaService
       .txClient()
       .view.findFirstOrThrow({
@@ -268,25 +233,26 @@ export class ViewOpenApiService {
 
     // validate option type
     try {
-      validateOptionType(viewType as ViewType, viewOption);
+      validateOptionsType(viewType as ViewType, viewOptions);
     } catch (err) {
       throw new BadRequestException(err);
     }
 
     const oldOptions = options ? JSON.parse(options) : options;
-    const ops = ViewOpBuilder.editor.setViewOptions.build({
-      newOptions: {
+    const ops = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'options',
+      newValue: {
         ...oldOptions,
-        ...viewOption,
+        ...viewOptions,
       },
-      oldOptions: oldOptions,
+      oldValue: oldOptions,
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });
   }
 
-  async setViewOrder(tableId: string, viewId: string, orderRo: IViewOrderRo) {
+  async updateViewOrder(tableId: string, viewId: string, orderRo: IViewOrderRo) {
     const { order } = orderRo;
 
     const views = await this.prismaService.txClient().view.findMany({
@@ -309,14 +275,39 @@ export class ViewOpenApiService {
 
     const { order: oldOrder } = curView;
 
-    const ops = ViewOpBuilder.editor.setViewOrder.build({
-      newOrder: order,
-      oldOrder,
+    const ops = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'order',
+      newValue: order,
+      oldValue: oldOrder,
     });
 
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });
+  }
+
+  async refreshShareId(tableId: string, viewId: string) {
+    const view = await this.prismaService.txClient().view.findUnique({
+      where: { id: viewId, tableId, deletedTime: null },
+      select: { shareId: true, enableShare: true },
+    });
+    if (!view) {
+      throw new NotFoundException(`View ${viewId} does not exist`);
+    }
+    const { enableShare } = view;
+    if (!enableShare) {
+      throw new BadRequestException(`View ${viewId} has not been enabled share`);
+    }
+    const newShareId = generateShareId();
+    const setShareIdOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'shareId',
+      newValue: newShareId,
+      oldValue: view.shareId || undefined,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [setShareIdOp]);
+    });
+    return { shareId: newShareId };
   }
 
   async enableShare(tableId: string, viewId: string) {
@@ -332,13 +323,15 @@ export class ViewOpenApiService {
       throw new BadRequestException(`View ${viewId} has already been enabled share`);
     }
     const newShareId = generateShareId();
-    const enableShareOp = ViewOpBuilder.editor.setViewEnableShare.build({
-      newEnableShare: true,
-      oldEnableShare: enableShare || undefined,
+    const enableShareOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'enableShare',
+      newValue: true,
+      oldValue: enableShare || undefined,
     });
-    const setShareIdOp = ViewOpBuilder.editor.setViewShareId.build({
-      newShareId,
-      oldShareId: shareId || undefined,
+    const setShareIdOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'shareId',
+      newValue: newShareId,
+      oldValue: shareId || undefined,
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
@@ -359,13 +352,15 @@ export class ViewOpenApiService {
       throw new BadRequestException(`View ${viewId} has already been disable share`);
     }
     const shareMeta = JSON.parse(view.shareMeta as string) || undefined;
-    const enableShareOp = ViewOpBuilder.editor.setViewEnableShare.build({
-      newEnableShare: false,
-      oldEnableShare: enableShare || undefined,
+    const enableShareOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'enableShare',
+      newValue: false,
+      oldValue: enableShare || undefined,
     });
 
-    const shareMetaOp = ViewOpBuilder.editor.setViewShareMeta.build({
-      oldShareMeta: shareMeta || undefined,
+    const shareMetaOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'shareMeta',
+      oldValue: shareMeta || undefined,
     });
 
     await this.prismaService.$tx(async () => {

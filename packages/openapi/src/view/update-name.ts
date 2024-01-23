@@ -1,16 +1,20 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IViewSortRo } from '@teable-group/core';
-import { sortSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_SORT = '/table/{tableId}/view/{viewId}/viewSort';
+export const VIEW_NAME = '/table/{tableId}/view/{viewId}/name';
 
-export const SetViewSortRoute: RouteConfig = registerRoute({
+export const viewNameRoSchema = z.object({
+  name: z.string(),
+});
+
+export type IViewNameRo = z.infer<typeof viewNameRoSchema>;
+
+export const updateViewNameRoute: RouteConfig = registerRoute({
   method: 'put',
-  path: VIEW_SORT,
-  description: 'Update view sort condition',
+  path: VIEW_NAME,
+  description: 'Update view name',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -19,7 +23,7 @@ export const SetViewSortRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: sortSchema,
+          schema: viewNameRoSchema,
         },
       },
     },
@@ -32,12 +36,12 @@ export const SetViewSortRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewSort = async (tableId: string, viewId: string, sortViewRo: IViewSortRo) => {
+export const updateViewName = async (tableId: string, viewId: string, data: IViewNameRo) => {
   return axios.put<void>(
-    urlBuilder(VIEW_SORT, {
+    urlBuilder(VIEW_NAME, {
       tableId,
       viewId,
     }),
-    sortViewRo
+    data
   );
 };

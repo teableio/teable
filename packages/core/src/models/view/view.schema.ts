@@ -1,8 +1,13 @@
-import { sharePasswordSchema } from '../../share';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
+import { filterSchema } from './filter';
+import { groupSchema } from './group';
+import { viewOptionsSchema } from './option.schema';
+import { sortSchema } from './sort';
+
+export const sharePasswordSchema = z.string().min(3);
 
 export const shareViewMetaSchema = z.object({
   allowCopy: z.boolean().optional(),
@@ -18,10 +23,10 @@ export const viewVoSchema = z.object({
   type: z.nativeEnum(ViewType),
   description: z.string().optional(),
   order: z.number(),
-  options: z.unknown().optional(),
-  sort: z.unknown().optional(),
-  filter: z.unknown().optional(),
-  group: z.unknown().optional(),
+  options: viewOptionsSchema.optional(),
+  sort: sortSchema.optional(),
+  filter: filterSchema.optional(),
+  group: groupSchema.optional(),
   shareId: z.string().optional(),
   enableShare: z.boolean().optional(),
   shareMeta: shareViewMetaSchema.optional(),
@@ -51,3 +56,5 @@ export const viewRoSchema = viewVoSchema
   });
 
 export type IViewRo = z.infer<typeof viewRoSchema>;
+export type IViewPropertyKeys = keyof IViewRo;
+export const VIEW_JSON_KEYS = ['options', 'sort', 'filter', 'group', 'shareMeta', 'columnMeta'];

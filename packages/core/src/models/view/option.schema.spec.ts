@@ -1,14 +1,14 @@
 import { ViewType } from './constant';
-import type { IViewOptionRo } from './option.schema';
-import { validateOptionType, viewOptionRoSchema } from './option.schema';
+import type { IViewOptions } from './option.schema';
+import { validateOptionsType, viewOptionsSchema } from './option.schema';
 
 describe('view option Parse', () => {
   it('should parse view option', async () => {
-    const option: IViewOptionRo = {
+    const option: IViewOptions = {
       coverUrl: 'https://www.xxx.com',
     };
 
-    const parse = viewOptionRoSchema.parse(option);
+    const parse = viewOptionsSchema.parse(option);
 
     expect(parse).toEqual(option);
   });
@@ -16,10 +16,10 @@ describe('view option Parse', () => {
 
 describe('view option validate', () => {
   test('should throw a error when pass form option to grid view', async () => {
-    const formOption: IViewOptionRo = {
+    const formOption: IViewOptions = {
       coverUrl: 'https://www.xxx.com',
     };
 
-    expect(() => validateOptionType(ViewType.Grid, formOption)).toThrow();
+    expect(() => validateOptionsType(ViewType.Grid, formOption)).toThrow();
   });
 });

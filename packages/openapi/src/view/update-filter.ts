@@ -7,7 +7,7 @@ import { z } from '../zod';
 
 export const VIEW_FILTER = '/table/{tableId}/view/{viewId}/filter';
 
-export const SetViewFilterRoute: RouteConfig = registerRoute({
+export const UpdateViewFilterRoute: RouteConfig = registerRoute({
   method: 'put',
   path: VIEW_FILTER,
   description: 'Update view filter',
@@ -48,7 +48,7 @@ export const SetViewFilterRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewFilter = async (tableId: string, viewId: string, filterRo: IFilterRo) => {
+export const updateViewFilter = async (tableId: string, viewId: string, filterRo: IFilterRo) => {
   return axios.put<void>(
     urlBuilder(VIEW_FILTER, {
       tableId,

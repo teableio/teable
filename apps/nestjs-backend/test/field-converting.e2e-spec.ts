@@ -22,6 +22,7 @@ import {
   FieldKeyType,
   SingleLineTextDisplayType,
   DateFormattingPreset,
+  generateFieldId,
 } from '@teable-group/core';
 import {
   getRecords,
@@ -123,32 +124,33 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     });
 
     it('should modify db field name', async () => {
+      const dbFieldName = generateFieldId();
       const sourceFieldRo1: IFieldRo = {
         name: 'TextField',
         description: 'hello',
-        dbFieldName: 'the_db_field_name',
+        dbFieldName: dbFieldName,
         type: FieldType.SingleLineText,
       };
 
       const field = await createField(table1.id, sourceFieldRo1);
-      expect(field.dbFieldName).toEqual('the_db_field_name');
+      expect(field.dbFieldName).toEqual(dbFieldName);
 
       await createField(table1.id, sourceFieldRo1, 400);
 
       const sourceFieldRo2: IFieldRo = {
         name: 'TextField 2',
         description: 'hello',
-        dbFieldName: 'the_db_field_name_2',
+        dbFieldName: dbFieldName + '2',
         type: FieldType.SingleLineText,
       };
 
       const newFieldRo: IFieldRo = {
-        dbFieldName: 'NEW_field_name',
+        dbFieldName: generateFieldId(),
         type: FieldType.SingleLineText,
       };
 
       const { newField } = await expectUpdate(table1, sourceFieldRo2, newFieldRo);
-      expect(newField.dbFieldName).toEqual('NEW_field_name');
+      expect(newField.dbFieldName).toEqual(newFieldRo.dbFieldName);
       expect(newField.name).toEqual('TextField 2');
       expect(newField.description).toEqual('hello');
     });

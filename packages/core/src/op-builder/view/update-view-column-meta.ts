@@ -2,15 +2,15 @@ import type { IColumnMeta, IOtOperation, IColumn } from '../../models';
 import { OpName, pathMatcher } from '../common';
 import type { IOpBuilder } from '../interface';
 
-export interface ISetViewColumnMetaOpContext {
-  name: OpName.SetViewColumnMeta;
+export interface IUpdateViewColumnMetaOpContext {
+  name: OpName.UpdateViewColumnMeta;
   fieldId: string;
   newColumnMeta?: IColumnMeta | null;
   oldColumnMeta?: IColumnMeta | null;
 }
 
-export class SetViewColumnMetaBuilder implements IOpBuilder {
-  name: OpName.SetViewColumnMeta = OpName.SetViewColumnMeta;
+export class UpdateViewColumnMetaBuilder implements IOpBuilder {
+  name: OpName.UpdateViewColumnMeta = OpName.UpdateViewColumnMeta;
 
   build(params: {
     fieldId: string;
@@ -26,7 +26,7 @@ export class SetViewColumnMetaBuilder implements IOpBuilder {
     };
   }
 
-  detect(op: IOtOperation): ISetViewColumnMetaOpContext | null {
+  detect(op: IOtOperation): IUpdateViewColumnMetaOpContext | null {
     const { p, oi, od } = op;
 
     const result = pathMatcher<Record<string, never>>(p, ['columnMeta', ':fieldId']);

@@ -102,7 +102,7 @@ export const FormSidebar = () => {
 
   const onFieldShown = (field: IFieldInstance) => {
     view &&
-      view.setViewColumnMeta([
+      view.updateColumnMeta([
         {
           fieldId: field.id,
           columnMeta: {
@@ -114,9 +114,7 @@ export const FormSidebar = () => {
 
   const onFieldsHiddenChange = (fields: IFieldInstance[], hidden: boolean) => {
     view &&
-      view.setViewColumnMeta(
-        fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } }))
-      );
+      view.updateColumnMeta(fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } })));
   };
 
   return (

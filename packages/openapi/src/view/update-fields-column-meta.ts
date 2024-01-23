@@ -1,16 +1,16 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IViewGroupRo } from '@teable-group/core';
-import { groupSchema } from '@teable-group/core';
+import type { IColumnMetaRo } from '@teable-group/core';
+import { columnMetaRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_GROUP = '/table/{tableId}/view/{viewId}/viewGroup';
+export const VIEW_COLUMN_META = '/table/{tableId}/view/{viewId}/columnMeta';
 
-export const SetViewGroupRoute: RouteConfig = registerRoute({
+export const updateViewColumnMetaRoute: RouteConfig = registerRoute({
   method: 'put',
-  path: VIEW_GROUP,
-  description: 'Update view group condition',
+  path: VIEW_COLUMN_META,
+  description: 'Update view column meta',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -19,7 +19,7 @@ export const SetViewGroupRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: groupSchema,
+          schema: columnMetaRoSchema,
         },
       },
     },
@@ -32,12 +32,16 @@ export const SetViewGroupRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewGroup = async (tableId: string, viewId: string, groupViewRo: IViewGroupRo) => {
+export const updateViewColumnMeta = async (
+  tableId: string,
+  viewId: string,
+  columnMetaRo: IColumnMetaRo
+) => {
   return axios.put<void>(
-    urlBuilder(VIEW_GROUP, {
+    urlBuilder(VIEW_COLUMN_META, {
       tableId,
       viewId,
     }),
-    groupViewRo
+    columnMetaRo
   );
 };

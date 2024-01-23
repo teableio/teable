@@ -1,12 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
-import {
-  SetFieldPropertyBuilder,
-  FieldOpBuilder,
-  IdPrefix,
-  ViewOpBuilder,
-} from '@teable-group/core';
-import type { IOtOperation, ISetFieldPropertyOpContext } from '@teable-group/core';
+import { IdPrefix, ViewOpBuilder, FieldOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -64,8 +58,7 @@ export class ShareDbService extends ShareDBClass {
     authMiddleware(this, this.shareDbPermissionService);
     derivateMiddleware(this, this.cls, this.wsDerivateService);
 
-    // this.use('submit', this.onSubmit);
-    this.use('commit', this.onCommit);
+    this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client
     this.prismaService.bindAfterTransaction(() => {
@@ -88,7 +81,6 @@ export class ShareDbService extends ShareDBClass {
 
   @Timing()
   publishOpsMap(rawOpMap: IRawOpMap) {
-    const detectFns = this.getDetectFunctions();
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
       for (const docId in data) {
@@ -98,7 +90,7 @@ export class ShareDbService extends ShareDBClass {
         rawOp.d = docId;
         this.pubsub.publish(channels, rawOp, noop);
 
-        if (this.shouldPublishAction(rawOp, detectFns)) {
+        if (this.shouldPublishAction(rawOp)) {
           const tableId = collection.split('_')[1];
           this.publishRelatedChannels(tableId, rawOp);
         }
@@ -106,35 +98,13 @@ export class ShareDbService extends ShareDBClass {
     }
   }
 
-  private getDetectFunctions() {
-    const { setViewSort, setViewFilter, setViewGroup } = ViewOpBuilder.editor;
-    const { setFieldProperty } = FieldOpBuilder.editor;
-    return [setViewFilter, setViewSort, setViewGroup, setFieldProperty];
-  }
-
-  private shouldPublishAction(
-    rawOp: EditOp | CreateOp | DeleteOp,
-    detectFns: ReturnType<typeof this.getDetectFunctions>
-  ): boolean {
-    return rawOp.op?.[0] && this.detectAction(rawOp.op, detectFns);
-  }
-
-  private detectAction(
-    ops: IOtOperation[],
-    detectFns: ReturnType<typeof this.getDetectFunctions>
-  ): boolean {
-    return ops.some((op) =>
-      detectFns.some((fn) => {
-        const detect = fn?.detect(op);
-        if (detect === null) {
-          return false;
-        }
-
-        if (fn instanceof SetFieldPropertyBuilder) {
-          return (detect as ISetFieldPropertyOpContext)?.key === 'options';
-        }
-        return true;
-      })
+  private shouldPublishAction(rawOp: EditOp | CreateOp | DeleteOp) {
+    const viewKeys = ['filter', 'sort', 'group'];
+    const fieldKeys = ['options'];
+    return rawOp.op?.some(
+      (op) =>
+        viewKeys.includes(ViewOpBuilder.editor.setViewProperty.detect(op)?.key as string) ||
+        fieldKeys.includes(FieldOpBuilder.editor.setFieldProperty.detect(op)?.key as string)
     );
   }
 
@@ -146,27 +116,6 @@ export class ShareDbService extends ShareDBClass {
     this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
     this.pubsub.publish([`${IdPrefix.Field}_${tableId}`], rawOp, noop);
   }
-
-  private onCommit = (
-    context: ShareDBClass.middleware.CommitContext,
-    next: (err?: unknown) => void
-  ) => {
-    const [docType, tableId] = context.collection.split('_');
-
-    // Additional publish/subscribe `record channels` are required for changes to view properties
-    if (docType === IdPrefix.View && context.op.op) {
-      const { setViewFilter, setViewSort, setViewGroup } = ViewOpBuilder.editor;
-      const detectFns = [setViewFilter, setViewSort, setViewGroup];
-      const action = context.op.op.some((op) => detectFns.some((fn) => fn?.detect(op)));
-
-      if (action) {
-        context?.channels?.push(`${IdPrefix.Record}_${tableId}`);
-        context?.channels?.push(`${IdPrefix.Field}_${tableId}`);
-      }
-    }
-
-    next();
-  };
 
   private onSubmit = (
     _context: ShareDBClass.middleware.SubmitContext,

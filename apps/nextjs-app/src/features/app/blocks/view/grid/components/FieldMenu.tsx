@@ -138,7 +138,7 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          view.setViewColumnMeta(
+          view.updateColumnMeta(
             filteredFields.map((field) => ({ fieldId: field.id, columnMeta: { hidden: true } }))
           );
         },

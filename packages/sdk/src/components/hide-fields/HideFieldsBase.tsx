@@ -98,7 +98,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
 
     list.splice(to, 0, field);
     setInnerFields(list);
-    view.setViewColumnMeta([
+    view.updateColumnMeta([
       {
         fieldId: field.id as string,
         columnMeta: {

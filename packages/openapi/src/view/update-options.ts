@@ -1,14 +1,19 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IViewOptionRo } from '@teable-group/core';
-import { viewOptionRoSchema } from '@teable-group/core';
+import { viewOptionsSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_OPTION = '/table/{tableId}/view/{viewId}/option';
+export const VIEW_OPTION = '/table/{tableId}/view/{viewId}/options';
 
-export const SetViewShortRoute: RouteConfig = registerRoute({
-  method: 'put',
+export const viewOptionsRoSchema = z.object({
+  options: viewOptionsSchema,
+});
+
+export type IViewOptionsRo = z.infer<typeof viewOptionsRoSchema>;
+
+export const UpdateViewOptionsRoute: RouteConfig = registerRoute({
+  method: 'patch',
   path: VIEW_OPTION,
   description: 'Update view option',
   request: {
@@ -19,7 +24,7 @@ export const SetViewShortRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: viewOptionRoSchema,
+          schema: viewOptionsRoSchema,
         },
       },
     },
@@ -32,16 +37,16 @@ export const SetViewShortRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewOption = async (
+export const updateViewOptions = async (
   tableId: string,
   viewId: string,
-  viewOptionRo: IViewOptionRo
+  viewOptionsRo: IViewOptionsRo
 ) => {
-  return axios.put<void>(
+  return axios.patch<void>(
     urlBuilder(VIEW_OPTION, {
       tableId,
       viewId,
     }),
-    viewOptionRo
+    viewOptionsRo
   );
 };

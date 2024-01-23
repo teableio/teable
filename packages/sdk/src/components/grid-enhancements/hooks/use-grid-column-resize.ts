@@ -24,7 +24,7 @@ export function useGridColumnResize<T extends { id: string }>(_columns: T[]) {
       if (index == null || newSize == null) {
         return;
       }
-      view.setViewColumnMeta([
+      view.updateColumnMeta([
         {
           fieldId: fields[index].id,
           columnMeta: { width: newSize },

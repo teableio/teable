@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IFilterRo } from '@teable-group/core';
-import { setViewFilter as apiSetViewFilter } from '@teable-group/openapi';
+import { updateViewFilter as apiSetViewFilter } from '@teable-group/openapi';
 import { initApp, getView, createTable, deleteTable } from './utils/init-app';
 
 let app: INestApplication;
@@ -15,7 +15,7 @@ afterAll(async () => {
   await app.close();
 });
 
-async function setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
+async function updateViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
   try {
     const result = await apiSetViewFilter(tableId, viewId, filterRo);
     return result.data;
@@ -53,7 +53,7 @@ describe('OpenAPI ViewController (e2e) option (PUT)', () => {
         ],
       },
     };
-    await setViewFilter(tableId, viewId, assertFilter);
+    await updateViewFilter(tableId, viewId, assertFilter);
     const updatedView = await getView(tableId, viewId);
     const viewFilter = updatedView.filter;
     expect(viewFilter).toEqual(assertFilter.filter);

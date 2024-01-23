@@ -3,7 +3,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IGetRecordsRo, ISortItem, ITableFullVo } from '@teable-group/core';
 import { FieldType, CellValueType, SortFunc } from '@teable-group/core';
-import { setViewSort as apiSetViewSort } from '@teable-group/openapi';
+import { updateViewSort as apiSetViewSort } from '@teable-group/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import type { SingleSelectOptionsDto } from '../src/features/field/model/field-dto/single-select-field.dto';
 import { x_20 } from './data-helpers/20x';
@@ -108,7 +108,7 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     await deleteTable(baseId, tableId);
   });
 
-  test('/api/table/{tableId}/view/{viewId}/sort sort view order (PUT)', async () => {
+  it('/api/table/{tableId}/view/{viewId}/sort sort view order (PUT)', async () => {
     const assertSort = {
       sort: {
         sortObjs: [

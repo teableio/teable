@@ -30,12 +30,12 @@ export const HideFields: React.FC<{
 
     if (view) {
       hiddenIds.length &&
-        view.setViewColumnMeta(
+        view.updateColumnMeta(
           hiddenIds.map((id) => ({ fieldId: id, columnMeta: { hidden: true } }))
         );
 
       showIds.length &&
-        view.setViewColumnMeta(
+        view.updateColumnMeta(
           showIds.map((id) => ({ fieldId: id, columnMeta: { hidden: false } }))
         );
     }

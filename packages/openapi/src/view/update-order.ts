@@ -1,16 +1,22 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IColumnMetaRo } from '@teable-group/core';
-import { columnMetaRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_FIELD_COLUMNMETA = '/table/{tableId}/view/{viewId}/columnMeta';
+export const VIEW_ORDER = '/table/{tableId}/view/{viewId}/order';
 
-export const SetFieldsViewRoute: RouteConfig = registerRoute({
+export interface IViewOrderRo {
+  order: number;
+}
+
+export const viewOrderRoSchema = z.object({
+  order: z.number(),
+});
+
+export const updateViewOrderRoute: RouteConfig = registerRoute({
   method: 'put',
-  path: VIEW_FIELD_COLUMNMETA,
-  description: 'Update view fields column meta',
+  path: VIEW_ORDER,
+  description: 'Update view order',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -19,7 +25,7 @@ export const SetFieldsViewRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: columnMetaRoSchema,
+          schema: viewOrderRoSchema,
         },
       },
     },
@@ -32,16 +38,12 @@ export const SetFieldsViewRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const setViewColumnMeta = async (
-  tableId: string,
-  viewId: string,
-  columnMetaRo: IColumnMetaRo
-) => {
+export const updateViewOrder = async (tableId: string, viewId: string, orderRo: IViewOrderRo) => {
   return axios.put<void>(
-    urlBuilder(VIEW_FIELD_COLUMNMETA, {
+    urlBuilder(VIEW_ORDER, {
       tableId,
       viewId,
     }),
-    columnMetaRo
+    orderRo
   );
 };

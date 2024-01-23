@@ -12,7 +12,6 @@ import {
   useFieldStaticGetter,
   useFields,
   useIsHydrated,
-  useGridColumnOrder,
   swapReorder,
   reorder,
 } from '@teable-group/sdk';
@@ -38,7 +37,6 @@ export const FormEditor = () => {
   const isHydrated = useIsHydrated();
   const visibleFields = useFields();
   const allFields = useFields({ withHidden: true });
-  const { onColumnOrdered } = useGridColumnOrder();
   const getFieldStatic = useFieldStaticGetter();
   const [activeField, setActiveField] = useState<IFieldInstance | null>(null);
   const [activeSidebarField, setActiveSidebarField] = useState<IFieldInstance | null>(null);
@@ -115,7 +113,7 @@ export const FormEditor = () => {
       const sourceDragId = activeSidebarField.id;
       const sourceIndex = allFields.findIndex((f) => f.id === sourceDragId);
       const draggingField = allFields[sourceIndex];
-      await view.setViewColumnMeta([
+      await view.updateColumnMeta([
         {
           fieldId: draggingField.id,
           columnMeta: {
@@ -130,7 +128,7 @@ export const FormEditor = () => {
         const fieldId = visibleFields[index].id;
         return view?.columnMeta[fieldId].order;
       });
-      await view.setViewColumnMeta([
+      await view.updateColumnMeta([
         {
           fieldId: draggingField.id,
           columnMeta: {
@@ -154,7 +152,7 @@ export const FormEditor = () => {
           return view?.columnMeta[fieldId].order;
         }
       );
-      await view?.setViewColumnMeta([
+      await view?.updateColumnMeta([
         {
           fieldId: sourceDragId,
           columnMeta: {

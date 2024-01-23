@@ -43,7 +43,7 @@ export const DraggableViewList = () => {
 
     setInnerViews(newViews);
 
-    await view?.setViewOrder(newOrder);
+    await view?.updateOrder(newOrder);
   };
 
   return isHydrated ? (
