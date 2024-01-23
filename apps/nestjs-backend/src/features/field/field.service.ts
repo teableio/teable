@@ -22,7 +22,6 @@ import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
-import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
 import { createViewVoByRaw } from '../view/model/factory';
 import type { IFieldInstance } from './model/factory';
@@ -38,7 +37,6 @@ export class FieldService implements IAdapterService {
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -361,10 +359,6 @@ export class FieldService implements IAdapterService {
 
   private async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {
     const userId = this.cls.get('user.id');
-    await this.attachmentService.deleteFields(
-      tableId,
-      fieldData.map((data) => data.docId)
-    );
 
     for (const data of fieldData) {
       const { docId: id, version } = data;

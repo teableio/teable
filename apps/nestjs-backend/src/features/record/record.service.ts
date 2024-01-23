@@ -50,7 +50,6 @@ import type { IClsStore } from '../../types/cls';
 import { getViewOrderFieldName } from '../../utils';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
-import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { BatchService } from '../calculation/batch.service';
 import type { IVisualTableDefaultField } from '../field/constant';
@@ -68,7 +67,6 @@ export class RecordService implements IAdapterService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
-    private readonly attachmentService: AttachmentsTableService,
     private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -508,12 +506,6 @@ export class RecordService implements IAdapterService {
     const fieldInstances = fieldRaws.map((field) => createFieldInstanceByRaw(field));
     const fieldInstanceMap = keyBy(fieldInstances, 'id');
 
-    const createAttachmentsTable = this.getCreateAttachments(fieldInstanceMap, contexts);
-
-    if (createAttachmentsTable.length) {
-      await this.attachmentService.updateByRecord(tableId, recordId, createAttachmentsTable);
-    }
-
     const recordFieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>(
       (pre, ctx) => {
         const fieldInstance = fieldInstanceMap[ctx.fieldId];
@@ -533,31 +525,6 @@ export class RecordService implements IAdapterService {
       .where({ __id: recordId })
       .toQuery();
     return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
-  }
-
-  getCreateAttachments(
-    fieldMap: { [key: string]: { id: string; dbFieldName: string; type: string } },
-    contexts: { fieldId: string; newCellValue: unknown }[]
-  ) {
-    return contexts.reduce<
-      { attachmentId: string; name: string; token: string; fieldId: string }[]
-    >((pre, ctx) => {
-      const { type } = fieldMap[ctx.fieldId];
-
-      if (type === FieldType.Attachment && Array.isArray(ctx.newCellValue)) {
-        (ctx.newCellValue as IAttachmentCellValue)?.forEach((attachment) => {
-          const { name, token, id } = attachment;
-          pre.push({
-            name,
-            token,
-            fieldId: ctx.fieldId,
-            attachmentId: id,
-          });
-        });
-      }
-
-      return pre;
-    }, []);
   }
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
@@ -716,23 +683,6 @@ export class RecordService implements IAdapterService {
 
   private async batchDel(tableId: string, recordIds: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
-    const fields = await this.prismaService.txClient().field.findMany({
-      where: { tableId },
-      select: { id: true, type: true },
-    });
-    const attachmentFields = fields.filter((field) => field.type === FieldType.Attachment);
-
-    await this.attachmentService.delete(
-      attachmentFields.reduce<{ tableId: string; recordId: string; fieldId: string }[]>(
-        (pre, { id }) => {
-          recordIds.forEach((recordId) => {
-            pre.push({ tableId, recordId, fieldId: id });
-          });
-          return pre;
-        },
-        []
-      )
-    );
 
     const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
 

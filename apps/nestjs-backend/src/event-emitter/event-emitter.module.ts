@@ -2,10 +2,12 @@
 import type { DynamicModule } from '@nestjs/common';
 import { ConfigurableModuleBuilder, Module } from '@nestjs/common';
 import { EventEmitterModule as BaseEventEmitterModule } from '@nestjs/event-emitter';
+import { AttachmentsTableModule } from '../features/attachments/attachments-table.module';
 import { NotificationModule } from '../features/notification/notification.module';
 import { ShareDbModule } from '../share-db/share-db.module';
 import { EventEmitterService } from './event-emitter.service';
 import { ActionTriggerListener } from './listeners/action-trigger.listener';
+import { AttachmentListener } from './listeners/attachment.listener';
 import { CollaboratorNotificationListener } from './listeners/collaborator-notification.listener';
 
 export interface EventEmitterModuleOptions {
@@ -26,10 +28,15 @@ export class EventEmitterModule extends EventEmitterModuleClass {
     });
 
     return {
-      imports: [module, ShareDbModule, NotificationModule],
+      imports: [module, ShareDbModule, NotificationModule, AttachmentsTableModule],
       module: EventEmitterModule,
       global,
-      providers: [EventEmitterService, ActionTriggerListener, CollaboratorNotificationListener],
+      providers: [
+        EventEmitterService,
+        ActionTriggerListener,
+        CollaboratorNotificationListener,
+        AttachmentListener,
+      ],
       exports: [EventEmitterService],
     };
   }

@@ -65,6 +65,8 @@ export class ShareDbService extends ShareDBClass {
     this.prismaService.bindAfterTransaction(() => {
       const rawOpMaps = this.cls.get('tx.rawOpMaps');
       const stashOpMap = this.cls.get('tx.stashOpMap');
+      this.cls.set('tx.rawOpMaps', undefined);
+      this.cls.set('tx.stashOpMap', undefined);
       const rawOpMap = fastMergeRawOpMaps(rawOpMaps || []);
       this.publishOpsMap(rawOpMap);
       (rawOpMap || stashOpMap) && this.eventEmitterService.ops2Event(stashOpMap, rawOpMap);
