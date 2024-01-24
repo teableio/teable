@@ -29,7 +29,6 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { Timing } from '../../utils/timing';
-import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
@@ -46,7 +45,6 @@ export class TableService implements IAdapterService {
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
-    private readonly attachmentService: AttachmentsTableService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -354,7 +352,6 @@ export class TableService implements IAdapterService {
 
   async del(version: number, baseId: string, tableId: string) {
     const userId = this.cls.get('user.id');
-    await this.attachmentService.deleteTable(tableId);
     await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId, baseId },
       data: { version, deletedTime: new Date(), lastModifiedBy: userId },
