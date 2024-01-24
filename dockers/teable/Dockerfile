@@ -7,7 +7,7 @@
 #          and generates node_modules folder(s)                   #
 ###################################################################
 
-ARG NODE_VERSION=18.18.2
+ARG NODE_VERSION=18.19.0
 
 
 FROM node:${NODE_VERSION}-bookworm AS deps
@@ -42,6 +42,8 @@ ENV NEXT_BUILD_ENV_OUTPUT=classic
 ENV NEXT_BUILD_ENV_SENTRY_ENABLED=false
 ENV NEXT_BUILD_ENV_SENTRY_TRACING=false
 
+ENV NODE_ENV=production
+
 WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
@@ -49,7 +51,8 @@ COPY --from=deps --link /workspace-install ./
 RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 # Distinguish whether it is an integration test operation
-RUN if [ -n "$INTEGRATION_TEST" ];  \
+RUN NODE_OPTIONS=--max-old-space-size=8192 && \
+    if [ -n "$INTEGRATION_TEST" ];  \
     then pnpm -F "./packages/**" run build;  \
     else pnpm g:build; \
     fi
@@ -64,9 +67,10 @@ WORKDIR /app
 
 RUN rm -fr node_modules && pnpm nuke:node_modules && \
       rm -fr ./packages/eslint-config-bases ./packages/ui-lib && \
-      chmod +x ./scripts/post-build-cleanup.sh && bash ./scripts/post-build-cleanup.sh && \
-      pnpm install --prod --prefer-offline --frozen-lockfile && \
-      pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+      chmod +x ./scripts/post-build-cleanup.sh && bash ./scripts/post-build-cleanup.sh
+
+RUN pnpm install --prod --prefer-offline --frozen-lockfile
+RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 
 ##################################################################

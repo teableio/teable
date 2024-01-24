@@ -134,7 +134,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
             <img
               src={(view as FormView)?.options?.coverUrl}
               alt="form cover"
-              className="h-full w-full object-cover"
+              className="size-full object-cover"
             />
           )}
         </div>
@@ -170,7 +170,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
                 onClick={onSubmit}
                 disabled={loading}
               >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {loading && <Loader2 className="size-4 animate-spin" />}
                 Submit
               </Button>
             </div>

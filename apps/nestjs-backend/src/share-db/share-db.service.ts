@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
-import { IdPrefix, ViewOpBuilder } from '@teable-group/core';
+import {
+  SetFieldPropertyBuilder,
+  FieldOpBuilder,
+  IdPrefix,
+  ViewOpBuilder,
+} from '@teable-group/core';
+import type { IOtOperation, ISetFieldPropertyOpContext } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -80,34 +86,63 @@ export class ShareDbService extends ShareDBClass {
 
   @Timing()
   publishOpsMap(rawOpMap: IRawOpMap) {
-    const { setViewSort, setViewFilter, setViewGroup } = ViewOpBuilder.editor;
+    const detectFns = this.getDetectFunctions();
     for (const collection in rawOpMap) {
       const data = rawOpMap[collection];
       for (const docId in data) {
         const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
         const channels = [collection, `${collection}.${docId}`];
-        const ops = rawOp.op;
         rawOp.c = collection;
         rawOp.d = docId;
         this.pubsub.publish(channels, rawOp, noop);
 
-        /**
-         * this is for some special scenarios like manual sort
-         * which only send view ops but update record too
-         */
-        if (ops?.[0]) {
-          const [, tableId] = collection.split('_');
-
-          const detectFns = [setViewFilter, setViewSort, setViewGroup];
-          const action = ops.some((op) => detectFns.some((fn) => fn?.detect(op)));
-
-          if (action) {
-            this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
-            this.pubsub.publish([`${IdPrefix.Field}_${tableId}`], rawOp, noop);
-          }
+        if (this.shouldPublishAction(rawOp, detectFns)) {
+          const tableId = collection.split('_')[1];
+          this.publishRelatedChannels(tableId, rawOp);
         }
       }
     }
+  }
+
+  private getDetectFunctions() {
+    const { setViewSort, setViewFilter, setViewGroup } = ViewOpBuilder.editor;
+    const { setFieldProperty } = FieldOpBuilder.editor;
+    return [setViewFilter, setViewSort, setViewGroup, setFieldProperty];
+  }
+
+  private shouldPublishAction(
+    rawOp: EditOp | CreateOp | DeleteOp,
+    detectFns: ReturnType<typeof this.getDetectFunctions>
+  ): boolean {
+    return rawOp.op?.[0] && this.detectAction(rawOp.op, detectFns);
+  }
+
+  private detectAction(
+    ops: IOtOperation[],
+    detectFns: ReturnType<typeof this.getDetectFunctions>
+  ): boolean {
+    return ops.some((op) =>
+      detectFns.some((fn) => {
+        const detect = fn?.detect(op);
+        if (detect === null) {
+          return false;
+        }
+
+        if (fn instanceof SetFieldPropertyBuilder) {
+          return (detect as ISetFieldPropertyOpContext)?.key === 'options';
+        }
+        return true;
+      })
+    );
+  }
+
+  /**
+   * this is for some special scenarios like manual sort
+   * which only send view ops but update record too
+   */
+  private publishRelatedChannels(tableId: string, rawOp: EditOp | CreateOp | DeleteOp) {
+    this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
+    this.pubsub.publish([`${IdPrefix.Field}_${tableId}`], rawOp, noop);
   }
 
   private onCommit = (

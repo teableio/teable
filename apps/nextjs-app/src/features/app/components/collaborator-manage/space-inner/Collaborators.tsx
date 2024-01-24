@@ -23,7 +23,7 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
       <ul className="space-y-3">
         {collaborators?.map(({ userId, userName, avatar }) => (
           <li key={userId} className="flex items-center space-x-3">
-            <Avatar className="h-7 w-7">
+            <Avatar className="size-7">
               <AvatarImage src={avatar as string} alt="avatar-name" />
               <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
             </Avatar>

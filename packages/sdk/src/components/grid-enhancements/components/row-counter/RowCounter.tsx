@@ -31,7 +31,7 @@ export const RowCounter = (props: IRowCounterProps) => {
         className="ml-[2px] h-full rounded-l-none p-[2px] hover:bg-violet-300 dark:hover:bg-zinc-500"
         onClick={onClick}
       >
-        <Icon className="h-3 w-3" />
+        <Icon className="size-3" />
       </Button>
     </div>
   );

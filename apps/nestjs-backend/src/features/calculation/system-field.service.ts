@@ -37,9 +37,9 @@ export class SystemFieldService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; __last_modified_time: Date; __last_modified_by: string }[]>(
-        nativeQuery
-      );
+      .$queryRawUnsafe<
+        { __id: string; __last_modified_time: Date; __last_modified_by: string }[]
+      >(nativeQuery);
 
     return result.reduce<{
       [recordId: string]: { lastModifiedTime: string; lastModifiedBy: string };

@@ -188,7 +188,7 @@ function FilterBase(props: IFilterBaseProps) {
               className="text-[13px]"
               onClick={() => addCondition([], ConditionAddType.ITEM)}
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="size-4" />
               {t('filter.addCondition')}
             </Button>
 
@@ -198,7 +198,7 @@ function FilterBase(props: IFilterBaseProps) {
               onClick={() => addCondition([], ConditionAddType.GROUP)}
               className="text-[13px]"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="size-4" />
               {t('filter.addConditionGroup')}
             </Button>
           </div>

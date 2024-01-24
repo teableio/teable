@@ -33,7 +33,7 @@ export const Table: React.FC<ITableProps> = ({
           <FieldProvider serverSideData={fieldServerData}>
             <ErrorBoundary
               fallback={
-                <div className="flex h-full w-full items-center justify-center">
+                <div className="flex size-full items-center justify-center">
                   <FailAlert />
                 </div>
               }

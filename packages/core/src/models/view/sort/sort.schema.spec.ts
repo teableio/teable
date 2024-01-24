@@ -1,9 +1,13 @@
 import type { ISort, ISortItem } from './sort';
 import { sortSchema, mergeWithDefaultSort } from './sort';
+import { SortFunc } from './sort-func.enum';
 
 describe('Sort Parse', () => {
   it('should parse sort', async () => {
-    const sort: ISort = { sortObjs: [{ fieldId: 'id', order: 'asc' }], manualSort: false };
+    const sort: ISort = {
+      sortObjs: [{ fieldId: 'fldxxxxxx', order: SortFunc.Asc }],
+      manualSort: false,
+    };
 
     const parse = sortSchema.parse(sort);
 
@@ -13,19 +17,19 @@ describe('Sort Parse', () => {
 
 describe('Sort mergeWithDefaultSort function test', () => {
   const defaultViewSortString =
-    '{"sortObjs":[{"fieldId":"fieldId","order":"asc"}, {"fieldId":"fieldId2","order":"desc"}],"manualSort":true}';
+    '{"sortObjs":[{"fieldId":"fld1xxx","order":"asc"}, {"fieldId":"fld2xxx","order":"desc"}],"manualSort":true}';
 
   const querySort: ISortItem[] = [
     {
-      fieldId: 'queryFieldId',
-      order: 'asc',
+      fieldId: 'fld3xxx',
+      order: SortFunc.Asc,
     },
   ];
 
   const querySort1: ISortItem[] = [
     {
-      fieldId: 'fieldId',
-      order: 'desc',
+      fieldId: 'fld1xxx',
+      order: SortFunc.Desc,
     },
   ];
 
@@ -44,10 +48,10 @@ describe('Sort mergeWithDefaultSort function test', () => {
   it('should return merged sort, when sort query exists and no same field items', async () => {
     const mergedSort = mergeWithDefaultSort(defaultViewSortString, querySort);
     const presetSort = [
-      { fieldId: 'fieldId', order: 'asc' },
-      { fieldId: 'fieldId2', order: 'desc' },
+      { fieldId: 'fld1xxx', order: 'asc' },
+      { fieldId: 'fld2xxx', order: 'desc' },
       {
-        fieldId: 'queryFieldId',
+        fieldId: 'fld3xxx',
         order: 'asc',
       },
     ];
@@ -57,8 +61,8 @@ describe('Sort mergeWithDefaultSort function test', () => {
   it('should return merged orderby, when sort query include same fieldId items, query first', async () => {
     const mergedSort = mergeWithDefaultSort(defaultViewSortString, querySort1);
     const presetSort = [
-      { fieldId: 'fieldId', order: 'desc' },
-      { fieldId: 'fieldId2', order: 'desc' },
+      { fieldId: 'fld1xxx', order: 'desc' },
+      { fieldId: 'fld2xxx', order: 'desc' },
     ];
     expect(mergedSort).toEqual(presetSort);
   });

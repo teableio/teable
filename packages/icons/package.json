@@ -27,9 +27,6 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
-  "dependencies": {
-    "typescript": "5.3.3"
-  },
   "devDependencies": {
     "@svgr/core": "8.1.0",
     "@svgr/plugin-jsx": "8.1.0",
@@ -45,6 +42,7 @@
     "figma-js": "1.16.0",
     "fs-extra": "11.2.0",
     "lodash": "4.17.21",
-    "rimraf": "5.0.5"
+    "rimraf": "5.0.5",
+    "typescript": "5.3.3"
   }
 }

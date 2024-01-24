@@ -36,7 +36,7 @@ function SortFieldSelect(props: ISortFieldSelect) {
         >
           <div className="flex w-full items-center justify-between">
             <span className="truncate">{displayName}</span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 p-0.5 opacity-50" />
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 p-0.5 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>

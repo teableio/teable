@@ -38,7 +38,7 @@ export const SpaceList: FC = () => {
           className="w-full"
           onClick={() => addSpace({})}
         >
-          {isLoading ? <Spin className="h-3 w-3" /> : <Plus />}
+          {isLoading ? <Spin className="size-3" /> : <Plus />}
         </Button>
       </div>
       <div className="overflow-y-auto px-3">

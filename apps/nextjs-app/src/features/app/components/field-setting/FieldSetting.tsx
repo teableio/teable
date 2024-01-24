@@ -252,7 +252,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button size={'sm'} variant={'ghost'}>
-                        <Share2 className="h-4 w-4" /> Graph
+                        <Share2 className="size-4" /> Graph
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl">

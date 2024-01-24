@@ -1,4 +1,4 @@
-import type { IOrder, FieldCore } from '@teable-group/core';
+import type { FieldCore, SortFunc } from '@teable-group/core';
 import { Checked, Square } from '@teable-group/icons';
 import {
   Select,
@@ -13,9 +13,9 @@ import { useTranslation } from '../../context/app/i18n';
 import { useFields } from '../../hooks';
 
 interface IOrderProps {
-  value: IOrder;
+  value: SortFunc;
   fieldId: string;
-  onSelect: (value: IOrder) => void;
+  onSelect: (value: SortFunc) => void;
 }
 
 function OrderSelect(props: IOrderProps) {

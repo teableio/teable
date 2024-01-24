@@ -57,10 +57,10 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
         key={option.value}
       >
         <div className="flex items-center space-x-2">
-          <Avatar className="h-7 w-7 border">
+          <Avatar className="size-7 border">
             {isMeTag(option.value) ? (
-              <span className="flex h-full w-full items-center justify-center">
-                <UserIcon className="h-4 w-4" />
+              <span className="flex size-full items-center justify-center">
+                <UserIcon className="size-4" />
               </span>
             ) : (
               <>
@@ -82,10 +82,10 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
         className="truncate rounded-lg bg-secondary px-2 text-secondary-foreground"
       >
         <div className="flex items-center space-x-2">
-          <Avatar className="h-7 w-7 border">
+          <Avatar className="size-7 border">
             {isMeTag(option.value) ? (
-              <span className="flex h-full w-full items-center justify-center">
-                <UserIcon className="h-4 w-4" />
+              <span className="flex size-full items-center justify-center">
+                <UserIcon className="size-4" />
               </span>
             ) : (
               <>

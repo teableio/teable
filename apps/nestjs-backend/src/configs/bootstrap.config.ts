@@ -16,6 +16,10 @@ export const swaggerConfig = registerAs('swagger', () => ({
   disabled: process.env.SWAGGER_DISABLED === 'true',
 }));
 
+export const tracingConfig = registerAs('tracing', () => ({
+  enabled: process.env.TRACING_ENABLED === 'true',
+}));
+
 export type INextJsConfig = ConfigType<typeof nextJsConfig>;
 export type ISecurityWebConfig = ConfigType<typeof securityWebConfig>;
 export type ISwaggerConfig = ConfigType<typeof swaggerConfig>;

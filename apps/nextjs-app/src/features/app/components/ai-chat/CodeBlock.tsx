@@ -44,14 +44,14 @@ export const CodeBlock: React.FC<Props> = ({ language, value, onExecute }) => {
         <span className="font-mono text-xs text-white">{language}</span>
         <div className="flex items-center space-x-2">
           <button
-            className="flex h-6 w-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
+            className="flex size-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
             onClick={copyToClipboard}
           >
             <CopyIcon />
           </button>
           {showExecuteButton && (
             <button
-              className="flex h-6 w-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
+              className="flex size-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
               onClick={handleExecuteQuery}
             >
               ▶️

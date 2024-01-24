@@ -8,7 +8,7 @@ export function AutomationPage() {
         </div>
       </div>
       <div className="flex grow items-center justify-center gap-4">
-        <PackageCheck className="h-10 w-10" /> <h1>Coming Soon</h1>
+        <PackageCheck className="size-10" /> <h1>Coming Soon</h1>
       </div>
     </div>
   );

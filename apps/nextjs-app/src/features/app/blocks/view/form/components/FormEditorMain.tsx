@@ -89,9 +89,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600 dark:from-green-600 dark:via-blue-600 dark:to-blue-900'
           )}
         >
-          {coverUrl && (
-            <img src={coverUrl} alt="form cover" className="h-full w-full object-cover" />
-          )}
+          {coverUrl && <img src={coverUrl} alt="form cover" className="size-full object-cover" />}
           <Button
             variant={'ghost'}
             size={'icon'}

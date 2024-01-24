@@ -60,14 +60,14 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
           <div onClick={(e) => e.stopPropagation()}>
             <EmojiPicker
-              className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
+              className="flex size-5 items-center justify-center hover:bg-muted-foreground/60"
               onChange={(icon: string) => table.updateIcon(icon)}
               disabled={!permission['table|update']}
             >
               {table.icon ? (
                 <Emoji emoji={table.icon} size={'1rem'} />
               ) : (
-                <Table2 className="h-4 w-4 shrink-0" />
+                <Table2 className="size-4 shrink-0" />
               )}
             </EmojiPicker>
           </div>
@@ -75,7 +75,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
           {!isDragging && (
             <TableOperation
               table={table}
-              className="h-4 w-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+              className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
             />
           )}
         </div>
@@ -88,7 +88,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
           style={{
             boxShadow: 'none',
           }}
-          className="round-none absolute left-0 top-0 h-full w-full cursor-text bg-background px-4 outline-none"
+          className="round-none absolute left-0 top-0 size-full cursor-text bg-background px-4 outline-none"
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           onBlur={(e) => {

@@ -53,7 +53,7 @@ export const StatisticMenu = () => {
   return (
     <Popover open={visible}>
       <PopoverTrigger asChild style={style} className="absolute">
-        <div className="h-0 w-0 opacity-0" />
+        <div className="size-0 opacity-0" />
       </PopoverTrigger>
       <PopoverContent className="h-auto w-[150px] rounded-sm px-0 py-1" align="end">
         <Command ref={fieldStatisticRef} className="rounded-none border-none shadow-none">

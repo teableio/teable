@@ -68,7 +68,7 @@ export function UserEditorMain(props: IUserEditorMainProps) {
         <CommandGroup aria-valuetext="name">
           {isLoading ? (
             <CommandItem className="flex items-center space-x-4">
-              <Skeleton className="h-7 w-7 rounded-full" />
+              <Skeleton className="size-7 rounded-full" />
               <Skeleton className="h-4 w-32" />
             </CommandItem>
           ) : (
@@ -80,7 +80,7 @@ export function UserEditorMain(props: IUserEditorMainProps) {
                 className="flex justify-between"
               >
                 <div className="flex items-center space-x-4">
-                  <Avatar className="box-content h-7 w-7 cursor-pointer border">
+                  <Avatar className="box-content size-7 cursor-pointer border">
                     <AvatarImage src={avatar as string} alt="avatar-name" />
                     <AvatarFallback className="text-sm">{userName.slice(0, 1)}</AvatarFallback>
                   </Avatar>

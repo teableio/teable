@@ -1,25 +1,11 @@
 import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
-import {
-  CellValueType,
-  FieldKeyType,
-  FieldType,
-  NumberFormattingType,
-  TimeFormatting,
-  orderTypeEnum,
-} from '@teable-group/core';
-import type { ITableFullVo, IFieldRo, IGetRecordsRo, IGroupItem } from '@teable-group/core';
+import type { IFieldRo, IGetRecordsRo, IGroupItem, ITableFullVo } from '@teable-group/core';
+import { CellValueType, SortFunc } from '@teable-group/core';
 import { setViewGroup, setViewSort } from '@teable-group/openapi';
-import { orderBy, isEmpty } from 'lodash';
-import {
-  createRecords,
-  createTable,
-  deleteTable,
-  getRecords,
-  getView,
-  initApp,
-  updateRecordByApi,
-} from './utils/init-app';
+import { isEmpty, orderBy } from 'lodash';
+import { x_20 } from './data-helpers/20x';
+import { createTable, deleteTable, getRecords, getView, initApp } from './utils/init-app';
 
 let app: INestApplication;
 
@@ -28,87 +14,17 @@ const baseId = globalThis.testConfig.baseId;
 const typeTests = [
   {
     type: CellValueType.String,
-    valueGenerateFn: () => faker.string.numeric(5),
   },
   {
     type: CellValueType.Number,
-    valueGenerateFn: () => faker.number.int(),
   },
   {
     type: CellValueType.DateTime,
-    valueGenerateFn: () => faker.date.anytime(),
   },
   {
     type: CellValueType.Boolean,
-    valueGenerateFn: () => faker.datatype.boolean() || null,
   },
 ];
-
-const defaultFields: IFieldRo[] = [
-  {
-    name: CellValueType.String,
-    type: FieldType.SingleLineText,
-    options: {},
-  },
-  {
-    name: CellValueType.Number,
-    type: FieldType.Number,
-    options: {
-      formatting: {
-        type: NumberFormattingType.Decimal,
-        precision: 2,
-      },
-    },
-  },
-  {
-    name: CellValueType.Boolean,
-    type: FieldType.Checkbox,
-    options: {},
-  },
-  {
-    name: CellValueType.DateTime,
-    type: FieldType.Date,
-    options: {
-      formatting: {
-        date: 'YYYY-MM-DD',
-        time: TimeFormatting.Hour24,
-        timeZone: 'America/New_York',
-      },
-      defaultValue: 'now',
-    },
-  },
-];
-
-const fillTable = async (tableId: string, fieldName: string, length: number) => {
-  if (!length) {
-    return [];
-  }
-
-  const records = Array.from({ length: length }).map((_, i) => ({
-    fields: {
-      [fieldName]: `String_${i}`,
-    },
-  }));
-
-  const res = await createRecords(tableId, { fieldKeyType: FieldKeyType.Name, records });
-  return res.records || [];
-};
-
-const createTableWithExtraRec = async (tableName: string, recordsLength = 10) => {
-  const { id, fields, defaultViewId, records } = await createTable(baseId, {
-    name: tableName,
-    fields: defaultFields.map((f) => ({ ...f, name: f.name })),
-  });
-
-  const newRecords = await fillTable(id, fields[0].name, recordsLength);
-
-  return {
-    id,
-    fields,
-    defaultViewId: defaultViewId!,
-    records: records.concat(newRecords),
-  };
-};
 
 const getRecordsByOrder = (
   records: ITableFullVo['records'],
@@ -161,7 +77,7 @@ describe('OpenAPI ViewController view group (e2e)', () => {
       group: [
         {
           fieldId: fields[0].id as string,
-          order: orderTypeEnum.Enum.asc,
+          order: SortFunc.Asc,
         },
       ],
     };
@@ -173,40 +89,34 @@ describe('OpenAPI ViewController view group (e2e)', () => {
 });
 
 describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
-  let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields'> & { defaultViewId: string };
+  let table: ITableFullVo;
 
-  beforeEach(async () => {
-    subTable = await createTableWithExtraRec('subTable', 10);
+  beforeAll(async () => {
+    table = await createTable(baseId, {
+      name: 'group_x_20',
+      fields: x_20.fields,
+      records: x_20.records,
+    });
   });
 
-  afterEach(async () => {
-    const { id: subTableId } = subTable;
-    await deleteTable(baseId, subTableId);
+  afterAll(async () => {
+    await deleteTable(baseId, table.id);
   });
 
   test.each(typeTests)(
     `/api/table/{tableId}/view/{viewId}/viewGroup view group (POST) Test CellValueType: $type`,
-    async ({ type, valueGenerateFn }) => {
-      const {
-        id: subTableId,
-        fields: fields2,
-        records: subRecords,
-        defaultViewId: subTableDefaultViewId,
-      } = subTable;
+    async ({ type }) => {
+      const { id: subTableId, fields: fields2, defaultViewId: subTableDefaultViewId } = table;
       const field = fields2.find(
         (field) => field.cellValueType === type
       ) as ITableFullVo['fields'][number];
       const { id: fieldId } = field;
 
-      for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
-      }
-
-      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'asc' }];
-      await setViewGroup(subTableId, subTableDefaultViewId, { group: ascGroups });
+      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Asc }];
+      await setViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
       const ascOriginRecords = (await getRecords(subTableId, { groupBy: ascGroups })).records;
-      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'desc' }];
-      await setViewGroup(subTableId, subTableDefaultViewId, { group: descGroups });
+      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Desc }];
+      await setViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
       const descOriginRecords = (await getRecords(subTableId, { groupBy: descGroups })).records;
 
       const resultAscRecords = getRecordsByOrder(ascOriginRecords, ascGroups, fields2);
@@ -219,31 +129,22 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
 
   test.each(typeTests)(
     `/api/table/{tableId}/view/{viewId}/viewGroup view group with order (POST) Test CellValueType: $type`,
-    async ({ type, valueGenerateFn }) => {
-      const {
-        id: subTableId,
-        fields: fields2,
-        records: subRecords,
-        defaultViewId: subTableDefaultViewId,
-      } = subTable;
+    async ({ type }) => {
+      const { id: subTableId, fields: fields2, defaultViewId: subTableDefaultViewId } = table;
       const field = fields2.find(
         (field) => field.cellValueType === type
       ) as ITableFullVo['fields'][number];
       const { id: fieldId } = field;
 
-      for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
-      }
+      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Asc }];
+      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Desc }];
 
-      const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'asc' }];
-      const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: 'desc' }];
-
-      await setViewGroup(subTableId, subTableDefaultViewId, { group: ascGroups });
-      await setViewSort(subTableId, subTableDefaultViewId, { sort: { sortObjs: descGroups } });
+      await setViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
+      await setViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: descGroups } });
       const ascOriginRecords = (await getRecords(subTableId, { groupBy: ascGroups })).records;
 
-      await setViewGroup(subTableId, subTableDefaultViewId, { group: descGroups });
-      await setViewSort(subTableId, subTableDefaultViewId, { sort: { sortObjs: ascGroups } });
+      await setViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
+      await setViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: ascGroups } });
       const descOriginRecords = (await getRecords(subTableId, { groupBy: descGroups })).records;
 
       const resultAscRecords = getRecordsByOrder(ascOriginRecords, ascGroups, fields2);

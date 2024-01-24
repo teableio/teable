@@ -4,7 +4,7 @@ import type { IFieldBase } from '../field-base';
 export class RatingFieldDto extends RatingFieldCore implements IFieldBase {
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return JSON.stringify(value);
+      return value == null ? value : JSON.stringify(value);
     }
     return value;
   }

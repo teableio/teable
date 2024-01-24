@@ -115,7 +115,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
       <div className="relative flex-1 overflow-y-auto" ref={listRef}>
         <DragAndCopy onChange={uploadAttachment} disabled={readonly}>
           {len > 0 && (
-            <ul className="-right-2 flex h-full w-full flex-wrap">
+            <ul className="-right-2 flex size-full flex-wrap">
               <FilePreviewProvider>
                 {attachments.map((attachment) => (
                   <li key={attachment.id} className="mb-2 flex h-32 w-28 flex-col pr-3">
@@ -135,7 +135,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                         size={attachment.size}
                       >
                         <img
-                          className="h-full w-full object-contain"
+                          className="size-full object-contain"
                           src={fileCover(attachment)}
                           alt={attachment.name}
                         />
@@ -149,7 +149,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                         <li>
                           <Button
                             variant={'ghost'}
-                            className="h-5 w-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
+                            className="size-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
                             onClick={() => downloadFile(attachment)}
                           >
                             <Download />
@@ -158,7 +158,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                         <li>
                           <Button
                             variant={'ghost'}
-                            className="h-5 w-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
+                            className="size-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
                             onClick={() => onDelete(attachment.id)}
                             disabled={readonly}
                           >

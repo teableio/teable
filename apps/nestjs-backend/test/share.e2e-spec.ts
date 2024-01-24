@@ -1,9 +1,10 @@
 import { type INestApplication } from '@nestjs/common';
-import type { IFieldRo, IRecord, IViewRo } from '@teable-group/core';
+import type { IFieldRo, IRecord, ITableFullVo, IViewRo } from '@teable-group/core';
 import { ANONYMOUS_USER_ID, FieldType, Relationship, ViewType } from '@teable-group/core';
 import {
   enableShareView as apiEnableShareView,
   getShareViewLinkRecords as apiGetShareViewLinkRecords,
+  setViewFilter as apiSetViewFilter,
   SHARE_VIEW_FORM_SUBMIT,
   SHARE_VIEW_GET,
   type ShareViewGetVo,
@@ -93,7 +94,7 @@ describe('OpenAPI ShareController (e2e)', () => {
   });
 
   describe('getLinkRecords', () => {
-    let linkTableId: string;
+    let linkTableRes: ITableFullVo;
     const linkPrimaryFieldName = 'Text1';
     const linkTableRecords = [
       { fields: { [linkPrimaryFieldName]: '1' } },
@@ -110,7 +111,8 @@ describe('OpenAPI ShareController (e2e)', () => {
           foreignTableId: tableId,
         },
       };
-      const linkTableRes = await createTable(baseId, {
+
+      linkTableRes = await createTable(baseId, {
         name: 'linkTable',
         fields: [
           {
@@ -121,20 +123,33 @@ describe('OpenAPI ShareController (e2e)', () => {
         ],
         records: linkTableRecords,
       });
-      linkTableId = linkTableRes.id;
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, linkTableId);
+      await deleteTable(baseId, linkTableRes.id);
     });
 
-    it('should return link records', async () => {
-      const result = await apiGetShareViewLinkRecords(shareId, { tableId: linkTableId });
+    it('should return link records independent of views', async () => {
+      await apiSetViewFilter(linkTableRes.id, linkTableRes.defaultViewId!, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: linkTableRes.fields[0].id,
+              operator: 'is',
+              value: '1',
+            },
+          ],
+        },
+      });
+
+      const result = await apiGetShareViewLinkRecords(shareId, { tableId: linkTableRes.id });
       const linkRecords = result.data.records;
       expect(linkRecords.map((record) => record.fields)).toEqual(
         linkTableRecords.map((record) => record.fields)
       );
     });
+
     it('should return a prohibition, passing in a table that exists but is not inside the association', async () => {
       await expect(apiGetShareViewLinkRecords(shareId, { tableId })).rejects.toThrow(
         'tableId is not allowed'

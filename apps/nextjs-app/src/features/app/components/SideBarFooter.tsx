@@ -14,7 +14,7 @@ export const SideBarFooter: React.FC = () => {
       <div className="flex w-full justify-between">
         <UserNav>
           <Button variant="ghost" size={'xs'} className="w-full justify-start text-sm font-normal">
-            <Avatar className="h-7 w-7">
+            <Avatar className="size-7">
               <AvatarImage src={user.avatar as string} alt="avatar-name" />
               <AvatarFallback>{user.name.slice(0, 1)}</AvatarFallback>
             </Avatar>
@@ -26,11 +26,11 @@ export const SideBarFooter: React.FC = () => {
       </div>
       <SettingTrigger>
         <Button variant="ghost" size={'xs'} className="w-full justify-start text-sm font-normal">
-          <Settings className="h-5 w-5 shrink-0" />
+          <Settings className="size-5 shrink-0" />
           Settings
           <div className="grow basis-0"></div>
           <p className="text-xs text-slate-500">10.2k</p>
-          <Github className="h-4 w-4 shrink-0" />
+          <Github className="size-4 shrink-0" />
         </Button>
       </SettingTrigger>
     </div>

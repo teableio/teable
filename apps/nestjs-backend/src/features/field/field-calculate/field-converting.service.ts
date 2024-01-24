@@ -346,10 +346,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
@@ -401,10 +400,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
@@ -481,10 +479,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as number;

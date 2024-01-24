@@ -561,19 +561,8 @@ export class RecordService implements IAdapterService {
   }
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
-    const defaultView = await this.prismaService.txClient().view.findFirstOrThrow({
-      select: { id: true, filter: true, sort: true },
-      where: {
-        tableId,
-        ...(query.viewId ? { id: query.viewId } : {}),
-        deletedTime: null,
-      },
-      orderBy: { order: 'asc' },
-    });
-    const viewId = defaultView.id;
-
     const queryResult = await this.getDocIdsByQuery(tableId, {
-      viewId,
+      viewId: query.viewId,
       skip: query.skip,
       take: query.take,
       filter: query.filter,
@@ -902,9 +891,9 @@ export class RecordService implements IAdapterService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]>(
-        nativeQuery
-      );
+      .$queryRawUnsafe<
+        ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
+      >(nativeQuery);
 
     const recordIdsMap = recordIds.reduce(
       (acc, recordId, currentIndex) => {
@@ -1058,9 +1047,9 @@ export class RecordService implements IAdapterService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<(Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(
-        queryBuilder.toQuery()
-      );
+      .$queryRawUnsafe<
+        (Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]
+      >(queryBuilder.toQuery());
 
     return result.map((record) => {
       return {

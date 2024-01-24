@@ -74,7 +74,7 @@ export const FormulaOptionsInner = (props: {
           <DialogContent
             tabIndex={-1}
             closeable
-            className="flex h-auto w-auto max-w-full overflow-hidden rounded-sm p-0 outline-0 md:w-auto"
+            className="flex size-auto max-w-full overflow-hidden rounded-sm p-0 outline-0 md:w-auto"
           >
             <FormulaEditor expression={expression} onConfirm={onExpressionChange} />
           </DialogContent>

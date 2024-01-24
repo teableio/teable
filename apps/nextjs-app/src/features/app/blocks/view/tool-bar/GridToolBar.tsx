@@ -19,13 +19,13 @@ export const GridToolBar: React.FC = () => {
   return (
     <div className="flex items-center gap-2 border-t px-4 py-2 @container/toolbar">
       <Button
-        className="h-6 w-6 shrink-0 rounded-full p-0 font-normal"
+        className="size-6 shrink-0 rounded-full p-0 font-normal"
         size={'xs'}
         variant={'outline'}
         onClick={addRecord}
         disabled={!permission['record|create']}
       >
-        <Plus className="h-4 w-4" />
+        <Plus className="size-4" />
       </Button>
       <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
       <div className="flex flex-1 justify-between overflow-x-auto scrollbar-none">

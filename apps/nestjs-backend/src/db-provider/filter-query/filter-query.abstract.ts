@@ -6,6 +6,7 @@ import type {
   IFilterItem,
   IFilterOperator,
   IFilterSet,
+  ILiteralValueList,
 } from '@teable-group/core';
 import {
   CellValueType,
@@ -134,40 +135,54 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   }
 
   private preProcessRemoveNullAndReplaceMe(filter?: IFilter) {
-    // If the filter is not defined or has no keys, exit the function
     if (!filter || !Object.keys(filter).length) {
       return;
     }
+
     const replaceUserId = this.extra?.withUserId;
 
     filter.filterSet = filter.filterSet.filter((filterItem) => {
-      // If 'filterSet' exists in filterItem, recursively call filterNullValues
-      // Always keep the filterItem, as we are modifying it in-place
       if ('filterSet' in filterItem) {
         this.preProcessRemoveNullAndReplaceMe(filterItem as IFilter);
         return true;
       }
-      const { fieldId, operator, value } = filterItem;
-      // Get the corresponding field from the fields object using fieldId
-      // If it doesn't exist, filter out the item
-      const field = this.fields?.[fieldId];
-      if (!field) return false;
 
-      // Replace 'me' tag with actual user ID in case of a user field
-      if (field.type === FieldType.User && isMeTag(value as string) && replaceUserId) {
-        filterItem.value = replaceUserId;
-      }
-
-      // Keep the filterItem if any of the following conditions are met:
-      // - The value is not null
-      // - The field type is a checkbox
-      // - The operator is either 'isEmpty' or 'isNotEmpty'
-      return (
-        value !== null ||
-        field.type === FieldType.Checkbox ||
-        ([isEmpty.value, isNotEmpty.value] as string[]).includes(operator)
-      );
+      return this.processFilterItem(filterItem, replaceUserId);
     });
+  }
+
+  private processFilterItem(filterItem: IFilterItem, replaceUserId?: string): boolean {
+    const { fieldId, operator, value } = filterItem;
+    const field = this.fields?.[fieldId];
+    if (!field) return false;
+
+    this.replaceMeTagInValue(filterItem, field, replaceUserId);
+
+    return this.shouldKeepFilterItem(value, field, operator);
+  }
+
+  private replaceMeTagInValue(
+    filterItem: IFilterItem,
+    field: IFieldInstance,
+    replaceUserId?: string
+  ): void {
+    const { value } = filterItem;
+
+    if (field.type === FieldType.User && replaceUserId) {
+      filterItem.value = Array.isArray(value)
+        ? (value.map((v) => (isMeTag(v as string) ? replaceUserId : v)) as ILiteralValueList)
+        : isMeTag(value as string)
+          ? replaceUserId
+          : value;
+    }
+  }
+
+  private shouldKeepFilterItem(value: unknown, field: IFieldInstance, operator: string): boolean {
+    return (
+      value !== null ||
+      field.type === FieldType.Checkbox ||
+      ([isEmpty.value, isNotEmpty.value] as string[]).includes(operator)
+    );
   }
 
   abstract booleanFilter(field: IFieldInstance): AbstractCellValueFilter;

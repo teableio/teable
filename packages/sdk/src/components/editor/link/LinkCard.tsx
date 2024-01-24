@@ -29,7 +29,7 @@ export const LinkCard = (props: ILinkCardProps) => {
       </div>
       {!readonly && (
         <Button
-          className="absolute right-0 top-0 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full md:opacity-0 md:group-hover:opacity-100"
+          className="absolute right-0 top-0 size-4 -translate-y-1/2 translate-x-1/2 rounded-full md:opacity-0 md:group-hover:opacity-100"
           size={'icon'}
           tabIndex={-1}
           onClick={(e) => {

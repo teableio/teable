@@ -1,9 +1,12 @@
-import { z } from 'zod';
-import { orders } from './sort';
+import { IdPrefix } from '../../../utils';
+import { z } from '../../../zod';
+import { orderSchema } from './sort';
 
 export const groupItemSchema = z.object({
-  fieldId: z.string(),
-  order: orders,
+  fieldId: z.string().startsWith(IdPrefix.Field).openapi({
+    description: 'The id of the field.',
+  }),
+  order: orderSchema,
 });
 
 export const groupSchema = groupItemSchema.array().nullable();
