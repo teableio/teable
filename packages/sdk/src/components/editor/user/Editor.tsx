@@ -47,7 +47,7 @@ export const UserEditor = (props: IUserEditorMainProps) => {
     >
       {arrayValue?.map(({ id, title }) => (
         <div key={id} className="flex items-center">
-          <Avatar className="box-content h-7 w-7 cursor-pointer border">
+          <Avatar className="box-content size-7 cursor-pointer border">
             <AvatarImage src={'avatar' as string} alt="avatar-name" />
             <AvatarFallback className="text-sm">{title?.slice(0, 1)}</AvatarFallback>
           </Avatar>

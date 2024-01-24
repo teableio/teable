@@ -88,7 +88,7 @@ function Condition(props: IConditionProps) {
           onClick={() => deleteCondition(path, index)}
           className="ml-1"
         >
-          <Trash2 className="h-4 w-4"></Trash2>
+          <Trash2 className="size-4"></Trash2>
         </Button>
       </section>
     </div>

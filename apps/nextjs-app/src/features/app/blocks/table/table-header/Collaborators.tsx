@@ -97,7 +97,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
     const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
     return (
       <Avatar
-        className="h-6 w-6 cursor-pointer border-2"
+        className="size-6 cursor-pointer border-2"
         style={{
           borderColor: contractColorForTheme(borderColor, theme),
         }}
@@ -133,8 +133,8 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       {hiddenUser ? (
         <Popover>
           <PopoverTrigger asChild>
-            <div className="relative h-6 w-6 shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border-slate-200">
-              <p className="flex h-full w-full items-center justify-center rounded-full border-2 text-center text-xs">
+            <div className="relative size-6 shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border-slate-200">
+              <p className="flex size-full items-center justify-center rounded-full border-2 text-center text-xs">
                 +{hiddenUser.length}
               </p>
             </div>

@@ -75,12 +75,12 @@ export const DbConnectionPanel: React.FC = () => {
                         navigator.clipboard.writeText(value);
                       }}
                     >
-                      <Copy className="h-4 w-4" />
+                      <Copy className="size-4" />
                     </Button>
                   </div>
                 ) : (
                   <div className="flex h-20 justify-center">
-                    <Database className="h-20 w-20 text-neutral-600" />
+                    <Database className="size-20 text-neutral-600" />
                   </div>
                 )}
               </div>

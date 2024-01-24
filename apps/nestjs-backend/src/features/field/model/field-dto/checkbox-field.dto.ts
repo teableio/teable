@@ -4,7 +4,7 @@ import type { IFieldBase } from '../field-base';
 export class CheckboxFieldDto extends CheckboxFieldCore implements IFieldBase {
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return JSON.stringify(value);
+      return value == null ? value : JSON.stringify(value);
     }
     return value ? true : null;
   }

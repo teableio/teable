@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import cookie from 'cookie';
 import type { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { authConfig } from '../../../configs/auth.config';
@@ -24,7 +25,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, SHARE_JWT_STRATEGY) 
 
   public static fromAuthCookieAsToken(req: Request): string | null {
     const shareId = req.params.shareId;
-    return req.cookies?.[shareId] ?? null;
+    const cookieObj = cookie.parse(req.headers.cookie ?? '');
+    return cookieObj?.[shareId] ?? null;
   }
 
   async validate(payload: IJwtShareInfo) {

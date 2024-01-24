@@ -113,7 +113,7 @@ export const SelectOptions = (props: {
                   >
                     <div className="flex items-center">
                       {!isLookup && (
-                        <DraggableHandle {...listeners} className="mr-1 h-4 w-4 cursor-grabbing" />
+                        <DraggableHandle {...listeners} className="mr-1 size-4 cursor-grabbing" />
                       )}
                       <ChoiceItem
                         choice={choice}
@@ -140,7 +140,7 @@ export const SelectOptions = (props: {
             variant={'outline'}
             onClick={addOption}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4" />
             Add option
           </Button>
         </li>
@@ -158,7 +158,7 @@ const ChoiceItem = (props: IOptionItemProps) => {
     <li className="flex grow items-center">
       {readonly ? (
         <div className="h-auto rounded-full border-2 p-[2px]" style={{ borderColor: bgColor }}>
-          <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
+          <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
         </div>
       ) : (
         <Popover>
@@ -168,7 +168,7 @@ const ChoiceItem = (props: IOptionItemProps) => {
               className="h-auto rounded-full border-2 p-[2px]"
               style={{ borderColor: bgColor }}
             >
-              <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
+              <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2">
@@ -188,10 +188,10 @@ const ChoiceItem = (props: IOptionItemProps) => {
       {!readonly && (
         <Button
           variant={'ghost'}
-          className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+          className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
           onClick={() => onDelete(index)}
         >
-          <Trash className="h-4 w-4" />
+          <Trash className="size-4" />
         </Button>
       )}
     </li>
@@ -249,7 +249,7 @@ export const ColorPicker = ({
                     style={{
                       backgroundColor: bg,
                     }}
-                    className="h-4 w-4 rounded-full"
+                    className="size-4 rounded-full"
                   />
                 </Button>
               );

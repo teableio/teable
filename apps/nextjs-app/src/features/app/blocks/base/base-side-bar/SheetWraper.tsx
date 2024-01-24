@@ -20,7 +20,7 @@ export const SheetWraper = (props: SheetWraperProps) => {
             size="xs"
             variant={'outline'}
           >
-            <ChevronsRight className="h-5 w-5" />
+            <ChevronsRight className="size-5" />
           </Button>
         }
       </SheetTrigger>

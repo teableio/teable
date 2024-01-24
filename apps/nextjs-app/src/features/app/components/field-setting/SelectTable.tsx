@@ -33,7 +33,7 @@ export const SelectTable = (props: {
           className="w-full justify-between font-normal"
         >
           {value ? tables.find(({ id }) => id === value)?.name : 'Select table...'}
-          <ArrowDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ArrowDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" style={{ width: ref.current?.offsetWidth }}>

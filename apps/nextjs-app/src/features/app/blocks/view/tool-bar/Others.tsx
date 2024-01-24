@@ -19,7 +19,7 @@ export const Others: React.FC = () => {
             text={text}
             textClassName="@[234px]/toolbar-others:inline"
           >
-            <ArrowUpRight className="h-4 w-4" />
+            <ArrowUpRight className="size-4" />
           </ToolBarButton>
         )}
       </SharePopover>
@@ -27,7 +27,7 @@ export const Others: React.FC = () => {
       <Popover>
         <PopoverTrigger asChild>
           <ToolBarButton text="Extensions" textClassName="@[234px]/toolbar-others:inline">
-            <Component className="h-4 w-4" />
+            <Component className="size-4" />
           </ToolBarButton>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="start" className="w-40 p-0">
@@ -46,7 +46,7 @@ export const Others: React.FC = () => {
       <Popover>
         <PopoverTrigger asChild>
           <ToolBarButton text="API" textClassName="@[234px]/toolbar-others:inline">
-            <Code2 className="h-4 w-4" />
+            <Code2 className="size-4" />
           </ToolBarButton>
         </PopoverTrigger>
         <PopoverContent side="bottom" align="start" className="w-48 p-0">
@@ -57,7 +57,7 @@ export const Others: React.FC = () => {
             asChild
           >
             <Link href="/docs" target="_blank">
-              <Code2 className="h-4 w-4" />
+              <Code2 className="size-4" />
               Restful API
             </Link>
           </Button>

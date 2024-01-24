@@ -17,6 +17,12 @@ export const SIMPLE_AGGREGATION_CACES = [
     expectValue: 21,
   },
   {
+    // user field
+    fieldIndex: 5,
+    aggFunc: StatisticsFunc.Unique,
+    expectValue: 1,
+  },
+  {
     fieldIndex: 1,
     aggFunc: StatisticsFunc.Max,
     expectValue: 20,

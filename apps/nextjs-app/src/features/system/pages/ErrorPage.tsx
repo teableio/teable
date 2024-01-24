@@ -18,7 +18,7 @@ export const ErrorPage: FC<Props> = (props) => {
         <title>Error {statusCode}</title>
       </Head>
       <div className="container bg-white text-2xl md:text-xl">
-        <div className="flex h-screen w-screen flex-col items-center justify-center">
+        <div className="size-screen flex flex-col items-center justify-center">
           <h1 className="m-5 text-5xl text-black md:text-4xl">Woops !</h1>
           <p className="text-2xl text-black md:text-2xl">
             Something went wrong. Please try again later.

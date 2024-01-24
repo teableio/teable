@@ -18,7 +18,7 @@ export const GridView = () => {
   }
 
   return (
-    <div className="flex h-full w-full flex-col px-3 pb-3">
+    <div className="flex size-full flex-col px-3 pb-3">
       <div className="flex w-full justify-between py-3">
         <h1 className="text-lg font-semibold">{view?.name}</h1>
         <a href="/" className="flex items-center">

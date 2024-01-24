@@ -63,7 +63,7 @@ export const SpaceInnerPage: React.FC = () => {
 
   return (
     space && (
-      <div ref={ref} className="flex h-full w-full min-w-[760px] px-12 pt-8">
+      <div ref={ref} className="flex size-full min-w-[760px] px-12 pt-8">
         <div className="w-full flex-1 space-y-6">
           <div className="pb-6">
             <SpaceRenaming

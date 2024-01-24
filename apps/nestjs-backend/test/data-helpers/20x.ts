@@ -5,20 +5,17 @@ import {
   DateFormattingPreset,
   DateUtil,
   FieldType,
-  generateFieldId,
   NumberFormattingType,
   TimeFormatting,
 } from '@teable-group/core';
 
 const textField = {
-  id: generateFieldId(),
   name: 'text field',
   description: 'the text field',
   type: FieldType.SingleLineText,
 };
 
 const numberField = {
-  id: generateFieldId(),
   name: 'Number field',
   description: 'the number field',
   type: FieldType.Number,
@@ -28,7 +25,6 @@ const numberField = {
 };
 
 const singleSelectField = {
-  id: generateFieldId(),
   name: 'singleSelect field',
   description: 'the singleSelect field',
   type: FieldType.SingleSelect,
@@ -42,7 +38,6 @@ const singleSelectField = {
 };
 
 const dateField = {
-  id: generateFieldId(),
   name: 'date field',
   description: 'the date field',
   type: FieldType.Date,
@@ -57,21 +52,18 @@ const dateField = {
 };
 
 const checkboxField = {
-  id: generateFieldId(),
   name: 'checkbox field',
   description: 'the checkbox field',
   type: FieldType.Checkbox,
 };
 
 const userField = {
-  id: generateFieldId(),
   name: 'user field',
   description: 'the user field',
   type: FieldType.User,
 };
 
 const multipleSelectField = {
-  id: generateFieldId(),
   name: 'multipleSelect field',
   description: 'the multipleSelect field',
   type: FieldType.MultipleSelect,
@@ -84,7 +76,25 @@ const multipleSelectField = {
   },
 };
 
+const multipleUserField = {
+  name: 'multiple user field',
+  description: 'the multiple user field',
+  type: FieldType.User,
+  options: {
+    isMultiple: true,
+    shouldNotify: false,
+  },
+};
+
 export const x_20 = {
+  // textField                => 0
+  // numberField              => 1
+  // singleSelectField        => 2
+  // dateField                => 3
+  // checkboxField            => 4
+  // userField                => 5
+  // multipleSelectField      => 6
+  // multipleUserField        => 7
   fields: [
     textField,
     numberField,
@@ -93,6 +103,7 @@ export const x_20 = {
     checkboxField,
     userField,
     multipleSelectField,
+    multipleUserField,
   ],
 
   // actual number of items: 23
@@ -105,8 +116,12 @@ export const x_20 = {
         [textField.name]: 'Text Field 0',
         [numberField.name]: 0,
         [dateField.name]: '2019-12-31T16:00:00.000Z',
-        [userField.name]: { id: 'usrTestUserId', title: 'e2e' },
+        [userField.name]: { id: 'usrTestUserId', title: 'test' },
         [multipleSelectField.name]: ['rap', 'rock', 'hiphop'],
+        [multipleUserField.name]: [
+          { id: 'usrTestUserId', title: 'test' },
+          { id: 'usrTestUserId_1', title: 'test_1' },
+        ],
       },
     },
     {
@@ -114,6 +129,7 @@ export const x_20 = {
         [textField.name]: 'Text Field 1',
         [numberField.name]: 1,
         [multipleSelectField.name]: ['rap', 'rock'],
+        [multipleUserField.name]: [{ id: 'usrTestUserId_1', title: 'test_1' }],
       },
     },
     {

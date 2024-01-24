@@ -87,7 +87,7 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
         {collaboratorsFiltered?.map(({ userId, userName, email, role, avatar, createdTime }) => (
           <div key={userId} className="relative flex items-center gap-3 pr-7">
             <div className="flex flex-1">
-              <Avatar className="h-7 w-7">
+              <Avatar className="size-7">
                 <AvatarImage src={avatar as string} alt="avatar-name" />
                 <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
               </Avatar>
@@ -117,7 +117,7 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
                       disabled={deleteCollaboratorLoading}
                       onClick={() => deleteCollaborator({ spaceId, userId })}
                     >
-                      <X className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
+                      <X className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>

@@ -63,7 +63,7 @@ export const Account: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="group relative flex h-fit items-center justify-center">
-                <Avatar className="h-14 w-14">
+                <Avatar className="size-14">
                   <AvatarImage
                     id={`${sessionUser.id}-avatar`}
                     src={sessionUser.avatar as string}
@@ -74,10 +74,10 @@ export const Account: React.FC = () => {
                   </AvatarFallback>
                 </Avatar>
 
-                <div className="absolute left-0 top-0 h-full w-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
+                <div className="absolute left-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
                   <input
                     type="file"
-                    className="absolute inset-0 h-full w-full opacity-0"
+                    className="absolute inset-0 size-full opacity-0"
                     accept="image/*"
                     onChange={uploadAvatar}
                   ></input>

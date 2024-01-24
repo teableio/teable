@@ -14,7 +14,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   const icon = table?.icon ? (
     <Emoji size={'1.25rem'} emoji={table.icon} />
   ) : (
-    <Table2 className="h-5 w-5" />
+    <Table2 className="size-5" />
   );
   return (
     <div
@@ -23,7 +23,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
         className
       )}
     >
-      {connected ? <div className="h-5 w-5">{icon}</div> : <Spin />}
+      {connected ? <div className="size-5">{icon}</div> : <Spin />}
       <div className="flex h-7 shrink-0 grow-0 flex-col items-start justify-center">
         <div className="text-sm leading-none">{table?.name}</div>
         <div className="hidden text-xs leading-none text-slate-400 sm:block">

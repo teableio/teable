@@ -196,7 +196,7 @@ export const GridViewBase = () => {
   );
 
   return (
-    <div ref={container} className="relative h-full w-full overflow-hidden">
+    <div ref={container} className="relative size-full overflow-hidden">
       {prepare ? (
         <>
           <Grid

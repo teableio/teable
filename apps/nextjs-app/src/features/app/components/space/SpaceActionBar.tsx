@@ -41,7 +41,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
       )}
       <SpaceCollaboratorModalTrigger space={space}>
         <Button variant={'outline'} size={buttonSize} disabled={createBaseLoading}>
-          <UserPlus className="h-4 w-4" /> Invite
+          <UserPlus className="size-4" /> Invite
         </Button>
       </SpaceCollaboratorModalTrigger>
       <SpaceActionTrigger

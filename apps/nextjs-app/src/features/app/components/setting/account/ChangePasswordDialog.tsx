@@ -151,7 +151,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
             disabled={disableSubmitBtn}
             onClick={handleSubmit}
           >
-            {isLoading && <Spin className="mr-1 h-4 w-4" />}
+            {isLoading && <Spin className="mr-1 size-4" />}
             {t('settings.account.changePassword.title')}
           </Button>
           <DialogClose asChild>

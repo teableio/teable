@@ -520,7 +520,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const { rowInitSize } = coordInstance;
 
   return (
-    <div className="h-full w-full" style={style} ref={ref}>
+    <div className="size-full" style={style} ref={ref}>
       <div
         id={GRID_CONTAINER_ID}
         ref={containerRef}

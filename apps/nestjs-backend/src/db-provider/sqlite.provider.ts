@@ -16,7 +16,7 @@ import type {
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
-import { SortQuerySqlite } from './sort-query/sort-query.sqlite';
+import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
 export class SqliteProvider implements IDbProvider {
   private readonly logger = new Logger(SqliteProvider.name);

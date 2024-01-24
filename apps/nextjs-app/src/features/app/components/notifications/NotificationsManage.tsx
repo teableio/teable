@@ -101,7 +101,7 @@ export const NotificationsManage: React.FC = () => {
             refresh();
           }}
         >
-          <Bell className="h-5 w-5 shrink-0" />
+          <Bell className="size-5 shrink-0" />
           {unreadCount > 0 ? (
             <span className="absolute right-2.5 top-1 inline-flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-zinc-400 p-[3px] text-[8px] leading-none text-white">
               {unreadCount}

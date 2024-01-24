@@ -24,7 +24,7 @@ export const SelectFieldType = (props: {
       ).concat({
         id: 'lookup',
         name: 'Lookup to other table',
-        icon: <SearchIcon className="h-4 w-4" />,
+        icon: <SearchIcon className="size-4" />,
       }),
     [getFieldStatic]
   );

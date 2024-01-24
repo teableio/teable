@@ -638,7 +638,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   useScrollFrameRate(gridRef.current?.scrollBy);
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden">
+    <div ref={containerRef} className="relative size-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
         <>
           <Grid
