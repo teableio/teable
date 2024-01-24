@@ -9,7 +9,7 @@ interface ITx {
   client?: Prisma.TransactionClient;
   timeStr?: string;
   id?: string;
-  rawOpMap?: unknown;
+  rawOpMaps?: unknown;
 }
 
 function proxyClient(tx: Prisma.TransactionClient) {
@@ -118,11 +118,12 @@ export class PrismaService
 
   txClient(): Prisma.TransactionClient {
     const txClient = this.cls.get('tx.client');
-    // const id = this.cls.get('tx.id');
-    // console.log('transactionId', id);
     if (!txClient) {
+      // console.log('transactionId', 'none');
       return this;
     }
+    // const id = this.cls.get('tx.id');
+    // console.log('transactionId', id);
     return txClient;
   }
 

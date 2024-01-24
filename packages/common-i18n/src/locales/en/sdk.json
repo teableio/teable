@@ -44,7 +44,8 @@
   },
   "hidden": {
     "showAll": "Show All",
-    "hideAll": "Hide ALl"
+    "hideAll": "Hide All",
+    "forbidHiddenPrimaryTip": "Primary key: is used to identify records, could not to hidden"
   },
   "expandRecord": {
     "copy": "Copy to clipboard"

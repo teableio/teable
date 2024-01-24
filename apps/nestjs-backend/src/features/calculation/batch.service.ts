@@ -4,10 +4,12 @@ import type { IOtOperation } from '@teable-group/core';
 import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
-import { groupBy, isEmpty, keyBy, merge } from 'lodash';
+import { groupBy, isEmpty, keyBy } from 'lodash';
 import { customAlphabet } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { bufferCount, concatMap, from, lastValueFrom } from 'rxjs';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IRawOp, IRawOpMap } from '../../share-db/interface';
@@ -35,7 +37,8 @@ export class BatchService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   private async completeMissingCtx(
@@ -90,6 +93,30 @@ export class BatchService {
     };
   }
 
+  private async updateRecordsTask(
+    tableId: string,
+    dbTableName: string,
+    fieldMap: { [fieldId: string]: IFieldInstance },
+    opsPair: [recordId: string, IOtOperation[]][]
+  ) {
+    const raw = await this.fetchRawData(
+      dbTableName,
+      opsPair.map(([recordId]) => recordId)
+    );
+    const versionGroup = keyBy(raw, '__id');
+
+    const opsData = this.buildRecordOpsData(opsPair, versionGroup);
+    if (!opsData.length) return;
+
+    await this.executeUpdateRecords(dbTableName, fieldMap, opsData);
+
+    const opDataList = opsPair.map(([recordId, ops]) => {
+      return { docId: recordId, version: versionGroup[recordId].__version, data: ops };
+    });
+
+    await this.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, opDataList);
+  }
+
   @Timing()
   async updateRecords(
     opsMap: IOpsMap,
@@ -106,28 +133,22 @@ export class BatchService {
       if (isEmpty(recordOpsMap)) {
         continue;
       }
+      const opsPair = Object.entries(recordOpsMap);
 
-      const raw = await this.fetchRawData(dbTableName, recordOpsMap);
-      const versionGroup = keyBy(raw, '__id');
+      const taskFunction = async (opp: [recordId: string, IOtOperation[]][]) =>
+        this.updateRecordsTask(tableId, dbTableName, fieldMap, opp);
 
-      const opsData = this.buildRecordOpsData(recordOpsMap, versionGroup);
-      if (!opsData.length) continue;
-
-      await this.executeUpdateRecords(dbTableName, fieldMap, opsData);
-
-      const opDataList = Object.entries(recordOpsMap).map(([recordId, ops]) => {
-        return { docId: recordId, version: versionGroup[recordId].__version, data: ops };
-      });
-      await this.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Record, opDataList);
+      await lastValueFrom(
+        from(opsPair).pipe(
+          bufferCount(this.thresholdConfig.calcChunkSize),
+          concatMap((opsPair) => from(taskFunction(opsPair)))
+        )
+      );
     }
   }
 
-  @Timing()
-  private async fetchRawData(
-    dbTableName: string,
-    recordOpsMap: { [recordId: string]: IOtOperation[] }
-  ) {
-    const recordIds = Object.keys(recordOpsMap);
+  // @Timing()
+  private async fetchRawData(dbTableName: string, recordIds: string[]) {
     const querySql = this.knex(dbTableName)
       .whereIn('__id', recordIds)
       .select('__id', '__version', '__last_modified_time', '__last_modified_by')
@@ -143,9 +164,8 @@ export class BatchService {
     >(querySql);
   }
 
-  @Timing()
   private buildRecordOpsData(
-    recordOpsMap: { [recordId: string]: IOtOperation[] },
+    opsPair: [recordId: string, IOtOperation[]][],
     versionGroup: {
       [recordId: string]: {
         __version: number;
@@ -157,18 +177,15 @@ export class BatchService {
   ) {
     const opsData: IOpsData[] = [];
 
-    for (const recordId in recordOpsMap) {
-      const updateParam = recordOpsMap[recordId].reduce<{ [fieldId: string]: unknown }>(
-        (pre, op) => {
-          const opContext = RecordOpBuilder.editor.setRecord.detect(op);
-          if (!opContext) {
-            throw new Error(`illegal op ${JSON.stringify(op)} found`);
-          }
-          pre[opContext.fieldId] = opContext.newCellValue;
-          return pre;
-        },
-        {}
-      );
+    for (const [recordId, ops] of opsPair) {
+      const updateParam = ops.reduce<{ [fieldId: string]: unknown }>((pre, op) => {
+        const opContext = RecordOpBuilder.editor.setRecord.detect(op);
+        if (!opContext) {
+          throw new Error(`illegal op ${JSON.stringify(op)} found`);
+        }
+        pre[opContext.fieldId] = opContext.newCellValue;
+        return pre;
+      }, {});
 
       const version = versionGroup[recordId].__version;
       const lastModifiedTime = versionGroup[recordId].__last_modified_time?.toISOString();
@@ -318,7 +335,7 @@ export class BatchService {
         rawOp = {
           ...baseRaw,
           create: {
-            type: 'http://sharejs.org/types/JSONv0',
+            type: 'json0',
             data,
           },
           v: version,
@@ -343,8 +360,9 @@ export class BatchService {
     });
 
     await this.executeInsertOps(collectionId, docType, rawOps);
-    const prevMap = this.cls.get('tx.rawOpMap') || {};
-    this.cls.set('tx.rawOpMap', merge({}, prevMap, rawOpMap));
+    const prevMap = this.cls.get('tx.rawOpMaps') || [];
+    prevMap.push(rawOpMap);
+    this.cls.set('tx.rawOpMaps', prevMap);
     return rawOpMap;
   }
 

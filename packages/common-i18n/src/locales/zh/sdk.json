@@ -44,7 +44,8 @@
   },
   "hidden": {
     "showAll": "显示全部",
-    "hideAll": "隐藏全部"
+    "hideAll": "隐藏全部",
+    "forbidHiddenPrimaryTip": "主列：用于标识每条记录，不能隐藏"
   },
   "expandRecord": {
     "copy": "复制到剪贴板"

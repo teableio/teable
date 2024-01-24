@@ -5,6 +5,8 @@ import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 import { DashboardPage } from '@/features/app/dashboard/Pages';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
+import { baseConfig } from '@/features/i18n/base.config';
+import { getTranslationsProps } from '@/lib/i18n';
 import withAuthSSR from '@/lib/withAuthSSR';
 import type { NextPageWithLayout } from '../_app';
 
@@ -21,6 +23,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
     props: {
       baseServerData: base,
       tableServerData: result,
+      ...(await getTranslationsProps(context, baseConfig.i18nNamespaces)),
     },
   };
 });

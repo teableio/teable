@@ -15,6 +15,7 @@ export const authMiddleware = (
     }
     const cookie = context.req.headers.cookie;
     context.agent.custom.cookie = cookie;
+    context.agent.custom.sessionId = context.req.sessionID;
 
     const newUrl = new url.URL(context.req.url, 'https://example.com');
     context.agent.custom.shareId = newUrl.searchParams.get('shareId');

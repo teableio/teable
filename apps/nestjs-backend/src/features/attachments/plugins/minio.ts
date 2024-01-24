@@ -5,6 +5,7 @@ import { getRandomString } from '@teable-group/core';
 import * as minio from 'minio';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { second } from '../../../utils/second';
 import type StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
 
@@ -41,7 +42,7 @@ export class MinioStorage implements StorageAdapter {
         uploadMethod,
         bucket,
         join(dir, hash ?? token),
-        expiresIn ?? tokenExpireIn,
+        expiresIn ?? second(tokenExpireIn),
         requestHeaders
       );
       return {
@@ -87,7 +88,7 @@ export class MinioStorage implements StorageAdapter {
   async getPreviewUrl(
     bucket: string,
     path: string,
-    expiresIn: number = this.config.urlExpireIn,
+    expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, respHeaders);

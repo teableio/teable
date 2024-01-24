@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { HttpErrorCode } from '@teable-group/core';
 import cookie from 'cookie';
-import { AUTH_COOKIE } from '../const';
-import { AuthService } from '../features/auth/auth.service';
+import { AUTH_SESSION_COOKIE_NAME } from '../const';
+import { SessionHandleService } from '../features/auth/session/session-handle.service';
 import { ShareAuthService } from '../features/share/share-auth.service';
 import { UserService } from '../features/user/user.service';
 
@@ -12,15 +12,15 @@ const UnauthorizedError = { message: 'Unauthorized', code: HttpErrorCode.UNAUTHO
 @Injectable()
 export class WsAuthService {
   constructor(
-    private readonly authService: AuthService,
     private readonly userService: UserService,
-    private readonly shareAuthService: ShareAuthService
+    private readonly shareAuthService: ShareAuthService,
+    private readonly sessionHandleService: SessionHandleService
   ) {}
 
-  async checkCookie(cookie: string | undefined) {
-    if (cookie) {
+  async checkSession(sessionId: string | undefined) {
+    if (sessionId) {
       try {
-        return await this.auth(cookie);
+        return await this.auth(sessionId);
       } catch {
         throw UnauthorizedError;
       }
@@ -29,14 +29,13 @@ export class WsAuthService {
     }
   }
 
-  async auth(cookie: string) {
-    const token = WsAuthService.extractTokenFromHeader(cookie);
-    if (!token) {
+  async auth(sessionId: string) {
+    const userId = await this.sessionHandleService.getUserId(sessionId);
+    if (!userId) {
       throw new UnauthorizedException();
     }
     try {
-      const payload = await this.authService.validateJwtToken(token);
-      const user = await this.userService.getUserById(payload.id);
+      const user = await this.userService.getUserById(userId);
       if (!user) {
         throw new UnauthorizedException();
       }
@@ -46,9 +45,9 @@ export class WsAuthService {
     }
   }
 
-  static extractTokenFromHeader(cookieStr: string): string | undefined {
+  static extractSessionFromHeader(cookieStr: string): string | undefined {
     const cookieObj = cookie.parse(cookieStr);
-    return cookieObj[AUTH_COOKIE];
+    return cookieObj[AUTH_SESSION_COOKIE_NAME];
   }
 
   async checkShareCookie(shareId: string, cookie?: string) {

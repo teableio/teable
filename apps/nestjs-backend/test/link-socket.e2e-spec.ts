@@ -32,11 +32,13 @@ describe('OpenAPI link (socket-e2e)', () => {
   let shareDbService!: ShareDbService;
   const baseId = globalThis.testConfig.baseId;
   let cookie: string;
+  let sessionID: string;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     cookie = appCtx.cookie;
+    sessionID = appCtx.sessionID;
 
     shareDbService = app.get(ShareDbService);
   });
@@ -106,8 +108,9 @@ describe('OpenAPI link (socket-e2e)', () => {
     ) {
       const connection = shareDbService.connect(undefined, {
         headers: {
-          cookie: cookie,
+          cookie,
         },
+        sessionID,
       });
       const collection = `${IdPrefix.Record}_${tableId}`;
       return new Promise<IRecord>((resolve, reject) => {

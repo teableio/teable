@@ -25,12 +25,8 @@ export const storageConfig = registerAs('storage', () => ({
     key: process.env.BACKEND_STORAGE_ENCRYPTION_KEY ?? '73b00476e456323e',
     iv: process.env.BACKEND_STORAGE_ENCRYPTION_IV ?? '8c9183e4c175f63c',
   },
-  tokenExpireIn: process.env.BACKEND_STORAGE_TOKEN_EXPIRE_IN
-    ? parseInt(process.env.BACKEND_STORAGE_TOKEN_EXPIRE_IN)
-    : 60 * 60 * 24 * 7,
-  urlExpireIn: process.env.BACKEND_STORAGE_URL_EXPIRE_IN
-    ? parseInt(process.env.BACKEND_STORAGE_URL_EXPIRE_IN)
-    : 60 * 60 * 24 * 7,
+  tokenExpireIn: process.env.BACKEND_STORAGE_TOKEN_EXPIRE_IN ?? '7d',
+  urlExpireIn: process.env.BACKEND_STORAGE_URL_EXPIRE_IN ?? '7d',
 }));
 
 export const StorageConfig = () => Inject(storageConfig.KEY);

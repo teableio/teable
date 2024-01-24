@@ -16,6 +16,7 @@ import type {
   ISetViewEnableShareOpContext,
   ISetViewColumnMetaOpContext,
   IColumnMeta,
+  ISetViewOrderOpContext,
 } from '@teable-group/core';
 import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
@@ -41,6 +42,7 @@ type IViewOpContext =
   | ISetViewShareMetaOpContext
   | ISetViewEnableShareOpContext
   | ISetViewShareIdOpContext
+  | ISetViewOrderOpContext
   | ISetViewColumnMetaOpContext;
 
 @Injectable()
@@ -348,6 +350,9 @@ export class ViewService implements IAdapterService {
           break;
         case OpName.SetViewShareMeta:
           updateData['shareMeta'] = JSON.stringify(opContext.newShareMeta) ?? null;
+          break;
+        case OpName.SetViewOrder:
+          updateData['order'] = opContext.newOrder;
           break;
         case OpName.SetViewEnableShare:
           updateData['enableShare'] = opContext.newEnableShare;

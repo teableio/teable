@@ -9,7 +9,6 @@ import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule } from '@nestjs/swagger';
 import { getOpenApiDocumentation } from '@teable-group/openapi';
-import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
@@ -35,7 +34,6 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   app.use(helmet());
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
-  app.use(cookieParser());
 
   const swaggerConfig = configService.get<ISwaggerConfig>('swagger');
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');

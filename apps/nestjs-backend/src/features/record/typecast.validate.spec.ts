@@ -246,11 +246,11 @@ describe('TypeCastAndValidate', () => {
     });
 
     it('should create new options and update field', async () => {
-      fieldConvertingService.updateFieldById.mockImplementation(() => Promise.resolve() as any);
+      fieldConvertingService.stageAnalysis.mockImplementation(() => Promise.resolve({}) as any);
 
       await typeCastAndValidate['createOptionsIfNotExists'](['1', '2']);
 
-      expect(fieldConvertingService.updateFieldById).toBeCalledWith(
+      expect(fieldConvertingService.stageAnalysis).toBeCalledWith(
         tableId,
         field.id,
         expect.objectContaining({
@@ -266,10 +266,10 @@ describe('TypeCastAndValidate', () => {
     });
 
     it('should return if no options', async () => {
-      fieldConvertingService.updateFieldById.mockImplementation(() => Promise.resolve() as any);
+      fieldConvertingService.stageAnalysis.mockImplementation(() => Promise.resolve() as any);
       await typeCastAndValidate['createOptionsIfNotExists']([]);
 
-      expect(fieldConvertingService.updateFieldById).not.toBeCalled();
+      expect(fieldConvertingService.stageAnalysis).not.toBeCalled();
     });
   });
 

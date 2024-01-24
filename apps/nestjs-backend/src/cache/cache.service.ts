@@ -1,15 +1,31 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Injectable, Inject } from '@nestjs/common';
+import sqliteKeyv from '@keyv/sqlite';
+import { Injectable } from '@nestjs/common';
 import { getRandomInt } from '@teable-group/core';
-import { Cache } from 'cache-manager';
+import * as fse from 'fs-extra';
+import keyv from 'keyv';
+import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import type { ICacheStore } from './types';
 
 @Injectable()
 export class CacheService {
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  private cacheManager;
+  constructor(@CacheConfig() cacheConfig: ICacheConfig) {
+    const { provider, sqlite } = cacheConfig;
+    let store;
+    // eslint-disable-next-line sonarjs/no-small-switch
+    switch (provider) {
+      case 'sqlite':
+        fse.ensureFileSync(sqlite.uri);
+        store = new sqliteKeyv(sqlite);
+        break;
+      default:
+        store = new keyv();
+    }
+    this.cacheManager = new keyv({ store });
+  }
 
-  async get<TKey extends keyof ICacheStore>(key: TKey) {
-    return this.cacheManager.get<ICacheStore[TKey]>(key);
+  async get<TKey extends keyof ICacheStore>(key: TKey): Promise<ICacheStore[TKey] | undefined> {
+    return this.cacheManager.get(key);
   }
 
   async set<TKey extends keyof ICacheStore>(
@@ -21,10 +37,6 @@ export class CacheService {
   }
 
   async del<TKey extends keyof ICacheStore>(key: TKey): Promise<void> {
-    await this.cacheManager.del(key);
-  }
-
-  async reset(): Promise<void> {
-    await this.cacheManager.reset();
+    await this.cacheManager.delete(key);
   }
 }

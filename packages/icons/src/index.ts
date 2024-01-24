@@ -89,6 +89,7 @@ export { default as Search } from './components/Search';
 export { default as Settings } from './components/Settings';
 export { default as Share2 } from './components/Share2';
 export { default as Sheet } from './components/Sheet';
+export { default as Sidebar } from './components/Sidebar';
 export { default as SortAsc } from './components/SortAsc';
 export { default as Square } from './components/Square';
 export { default as Star } from './components/Star';

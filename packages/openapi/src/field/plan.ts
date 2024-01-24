@@ -7,7 +7,7 @@ import { z } from '../zod';
 export const PLAN_FIELD = '/table/{tableId}/field/{fieldId}/plan';
 
 export const planFieldVoSchema = z.object({
-  isAsync: z.boolean(),
+  estimateTime: z.number(),
   graph: graphVoSchema,
   updateCellCount: z.number(),
 });
