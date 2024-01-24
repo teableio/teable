@@ -366,7 +366,11 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         return setCursor('grab');
       case RegionType.AllCheckbox:
       case RegionType.RowHeaderCheckbox: {
-        if (selectable === SelectableType.Column || selectable === SelectableType.None) {
+        if (
+          [SelectableType.None, SelectableType.Column, SelectableType.Cell].includes(
+            selectable as SelectableType
+          )
+        ) {
           return setCursor('not-allowed');
         }
         return setCursor('pointer');

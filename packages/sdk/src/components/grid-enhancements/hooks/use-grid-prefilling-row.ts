@@ -74,6 +74,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
   return useMemo(() => {
     return {
       prefillingRowIndex,
+      prefillingRecordId,
       isRowPrefillingActived,
       setPrefillingRowIndex,
       setPrefillingRecordId,
@@ -82,6 +83,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
     };
   }, [
     prefillingRowIndex,
+    prefillingRecordId,
     isRowPrefillingActived,
     getPrefillingCellContent,
     onPrefillingCellEdited,

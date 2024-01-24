@@ -131,6 +131,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const {
     prefillingRowIndex,
+    prefillingRecordId,
     isRowPrefillingActived,
     setPrefillingRowIndex,
     setPrefillingRecordId,
@@ -160,6 +161,15 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         Object.keys(recordMap).find((key) => recordMap[key]?.id === recordId)
       );
 
+      if (recordId === prefillingRecordId) {
+        return prefillingGridRef.current?.setSelection(
+          new CombinedSelection(SelectionRegionType.Cells, [
+            [0, 0],
+            [0, 0],
+          ])
+        );
+      }
+
       recordIndex >= 0 &&
         gridRef.current?.setSelection(
           new CombinedSelection(SelectionRegionType.Cells, [
@@ -168,7 +178,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           ])
         );
     }
-  }, [router.query.recordId, recordMap, isReadyToRender]);
+  }, [router.query.recordId, recordMap, isReadyToRender, prefillingRecordId]);
 
   useMount(() => setReadyToRender(true));
 
@@ -215,6 +225,35 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [recordMap, columns]
   );
 
+  const callbackForPrefilling = useCallback(
+    (recordId: string, targetIndex?: number) => {
+      if (!isRowPrefillingActived) return;
+      const index = targetIndex ?? Math.max(realRowCount - 1, 0);
+      setPrefillingRowIndex(index);
+      setPrefillingRecordId(recordId);
+      setSelection(emptySelection);
+      gridRef.current?.setSelection(emptySelection);
+    },
+    [
+      isRowPrefillingActived,
+      realRowCount,
+      setPrefillingRowIndex,
+      setPrefillingRecordId,
+      setSelection,
+    ]
+  );
+
+  const createRecordWithCallback = (
+    fieldValueMap: { [fieldId: string]: unknown },
+    targetIndex?: number
+  ) => {
+    return table?.createRecord(fieldValueMap).then((res) => {
+      const record = res.data.records[0];
+      if (record == null) return;
+      callbackForPrefilling(record.id, targetIndex);
+    });
+  };
+
   const onContextMenu = useCallback(
     // eslint-disable-next-line sonarjs/cognitive-complexity
     (selection: CombinedSelection, position: IPosition) => {
@@ -246,7 +285,13 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
         }
 
-        openRecordMenu({ position, records, fields: selectFields, neighborRecords });
+        openRecordMenu({
+          position,
+          records,
+          fields: selectFields,
+          neighborRecords,
+          onAfterInsertCallback: callbackForPrefilling,
+        });
       }
 
       if (isColumnSelection) {
@@ -257,7 +302,15 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         openHeaderMenu({ position, fields: selectFields });
       }
     },
-    [columns, recordMap, fields, realRowCount, openRecordMenu, openHeaderMenu]
+    [
+      columns,
+      recordMap,
+      fields,
+      realRowCount,
+      openRecordMenu,
+      openHeaderMenu,
+      callbackForPrefilling,
+    ]
   );
 
   const onColumnHeaderMenuClick = useCallback(
@@ -305,21 +358,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     },
     [view]
   );
-
-  const createRecordWithCallback = (
-    fieldValueMap: { [fieldId: string]: unknown },
-    targetIndex?: number
-  ) => {
-    return table?.createRecord(fieldValueMap).then((res) => {
-      if (!isRowPrefillingActived) return;
-      const index = targetIndex ?? Math.max(realRowCount - 1, 0);
-      const record = res.data.records[0];
-      setPrefillingRowIndex(index);
-      setPrefillingRecordId(record.id);
-      setSelection(emptySelection);
-      gridRef.current?.setSelection(emptySelection);
-    });
-  };
 
   const onRowAppend = (targetIndex?: number) => {
     if (group?.length && targetIndex != null) {
@@ -438,6 +476,25 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     );
   };
 
+  const onPrefillingRowExpand = (_rowIndex: number) => {
+    if (!prefillingRecordId) return;
+
+    if (onRowExpand) {
+      onRowExpand(prefillingRecordId);
+      return;
+    }
+    router.push(
+      {
+        pathname: `${router.pathname}/[recordId]`,
+        query: { ...router.query, recordId: prefillingRecordId },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  };
+
   const onItemClick = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
     const [columnIndex] = cellItem;
     const { id: fieldId } = columns[columnIndex] ?? {};
@@ -528,11 +585,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [permission]
   );
 
-  const onGridScrollUpdate = useCallback((sl?: number, _st?: number) => {
+  const onGridScrollChanged = useCallback((sl?: number, _st?: number) => {
     prefillingGridRef.current?.scrollTo(sl, undefined);
   }, []);
 
-  const onPrefillingGridScrollUpdate = useCallback((sl?: number, _st?: number) => {
+  const onPrefillingGridScrollChanged = useCallback((sl?: number, _st?: number) => {
     gridRef.current?.scrollTo(sl, undefined);
   }, []);
 
@@ -602,9 +659,10 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             collaborators={collaborators}
             getCellContent={getCellContent}
             onDelete={getAuthorizedFunction(onDelete, 'record|update')}
+            onRowOrdered={onRowOrdered}
+            onRowExpand={onRowExpandInner}
             onRowAppend={getAuthorizedFunction(onRowAppend, 'record|create')}
             onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
-            onRowOrdered={onRowOrdered}
             onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
             onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
             onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
@@ -617,10 +675,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             onColumnHeaderDblClick={onColumnHeaderDblClick}
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
-            onScrollUpdate={onGridScrollUpdate}
+            onScrollChanged={onGridScrollChanged}
             onCopy={onCopy}
             onPaste={onPaste}
-            onRowExpand={onRowExpandInner}
             onItemClick={onItemClick}
             onItemHovered={onItemHovered}
           />
@@ -645,13 +702,14 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
                 rowIndexVisible={false}
                 rowControls={rowControls}
                 draggable={DraggableType.None}
-                selectable={SelectableType.None}
+                selectable={SelectableType.Cell}
                 columns={columns}
                 columnHeaderVisible={false}
                 freezeColumnCount={frozenColumnCount}
                 customIcons={customIcons}
+                onRowExpand={onPrefillingRowExpand}
                 getCellContent={getPrefillingCellContent}
-                onScrollUpdate={onPrefillingGridScrollUpdate}
+                onScrollChanged={onPrefillingGridScrollChanged}
                 onCellEdited={getAuthorizedFunction(onPrefillingCellEdited, 'record|update')}
               />
             </PrefillingRowContainer>

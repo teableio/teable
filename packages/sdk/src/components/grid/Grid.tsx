@@ -106,7 +106,7 @@ export interface IGridExternalProps {
   onColumnHeaderMenuClick?: (colIndex: number, bounds: IRectangle) => void;
   onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
-  onScrollUpdate?: (scrollLeft: number, scrollTop: number) => void;
+  onScrollChanged?: (scrollLeft: number, scrollTop: number) => void;
 
   /**
    * Triggered when the mouse hovers over the every type of region
@@ -202,7 +202,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onCollapsedGroupChanged,
     onItemHovered,
     onItemClick,
-    onScrollUpdate,
+    onScrollChanged,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -633,7 +633,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         scrollEnable={scrollEnable}
         getLinearRow={getLinearRow}
         setScrollState={setScrollState}
-        onScrollUpdate={onScrollUpdate}
+        onScrollChanged={onScrollChanged}
         onVisibleRegionChanged={onVisibleRegionChanged}
       />
     </div>

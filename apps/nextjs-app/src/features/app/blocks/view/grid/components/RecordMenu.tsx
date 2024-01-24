@@ -1,6 +1,7 @@
 import { FieldKeyType } from '@teable-group/core';
 import { Trash, Copy, ArrowUp, ArrowDown } from '@teable-group/icons';
 import { deleteRecords } from '@teable-group/openapi';
+import { SelectionRegionType } from '@teable-group/sdk/components';
 import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
 import { Record } from '@teable-group/sdk/model';
 import {
@@ -49,7 +50,7 @@ export const RecordMenu = () => {
 
   if (recordMenu == null) return null;
 
-  const { records, neighborRecords } = recordMenu;
+  const { records, neighborRecords, onAfterInsertCallback } = recordMenu;
 
   if (!records?.length) return null;
 
@@ -61,6 +62,32 @@ export const RecordMenu = () => {
         top: position.y,
       }
     : {};
+
+  const onInsertRecord = async (sort: number) => {
+    if (!tableId || !viewId) return;
+
+    const res = await Record.createRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        {
+          fields: {},
+          recordOrder: { [viewId]: sort },
+        },
+      ],
+    });
+    const record = res.data.records[0];
+
+    if (record == null || selection == null) return;
+
+    const { type, ranges } = selection;
+
+    if (type === SelectionRegionType.Cells) {
+      return onAfterInsertCallback?.(record.id, ranges[0][1]);
+    }
+    if (type === SelectionRegionType.Rows) {
+      return onAfterInsertCallback?.(record.id, ranges[0][0]);
+    }
+  };
 
   const menuItemGroups: IMenuItemProps<MenuItemType>[][] = [
     [
@@ -81,16 +108,7 @@ export const RecordMenu = () => {
             const aboveSort = aboveRecord.recordOrder[viewId];
             finalSort = (sort + aboveSort) / 2;
           }
-
-          await Record.createRecords(tableId, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                fields: {},
-                recordOrder: { [viewId]: finalSort },
-              },
-            ],
-          });
+          await onInsertRecord(finalSort);
         },
       },
       {
@@ -110,16 +128,7 @@ export const RecordMenu = () => {
             const aboveSort = blewRecord.recordOrder[viewId];
             finalSort = (sort + aboveSort) / 2;
           }
-
-          await Record.createRecords(tableId, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                fields: {},
-                recordOrder: { [viewId]: finalSort },
-              },
-            ],
-          });
+          await onInsertRecord(finalSort);
         },
       },
     ],

@@ -18,7 +18,7 @@ export interface ScrollerProps
     | 'smoothScrollX'
     | 'smoothScrollY'
     | 'scrollBarVisible'
-    | 'onScrollUpdate'
+    | 'onScrollChanged'
     | 'onVisibleRegionChanged'
   > {
   coordInstance: CoordinateManager;
@@ -57,7 +57,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     scrollState,
     getLinearRow,
     setScrollState,
-    onScrollUpdate,
+    onScrollChanged,
     onVisibleRegionChanged,
   } = props;
 
@@ -145,7 +145,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       width: stopColumnIndex - startColumnIndex,
       height: realStopRowIndex - realStartRowIndex,
     });
-    onScrollUpdate?.(
+    onScrollChanged?.(
       scrollProps.scrollLeft ?? scrollState.scrollLeft,
       scrollProps.scrollTop ?? scrollState.scrollTop
     );

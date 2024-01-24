@@ -18,6 +18,7 @@ export interface IRecordMenu {
   records: Record[];
   neighborRecords: (Record | null)[];
   position: IPosition;
+  onAfterInsertCallback?: (recordId: string, targetIndex?: number) => void;
 }
 
 export interface IStatisticMenu {
