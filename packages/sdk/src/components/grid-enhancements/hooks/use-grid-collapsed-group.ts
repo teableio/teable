@@ -12,7 +12,9 @@ import type {
   IGetRecordsRo,
   IGroupHeaderPoint,
   IGroupPointsVo,
+  ILinkCellValue,
   IOperator,
+  IUserCellValue,
 } from '@teable-group/core';
 import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
@@ -24,6 +26,17 @@ const FILTER_RELATED_FILED_TYPE_SET = new Set([
   FieldType.User,
   FieldType.Link,
 ]);
+
+export const cellValue2FilterValue = (cellValue: unknown, field: IFieldInstance) => {
+  const { type, isMultipleCellValue } = field;
+
+  if (cellValue == null || ![FieldType.User, FieldType.Link].includes(type)) return cellValue;
+
+  if (isMultipleCellValue) {
+    return (cellValue as (IUserCellValue | ILinkCellValue)[])?.map((v) => v.id);
+  }
+  return (cellValue as IUserCellValue | ILinkCellValue).id;
+};
 
 export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPointsVo) => {
   const activeViewId = useViewId();
@@ -113,7 +126,7 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
 
       filterQuery.filterSet.push({
         fieldId,
-        value: value as never,
+        value: cellValue2FilterValue(value, field) as never,
         operator,
       });
     }
