@@ -37,3 +37,35 @@ export type FieldActions = `${ActionPrefix.Field}|${z.infer<typeof fieldActionsS
 export const recordActionsSchema = defaultActionsSchema.or(z.enum(['comment']));
 
 export type RecordActions = `${ActionPrefix.Record}|${z.infer<typeof recordActionsSchema>}`;
+
+export type AllActions =
+  | SpaceActions
+  | BaseActions
+  | TableActions
+  | ViewActions
+  | FieldActions
+  | RecordActions;
+
+export type ActionPrefixMap = {
+  [ActionPrefix.Space]: SpaceActions[];
+  [ActionPrefix.Base]: BaseActions[];
+  [ActionPrefix.Table]: TableActions[];
+  [ActionPrefix.View]: ViewActions[];
+  [ActionPrefix.Field]: FieldActions[];
+  [ActionPrefix.Record]: RecordActions[];
+};
+
+export const actionPrefixMap: ActionPrefixMap = {
+  [ActionPrefix.Space]: ['space|create', 'space|delete', 'space|read', 'space|update'],
+  [ActionPrefix.Base]: ['base|create', 'base|delete', 'base|read', 'base|update'],
+  [ActionPrefix.Table]: ['table|create', 'table|delete', 'table|read', 'table|update'],
+  [ActionPrefix.View]: ['view|create', 'view|delete', 'view|read', 'view|update'],
+  [ActionPrefix.Field]: ['field|create', 'field|delete', 'field|read', 'field|update'],
+  [ActionPrefix.Record]: [
+    'record|comment',
+    'record|create',
+    'record|delete',
+    'record|read',
+    'record|update',
+  ],
+};

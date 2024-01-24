@@ -1,13 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { z } from 'zod';
-import type {
-  BaseActions,
-  FieldActions,
-  RecordActions,
-  SpaceActions,
-  TableActions,
-  ViewActions,
-} from './actions';
+import { z } from '../../zod';
+import type { AllActions } from '../actions';
 
 export enum SpaceRole {
   Owner = 'owner',
@@ -19,13 +12,7 @@ export enum SpaceRole {
 
 export const spaceRolesSchema = z.nativeEnum(SpaceRole);
 
-export const spacePermissions: Record<
-  SpaceRole,
-  Record<
-    SpaceActions | BaseActions | TableActions | ViewActions | FieldActions | RecordActions,
-    boolean
-  >
-> = {
+export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = {
   owner: {
     'space|create': true,
     'space|delete': true,
@@ -191,29 +178,4 @@ export const spacePermissions: Record<
     'record|read': true,
     'record|update': false,
   },
-};
-
-export enum BaseRole {
-  Creator = 'creator',
-  Editor = 'editor',
-  Commenter = 'commenter',
-  Viewer = 'viewer',
-}
-
-export const baseRolesSchema = z.nativeEnum(BaseRole);
-
-export const shareViewPermission: Record<ViewActions | FieldActions | RecordActions, boolean> = {
-  'view|create': false,
-  'view|delete': false,
-  'view|read': true,
-  'view|update': false,
-  'field|create': false,
-  'field|delete': false,
-  'field|read': true,
-  'field|update': false,
-  'record|create': false,
-  'record|comment': false,
-  'record|delete': false,
-  'record|read': true,
-  'record|update': false,
 };

@@ -1,24 +1,11 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 
 import { keys, pickBy } from 'lodash';
-import type {
-  BaseActions,
-  FieldActions,
-  RecordActions,
-  SpaceActions,
-  TableActions,
-  ViewActions,
-} from './actions';
+import type { AllActions } from './actions';
 import type { SpaceRole } from './role';
 import { spacePermissions } from './role';
 
-export type PermissionAction =
-  | SpaceActions
-  | BaseActions
-  | TableActions
-  | ViewActions
-  | FieldActions
-  | RecordActions;
+export type PermissionAction = AllActions;
 
 export type PermissionMap = Record<PermissionAction, boolean>;
 
