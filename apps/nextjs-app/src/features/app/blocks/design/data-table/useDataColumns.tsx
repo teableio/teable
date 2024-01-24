@@ -1,18 +1,14 @@
-import { DotsHorizontalIcon } from '@radix-ui/react-icons';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { IFieldVo } from '@teable-group/core';
-import { Checked, Lock } from '@teable-group/icons';
+import { Checked, Lock, Settings } from '@teable-group/icons';
 import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  Button,
-  DropdownMenuContent,
-  DropdownMenuItem,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn';
+import { Actions } from '../components/Actions';
+import { FieldPropertyEditor } from '../components/FieldPropertyEditor';
 import { FieldGraph } from './FieldGraph';
 
 function checkBox(key: string) {
@@ -33,7 +29,7 @@ export function useDataColumns() {
           <Tooltip>
             <TooltipTrigger asChild>
               <div>
-                <Lock className="h-5 w-5" />
+                <Lock className="size-5" />
               </div>
             </TooltipTrigger>
             <TooltipContent>
@@ -52,11 +48,12 @@ export function useDataColumns() {
       accessorKey: 'name',
       header: 'name',
       maxSize: 500,
-      cell: ({ row }) => <div className="text-nowrap">{row.getValue('name')}</div>,
+      cell: ({ row }) => <FieldPropertyEditor fieldId={row.getValue('id')} propKey="name" />,
     },
     {
       accessorKey: 'dbFieldName',
       header: 'dbFieldName',
+      cell: ({ row }) => <FieldPropertyEditor fieldId={row.getValue('id')} propKey="dbFieldName" />,
     },
     {
       accessorKey: 'type',
@@ -101,29 +98,9 @@ export function useDataColumns() {
     checkBox('unique'),
     {
       id: 'actions',
+      header: () => <Settings className="mx-2 size-5" />,
       enableHiding: false,
-      cell: ({ row }) => {
-        const payment = row.original;
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <DotsHorizontalIcon className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(payment.id)}>
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(payment.id)}>
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
+      cell: ({ row }) => <Actions fieldId={row.getValue('id')} />,
     },
   ];
   return columns;

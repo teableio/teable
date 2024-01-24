@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IFieldRo, IRecord, ITableVo, IViewRo } from '@teable-group/core';
-import { FieldKeyType, TableCore, TableOpBuilder } from '@teable-group/core';
+import { FieldKeyType, TableCore } from '@teable-group/core';
 import {
   createTable,
   deleteTable,
@@ -8,6 +8,11 @@ import {
   getGroupPoints,
   getRowCount,
   tableSqlQuery,
+  updateDbTableName,
+  updateTableDescription,
+  updateTableIcon,
+  updateTableName,
+  updateTableOrder,
 } from '@teable-group/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
@@ -30,80 +35,30 @@ export class Table extends TableCore {
 
   protected doc!: Doc<ITableVo>;
 
+  baseId!: string;
+
   async getViews() {
     return View.getViews(this.id);
   }
 
   async updateName(name: string) {
-    const operation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'name',
-      newValue: name,
-      oldValue: this.name,
-    });
-
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([operation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+    return requestWrap(updateTableName)(this.baseId, this.id, { name });
   }
 
   async updateDbTableName(dbTableName: string) {
-    const operation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'dbTableName',
-      newValue: dbTableName,
-      oldValue: this.dbTableName,
-    });
-
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([operation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+    return requestWrap(updateDbTableName)(this.baseId, this.id, { dbTableName });
   }
 
-  async updateDescription(description: string) {
-    const operation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'description',
-      newValue: description,
-      oldValue: this.description,
-    });
-
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([operation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+  async updateDescription(description: string | null) {
+    return requestWrap(updateTableDescription)(this.baseId, this.id, { description });
   }
 
   async updateIcon(icon: string) {
-    const tableOperation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'icon',
-      newValue: icon,
-      oldValue: this.icon,
-    });
+    return requestWrap(updateTableIcon)(this.baseId, this.id, { icon });
+  }
 
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([tableOperation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+  async updateOrder(order: number) {
+    return requestWrap(updateTableOrder)(this.baseId, this.id, { order });
   }
 
   async createView(viewRo: IViewRo) {
@@ -136,23 +91,5 @@ export class Table extends TableCore {
 
   async deleteField(fieldId: string) {
     return Field.deleteField(this.id, fieldId);
-  }
-
-  async updateOrder(order: number) {
-    const tableOperation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'order',
-      newValue: order,
-      oldValue: this.order,
-    });
-
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([tableOperation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
   }
 }

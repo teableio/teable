@@ -1,0 +1,56 @@
+import { Edit } from '@teable-group/icons';
+import { useField, useTablePermission } from '@teable-group/sdk/hooks';
+import { Button, Input } from '@teable-group/ui-lib/shadcn';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
+
+export const FieldPropertyEditor = ({
+  fieldId,
+  propKey,
+}: {
+  fieldId: string;
+  propKey: 'name' | 'dbFieldName';
+}) => {
+  const field = useField(fieldId);
+  const permission = useTablePermission();
+  const canUpdate = permission['field|update'];
+  const [newValue, setNewValue] = useState(field?.[propKey]);
+  const [isEditing, setIsEditing] = useState(false);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  if (!field) {
+    return <></>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {!isEditing ? (
+        <div className="flex gap-2 text-nowrap">
+          {newValue}
+          {canUpdate && <Edit className="size-4" onClick={() => setIsEditing(true)} />}
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Input
+            className="h-7 w-40"
+            readOnly={!canUpdate}
+            placeholder={`Change field ${propKey}`}
+            value={newValue}
+            onChange={(e) => setNewValue(e.target.value)}
+          />
+          <Button
+            size="xs"
+            disabled={!canUpdate}
+            onClick={async () => {
+              await field.update({ [propKey]: newValue, type: field.type });
+              setIsEditing(false);
+            }}
+          >
+            {t('actions.submit')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};

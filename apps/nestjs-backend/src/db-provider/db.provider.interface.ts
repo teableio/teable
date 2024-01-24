@@ -40,6 +40,8 @@ export interface IDbProvider {
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
 
+  joinDbTableName(schemaName: string, tableName: string): string;
+
   executeUpdateRecordsSqlList(params: {
     dbTableName: string;
     tempTableName: string;

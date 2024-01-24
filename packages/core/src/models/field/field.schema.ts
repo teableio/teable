@@ -171,6 +171,7 @@ export const fieldVoSchema = z.object({
 
   dbFieldName: z
     .string()
+    .min(1, { message: 'name cannot be empty' })
     .regex(/^[a-z]\w{0,62}$/i, {
       message: 'Invalid name format',
     })

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, NotFoundException, Injectable, Logger } from '@nestjs/common';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
@@ -6,6 +6,7 @@ import type {
   IFieldRo,
   IFieldVo,
   IGetTableQuery,
+  ILinkFieldOptions,
   ITableFullVo,
   ITableVo,
   IViewRo,
@@ -14,6 +15,8 @@ import { FieldKeyType, FieldType } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
@@ -35,6 +38,7 @@ export class TableOpenApiService {
     private readonly tableService: TableService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -239,5 +243,93 @@ export class TableOpenApiService {
 
   async getGraph(tableId: string, cell: [string, string]) {
     return this.graphService.getGraph(tableId, cell);
+  }
+
+  async updateName(baseId: string, tableId: string, name: string) {
+    await this.prismaService.$tx(async () => {
+      await this.tableService.updateTable(baseId, tableId, { name });
+    });
+  }
+
+  async updateIcon(baseId: string, tableId: string, icon: string) {
+    await this.prismaService.$tx(async () => {
+      await this.tableService.updateTable(baseId, tableId, { icon });
+    });
+  }
+
+  async updateDescription(baseId: string, tableId: string, description: string | null) {
+    await this.prismaService.$tx(async () => {
+      await this.tableService.updateTable(baseId, tableId, { description });
+    });
+  }
+
+  async updateDbTableName(baseId: string, tableId: string, dbTableNameRo: string) {
+    const dbTableName = this.dbProvider.joinDbTableName(baseId, dbTableNameRo);
+    const existDbTableName = await this.prismaService.tableMeta
+      .findFirst({
+        where: { baseId, dbTableName, deletedTime: null },
+        select: { id: true },
+      })
+      .catch(() => {
+        throw new NotFoundException(`table ${tableId} not found`);
+      });
+
+    if (existDbTableName) {
+      throw new BadRequestException(`dbTableName ${dbTableNameRo} already exists`);
+    }
+
+    const { dbTableName: oldDbTableName } = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        where: { id: tableId, baseId, deletedTime: null },
+        select: { dbTableName: true },
+      })
+      .catch(() => {
+        throw new NotFoundException(`table ${tableId} not found`);
+      });
+
+    const linkFieldsRaw = await this.prismaService.field.findMany({
+      where: { table: { baseId }, type: FieldType.Link },
+      select: { id: true, options: true },
+    });
+
+    await this.prismaService.$tx(async (prisma) => {
+      await Promise.all(
+        linkFieldsRaw
+          .map((field) => ({
+            ...field,
+            options: JSON.parse(field.options as string) as ILinkFieldOptions,
+          }))
+          .filter((field) => {
+            return field.options.fkHostTableName === oldDbTableName;
+          })
+          .map((field) => {
+            return prisma.field.update({
+              where: { id: field.id },
+              data: { options: JSON.stringify({ ...field.options, fkHostTableName: dbTableName }) },
+            });
+          })
+      );
+
+      await this.tableService.updateTable(baseId, tableId, { dbTableName });
+      const renameSql = this.dbProvider.renameTableName(oldDbTableName, dbTableName);
+      for (const sql of renameSql) {
+        await prisma.$executeRawUnsafe(sql);
+      }
+    });
+  }
+
+  async updateOrder(baseId: string, tableId: string, order: number) {
+    const orderExist = await this.prismaService.tableMeta.findFirst({
+      where: { baseId, order, deletedTime: null },
+      select: { id: true },
+    });
+
+    if (orderExist) {
+      throw new BadRequestException('Table order could not be duplicate');
+    }
+
+    await this.prismaService.$tx(async () => {
+      await this.tableService.updateTable(baseId, tableId, { order });
+    });
   }
 }

@@ -11,7 +11,7 @@ import type { FormView, IFieldInstance } from '@teable-group/sdk/model';
 import { Button, Input, Textarea, cn } from '@teable-group/ui-lib/shadcn';
 import { useRef, useState } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
-import { useGridViewStore } from '../../grid/store/gridView';
+import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { FORM_EDITOR_DROPPABLE_ID } from '../constant';
 import { DroppableContainer, SortableItem } from './Drag';
 import { FormFieldEditor } from './FormFieldEditor';
@@ -22,7 +22,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const { fields } = props;
   const view = useView();
   const isHydrated = useIsHydrated();
-  const { openSetting } = useGridViewStore();
+  const { openSetting } = useFieldSettingStore();
   const fileInput = useRef<HTMLInputElement>(null);
   const [coverUrl, setCoverUrl] = useState((view as FormView)?.options?.coverUrl ?? '');
   const [name, setName] = useState(view?.name ?? '');

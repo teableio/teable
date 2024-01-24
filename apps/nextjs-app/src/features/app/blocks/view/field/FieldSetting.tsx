@@ -4,10 +4,10 @@ import {
   FieldSetting as FieldSettingInner,
   FieldOperator,
 } from '@/features/app/components/field-setting';
-import { useGridViewStore } from '../store/gridView';
+import { useFieldSettingStore } from './useFieldSettingStore';
 
 export const FieldSetting = () => {
-  const { setting, closeSetting } = useGridViewStore();
+  const { setting, closeSetting } = useFieldSettingStore();
   const field = useField(setting?.fieldId);
   const order = setting?.order;
 

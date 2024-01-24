@@ -2,7 +2,7 @@ import type { IHttpError } from '@teable-group/core';
 import type { ReactElement } from 'react';
 import { Design } from '@/features/app/blocks/design/Design';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
-import { viewConfig } from '@/features/i18n/view.config';
+import { tableConfig } from '@/features/i18n/table.config';
 import type { IDesignPageProps } from '@/lib/design-pages-data';
 import { getDesignPageServerData } from '@/lib/design-pages-data';
 import { getTranslationsProps } from '@/lib/i18n';
@@ -19,7 +19,7 @@ export const getServerSideProps = withAuthSSR<IDesignPageProps>(async (context) 
   try {
     const pageData = await getDesignPageServerData(baseId as string, tableId as string);
     if (pageData) {
-      const { i18nNamespaces } = viewConfig;
+      const { i18nNamespaces } = tableConfig;
       return {
         props: {
           ...pageData,

@@ -14,6 +14,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import { useFields } from '@teable-group/sdk/hooks';
 
 import {
   Table,
@@ -24,6 +25,7 @@ import {
   TableRow,
 } from '@teable-group/ui-lib/shadcn';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -35,9 +37,11 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [sorting, setSorting] = React.useState<SortingState>([]);
-
+  const fieldInstances = useFields();
+  const reactiveData = (fieldInstances || data) as TData[];
+  const { t } = useTranslation('common');
   const table = useReactTable({
-    data,
+    data: reactiveData,
     columns,
     state: {
       sorting,
@@ -92,7 +96,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  {t('noResult')}
                 </TableCell>
               </TableRow>
             )}

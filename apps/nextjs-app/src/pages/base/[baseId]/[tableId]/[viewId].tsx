@@ -4,7 +4,7 @@ import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
-import { viewConfig } from '@/features/i18n/view.config';
+import { tableConfig } from '@/features/i18n/table.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
@@ -35,7 +35,7 @@ export const getServerSideProps: GetServerSideProps<IViewPageProps> = withAuthSS
         viewId as string
       );
       if (serverData) {
-        const { i18nNamespaces } = viewConfig;
+        const { i18nNamespaces } = tableConfig;
         return {
           props: {
             ...serverData,

@@ -1,13 +1,17 @@
 import type { IFieldVo, ITableVo } from '@teable-group/core';
-import { Table2 } from '@teable-group/icons';
+import { ArrowLeft, Table2 } from '@teable-group/icons';
 import type { IGetBaseVo } from '@teable-group/openapi';
 import type { Table } from '@teable-group/sdk';
-import { AnchorContext, FieldProvider, useTable, useTablePermission } from '@teable-group/sdk';
-import { cn } from '@teable-group/ui-lib/shadcn';
+import { FieldProvider, useTable, useTablePermission } from '@teable-group/sdk';
+import { Button, cn } from '@teable-group/ui-lib/shadcn';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { useTitle } from 'react-use';
+import { tableConfig } from '@/features/i18n/table.config';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
+import { FieldSetting } from '../view/field/FieldSetting';
 import { TableConnection } from './card/TableConnection';
 import { TableDetail } from './card/TableDetail';
 import { DataTable } from './data-table/DataTable';
@@ -26,52 +30,62 @@ function CardContainer({ className, ...props }: React.HTMLAttributes<HTMLDivElem
 
 export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
   const router = useRouter();
-  const { tableId } = router.query as { tableId: string };
+  const { baseId, tableId } = router.query as { baseId: string; tableId: string };
   const table = useTable() as Table;
   useTitle(
     table.name ? `${table.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable' + ' - Designing'
   );
   const permission = useTablePermission();
   const columns = useDataColumns();
-
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   return (
-    <AnchorContext.Provider value={{ tableId }}>
-      <FieldProvider serverSideData={fields}>
-        <div className="flex h-full grow basis-[500px] flex-col gap-8 overflow-auto p-8 pt-0">
-          <h1 className="flex items-center gap-2 py-4 text-xl font-bold tracking-tight">
-            <EmojiPicker
-              className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
-              onChange={(icon: string) => table.updateIcon(icon)}
-              disabled={!permission['table|update']}
+    <FieldProvider serverSideData={fields}>
+      <div className="flex h-full grow basis-[500px] flex-col gap-4 overflow-auto p-4 pt-0">
+        <h1 className="flex items-center gap-2 pt-2 text-xl font-bold tracking-tight">
+          <Button size="sm" variant="ghost" asChild>
+            <Link
+              href={{
+                pathname: '/base/[baseId]/[tableId]',
+                query: { baseId, tableId },
+              }}
             >
-              {table.icon ? (
-                <Emoji emoji={table.icon} size={'1.5rem'} />
-              ) : (
-                <Table2 className="size-6 shrink-0" />
-              )}
-            </EmojiPicker>
-            {table.name}
-          </h1>
-          <div className="grid grid-cols-1 items-start justify-center gap-6 rounded-lg sm:grid-cols-2 lg:grid-cols-3">
-            <div className="items-start gap-6">
-              <CardContainer>
-                <TableDetail />
-              </CardContainer>
-            </div>
-            <div className="items-start gap-6 ">
-              <CardContainer>
-                <TableConnection />
-              </CardContainer>
-            </div>
+              <ArrowLeft className="size-4" />
+              {t('actions.back')}
+            </Link>
+          </Button>
+          <EmojiPicker
+            className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
+            onChange={(icon: string) => table.updateIcon(icon)}
+            disabled={!permission['table|update']}
+          >
+            {table.icon ? (
+              <Emoji emoji={table.icon} size={'1.5rem'} />
+            ) : (
+              <Table2 className="size-6 shrink-0" />
+            )}
+          </EmojiPicker>
+          {table.name}
+        </h1>
+        <div className="grid grid-cols-1 items-start justify-center gap-6 rounded-lg sm:grid-cols-2 lg:grid-cols-3">
+          <div className="items-start gap-6">
+            <CardContainer>
+              <TableDetail />
+            </CardContainer>
           </div>
-          <div>
-            <h2 className="pb-4 text-lg font-semibold leading-none tracking-tight">
-              Field Management
-            </h2>
-            <DataTable data={fields} columns={columns} />
+          <div className="items-start gap-6 ">
+            <CardContainer>
+              <TableConnection />
+            </CardContainer>
           </div>
         </div>
-      </FieldProvider>
-    </AnchorContext.Provider>
+        <div>
+          <h2 className="pb-4 text-lg font-semibold leading-none tracking-tight">
+            {t('table:field.fieldManagement')}
+          </h2>
+          <DataTable data={fields} columns={columns} />
+        </div>
+      </div>
+      {<FieldSetting />}
+    </FieldProvider>
   );
 };

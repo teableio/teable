@@ -2,11 +2,19 @@
   "brand": "Teable",
   "actions": {
     "save": "保存",
+    "submit": "提交",
+    "edit": "编辑",
     "update": "更新",
     "delete": "删除",
     "cancel": "取消",
     "zoomIn": "放大",
-    "zoomOut": "缩小"
+    "zoomOut": "缩小",
+    "back": "返回",
+    "saveSucceed": "保存成功！",
+    "submitSucceed": "提交成功！",
+    "editSucceed": "编辑成功！",
+    "updateSucceed": "更新成功！",
+    "deleteSucceed": "删除成功！"
   },
   "settings": {
     "title": "设置",
@@ -50,5 +58,8 @@
       "light": "浅色",
       "system": "系统"
     }
-  }
+  },
+  "noResult": "无结果。",
+  "name": "名称",
+  "description": "描述"
 }

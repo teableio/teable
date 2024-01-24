@@ -54,6 +54,10 @@ export class SqliteProvider implements IDbProvider {
     ];
   }
 
+  joinDbTableName(schemaName: string, tableName: string) {
+    return `${schemaName}_${tableName}`;
+  }
+
   dropColumn(tableName: string, columnName: string): string[] {
     return [this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()];
   }

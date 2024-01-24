@@ -16,7 +16,7 @@ import {
 import type { FC } from 'react';
 import { useMemo } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
-import { useGridViewStore } from '../../grid/store/gridView';
+import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { DraggableItem } from './Drag';
 
 interface IDragItemProps {
@@ -70,7 +70,7 @@ export const FormSidebar = () => {
   const activeViewId = view?.id;
   const allFields = useFields({ withHidden: true });
   const getFieldStatic = useFieldStaticGetter();
-  const { openSetting } = useGridViewStore();
+  const { openSetting } = useFieldSettingStore();
 
   const { hiddenFields, visibleFields, unavailableFields } = useMemo(() => {
     if (!activeViewId) {

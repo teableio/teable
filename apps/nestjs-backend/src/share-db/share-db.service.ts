@@ -118,7 +118,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   private onSubmit = (
-    _context: ShareDBClass.middleware.SubmitContext,
+    context: ShareDBClass.middleware.SubmitContext,
     next: (err?: unknown) => void
   ) => {
     const tracer = otelTrace.getTracer('default');
@@ -127,6 +127,11 @@ export class ShareDbService extends ShareDBClass {
     // console.log('onSubmit start');
 
     otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
+      const [docType] = context.collection.split('_');
+
+      if (docType !== IdPrefix.Record) {
+        return next(new Error('only record op can be committed'));
+      }
       next();
     });
 

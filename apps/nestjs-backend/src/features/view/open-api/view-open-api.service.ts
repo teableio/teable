@@ -131,9 +131,8 @@ export class ViewOpenApiService {
   }
 
   async updateViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
-    const view = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
+    const view = await this.prismaService.view
+      .findFirstOrThrow({
         where: { tableId, id: viewId },
         select: {
           columnMeta: true,
@@ -147,7 +146,7 @@ export class ViewOpenApiService {
       });
 
     // validate field legal
-    const fields = await this.prismaService.txClient().field.findMany({
+    const fields = await this.prismaService.field.findMany({
       where: { tableId, deletedTime: null },
       select: {
         id: true,
@@ -196,9 +195,8 @@ export class ViewOpenApiService {
     key: IViewPropertyKeys,
     newValue: unknown
   ) {
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
+    const curView = await this.prismaService.view
+      .findFirstOrThrow({
         select: { [key]: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
@@ -220,9 +218,8 @@ export class ViewOpenApiService {
   }
 
   async patchViewOptions(tableId: string, viewId: string, viewOptions: IViewOptions) {
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
+    const curView = await this.prismaService.view
+      .findFirstOrThrow({
         select: { options: true, type: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
@@ -255,7 +252,7 @@ export class ViewOpenApiService {
   async updateViewOrder(tableId: string, viewId: string, orderRo: IViewOrderRo) {
     const { order } = orderRo;
 
-    const views = await this.prismaService.txClient().view.findMany({
+    const views = await this.prismaService.view.findMany({
       select: { order: true, id: true },
       where: { tableId, deletedTime: null },
     });
@@ -287,7 +284,7 @@ export class ViewOpenApiService {
   }
 
   async refreshShareId(tableId: string, viewId: string) {
-    const view = await this.prismaService.txClient().view.findUnique({
+    const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
       select: { shareId: true, enableShare: true },
     });
@@ -311,7 +308,7 @@ export class ViewOpenApiService {
   }
 
   async enableShare(tableId: string, viewId: string) {
-    const view = await this.prismaService.txClient().view.findUnique({
+    const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
       select: { shareId: true, enableShare: true },
     });
@@ -340,7 +337,7 @@ export class ViewOpenApiService {
   }
 
   async disableShare(tableId: string, viewId: string) {
-    const view = await this.prismaService.txClient().view.findUnique({
+    const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
       select: { shareId: true, enableShare: true, shareMeta: true },
     });
