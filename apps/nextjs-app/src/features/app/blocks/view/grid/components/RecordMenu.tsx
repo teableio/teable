@@ -13,7 +13,9 @@ import {
 } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
+import { viewConfig } from '@/features/i18n/view.config';
 import { useSelectionOperation } from '../hooks/useSelectionOperation';
 import { useGridViewStore } from '../store/gridView';
 
@@ -38,6 +40,7 @@ const iconClassName = 'mr-2 h-4 w-4';
 
 export const RecordMenu = () => {
   const { recordMenu, closeRecordMenu, selection } = useGridViewStore();
+  const { t } = useTranslation(viewConfig.i18nNamespaces);
   const tableId = useTableId();
   const viewId = useViewId();
   const permission = useTablePermission();
@@ -93,7 +96,7 @@ export const RecordMenu = () => {
     [
       {
         type: MenuItemType.InsertAbove,
-        name: 'Insert record above',
+        name: t('view:menu.insertRecordAbove'),
         icon: <ArrowUp className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
         onClick: async () => {
@@ -113,7 +116,7 @@ export const RecordMenu = () => {
       },
       {
         type: MenuItemType.InsertBelow,
-        name: 'Insert record below',
+        name: t('view:menu.insertRecordBelow'),
         icon: <ArrowDown className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
         onClick: async () => {
@@ -135,7 +138,7 @@ export const RecordMenu = () => {
     [
       {
         type: MenuItemType.Copy,
-        name: 'Copy cells',
+        name: t('view:menu.copyCells'),
         icon: <Copy className={iconClassName} />,
         onClick: async () => {
           selection && (await copy(selection));
@@ -143,7 +146,10 @@ export const RecordMenu = () => {
       },
       {
         type: MenuItemType.Delete,
-        name: records.length > 1 ? 'Delete all selected records' : 'Delete record',
+        name:
+          records.length > 1
+            ? t('view:menu.deleteAllSelectedRecords')
+            : t('view:menu.deleteRecord'),
         icon: <Trash className={iconClassName} />,
         hidden: !permission['record|delete'],
         className: 'text-red-500 aria-selected:text-red-500',

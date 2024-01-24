@@ -15,8 +15,10 @@ import {
 } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
+import { viewConfig } from '@/features/i18n/view.config';
 import { useGridViewStore } from '../store/gridView';
 import type { IMenuItemProps } from './RecordMenu';
 
@@ -36,6 +38,7 @@ export const FieldMenu = () => {
   const view = useView() as GridView | undefined;
   const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
   const permission = useTablePermission();
+  const { t } = useTranslation(viewConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const fields = headerMenu?.fields;
@@ -91,7 +94,7 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.Edit,
-        name: 'Edit field',
+        name: t('view:menu.editField'),
         icon: <Edit className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['field|update'],
         onClick: async () => {
@@ -105,14 +108,14 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.InsertLeft,
-        name: 'Insert left',
+        name: t('view:menu.insertFieldLeft'),
         icon: <ArrowLeft className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['field|create'],
         onClick: async () => await insertField(false),
       },
       {
         type: MenuItemType.InsertRight,
-        name: 'Insert right',
+        name: t('view:menu.insertFieldRight'),
         icon: <ArrowRight className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['field|create'],
         onClick: async () => await insertField(),
@@ -121,7 +124,7 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.Freeze,
-        name: 'Freeze up to this field',
+        name: t('view:menu.freezeUpField'),
         icon: <FreezeColumn className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['view|update'],
         onClick: async () => await freezeField(),
@@ -130,7 +133,7 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.Hidden,
-        name: 'Hide field',
+        name: t('view:menu.hideField'),
         icon: <EyeOff className={iconClassName} />,
         hidden: !permission['view|update'],
         disabled: fields.some((f) => f.isPrimary),
@@ -145,7 +148,8 @@ export const FieldMenu = () => {
       },
       {
         type: MenuItemType.Delete,
-        name: fieldIds.length > 1 ? 'Delete all selected fields' : 'Delete field',
+        name:
+          fieldIds.length > 1 ? t('view:menu.deleteAllSelectedFields') : t('view:menu.deleteField'),
         icon: <Trash className={iconClassName} />,
         hidden: !permission['field|delete'],
         disabled: fields.some((f) => f.isPrimary),
