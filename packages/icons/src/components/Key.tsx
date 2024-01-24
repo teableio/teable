@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { SVGProps } from 'react';
-const AlertTriangle = (props: SVGProps<SVGSVGElement>) => (
+const Key = (props: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="1em"
@@ -14,8 +14,8 @@ const AlertTriangle = (props: SVGProps<SVGSVGElement>) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01"
+      d="m21 2-2 2m0 0 3 3-3.5 3.5-3-3M19 4l-3.5 3.5m-4.11 4.11a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5"
     />
   </svg>
 );
-export default AlertTriangle;
+export default Key;
