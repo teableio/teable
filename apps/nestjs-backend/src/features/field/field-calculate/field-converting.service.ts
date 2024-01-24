@@ -674,7 +674,7 @@ export class FieldConvertingService {
     await this.batchService.updateRecords(composedOpsMap, fieldMap, tableId2DbTableName);
   }
 
-  private async getExistRecordMap(tableId: string, newField: IFieldInstance) {
+  private async getExistRecords(tableId: string, newField: IFieldInstance) {
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
@@ -700,13 +700,13 @@ export class FieldConvertingService {
     oldField: IFieldInstance
   ) {
     const fieldId = newField.id;
-    const recordMap = await this.getExistRecordMap(tableId, oldField);
+    const records = await this.getExistRecords(tableId, oldField);
     const choices = newField.options.choices;
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const fieldOps: IOtOperation[] = [];
     const choicesMap = keyBy(choices, 'name');
     const newChoicesSet = new Set<string>();
-    Object.values(recordMap).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -763,11 +763,11 @@ export class FieldConvertingService {
 
   private async convert2User(tableId: string, newField: UserFieldDto, oldField: IFieldInstance) {
     const fieldId = newField.id;
-    const recordMap = await this.getExistRecordMap(tableId, oldField);
+    const records = await this.getExistRecords(tableId, oldField);
     const baseCollabs = await this.collaboratorService.getBaseCollabsWithPrimary(tableId);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
 
-    Object.values(recordMap).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -810,9 +810,9 @@ export class FieldConvertingService {
     }
 
     const fieldId = newField.id;
-    const records = await this.getExistRecordMap(tableId, oldField);
+    const records = await this.getExistRecords(tableId, oldField);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
-    Object.values(records).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;

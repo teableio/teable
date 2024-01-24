@@ -4,6 +4,7 @@ import type {
   ILinkCellValue,
   ILinkFieldOptions,
   IOtOperation,
+  IRecord,
   ITinyRecord,
 } from '@teable-group/core';
 import {
@@ -654,7 +655,7 @@ export class ReferenceService {
     return changes;
   }
 
-  private recordRaw2Record(fields: IFieldInstance[], raw: { [dbFieldName: string]: unknown }) {
+  recordRaw2Record(fields: IFieldInstance[], raw: { [dbFieldName: string]: unknown }): IRecord {
     const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
       acc[field.id] = field.convertDBValue2CellValue(raw[field.dbFieldName] as string);
       return acc;

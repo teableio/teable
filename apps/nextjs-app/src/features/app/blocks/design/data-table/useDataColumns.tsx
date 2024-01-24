@@ -16,7 +16,7 @@ function checkBox(key: string) {
     accessorKey: key,
     header: key,
     cell: ({ row }: { row: { getValue: (key: string) => boolean } }) =>
-      row.getValue(key) && <Checked className="h-5 w-5" />,
+      row.getValue(key) && <Checked className="size-5" />,
   };
 }
 
@@ -38,7 +38,7 @@ export function useDataColumns() {
           </Tooltip>
         </TooltipProvider>
       ),
-      cell: ({ row }) => row.getValue('isPrimary') && <Checked className="h-5 w-5" />,
+      cell: ({ row }) => row.getValue('isPrimary') && <Checked className="size-5" />,
     },
     {
       accessorKey: 'id',

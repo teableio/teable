@@ -1477,7 +1477,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
       expect(values[0]).toEqual([{ title: 'xx', id: records[0].id }]);
-      // values[1] should by values[0] to keep link consistency
+      // values[1] should be remove because values[0] is selected to keep link consistency
       expect(values[1]).toEqual(undefined);
     });
 

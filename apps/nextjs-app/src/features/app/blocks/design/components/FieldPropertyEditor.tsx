@@ -35,7 +35,6 @@ export const FieldPropertyEditor = ({
           <Input
             className="h-7 w-40"
             readOnly={!canUpdate}
-            placeholder={`Change field ${propKey}`}
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}
           />

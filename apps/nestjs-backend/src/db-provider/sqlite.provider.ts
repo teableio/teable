@@ -37,6 +37,10 @@ export class SqliteProvider implements IDbProvider {
     return [this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, newTableName]).toQuery()];
   }
 
+  dropTable(tableName: string): string {
+    return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
+  }
+
   renameColumnName(tableName: string, oldName: string, newName: string): string[] {
     return [
       this.knex

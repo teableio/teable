@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { IRecord } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, uniq } from 'lodash';
@@ -143,7 +144,7 @@ export class FieldCalculationService {
           }
         });
       })
-      .orderBy('__id')
+      .orderBy('__auto_number')
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
@@ -154,7 +155,7 @@ export class FieldCalculationService {
 
   async getRecordsBatchByFields(dbTableName2fields: { [dbTableName: string]: IFieldInstance[] }) {
     const results: {
-      [dbTableName: string]: { [dbFieldName: string]: unknown }[];
+      [dbTableName: string]: IRecord[];
     } = {};
     const chunkSize = this.thresholdConfig.calcChunkSize;
     for (const dbTableName in dbTableName2fields) {
@@ -162,6 +163,7 @@ export class FieldCalculationService {
       const rowCount = await this.getRowCount(dbTableName);
       const dbFieldNames = dbTableName2fields[dbTableName].map((f) => f.dbFieldName);
       const totalPages = Math.ceil(rowCount / chunkSize);
+      const fields = dbTableName2fields[dbTableName];
 
       const records = await lastValueFrom(
         range(0, totalPages).pipe(
@@ -171,10 +173,11 @@ export class FieldCalculationService {
         )
       );
 
-      results[dbTableName] = records;
+      results[dbTableName] = records.map((record) =>
+        this.referenceService.recordRaw2Record(fields, record)
+      );
     }
-
-    return this.referenceService.formatRecordQueryResult(results, dbTableName2fields);
+    return results;
   }
 
   @Timing()
@@ -192,13 +195,13 @@ export class FieldCalculationService {
       fieldId2TableId,
     } = context;
 
-    const dbTableName2recordMap = await this.getRecordsBatchByFields(dbTableName2fields);
+    const dbTableName2records = await this.getRecordsBatchByFields(dbTableName2fields);
 
     const changes = Object.values(fieldIds).reduce<ICellChange[]>((cellChanges, fieldId) => {
       const tableId = fieldId2TableId[fieldId];
       const dbTableName = tableId2DbTableName[tableId];
-      const recordMap = dbTableName2recordMap[dbTableName];
-      Object.values(recordMap)
+      const records = dbTableName2records[dbTableName];
+      records
         .filter((record) => record.fields[fieldId] != null)
         .forEach((record) => {
           cellChanges.push({
@@ -359,7 +362,7 @@ export class FieldCalculationService {
   private async getRecordIds(dbTableName: string, page: number, chunkSize: number) {
     const query = this.knex(dbTableName)
       .select({ id: '__id' })
-      .orderBy('__id')
+      .orderBy('__auto_number')
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();

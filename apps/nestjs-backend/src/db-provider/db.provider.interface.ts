@@ -27,6 +27,8 @@ export interface IDbProvider {
 
   renameTableName(oldTableName: string, newTableName: string): string[];
 
+  dropTable(tableName: string): string;
+
   renameColumnName(tableName: string, oldName: string, newName: string): string[];
 
   dropColumn(tableName: string, columnName: string): string[];

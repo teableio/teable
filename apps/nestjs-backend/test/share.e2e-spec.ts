@@ -4,7 +4,7 @@ import { ANONYMOUS_USER_ID, FieldType, Relationship, ViewType } from '@teable-gr
 import {
   enableShareView as apiEnableShareView,
   getShareViewLinkRecords as apiGetShareViewLinkRecords,
-  setViewFilter as apiSetViewFilter,
+  updateViewFilter as apiUpdateViewFilter,
   SHARE_VIEW_FORM_SUBMIT,
   SHARE_VIEW_GET,
   type ShareViewGetVo,
@@ -130,7 +130,7 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
 
     it('should return link records independent of views', async () => {
-      await apiSetViewFilter(linkTableRes.id, linkTableRes.defaultViewId!, {
+      await apiUpdateViewFilter(linkTableRes.id, linkTableRes.defaultViewId!, {
         filter: {
           conjunction: 'and',
           filterSet: [

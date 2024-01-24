@@ -1,6 +1,7 @@
 import { useTable, useTablePermission } from '@teable-group/sdk/hooks';
 import type { Table } from '@teable-group/sdk/model';
 import { Button, Input, Label } from '@teable-group/ui-lib/shadcn';
+import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -21,15 +22,15 @@ export const DbTableName = () => {
           id="DbTableName"
           className="h-8"
           readOnly={!canUpdate}
-          placeholder="Change db table name"
           value={newDbTableName}
           onChange={(e) => setNewDbTableName(e.target.value)}
         />
         <Button
           size="sm"
           disabled={!canUpdate}
-          onClick={() => {
-            table.updateDbTableName(newDbTableName);
+          onClick={async () => {
+            await table.updateDbTableName(newDbTableName);
+            toast(t('actions.updateSucceed'));
           }}
         >
           {t('actions.submit')}

@@ -2663,18 +2663,20 @@ describe('OpenAPI link (e2e)', () => {
         table1.dbTableName
       );
 
-      await updateDbTableName(baseId, table1.id, { dbTableName: 'awesomeNew1' });
+      await updateDbTableName(baseId, table1.id, { dbTableName: 'newAwesomeName' });
       const newTable1 = await getTable(baseId, table1.id);
       const updatedLink1 = await getField(table1.id, table1LinkField.id);
       const updatedLink2 = await getField(table2.id, table2LinkField.id);
 
-      expect(newTable1.dbTableName).toEqual('bseTestBaseId.awesomeNew1');
-      expect((updatedLink1.options as ILinkFieldOptions).fkHostTableName).toEqual(
-        'bseTestBaseId.awesomeNew1'
-      );
-      expect((updatedLink2.options as ILinkFieldOptions).fkHostTableName).toEqual(
-        'bseTestBaseId.awesomeNew1'
-      );
+      expect(newTable1.dbTableName.split(/[._]/)).toEqual(['bseTestBaseId', 'newAwesomeName']);
+      expect((updatedLink1.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
+      expect((updatedLink2.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
     });
   });
 });

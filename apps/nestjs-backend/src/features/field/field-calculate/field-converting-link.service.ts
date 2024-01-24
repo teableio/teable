@@ -216,21 +216,18 @@ export class FieldConvertingLinkService {
 
     const records = await this.getRecords(tableId, oldField);
     // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
-    const foreignRecordMap = await this.getRecords(foreignTableId, lookupField);
+    const foreignRecords = await this.getRecords(foreignTableId, lookupField);
 
-    const primaryNameToIdMap = Object.values(foreignRecordMap).reduce<{ [name: string]: string }>(
-      (pre, record) => {
-        const str = lookupField.cellValue2String(record.fields[lookupField.id]);
-        pre[str] = record.id;
-        return pre;
-      },
-      {}
-    );
+    const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {
+      const str = lookupField.cellValue2String(record.fields[lookupField.id]);
+      pre[str] = record.id;
+      return pre;
+    }, {});
 
     const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
     const checkSet = new Set<string>();
     // eslint-disable-next-line sonarjs/cognitive-complexity
-    Object.values(records).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;

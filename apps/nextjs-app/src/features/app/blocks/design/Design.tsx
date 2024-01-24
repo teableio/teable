@@ -42,7 +42,7 @@ export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
     <FieldProvider serverSideData={fields}>
       <div className="flex h-full grow basis-[500px] flex-col gap-4 overflow-auto p-4 pt-0">
         <h1 className="flex items-center gap-2 pt-2 text-xl font-bold tracking-tight">
-          <Button size="sm" variant="ghost" asChild>
+          <Button size="xs" variant="ghost" asChild>
             <Link
               href={{
                 pathname: '/base/[baseId]/[tableId]',
@@ -54,7 +54,7 @@ export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
             </Link>
           </Button>
           <EmojiPicker
-            className="flex h-5 w-5 items-center justify-center hover:bg-muted-foreground/60"
+            className="flex size-5 items-center justify-center hover:bg-muted-foreground/60"
             onChange={(icon: string) => table.updateIcon(icon)}
             disabled={!permission['table|update']}
           >

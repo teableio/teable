@@ -3,9 +3,8 @@ import { z } from '../../zod';
 import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
 import { filterSchema } from './filter';
-import { groupSchema } from './group';
 import { viewOptionsSchema } from './option.schema';
-import { sortSchema } from './sort';
+import { groupSchema, sortSchema } from './sort';
 
 export const sharePasswordSchema = z.string().min(3);
 

@@ -211,7 +211,7 @@ export class TableOpenApiService {
             where: { id: tableId, deletedTime: null },
             select: { dbTableName: true },
           });
-          await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS ${dbTableName}`);
+          await prisma.$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
         }
       },
       {
