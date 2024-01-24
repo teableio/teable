@@ -1,0 +1,36 @@
+{
+  "toolbar": {
+    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link."
+  },
+  "field": {
+    "fieldManagement": "Field Management"
+  },
+  "table": {
+    "dbTableName": "Table name in physical database",
+    "schemaName": "Schema name in physical database",
+    "tableInfo": "Table Info",
+    "tableInfoDetail": "Basic information for the table",
+    "typeOfDatabase": "Type of database",
+    "descriptionForTable": "Description for this table",
+    "nameForTable": "Name for this table"
+  },
+  "grid": {
+    "prefillingRowTitle": "Row moved",
+    "prefillingRowTooltip": "This row will move to its new position when you select another row"
+  },
+  "menu": {
+    "insertRecordAbove": "Insert record above",
+    "insertRecordBelow": "Insert record below",
+    "copyCells": "Copy cells",
+    "deleteRecord": "Delete record",
+    "deleteAllSelectedRecords": "Delete all selected records",
+    "editField": "Edit field",
+    "insertFieldLeft": "Insert left",
+    "insertFieldRight": "Insert right",
+    "freezeUpField": "Freeze up to this field",
+    "hideField": "Hide field",
+    "deleteField": "Delete field",
+    "deleteAllSelectedFields": "Delete all selected fields"
+  },
+  "lastModifiedTime": "Last modified time"
+}

@@ -59,6 +59,7 @@ import { usePrevious, useMount, useClickAway } from 'react-use';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
 import { FieldOperator } from '../../../components/field-setting';
+import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { PrefillingRowContainer } from './components';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
@@ -94,14 +95,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
-  const {
-    selection,
-    openRecordMenu,
-    openHeaderMenu,
-    openSetting,
-    openStatisticMenu,
-    setSelection,
-  } = useGridViewStore();
+  const { openRecordMenu, openHeaderMenu, openStatisticMenu, setSelection, selection } =
+    useGridViewStore();
+  const { openSetting } = useFieldSettingStore();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const preTableId = usePrevious(tableId);
   const isTouchDevice = useIsTouchDevice();

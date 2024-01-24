@@ -1,8 +1,7 @@
-import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IGetRecordsRo, IGroupItem, ITableFullVo } from '@teable-group/core';
 import { CellValueType, SortFunc } from '@teable-group/core';
-import { setViewGroup, setViewSort } from '@teable-group/openapi';
+import { updateViewGroup, updateViewSort } from '@teable-group/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import { x_20 } from './data-helpers/20x';
 import { createTable, deleteTable, getRecords, getView, initApp } from './utils/init-app';
@@ -81,7 +80,7 @@ describe('OpenAPI ViewController view group (e2e)', () => {
         },
       ],
     };
-    await setViewGroup(tableId, viewId, assertGroup);
+    await updateViewGroup(tableId, viewId, assertGroup);
     const updatedView = await getView(tableId, viewId);
     const viewGroup = updatedView.group;
     expect(viewGroup).toEqual(assertGroup.group);
@@ -113,10 +112,10 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
       const { id: fieldId } = field;
 
       const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Asc }];
-      await setViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
+      await updateViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
       const ascOriginRecords = (await getRecords(subTableId, { groupBy: ascGroups })).records;
       const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Desc }];
-      await setViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
+      await updateViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
       const descOriginRecords = (await getRecords(subTableId, { groupBy: descGroups })).records;
 
       const resultAscRecords = getRecordsByOrder(ascOriginRecords, ascGroups, fields2);
@@ -139,12 +138,12 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
       const ascGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Asc }];
       const descGroups: IGetRecordsRo['groupBy'] = [{ fieldId, order: SortFunc.Desc }];
 
-      await setViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
-      await setViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: descGroups } });
+      await updateViewGroup(subTableId, subTableDefaultViewId!, { group: ascGroups });
+      await updateViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: descGroups } });
       const ascOriginRecords = (await getRecords(subTableId, { groupBy: ascGroups })).records;
 
-      await setViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
-      await setViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: ascGroups } });
+      await updateViewGroup(subTableId, subTableDefaultViewId!, { group: descGroups });
+      await updateViewSort(subTableId, subTableDefaultViewId!, { sort: { sortObjs: ascGroups } });
       const descOriginRecords = (await getRecords(subTableId, { groupBy: descGroups })).records;
 
       const resultAscRecords = getRecordsByOrder(ascOriginRecords, ascGroups, fields2);

@@ -41,11 +41,11 @@ import {
   getField as apiGetField,
   getViewList as apiGetViewList,
   getViewById as apiGetViewById,
-  setViewColumnMeta as apiSetViewColumnMeta,
+  updateViewColumnMeta as apiSetViewColumnMeta,
   createTable as apiCreateTable,
-  deleteTable as apiDeleteTable,
+  deleteTableArbitrary as apiDeleteTableArbitrary,
   getTableById as apiGetTableById,
-  setViewFilter as apiSetViewFilter,
+  updateViewFilter as apiSetViewFilter,
   createView as apiCreateView,
 } from '@teable-group/openapi';
 import { json, urlencoded } from 'express';
@@ -138,7 +138,7 @@ export async function createTable(baseId: string, tableVo: ICreateTableRo, expec
 
 export async function deleteTable(baseId: string, tableId: string, expectStatus?: number) {
   try {
-    const res = await apiDeleteTable(baseId, tableId);
+    const res = await apiDeleteTableArbitrary(baseId, tableId);
     expectStatus && expect(res.status).toEqual(expectStatus);
 
     return res.data;
@@ -389,7 +389,7 @@ export async function updateViewColumnMeta(
   return result.data;
 }
 
-export async function setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
+export async function updateViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
   const result = await apiSetViewFilter(tableId, viewId, filterRo);
   return result.data;
 }

@@ -146,10 +146,9 @@ export class TableService implements IAdapterService {
 
     const results = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ tableId: string; lastModifiedTime: Date }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { tableId: string; lastModifiedTime: Date }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     return tableIds.map((tableId) => {
       const item = results.find((result) => result.tableId === tableId);
@@ -311,7 +310,7 @@ export class TableService implements IAdapterService {
         },
       })
       .catch(() => {
-        throw new BadRequestException('Table not found');
+        throw new NotFoundException('Table not found');
       });
 
     const updateInput: Prisma.TableMetaUpdateInput = {
@@ -322,7 +321,7 @@ export class TableService implements IAdapterService {
     };
 
     const ops = Object.entries(updateInput)
-      .filter(([key, value]) => Boolean(value == (tableRaw as Record<string, unknown>)[key]))
+      .filter(([key, value]) => Boolean(value !== (tableRaw as Record<string, unknown>)[key]))
       .map<IOtOperation>(([key, value]) => {
         return {
           p: [key],

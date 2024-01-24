@@ -13,8 +13,8 @@ export function useAddTable() {
     const viewId = tableData.defaultViewId;
     router.push(
       {
-        pathname: '/base/[baseId]/[nodeId]/[viewId]',
-        query: { baseId, nodeId: tableId, viewId },
+        pathname: '/base/[baseId]/[tableId]/[viewId]',
+        query: { baseId, tableId, viewId },
       },
       undefined,
       {

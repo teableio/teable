@@ -8,7 +8,7 @@ import {
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
-import { viewConfig } from '@/features/i18n/view.config';
+import { tableConfig } from '@/features/i18n/table.config';
 
 interface IPrefillingRowContainerProps {
   style?: React.CSSProperties;
@@ -19,7 +19,7 @@ interface IPrefillingRowContainerProps {
 export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
   const { style, children, onClickOutside } = props;
   const prefillingGridContainerRef = useRef<HTMLDivElement>(null);
-  const { t } = useTranslation(viewConfig.i18nNamespaces);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   useClickAway(prefillingGridContainerRef, () => {
     onClickOutside?.();
@@ -33,7 +33,7 @@ export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
     >
       <div className="absolute left-0 top-[-24px] flex h-6 items-center rounded-ss-lg bg-violet-500 px-2 py-1 text-background dark:border-violet-700">
         <ArrowUpDown className="mr-1" />
-        <span className="text-[13px]">{t('view:grid.prefillingRowTitle')}</span>
+        <span className="text-[13px]">{t('table:grid.prefillingRowTitle')}</span>
         <TooltipProvider>
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>
@@ -41,7 +41,7 @@ export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
                 <HelpCircle className="ml-1" />
               </span>
             </TooltipTrigger>
-            <TooltipContent sideOffset={8}>{t('view:grid.prefillingRowTooltip')}</TooltipContent>
+            <TooltipContent sideOffset={8}>{t('table:grid.prefillingRowTooltip')}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>

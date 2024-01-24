@@ -37,6 +37,10 @@ export class SqliteProvider implements IDbProvider {
     return [this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, newTableName]).toQuery()];
   }
 
+  dropTable(tableName: string): string {
+    return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
+  }
+
   renameColumnName(tableName: string, oldName: string, newName: string): string[] {
     return [
       this.knex
@@ -52,6 +56,10 @@ export class SqliteProvider implements IDbProvider {
         .raw(`ALTER TABLE ?? ADD COLUMN ?? ??`, [tableName, columnName, schemaType])
         .toQuery(),
     ];
+  }
+
+  joinDbTableName(schemaName: string, tableName: string) {
+    return `${schemaName}_${tableName}`;
   }
 
   dropColumn(tableName: string, columnName: string): string[] {

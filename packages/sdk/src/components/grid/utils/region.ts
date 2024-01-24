@@ -65,7 +65,6 @@ export const BLANK_REGION_DATA = {
 const {
   columnHeadPadding,
   columnHeadMenuClickableSize,
-  columnHeadMenuSize,
   columnResizeHandlerWidth,
   rowHeadIconPaddingTop,
   columnStatisticHeight,

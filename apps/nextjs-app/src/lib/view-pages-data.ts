@@ -12,11 +12,11 @@ export interface IViewPageProps {
 
 export const getViewPageServerData = async (
   baseId: string,
-  nodeId: string,
+  tableId: string,
   viewId: string
 ): Promise<IViewPageProps | undefined> => {
   const api = ssrApi;
-  const tableResult = await api.getTable(baseId, nodeId, viewId);
+  const tableResult = await api.getTable(baseId, tableId, viewId);
   if (tableResult) {
     const base = await ssrApi.getBaseById(baseId);
     const tablesResult = await api.getTables(baseId);

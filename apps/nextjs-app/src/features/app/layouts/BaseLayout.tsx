@@ -17,7 +17,7 @@ export const BaseLayout: React.FC<{
   user?: IUser;
 }> = ({ children, tableServerData, baseServerData, user }) => {
   const router = useRouter();
-  const { baseId, nodeId, viewId } = router.query;
+  const { baseId, tableId, viewId } = router.query;
   const sdkLocale = useSdkLocale();
 
   return (
@@ -28,7 +28,7 @@ export const BaseLayout: React.FC<{
             <AnchorContext.Provider
               value={{
                 baseId: baseId as string,
-                tableId: nodeId as string,
+                tableId: tableId as string,
                 viewId: viewId as string,
               }}
             >

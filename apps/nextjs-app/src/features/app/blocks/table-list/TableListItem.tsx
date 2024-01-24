@@ -27,9 +27,9 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
   const navigateHandler = () => {
     router.push(
       {
-        pathname: '/base/[baseId]/[nodeId]/[viewId]',
+        pathname: '/base/[baseId]/[tableId]/[viewId]',
         query: {
-          nodeId: table.id,
+          tableId: table.id,
           viewId: table.defaultViewId,
           baseId: baseId as string,
         },

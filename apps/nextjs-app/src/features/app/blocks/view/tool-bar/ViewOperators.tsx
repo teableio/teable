@@ -10,7 +10,7 @@ import {
 import { Filter, HideFields, RowHeight, useFields, Sort, Group } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
 import { useTranslation } from 'react-i18next';
-import { viewConfig } from '@/features/i18n/view.config';
+import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../hooks/useToolbarChange';
 import { ToolBarButton } from './ToolBarButton';
 
@@ -20,7 +20,7 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const fields = useFields();
 
   const { onFilterChange, onRowHeightChange, onSortChange, onGroupChange } = useToolbarChange();
-  const { t } = useTranslation(viewConfig.i18nNamespaces);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   if (!view || !fields.length) {
     return <div></div>;
   }
@@ -41,7 +41,7 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           view.enableShare && (
             <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
               <Share2 className="mr-4 size-4 shrink-0" />
-              <span className="text-muted-foreground">{t('view:toolbar.viewFilterInShare')}</span>
+              <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
         }

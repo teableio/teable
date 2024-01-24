@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { ICreateTableRo } from '@teable-group/core';
-import { FieldType, ViewType } from '@teable-group/core';
+import { FieldType, RowHeightLevel, ViewType } from '@teable-group/core';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import {
@@ -66,7 +66,7 @@ const assertData: ICreateTableRo = {
       description: 'A grid view of all projects',
       type: ViewType.Grid,
       options: {
-        rowHeight: 'short',
+        rowHeight: RowHeightLevel.Short,
       },
     },
     {

@@ -5,3 +5,8 @@ export * from './get-list';
 export * from './get';
 export * from './sql-query';
 export * from './delete-arbitrary';
+export * from './update-name';
+export * from './update-icon';
+export * from './update-order';
+export * from './update-description';
+export * from './update-db-table-name';

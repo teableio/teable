@@ -29,7 +29,7 @@ export function useGridColumnOrder() {
         return view?.columnMeta[fieldId].order;
       });
 
-      view.setViewColumnMeta(
+      view.updateColumnMeta(
         operationFields.map((field, index) => ({
           fieldId: field.id,
           columnMeta: { order: newOrders[index] },

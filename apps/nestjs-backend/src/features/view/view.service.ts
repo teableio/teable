@@ -1,30 +1,29 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
-  ISetViewFilterOpContext,
-  ISetViewSortOpContext,
-  ISetViewGroupOpContext,
-  ISetViewNameOpContext,
-  ISetViewOptionsOpContext,
   ISnapshotBase,
   IViewRo,
   IViewVo,
-  ISetViewDescriptionOpContext,
   ISort,
-  ISetViewShareMetaOpContext,
   IOtOperation,
-  ISetViewShareIdOpContext,
-  ISetViewEnableShareOpContext,
-  ISetViewColumnMetaOpContext,
+  IUpdateViewColumnMetaOpContext,
+  ISetViewPropertyOpContext,
   IColumnMeta,
-  ISetViewOrderOpContext,
 } from '@teable-group/core';
-import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@teable-group/core';
+import {
+  getUniqName,
+  IdPrefix,
+  generateViewId,
+  OpName,
+  ViewOpBuilder,
+  viewRoSchema,
+} from '@teable-group/core';
 import type { Prisma } from '@teable-group/db-main-prisma';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { Knex } from 'knex';
 import { maxBy, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { fromZodError } from 'zod-validation-error';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
@@ -32,18 +31,7 @@ import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 
-type IViewOpContext =
-  | ISetViewNameOpContext
-  | ISetViewDescriptionOpContext
-  | ISetViewFilterOpContext
-  | ISetViewOptionsOpContext
-  | ISetViewSortOpContext
-  | ISetViewGroupOpContext
-  | ISetViewShareMetaOpContext
-  | ISetViewEnableShareOpContext
-  | ISetViewShareIdOpContext
-  | ISetViewOrderOpContext
-  | ISetViewColumnMetaOpContext;
+type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
 @Injectable()
 export class ViewService implements IAdapterService {
@@ -221,9 +209,10 @@ export class ViewService implements IAdapterService {
     };
 
     const ops = [
-      ViewOpBuilder.editor.setViewSort.build({
-        newSort: sort,
-        oldSort: viewRaw?.sort ? JSON.parse(viewRaw.sort) : null,
+      ViewOpBuilder.editor.setViewProperty.build({
+        key: 'sort',
+        newValue: sort,
+        oldValue: viewRaw?.sort ? JSON.parse(viewRaw.sort) : null,
       }),
     ];
 
@@ -286,7 +275,7 @@ export class ViewService implements IAdapterService {
   async getUpdatedColumnMeta(
     tableId: string,
     viewId: string,
-    opContexts: ISetViewColumnMetaOpContext
+    opContexts: IUpdateViewColumnMetaOpContext
   ) {
     const { fieldId, newColumnMeta } = opContexts;
     const { columnMeta: rawColumnMeta } = await this.prismaService
@@ -325,50 +314,34 @@ export class ViewService implements IAdapterService {
     const userId = this.cls.get('user.id');
 
     for (const opContext of opContexts) {
-      const updateData: Prisma.ViewUpdateInput = { version };
-      switch (opContext.name) {
-        case OpName.SetViewName:
-          updateData['name'] = opContext.newName;
-          break;
-        case OpName.SetViewDescription:
-          updateData['description'] = opContext.newDescription;
-          break;
-        case OpName.SetViewFilter:
-          updateData['filter'] = JSON.stringify(opContext.newFilter) ?? null;
-          break;
-        case OpName.SetViewSort:
-          updateData['sort'] = JSON.stringify(opContext.newSort) ?? null;
-          break;
-        case OpName.SetViewGroup:
-          updateData['group'] = JSON.stringify(opContext.newGroup) ?? null;
-          break;
-        case OpName.SetViewOptions:
-          updateData['options'] = JSON.stringify(opContext.newOptions) ?? null;
-          break;
-        case OpName.SetViewColumnMeta:
-          updateData['columnMeta'] = await this.getUpdatedColumnMeta(_tableId, viewId, opContext);
-          break;
-        case OpName.SetViewShareMeta:
-          updateData['shareMeta'] = JSON.stringify(opContext.newShareMeta) ?? null;
-          break;
-        case OpName.SetViewOrder:
-          updateData['order'] = opContext.newOrder;
-          break;
-        case OpName.SetViewEnableShare:
-          updateData['enableShare'] = opContext.newEnableShare;
-          break;
-        case OpName.SetViewShareId:
-          updateData['shareId'] = opContext.newShareId;
-          break;
-        default:
-          throw new InternalServerErrorException(`Unknown context ${opContext} for view update`);
+      const updateData: Prisma.ViewUpdateInput = { version, lastModifiedBy: userId };
+      if (opContext.name === OpName.UpdateViewColumnMeta) {
+        const columnMeta = await this.getUpdatedColumnMeta(_tableId, viewId, opContext);
+        await this.prismaService.txClient().view.update({
+          where: { id: viewId },
+          data: {
+            ...updateData,
+            columnMeta,
+          },
+        });
+        continue;
       }
-
+      const { key, newValue } = opContext;
+      const result = viewRoSchema.partial().safeParse({ [key]: newValue });
+      if (!result.success) {
+        throw new BadRequestException(fromZodError(result.error).message);
+      }
+      const parsedValue = result.data[key];
       await this.prismaService.txClient().view.update({
         where: { id: viewId },
         data: {
           ...updateData,
-          lastModifiedBy: userId,
+          [key]:
+            parsedValue == null
+              ? null
+              : typeof parsedValue === 'object'
+                ? JSON.stringify(parsedValue)
+                : parsedValue,
         },
       });
     }
@@ -448,7 +421,7 @@ export class ViewService implements IAdapterService {
         ? -1
         : Math.max(...Object.values(curColumnMeta).map((meta) => meta.order));
       fieldIds.forEach((fieldId) => {
-        const op = ViewOpBuilder.editor.setViewColumnMeta.build({
+        const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
           fieldId: fieldId,
           newColumnMeta: { order: maxOrder + 1 },
           oldColumnMeta: undefined,
@@ -477,7 +450,7 @@ export class ViewService implements IAdapterService {
       const viewId = view[i].id;
       const curColumnMeta: IColumnMeta = JSON.parse(view[i].columnMeta);
       fieldIds.forEach((fieldId) => {
-        const op = ViewOpBuilder.editor.setViewColumnMeta.build({
+        const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
           fieldId: fieldId,
           newColumnMeta: null,
           oldColumnMeta: { ...curColumnMeta[fieldId] },

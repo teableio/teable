@@ -9,6 +9,7 @@ export function createTableInstance(tableSnapshot: ITableVo, doc?: Doc<ITableVo>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const temp: any = instance;
   temp.doc = doc;
+  temp.baseId = doc?.collection.split('_')[1];
 
   return instance;
 }

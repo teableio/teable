@@ -161,7 +161,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         opBuilder = TableOpBuilder;
         break;
       default:
-        throw new Error(`QueryType: ${docType} has no service implementation`);
+        throw new Error(`UpdateSnapshot: ${docType} has no service implementation`);
     }
 
     const ops2Contexts = opBuilder.ops2Contexts(ops);
