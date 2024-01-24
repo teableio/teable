@@ -1,15 +1,12 @@
 import type { CombinedSelection } from '@teable-group/sdk/components';
 import { create } from 'zustand';
-import type { IHeaderMenu, IRecordMenu, ISetting, IStatisticMenu } from './type';
+import type { IHeaderMenu, IRecordMenu, IStatisticMenu } from './type';
 
 interface IGridViewState {
   selection?: CombinedSelection;
-  setting?: ISetting;
   headerMenu?: IHeaderMenu;
   recordMenu?: IRecordMenu;
   statisticMenu?: IStatisticMenu;
-  openSetting: (props: ISetting) => void;
-  closeSetting: () => void;
   openHeaderMenu: (props: IHeaderMenu) => void;
   closeHeaderMenu: () => void;
   openRecordMenu: (props: IRecordMenu) => void;
@@ -20,25 +17,6 @@ interface IGridViewState {
 }
 
 export const useGridViewStore = create<IGridViewState>((set) => ({
-  openSetting: (props) => {
-    set((state) => {
-      return {
-        ...state,
-        setting: props,
-      };
-    });
-  },
-  closeSetting: () => {
-    set((state) => {
-      if (state.setting == undefined) {
-        return state;
-      }
-      return {
-        ...state,
-        setting: undefined,
-      };
-    });
-  },
   openHeaderMenu: (props) => {
     set((state) => {
       return {

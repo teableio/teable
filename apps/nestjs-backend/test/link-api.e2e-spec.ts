@@ -13,6 +13,7 @@ import {
   RecordOpBuilder,
   Relationship,
 } from '@teable-group/core';
+import { updateDbTableName } from '@teable-group/openapi';
 import type { Connection, Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import {
@@ -26,6 +27,7 @@ import {
   getFields,
   getRecord,
   getRecords,
+  getTable,
   initApp,
   updateRecord,
   updateRecordByApi,
@@ -2598,6 +2600,83 @@ describe('OpenAPI link (e2e)', () => {
         const table1Fields = await getFields(table1.id);
         expect(table1Fields.length).toEqual(2);
       });
+    });
+  });
+
+  describe('change db table name', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      // create tables
+      const textFieldRo: IFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'Number field',
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
+        },
+      };
+
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [],
+      });
+
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [],
+      });
+
+      // create link field
+      const table2LinkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      await createField(table2.id, table2LinkFieldRo);
+
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
+    });
+
+    it('should safe delete link field', async () => {
+      const table1LinkField = table1.fields[2];
+      const table2LinkField = table2.fields[2];
+      expect((table1LinkField.options as ILinkFieldOptions).fkHostTableName).toEqual(
+        table1.dbTableName
+      );
+      expect((table2LinkField.options as ILinkFieldOptions).fkHostTableName).toEqual(
+        table1.dbTableName
+      );
+
+      await updateDbTableName(baseId, table1.id, { dbTableName: 'newAwesomeName' });
+      const newTable1 = await getTable(baseId, table1.id);
+      const updatedLink1 = await getField(table1.id, table1LinkField.id);
+      const updatedLink2 = await getField(table2.id, table2LinkField.id);
+
+      expect(newTable1.dbTableName.split(/[._]/)).toEqual(['bseTestBaseId', 'newAwesomeName']);
+      expect((updatedLink1.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
+      expect((updatedLink2.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
     });
   });
 });

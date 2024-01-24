@@ -1,7 +1,8 @@
 import type { IColumnMeta } from './column-meta.schema';
 import type { ViewType } from './constant';
 import type { IFilter } from './filter';
-import type { IGroup, ISort } from './sort';
+import type { IViewOptions } from './option.schema';
+import type { ISort, IGroup } from './sort';
 import type { IShareViewMeta, IViewVo } from './view.schema';
 
 export abstract class ViewCore implements IViewVo {
@@ -27,7 +28,7 @@ export abstract class ViewCore implements IViewVo {
 
   shareMeta?: IShareViewMeta;
 
-  abstract options: unknown;
+  abstract options: IViewOptions;
 
   createdBy!: string;
 

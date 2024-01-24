@@ -11,6 +11,7 @@ import { FieldConvertingService } from '../field-calculate/field-converting.serv
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
 import { FieldDeletingService } from '../field-calculate/field-deleting.service';
 import { FieldSupplementService } from '../field-calculate/field-supplement.service';
+import { FieldService } from '../field.service';
 import { createFieldInstanceByVo } from '../model/factory';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class FieldOpenApiService {
   constructor(
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
+    private readonly fieldService: FieldService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldConvertingService: FieldConvertingService,
@@ -52,6 +54,7 @@ export class FieldOpenApiService {
         for (const { tableId, field } of newFields) {
           if (field.isComputed) {
             await this.fieldCalculationService.calculateFields(tableId, [field.id]);
+            await this.fieldService.resolvePending(tableId, [field.id]);
           }
         }
       },

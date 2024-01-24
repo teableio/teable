@@ -94,9 +94,9 @@ export class ActionTriggerListener {
   }
 
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
-    const operationNames = ['setViewFilter', 'setViewGroup', 'setViewColumnMeta'];
-    const { name } = event.context.opMeta || {};
-    return name && operationNames.includes(name);
+    const propertyKeys = ['filter', 'sort', 'group', 'columnMeta'];
+    const { propertyKey } = event.context.opMeta || {};
+    return propertyKeys.includes(propertyKey as string);
   }
 
   private isTableRecordEvent(event: IListenerEvent): boolean {

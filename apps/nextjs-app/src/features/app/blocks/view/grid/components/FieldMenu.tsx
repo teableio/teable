@@ -17,6 +17,7 @@ import classNames from 'classnames';
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
+import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { useGridViewStore } from '../store/gridView';
 import type { IMenuItemProps } from './RecordMenu';
 
@@ -34,7 +35,8 @@ const iconClassName = 'mr-2 h-4 w-4';
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
   const view = useView() as GridView | undefined;
-  const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
+  const { headerMenu, closeHeaderMenu } = useGridViewStore();
+  const { openSetting } = useFieldSettingStore();
   const permission = useTablePermission();
   const allFields = useFields({ withHidden: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
@@ -138,7 +140,7 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          view.setViewColumnMeta(
+          view.updateColumnMeta(
             filteredFields.map((field) => ({ fieldId: field.id, columnMeta: { hidden: true } }))
           );
         },

@@ -63,7 +63,6 @@
     "@types/lodash": "4.14.202",
     "@types/markdown-it": "13.0.7",
     "@types/mime-types": "2.1.4",
-    "@types/minio": "7.1.1",
     "@types/ms": "0.7.34",
     "@types/multer": "1.4.11",
     "@types/node": "18.18.2",

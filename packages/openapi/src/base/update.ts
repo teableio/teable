@@ -13,7 +13,7 @@ export type IUpdateBaseRo = z.infer<typeof updateBaseRoSchema>;
 export const updateBaseVoSchema = z.object({
   spaceId: z.string(),
   name: z.string(),
-  icon: z.string().optional(),
+  icon: z.string().emoji().optional(),
   order: z.number(),
 });
 

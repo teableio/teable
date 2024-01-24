@@ -1,0 +1,18 @@
+{
+  "toolbar": {
+    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link."
+  },
+  "field": {
+    "fieldManagement": "Field Management"
+  },
+  "table": {
+    "dbTableName": "Table name in physical database",
+    "schemaName": "Schema name in physical database",
+    "tableInfo": "Table Info",
+    "tableInfoDetail": "Basic information for the table",
+    "typeOfDatabase": "Type of database",
+    "descriptionForTable": "Description for this table",
+    "nameForTable": "Name for this table"
+  },
+  "lastModifiedTime": "Last modified time"
+}

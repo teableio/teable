@@ -35,7 +35,15 @@ export class PostgresProvider implements IDbProvider {
   }
 
   renameTableName(oldTableName: string, newTableName: string) {
-    return [this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, newTableName]).toQuery()];
+    const nameWithoutSchema = newTableName.split('.')[1];
+    return [
+      this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, nameWithoutSchema]).toQuery(),
+    ];
+  }
+
+  dropTable(tableName: string): string {
+    const [schemaName, dbTableName] = tableName.split('.');
+    return this.knex.raw('DROP TABLE ??.??', [schemaName, dbTableName]).toQuery();
   }
 
   renameColumnName(tableName: string, oldName: string, newName: string): string[] {
@@ -89,6 +97,10 @@ export class PostgresProvider implements IDbProvider {
         })
         .toQuery(),
     ];
+  }
+
+  joinDbTableName(schemaName: string, tableName: string) {
+    return `${schemaName}.${tableName}`;
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

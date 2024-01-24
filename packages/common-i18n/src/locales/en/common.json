@@ -2,11 +2,19 @@
   "brand": "Teable",
   "actions": {
     "save": "Save",
+    "submit": "Submit",
+    "edit": "Edit",
     "update": "Update",
     "delete": "Delete",
     "cancel": "Cancel",
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out"
+    "zoomOut": "Zoom out",
+    "back": "Back",
+    "saveSucceed": "Save Succeed!",
+    "submitSucceed": "Submit Succeed!",
+    "editSucceed": "Edit Succeed!",
+    "updateSucceed": "Update Succeed!",
+    "deleteSucceed": "Delete Succeed!"
   },
   "settings": {
     "title": "Settings",
@@ -50,5 +58,8 @@
       "light": "Light",
       "system": "System"
     }
-  }
+  },
+  "noResult": "No Result.",
+  "name": "Name",
+  "description": "Description"
 }

@@ -310,7 +310,7 @@ export class TableService implements IAdapterService {
         },
       })
       .catch(() => {
-        throw new BadRequestException('Table not found');
+        throw new NotFoundException('Table not found');
       });
 
     const updateInput: Prisma.TableMetaUpdateInput = {
@@ -321,7 +321,7 @@ export class TableService implements IAdapterService {
     };
 
     const ops = Object.entries(updateInput)
-      .filter(([key, value]) => Boolean(value == (tableRaw as Record<string, unknown>)[key]))
+      .filter(([key, value]) => Boolean(value !== (tableRaw as Record<string, unknown>)[key]))
       .map<IOtOperation>(([key, value]) => {
         return {
           p: [key],

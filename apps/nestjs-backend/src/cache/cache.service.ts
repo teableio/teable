@@ -11,17 +11,15 @@ export class CacheService {
   private cacheManager;
   constructor(@CacheConfig() cacheConfig: ICacheConfig) {
     const { provider, sqlite } = cacheConfig;
-    let store;
     // eslint-disable-next-line sonarjs/no-small-switch
     switch (provider) {
       case 'sqlite':
         fse.ensureFileSync(sqlite.uri);
-        store = new sqliteKeyv(sqlite);
+        this.cacheManager = new keyv({ store: new sqliteKeyv(sqlite) });
         break;
       default:
-        store = new keyv();
+        this.cacheManager = new keyv();
     }
-    this.cacheManager = new keyv({ store });
   }
 
   async get<TKey extends keyof ICacheStore>(key: TKey): Promise<ICacheStore[TKey] | undefined> {

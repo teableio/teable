@@ -40,12 +40,6 @@ export const manualSortRoSchema = z.object({
   sortObjs: sortItemSchema.array(),
 });
 
-export const viewSortRoSchema = z.object({
-  sort: sortSchema.nullable(),
-});
-
-export type IViewSortRo = z.infer<typeof viewSortRoSchema>;
-
 export type IManualSortRo = z.infer<typeof manualSortRoSchema>;
 
 export function mergeWithDefaultSort(

@@ -1,4 +1,4 @@
-import type { IRecord, ITableFullVo, ITableListVo } from '@teable-group/core';
+import type { IFieldVo, IRecord, ITableFullVo, ITableListVo } from '@teable-group/core';
 import { FieldKeyType } from '@teable-group/core';
 import type {
   AcceptInvitationLinkRo,
@@ -30,6 +30,10 @@ export class SsrApi {
         },
       })
       .then(({ data }) => data);
+  }
+
+  async getFields(tableId: string) {
+    return this.axios.get<IFieldVo[]>(`/table/${tableId}/field`).then(({ data }) => data);
   }
 
   async getTables(baseId: string) {

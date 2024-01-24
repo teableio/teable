@@ -27,6 +27,8 @@ export interface IDbProvider {
 
   renameTableName(oldTableName: string, newTableName: string): string[];
 
+  dropTable(tableName: string): string;
+
   renameColumnName(tableName: string, oldName: string, newName: string): string[];
 
   dropColumn(tableName: string, columnName: string): string[];
@@ -39,6 +41,8 @@ export interface IDbProvider {
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
+
+  joinDbTableName(schemaName: string, tableName: string): string;
 
   executeUpdateRecordsSqlList(params: {
     dbTableName: string;

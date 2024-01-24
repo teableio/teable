@@ -45,7 +45,11 @@ const generateColumns = (
         name,
         width,
         description,
-        customTheme: field.hasError ? { columnHeaderBg: colors.rose[100] } : undefined,
+        customTheme: field.hasError
+          ? { columnHeaderBg: colors.rose[100] }
+          : field.isPending
+            ? { columnHeaderBg: colors.yellow[100] }
+            : undefined,
         hasMenu,
         icon: iconString(type, isLookup),
       };

@@ -1,32 +1,14 @@
 import type { IOtOperation } from '../../models/op';
 import { OpName } from '../common';
 import { AddViewBuilder } from './add-view';
-import { SetViewColumnMetaBuilder } from './set-view-column-meta';
-import { SetViewDescriptionBuilder } from './set-view-description';
-import { SetViewEnableShareBuilder } from './set-view-enable-share';
-import { SetViewFilterBuilder } from './set-view-filter';
-import { SetViewGroupBuilder } from './set-view-group';
-import { SetViewNameBuilder } from './set-view-name';
-import { SetViewOptionBuilder } from './set-view-option';
-import { SetViewOrderBuilder } from './set-view-order';
-import { SetViewShareIdBuilder } from './set-view-share-id';
-import { SetViewShareMetaBuilder } from './set-view-share-meta';
-import { SetViewSortBuilder } from './set-view-sort';
+import { SetViewPropertyBuilder } from './set-view-property';
+import { UpdateViewColumnMetaBuilder } from './update-view-column-meta';
 
 export class ViewOpBuilder {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   static editor = {
-    [OpName.SetViewName]: new SetViewNameBuilder(),
-    [OpName.SetViewDescription]: new SetViewDescriptionBuilder(),
-    [OpName.SetViewFilter]: new SetViewFilterBuilder(),
-    [OpName.SetViewSort]: new SetViewSortBuilder(),
-    [OpName.SetViewGroup]: new SetViewGroupBuilder(),
-    [OpName.SetViewOptions]: new SetViewOptionBuilder(),
-    [OpName.SetViewOrder]: new SetViewOrderBuilder(),
-    [OpName.SetViewColumnMeta]: new SetViewColumnMetaBuilder(),
-    [OpName.SetViewEnableShare]: new SetViewEnableShareBuilder(),
-    [OpName.SetViewShareId]: new SetViewShareIdBuilder(),
-    [OpName.SetViewShareMeta]: new SetViewShareMetaBuilder(),
+    [OpName.SetViewProperty]: new SetViewPropertyBuilder(),
+    [OpName.UpdateViewColumnMeta]: new UpdateViewColumnMetaBuilder(),
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention

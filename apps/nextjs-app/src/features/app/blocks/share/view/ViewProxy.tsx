@@ -1,14 +1,7 @@
-import type {
-  IOtOperation,
-  IViewVo,
-  ISort,
-  IColumnMetaRo,
-  IFilter,
-  IGroup,
-} from '@teable-group/core';
+import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup } from '@teable-group/core';
 import { ViewContext, createViewInstance, useView } from '@teable-group/sdk';
 import type { IViewInstance } from '@teable-group/sdk';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type IProxyViewKey = 'filter' | 'sort' | 'rowHeight';
 
@@ -22,15 +15,15 @@ interface IViewProxyProps {
 
 type IProxyViewInstance = Omit<
   IViewInstance,
-  'setViewFilter' | 'setViewSort' | 'setViewGroup' | 'setOption' | 'setViewColumnMeta'
+  'updateFilter' | 'updateSort' | 'updateGroup' | 'updateOption' | 'updateColumnMeta'
 >;
 
 interface IProxyView extends IProxyViewInstance {
-  setViewFilter: (filter: IFilter) => void;
-  setViewSort: (sort: ISort) => void;
-  setViewGroup: (group: IGroup) => void;
-  setOption: (option: object) => void;
-  setViewColumnMeta: (columnMeta: IColumnMetaRo) => void;
+  updateFilter: (filter: IFilter) => void;
+  updateSort: (sort: ISort) => void;
+  updateGroup: (group: IGroup) => void;
+  updateOption: (option: object) => void;
+  updateColumnMeta: (columnMeta: IColumnMetaRo) => void;
 }
 
 export const ViewProxy = (props: IViewProxyProps) => {
@@ -38,10 +31,6 @@ export const ViewProxy = (props: IViewProxyProps) => {
   const view = useView();
   const [proxyView, setProxyView] = useState<IProxyView>();
   const [viewData, setViewData] = useState<IViewVo>();
-  const viewSubmitOperation = useRef<((operation: IOtOperation) => Promise<unknown>) | undefined>(
-    view?.submitOperation
-  );
-
   useEffect(() => {
     const data = view?.['doc']?.data || serverData?.[0];
     if (!data) {
@@ -58,28 +47,28 @@ export const ViewProxy = (props: IViewProxyProps) => {
   useEffect(() => {
     if (!viewData || !view?.id) return;
     const newViewProxy = createViewInstance(viewData) as IProxyView;
-    newViewProxy.setViewSort = (sort: ISort) => {
+    newViewProxy.updateSort = (sort: ISort) => {
       setViewData({
         ...viewData,
         sort,
       });
     };
 
-    newViewProxy.setViewFilter = (filter: IFilter) => {
+    newViewProxy.updateFilter = (filter: IFilter) => {
       setViewData({
         ...viewData,
         filter,
       });
     };
 
-    newViewProxy.setViewGroup = (group: IGroup) => {
+    newViewProxy.updateGroup = (group: IGroup) => {
       setViewData({
         ...viewData,
         group,
       });
     };
 
-    newViewProxy.setOption = (option: object) => {
+    newViewProxy.updateOption = (option: object) => {
       setViewData({
         ...viewData,
         options: {
@@ -88,7 +77,7 @@ export const ViewProxy = (props: IViewProxyProps) => {
         },
       });
     };
-    newViewProxy.setViewColumnMeta = (columnMeta: IColumnMetaRo) => {
+    newViewProxy.updateColumnMeta = (columnMeta: IColumnMetaRo) => {
       const [{ columnMeta: meta, fieldId }] = columnMeta;
       const newViewData = {
         ...viewData,
@@ -103,7 +92,6 @@ export const ViewProxy = (props: IViewProxyProps) => {
       setViewData(newViewData);
     };
     setProxyView(newViewProxy);
-    return () => (viewSubmitOperation.current = undefined);
   }, [viewData, proxyKeys, view?.id]);
 
   return (

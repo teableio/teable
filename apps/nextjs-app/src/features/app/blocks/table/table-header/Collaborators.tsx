@@ -29,7 +29,7 @@ type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta'>;
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
   const router = useRouter();
   const { connection } = useConnection();
-  const { nodeId: tableId } = router.query;
+  const { tableId } = router.query;
   const { user: sessionUser } = useSession();
   const { theme } = useTheme();
   const [presence, setPresence] = useState<Presence>();
@@ -109,7 +109,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   };
 
   return (
-    <div className={classNames('gap-1 px-2 items-center hidden sm:flex', className)}>
+    <div className={classNames('gap-1 items-center hidden sm:flex', className)}>
       {boardUsers?.map(({ id, name, avatar, email }, index) => {
         return (
           <HoverCard key={`${id}_${index}`}>

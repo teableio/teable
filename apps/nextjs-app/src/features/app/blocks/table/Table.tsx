@@ -22,11 +22,11 @@ export const Table: React.FC<ITableProps> = ({
 }) => {
   const table = useTable();
   const router = useRouter();
-  const { nodeId, viewId } = router.query as { nodeId: string; viewId: string };
+  const { tableId, viewId } = router.query as { tableId: string; viewId: string };
   useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
 
   return (
-    <AnchorContext.Provider value={{ tableId: nodeId, viewId: viewId }}>
+    <AnchorContext.Provider value={{ tableId, viewId }}>
       <ViewProvider serverData={viewServerData}>
         <div className="flex h-full grow basis-[500px] flex-col">
           <TableHeader />
