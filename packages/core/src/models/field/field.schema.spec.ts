@@ -1,7 +1,7 @@
 import { Colors } from './colors';
 import { CellValueType, FieldType } from './constant';
 import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
-import { fieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
+import { createFieldRoSchema, unionFieldOptionsRoSchema } from './field.schema';
 import { NumberFormattingType } from './formatting';
 import type { IUnionShowAs } from './show-as';
 import { SingleNumberDisplayType } from './show-as';
@@ -27,7 +27,7 @@ describe('field Schema Test', () => {
       options: SingleLineTextFieldCore.defaultOptions(),
     };
 
-    const result = fieldRoSchema.safeParse(fieldRo);
+    const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(true);
   });
 
@@ -43,7 +43,7 @@ describe('field Schema Test', () => {
       },
     };
 
-    const result = fieldRoSchema.safeParse(fieldRo);
+    const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(true);
   });
 
@@ -54,7 +54,7 @@ describe('field Schema Test', () => {
       isLookup: true,
     };
 
-    const result = fieldRoSchema.safeParse(fieldRo);
+    const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(false);
   });
 
@@ -69,7 +69,7 @@ describe('field Schema Test', () => {
       },
     };
 
-    const result = fieldRoSchema.safeParse(fieldRo);
+    const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(false);
   });
 
@@ -84,7 +84,7 @@ describe('field Schema Test', () => {
       },
     };
 
-    const result = fieldRoSchema.safeParse(fieldRo);
+    const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(true);
   });
 
@@ -110,7 +110,7 @@ describe('field Schema Test', () => {
       },
     };
 
-    const result = fieldRoSchema.safeParse(fieldRo);
+    const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(false);
 
     const lookUpFieldRo = {
@@ -118,7 +118,7 @@ describe('field Schema Test', () => {
       ...fieldRo,
     };
 
-    const result2 = fieldRoSchema.safeParse(lookUpFieldRo);
+    const result2 = createFieldRoSchema.safeParse(lookUpFieldRo);
     expect(result2.success).toBe(true);
   });
 });

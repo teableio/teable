@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { IFieldRo } from '@teable-group/core';
-import type { IFieldVo, IUpdateFieldRo } from '@teable-group/core';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { FieldOpBuilder, IFieldRo } from '@teable-group/core';
+import type { IFieldVo, IConvertFieldRo, IUpdateFieldRo, IOtOperation } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
@@ -37,8 +37,8 @@ export class FieldOpenApiService {
     return await this.graphService.planFieldCreate(tableId, fieldRo);
   }
 
-  async planFieldUpdate(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
-    return await this.graphService.planFieldUpdate(tableId, fieldId, updateFieldRo);
+  async planFieldConvert(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
+    return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }
 
   @Timing()
@@ -72,10 +72,82 @@ export class FieldOpenApiService {
     });
   }
 
-  async updateField(
+  private async updateUniqProperty(
     tableId: string,
     fieldId: string,
-    updateFieldRo: IUpdateFieldRo
+    key: 'name' | 'dbFieldName',
+    value: string
+  ) {
+    const result = await this.prismaService.field
+      .findFirstOrThrow({
+        where: { id: fieldId, deletedTime: null },
+        select: { [key]: true },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Field ${fieldId} not found`);
+      });
+
+    const hasDuplicated = await this.prismaService.field.findFirst({
+      where: { tableId, [key]: value, deletedTime: null },
+      select: { id: true },
+    });
+
+    if (hasDuplicated) {
+      throw new BadRequestException(`Field ${key} ${value} already exists`);
+    }
+
+    return FieldOpBuilder.editor.setFieldProperty.build({
+      key,
+      oldValue: result[key],
+      newValue: value,
+    });
+  }
+
+  async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
+    const ops: IOtOperation[] = [];
+    if (updateFieldRo.name) {
+      const op = await this.updateUniqProperty(tableId, fieldId, 'name', updateFieldRo.name);
+      ops.push(op);
+    }
+
+    if (updateFieldRo.dbFieldName) {
+      const op = await this.updateUniqProperty(
+        tableId,
+        fieldId,
+        'dbFieldName',
+        updateFieldRo.dbFieldName
+      );
+      ops.push(op);
+    }
+
+    if (updateFieldRo.description !== undefined) {
+      const { description } = await this.prismaService.field
+        .findFirstOrThrow({
+          where: { id: fieldId, deletedTime: null },
+          select: { description: true },
+        })
+        .catch(() => {
+          throw new NotFoundException(`Field ${fieldId} not found`);
+        });
+
+      ops.push(
+        FieldOpBuilder.editor.setFieldProperty.build({
+          key: 'description',
+          oldValue: description,
+          newValue: updateFieldRo.description,
+        })
+      );
+    }
+
+    await this.prismaService.$tx(async () => {
+      await this.fieldService.batchUpdateFields(tableId, [{ fieldId, ops }]);
+    });
+  }
+
+  async convertField(
+    tableId: string,
+    fieldId: string,
+    updateFieldRo: IConvertFieldRo
   ): Promise<IFieldVo> {
     // 1. stage analysis and collect field changes
     const { newField, oldField, modifiedOps, supplementChange } =

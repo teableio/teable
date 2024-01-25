@@ -144,7 +144,7 @@ export const FieldEditor = (props: {
             </div>
             <Textarea
               className="h-12 resize-none"
-              value={field['description']}
+              value={field['description'] || undefined}
               placeholder={t('table:field.editor.descriptionPlaceholder')}
               onChange={updateFieldDesc}
             />

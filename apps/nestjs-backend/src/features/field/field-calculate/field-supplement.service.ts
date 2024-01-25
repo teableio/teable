@@ -10,7 +10,7 @@ import type {
   ILookupOptionsVo,
   IRollupFieldOptions,
   ISelectFieldOptionsRo,
-  IUpdateFieldRo,
+  IConvertFieldRo,
   IUserFieldOptions,
 } from '@teable-group/core';
 import {
@@ -941,7 +941,7 @@ export class FieldSupplementService {
 
   async prepareUpdateField(
     tableId: string,
-    fieldRo: IUpdateFieldRo,
+    fieldRo: IConvertFieldRo,
     oldField: IFieldInstance
   ): Promise<IFieldVo> {
     const fieldVo = (await this.prepareUpdateFieldInner(

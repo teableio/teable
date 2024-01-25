@@ -36,7 +36,7 @@ import {
   createRecords as apiCreateRecords,
   createField as apiCreateField,
   deleteField as apiDeleteField,
-  updateField as apiUpdateField,
+  convertField as apiConvertField,
   getFields as apiGetFields,
   getField as apiGetField,
   getViewList as apiGetViewList,
@@ -318,14 +318,14 @@ export async function deleteField(tableId: string, fieldId: string) {
   return result.data;
 }
 
-export async function updateField(
+export async function convertField(
   tableId: string,
   fieldId: string,
   fieldRo: IFieldRo,
   expectStatus = 200
 ): Promise<IFieldVo> {
   try {
-    const res = await apiUpdateField(tableId, fieldId, fieldRo);
+    const res = await apiConvertField(tableId, fieldId, fieldRo);
 
     expect(res.status).toEqual(expectStatus);
     return res.data;

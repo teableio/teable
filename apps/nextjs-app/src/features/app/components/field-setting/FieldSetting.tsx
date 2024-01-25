@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import type { IFieldRo } from '@teable-group/core';
-import { updateFieldRoSchema, FieldType, getOptionsSchema } from '@teable-group/core';
+import { convertFieldRoSchema, FieldType, getOptionsSchema } from '@teable-group/core';
 import { Share2 } from '@teable-group/icons';
-import { planFieldCreate, type IPlanFieldUpdateVo, planFieldUpdate } from '@teable-group/openapi';
+import { planFieldCreate, type IPlanFieldConvertVo, planFieldConvert } from '@teable-group/openapi';
 import { ReactQueryKeys } from '@teable-group/sdk/config';
 import { useTable, useView } from '@teable-group/sdk/hooks';
 import { ConfirmDialog } from '@teable-group/ui-lib/base';
@@ -34,7 +34,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [processVisible, setProcessVisible] = useState<boolean>(false);
-  const [plan, setPlan] = useState<IPlanFieldUpdateVo>();
+  const [plan, setPlan] = useState<IPlanFieldConvertVo>();
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
   const queryClient = useQueryClient();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -63,7 +63,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
       if (operator === FieldOperator.Edit) {
         const fieldId = props.field?.id;
-        table && fieldId && (await table.updateField(fieldId, field));
+        table && fieldId && (await table.convertField(fieldId, field));
       }
 
       toast(
@@ -81,12 +81,12 @@ export const FieldSetting = (props: IFieldSetting) => {
   const getPlan = async (fieldRo: IFieldRo) => {
     if (operator === FieldOperator.Edit) {
       return queryClient.ensureQueryData({
-        queryKey: ReactQueryKeys.planFieldUpdate(
+        queryKey: ReactQueryKeys.planFieldConvert(
           table?.id as string,
           props.field?.id as string,
           fieldRo
         ),
-        queryFn: ({ queryKey }) => planFieldUpdate(queryKey[1], queryKey[2], queryKey[3]),
+        queryFn: ({ queryKey }) => planFieldConvert(queryKey[1], queryKey[2], queryKey[3]),
       });
     }
     return queryClient.ensureQueryData({
@@ -175,7 +175,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
 
   const checkFieldReady = useCallback(
     (field: IFieldEditorRo) => {
-      const result = updateFieldRoSchema.safeParse(field);
+      const result = convertFieldRoSchema.safeParse(field);
       if (!result.success) {
         return false;
       }
@@ -214,7 +214,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
 
   const onSave = () => {
     !updateCount && onConfirm?.();
-    const result = updateFieldRoSchema.safeParse(field);
+    const result = convertFieldRoSchema.safeParse(field);
     if (result.success) {
       onConfirm?.(result.data);
       return;

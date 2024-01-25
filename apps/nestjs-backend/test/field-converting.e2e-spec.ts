@@ -31,7 +31,7 @@ import {
   getField,
   getRecord,
   initApp,
-  updateField,
+  convertField,
   updateRecordByApi,
   createTable,
   deleteTable,
@@ -90,7 +90,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       value != null &&
         (await updateRecordByApi(table.id, table.records[i].id, sourceField.id, value));
     }
-    await updateField(table.id, sourceField.id, newFieldRo);
+    await convertField(table.id, sourceField.id, newFieldRo);
     const newField = await getField(table.id, sourceField.id);
     const records = await Promise.all(
       values.map((_, i) => getRecord(table.id, table.records[i].id))
@@ -1052,7 +1052,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       };
       const sourceField = await createField(table1.id, sourceFieldRo);
 
-      await updateField(table1.id, sourceField.id, newFieldRo, 400);
+      await convertField(table1.id, sourceField.id, newFieldRo, 400);
     });
   });
 
@@ -1232,7 +1232,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const newField2 = await updateField(table1.id, newField.id, newFieldRo2);
+      const newField2 = await convertField(table1.id, newField.id, newFieldRo2);
 
       const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
@@ -1691,7 +1691,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(rs[0].fields[sourceFormulaLinkField.id]).toEqual('B1');
       expect(rs[0].fields[sourceFormulaLookupField.id]).toEqual('B1');
 
-      const newLinkField = await updateField(table1.id, sourceLinkField.id, newFieldRo);
+      const newLinkField = await convertField(table1.id, sourceLinkField.id, newFieldRo);
 
       expect(newLinkField).toMatchObject({
         options: {
@@ -1777,7 +1777,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(rs[0].fields[sourceFormulaLinkField.id]).toEqual('B1');
       expect(rs[0].fields[sourceFormulaLookupField.id]).toEqual('B1');
 
-      const newField = await updateField(table1.id, sourceLinkField.id, newFieldRo);
+      const newField = await convertField(table1.id, sourceLinkField.id, newFieldRo);
 
       expect(newField).toMatchObject({
         type: FieldType.SingleLineText,
@@ -2034,7 +2034,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.SingleSelect,
       };
 
-      const newField = await updateField(table2.id, sourceField.id, newFieldRo);
+      const newField = await convertField(table2.id, sourceField.id, newFieldRo);
       const newLookupField = await getField(table1.id, lookupField.id);
 
       expect(newField).toMatchObject({
@@ -2105,7 +2105,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Number,
       };
 
-      const newField = await updateField(table2.id, sourceField.id, newFieldRo);
+      const newField = await convertField(table2.id, sourceField.id, newFieldRo);
       const newLookupField = await getField(table1.id, lookupField.id);
 
       expect(newField).toMatchObject({
@@ -2196,7 +2196,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Number,
       };
 
-      const newField = await updateField(table2.id, sourceField.id, newFieldRo);
+      const newField = await convertField(table2.id, sourceField.id, newFieldRo);
       const newLookupField = await getField(table1.id, lookupField.id);
 
       expect(newField).toMatchObject({
@@ -2302,7 +2302,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.SingleLineText,
       };
 
-      const newField = await updateField(table2.id, sourceField.id, newFieldRo);
+      const newField = await convertField(table2.id, sourceField.id, newFieldRo);
       const newLookupField = await getField(table1.id, lookupField.id);
       const newFormulaField = await getField(table1.id, formulaField.id);
 
@@ -2395,7 +2395,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(beforeRecord.fields[lookupField.id]).toEqual('x');
 
       console.log('start update');
-      const newField = await updateField(table1.id, linkField.id, sourceFieldRo);
+      const newField = await convertField(table1.id, linkField.id, sourceFieldRo);
 
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
@@ -2480,7 +2480,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      await updateField(table1.id, selectField.id, selectFieldUpdateRo);
+      await convertField(table1.id, selectField.id, selectFieldUpdateRo);
 
       const lookupFieldAfter = await getField(table2.id, lookupField.id);
       expect((lookupFieldAfter.options as ISelectFieldOptions).choices.length).toEqual(2);
@@ -2553,7 +2553,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         } as ILookupOptionsRo,
       };
 
-      const updatedLookupField = await updateField(table2.id, lookupField.id, lookupFieldRo2);
+      const updatedLookupField = await convertField(table2.id, lookupField.id, lookupFieldRo2);
       expect(updatedLookupField).toMatchObject(lookupFieldRo2);
       const numberRecord = await getRecord(table2.id, table2.records[0].id);
       expect(numberRecord.fields[lookupField.id]).toEqual([123]);
@@ -2603,7 +2603,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      await updateField(table1.id, lookupField.id, newLookupFieldRo);
+      await convertField(table1.id, lookupField.id, newLookupFieldRo);
 
       const linkFieldAfter = await getField(table1.id, linkField.id);
       expect(linkFieldAfter).toMatchObject(linkField);
@@ -2673,7 +2673,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         { id: table1.records[0].id },
       ]);
 
-      await updateField(table1.id, lookupField.id, lookupFieldRo2);
+      await convertField(table1.id, lookupField.id, lookupFieldRo2);
       const linkField1After = await getField(table1.id, linkField1.id);
       expect(linkField1After).toMatchObject(linkField1);
       const linkField2After = await getField(table1.id, linkField2.id);
@@ -2811,7 +2811,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         } as ILookupOptionsRo,
       };
 
-      await updateField(table2.id, rollupField.id, rollupFieldRo2);
+      await convertField(table2.id, rollupField.id, rollupFieldRo2);
     });
   });
 });

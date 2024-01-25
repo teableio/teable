@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IRecord, ITableVo, IViewRo } from '@teable-group/core';
+import type { IFieldRo, IRecord, ITableVo, IUpdateFieldRo, IViewRo } from '@teable-group/core';
 import { FieldKeyType, TableCore } from '@teable-group/core';
 import {
   createTable,
@@ -85,8 +85,12 @@ export class Table extends TableCore {
     return Field.createField(this.id, fieldRo);
   }
 
-  async updateField(fieldId: string, fieldRo: IFieldRo) {
+  async updateField(fieldId: string, fieldRo: IUpdateFieldRo) {
     return Field.updateField(this.id, fieldId, fieldRo);
+  }
+
+  async convertField(fieldId: string, fieldRo: IFieldRo) {
+    return Field.convertField(this.id, fieldId, fieldRo);
   }
 
   async deleteField(fieldId: string) {

@@ -7,6 +7,7 @@ import type {
   IFieldVo,
   IGetTableQuery,
   ILinkFieldOptions,
+  ILookupOptionsVo,
   ITableFullVo,
   ITableVo,
   IViewRo,
@@ -292,6 +293,11 @@ export class TableOpenApiService {
       select: { id: true, options: true },
     });
 
+    const relationalFieldsRaw = await this.prismaService.field.findMany({
+      where: { table: { baseId }, lookupOptions: { not: null } },
+      select: { id: true, lookupOptions: true },
+    });
+
     await this.prismaService.$tx(async (prisma) => {
       await Promise.all(
         linkFieldsRaw
@@ -306,6 +312,28 @@ export class TableOpenApiService {
             return prisma.field.update({
               where: { id: field.id },
               data: { options: JSON.stringify({ ...field.options, fkHostTableName: dbTableName }) },
+            });
+          })
+      );
+
+      await Promise.all(
+        relationalFieldsRaw
+          .map((field) => ({
+            ...field,
+            lookupOptions: JSON.parse(field.lookupOptions as string) as ILookupOptionsVo,
+          }))
+          .filter((field) => {
+            return field.lookupOptions.fkHostTableName === oldDbTableName;
+          })
+          .map((field) => {
+            return prisma.field.update({
+              where: { id: field.id },
+              data: {
+                lookupOptions: JSON.stringify({
+                  ...field.lookupOptions,
+                  fkHostTableName: dbTableName,
+                }),
+              },
             });
           })
       );
