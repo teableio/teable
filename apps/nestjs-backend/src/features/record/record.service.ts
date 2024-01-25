@@ -841,9 +841,9 @@ export class RecordService implements IAdapterService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]>(
-        nativeQuery
-      );
+      .$queryRawUnsafe<
+        ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
+      >(nativeQuery);
 
     const recordIdsMap = recordIds.reduce(
       (acc, recordId, currentIndex) => {
@@ -997,9 +997,9 @@ export class RecordService implements IAdapterService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<(Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]>(
-        queryBuilder.toQuery()
-      );
+      .$queryRawUnsafe<
+        (Pick<IRecord, 'fields'> & Pick<IVisualTableDefaultField, '__id'>)[]
+      >(queryBuilder.toQuery());
 
     return result.map((record) => {
       return {
