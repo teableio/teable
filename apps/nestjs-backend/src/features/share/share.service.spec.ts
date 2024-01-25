@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { GlobalModule } from '../../global/global.module';
