@@ -252,8 +252,6 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
             width: '100%',
             height: '100%',
           }}
-          smoothScrollX
-          smoothScrollY
           scrollBufferX={0}
           scrollBufferY={0}
           theme={theme}

@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import type { ISortItem } from '@teable-group/core';
-import { assertNever, CellValueType, DbFieldType } from '@teable-group/core';
+import { CellValueType, DbFieldType } from '@teable-group/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { ISortQueryExtra } from '../db.provider.interface';

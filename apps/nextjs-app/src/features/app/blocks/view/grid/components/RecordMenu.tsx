@@ -1,6 +1,7 @@
 import { FieldKeyType } from '@teable-group/core';
 import { Trash, Copy, ArrowUp, ArrowDown } from '@teable-group/icons';
 import { deleteRecords } from '@teable-group/openapi';
+import { SelectionRegionType } from '@teable-group/sdk/components';
 import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
 import { Record } from '@teable-group/sdk/model';
 import {
@@ -12,7 +13,9 @@ import {
 } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
+import { tableConfig } from '@/features/i18n/table.config';
 import { useSelectionOperation } from '../hooks/useSelectionOperation';
 import { useGridViewStore } from '../store/gridView';
 
@@ -37,6 +40,7 @@ const iconClassName = 'mr-2 h-4 w-4';
 
 export const RecordMenu = () => {
   const { recordMenu, closeRecordMenu, selection } = useGridViewStore();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const tableId = useTableId();
   const viewId = useViewId();
   const permission = useTablePermission();
@@ -49,7 +53,7 @@ export const RecordMenu = () => {
 
   if (recordMenu == null) return null;
 
-  const { records, neighborRecords } = recordMenu;
+  const { records, neighborRecords, onAfterInsertCallback } = recordMenu;
 
   if (!records?.length) return null;
 
@@ -62,11 +66,37 @@ export const RecordMenu = () => {
       }
     : {};
 
+  const onInsertRecord = async (sort: number) => {
+    if (!tableId || !viewId) return;
+
+    const res = await Record.createRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        {
+          fields: {},
+          recordOrder: { [viewId]: sort },
+        },
+      ],
+    });
+    const record = res.data.records[0];
+
+    if (record == null || selection == null) return;
+
+    const { type, ranges } = selection;
+
+    if (type === SelectionRegionType.Cells) {
+      return onAfterInsertCallback?.(record.id, ranges[0][1]);
+    }
+    if (type === SelectionRegionType.Rows) {
+      return onAfterInsertCallback?.(record.id, ranges[0][0]);
+    }
+  };
+
   const menuItemGroups: IMenuItemProps<MenuItemType>[][] = [
     [
       {
         type: MenuItemType.InsertAbove,
-        name: 'Insert record above',
+        name: t('table:menu.insertRecordAbove'),
         icon: <ArrowUp className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
         onClick: async () => {
@@ -81,21 +111,12 @@ export const RecordMenu = () => {
             const aboveSort = aboveRecord.recordOrder[viewId];
             finalSort = (sort + aboveSort) / 2;
           }
-
-          await Record.createRecords(tableId, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                fields: {},
-                recordOrder: { [viewId]: finalSort },
-              },
-            ],
-          });
+          await onInsertRecord(finalSort);
         },
       },
       {
         type: MenuItemType.InsertBelow,
-        name: 'Insert record below',
+        name: t('table:menu.insertRecordBelow'),
         icon: <ArrowDown className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
         onClick: async () => {
@@ -110,23 +131,14 @@ export const RecordMenu = () => {
             const aboveSort = blewRecord.recordOrder[viewId];
             finalSort = (sort + aboveSort) / 2;
           }
-
-          await Record.createRecords(tableId, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                fields: {},
-                recordOrder: { [viewId]: finalSort },
-              },
-            ],
-          });
+          await onInsertRecord(finalSort);
         },
       },
     ],
     [
       {
         type: MenuItemType.Copy,
-        name: 'Copy cells',
+        name: t('table:menu.copyCells'),
         icon: <Copy className={iconClassName} />,
         onClick: async () => {
           selection && (await copy(selection));
@@ -134,7 +146,10 @@ export const RecordMenu = () => {
       },
       {
         type: MenuItemType.Delete,
-        name: records.length > 1 ? 'Delete all selected records' : 'Delete record',
+        name:
+          records.length > 1
+            ? t('table:menu.deleteAllSelectedRecords')
+            : t('table:menu.deleteRecord'),
         icon: <Trash className={iconClassName} />,
         hidden: !permission['record|delete'],
         className: 'text-red-500 aria-selected:text-red-500',

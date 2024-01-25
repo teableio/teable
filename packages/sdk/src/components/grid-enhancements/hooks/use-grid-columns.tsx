@@ -39,17 +39,18 @@ const generateColumns = (
       if (!field) return undefined;
       const columnMeta = viewId ? view?.columnMeta[field.id] : null;
       const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
-      const { id, type, name, description, isLookup } = field;
+      const { id, type, name, description, isLookup, isPrimary, hasError } = field;
       return {
         id,
         name,
         width,
         description,
-        customTheme: field.hasError
+        customTheme: hasError
           ? { columnHeaderBg: colors.rose[100] }
           : field.isPending
             ? { columnHeaderBg: colors.yellow[100] }
             : undefined,
+        isPrimary,
         hasMenu,
         icon: iconString(type, isLookup),
       };
@@ -65,7 +66,7 @@ const generateColumns = (
   })[];
 };
 
-const createCellValue2GridDisplay =
+export const createCellValue2GridDisplay =
   (fields: IFieldInstance[], editable: boolean) =>
   // eslint-disable-next-line sonarjs/cognitive-complexity
   (record: Record, col: number): ICell => {

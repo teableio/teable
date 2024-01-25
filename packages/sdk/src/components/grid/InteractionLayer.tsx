@@ -43,6 +43,8 @@ import {
   DragRegionType,
   MouseButtonType,
   SelectionRegionType,
+  DraggableType,
+  SelectableType,
 } from './interface';
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { CombinedSelection } from './managers';
@@ -112,6 +114,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     groupCollection,
     isMultiSelectionEnable,
     activeCellBound: _activeCellBound,
+    columnHeaderVisible,
     collapsedGroupIds,
     collaborators,
     activeCell,
@@ -312,12 +315,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       selection,
       isSelecting,
       columnResizeState,
+      columnStatistics,
       coordInstance,
       scrollState,
       rowControls,
       isFreezing,
       isOutOfBounds,
-      columnStatistics,
       isColumnResizable,
       isColumnAppendEnable,
       isMultiSelectionEnable,
@@ -352,19 +355,28 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         if (activeCell != null) return;
         return setCursor('pointer');
       }
-      case RegionType.AllCheckbox:
       case RegionType.AppendColumn:
       case RegionType.ColumnStatistic:
       case RegionType.ColumnHeaderMenu:
       case RegionType.ColumnDescription:
       case RegionType.RowGroupHeader:
-      case RegionType.RowHeaderCheckbox:
       case RegionType.RowHeaderExpandHandler:
         return setCursor('pointer');
       case RegionType.ColumnFreezeHandler:
         return setCursor('grab');
+      case RegionType.AllCheckbox:
+      case RegionType.RowHeaderCheckbox: {
+        if (
+          [SelectableType.None, SelectableType.Column, SelectableType.Cell].includes(
+            selectable as SelectableType
+          )
+        ) {
+          return setCursor('not-allowed');
+        }
+        return setCursor('pointer');
+      }
       case RegionType.RowHeaderDragHandler: {
-        if (draggable === 'column' || draggable === 'none') {
+        if (draggable === DraggableType.Column || draggable === DraggableType.None) {
           return setCursor('not-allowed');
         }
         return setCursor('grabbing');
@@ -393,16 +405,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           setSelection(selection.reset());
           return setActiveCell(null);
         }
-        let targetIndex: number | undefined = hoverRowIndex;
-        if (hoverRowIndex <= 0) {
-          targetIndex = undefined;
-        } else {
-          const linearRow = getLinearRow(hoverRowIndex - 1);
-          if (linearRow.type === LinearRowType.Row) {
-            targetIndex = linearRow.realIndex;
-          }
-        }
-        onRowAppend?.(targetIndex);
+        const linearRow = getLinearRow(hoverRowIndex - 1);
+        onRowAppend?.(linearRow.realIndex);
 
         const range = [0, rowIndex + 1] as IRange;
         setActiveCell(range);
@@ -683,7 +687,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           columns={columns}
           columnStatistics={columnStatistics}
           coordInstance={coordInstance}
-          isEditing={isEditing}
           rowControls={rowControls}
           imageManager={imageManager}
           spriteManager={spriteManager}
@@ -695,21 +698,23 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           scrollState={scrollState}
           dragState={dragState}
           selection={selection}
-          isSelecting={isSelecting}
-          isInteracting={isInteracting}
           groupCollection={groupCollection}
           forceRenderFlag={forceRenderFlag}
           rowIndexVisible={rowIndexVisible}
           columnResizeState={columnResizeState}
+          columnFreezeState={columnFreezeState}
+          columnHeaderVisible={columnHeaderVisible}
           hoverCellPosition={hoverCellPosition}
           hoveredColumnResizeIndex={hoveredColumnResizeIndex}
-          columnFreezeState={columnFreezeState}
-          isMultiSelectionEnable={isMultiSelectionEnable}
           isRowAppendEnable={isRowAppendEnable}
           isColumnFreezable={isColumnFreezable}
           isColumnResizable={isColumnResizable}
           isColumnAppendEnable={isColumnAppendEnable}
           isColumnHeaderMenuVisible={isColumnHeaderMenuVisible}
+          isEditing={isEditing}
+          isSelecting={isSelecting}
+          isInteracting={isInteracting}
+          isMultiSelectionEnable={isMultiSelectionEnable}
           getCellContent={getCellContent}
           real2RowIndex={real2RowIndex}
           getLinearRow={getLinearRow}

@@ -14,5 +14,23 @@
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table"
   },
+  "grid": {
+    "prefillingRowTitle": "Row moved",
+    "prefillingRowTooltip": "This row will move to its new position when you select another row"
+  },
+  "menu": {
+    "insertRecordAbove": "Insert record above",
+    "insertRecordBelow": "Insert record below",
+    "copyCells": "Copy cells",
+    "deleteRecord": "Delete record",
+    "deleteAllSelectedRecords": "Delete all selected records",
+    "editField": "Edit field",
+    "insertFieldLeft": "Insert left",
+    "insertFieldRight": "Insert right",
+    "freezeUpField": "Freeze up to this field",
+    "hideField": "Hide field",
+    "deleteField": "Delete field",
+    "deleteAllSelectedFields": "Delete all selected fields"
+  },
   "lastModifiedTime": "Last modified time"
 }

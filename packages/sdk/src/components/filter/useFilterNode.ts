@@ -1,46 +1,13 @@
 import { Filter as FilterIcon } from '@teable-group/icons';
-import { useCallback, useMemo } from 'react';
+import { keyBy } from 'lodash';
+import { useMemo } from 'react';
 import { useFields } from '../../hooks';
 import type { IFieldInstance } from '../../model';
-import { EMPTYOPERATORS } from './constant';
 import type { IFilter } from './types';
-import { isFilterItem } from './types';
+import { getFilterFieldIds } from './utils';
 
 export const useFilterNode = (filters?: IFilter | null) => {
   const fields = useFields({ withHidden: true });
-
-  const isCheckBox = useCallback(
-    (fieldId: string) => {
-      return fields.find((field) => field.id === fieldId)?.type === 'checkbox';
-    },
-    [fields]
-  );
-
-  const preOrder = useCallback(
-    (filter: NonNullable<IFilter>['filterSet']): Set<string> => {
-      const filterIds = new Set<string>();
-
-      filter.forEach((item) => {
-        if (isFilterItem(item)) {
-          // checkbox's default value is null, but it does work
-          if (
-            item.value === 0 ||
-            item.value ||
-            EMPTYOPERATORS.includes(item.operator) ||
-            isCheckBox(item.fieldId)
-          ) {
-            filterIds.add(item.fieldId);
-          }
-        } else {
-          const childFilterIds = preOrder(item.filterSet);
-          childFilterIds.forEach((id) => filterIds.add(id));
-        }
-      });
-
-      return filterIds;
-    },
-    [isCheckBox]
-  );
 
   const generateFilterButtonText = (filterIds: Set<string>, fields: IFieldInstance[]): string => {
     let text = filterIds.size ? 'Filtered by ' : '';
@@ -65,10 +32,10 @@ export const useFilterNode = (filters?: IFilter | null) => {
   const text = useMemo(() => {
     let filteredIds = new Set<string>();
     if (filters) {
-      filteredIds = preOrder(filters?.filterSet);
+      filteredIds = getFilterFieldIds(filters?.filterSet, keyBy(fields, 'id'));
     }
     return generateFilterButtonText(filteredIds, fields);
-  }, [fields, filters, preOrder]);
+  }, [fields, filters]);
 
   return {
     text,
