@@ -18,7 +18,7 @@
   "module": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "tsc --watch",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",

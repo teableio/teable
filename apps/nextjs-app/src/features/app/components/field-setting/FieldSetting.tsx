@@ -17,7 +17,9 @@ import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { fromZodError } from 'zod-validation-error';
+import { tableConfig } from '@/features/i18n/table.config';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
@@ -35,6 +37,7 @@ export const FieldSetting = (props: IFieldSetting) => {
   const [plan, setPlan] = useState<IPlanFieldUpdateVo>();
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
   const queryClient = useQueryClient();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const onCancel = () => {
     props.onCancel?.();
@@ -63,14 +66,11 @@ export const FieldSetting = (props: IFieldSetting) => {
         table && fieldId && (await table.updateField(fieldId, field));
       }
 
-      toast(`Field has been ${operator === FieldOperator.Edit ? 'updated' : 'created'}`, {
-        action: {
-          label: 'Dismiss',
-          onClick: () => {
-            toast.dismiss();
-          },
-        },
-      });
+      toast(
+        operator === FieldOperator.Edit
+          ? t('table:field.editor.fieldUpdated')
+          : t('table:field.editor.fieldCreated')
+      );
     } finally {
       setProcessVisible(false);
     }
@@ -116,7 +116,7 @@ export const FieldSetting = (props: IFieldSetting) => {
       <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />
       <ConfirmDialog
         contentClassName="max-w-4xl"
-        title="Preview Dependencies Graph"
+        title={t('table:field.editor.previewDependenciesGraph')}
         open={graphVisible}
         onOpenChange={setGraphVisible}
         content={
@@ -126,18 +126,18 @@ export const FieldSetting = (props: IFieldSetting) => {
               fieldId={props.field?.id}
               fieldRo={fieldRo}
             />
-            <p className="text-sm">Are you sure you want to perform it?</p>
+            <p className="text-sm">{t('table:field.editor.areYouSurePerformIt')}</p>
           </>
         }
-        cancelText="Cancel"
-        confirmText="Continue"
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.confirm')}
         onCancel={() => setGraphVisible(false)}
         onConfirm={() => performAction(fieldRo as IFieldRo)}
       />
       <ConfirmDialog
         open={processVisible}
         onOpenChange={setProcessVisible}
-        title="Calculating..."
+        title={t('table:field.editor.calculating')}
         content={
           <ProgressBar duration={plan?.estimateTime || 0} cellCount={plan?.updateCellCount || 0} />
         }
@@ -148,6 +148,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
 const FieldSettingBase = (props: IFieldSettingBase) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const table = useTable();
   const [field, setField] = useState<IFieldEditorRo>(
     originField
@@ -228,13 +229,13 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   const title = useMemo(() => {
     switch (operator) {
       case FieldOperator.Add:
-        return 'Add Field';
+        return t('table:field.editor.addField');
       case FieldOperator.Edit:
-        return 'Edit Field';
+        return t('table:field.editor.editField');
       case FieldOperator.Insert:
-        return 'Insert Field';
+        return t('table:field.editor.insertField');
     }
-  }, [operator]);
+  }, [operator, t]);
 
   return (
     <>
@@ -252,7 +253,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button size={'sm'} variant={'ghost'}>
-                        <Share2 className="size-4" /> Graph
+                        <Share2 className="size-4" /> {t('table:field.editor.graph')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl">
@@ -264,7 +265,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                       <DialogFooter>
                         <DialogClose asChild>
                           <Button type="button" variant="secondary">
-                            Close
+                            {t('common:actions.close')}
                           </Button>
                         </DialogClose>
                       </DialogFooter>
@@ -273,11 +274,11 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>
-                  Cancel
+                <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
+                  {t('common:actions.cancel')}
                 </Button>
                 <Button size={'sm'} onClick={onSave}>
-                  Save
+                  {t('common:actions.save')}
                 </Button>
               </div>
             </div>
@@ -286,12 +287,13 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
       </Sheet>
       <ConfirmDialog
         open={alertVisible}
+        closeable={true}
         onOpenChange={setAlertVisible}
-        title="Are you sure you want to discard your changes?"
-        onCancel={() => setAlertVisible(false)}
-        cancelText="Cancel"
-        confirmText="Continue"
-        onConfirm={onCancel}
+        title={t('table:field.editor.doSaveChanges')}
+        onCancel={onCancel}
+        cancelText={t('common:actions.doNotSave')}
+        confirmText={t('common:actions.save')}
+        onConfirm={onSave}
       />
     </>
   );

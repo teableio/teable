@@ -3,6 +3,8 @@ import { Relationship } from '@teable-group/core';
 import { useTableId, useTables } from '@teable-group/sdk/hooks';
 import { Selector } from '@teable-group/ui-lib/base';
 import { Label, Switch } from '@teable-group/ui-lib/shadcn';
+import { Trans, useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 
 export const LinkOptions = (props: {
   options: Partial<ILinkFieldOptionsRo> | undefined;
@@ -12,16 +14,17 @@ export const LinkOptions = (props: {
   const { options, isLookup, onChange } = props;
   const tableId = useTableId();
   const tables = useTables();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const relationship = options?.relationship ?? Relationship.ManyOne;
   const foreignTableId = options?.foreignTableId;
   const isOneWay = options?.isOneWay;
 
   const translation = {
-    [Relationship.OneOne]: 'one-to-one',
-    [Relationship.OneMany]: 'one-to-many',
-    [Relationship.ManyOne]: 'many-to-one',
-    [Relationship.ManyMany]: 'many-to-many',
+    [Relationship.OneOne]: t('table:field.editor.oneToOne'),
+    [Relationship.OneMany]: t('table:field.editor.oneToMany'),
+    [Relationship.ManyOne]: t('table:field.editor.manyToOne'),
+    [Relationship.ManyMany]: t('table:field.editor.manyToMany'),
   };
 
   const onSelect = (key: keyof ILinkFieldOptionsRo, value: unknown) => {
@@ -56,15 +59,15 @@ export const LinkOptions = (props: {
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <span className="neutral-content label-text">Link table</span>
+      <span className="neutral-content label-text">{t('table:field.editor.linkTable')}</span>
       <Selector
         selectedId={foreignTableId}
         onChange={(foreignTableId) => onSelect('foreignTableId', foreignTableId)}
         candidates={tables.map((table) => ({
           id: table.id,
-          name: table.name + (tableId === table.id ? ' (Self)' : ''),
+          name: table.name + (tableId === table.id ? ` (${t('table:field.editor.self')})` : ''),
         }))}
-        placeholder="Select table..."
+        placeholder={t('table:field.editor.selectTable')}
       />
       {foreignTableId && (
         <>
@@ -78,7 +81,7 @@ export const LinkOptions = (props: {
               }}
             />
             <Label htmlFor="field-options-one-way-link" className="font-normal leading-tight">
-              Create a symmetric link field in the link table
+              {t('table:field.editor.createSymmetricLink')}
             </Label>
           </div>
           <div className="flex space-x-2 pt-1">
@@ -90,7 +93,7 @@ export const LinkOptions = (props: {
               }}
             />
             <Label htmlFor="field-options-self-multi" className="font-normal leading-tight">
-              Allow linking to multiple records
+              {t('table:field.editor.allowLinkMultipleRecords')}
             </Label>
           </div>
           <div className="flex space-x-2 pt-1">
@@ -103,14 +106,23 @@ export const LinkOptions = (props: {
             />
             <Label htmlFor="field-options-sym-multi" className="font-normal leading-tight">
               {isOneWay
-                ? 'Allow linking to duplicate records'
-                : 'Allow symmetric field linking to multiple records'}
+                ? t('table:field.editor.allowLinkToDuplicateRecords')
+                : t('table:field.editor.allowSymmetricFieldLinkMultipleRecords')}
             </Label>
           </div>
           <p className="pt-2">
-            Tips: this configuration represents a <br></br>
-            <b>{translation[relationship]}</b> relationship{' '}
-            {tableId === foreignTableId ? 'in self-link' : 'between two tables'}
+            <Trans
+              ns="table"
+              i18nKey="field.editor.linkTipMessage"
+              components={{ b: <b />, span: <span />, br: <br /> }}
+              values={{
+                relationship: translation[relationship],
+                linkType:
+                  tableId === foreignTableId
+                    ? t('table:field.editor.inSelfLink')
+                    : t('table:field.editor.betweenTwoTables'),
+              }}
+            />
           </p>
         </>
       )}

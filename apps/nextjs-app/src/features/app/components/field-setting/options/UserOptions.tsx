@@ -1,5 +1,7 @@
 import type { CellValueType, IUserFieldOptions } from '@teable-group/core';
 import { Label, Switch } from '@teable-group/ui-lib';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 
 export const UserOptions = (props: {
   options: Partial<IUserFieldOptions> | undefined;
@@ -9,6 +11,7 @@ export const UserOptions = (props: {
 }) => {
   const { options = {}, isLookup, onChange } = props;
   const { isMultiple, shouldNotify } = options;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const onIsMultipleChange = (checked: boolean) => {
     onChange?.({
@@ -33,7 +36,7 @@ export const UserOptions = (props: {
               onCheckedChange={onIsMultipleChange}
             />
             <Label htmlFor="field-options-is-multiple" className="font-normal">
-              Allow adding multiple users
+              {t('table:field.editor.allowMultiUsers')}
             </Label>
           </div>
           <div className="flex items-center space-x-2">
@@ -43,7 +46,7 @@ export const UserOptions = (props: {
               onCheckedChange={onShouldNotifyChange}
             />
             <Label htmlFor="field-options-should-notify" className="font-normal">
-              Notify members once they're selected
+              {t('table:field.editor.notifyUsers')}
             </Label>
           </div>
         </div>

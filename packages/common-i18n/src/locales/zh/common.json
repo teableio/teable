@@ -2,7 +2,10 @@
   "brand": "Teable",
   "actions": {
     "save": "保存",
+    "doNotSave": "不保存",
     "submit": "提交",
+    "confirm": "确认",
+    "close": "关闭",
     "edit": "编辑",
     "update": "更新",
     "delete": "删除",

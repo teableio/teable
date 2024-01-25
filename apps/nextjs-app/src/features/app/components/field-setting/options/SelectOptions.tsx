@@ -9,6 +9,8 @@ import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
 import { useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 
 interface IOptionItemProps {
   choice: ISelectFieldChoice;
@@ -32,6 +34,7 @@ export const SelectOptions = (props: {
 }) => {
   const { options, isLookup, onChange } = props;
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const choices = useMemo(() => options?.choices ?? [], [options?.choices]);
   const choiceIds = useMemo(
@@ -141,7 +144,7 @@ export const SelectOptions = (props: {
             onClick={addOption}
           >
             <Plus className="size-4" />
-            Add option
+            {t('table:field.editor.addOption')}
           </Button>
         </li>
       )}

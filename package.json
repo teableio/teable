@@ -52,7 +52,6 @@
     "@commitlint/cli": "18.4.4",
     "@commitlint/config-conventional": "18.4.4",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/prettier": "2.7.3",
     "@types/shell-quote": "1.7.5",
     "eslint": "8.56.0",
     "husky": "8.0.3",

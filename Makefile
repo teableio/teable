@@ -200,11 +200,11 @@ gen-prisma-schema: gen-sqlite-prisma-schema gen-postgres-prisma-schema		## Gener
 
 sqlite-db.push:		## db.push by sqlite
 	@cd ./packages/db-main-prisma; \
-		pnpm prisma-db.push --schema ./prisma/sqlite/schema.prisma
+		pnpm prisma-db-push --schema ./prisma/sqlite/schema.prisma
 
 postgres-db.push:		## db.push by postgres
 	@cd ./packages/db-main-prisma; \
-		pnpm prisma-db.push --schema ./prisma/postgres/schema.prisma
+		pnpm prisma-db-push --schema ./prisma/postgres/schema.prisma
 
 db.push:		## connects to your database and adds Prisma models to your Prisma schema that reflect the current database schema.
 	$(print_db_push_options)
