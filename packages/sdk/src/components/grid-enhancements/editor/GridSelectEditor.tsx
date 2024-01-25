@@ -66,7 +66,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 
       const newChoices = [...choices, choice];
 
-      await Field.updateField(tableId, fieldId, {
+      await Field.convertField(tableId, fieldId, {
         type: fieldType,
         options: { ...options, choices: newChoices },
       });

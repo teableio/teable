@@ -4,7 +4,7 @@ import type {
   IGroupPointsRo,
   IFieldRo,
   IQueryBaseRo,
-  IUpdateFieldRo,
+  IConvertFieldRo,
   NotificationStatesEnum,
 } from '@teable-group/core';
 import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable-group/openapi';
@@ -35,11 +35,11 @@ export type ReactQueryKeys = {
   ) => [string, string, IShareViewAggregationsRo];
   planFieldCreate: (tableId: string, fieldRo: IFieldRo) => [string, string, IFieldRo];
 
-  planFieldUpdate: (
+  planFieldConvert: (
     tableId: string,
     fieldId: string,
-    fieldRo: IUpdateFieldRo
-  ) => [string, string, string, IUpdateFieldRo];
+    fieldRo: IConvertFieldRo
+  ) => [string, string, string, IConvertFieldRo];
 
   planField: (tableId: string, fieldId: string) => [string, string, string];
 };
@@ -62,7 +62,7 @@ export const ReactQueryKeys: ReactQueryKeys = {
 
   planFieldCreate: (tableId, fieldRo) => ['create-field-plan', tableId, fieldRo],
 
-  planFieldUpdate: (tableId, fieldId, fieldRo) => ['create-field-plan', tableId, fieldId, fieldRo],
+  planFieldConvert: (tableId, fieldId, fieldRo) => ['create-field-plan', tableId, fieldId, fieldRo],
 
   planField: (tableId, fieldId) => ['field-plan', tableId, fieldId],
 };

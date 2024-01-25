@@ -7,7 +7,7 @@ import {
   type ITableFullVo,
   FieldKeyType,
 } from '@teable-group/core';
-import { planField, planFieldCreate, planFieldUpdate, updateRecord } from '@teable-group/openapi';
+import { planField, planFieldCreate, planFieldConvert, updateRecord } from '@teable-group/openapi';
 import { createField, createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Graph (e2e)', () => {
@@ -177,7 +177,7 @@ describe('OpenAPI Graph (e2e)', () => {
 
     await createField(table1.id, formulaRo);
 
-    const { data: plan } = await planFieldUpdate(table1.id, textField.id, newFieldRo);
+    const { data: plan } = await planFieldConvert(table1.id, textField.id, newFieldRo);
 
     expect(plan.skip).toBeUndefined();
     expect(plan.updateCellCount).toEqual(6);
@@ -202,7 +202,7 @@ describe('OpenAPI Graph (e2e)', () => {
       },
     };
 
-    const { data: plan } = await planFieldUpdate(table1.id, textField.id, formulaRo);
+    const { data: plan } = await planFieldConvert(table1.id, textField.id, formulaRo);
 
     expect(plan.skip).toBeUndefined();
     expect(plan).toMatchObject({
@@ -233,7 +233,7 @@ describe('OpenAPI Graph (e2e)', () => {
 
     const formulaField = await createField(table1.id, formulaRo);
 
-    const { data: plan } = await planFieldUpdate(table1.id, formulaField.id, newFormulaFieldRo);
+    const { data: plan } = await planFieldConvert(table1.id, formulaField.id, newFormulaFieldRo);
 
     expect(plan.skip).toBeUndefined();
     expect(plan).toMatchObject({
@@ -284,7 +284,7 @@ describe('OpenAPI Graph (e2e)', () => {
 
     await createField(table1.id, formulaRo);
 
-    const { data: plan } = await planFieldUpdate(table1.id, textField.id, newFieldRo);
+    const { data: plan } = await planFieldConvert(table1.id, textField.id, newFieldRo);
 
     expect(plan.skip).toBeTruthy();
   });
@@ -331,7 +331,7 @@ describe('OpenAPI Graph (e2e)', () => {
       },
     };
 
-    const { data: plan } = await planFieldUpdate(table1.id, lookupField.id, lookupFieldRo2);
+    const { data: plan } = await planFieldConvert(table1.id, lookupField.id, lookupFieldRo2);
 
     expect(plan.skip).toBeUndefined();
 

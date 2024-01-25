@@ -103,7 +103,7 @@ export const fieldVoSchema = z.object({
   }),
 
   name: z.string().openapi({
-    description: 'The name of the field.',
+    description: 'The name of the field. can not be duplicated in the table.',
     example: 'Tags',
   }),
 
@@ -200,7 +200,7 @@ export const FIELD_RO_PROPERTIES = [
  * if here throw error, you should update FIELD_RO_PROPERTIES
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _validator1: IEnsureKeysMatchInterface<IUpdateFieldRo, typeof FIELD_RO_PROPERTIES> = true;
+const _validator1: IEnsureKeysMatchInterface<IConvertFieldRo, typeof FIELD_RO_PROPERTIES> = true;
 
 export const FIELD_VO_PROPERTIES = [
   'type',
@@ -342,6 +342,8 @@ const baseFieldRoSchema = fieldVoSchema
   })
   .merge(
     z.object({
+      name: fieldVoSchema.shape.name.min(1).optional(),
+      description: fieldVoSchema.shape.description.nullable(),
       lookupOptions: lookupOptionsRoSchema.optional().openapi({
         description:
           'The lookup options for field, you need to configure it when isLookup attribute is true or field type is rollup.',
@@ -353,8 +355,8 @@ const baseFieldRoSchema = fieldVoSchema
     })
   );
 
-export const updateFieldRoSchema = baseFieldRoSchema.superRefine(refineOptions);
-export const fieldRoSchema = baseFieldRoSchema
+export const convertFieldRoSchema = baseFieldRoSchema.superRefine(refineOptions);
+export const createFieldRoSchema = baseFieldRoSchema
   .merge(
     z.object({
       id: z.string().startsWith(IdPrefix.Field).optional().openapi({
@@ -366,7 +368,15 @@ export const fieldRoSchema = baseFieldRoSchema
   )
   .superRefine(refineOptions);
 
-export type IFieldRo = z.infer<typeof fieldRoSchema>;
+export const updateFieldRoSchema = z.object({
+  name: baseFieldRoSchema.shape.name,
+  description: baseFieldRoSchema.shape.description,
+  dbFieldName: baseFieldRoSchema.shape.dbFieldName,
+});
+
+export type IFieldRo = z.infer<typeof createFieldRoSchema>;
+
+export type IConvertFieldRo = z.infer<typeof convertFieldRoSchema>;
 
 export type IUpdateFieldRo = z.infer<typeof updateFieldRoSchema>;
 

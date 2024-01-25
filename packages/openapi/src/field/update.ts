@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IFieldVo, IUpdateFieldRo } from '@teable-group/core';
-import { fieldVoSchema, updateFieldRoSchema } from '@teable-group/core';
+import { updateFieldRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -10,7 +10,8 @@ export const UPDATE_FIELD = '/table/{tableId}/field/{fieldId}';
 export const UpdateFieldRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_FIELD,
-  description: 'Update or convert a field',
+  description:
+    'Update the field name, description or dbFieldName. for other properties, you should use the convert field api',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -26,12 +27,7 @@ export const UpdateFieldRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns field data after update.',
-      content: {
-        'application/json': {
-          schema: fieldVoSchema,
-        },
-      },
+      description: 'Updated Successfully',
     },
   },
   tags: ['field'],

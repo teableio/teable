@@ -4,7 +4,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, IRecord, ITableFullVo } from '@teable-group/core';
+import type {
+  IFieldRo,
+  ILinkFieldOptions,
+  ILookupOptionsVo,
+  IRecord,
+  ITableFullVo,
+} from '@teable-group/core';
 import {
   FieldKeyType,
   FieldType,
@@ -2653,7 +2659,7 @@ describe('OpenAPI link (e2e)', () => {
       await deleteTable(baseId, table2.id);
     });
 
-    it('should safe delete link field', async () => {
+    it('should correct update db table name', async () => {
       const table1LinkField = table1.fields[2];
       const table2LinkField = table2.fields[2];
       expect((table1LinkField.options as ILinkFieldOptions).fkHostTableName).toEqual(
@@ -2663,10 +2669,23 @@ describe('OpenAPI link (e2e)', () => {
         table1.dbTableName
       );
 
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+          linkFieldId: table2LinkField.id,
+        },
+      };
+
+      const lookupField = await createField(table2.id, lookupFieldRo);
+
       await updateDbTableName(baseId, table1.id, { dbTableName: 'newAwesomeName' });
       const newTable1 = await getTable(baseId, table1.id);
       const updatedLink1 = await getField(table1.id, table1LinkField.id);
       const updatedLink2 = await getField(table2.id, table2LinkField.id);
+      const updatedLookupField = await getField(table2.id, lookupField.id);
 
       expect(newTable1.dbTableName.split(/[._]/)).toEqual(['bseTestBaseId', 'newAwesomeName']);
       expect((updatedLink1.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
@@ -2677,6 +2696,9 @@ describe('OpenAPI link (e2e)', () => {
         'bseTestBaseId',
         'newAwesomeName',
       ]);
+      expect(
+        (updatedLookupField.lookupOptions as ILookupOptionsVo).fkHostTableName.split(/[._]/)
+      ).toEqual(['bseTestBaseId', 'newAwesomeName']);
     });
   });
 });

@@ -69,7 +69,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
 
       const newChoices = [...choices, choice];
 
-      await Field.updateField(tableId, fieldId, {
+      await Field.convertField(tableId, fieldId, {
         type,
         options: { ...options, choices: newChoices },
       });

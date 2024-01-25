@@ -2,7 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { updateFieldRoSchema } from '../field.schema';
+import { convertFieldRoSchema } from '../field.schema';
 import { RatingFieldCore, RatingIcon } from './rating.field';
 
 describe('RatingFieldCore', () => {
@@ -78,7 +78,7 @@ describe('RatingFieldCore', () => {
 
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
-      expect(updateFieldRoSchema.safeParse(json).success).toBe(true);
+      expect(convertFieldRoSchema.safeParse(json).success).toBe(true);
     });
 
     it('should return failure if options are invalid', () => {
