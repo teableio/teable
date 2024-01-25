@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-
+/**
+ * TODO: need to distinguish between the resources that this role targets, such as spaceRole or baseRole
+ */
 import { keys, pickBy } from 'lodash';
 import type { AllActions } from './actions';
 import type { SpaceRole } from './role';

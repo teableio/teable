@@ -14,6 +14,14 @@ export const authConfig = registerAs('auth', () => ({
       'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
     expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
   },
+  accessToken: {
+    prefix: process.env.BRAND_NAME!.toLocaleLowerCase(),
+    encryption: {
+      algorithm: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_ALGORITHM ?? 'aes-128-cbc',
+      key: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY ?? 'ie21hOKjlXUiGDx9',
+      iv: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf4',
+    },
+  },
 }));
 
 export const AuthConfig = () => Inject(authConfig.KEY);

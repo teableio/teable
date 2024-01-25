@@ -1,6 +1,6 @@
 import { ForbiddenException, NotFoundException, Injectable } from '@nestjs/common';
 import type { PermissionAction, SpaceRole } from '@teable-group/core';
-import { checkPermissions, getPermissions } from '@teable-group/core';
+import { IdPrefix, checkPermissions, getPermissions } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -88,5 +88,46 @@ export class PermissionService {
       throw new NotFoundException(`not found ${tableId}`);
     }
     return await this.checkPermissionByBaseId(table.base.id, permissions);
+  }
+
+  async checkPermissionByAccessToken(
+    resourceId: string,
+    accessTokenId: string,
+    permissions: PermissionAction[]
+  ) {
+    const { scopes, spaceIds, baseIds } = await this.prismaService.accessToken.findFirstOrThrow({
+      where: { id: accessTokenId },
+      select: { scopes: true, spaceIds: true, baseIds: true },
+    });
+
+    if (resourceId.startsWith(IdPrefix.Table)) {
+      const table = await this.prismaService.tableMeta.findFirst({
+        where: {
+          id: resourceId,
+          deletedTime: null,
+        },
+        select: {
+          base: true,
+        },
+      });
+      const baseId = table?.base.id;
+      if (!baseId) {
+        throw new NotFoundException(`not found ${resourceId}`);
+      }
+      resourceId = baseId;
+    }
+    if (resourceId.startsWith(IdPrefix.Space) && !spaceIds?.includes(resourceId)) {
+      throw new ForbiddenException(`not allowed to space ${resourceId}`);
+    }
+    if (resourceId.startsWith(IdPrefix.Base) && !baseIds?.includes(resourceId)) {
+      throw new ForbiddenException(`not allowed to base ${resourceId}`);
+    }
+
+    const accessTokenPermissions = JSON.parse(scopes) as PermissionAction[];
+    if (permissions.some((permission) => !accessTokenPermissions.includes(permission))) {
+      throw new ForbiddenException(`not allowed to ${resourceId}`);
+    }
+
+    return JSON.parse(scopes) as PermissionAction[];
   }
 }
