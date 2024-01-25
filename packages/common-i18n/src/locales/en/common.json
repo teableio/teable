@@ -2,7 +2,10 @@
   "brand": "Teable",
   "actions": {
     "save": "Save",
+    "doNotSave": "Don't Save",
     "submit": "Submit",
+    "confirm": "Confirm",
+    "close": "Close",
     "edit": "Edit",
     "update": "Update",
     "delete": "Delete",

@@ -85,7 +85,7 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
       <div className="text-sm">
         {isCreate ? 'Creating' : 'Modifying'} this field may affect{' '}
         <Badge>{Intl.NumberFormat().format(updateCellCount || 0)}</Badge> cells and It should be
-        done in about <b>{formatDuration(estimateTime)}</b>
+        done <b>{formatDuration(estimateTime)}</b>
       </div>
       <div className="relative flex h-[calc(100vh-400px)] max-h-[600px] w-full flex-col">
         <div ref={ref} className="grow rounded border shadow"></div>

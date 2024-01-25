@@ -3,24 +3,11 @@ import type { IMultiNumberShowAs } from '@teable-group/core';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
 import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import classNames from 'classnames';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 import { ColorPicker } from '../options/SelectOptions';
 
 const numberFlag = 'Number';
-
-export const MULTI_NUMBER_DISPLAY_INFOS = [
-  {
-    type: numberFlag,
-    text: 'Number',
-  },
-  {
-    type: MultiNumberDisplayType.Bar,
-    text: 'Chart Bar',
-  },
-  {
-    type: MultiNumberDisplayType.Line,
-    text: 'Chart Line',
-  },
-];
 
 const defaultShowAsProps = {
   color: Colors.TealBright,
@@ -35,6 +22,22 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
   const { showAs, onChange } = props;
   const { type, color } = (showAs || {}) as IMultiNumberShowAs;
   const selectedType = showAs == null ? numberFlag : type;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const MULTI_NUMBER_DISPLAY_INFOS = [
+    {
+      type: numberFlag,
+      text: t('table:field.editor.number'),
+    },
+    {
+      type: MultiNumberDisplayType.Bar,
+      text: t('table:field.editor.chartBar'),
+    },
+    {
+      type: MultiNumberDisplayType.Line,
+      text: t('table:field.editor.chartLine'),
+    },
+  ];
 
   const updateDisplayType = (type: string) => {
     const newShowAs =
@@ -58,7 +61,7 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
 
   return (
     <div className="flex w-full flex-col gap-2" data-testid="multi-number-show-as">
-      <Label className="font-normal">Show As</Label>
+      <Label className="font-normal">{t('table:field.editor.showAs')}</Label>
       <div className="flex justify-between">
         {MULTI_NUMBER_DISPLAY_INFOS.map(({ type, text }) => {
           return (
@@ -80,7 +83,7 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
       </div>
       {showAs != null && (
         <div className="flex items-center justify-between">
-          <Label className="font-normal">Color</Label>
+          <Label className="font-normal">{t('table:field.editor.color')}</Label>
           <Popover>
             <PopoverTrigger>
               <div

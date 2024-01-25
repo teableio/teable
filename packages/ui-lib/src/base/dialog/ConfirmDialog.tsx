@@ -15,6 +15,7 @@ interface IConfirmDialogProps {
   contentClassName?: string;
   title?: string | React.ReactNode;
   description?: string | React.ReactNode;
+  closeable?: boolean;
   children?: React.ReactNode;
   content?: React.ReactNode;
   cancelText?: string;
@@ -29,6 +30,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
     contentClassName,
     title,
     description,
+    closeable,
     onOpenChange,
     children,
     content,
@@ -43,7 +45,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent
         className={contentClassName}
-        closeable={false}
+        closeable={closeable}
         overlayStyle={{
           pointerEvents: 'none',
         }}

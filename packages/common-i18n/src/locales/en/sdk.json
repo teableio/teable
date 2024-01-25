@@ -57,5 +57,26 @@
   "group": {
     "title": "Group by",
     "addButton": "Add Subgroup"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "Single line text",
+      "longText": "Long text",
+      "singleSelect": "Single select",
+      "number": "Number",
+      "multipleSelect": "Multiple select",
+      "link": "Link",
+      "formula": "Formula",
+      "date": "Date",
+      "createdTime": "Created time",
+      "lastModifiedTime": "Last modified time",
+      "attachment": "Attachment",
+      "checkbox": "Checkbox",
+      "rollup": "Rollup",
+      "user": "User",
+      "rating": "Rating",
+      "autoNumber": "Auto number",
+      "lookup": "lookup to other table"
+    }
   }
 }

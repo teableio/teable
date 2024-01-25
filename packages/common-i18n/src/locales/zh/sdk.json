@@ -57,5 +57,26 @@
   "group": {
     "title": "分组方式",
     "addButton": "添加另一个分组"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "单行文本",
+      "longText": "长文本",
+      "singleSelect": "单选",
+      "number": "数字",
+      "multipleSelect": "多选",
+      "link": "关联",
+      "formula": "公式",
+      "date": "日期",
+      "createdTime": "创建时间",
+      "lastModifiedTime": "最近修改时间",
+      "attachment": "附件",
+      "checkbox": "勾选",
+      "rollup": "汇总",
+      "user": "用户",
+      "rating": "评分",
+      "autoNumber": "自增数字",
+      "lookup": "从关联的表中查找"
+    }
   }
 }

@@ -3,27 +3,10 @@ import type { ISingleLineTextShowAs } from '@teable-group/core';
 import { Button } from '@teable-group/ui-lib/shadcn';
 import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import classNames from 'classnames';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 
 const textFlag = 'text';
-
-export const SINGLE_LINE_TEXT_DISPLAY_INFOS = [
-  {
-    type: textFlag,
-    text: 'Text',
-  },
-  {
-    type: SingleLineTextDisplayType.Url,
-    text: 'Url',
-  },
-  {
-    type: SingleLineTextDisplayType.Email,
-    text: 'Email',
-  },
-  {
-    type: SingleLineTextDisplayType.Phone,
-    text: 'Phone',
-  },
-];
 
 interface ISingleNumberShowAsProps {
   showAs?: ISingleLineTextShowAs;
@@ -34,6 +17,7 @@ export const SingleTextLineShowAs: React.FC<ISingleNumberShowAsProps> = (props) 
   const { showAs, onChange } = props;
   const { type } = (showAs || {}) as ISingleLineTextShowAs;
   const selectedType = showAs == null ? textFlag : type;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const updateDisplayType = (type: string) => {
     const newShowAs =
@@ -45,6 +29,25 @@ export const SingleTextLineShowAs: React.FC<ISingleNumberShowAsProps> = (props) 
           };
     onChange?.(newShowAs as ISingleLineTextShowAs);
   };
+
+  const SINGLE_LINE_TEXT_DISPLAY_INFOS = [
+    {
+      type: textFlag,
+      text: t('table:field.editor.text'),
+    },
+    {
+      type: SingleLineTextDisplayType.Url,
+      text: t('table:field.editor.url'),
+    },
+    {
+      type: SingleLineTextDisplayType.Email,
+      text: t('table:field.editor.email'),
+    },
+    {
+      type: SingleLineTextDisplayType.Phone,
+      text: t('table:field.editor.phone'),
+    },
+  ];
 
   return (
     <div className="flex w-full flex-col gap-2" data-testid="text-show-as">
