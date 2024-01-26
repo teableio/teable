@@ -4,7 +4,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const SHARE_VIEW_LINK_RECORDS = '/share/{shareId}/view/linkRecords';
+export const SHARE_VIEW_LINK_RECORDS = '/share/{shareId}/view/link-records';
 
 export const shareViewLinkRecordsRoSchema = getRecordsRoSchema
   .omit({

@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_COLUMN_META = '/table/{tableId}/view/{viewId}/columnMeta';
+export const VIEW_COLUMN_META = '/table/{tableId}/view/{viewId}/column-meta';
 
 export const updateViewColumnMetaRoute: RouteConfig = registerRoute({
   method: 'put',

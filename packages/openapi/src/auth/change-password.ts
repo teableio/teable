@@ -4,7 +4,7 @@ import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { passwordSchema } from './types';
 
-export const CHANGE_PASSWORD = '/auth/changePassword';
+export const CHANGE_PASSWORD = '/auth/change-password';
 
 export const changePasswordRoSchema = z.object({
   password: passwordSchema,

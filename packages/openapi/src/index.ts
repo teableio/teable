@@ -15,4 +15,5 @@ export * from './invitation';
 export * from './share';
 export * from './notification';
 export * from './user';
+export * from './access-token';
 export { urlBuilder } from './utils';

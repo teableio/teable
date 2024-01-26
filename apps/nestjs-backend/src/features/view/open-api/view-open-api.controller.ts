@@ -100,7 +100,7 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/shareMeta')
+  @Put('/:viewId/share-meta')
   async updateShareMeta(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
@@ -116,7 +116,7 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/manualSort')
+  @Put('/:viewId/manual-sort')
   async manualSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
@@ -127,7 +127,7 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/columnMeta')
+  @Put('/:viewId/column-meta')
   async updateFieldsVisible(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
@@ -216,7 +216,7 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Post('/:viewId/refreshShareId')
+  @Post('/:viewId/refresh-share-id')
   async refreshShareId(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string
@@ -225,7 +225,7 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Post('/:viewId/enableShare')
+  @Post('/:viewId/enable-share')
   async enableShare(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string
@@ -234,7 +234,7 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Post('/:viewId/disableShare')
+  @Post('/:viewId/disable-share')
   async disableShare(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string

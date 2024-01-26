@@ -4,11 +4,25 @@ import type {
   AcceptInvitationLinkRo,
   AcceptInvitationLinkVo,
   IGetBaseVo,
+  IGetDefaultViewIdVo,
   IGetSpaceVo,
   ListSpaceCollaboratorVo,
   ShareViewGetVo,
 } from '@teable-group/openapi';
-import { ACCEPT_INVITATION_LINK, SHARE_VIEW_GET, urlBuilder } from '@teable-group/openapi';
+import {
+  ACCEPT_INVITATION_LINK,
+  GET_BASE,
+  GET_BASE_LIST,
+  GET_DEFAULT_VIEW_ID,
+  GET_FIELD_LIST,
+  GET_RECORD_URL,
+  GET_SPACE,
+  GET_TABLE,
+  GET_TABLE_LIST,
+  SHARE_VIEW_GET,
+  SPACE_COLLABORATE_LIST,
+  urlBuilder,
+} from '@teable-group/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
 
@@ -22,7 +36,7 @@ export class SsrApi {
 
   async getTable(baseId: string, tableId: string, viewId?: string) {
     return this.axios
-      .get<ITableFullVo>(`/base/${baseId}/table/${tableId}`, {
+      .get<ITableFullVo>(urlBuilder(GET_TABLE, { baseId, tableId }), {
         params: {
           includeContent: true,
           viewId,
@@ -33,42 +47,52 @@ export class SsrApi {
   }
 
   async getFields(tableId: string) {
-    return this.axios.get<IFieldVo[]>(`/table/${tableId}/field`).then(({ data }) => data);
+    return this.axios
+      .get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }))
+      .then(({ data }) => data);
   }
 
   async getTables(baseId: string) {
-    return this.axios.get<ITableListVo>(`/base/${baseId}/table`).then(({ data }) => data);
+    return this.axios
+      .get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }))
+      .then(({ data }) => data);
   }
 
   async getDefaultViewId(baseId: string, tableId: string) {
     return this.axios
-      .get<{ id: string }>(`/base/${baseId}/table/${tableId}/defaultViewId`)
+      .get<IGetDefaultViewIdVo>(urlBuilder(GET_DEFAULT_VIEW_ID, { baseId, tableId }))
       .then(({ data }) => data);
   }
 
   async getRecord(tableId: string, recordId: string) {
     return this.axios
-      .get<IRecord>(`/table/${tableId}/record/${recordId}`, {
+      .get<IRecord>(urlBuilder(GET_RECORD_URL, { tableId, recordId }), {
         params: { fieldKeyType: FieldKeyType.Id },
       })
       .then(({ data }) => data);
   }
 
   async getBaseById(baseId: string) {
-    return await this.axios.get<IGetBaseVo>(`/base/${baseId}`).then(({ data }) => data);
+    return await this.axios
+      .get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId }))
+      .then(({ data }) => data);
   }
 
   async getSpaceById(spaceId: string) {
-    return await this.axios.get<IGetSpaceVo>(`/space/${spaceId}`).then(({ data }) => data);
+    return await this.axios
+      .get<IGetSpaceVo>(urlBuilder(GET_SPACE, { spaceId }))
+      .then(({ data }) => data);
   }
 
   async getBaseListBySpaceId(spaceId: string) {
-    return await this.axios.get<IGetBaseVo[]>(`/space/${spaceId}/base`).then(({ data }) => data);
+    return await this.axios
+      .get<IGetBaseVo[]>(urlBuilder(GET_BASE_LIST, { spaceId }))
+      .then(({ data }) => data);
   }
 
   async getSpaceCollaboratorList(spaceId: string) {
     return await this.axios
-      .get<ListSpaceCollaboratorVo>(`/space/${spaceId}/collaborators`)
+      .get<ListSpaceCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_LIST, { spaceId }))
       .then(({ data }) => data);
   }
 

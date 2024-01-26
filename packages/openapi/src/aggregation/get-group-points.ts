@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_GROUP_POINTS = '/table/{tableId}/aggregation/groupPoints';
+export const GET_GROUP_POINTS = '/table/{tableId}/aggregation/group-points';
 
 export const GetGroupPointsRoute: RouteConfig = registerRoute({
   method: 'get',

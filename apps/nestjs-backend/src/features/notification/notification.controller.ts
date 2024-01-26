@@ -26,7 +26,7 @@ export class NotificationController {
     return this.notificationService.getNotifyList(currentUserId, query);
   }
 
-  @Get('/unreadCount')
+  @Get('/unread-count')
   async unreadCount(): Promise<INotificationUnreadCountVo> {
     const currentUserId = this.cls.get('user.id');
     return this.notificationService.unreadCount(currentUserId);
@@ -46,7 +46,7 @@ export class NotificationController {
     );
   }
 
-  @Patch('/readAll')
+  @Patch('/read-all')
   async markAllAsRead(): Promise<void> {
     const currentUserId = this.cls.get('user.id');
     return this.notificationService.markAllAsRead(currentUserId);

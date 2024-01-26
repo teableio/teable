@@ -29,7 +29,7 @@ export class AggregationOpenApiController {
     return await this.aggregationOpenApiService.getAggregation(tableId, query);
   }
 
-  @Get('/rowCount')
+  @Get('/row-count')
   @Permissions('table|read')
   async getRowCount(
     @Param('tableId') tableId: string,
@@ -38,7 +38,7 @@ export class AggregationOpenApiController {
     return await this.aggregationOpenApiService.getRowCount(tableId, query);
   }
 
-  @Get('/groupPoints')
+  @Get('/group-points')
   @Permissions('table|read')
   async getGroupPoints(
     @Param('tableId') tableId: string,

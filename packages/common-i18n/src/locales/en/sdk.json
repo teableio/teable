@@ -78,5 +78,49 @@
       "autoNumber": "Auto number",
       "lookup": "lookup to other table"
     }
+  },
+  "spaceRole": {
+    "description": {
+      "owner": "Can fully configure and edit bases, and manage space settings and billing",
+      "creator": "Can fully configure and edit bases",
+      "editor": "Can edit records and views, but cannot configure tables or fields",
+      "commenter": "Can comment on records",
+      "viewer": "Cannot edit or comment"
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "Create space",
+      "spaceDelete": "Delete space",
+      "spaceRead": "Read space",
+      "spaceUpdate": "Update space",
+      "spaceInviteEmail": "Invite via email in space",
+      "spaceInviteLink": "Invite via link in space",
+      "spaceGrantRole": "Grant role in space",
+      "baseCreate": "Create base",
+      "baseDelete": "Delete base",
+      "baseRead": "Read base",
+      "baseUpdate": "Update base",
+      "baseInviteEmail": "Invite via email in base",
+      "baseInviteLink": "Invite via link in base",
+      "tableCreate": "Create table",
+      "tableRead": "Read table",
+      "tableDelete": "Delete table",
+      "tableUpdate": "Update table",
+      "tableImport": "Import data into table",
+      "viewCreate": "Create view",
+      "viewDelete": "Delete view",
+      "viewRead": "Read view",
+      "viewUpdate": "Update view",
+      "fieldCreate": "Create field",
+      "fieldDelete": "Delete field",
+      "fieldRead": "Read field",
+      "fieldUpdate": "Update field",
+      "recordCreate": "Create record",
+      "recordComment": "Comment on record",
+      "recordDelete": "Delete record",
+      "recordRead": "Read record",
+      "recordUpdate": "Update record"
+    }
   }
 }

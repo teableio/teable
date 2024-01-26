@@ -1,14 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { SpaceRole, getRolesWithLowerPermissions, hasPermission } from '@teable-group/core';
+import { SpaceRole, hasPermission } from '@teable-group/core';
 import { X } from '@teable-group/icons';
 import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk';
+import { ReactQueryKeys, useSpaceRoleStatic } from '@teable-group/sdk';
 import { Button } from '@teable-group/ui-lib';
 import classNames from 'classnames';
 import { map } from 'lodash';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
 import { RoleSelect } from './RoleSelect';
+import { getRolesWithLowerPermissions } from './utils';
 
 interface IInvite {
   className?: string;
@@ -87,7 +88,11 @@ export const Invite: React.FC<IInvite> = (props) => {
     setInviteEmails((inviteEmails) => inviteEmails.filter((inviteEmail) => email !== inviteEmail));
   };
 
-  const filterRoles = useMemo(() => map(getRolesWithLowerPermissions(role), 'role'), [role]);
+  const spaceRoleStatic = useSpaceRoleStatic();
+  const filterRoles = useMemo(
+    () => map(getRolesWithLowerPermissions(role, spaceRoleStatic), 'role'),
+    [role, spaceRoleStatic]
+  );
 
   const isEmailInputValid = useMemo(() => z.string().email().safeParse(email).success, [email]);
 

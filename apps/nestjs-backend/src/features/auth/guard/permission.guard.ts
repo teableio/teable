@@ -73,6 +73,15 @@ export class PermissionGuard {
     } else {
       throw new ForbiddenException('no check permissions method available');
     }
+
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      permissionsByCheck = await this.permissionService.checkPermissionByAccessToken(
+        resourceId,
+        accessTokenId,
+        permissions
+      );
+    }
     this.cls.set('permissions', permissionsByCheck);
     return true;
   }

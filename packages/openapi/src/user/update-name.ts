@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const UPDATE_USER_NAME = '/user/updateName';
+export const UPDATE_USER_NAME = '/user/name';
 
 export const updateUserNameRoSchema = z.object({
   name: z.string(),

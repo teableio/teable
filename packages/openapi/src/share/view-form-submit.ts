@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const SHARE_VIEW_FORM_SUBMIT = '/share/{shareId}/view/formSubmit';
+export const SHARE_VIEW_FORM_SUBMIT = '/share/{shareId}/view/form-submit';
 
 export const shareViewFormSubmitRoSchema = z.object({
   fields: recordSchema.shape.fields,

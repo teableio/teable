@@ -3,8 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { ACCESS_TOKEN_STRATEGY_NAME } from '../strategies/constant';
 @Injectable()
-export class AuthGuard extends PassportAuthGuard(['session']) {
+export class AuthGuard extends PassportAuthGuard(['session', ACCESS_TOKEN_STRATEGY_NAME]) {
   constructor(private readonly reflector: Reflector) {
     super();
   }
