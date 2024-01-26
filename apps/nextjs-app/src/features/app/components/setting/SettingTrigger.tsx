@@ -17,7 +17,7 @@ export const SettingTrigger: React.FC<{ children: React.ReactNode }> = ({ childr
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="h-5/6 max-h-[800px] max-w-6xl">
         <Tabs defaultValue="profile" className="flex min-h-[40rem] gap-4 pt-4">
           <TabsList className="grid w-36 gap-2 bg-inherit text-left">
             <TabsTrigger
