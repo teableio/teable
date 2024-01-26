@@ -80,7 +80,7 @@ export class ViewOpenApiController {
     @Body(new ZodValidationPipe(viewNameRoSchema))
     viewNameRo: IViewNameRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewProperty(tableId, viewId, 'name', viewNameRo);
+    return await this.viewOpenApiService.setViewProperty(tableId, viewId, 'name', viewNameRo.name);
   }
 
   @Permissions('view|update')
@@ -95,7 +95,7 @@ export class ViewOpenApiController {
       tableId,
       viewId,
       'description',
-      viewDescriptionRo
+      viewDescriptionRo.description
     );
   }
 
