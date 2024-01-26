@@ -34,8 +34,6 @@ export class AttachmentFieldCore extends FieldCore {
 
   isMultipleCellValue = true;
 
-  isComputed = false;
-
   static CELL_VALUE_STRING_SPLITTER = ',';
 
   static defaultOptions(): IAttachmentFieldOptions {

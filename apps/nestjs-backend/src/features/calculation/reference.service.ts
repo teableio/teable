@@ -324,7 +324,7 @@ export class ReferenceService {
     // when link cell change, we need to get all lookup field
     if (linkFieldIds.length) {
       const lookupFieldRaw = await this.prismaService.txClient().field.findMany({
-        where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null },
+        where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null, hasError: null },
         select: { id: true },
       });
       lookupFieldRaw.forEach((field) => startFieldIds.push(field.id));
@@ -439,8 +439,19 @@ export class ReferenceService {
     fieldMap: IFieldMap,
     recordItem: IRecordItem
   ) {
-    const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
-    return typedValue.toPlain();
+    if (field.hasError) {
+      return null;
+    }
+
+    try {
+      const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
+      return typedValue.toPlain();
+    } catch (e) {
+      this.logger.error(
+        `calculateFormula error, fieldId: ${field.id}; exp: ${field.options.expression}; recordId: ${recordItem.record.id}, ${(e as { message: string }).message}`
+      );
+      return null;
+    }
   }
 
   /**
