@@ -45,6 +45,7 @@ export interface ILinkEditorMainProps {
   isEditing?: boolean;
   setEditing?: (isEditing: boolean) => void;
   onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
+  onExpandRecord?: (recordId: string) => void;
 }
 
 export interface ILinkEditorMainRef {
@@ -60,7 +61,8 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   props,
   forwardRef
 ) => {
-  const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange } = props;
+  const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange, onExpandRecord } =
+    props;
   const isMultiple = isMultiValueLink(options.relationship);
   const [viewType, setViewType] = useState<ViewType>(ViewType.Unselected);
   const isSelectedView = viewType === ViewType.Selected;
@@ -198,11 +200,19 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   };
 
   const onAppendRecord = async () => {
-    await table?.createRecord({});
+    if (baseId == null || table == null || tableId == null) return;
 
-    if (baseId == null || tableId == null) return;
+    const res = await table.createRecord({});
+    const record = res.data.records[0];
+
+    if (record != null) {
+      onExpandRecord?.(record.id);
+    }
+
     Table.getRowCount(tableId, recordQuery).then((res) => {
-      setRowCount(res.data.rowCount);
+      const rowCount = res.data.rowCount;
+      setRowCount(() => rowCount);
+      gridRef.current?.scrollToItem([0, rowCount - 1]);
     });
   };
 
