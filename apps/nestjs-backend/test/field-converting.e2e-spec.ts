@@ -123,6 +123,34 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.description).toEqual('hello');
     });
 
+    it('should modify attachment field name', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField',
+        description: 'hello',
+        type: FieldType.Attachment,
+      };
+      const newFieldRo: IFieldRo = {
+        name: 'New Name',
+        type: FieldType.Attachment,
+      };
+
+      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
+        [
+          {
+            id: 'actId',
+            name: 'example.jpg',
+            token: 'ivJAXrtjLeSZ',
+            size: 1,
+            mimetype: 'image/jpeg',
+            path: 'table/example',
+            bucket: '',
+          },
+        ],
+      ]);
+      expect(values[0]).toBeTruthy();
+      expect(newField.name).toEqual('New Name');
+    });
+
     it('should modify db field name', async () => {
       const dbFieldName = generateFieldId();
       const sourceFieldRo1: IFieldRo = {
