@@ -108,6 +108,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     rowIndexVisible,
     hoverCellPosition,
     theme,
+    columns,
     imageManager,
     spriteManager,
     groupCollection,
@@ -122,7 +123,6 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
   } = visibleRegion;
   const { freezeColumnCount, columnInitSize, totalWidth } = coordInstance;
   const { isRowSelection, isColumnSelection } = selection;
-  const { cellBg, cellBgHovered, cellBgSelected } = theme;
   const { scrollLeft, scrollTop } = scrollState;
   const {
     columnIndex: hoverColumnIndex,
@@ -145,11 +145,14 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
   const appendRowList: IAppendRowDrawerProps[] = [];
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
+    const column = columns[columnIndex];
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
     const isColumnActive = isColumnSelection && selection.includes([columnIndex, columnIndex]);
     const isFirstColumn = columnIndex === 0;
     const isColumnHovered = hoverColumnIndex === columnIndex;
+    const finalTheme = column?.customTheme ? { ...theme, ...column.customTheme } : theme;
+    const { cellBg, cellBgHovered, cellBgSelected } = finalTheme;
 
     for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
       const linearRow = getLinearRow(rowIndex);
@@ -265,8 +268,8 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
         getCellContent,
         imageManager,
         spriteManager,
-        theme,
-        fill: isCellActive ? cellBg : fill,
+        theme: finalTheme,
+        fill: isCellActive ? cellBg : fill ?? cellBg,
       });
     }
   }
@@ -1021,6 +1024,7 @@ export const drawColumnHeaders = (
     pureRowCount,
   } = coordInstance;
   const { scrollLeft } = scrollState;
+  const { fontSizeSM, fontFamily } = theme;
   const { isColumnSelection, isRowSelection, ranges: selectionRanges } = selection;
   const { type: hoverRegionType, columnIndex: hoverColumnIndex } = mouseState;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
@@ -1039,14 +1043,15 @@ export const drawColumnHeaders = (
     rowInitSize + 1
   );
   ctx.clip();
-  const { fontSizeSM, fontFamily, columnHeaderBgHovered, columnHeaderBgSelected } = theme;
   ctx.font = `normal ${fontSizeSM}px ${fontFamily}`;
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
+    const column = columns[columnIndex];
+    const finalTheme = column?.customTheme ? { ...theme, ...column.customTheme } : theme;
+    const { columnHeaderBgHovered, columnHeaderBgSelected } = finalTheme;
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
     const isActive = isColumnSelection && selection.includes([columnIndex, columnIndex]);
-    const column = columns[columnIndex];
     const isHover =
       !isInteracting &&
       [RegionType.ColumnHeader, RegionType.ColumnHeaderMenu].includes(hoverRegionType) &&
@@ -1068,7 +1073,7 @@ export const drawColumnHeaders = (
         column: column,
         fill,
         hasMenu: isColumnHeaderMenuVisible,
-        theme: column.customTheme ? { ...theme, ...column.customTheme } : theme,
+        theme: finalTheme,
         spriteManager,
       });
   }

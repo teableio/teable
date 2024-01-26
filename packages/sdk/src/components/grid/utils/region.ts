@@ -64,7 +64,6 @@ export const BLANK_REGION_DATA = {
 
 const {
   columnHeadPadding,
-  columnHeadMenuClickableSize,
   columnResizeHandlerWidth,
   rowHeadIconPaddingTop,
   columnStatisticHeight,
@@ -369,12 +368,12 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
     const endOffsetX = startOffsetX + width;
     const columnMenuX = hasMenu ? endOffsetX - columnHeadPadding / 2 - iconSizeXS : endOffsetX;
 
-    if (hasMenu && inRange(x, columnMenuX, columnMenuX + columnHeadMenuClickableSize)) {
+    if (hasMenu && inRange(x, columnMenuX, columnMenuX + iconSizeXS)) {
       return {
         type: RegionType.ColumnHeaderMenu,
         x: startOffsetX,
         y: 0,
-        width: columnHeadMenuClickableSize,
+        width: iconSizeXS,
         height: rowInitSize,
       };
     }

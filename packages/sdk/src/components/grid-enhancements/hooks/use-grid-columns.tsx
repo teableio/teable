@@ -4,14 +4,18 @@ import type {
   IAttachmentCellValue,
 } from '@teable-group/core';
 import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
+import { keyBy } from 'lodash';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
-import { CellType, getFileCover, onMixedTextClick } from '../..';
-import { useTablePermission, useFields, useViewId, useView } from '../../../hooks';
+import { CellType, getFileCover, hexToRGBA, onMixedTextClick } from '../..';
+import { ThemeKey } from '../../../context';
+import { useTablePermission, useFields, useView, useTheme } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { IViewInstance } from '../../../model/view';
+import { getFilterFieldIds } from '../../filter/utils';
+import type { IGridTheme } from '../../grid/configs';
 import { GRID_DEFAULT } from '../../grid/configs';
 import {
   GridAttachmentEditor,
@@ -24,32 +28,111 @@ import { GridUserEditor } from '../editor/GridUserEditor';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 
-const generateColumns = (
-  fields: IFieldInstance[],
-  viewId?: string,
-  hasMenu: boolean = true,
-  view?: IViewInstance
-): (IGridColumn & { id: string })[] => {
-  const iconString = (type: FieldType, isLookup: boolean | undefined) => {
-    return isLookup ? `${type}_lookup` : type;
+const iconString = (type: FieldType, isLookup: boolean | undefined) => {
+  return isLookup ? `${type}_lookup` : type;
+};
+
+interface IGenerateColumnsProps {
+  fields: IFieldInstance[];
+  view?: IViewInstance;
+  hasMenu?: boolean;
+  theme?: ThemeKey;
+  sortFieldIds?: Set<string>;
+  groupFieldIds?: Set<string>;
+  filterFieldIds?: Set<string>;
+}
+
+const getColumnThemeByField = ({
+  field,
+  theme,
+  sortFieldIds,
+  groupFieldIds,
+  filterFieldIds,
+}: Pick<IGenerateColumnsProps, 'theme' | 'sortFieldIds' | 'groupFieldIds' | 'filterFieldIds'> & {
+  field: IFieldInstance;
+}) => {
+  const { id, isPending, hasError } = field;
+  const { orange, green, violet, rose, yellow } = colors;
+  const isDark = theme === ThemeKey.Dark;
+  const color_50 = isDark ? 700 : 50;
+  const color_100 = isDark ? 500 : 100;
+  const color_200 = isDark ? 400 : 200;
+  const opacity = isDark ? 0.3 : 0.8;
+  const colorMap = {
+    sort: orange,
+    group: green,
+    filter: violet,
   };
 
+  let customTheme: Partial<IGridTheme> | undefined = undefined;
+  let conditionColorObj = undefined;
+
+  if (groupFieldIds?.has(id)) {
+    conditionColorObj = colorMap.group;
+  }
+
+  if (sortFieldIds?.has(id)) {
+    conditionColorObj = colorMap.sort;
+  }
+
+  if (filterFieldIds?.has(id)) {
+    conditionColorObj = colorMap.filter;
+  }
+
+  if (conditionColorObj != null) {
+    customTheme = {
+      cellBg: hexToRGBA(conditionColorObj[color_50], opacity),
+      cellBgHovered: hexToRGBA(conditionColorObj[color_50], opacity),
+      cellBgSelected: hexToRGBA(conditionColorObj[color_100], opacity),
+      columnHeaderBg: hexToRGBA(conditionColorObj[color_100], opacity),
+      columnHeaderBgHovered: hexToRGBA(conditionColorObj[color_200], opacity),
+      columnHeaderBgSelected: hexToRGBA(conditionColorObj[color_200], opacity),
+    };
+  }
+
+  if (hasError || isPending) {
+    const colorObj = hasError ? rose : yellow;
+
+    customTheme = {
+      ...customTheme,
+      columnHeaderBg: hexToRGBA(colorObj[color_100], opacity),
+      columnHeaderBgHovered: hexToRGBA(colorObj[color_200], opacity),
+      columnHeaderBgSelected: hexToRGBA(colorObj[color_200], opacity),
+    };
+  }
+
+  return customTheme;
+};
+
+const generateColumns = ({
+  fields,
+  view,
+  theme,
+  hasMenu = true,
+  sortFieldIds,
+  groupFieldIds,
+  filterFieldIds,
+}: IGenerateColumnsProps): (IGridColumn & { id: string })[] => {
   return fields
     .map((field) => {
       if (!field) return undefined;
-      const columnMeta = viewId ? view?.columnMeta[field.id] : null;
+      const columnMeta = view?.columnMeta[field.id] ?? null;
       const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
-      const { id, type, name, description, isLookup, isPrimary, hasError } = field;
+      const { id, type, name, description, isLookup, isPrimary } = field;
+      const customTheme = getColumnThemeByField({
+        field,
+        theme,
+        sortFieldIds,
+        groupFieldIds,
+        filterFieldIds,
+      });
+
       return {
         id,
         name,
         width,
         description,
-        customTheme: hasError
-          ? { columnHeaderBg: colors.rose[100] }
-          : field.isPending
-            ? { columnHeaderBg: colors.yellow[100] }
-            : undefined,
+        customTheme,
         isPrimary,
         hasMenu,
         icon: iconString(type, isLookup),
@@ -338,17 +421,53 @@ export const createCellValue2GridDisplay =
   };
 
 export function useGridColumns(hasMenu?: boolean) {
-  const viewId = useViewId();
-  const fields = useFields();
-  const permission = useTablePermission();
   const view = useView();
+  const fields = useFields();
+  const totalFields = useFields({ withHidden: true });
+  const permission = useTablePermission();
+  const { theme } = useTheme();
   const editable = permission['record|update'];
+  const sort = view?.sort;
+  const group = view?.group;
+  const filter = view?.filter;
+  const isAutoSort = sort && !sort?.manualSort;
+
+  const sortFieldIds = useMemo(() => {
+    if (!isAutoSort) return;
+
+    return sort.sortObjs.reduce((prev, item) => {
+      prev.add(item.fieldId);
+      return prev;
+    }, new Set<string>());
+  }, [sort, isAutoSort]);
+
+  const groupFieldIds = useMemo(() => {
+    if (!group?.length) return;
+
+    return group.reduce((prev, item) => {
+      prev.add(item.fieldId);
+      return prev;
+    }, new Set<string>());
+  }, [group]);
+
+  const filterFieldIds = useMemo(() => {
+    if (filter == null) return;
+    return getFilterFieldIds(filter?.filterSet, keyBy(totalFields, 'id'));
+  }, [filter, totalFields]);
 
   return useMemo(
     () => ({
-      columns: generateColumns(fields, viewId, hasMenu, view),
+      columns: generateColumns({
+        fields,
+        view,
+        theme,
+        hasMenu,
+        sortFieldIds,
+        groupFieldIds,
+        filterFieldIds,
+      }),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields, editable),
     }),
-    [fields, viewId, editable, hasMenu, view]
+    [fields, view, hasMenu, editable, theme, sortFieldIds, groupFieldIds, filterFieldIds]
   );
 }
