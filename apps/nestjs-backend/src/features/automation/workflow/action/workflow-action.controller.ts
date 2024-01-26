@@ -3,7 +3,7 @@ import { CreateWorkflowActionRo } from '../../model/create-workflow-action.ro';
 import { UpdateWorkflowActionRo } from '../../model/update-workflow-action.ro';
 import { WorkflowActionService } from './workflow-action.service';
 
-@Controller('api/workflowAction/:actionId')
+@Controller('api/workflow-action/:actionId')
 export class WorkflowActionController {
   constructor(private readonly workflowActionService: WorkflowActionService) {}
 
@@ -22,7 +22,7 @@ export class WorkflowActionController {
     return null;
   }
 
-  @Put('updateConfig')
+  @Put('update-config')
   async updateConfig(
     @Param('actionId') actionId: string,
     @Body() updateRo: UpdateWorkflowActionRo

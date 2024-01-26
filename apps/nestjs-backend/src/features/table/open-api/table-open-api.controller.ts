@@ -39,7 +39,7 @@ export class TableController {
   ) {}
 
   @Permissions('table|read')
-  @Get(':tableId/defaultViewId')
+  @Get(':tableId/default-view-id')
   async getDefaultViewId(@Param('tableId') tableId: string): Promise<{ id: string }> {
     return await this.tableService.getDefaultViewId(tableId);
   }
@@ -95,7 +95,7 @@ export class TableController {
   }
 
   @Permissions('table|update')
-  @Put(':tableId/dbTableName')
+  @Put(':tableId/db-table-name')
   async updateDbTableName(
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
@@ -149,7 +149,7 @@ export class TableController {
   }
 
   @Permissions('table|read')
-  @Post(':tableId/sqlQuery')
+  @Post(':tableId/sql-query')
   async sqlQuery(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(sqlQuerySchema)) query: ISqlQuerySchema

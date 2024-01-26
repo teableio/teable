@@ -9,7 +9,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_IDS_FROM_RANGES_URL = '/table/{tableId}/selection/rangeToId';
+export const GET_IDS_FROM_RANGES_URL = '/table/{tableId}/selection/range-to-id';
 
 export enum RangeType {
   Rows = 'rows',

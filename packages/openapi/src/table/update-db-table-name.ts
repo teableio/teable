@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const DB_TABLE_NAME = '/base/{baseId}/table/{tableId}/dbTableName';
+export const DB_TABLE_NAME = '/base/{baseId}/table/{tableId}/db-table-name';
 
 export const dbTableNameRoSchema = z.object({
   dbTableName: z

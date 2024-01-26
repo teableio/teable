@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const REFRESH_SHARE_ID = '/table/{tableId}/view/{viewId}/refreshShareId';
+export const REFRESH_SHARE_ID = '/table/{tableId}/view/{viewId}/refresh-share-id';
 
 export const refreshShareViewVoSchema = z.object({
   shareId: z.string(),

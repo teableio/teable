@@ -24,7 +24,7 @@ export class WorkflowController {
     return await this.workflowService.delete(workflowId);
   }
 
-  @Put('updateConfig')
+  @Put('update-config')
   async updateConfig(
     @Param('workflowId') workflowId: string,
     @Body() updateWorkflowRo: CreateWorkflowRo

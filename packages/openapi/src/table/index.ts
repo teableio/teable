@@ -10,3 +10,4 @@ export * from './update-icon';
 export * from './update-order';
 export * from './update-description';
 export * from './update-db-table-name';
+export * from './default-view-id';

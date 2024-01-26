@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const UPDATE_USER_AVATAR = '/user/updateAvatar';
+export const UPDATE_USER_AVATAR = '/user/avatar';
 
 export const updateUserAvatarRoSchema = z.object({
   file: z.string().openapi({ format: 'binary' }),

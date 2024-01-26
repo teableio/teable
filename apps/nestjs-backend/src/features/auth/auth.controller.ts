@@ -52,7 +52,7 @@ export class AuthController {
     return request.user;
   }
 
-  @Patch('/changePassword')
+  @Patch('/change-password')
   async changePassword(
     @Body(new ZodValidationPipe(changePasswordRoSchema)) changePasswordRo: IChangePasswordRo,
     @Req() req: Request,
