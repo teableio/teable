@@ -297,6 +297,7 @@ export class EventEmitterService {
       this.applyOperation(docType, rawOpType, acc, cur, nodeId, opBuilder?.editor);
 
       set(acc, ['context', 'opMeta', 'name'], cur.name);
+      set(acc, ['context', 'opMeta', 'propertyKey'], get(cur, 'key'));
       return acc;
     }, {});
 

@@ -9,6 +9,7 @@ import {
 } from '@teable-group/icons';
 import { Filter, HideFields, RowHeight, useFields, Sort, Group } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
+import { cn } from '@teable-group/ui-lib/shadcn';
 import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../hooks/useToolbarChange';
@@ -47,21 +48,48 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
         }
       >
         {(text, isActive) => (
-          <ToolBarButton disabled={disabled} isActive={isActive} text={text} className="max-w-xs">
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            className={cn(
+              'max-w-xs',
+              isActive &&
+                'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'
+            )}
+          >
             <FilterIcon className="size-4 text-sm" />
           </ToolBarButton>
         )}
       </Filter>
       <Sort sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
-          <ToolBarButton disabled={disabled} isActive={isActive} text={text}>
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            className={cn(
+              'max-w-xs',
+              isActive &&
+                'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
+            )}
+          >
             <ArrowUpDown className="size-4 text-sm" />
           </ToolBarButton>
         )}
       </Sort>
       <Group group={view?.group || null} onChange={onGroupChange}>
         {(text: string, isActive) => (
-          <ToolBarButton disabled={disabled} isActive={isActive} text={text}>
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            className={cn(
+              'max-w-xs',
+              isActive &&
+                'bg-green-100 dark:bg-green-600/30 hover:bg-green-200 dark:hover:bg-green-500/30'
+            )}
+          >
             <LayoutList className="size-4 text-sm" />
           </ToolBarButton>
         )}
