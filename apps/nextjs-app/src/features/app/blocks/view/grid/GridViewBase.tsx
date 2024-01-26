@@ -79,8 +79,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const prefillingGridRef = useRef<IGridRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
-  const prevRowIndex = useRef<number>();
-  const prevRecordId = useRef<string>();
   const tableId = useTableId() as string;
   const table = useTable();
   const activeViewId = useViewId();
@@ -425,24 +423,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const onSelectionChanged = useCallback(
     (selection: CombinedSelection) => {
-      const { type, ranges } = selection;
-
       setSelection(selection);
-
-      if (type === SelectionRegionType.Cells && !group?.length) {
-        const rowIndex = ranges[0][1];
-
-        if (rowIndex === prevRowIndex.current) return;
-
-        const record = recordMap[rowIndex];
-
-        if (record == null) return;
-
-        prevRowIndex.current = rowIndex;
-        prevRecordId.current = record.id;
-      }
     },
-    [group?.length, recordMap, setSelection]
+    [setSelection]
   );
 
   const collaborators = useCollaborate(selection);
@@ -601,31 +584,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       height,
     };
   }, [rowHeight, prefillingRowIndex]);
-
-  useEffect(() => {
-    const activeCell = gridRef.current?.getActiveCell();
-
-    if (activeCell == null) return;
-
-    const [, activeRowIndex] = activeCell;
-    const activeRecord = recordMap[activeRowIndex];
-
-    if (activeRecord == null) return;
-
-    const { id: activeRecordId } = activeRecord;
-
-    if (activeRowIndex !== prevRowIndex.current) {
-      prevRowIndex.current = activeRowIndex;
-      prevRecordId.current = activeRecordId;
-      return;
-    }
-
-    if (activeRecordId !== prevRecordId.current) {
-      setPrefillingRowIndex(prevRowIndex.current);
-      setPrefillingRecordId(prevRecordId.current);
-      prevRecordId.current = activeRecordId;
-    }
-  }, [recordMap, setPrefillingRecordId, setPrefillingRowIndex]);
 
   useClickAway(containerRef, () => {
     gridRef.current?.resetState();
