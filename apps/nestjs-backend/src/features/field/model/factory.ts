@@ -31,6 +31,7 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     unique: fieldRaw.unique || undefined,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
+    isPending: fieldRaw.isPending || undefined,
     isLookup: fieldRaw.isLookup || undefined,
     hasError: fieldRaw.hasError || undefined,
     lookupOptions:

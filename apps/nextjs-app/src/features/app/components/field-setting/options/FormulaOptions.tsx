@@ -35,7 +35,7 @@ export const FormulaOptionsInner = (props: {
 
   const expressionByName = useMemo(() => {
     return expression
-      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'), true)
+      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'))
       : '';
   }, [expression, fields]);
 

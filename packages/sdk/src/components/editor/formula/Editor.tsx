@@ -56,7 +56,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const [funcHelpData, setFuncHelpData] = useState<IFuncHelpData | null>(null);
   const [expressionByName, setExpressionByName] = useState<string>((): string => {
     return expression
-      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'), true)
+      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'))
       : '';
   });
   const [errMsg, setErrMsg] = useState('');

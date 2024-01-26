@@ -3,6 +3,7 @@ import type { TerminalNode } from 'antlr4ts/tree/TerminalNode';
 import type { FieldReferenceCurlyContext } from './parser/Formula';
 
 export class ConversionVisitor extends AbstractParseTreeVisitor<void> {
+  private noThrow = false;
   private result = '';
 
   defaultResult() {
@@ -14,18 +15,28 @@ export class ConversionVisitor extends AbstractParseTreeVisitor<void> {
     this.conversionMap = conversionMap;
   }
 
+  safe() {
+    this.noThrow = true;
+    return this;
+  }
+
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
     const originalText = ctx.text;
-    let fieldName = originalText;
+    let idOrName = originalText;
 
     if (originalText[0] === '{' && originalText[originalText.length - 1] === '}') {
-      fieldName = fieldName.slice(1, -1);
+      idOrName = idOrName.slice(1, -1);
     }
-    const fieldId = this.conversionMap[fieldName];
-    if (fieldId == null) {
-      throw new Error(`Invalid field name or function name: "${fieldName}"`);
+    const nameOrId = this.conversionMap[idOrName] || '#Error';
+    if (this.conversionMap[idOrName] == null) {
+      const errorTxt = `Invalid field name or function name: "${idOrName}"`;
+      if (this.noThrow) {
+        console.error(errorTxt);
+      } else {
+        throw new Error(errorTxt);
+      }
     }
-    this.result += `{${fieldId}}`;
+    this.result += `{${nameOrId}}`;
   }
 
   visitTerminal(node: TerminalNode) {
