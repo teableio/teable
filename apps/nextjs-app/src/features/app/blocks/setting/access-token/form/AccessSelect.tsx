@@ -119,7 +119,7 @@ export const AccessSelect = (props: IFormAccess) => {
                         <CommandItem
                           className="gap-1"
                           key={base.id}
-                          value={base.name}
+                          value={`${base.id}-${base.name}`}
                           title={base.name}
                           onSelect={() => {
                             setBases((prev) => [...prev, base.id]);

@@ -10,43 +10,34 @@ import type {
 import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable-group/openapi';
 
 export const ReactQueryKeys = {
-  spaceCollaboratorList: (spaceId: string) => ['space-collaborator-list', spaceId],
+  spaceCollaboratorList: (spaceId: string) => ['space-collaborator-list', spaceId] as const,
 
-  baseCollaboratorList: (baseId: string) => ['base-collaborator-list', baseId],
+  baseCollaboratorList: (baseId: string) => ['base-collaborator-list', baseId] as const,
 
-  notifyList: (filter: { status: NotificationStatesEnum }) => ['notification', 'list', filter],
+  notifyList: (filter: { status: NotificationStatesEnum }) =>
+    ['notification', 'list', filter] as const,
   notifyUnreadCount: () => ['notification', 'unread-count'],
 
-  rowCount: (tableId: string, query: IQueryBaseRo) => ['row-count', tableId, query],
-  groupPoints: (tableId: string, query: IGroupPointsRo) => ['group-points', tableId, query],
-  aggregations: (tableId: string, query: IAggregationRo) => ['aggregations', tableId, query],
+  rowCount: (tableId: string, query: IQueryBaseRo) => ['row-count', tableId, query] as const,
+  groupPoints: (tableId: string, query: IGroupPointsRo) =>
+    ['group-points', tableId, query] as const,
+  aggregations: (tableId: string, query: IAggregationRo) =>
+    ['aggregations', tableId, query] as const,
 
-  shareViewRowCount: (shareId: string, query: IShareViewRowCountRo) => [
-    'share-view-row-count',
-    shareId,
-    query,
-  ],
-  shareViewGroupPoints: (shareId: string, query: IGroupPointsRo) => [
-    'share-view-group-points',
-    shareId,
-    query,
-  ],
-  shareViewAggregations: (shareId: string, query: IShareViewAggregationsRo) => [
-    'share-view-aggregations',
-    shareId,
-    query,
-  ],
+  shareViewRowCount: (shareId: string, query: IShareViewRowCountRo) =>
+    ['share-view-row-count', shareId, query] as const,
+  shareViewGroupPoints: (shareId: string, query: IGroupPointsRo) =>
+    ['share-view-group-points', shareId, query] as const,
+  shareViewAggregations: (shareId: string, query: IShareViewAggregationsRo) =>
+    ['share-view-aggregations', shareId, query] as const,
 
-  planFieldCreate: (tableId: string, fieldRo: IFieldRo) => ['create-field-plan', tableId, fieldRo],
+  planFieldCreate: (tableId: string, fieldRo: IFieldRo) =>
+    ['create-field-plan', tableId, fieldRo] as const,
 
-  planFieldConvert: (tableId: string, fieldId: string, fieldRo: IConvertFieldRo) => [
-    'create-field-plan',
-    tableId,
-    fieldId,
-    fieldRo,
-  ],
+  planFieldConvert: (tableId: string, fieldId: string, fieldRo: IConvertFieldRo) =>
+    ['create-field-plan', tableId, fieldId, fieldRo] as const,
 
-  planField: (tableId: string, fieldId: string) => ['field-plan', tableId, fieldId],
+  planField: (tableId: string, fieldId: string) => ['field-plan', tableId, fieldId] as const,
 
   personAccessTokenList: () => ['person-access-token-list'],
 
