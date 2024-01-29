@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const SHARE_VIEW_GROUP_POINTS = '/share/{shareId}/view/groupPoints';
+export const SHARE_VIEW_GROUP_POINTS = '/share/{shareId}/view/group-points';
 
 export const shareViewGroupPointsRoSchema = groupPointsRoSchema.omit({
   viewId: true,

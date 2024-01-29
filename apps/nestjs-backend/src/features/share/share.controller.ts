@@ -77,7 +77,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/:shareId/view/rowCount')
+  @Get('/:shareId/view/row-count')
   async getViewRowCount(
     @Request() req: any,
     @Query(new ZodValidationPipe(shareViewRowCountRoSchema), TqlPipe)
@@ -88,7 +88,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Post('/:shareId/view/formSubmit')
+  @Post('/:shareId/view/form-submit')
   async submitRecord(
     @Request() req: any,
     @Body(new ZodValidationPipe(shareViewFormSubmitRoSchema))
@@ -109,7 +109,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/:shareId/view/linkRecords')
+  @Get('/:shareId/view/link-records')
   async linkRecords(
     @Request() req: any,
     @Query(new ZodValidationPipe(shareViewLinkRecordsRoSchema), TqlPipe)
@@ -120,7 +120,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/:shareId/view/groupPoints')
+  @Get('/:shareId/view/group-points')
   async getViewGroupPoints(
     @Request() req: any,
     @Query(new ZodValidationPipe(shareViewGroupPointsRoSchema))

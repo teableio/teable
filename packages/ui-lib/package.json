@@ -22,7 +22,7 @@
   "scripts": {
     "build": "cross-env NODE_ENV=production tsc --build tsconfig.build.json",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",
-    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache",
+    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "microbundle watch --tsconfig ./tsconfig.build.json",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/ui-lib.eslintcache",
     "typecheck": "tsc --project ./tsconfig.build.json --noEmit",

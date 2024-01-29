@@ -1,6 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import type { IFieldVo } from '@teable-group/core';
-import { Checked, Lock, Settings } from '@teable-group/icons';
+import { Checked, Lock } from '@teable-group/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -24,21 +24,22 @@ export function useDataColumns() {
   const columns: ColumnDef<IFieldVo>[] = [
     {
       accessorKey: 'isPrimary',
-      header: () => (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div>
-                <Lock className="size-5" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>is primary key</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ),
-      cell: ({ row }) => row.getValue('isPrimary') && <Checked className="size-5" />,
+      header: '',
+      cell: ({ row }) =>
+        row.getValue('isPrimary') && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Lock className="size-5" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>is primary key</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ),
     },
     {
       accessorKey: 'id',
@@ -98,7 +99,7 @@ export function useDataColumns() {
     checkBox('unique'),
     {
       id: 'actions',
-      header: () => <Settings className="mx-2 size-5" />,
+      header: '',
       enableHiding: false,
       cell: ({ row }) => <Actions fieldId={row.getValue('id')} />,
     },

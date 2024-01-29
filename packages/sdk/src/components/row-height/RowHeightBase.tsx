@@ -48,7 +48,7 @@ export const RowHeightBase = (props: IRowHeightBaseProps) => {
             <div
               className={classNames(
                 'flex items-center space-x-2 cursor-pointer hover:bg-accent py-1.5 px-4 text-sm',
-                value === valueInner && 'text-blue-500'
+                value === valueInner && 'text-violet-500'
               )}
               key={valueInner}
               onClick={() => onChange?.(valueInner)}

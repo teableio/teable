@@ -1,6 +1,5 @@
 import * as os from 'os';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';

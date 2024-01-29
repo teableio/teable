@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IFieldRo } from '@teable-group/core';
-import { fieldRoSchema } from '@teable-group/core';
+import { createFieldRoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -20,7 +20,7 @@ export const planFieldCreateRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: fieldRoSchema,
+          schema: createFieldRoSchema,
         },
       },
     },

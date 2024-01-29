@@ -4,7 +4,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const VIEW_SHARE_META = '/table/{tableId}/view/{viewId}/shareMeta';
+export const VIEW_SHARE_META = '/table/{tableId}/view/{viewId}/share-meta';
 
 export const viewShareMetaRoSchema = z.object({
   shareMeta: shareViewMetaSchema,

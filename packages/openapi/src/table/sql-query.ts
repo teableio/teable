@@ -10,7 +10,7 @@ export const sqlQuerySchema = z.object({
 
 export type ISqlQuerySchema = z.infer<typeof sqlQuerySchema>;
 
-export const TABLE_SQL_QUERY = '/base/{baseId}/table/{tableId}/sqlQuery';
+export const TABLE_SQL_QUERY = '/base/{baseId}/table/{tableId}/sql-query';
 
 export const TableSqlQueryRoute: RouteConfig = registerRoute({
   method: 'post',

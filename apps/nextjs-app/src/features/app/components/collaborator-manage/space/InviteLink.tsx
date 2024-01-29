@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SpaceRole } from '@teable-group/core';
-import { getRolesWithLowerPermissions } from '@teable-group/core';
 import { Copy, X } from '@teable-group/icons';
 import {
   deleteSpaceInvitationLink,
   listSpaceInvitationLink,
   updateSpaceInvitationLink,
 } from '@teable-group/openapi';
+import { useSpaceRoleStatic } from '@teable-group/sdk/hooks';
 import {
   Button,
   Input,
@@ -21,6 +21,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import { map } from 'lodash';
 import { useMemo } from 'react';
 import { RoleSelect } from './RoleSelect';
+import { getRolesWithLowerPermissions } from './utils';
 dayjs.extend(relativeTime);
 
 interface IInviteLink {
@@ -57,7 +58,11 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
     toast({ title: 'Link copied' });
   };
 
-  const filterRoles = useMemo(() => map(getRolesWithLowerPermissions(role), 'role'), [role]);
+  const spaceRoleStatic = useSpaceRoleStatic();
+  const filterRoles = useMemo(
+    () => map(getRolesWithLowerPermissions(role, spaceRoleStatic), 'role'),
+    [role, spaceRoleStatic]
+  );
 
   if (!linkList?.length) {
     return <></>;

@@ -1,4 +1,5 @@
-import { SPACE_ROLE_LIST, SpaceRole } from '@teable-group/core';
+import { SpaceRole } from '@teable-group/core';
+import { useSpaceRoleStatic } from '@teable-group/sdk/hooks';
 import {
   Select,
   SelectContent,
@@ -21,11 +22,12 @@ interface IRoleSelect {
 
 export const RoleSelect: React.FC<IRoleSelect> = (props) => {
   const { className, value, defaultValue, disabled, filterRoles, onChange } = props;
+  const spaceRoleList = useSpaceRoleStatic();
   const filteredRoleList = useMemo(() => {
     return filterRoles
-      ? SPACE_ROLE_LIST.filter(({ role }) => filterRoles.includes(role))
-      : SPACE_ROLE_LIST;
-  }, [filterRoles]);
+      ? spaceRoleList.filter(({ role }) => filterRoles.includes(role))
+      : spaceRoleList;
+  }, [filterRoles, spaceRoleList]);
 
   const showSelectedRoleValue = useMemo(
     () => find(filteredRoleList, ({ role }) => role === value)?.name,

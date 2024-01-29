@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const ENABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/enableShare';
+export const ENABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/enable-share';
 
 export const enableShareViewVoSchema = z.object({
   shareId: z.string(),

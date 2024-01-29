@@ -26,3 +26,5 @@ export * from './use-table-permission';
 export * from './use-notification';
 export * from './use-action-trigger';
 export * from './use-group-point';
+export * from './use-permission-actions-static';
+export * from './use-space-role-static';

@@ -19,11 +19,11 @@ export interface ICellDrawerProps extends IRectangle {
 export interface IRowHeaderDrawerProps extends IRectangle {
   displayIndex: string;
   theme: IGridTheme;
-  isHover: boolean;
   rowControls: IRowControlItem[];
   spriteManager: SpriteManager;
   fill?: string;
   stroke?: string;
+  isHover?: boolean;
   isChecked?: boolean;
   rowIndexVisible?: boolean;
 }

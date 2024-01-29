@@ -8,6 +8,7 @@ import type { IClsStore } from '../../../types/cls';
 import { UserService } from '../../user/user.service';
 import { pickUserMe } from '../utils';
 import { PassportSessionStrategy } from './session.passport';
+import type { IPayloadUser } from './types';
 
 @Injectable()
 export class SessionStrategy extends PassportStrategy(PassportSessionStrategy) {
@@ -19,7 +20,7 @@ export class SessionStrategy extends PassportStrategy(PassportSessionStrategy) {
     super();
   }
 
-  async validate(payload: { id: string }) {
+  async validate(payload: IPayloadUser) {
     const user = await this.userService.getUserById(payload.id);
     if (!user) {
       throw new UnauthorizedException();

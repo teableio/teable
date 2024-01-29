@@ -333,3 +333,19 @@ model Notification {
   @@index([toUserId, isRead, createdTime])
   @@map("notification")
 }
+
+model AccessToken {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  userId       String    @map("user_id")
+  scopes       String
+  spaceIds     String?   @map("space_ids")
+  baseIds      String?   @map("base_ids")
+  sign         String
+  expiredTime  DateTime  @map("expired_time")
+  lastUsedTime DateTime? @map("last_used_time")
+  createdTime  DateTime  @default(now()) @map("created_time")
+
+  @@map("access_token")
+}

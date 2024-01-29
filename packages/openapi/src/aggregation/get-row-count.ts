@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_ROW_COUNT = '/table/{tableId}/aggregation/rowCount';
+export const GET_ROW_COUNT = '/table/{tableId}/aggregation/row-count';
 
 export const GetRowCountRoute: RouteConfig = registerRoute({
   method: 'get',

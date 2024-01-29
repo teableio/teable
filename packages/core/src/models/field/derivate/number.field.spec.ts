@@ -3,7 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { Colors } from '../colors';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
-import { updateFieldRoSchema } from '../field.schema';
+import { convertFieldRoSchema } from '../field.schema';
 import { NumberFormattingType } from '../formatting';
 import { MultiNumberDisplayType, SingleNumberDisplayType } from '../show-as';
 import { NumberFieldCore } from './number.field';
@@ -103,7 +103,7 @@ describe('NumberFieldCore', () => {
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
       expect(
-        updateFieldRoSchema.safeParse({
+        convertFieldRoSchema.safeParse({
           ...json,
           options: {
             ...json.options,

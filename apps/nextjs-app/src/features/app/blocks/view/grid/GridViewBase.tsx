@@ -33,7 +33,10 @@ import {
   useGridCollapsedGroup,
   RowCounter,
   generateLocalId,
+  useGridPrefillingRow,
+  SelectableType,
 } from '@teable-group/sdk';
+import { GRID_DEFAULT } from '@teable-group/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable-group/sdk/components/grid/hooks';
 import {
   useFields,
@@ -57,6 +60,7 @@ import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordCon
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
+import { PrefillingRowContainer } from './components';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
@@ -66,10 +70,14 @@ interface IGridViewProps {
   onRowExpand?: (recordId: string) => void;
 }
 
+const { scrollBuffer, columnAppendBtnWidth } = GRID_DEFAULT;
+
 export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) => {
   const { onRowExpand } = props;
   const router = useRouter();
-  const container = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<IGridRef>(null);
+  const prefillingGridRef = useRef<IGridRef>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
   const tableId = useTableId() as string;
   const table = useTable();
@@ -90,13 +98,13 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const { openSetting } = useFieldSettingStore();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const preTableId = usePrevious(tableId);
+  const isTouchDevice = useIsTouchDevice();
   const [isReadyToRender, setReadyToRender] = useState(false);
   const { copy, paste, clear } = useSelectionOperation();
   const sort = view?.sort;
   const group = view?.group;
-  const frozenColumnCount = view?.options?.frozenColumnCount ?? 1;
   const isAutoSort = sort && !sort?.manualSort;
-  const isTouchDevice = useIsTouchDevice();
+  const frozenColumnCount = isTouchDevice ? 0 : view?.options?.frozenColumnCount ?? 1;
   const isLoading = !view;
   const permission = useTablePermission();
   const { toast } = useToast();
@@ -114,6 +122,16 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     undefined,
     viewGroupQuery
   );
+
+  const {
+    prefillingRowIndex,
+    prefillingRecordId,
+    isRowPrefillingActived,
+    setPrefillingRowIndex,
+    setPrefillingRecordId,
+    onPrefillingCellEdited,
+    getPrefillingCellContent,
+  } = useGridPrefillingRow(columns);
 
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {
@@ -137,6 +155,15 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         Object.keys(recordMap).find((key) => recordMap[key]?.id === recordId)
       );
 
+      if (recordId === prefillingRecordId) {
+        return prefillingGridRef.current?.setSelection(
+          new CombinedSelection(SelectionRegionType.Cells, [
+            [0, 0],
+            [0, 0],
+          ])
+        );
+      }
+
       recordIndex >= 0 &&
         gridRef.current?.setSelection(
           new CombinedSelection(SelectionRegionType.Cells, [
@@ -145,7 +172,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           ])
         );
     }
-  }, [router.query.recordId, recordMap, isReadyToRender]);
+  }, [router.query.recordId, recordMap, isReadyToRender, prefillingRecordId]);
 
   useMount(() => setReadyToRender(true));
 
@@ -192,6 +219,35 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [recordMap, columns]
   );
 
+  const callbackForPrefilling = useCallback(
+    (recordId: string, targetIndex?: number) => {
+      if (!isRowPrefillingActived) return;
+      const index = targetIndex ?? Math.max(realRowCount - 1, 0);
+      setPrefillingRowIndex(index);
+      setPrefillingRecordId(recordId);
+      setSelection(emptySelection);
+      gridRef.current?.setSelection(emptySelection);
+    },
+    [
+      isRowPrefillingActived,
+      realRowCount,
+      setPrefillingRowIndex,
+      setPrefillingRecordId,
+      setSelection,
+    ]
+  );
+
+  const createRecordWithCallback = (
+    fieldValueMap: { [fieldId: string]: unknown },
+    targetIndex?: number
+  ) => {
+    return table?.createRecord(fieldValueMap).then((res) => {
+      const record = res.data.records[0];
+      if (record == null) return;
+      callbackForPrefilling(record.id, targetIndex);
+    });
+  };
+
   const onContextMenu = useCallback(
     // eslint-disable-next-line sonarjs/cognitive-complexity
     (selection: CombinedSelection, position: IPosition) => {
@@ -223,7 +279,13 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
         }
 
-        openRecordMenu({ position, records, fields: selectFields, neighborRecords });
+        openRecordMenu({
+          position,
+          records,
+          fields: selectFields,
+          neighborRecords,
+          onAfterInsertCallback: callbackForPrefilling,
+        });
       }
 
       if (isColumnSelection) {
@@ -234,7 +296,15 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         openHeaderMenu({ position, fields: selectFields });
       }
     },
-    [columns, recordMap, fields, realRowCount, openRecordMenu, openHeaderMenu]
+    [
+      columns,
+      recordMap,
+      fields,
+      realRowCount,
+      openRecordMenu,
+      openHeaderMenu,
+      callbackForPrefilling,
+    ]
   );
 
   const onColumnHeaderMenuClick = useCallback(
@@ -287,18 +357,18 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     if (group?.length && targetIndex != null) {
       const record = recordMap[targetIndex];
 
-      if (record == null) return table?.createRecord({});
+      if (record == null) return createRecordWithCallback({}, targetIndex);
 
-      const fields = group.reduce(
+      const fieldValueMap = group.reduce(
         (prev, { fieldId }) => {
           prev[fieldId] = record.getCellValue(fieldId);
           return prev;
         },
         {} as { [key: string]: unknown }
       );
-      return table?.createRecord(fields);
+      return createRecordWithCallback(fieldValueMap, targetIndex);
     }
-    return table?.createRecord({});
+    return createRecordWithCallback({}, targetIndex);
   };
 
   const onColumnAppend = () => {
@@ -309,9 +379,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const customIcons = useGridIcons();
 
-  const rowHeightLevel = useMemo(() => {
-    if (view == null) return RowHeightLevel.Short;
-    return view.options?.rowHeight || RowHeightLevel.Short;
+  const rowHeight = useMemo(() => {
+    if (view == null) return GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short];
+    return GIRD_ROW_HEIGHT_DEFINITIONS[view.options?.rowHeight || RowHeightLevel.Short];
   }, [view]);
 
   const rowControls = useMemo(() => {
@@ -336,8 +406,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       },
     ];
   }, [isTouchDevice, permission]);
-
-  const gridRef = useRef<IGridRef>(null);
 
   const onDelete = (selection: CombinedSelection) => {
     clear(selection);
@@ -379,6 +447,25 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       {
         pathname: `${router.pathname}/[recordId]`,
         query: { ...router.query, recordId },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  };
+
+  const onPrefillingRowExpand = (_rowIndex: number) => {
+    if (!prefillingRecordId) return;
+
+    if (onRowExpand) {
+      onRowExpand(prefillingRecordId);
+      return;
+    }
+    router.push(
+      {
+        pathname: `${router.pathname}/[recordId]`,
+        query: { ...router.query, recordId: prefillingRecordId },
       },
       undefined,
       {
@@ -477,14 +564,35 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [permission]
   );
 
-  useClickAway(container, () => {
+  const onGridScrollChanged = useCallback((sl?: number, _st?: number) => {
+    prefillingGridRef.current?.scrollTo(sl, undefined);
+  }, []);
+
+  const onPrefillingGridScrollChanged = useCallback((sl?: number, _st?: number) => {
+    gridRef.current?.scrollTo(sl, undefined);
+  }, []);
+
+  const prefillingRowStyle = useMemo(() => {
+    const defaultTop = rowHeight / 2;
+    const height = rowHeight + 5;
+
+    if (gridRef.current == null || prefillingRowIndex == null) {
+      return { top: defaultTop, height };
+    }
+    return {
+      top: gridRef.current.getRowOffset(prefillingRowIndex) + defaultTop,
+      height,
+    };
+  }, [rowHeight, prefillingRowIndex]);
+
+  useClickAway(containerRef, () => {
     gridRef.current?.resetState();
   });
 
   useScrollFrameRate(gridRef.current?.scrollBy);
 
   return (
-    <div ref={container} className="relative size-full overflow-hidden">
+    <div ref={containerRef} className="relative size-full overflow-hidden">
       {isReadyToRender && !isLoading ? (
         <>
           <Grid
@@ -493,27 +601,22 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             draggable={draggable}
             isTouchDevice={isTouchDevice}
             rowCount={realRowCount}
-            rowHeight={GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel]}
-            freezeColumnCount={isTouchDevice ? 0 : frozenColumnCount}
+            rowHeight={rowHeight}
+            freezeColumnCount={frozenColumnCount}
             columnStatistics={columnStatistics}
             columns={columns}
-            smoothScrollX
-            smoothScrollY
             customIcons={customIcons}
             rowControls={rowControls}
             collapsedGroupIds={collapsedGroupIds}
             groupCollection={groupCollection}
             groupPoints={groupPoints as unknown as IGroupPoint[]}
             collaborators={collaborators}
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
             getCellContent={getCellContent}
             onDelete={getAuthorizedFunction(onDelete, 'record|update')}
+            onRowOrdered={onRowOrdered}
+            onRowExpand={onRowExpandInner}
             onRowAppend={getAuthorizedFunction(onRowAppend, 'record|create')}
             onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
-            onRowOrdered={onRowOrdered}
             onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
             onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
             onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
@@ -526,12 +629,45 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             onColumnHeaderDblClick={onColumnHeaderDblClick}
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
+            onScrollChanged={onGridScrollChanged}
             onCopy={onCopy}
             onPaste={onPaste}
-            onRowExpand={onRowExpandInner}
             onItemClick={onItemClick}
             onItemHovered={onItemHovered}
           />
+          {prefillingRowIndex != null && (
+            <PrefillingRowContainer
+              style={prefillingRowStyle}
+              onClickOutside={() => {
+                setPrefillingRowIndex(undefined);
+                setPrefillingRecordId(undefined);
+              }}
+            >
+              <Grid
+                ref={prefillingGridRef}
+                theme={theme}
+                scrollBufferX={
+                  permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
+                }
+                scrollBufferY={0}
+                scrollBarVisible={false}
+                rowCount={1}
+                rowHeight={rowHeight}
+                rowIndexVisible={false}
+                rowControls={rowControls}
+                draggable={DraggableType.None}
+                selectable={SelectableType.Cell}
+                columns={columns}
+                columnHeaderVisible={false}
+                freezeColumnCount={frozenColumnCount}
+                customIcons={customIcons}
+                onRowExpand={onPrefillingRowExpand}
+                getCellContent={getPrefillingCellContent}
+                onScrollChanged={onPrefillingGridScrollChanged}
+                onCellEdited={getAuthorizedFunction(onPrefillingCellEdited, 'record|update')}
+              />
+            </PrefillingRowContainer>
+          )}
           <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
         </>
       ) : (

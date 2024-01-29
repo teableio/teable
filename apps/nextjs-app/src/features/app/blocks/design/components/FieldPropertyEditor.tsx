@@ -1,6 +1,7 @@
 import { Edit } from '@teable-group/icons';
 import { useField, useTablePermission } from '@teable-group/sdk/hooks';
 import { Button, Input } from '@teable-group/ui-lib/shadcn';
+import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -42,8 +43,9 @@ export const FieldPropertyEditor = ({
             size="xs"
             disabled={!canUpdate}
             onClick={async () => {
-              await field.update({ [propKey]: newValue, type: field.type });
+              await field.update({ [propKey]: newValue });
               setIsEditing(false);
+              toast(t('common:actions.updateSucceed'));
             }}
           >
             {t('actions.submit')}

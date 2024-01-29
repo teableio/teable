@@ -17,8 +17,8 @@ export class SetTablePropertyBuilder implements IOpBuilder {
 
     return {
       p: [key],
-      oi: newValue,
-      od: oldValue,
+      ...(newValue == null ? {} : { oi: newValue }),
+      ...(oldValue == null ? {} : { od: oldValue }),
     };
   }
 

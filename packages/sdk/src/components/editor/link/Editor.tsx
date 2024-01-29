@@ -56,6 +56,10 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     return linkEditorMainRef.current?.onReset();
   };
 
+  const onExpandRecord = (recordId: string) => {
+    setExpandRecordId(recordId);
+  };
+
   return (
     <div className="space-y-3">
       {cvArray?.map(({ id, title }) => (
@@ -90,6 +94,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
               ref={linkEditorMainRef}
               isEditing={isEditing}
               setEditing={setEditing}
+              onExpandRecord={onExpandRecord}
             />
           </DialogContent>
         </Dialog>

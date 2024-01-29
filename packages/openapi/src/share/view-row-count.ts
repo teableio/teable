@@ -5,7 +5,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/rowCount';
+export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/row-count';
 
 export const shareViewRowCountRoSchema = queryBaseSchema.omit({
   viewId: true,

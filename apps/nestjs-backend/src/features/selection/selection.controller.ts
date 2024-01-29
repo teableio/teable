@@ -21,7 +21,7 @@ export class SelectionController {
   constructor(private selectionService: SelectionService) {}
 
   @Permissions('record|read')
-  @Get('/rangeToId')
+  @Get('/range-to-id')
   async getIdsFromRanges(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rangesToIdQuerySchema), TqlPipe) query: IRangesToIdQuery

@@ -17,4 +17,6 @@ export const envValidationSchema = Joi.object({
   STORAGE_PREFIX: Joi.string().uri().optional(),
 
   PUBLIC_ORIGIN: Joi.string().uri(),
+
+  BRAND_NAME: Joi.string().required(),
 });

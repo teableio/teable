@@ -4,7 +4,12 @@ import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { ICreateTableRo } from '@teable-group/core';
 import { FieldType, RowHeightLevel, ViewType } from '@teable-group/core';
-import { expect } from 'vitest';
+import {
+  updateTableDescription,
+  updateTableIcon,
+  updateTableName,
+  updateTableOrder,
+} from '@teable-group/openapi';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { Events } from '../src/event-emitter/events';
@@ -208,5 +213,25 @@ describe('OpenAPI FieldController (e2e)', () => {
     expect(tableResult.dbTableName).toEqual(
       dbProvider.generateDbTableName(baseId, 'my_awesome_table_name' + timeStr)
     );
+  });
+
+  it('should update table simple properties', async () => {
+    const result = await createTable(baseId, {
+      name: 'table',
+    });
+
+    tableId = result.id;
+
+    await updateTableName(baseId, tableId, { name: 'newTableName' });
+    await updateTableDescription(baseId, tableId, { description: 'newDescription' });
+    await updateTableIcon(baseId, tableId, { icon: '😀' });
+    await updateTableOrder(baseId, tableId, { order: 1.1 });
+
+    const table = await getTable(baseId, tableId);
+
+    expect(table.name).toEqual('newTableName');
+    expect(table.description).toEqual('newDescription');
+    expect(table.icon).toEqual('😀');
+    expect(table.order).toEqual(1.1);
   });
 });

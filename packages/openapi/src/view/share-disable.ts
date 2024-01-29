@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const DISABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/disableShare';
+export const DISABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/disable-share';
 
 export const DisableShareViewRoute: RouteConfig = registerRoute({
   method: 'post',

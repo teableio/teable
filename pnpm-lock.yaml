@@ -27,9 +27,6 @@ importers:
       '@teable-group/eslint-config-bases':
         specifier: workspace:^
         version: link:packages/eslint-config-bases
-      '@types/prettier':
-        specifier: 2.7.3
-        version: 2.7.3
       '@types/shell-quote':
         specifier: 1.7.5
         version: 1.7.5
@@ -10098,10 +10095,6 @@ packages:
     resolution: {integrity: sha512-N/c2MrgSO8n/uj4v6m9UmcpK1e/lSofUGy2GLuLJ3D18nCYx9FFKunJdOmvaXfCQkiwHTDMaYKUrhrt0KW4rvQ==}
     dependencies:
       '@types/node': 18.19.0
-    dev: true
-
-  /@types/prettier@2.7.3:
-    resolution: {integrity: sha512-+68kP9yzs4LMp7VNh8gdzMSPZFL44MLGqiHWvttYJe+6qnuVr4Ek9wSBQoveqY/r+LwjCcU29kNVkidwim+kYA==}
     dev: true
 
   /@types/pretty-hrtime@1.0.3:

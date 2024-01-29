@@ -23,6 +23,8 @@ export enum IdPrefix {
   Share = 'shr',
 
   Notification = 'not',
+
+  AccessToken = 'acc',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -105,4 +107,8 @@ export function generateShareId() {
 
 export function generateNotificationId() {
   return IdPrefix.Notification + getRandomString(16);
+}
+
+export function generateAccessTokenId() {
+  return IdPrefix.AccessToken + getRandomString(16);
 }

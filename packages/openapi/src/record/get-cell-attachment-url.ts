@@ -3,7 +3,8 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_CELL_ATTACHMENT_URL = '/table/{tableId}/record/{recordId}/{fieldId}/attachmentUrl';
+export const GET_CELL_ATTACHMENT_URL =
+  '/table/{tableId}/record/{recordId}/{fieldId}/attachment-url';
 
 export const getCellAttachmentUrlVoSchema = z.record(z.string(), z.string());
 

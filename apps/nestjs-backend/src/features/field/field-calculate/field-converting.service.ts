@@ -9,7 +9,7 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ISelectFieldChoice,
-  IUpdateFieldRo,
+  IConvertFieldRo,
 } from '@teable-group/core';
 import {
   ColorUtils,
@@ -993,7 +993,7 @@ export class FieldConvertingService {
     }
   }
 
-  async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
+  async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
     if (!oldFieldVo) {
       throw new BadRequestException(`Not found fieldId(${fieldId})`);

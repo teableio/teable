@@ -8,3 +8,4 @@ export * from './use-grid-popup-position';
 export * from './use-grid-column-statistics';
 export * from './use-grid-group-collection';
 export * from './use-grid-collapsed-group';
+export * from './use-grid-prefilling-row';

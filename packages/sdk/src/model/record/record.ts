@@ -7,7 +7,7 @@ import { requestWrap } from '../../utils/requestWrap';
 import type { IFieldInstance } from '../field/factory';
 
 export class Record extends RecordCore {
-  static createRecords = createRecords;
+  static createRecords = requestWrap(createRecords);
 
   static getRecords = requestWrap(getRecords);
 

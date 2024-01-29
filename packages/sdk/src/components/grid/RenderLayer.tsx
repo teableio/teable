@@ -28,13 +28,14 @@ export interface IRenderLayerProps
     | 'imageManager'
     | 'spriteManager'
     | 'scrollState'
-    | 'getCellContent'
     | 'coordInstance'
     | 'columnStatistics'
     | 'groupCollection'
     | 'rowIndexVisible'
-    | 'isMultiSelectionEnable'
     | 'collaborators'
+    | 'columnHeaderVisible'
+    | 'isMultiSelectionEnable'
+    | 'getCellContent'
   > {
   isEditing?: boolean;
   visibleRegion: IVisibleRegion;
@@ -87,13 +88,14 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
+    columnHeaderVisible,
     hoveredColumnResizeIndex,
     isColumnFreezable,
     isRowAppendEnable,
     isColumnResizable,
     isColumnAppendEnable,
-    isColumnHeaderMenuVisible,
     isMultiSelectionEnable,
+    isColumnHeaderMenuVisible,
     getCellContent,
     real2RowIndex,
     getLinearRow,
@@ -159,6 +161,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       rowIndexVisible,
       columnStatistics,
       columnResizeState,
+      columnHeaderVisible,
       hoveredColumnResizeIndex,
       isColumnFreezable,
       isRowAppendEnable,
@@ -199,6 +202,7 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     rowIndexVisible,
     columnStatistics,
     columnResizeState,
+    columnHeaderVisible,
     hoverCellPosition,
     hoveredColumnResizeIndex,
     isColumnFreezable,

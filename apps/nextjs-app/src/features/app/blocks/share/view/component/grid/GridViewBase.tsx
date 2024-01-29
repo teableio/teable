@@ -209,8 +209,6 @@ export const GridViewBase = () => {
             columnStatistics={columnStatistics}
             freezeColumnCount={isTouchDevice ? 0 : 1}
             columns={columns}
-            smoothScrollX
-            smoothScrollY
             customIcons={customIcons}
             rowControls={rowControls}
             style={{

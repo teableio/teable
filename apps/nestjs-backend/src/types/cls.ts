@@ -9,6 +9,7 @@ export interface IClsStore extends ClsStore {
     name: string;
     email: string;
   };
+  accessTokenId?: string;
   tx: {
     client?: Prisma.TransactionClient;
     timeStr?: string;

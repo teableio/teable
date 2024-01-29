@@ -6,20 +6,23 @@ import {
   Get,
   Param,
   Patch,
+  Put,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import type { IFieldVo } from '@teable-group/core';
 import {
-  fieldRoSchema,
+  createFieldRoSchema,
   getFieldsQuerySchema,
   IFieldRo,
   IGetFieldsQuery,
-  IUpdateFieldRo,
+  IConvertFieldRo,
+  convertFieldRoSchema,
   updateFieldRoSchema,
+  IUpdateFieldRo,
 } from '@teable-group/core';
-import type { IPlanFieldUpdateVo, IPlanFieldVo } from '@teable-group/openapi';
+import type { IPlanFieldConvertVo, IPlanFieldVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
@@ -65,7 +68,7 @@ export class FieldOpenApiController {
   @Post('/plan')
   async planFieldCreate(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(fieldRoSchema)) fieldRo: IFieldRo
+    @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo
   ): Promise<IPlanFieldVo> {
     return await this.fieldOpenApiService.planFieldCreate(tableId, fieldRo);
   }
@@ -74,19 +77,29 @@ export class FieldOpenApiController {
   @Post()
   async createField(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(fieldRoSchema)) fieldRo: IFieldRo
+    @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo
   ): Promise<IFieldVo> {
     return await this.fieldOpenApiService.createField(tableId, fieldRo);
   }
 
   @Permissions('field|update')
-  @Patch(':fieldId/plan')
-  async planFieldUpdate(
+  @Put(':fieldId/plan')
+  async planFieldConvert(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
-    @Body(new ZodValidationPipe(updateFieldRoSchema)) updateFieldRo: IUpdateFieldRo
-  ): Promise<IPlanFieldUpdateVo> {
-    return await this.fieldOpenApiService.planFieldUpdate(tableId, fieldId, updateFieldRo);
+    @Body(new ZodValidationPipe(convertFieldRoSchema)) updateFieldRo: IConvertFieldRo
+  ): Promise<IPlanFieldConvertVo> {
+    return await this.fieldOpenApiService.planFieldConvert(tableId, fieldId, updateFieldRo);
+  }
+
+  @Permissions('field|update')
+  @Put(':fieldId/convert')
+  async convertField(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string,
+    @Body(new ZodValidationPipe(convertFieldRoSchema)) updateFieldRo: IConvertFieldRo
+  ) {
+    return await this.fieldOpenApiService.convertField(tableId, fieldId, updateFieldRo);
   }
 
   @Permissions('field|update')

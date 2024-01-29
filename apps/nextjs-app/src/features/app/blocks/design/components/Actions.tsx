@@ -18,8 +18,8 @@ export const Actions = ({ fieldId }: { fieldId: string }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
-          <DotsHorizontalIcon className="h-5 w-5" />
+        <Button variant="ghost" className="size-8 p-0">
+          <DotsHorizontalIcon className="size-5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

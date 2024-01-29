@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ITinyRecord, IUpdateFieldRo } from '@teable-group/core';
+import type { IFieldRo, ILinkFieldOptions, ITinyRecord, IConvertFieldRo } from '@teable-group/core';
 import { FieldType, Relationship } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type {
@@ -8,7 +8,7 @@ import type {
   IGraphCombo,
   IGraphVo,
   IPlanFieldVo,
-  IPlanFieldUpdateVo,
+  IPlanFieldConvertVo,
 } from '@teable-group/openapi';
 import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
@@ -290,7 +290,7 @@ export class GraphService {
     };
   }
 
-  private async getField(tableId: string, fieldId: string, fieldRo: IUpdateFieldRo) {
+  private async getField(tableId: string, fieldId: string, fieldRo: IConvertFieldRo) {
     const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
     if (!oldFieldVo) {
       throw new BadRequestException(`Not found fieldId(${fieldId})`);
@@ -388,11 +388,11 @@ export class GraphService {
     };
   }
 
-  async planFieldUpdate(
+  async planFieldConvert(
     tableId: string,
     fieldId: string,
-    fieldRo: IUpdateFieldRo
-  ): Promise<IPlanFieldUpdateVo> {
+    fieldRo: IConvertFieldRo
+  ): Promise<IPlanFieldConvertVo> {
     const { oldField, newField } = await this.getField(tableId, fieldId, fieldRo);
 
     const majorChange = this.fieldConvertingService.majorKeysChanged(oldField, newField);
