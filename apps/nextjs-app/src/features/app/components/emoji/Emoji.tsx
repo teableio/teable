@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import { cn } from '@teable-group/ui-lib/shadcn';
 
 interface IEmoji {
   className?: string;
@@ -8,7 +8,7 @@ interface IEmoji {
 
 export const Emoji: React.FC<IEmoji> = ({ emoji, size = 24, className }) => {
   return (
-    <div className={classNames('w-full h-full flex items-center justify-center', className)}>
+    <div className={cn('w-full h-full flex items-center justify-center', className)}>
       <span
         style={{
           fontFamily:

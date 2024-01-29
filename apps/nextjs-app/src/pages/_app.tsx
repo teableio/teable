@@ -130,7 +130,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
 };
 
 const isAuthLoginPage = (pathname: string) => {
-  const needLoginPage = ['/space', '/base', '/invite'];
+  const needLoginPage = ['/space', '/base', '/invite', '/setting'];
   return needLoginPage.some((path) => pathname.startsWith(path));
 };
 

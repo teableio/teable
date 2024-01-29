@@ -21,6 +21,7 @@
   },
   "settings": {
     "title": "Settings",
+    "back": "Back to home",
     "account": {
       "title": "My profile",
       "tab": "My Account",
@@ -46,7 +47,8 @@
       "changePasswordSuccess": {
         "title": "Change password successfully.",
         "desc": "You will be redirected to the login page in 2 seconds."
-      }
+      },
+      "manageToken": "Develop or manage your token"
     },
     "notify": {
       "title": "My Notifications",

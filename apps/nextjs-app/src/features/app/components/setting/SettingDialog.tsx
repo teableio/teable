@@ -1,3 +1,4 @@
+import { Bell, Settings, UserEdit } from '@teable-group/icons';
 import {
   Dialog,
   DialogContent,
@@ -22,17 +23,23 @@ export const SettingDialog = () => {
           <TabsList className="grid w-36 gap-2 bg-inherit text-left">
             <TabsTrigger
               value="profile"
-              className="w-36 justify-start data-[state=active]:bg-muted"
+              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
+              <UserEdit />
               {t('settings.account.tab')}
             </TabsTrigger>
-            <TabsTrigger value="system" className="justify-start data-[state=active]:bg-muted">
+            <TabsTrigger
+              value="system"
+              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
+            >
+              <Settings />
               {t('settings.setting.title')}
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
-              className="justify-start data-[state=active]:bg-muted"
+              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
+              <Bell />
               {t('settings.notify.title')}
             </TabsTrigger>
           </TabsList>

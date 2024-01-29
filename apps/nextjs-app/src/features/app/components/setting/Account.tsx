@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { ArrowUpRight } from '@teable-group/icons';
 import { updateUserAvatar, updateUserName } from '@teable-group/openapi';
 import { useSession } from '@teable-group/sdk';
 import {
@@ -14,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn';
+import { useRouter } from 'next/router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
@@ -21,6 +23,7 @@ import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
   const { t } = useTranslation('common');
+  const router = useRouter();
 
   const updateUserAvatarMutation = useMutation(updateUserAvatar, {
     onSuccess: () => {
@@ -124,6 +127,17 @@ export const Account: React.FC = () => {
             </ChangePasswordDialog>
           </div>
         </div>
+      </div>
+      <Separator className="my-2" />
+      <div>
+        <Button
+          variant={'ghost'}
+          className="flex items-center gap-2 px-1 text-muted-foreground"
+          onClick={() => router.push('/setting/personal-access-token')}
+        >
+          <ArrowUpRight />
+          {t('settings.account.manageToken')}
+        </Button>
       </div>
     </div>
   );

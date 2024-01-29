@@ -80,6 +80,13 @@
     }
   },
   "spaceRole": {
+    "role": {
+      "owner": "Owner",
+      "creator": "Creator",
+      "editor": "Editor",
+      "commenter": "Commenter",
+      "viewer": "Viewer"
+    },
     "description": {
       "owner": "Can fully configure and edit bases, and manage space settings and billing",
       "creator": "Can fully configure and edit bases",
