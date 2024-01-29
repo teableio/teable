@@ -1,6 +1,8 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
 import type {
   CreateAccessTokenVo,
+  GetAccessTokenVo,
   ListAccessTokenVo,
   RefreshAccessTokenVo,
   UpdateAccessTokenVo,
@@ -52,5 +54,10 @@ export class AccessTokenController {
   @Get()
   async getAccessTokens(): Promise<ListAccessTokenVo> {
     return await this.accessTokenService.listAccessToken();
+  }
+
+  @Get(':accessTokenId')
+  async getAccessToken(@Param('accessTokenId') accessTokenId: string): Promise<GetAccessTokenVo> {
+    return await this.accessTokenService.getAccessToken(accessTokenId);
   }
 }

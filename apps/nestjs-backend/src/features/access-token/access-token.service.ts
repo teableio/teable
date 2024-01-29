@@ -185,4 +185,23 @@ export class AccessTokenService {
     });
     return this.transformAccessTokenEntity(accessTokenEntity);
   }
+
+  async getAccessToken(accessTokenId: string) {
+    const userId = this.cls.get('user.id');
+    const item = await this.prismaService.accessToken.findFirstOrThrow({
+      where: { userId, id: accessTokenId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        scopes: true,
+        spaceIds: true,
+        baseIds: true,
+        createdTime: true,
+        expiredTime: true,
+        lastUsedTime: true,
+      },
+    });
+    return this.transformAccessTokenEntity(item);
+  }
 }
