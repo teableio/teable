@@ -46,9 +46,17 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
     <div className="flex w-full items-center overflow-hidden px-0.5">
       <ViewIcon className="mr-1 size-4 shrink-0" />
       {!isEditing ? (
-        <div className="flex flex-1 items-center justify-center overflow-hidden">
-          <div className="truncate text-xs font-medium leading-5">{view.name}</div>
-        </div>
+        isActive && showViewMenu ? (
+          <PopoverTrigger asChild>
+            <div className="flex flex-1 items-center justify-center overflow-hidden">
+              <div className="truncate text-xs font-medium leading-5">{view.name}</div>
+            </div>
+          </PopoverTrigger>
+        ) : (
+          <div className="flex flex-1 items-center justify-center overflow-hidden">
+            <div className="truncate text-xs font-medium leading-5">{view.name}</div>
+          </div>
+        )
       ) : (
         <Input
           type="text"
@@ -70,6 +78,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
               }
               setIsEditing(false);
             }
+            e.stopPropagation();
           }}
         />
       )}
@@ -90,67 +99,67 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
         permission['view|update'] && setIsEditing(true);
       }}
       onKeyDown={(e) => {
+        if (isEditing) {
+          return;
+        }
         if (e.key === 'Enter' || e.key === ' ') {
           navigateHandler();
         }
       }}
       onClick={() => {
+        if (isEditing) {
+          return;
+        }
         navigateHandler();
       }}
     >
-      {!isActive
-        ? commonPart
-        : showViewMenu && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className={classnames('m-0 flex w-full rounded-sm p-0', {
-                    'bg-secondary': isActive,
-                  })}
-                >
-                  {commonPart}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-32 p-1">
-                <div className="flex flex-col">
-                  {permission['view|update'] && (
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => {
-                        setIsEditing(true);
-                      }}
-                    >
-                      Rename view
-                    </Button>
-                  )}
-                  {permission['view|create'] && (
+      <Popover>
+        <Button
+          variant="ghost"
+          size="xs"
+          className={classnames('m-0 flex w-full rounded-sm p-0', {
+            'bg-secondary': isActive,
+          })}
+        >
+          {commonPart}
+        </Button>
+        <PopoverContent className="w-32 p-1">
+          <div className="flex flex-col">
+            {permission['view|update'] && (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  setIsEditing(true);
+                }}
+              >
+                Rename view
+              </Button>
+            )}
+            {/* {permission['view|create'] && (
                     <Button variant="ghost" size="xs">
                       Duplicate view
                     </Button>
-                  )}
-                  {permission['view|delete'] && (
-                    <>
-                      <Separator className="my-0.5" />
-                      <Button
-                        size="xs"
-                        disabled={!removable}
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          deleteView();
-                        }}
-                      >
-                        Delete view
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+                  )} */}
+            {permission['view|delete'] && (
+              <>
+                <Separator className="my-0.5" />
+                <Button
+                  size="xs"
+                  disabled={!removable}
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    deleteView();
+                  }}
+                >
+                  Delete view
+                </Button>
+              </>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 };
