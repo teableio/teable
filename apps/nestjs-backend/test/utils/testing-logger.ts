@@ -22,14 +22,14 @@ export class TestingLogger extends ConsoleLogger {
     if (!this.isLevelEnabled('warn')) {
       return;
     }
-    console.log(message);
+    console.warn(message);
   }
 
   debug(message: string, ...optionalParams: any[]) {
     if (!this.isLevelEnabled('debug')) {
       return;
     }
-    console.log(message, optionalParams);
+    console.debug(message, optionalParams);
   }
 
   verbose(message: string) {
@@ -43,6 +43,6 @@ export class TestingLogger extends ConsoleLogger {
     if (!this.isLevelEnabled('error')) {
       return;
     }
-    console.log(message, optionalParams);
+    console.error(message, optionalParams);
   }
 }

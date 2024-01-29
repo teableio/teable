@@ -28,6 +28,11 @@ module.exports = {
     // optional overrides per project
   },
   overrides: [
-    // optional overrides per project file match
+    {
+      files: ['src/event-emitter/events/**/*.event.ts'],
+      rules: {
+        '@typescript-eslint/naming-convention': 'off',
+      },
+    },
   ],
 };

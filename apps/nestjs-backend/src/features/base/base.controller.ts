@@ -14,7 +14,7 @@ import type {
   ListBaseCollaboratorVo,
 } from '@teable-group/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
-import { Events } from '../../event-emitter/model';
+import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';

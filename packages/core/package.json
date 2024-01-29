@@ -40,7 +40,7 @@
     "color": "4.2.3",
     "dayjs": "1.11.10",
     "lodash": "4.17.21",
-    "nanoid": "3.3.6",
+    "nanoid": "3.3.7",
     "reflect-metadata": "0.1.13",
     "zod": "3.22.4"
   },
@@ -48,7 +48,7 @@
     "@size-limit/file": "11.0.2",
     "@teable-group/eslint-config-bases": "workspace:^",
     "@types/lodash": "4.14.202",
-    "@types/node": "18.18.2",
+    "@types/node": "18.19.0",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.1.1",

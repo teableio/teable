@@ -2,7 +2,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { map, intersection, isEmpty } from 'lodash';
-// import type { RecordUpdatedEvent } from '../../../../../event-emitter/model';
+// import type { RecordUpdatedEvent } from '../../../../../event-emitter/events';
 import { JsonSchemaParser } from '../../../engine/json-schema/parser';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema, IObjectArraySchema } from '../../action-core';

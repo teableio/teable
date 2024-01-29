@@ -1,10 +1,19 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { ICreateTableRo } from '@teable-group/core';
 import { FieldType, RowHeightLevel, ViewType } from '@teable-group/core';
+import { expect } from 'vitest';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
+import { Events } from '../src/event-emitter/events';
+import type {
+  FieldCreateEvent,
+  TableCreateEvent,
+  ViewCreateEvent,
+  RecordCreateEvent,
+} from '../src/event-emitter/events';
 import {
   createRecords,
   createTable,
@@ -100,12 +109,14 @@ describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
   let dbProvider: IDbProvider;
+  let event: EventEmitter2;
 
   const baseId = globalThis.testConfig.baseId;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     dbProvider = app.get(DB_PROVIDER_SYMBOL);
+    event = app.get(EventEmitter2);
   });
 
   afterAll(async () => {
@@ -115,12 +126,50 @@ describe('OpenAPI FieldController (e2e)', () => {
   });
 
   it('/api/table/ (POST) with assertData data', async () => {
+    let eventCount = 0;
+    event.once(Events.TABLE_CREATE, async (payload: TableCreateEvent) => {
+      expect(payload).toBeDefined();
+      expect(payload.name).toBe(Events.TABLE_CREATE);
+      expect(payload?.payload).toBeDefined();
+      expect(payload?.payload?.baseId).toBeDefined();
+      expect(payload?.payload?.table).toBeDefined();
+      eventCount++;
+    });
+
+    event.once(Events.TABLE_FIELD_CREATE, async (payload: FieldCreateEvent) => {
+      expect(payload).toBeDefined();
+      expect(payload.name).toBe(Events.TABLE_FIELD_CREATE);
+      expect(payload?.payload).toBeDefined();
+      expect(payload?.payload?.tableId).toBeDefined();
+      expect(payload?.payload?.field).toHaveLength(5);
+      eventCount++;
+    });
+
+    event.once(Events.TABLE_VIEW_CREATE, async (payload: ViewCreateEvent) => {
+      expect(payload).toBeDefined();
+      expect(payload.name).toBe(Events.TABLE_VIEW_CREATE);
+      expect(payload?.payload).toBeDefined();
+      expect(payload?.payload?.tableId).toBeDefined();
+      expect(payload?.payload?.view).toHaveLength(2);
+      eventCount++;
+    });
+
+    event.once(Events.TABLE_RECORD_CREATE, async (payload: RecordCreateEvent) => {
+      expect(payload).toBeDefined();
+      expect(payload.name).toBe(Events.TABLE_RECORD_CREATE);
+      expect(payload?.payload).toBeDefined();
+      expect(payload?.payload?.tableId).toBeDefined();
+      expect(payload?.payload?.record).toHaveLength(2);
+      eventCount++;
+    });
+
     const result = await createTable(baseId, assertData);
 
     tableId = result.id;
     const recordResult = await getRecords(tableId);
 
     expect(recordResult.records).toHaveLength(2);
+    expect(eventCount).toBe(4);
   });
 
   it('/api/table/ (POST) empty', async () => {

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { Injectable } from '@nestjs/common';
-// import type { RecordCreatedEvent } from '../../../../../event-emitter/model';
+// import type { RecordCreatedEvent } from '../../../../../event-emitter/events';
 import { TriggerTypeEnums } from '../../../enums/trigger-type.enum';
 import type { IConstSchema } from '../../action-core';
 import { TriggerCore } from '../trigger-core';
