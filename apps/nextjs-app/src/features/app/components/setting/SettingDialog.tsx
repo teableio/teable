@@ -7,7 +7,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@teable-group/ui-lib/shadcn';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { System } from '@/features/app/components/setting/System';
 import { Account } from './Account';
 import { Notifications } from './Notifications';

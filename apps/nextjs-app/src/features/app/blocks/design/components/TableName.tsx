@@ -2,8 +2,8 @@ import { useTable, useTablePermission } from '@teable-group/sdk/hooks';
 import type { Table } from '@teable-group/sdk/model';
 import { Button, Input, Label } from '@teable-group/ui-lib/shadcn';
 import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 
 export const TableName = () => {
   const table = useTable() as Table;

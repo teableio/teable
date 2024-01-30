@@ -37,7 +37,24 @@ export const getServerSideProps: GetServerSideProps<IRecordPageProps> =
     const { baseId, tableId, viewId, recordId } = context.query;
     try {
       const api = ssrApi;
+
+      // jump to record in default view
+      if (viewId === 'default') {
+        const { id: defaultViewId } = await api.getDefaultViewId(
+          baseId as string,
+          tableId as string
+        );
+
+        return {
+          redirect: {
+            destination: `/base/${baseId}/${tableId}/${defaultViewId}/${recordId}`,
+            permanent: false,
+          },
+        };
+      }
+
       const recordServerData = await api.getRecord(tableId as string, recordId as string);
+
       if (!recordServerData) {
         return {
           redirect: {

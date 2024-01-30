@@ -9,8 +9,14 @@ import {
 } from '@teable-group/icons';
 import { Filter, HideFields, RowHeight, useFields, Sort, Group } from '@teable-group/sdk';
 import { useView } from '@teable-group/sdk/hooks/use-view';
-import { cn } from '@teable-group/ui-lib/shadcn';
-import { useTranslation } from 'react-i18next';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  cn,
+} from '@teable-group/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../hooks/useToolbarChange';
 import { ToolBarButton } from './ToolBarButton';
@@ -94,9 +100,19 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </Group>
-      <ToolBarButton disabled={disabled} text="Color">
-        <PaintBucket className="size-4 text-sm" />
-      </ToolBarButton>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger>
+            <ToolBarButton disabled={true} text="Color">
+              <PaintBucket className="size-4 text-sm" />
+            </ToolBarButton>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Coming soon</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
       <RowHeight
         rowHeight={(view?.options as GridViewOptions)?.rowHeight || null}
         onChange={onRowHeightChange}

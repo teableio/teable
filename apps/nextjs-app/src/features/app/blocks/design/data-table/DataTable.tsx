@@ -24,8 +24,8 @@ import {
   TableHeader,
   TableRow,
 } from '@teable-group/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import * as React from 'react';
-import { useTranslation } from 'react-i18next';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];

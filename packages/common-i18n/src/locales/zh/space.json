@@ -5,5 +5,10 @@
   "quickAction": {
     "title": "快捷搜索...",
     "placeHolder": "输入命令或进行搜索..."
+  },
+  "action": {
+    "createBase": "创建数据库",
+    "createSpace": "创建空间",
+    "invite": "邀请"
   }
 }

@@ -3,7 +3,7 @@ import { cn } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { TableList } from '../../table-list/TableList';
 import { QuickAction } from './QuickAction';

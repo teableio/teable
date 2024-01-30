@@ -5,8 +5,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 

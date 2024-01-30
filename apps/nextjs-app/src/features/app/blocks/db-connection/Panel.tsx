@@ -88,9 +88,13 @@ export const DbConnectionPanel: React.FC = () => {
           </div>
           <div className="flex justify-end">
             {data?.data ? (
-              <Button onClick={() => mutationDelete.mutate(base.id)}>Delete</Button>
+              <Button size="sm" onClick={() => mutationDelete.mutate(base.id)}>
+                Delete
+              </Button>
             ) : (
-              <Button onClick={() => mutationCreate.mutate(base.id)}>Create</Button>
+              <Button size="sm" onClick={() => mutationCreate.mutate(base.id)}>
+                Create
+              </Button>
             )}
           </div>
         </>
