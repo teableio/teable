@@ -1,5 +1,5 @@
 import type { GetServerSideProps } from 'next';
-import type { NextPageWithLayout } from '../type';
+import type { NextPageWithLayout } from '../../lib/type';
 
 const Node: NextPageWithLayout = () => {
   return <p>redirecting</p>;

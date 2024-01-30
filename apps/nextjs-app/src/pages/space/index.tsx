@@ -4,7 +4,7 @@ import { SpacePage } from '@/features/app/blocks/space';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { getTranslationsProps } from '@/lib/i18n';
-import type { NextPageWithLayout } from '../type';
+import type { NextPageWithLayout } from '../../lib/type';
 
 const Space: NextPageWithLayout = () => {
   return <SpacePage />;

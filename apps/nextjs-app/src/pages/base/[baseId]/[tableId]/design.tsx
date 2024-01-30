@@ -6,9 +6,9 @@ import { tableConfig } from '@/features/i18n/table.config';
 import type { IDesignPageProps } from '@/lib/design-pages-data';
 import { getDesignPageServerData } from '@/lib/design-pages-data';
 import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '@/pages/type';
 
 const Node: NextPageWithLayout<IDesignPageProps> = (props) => {
   return <Design {...props} />;

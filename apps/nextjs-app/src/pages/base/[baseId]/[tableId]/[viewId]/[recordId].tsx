@@ -7,10 +7,10 @@ import { Table } from '@/features/app/blocks/table/Table';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { tableConfig } from '@/features/i18n/table.config';
 import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '@/pages/type';
 
 interface IRecordPageProps extends IViewPageProps {
   recordServerData: IRecord;

@@ -7,8 +7,8 @@ import { DashboardPage } from '@/features/app/dashboard/Pages';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '@/pages/type';
 
 const Node: NextPageWithLayout = () => <DashboardPage />;
 

@@ -16,7 +16,7 @@ import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config.js';
 import { AppProviders } from '../AppProviders';
-import type { NextPageWithLayout } from './type';
+import type { NextPageWithLayout } from '../lib/type.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
