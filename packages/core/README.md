@@ -1,7 +1,7 @@
 # @teable/core
 
 > **Note**
-> This package is part of [teable-group/teable](https://github.com/teableio/teable).
+> This package is part of [teableio/teable](https://github.com/teableio/teable).
 
 A package holding some basic typescript utilities: typeguards, assertions...
 
