@@ -86,7 +86,7 @@ export class SpaceController {
 
   @Permissions('space|delete')
   @Delete(':spaceId')
-  @EmitControllerEvent(Events.SPACE_UPDATE)
+  @EmitControllerEvent(Events.SPACE_DELETE)
   async deleteSpace(@Param('spaceId') spaceId: string) {
     await this.spaceService.deleteSpace(spaceId);
     return null;

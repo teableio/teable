@@ -8,10 +8,8 @@ import { tap } from 'rxjs';
 import { match, P } from 'ts-pattern';
 import { EMIT_EVENT_NAME } from '../decorators/emit-controller-event.decorator';
 import { EventEmitterService } from '../event-emitter.service';
-import { Events } from '../events';
-import { BaseEventFactory } from '../events/base/base.event';
-import type { IEventContext } from '../events/core-event';
-import { SpaceEventFactory } from '../events/space/space.event';
+import type { IEventContext } from '../events';
+import { Events, BaseEventFactory, SpaceEventFactory } from '../events';
 
 @Injectable()
 export class EventMiddleware implements NestInterceptor {
@@ -49,7 +47,7 @@ export class EventMiddleware implements NestInterceptor {
     eventName: Events,
     interceptContext: ReturnType<typeof this.interceptContext>
   ) {
-    const { reqUser, reqHeaders, resolveData } = interceptContext;
+    const { reqUser, reqHeaders, reqParams, resolveData } = interceptContext;
 
     const eventContext: IEventContext = {
       user: reqUser,
@@ -58,10 +56,10 @@ export class EventMiddleware implements NestInterceptor {
 
     return match(eventName)
       .with(P.union(Events.BASE_CREATE, Events.BASE_DELETE, Events.BASE_UPDATE), () =>
-        BaseEventFactory.create(eventName, resolveData, eventContext)
+        BaseEventFactory.create(eventName, { base: resolveData, ...reqParams }, eventContext)
       )
       .with(P.union(Events.SPACE_CREATE, Events.SPACE_DELETE, Events.SPACE_UPDATE), () =>
-        SpaceEventFactory.create(eventName, resolveData, eventContext)
+        SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
       )
       .otherwise(() => null);
   }

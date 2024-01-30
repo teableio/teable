@@ -18,7 +18,6 @@ import {
 } from '@teable-group/core';
 import { PrismaService } from '@teable-group/db-main-prisma';
 import type { Knex } from 'knex';
-import { expect } from 'vitest';
 import type { FieldCreateEvent } from '../src/event-emitter/events';
 import { Events } from '../src/event-emitter/events';
 import {
