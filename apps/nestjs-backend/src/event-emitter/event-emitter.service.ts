@@ -125,22 +125,19 @@ export class EventEmitterService {
   }
 
   private getMergePropertyName(event: OpEvent): string {
-    return (
-      match(event)
-        .with({ name: Events.TABLE_VIEW_CREATE }, () => 'view')
-        // .with(P.union(P.instanceOf(FieldCreateEvent), P.instanceOf(FieldUpdateEvent)), () => 'field')
-        .with(
-          P.union({ name: Events.TABLE_FIELD_CREATE }, { name: Events.TABLE_FIELD_UPDATE }),
-          () => 'field'
-        )
-        .with({ name: Events.TABLE_FIELD_DELETE }, () => 'fieldId')
-        .with(
-          P.union({ name: Events.TABLE_RECORD_CREATE }, { name: Events.TABLE_RECORD_UPDATE }),
-          () => 'record'
-        )
-        .with({ name: Events.TABLE_RECORD_DELETE }, () => 'recordId')
-        .otherwise(() => '')
-    );
+    return match(event)
+      .with({ name: Events.TABLE_VIEW_CREATE }, () => 'view')
+      .with(
+        P.union({ name: Events.TABLE_FIELD_CREATE }, { name: Events.TABLE_FIELD_UPDATE }),
+        () => 'field'
+      )
+      .with({ name: Events.TABLE_FIELD_DELETE }, () => 'fieldId')
+      .with(
+        P.union({ name: Events.TABLE_RECORD_CREATE }, { name: Events.TABLE_RECORD_UPDATE }),
+        () => 'record'
+      )
+      .with({ name: Events.TABLE_RECORD_DELETE }, () => 'recordId')
+      .otherwise(() => '');
   }
 
   private initAcc(event: OpEvent, mergePropertyName: string): OpEvent {
