@@ -3,7 +3,7 @@ import type { GetServerSideProps } from 'next';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 import { Error } from '@/features/app/blocks/Error';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../_app';
+import type { NextPageWithLayout } from '../type';
 
 const InvitePage: NextPageWithLayout<{ error?: IHttpError }> = () => {
   return <Error message="Sorry, we were unable to accept the invite." />;

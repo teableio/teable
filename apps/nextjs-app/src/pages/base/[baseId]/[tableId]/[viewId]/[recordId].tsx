@@ -10,7 +10,7 @@ import { getTranslationsProps } from '@/lib/i18n';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../../../_app';
+import type { NextPageWithLayout } from '@/pages/type';
 
 interface IRecordPageProps extends IViewPageProps {
   recordServerData: IRecord;

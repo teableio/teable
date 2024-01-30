@@ -50,7 +50,7 @@
     },
     "notify": {
       "title": "My Notifications",
-      "label": "Activity in your workspace",
+      "label": "Activity in your space",
       "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
     },
     "setting": {
@@ -61,6 +61,14 @@
       "light": "Light",
       "system": "System"
     }
+  },
+  "noun": {
+    "table": "Table",
+    "view": "View",
+    "space": "Space",
+    "base": "Base",
+    "dashboard": "Dashboard",
+    "automation": "Automation"
   },
   "noResult": "No Result.",
   "name": "Name",

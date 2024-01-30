@@ -4,12 +4,10 @@ import type { IUser } from '@teable-group/sdk';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import type { NextPage } from 'next';
 import type { AppContext, AppProps as NextAppProps } from 'next/app';
 import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
-import type { ReactElement, ReactNode } from 'react';
 import { z } from 'zod';
 import { getUserMe } from '@/backend/api/rest/get-user';
 import RouterProgressBar from '@/components/RouterProgress';
@@ -18,6 +16,7 @@ import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config.js';
 import { AppProviders } from '../AppProviders';
+import type { NextPageWithLayout } from './type';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -35,11 +34,6 @@ import '@fontsource-variable/inter';
 export type AppProps = NextAppProps & {
   /** Will be defined only is there was an error */
   err?: Error;
-};
-
-export type NextPageWithLayout<P = Record<string, unknown>, IP = P> = NextPage<P, IP> & {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getLayout?: (page: ReactElement, appProps: any) => ReactNode;
 };
 
 type AppPropsWithLayout = AppProps & {

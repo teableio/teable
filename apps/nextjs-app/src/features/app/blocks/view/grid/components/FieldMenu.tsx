@@ -143,7 +143,7 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          view.updateColumnMeta(
+          await view.updateColumnMeta(
             filteredFields.map((field) => ({ fieldId: field.id, columnMeta: { hidden: true } }))
           );
         },
@@ -162,7 +162,9 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          filteredFields.forEach((field) => field.delete());
+          for (const field of filteredFields) {
+            await field.delete();
+          }
         },
       },
     ],

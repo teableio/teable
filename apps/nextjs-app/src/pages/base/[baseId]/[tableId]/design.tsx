@@ -8,7 +8,7 @@ import { getDesignPageServerData } from '@/lib/design-pages-data';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../../_app';
+import type { NextPageWithLayout } from '@/pages/type';
 
 const Node: NextPageWithLayout<IDesignPageProps> = (props) => {
   return <Design {...props} />;

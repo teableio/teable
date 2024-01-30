@@ -62,6 +62,14 @@
       "system": "系统"
     }
   },
+  "noun": {
+    "table": "表格",
+    "view": "视图",
+    "space": "空间",
+    "base": "数据库",
+    "dashboard": "仪表盘",
+    "automation": "自动化"
+  },
   "noResult": "无结果。",
   "name": "名称",
   "description": "描述"
