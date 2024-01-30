@@ -4,7 +4,7 @@ import { PersonAccessTokenPage } from '@/features/app/blocks/setting/access-toke
 import { SettingLayout } from '@/features/app/layouts/SettingLayout';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 import { getTranslationsProps } from '@/lib/i18n';
-import type { NextPageWithLayout } from '../type';
+import type { NextPageWithLayout } from '@/lib/type';
 
 const PersonalAccessToken: NextPageWithLayout = () => {
   return <PersonAccessTokenPage />;
