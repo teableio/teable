@@ -11,13 +11,11 @@ export const SpaceSideBar = () => {
   const pageRoutes: {
     href: string;
     text: string;
-    shortCutKey: string;
     Icon: React.FC<{ className?: string }>;
   }[] = [
     {
       href: '/space',
       text: 'All spaces',
-      shortCutKey: '⌘H',
       Icon: Home,
     },
   ];
@@ -25,7 +23,7 @@ export const SpaceSideBar = () => {
     <>
       <div className="flex flex-col gap-2 px-3">
         <ul>
-          {pageRoutes.map(({ href, text, shortCutKey, Icon }) => {
+          {pageRoutes.map(({ href, text, Icon }) => {
             return (
               <li key={href}>
                 <Button
@@ -41,7 +39,6 @@ export const SpaceSideBar = () => {
                     <Icon className="size-4 shrink-0" />
                     <p className="truncate">{text}</p>
                     <div className="grow basis-0"></div>
-                    <p className="text-xs text-slate-500">{shortCutKey}</p>
                   </Link>
                 </Button>
               </li>

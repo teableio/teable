@@ -16,8 +16,8 @@ import {
   TooltipTrigger,
 } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 
 export const Account: React.FC = () => {

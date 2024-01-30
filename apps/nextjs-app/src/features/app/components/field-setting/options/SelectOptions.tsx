@@ -8,8 +8,8 @@ import { Input } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
+import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface IOptionItemProps {

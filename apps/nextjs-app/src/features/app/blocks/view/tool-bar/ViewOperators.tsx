@@ -16,7 +16,7 @@ import {
   TooltipTrigger,
   cn,
 } from '@teable-group/ui-lib/shadcn';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../hooks/useToolbarChange';
 import { ToolBarButton } from './ToolBarButton';

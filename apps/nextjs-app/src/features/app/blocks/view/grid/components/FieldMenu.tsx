@@ -14,8 +14,8 @@ import {
   SheetHeader,
 } from '@teable-group/ui-lib/shadcn';
 import classNames from 'classnames';
+import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';

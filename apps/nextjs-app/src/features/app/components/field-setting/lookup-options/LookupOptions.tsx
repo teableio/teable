@@ -4,8 +4,8 @@ import { AnchorProvider } from '@teable-group/sdk/context';
 import { useFields, useTable, useFieldStaticGetter } from '@teable-group/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable-group/sdk/model';
 import { Selector } from '@teable-group/ui-lib/base';
+import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 const SelectFieldByTableId: React.FC<{

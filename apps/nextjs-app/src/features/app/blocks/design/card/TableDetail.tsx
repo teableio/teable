@@ -10,7 +10,7 @@ import {
 } from '@teable-group/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { DbTableName } from '../components/DbTableName';
 import { TableDescription } from '../components/TableDescription';
 import { TableName } from '../components/TableName';

@@ -11,8 +11,8 @@ import {
 } from '@teable-group/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
+import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export const SelectTable = (props: {

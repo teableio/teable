@@ -6,7 +6,7 @@ import { FieldProvider, useTable, useTablePermission } from '@teable-group/sdk';
 import { Button, cn } from '@teable-group/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { useTitle } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { Emoji } from '../../components/emoji/Emoji';

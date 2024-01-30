@@ -16,8 +16,8 @@ import {
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
 import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
+import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { fromZodError } from 'zod-validation-error';
 import { tableConfig } from '@/features/i18n/table.config';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';

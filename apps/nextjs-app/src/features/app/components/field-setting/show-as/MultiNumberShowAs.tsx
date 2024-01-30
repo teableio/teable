@@ -3,7 +3,7 @@ import type { IMultiNumberShowAs } from '@teable-group/core';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
 import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
 import classNames from 'classnames';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { ColorPicker } from '../options/SelectOptions';
 

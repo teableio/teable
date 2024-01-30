@@ -13,9 +13,9 @@ import {
   Button,
 } from '@teable-group/ui-lib/shadcn';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { useTranslation } from 'react-i18next';
 import { useSettingStore } from '@/features/app/components/setting/useSettingStore';
 import { tableConfig } from '@/features/i18n/table.config';
 
