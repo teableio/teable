@@ -8,7 +8,7 @@ import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { automationConfig } from '@/features/i18n/automation';
 import { getTranslationsProps } from '@/lib/i18n';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../_app';
+import type { NextPageWithLayout } from '@/pages/type';
 
 const Node: NextPageWithLayout = () => <AutomationPage />;
 

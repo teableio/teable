@@ -1,7 +1,6 @@
 import {
   Dialog,
   DialogContent,
-  DialogTrigger,
   Tabs,
   TabsContent,
   TabsList,
@@ -11,12 +10,13 @@ import { useTranslation } from 'react-i18next';
 import { System } from '@/features/app/components/setting/System';
 import { Account } from './Account';
 import { Notifications } from './Notifications';
+import { useSettingStore } from './useSettingStore';
 
-export const SettingTrigger: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const SettingDialog = () => {
   const { t } = useTranslation('common');
+  const { open, setOpen } = useSettingStore();
   return (
-    <Dialog>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="h-5/6 max-h-[800px] max-w-6xl">
         <Tabs defaultValue="profile" className="flex min-h-[40rem] gap-4 pt-4">
           <TabsList className="grid w-36 gap-2 bg-inherit text-left">

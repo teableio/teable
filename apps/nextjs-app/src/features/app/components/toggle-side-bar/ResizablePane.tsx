@@ -10,7 +10,7 @@ import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
 import { PaneSkeleton } from './PaneSkeleton';
 
-const ResizeblePanelsPrefix = 'react-resizable-panels';
+const ResizablePanelsPrefix = 'react-resizable-panels';
 
 enum ResizePart {
   LEFT = 'left',
@@ -34,7 +34,7 @@ export const ResizablePane: React.FC<{
 
   useEffect(() => {
     const sizeString = localStorage.getItem(
-      `${ResizeblePanelsPrefix}:${LocalStorageKeys.SideBarSize}`
+      `${ResizablePanelsPrefix}:${LocalStorageKeys.SideBarSize}`
     );
     if (isString(sizeString)) {
       const sizeObj = JSON.parse(sizeString);

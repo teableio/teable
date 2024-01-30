@@ -1,7 +1,6 @@
 import { Home } from '@teable-group/icons';
 import { cn } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { SpaceList } from './SpaceList';
@@ -25,9 +24,6 @@ export const SpaceSideBar = () => {
   return (
     <>
       <div className="flex flex-col gap-2 px-3">
-        <div>
-          <Input className="h-8" type="text" placeholder="Search" />
-        </div>
         <ul>
           {pageRoutes.map(({ href, text, shortCutKey, Icon }) => {
             return (

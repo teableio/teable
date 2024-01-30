@@ -2,7 +2,7 @@ import type { IHttpError } from '@teable-group/core';
 import type { GetServerSideProps } from 'next';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../_app';
+import type { NextPageWithLayout } from '@/pages/type';
 
 const Node: NextPageWithLayout = () => {
   return <p>redirecting</p>;
