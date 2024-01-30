@@ -1,5 +1,5 @@
-import type { IActionTriggerBuffer } from '@teable-group/core';
-import { getActionTriggerChannel } from '@teable-group/core';
+import type { IActionTriggerBuffer } from '@teable/core';
+import { getActionTriggerChannel } from '@teable/core';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';

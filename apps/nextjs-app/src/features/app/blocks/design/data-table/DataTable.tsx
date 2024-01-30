@@ -14,7 +14,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useFields } from '@teable-group/sdk/hooks';
+import { useFields } from '@teable/sdk/hooks';
 
 import {
   Table,
@@ -23,7 +23,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import * as React from 'react';
 

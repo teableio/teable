@@ -1,5 +1,5 @@
-import { ThemeKey, useTheme } from '@teable-group/sdk';
-import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable-group/ui-lib/shadcn';
+import { ThemeKey, useTheme } from '@teable/sdk';
+import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 
 export const System: React.FC = () => {

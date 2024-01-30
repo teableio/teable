@@ -7,8 +7,8 @@ import type {
   IQueryBaseRo,
   IRowCountVo,
   StatisticsFunc,
-} from '@teable-group/core';
-import { getValidStatisticFunc } from '@teable-group/core';
+} from '@teable/core';
+import { getValidStatisticFunc } from '@teable/core';
 import { forIn, isEmpty, map } from 'lodash';
 import type { IWithView } from '../aggregation.service';
 import { AggregationService } from '../aggregation.service';

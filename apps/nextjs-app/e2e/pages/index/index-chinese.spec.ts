@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import page404JsonZh from '@teable-group/common-i18n/locales/zh/system.json';
+import page404JsonZh from '@teable/common-i18n/locales/zh/system.json';
 
 test.use({
   locale: 'zh',

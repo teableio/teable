@@ -7,7 +7,7 @@ import {
   isLessEqual,
   isNot,
   isNotEmpty,
-} from '@teable-group/core';
+} from '@teable/core';
 
 export const NUMBER_FIELD_CASES = [
   {

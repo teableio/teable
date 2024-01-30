@@ -1,4 +1,4 @@
-import { contractColorForTheme } from '@teable-group/core';
+import { contractColorForTheme } from '@teable/core';
 import { isEqual, groupBy } from 'lodash';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import { getDropTargetIndex } from '../../hooks';

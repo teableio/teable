@@ -1,4 +1,4 @@
-import type { GridViewOptions } from '@teable-group/core';
+import type { GridViewOptions } from '@teable/core';
 import {
   ArrowUpDown,
   PaintBucket,
@@ -6,16 +6,16 @@ import {
   EyeOff,
   LayoutList,
   Share2,
-} from '@teable-group/icons';
-import { Filter, HideFields, RowHeight, useFields, Sort, Group } from '@teable-group/sdk';
-import { useView } from '@teable-group/sdk/hooks/use-view';
+} from '@teable/icons';
+import { Filter, HideFields, RowHeight, useFields, Sort, Group } from '@teable/sdk';
+import { useView } from '@teable/sdk/hooks/use-view';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
   cn,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../hooks/useToolbarChange';

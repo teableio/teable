@@ -1,8 +1,8 @@
-import type { StatisticsFunc } from '@teable-group/core';
-import { CellValueType } from '@teable-group/core';
-import { useFields, useTable, useViewId } from '@teable-group/sdk/hooks';
-import { Table } from '@teable-group/sdk/model';
-import { statisticsValue2DisplayValue } from '@teable-group/sdk/utils';
+import type { StatisticsFunc } from '@teable/core';
+import { CellValueType } from '@teable/core';
+import { useFields, useTable, useViewId } from '@teable/sdk/hooks';
+import { Table } from '@teable/sdk/model';
+import { statisticsValue2DisplayValue } from '@teable/sdk/utils';
 import { useEffect, useMemo, useState } from 'react';
 
 export function useAggregates(funcs: StatisticsFunc[]) {

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
-import { FieldType, Relationship } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
+import { FieldType, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { cloneDeep, keyBy, difference, groupBy, isEqual, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

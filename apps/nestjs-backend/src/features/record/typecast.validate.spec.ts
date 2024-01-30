@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Colors, FieldType } from '@teable-group/core';
-import type { PrismaService } from '@teable-group/db-main-prisma';
+import { Colors, FieldType } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';

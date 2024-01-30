@@ -1,5 +1,5 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import { SortFunc } from '@teable-group/core';
+import { SortFunc } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../features/field/model/factory';
 import type { ISortFunctionInterface } from './sort-function.interface';

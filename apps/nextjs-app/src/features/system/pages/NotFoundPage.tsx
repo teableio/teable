@@ -1,4 +1,4 @@
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn';
 import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';

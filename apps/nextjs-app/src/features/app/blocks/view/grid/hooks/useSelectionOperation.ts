@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue } from '@teable-group/core';
-import { AttachmentFieldCore } from '@teable-group/core';
-import type { ICopyVo, IPasteRo, IRangesRo } from '@teable-group/openapi';
-import { clear, copy, paste, RangeType } from '@teable-group/openapi';
-import type { CombinedSelection, IRecordIndexMap } from '@teable-group/sdk';
-import { SelectionRegionType, useFields, useTableId, useView, useViewId } from '@teable-group/sdk';
-import { useToast } from '@teable-group/ui-lib';
+import type { IAttachmentCellValue } from '@teable/core';
+import { AttachmentFieldCore } from '@teable/core';
+import type { ICopyVo, IPasteRo, IRangesRo } from '@teable/openapi';
+import { clear, copy, paste, RangeType } from '@teable/openapi';
+import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
+import { SelectionRegionType, useFields, useTableId, useView, useViewId } from '@teable/sdk';
+import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
 import { extractTableHeader, serializerHtml } from '../../../../utils/clipboard';

@@ -1,1 +1,1 @@
-# @teable-group/sdk
+# @teable/sdk

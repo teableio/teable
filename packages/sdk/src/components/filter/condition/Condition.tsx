@@ -1,7 +1,7 @@
-import type { IFilterItem } from '@teable-group/core';
+import type { IFilterItem } from '@teable/core';
 
-import { Trash2 } from '@teable-group/icons';
-import { Button } from '@teable-group/ui-lib';
+import { Trash2 } from '@teable/icons';
+import { Button } from '@teable/ui-lib';
 
 import { isEqual } from 'lodash';
 import { useContext, useMemo } from 'react';

@@ -10,7 +10,7 @@ import type {
   IOtOperation,
   ISelectFieldChoice,
   IConvertFieldRo,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   ColorUtils,
   DbFieldType,
@@ -20,8 +20,8 @@ import {
   generateChoiceId,
   isMultiValueLink,
   RecordOpBuilder,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

@@ -1,6 +1,6 @@
-import { formatNumberToString, parseStringToNumber } from '@teable-group/core';
-import type { INumberFieldOptions } from '@teable-group/core';
-import { Input, cn } from '@teable-group/ui-lib';
+import { formatNumberToString, parseStringToNumber } from '@teable/core';
+import type { INumberFieldOptions } from '@teable/core';
+import { Input, cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';

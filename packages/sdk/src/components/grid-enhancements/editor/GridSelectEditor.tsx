@@ -3,8 +3,8 @@ import type {
   ISingleSelectCellValue,
   IMultipleSelectCellValue,
   ISelectFieldChoice,
-} from '@teable-group/core';
-import { FieldType, ColorUtils } from '@teable-group/core';
+} from '@teable/core';
+import { FieldType, ColorUtils } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTableId } from '../../../hooks';

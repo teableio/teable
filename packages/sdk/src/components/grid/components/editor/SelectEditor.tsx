@@ -1,4 +1,4 @@
-import { Check } from '@teable-group/icons';
+import { Check } from '@teable/icons';
 import {
   Command,
   CommandEmpty,
@@ -6,7 +6,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import { noop } from 'lodash';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ForwardRefRenderFunction } from 'react';

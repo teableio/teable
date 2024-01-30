@@ -1,1 +1,1 @@
-# @teable-group/common-i18n
+# @teable/common-i18n

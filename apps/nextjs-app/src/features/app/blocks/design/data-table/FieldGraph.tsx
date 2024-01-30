@@ -1,4 +1,4 @@
-import { useTable } from '@teable-group/sdk/hooks';
+import { useTable } from '@teable/sdk/hooks';
 import {
   Dialog,
   DialogTrigger,
@@ -6,7 +6,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogClose,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { DynamicFieldGraph } from '../../graph/DynamicFieldGraph';
 export const FieldGraph = ({ fieldId }: { fieldId: string }) => {
   const table = useTable();

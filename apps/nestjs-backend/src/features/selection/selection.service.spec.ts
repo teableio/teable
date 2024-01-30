@@ -2,7 +2,7 @@
 import { faker } from '@faker-js/faker';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldOptionsVo, IFieldVo, IRecord } from '@teable-group/core';
+import type { IFieldOptionsVo, IFieldVo, IRecord } from '@teable/core';
 import {
   CellValueType,
   Colors,
@@ -18,9 +18,9 @@ import {
   getPermissions,
   nullsToUndefined,
   SpaceRole,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { RangeType } from '@teable-group/openapi';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { RangeType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
 import type { DeepMockProxy } from 'vitest-mock-extended';

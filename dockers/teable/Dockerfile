@@ -22,7 +22,7 @@ RUN pnpm fetch
 COPY --link . .
 
 RUN pnpm install --prefer-offline --frozen-lockfile
-RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 ###################################################################
 # Stage 2: Build the app                                          #
@@ -66,7 +66,7 @@ RUN rm -fr node_modules && pnpm nuke:node_modules && \
       chmod +x ./scripts/post-build-cleanup.mjs && zx ./scripts/post-build-cleanup.mjs
 
 RUN pnpm install --prod --prefer-offline --frozen-lockfile
-RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 
 ##################################################################

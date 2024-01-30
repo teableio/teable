@@ -1,4 +1,4 @@
-import type { IFilterItem } from '@teable-group/core';
+import type { IFilterItem } from '@teable/core';
 import React from 'react';
 import type { IFilterProps, IFiltersPath, ConditionAddType } from './types';
 

@@ -1,6 +1,6 @@
-import { Check, Copy } from '@teable-group/icons';
-import type { ButtonProps } from '@teable-group/ui-lib/shadcn';
-import { Button, cn } from '@teable-group/ui-lib/shadcn';
+import { Check, Copy } from '@teable/icons';
+import type { ButtonProps } from '@teable/ui-lib/shadcn';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 
 interface ICopyButtonProps extends ButtonProps {

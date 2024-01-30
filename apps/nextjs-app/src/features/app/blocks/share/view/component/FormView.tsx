@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { shareViewFormSubmit } from '@teable-group/openapi';
+import { shareViewFormSubmit } from '@teable/openapi';
 import { useContext } from 'react';
 import { FormPreviewer } from '../../../view/form/components';
 import { ShareViewPageContext } from '../ShareViewPageContext';

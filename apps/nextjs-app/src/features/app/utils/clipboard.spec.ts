@@ -13,7 +13,7 @@ const parseData = [
   ['Bob', '40', 'heavy'],
 ];
 
-vi.mock('@teable-group/core', () => {
+vi.mock('@teable/core', () => {
   return {
     __esModule: true,
     IFieldVo: {},

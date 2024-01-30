@@ -1,1 +1,1 @@
-# @teable-group/db-main-prisma
+# @teable/db-main-prisma

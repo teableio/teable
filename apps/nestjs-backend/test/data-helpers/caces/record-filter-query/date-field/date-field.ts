@@ -1,4 +1,4 @@
-import { isEmpty, isNotEmpty } from '@teable-group/core';
+import { isEmpty, isNotEmpty } from '@teable/core';
 import { IS_AFTER_SETS } from './is-after-sets';
 import { IS_BEFORE_SETS } from './is-before-sets';
 import { IS_NOT_SETS } from './is-not-sets';

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Provider } from '@nestjs/common';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { InitBootstrapService } from './init-bootstrap.service';
 

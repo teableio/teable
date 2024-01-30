@@ -7,10 +7,10 @@ import type {
   DbFieldType,
   ILookupOptionsVo,
   IOtOperation,
-} from '@teable-group/core';
-import { FieldOpBuilder, IdPrefix, OpName } from '@teable-group/core';
-import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { FieldOpBuilder, IdPrefix, OpName } from '@teable/core';
+import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { keyBy, sortBy } from 'lodash';

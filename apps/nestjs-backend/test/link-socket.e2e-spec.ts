@@ -6,14 +6,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IRecord, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, IRecord, ITableFullVo } from '@teable/core';
 import {
   RecordOpBuilder,
   IdPrefix,
   FieldType,
   Relationship,
   NumberFormattingType,
-} from '@teable-group/core';
+} from '@teable/core';
 import type { Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import {

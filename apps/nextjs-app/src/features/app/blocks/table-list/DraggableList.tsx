@@ -1,10 +1,10 @@
-import { useTableId, useTables, useIsHydrated, swapReorder } from '@teable-group/sdk';
+import { useTableId, useTables, useIsHydrated, swapReorder } from '@teable/sdk';
 import {
   DndKitContext,
   Droppable,
   Draggable,
   type DragEndEvent,
-} from '@teable-group/ui-lib/base/dnd-kit';
+} from '@teable/ui-lib/base/dnd-kit';
 import classNames from 'classnames';
 import { useState, useEffect } from 'react';
 import { TableListItem } from './TableListItem';

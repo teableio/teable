@@ -1,5 +1,5 @@
-import { ChevronDown, ChevronUp, Link, MessageSquare, X } from '@teable-group/icons';
-import { Button, Separator } from '@teable-group/ui-lib';
+import { ChevronDown, ChevronUp, Link, MessageSquare, X } from '@teable/icons';
+import { Button, Separator } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';

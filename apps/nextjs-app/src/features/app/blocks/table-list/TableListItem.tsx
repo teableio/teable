@@ -1,8 +1,8 @@
-import { Table2 } from '@teable-group/icons';
-import { useTablePermission } from '@teable-group/sdk/hooks';
-import type { Table } from '@teable-group/sdk/model';
-import { Button } from '@teable-group/ui-lib/shadcn';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import { Table2 } from '@teable/icons';
+import { useTablePermission } from '@teable/sdk/hooks';
+import type { Table } from '@teable/sdk/model';
+import { Button } from '@teable/ui-lib/shadcn';
+import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useState } from 'react';

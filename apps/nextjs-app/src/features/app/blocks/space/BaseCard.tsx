@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { hasPermission } from '@teable-group/core';
-import { Database, MoreHorizontal } from '@teable-group/icons';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { deleteBase, updateBase } from '@teable-group/openapi';
-import { Button, Card, CardContent, Input } from '@teable-group/ui-lib/shadcn';
+import { hasPermission } from '@teable/core';
+import { Database, MoreHorizontal } from '@teable/icons';
+import type { IGetBaseVo } from '@teable/openapi';
+import { deleteBase, updateBase } from '@teable/openapi';
+import { Button, Card, CardContent, Input } from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';

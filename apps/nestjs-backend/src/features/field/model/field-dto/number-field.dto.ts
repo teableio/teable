@@ -1,4 +1,4 @@
-import { NumberFieldCore } from '@teable-group/core';
+import { NumberFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class NumberFieldDto extends NumberFieldCore implements IFieldBase {

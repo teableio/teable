@@ -6,8 +6,8 @@ import {
   type IFieldRo,
   type ITableFullVo,
   FieldKeyType,
-} from '@teable-group/core';
-import { planField, planFieldCreate, planFieldConvert, updateRecord } from '@teable-group/openapi';
+} from '@teable/core';
+import { planField, planFieldCreate, planFieldConvert, updateRecord } from '@teable/openapi';
 import { createField, createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Graph (e2e)', () => {

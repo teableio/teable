@@ -1,4 +1,4 @@
-import type { INumberFieldOptions } from '@teable-group/core';
+import type { INumberFieldOptions } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { NumberEditor } from '../../editor';

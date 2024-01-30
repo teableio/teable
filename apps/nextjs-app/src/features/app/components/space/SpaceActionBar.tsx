@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { hasPermission } from '@teable-group/core';
-import { MoreHorizontal, UserPlus } from '@teable-group/icons';
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import { createBase } from '@teable-group/openapi';
-import type { ButtonProps } from '@teable-group/ui-lib';
-import { Button } from '@teable-group/ui-lib';
+import { hasPermission } from '@teable/core';
+import { MoreHorizontal, UserPlus } from '@teable/icons';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { createBase } from '@teable/openapi';
+import type { ButtonProps } from '@teable/ui-lib';
+import { Button } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';

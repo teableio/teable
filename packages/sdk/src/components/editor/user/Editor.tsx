@@ -1,5 +1,5 @@
-import type { IUserCellValue } from '@teable-group/core';
-import { X } from '@teable-group/icons';
+import type { IUserCellValue } from '@teable/core';
+import { X } from '@teable/icons';
 import {
   Avatar,
   AvatarFallback,
@@ -8,7 +8,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import classNames from 'classnames';
 import React, { useRef, useState } from 'react';
 import type { IUserEditorMainProps } from './EditorMain';

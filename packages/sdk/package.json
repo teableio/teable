@@ -1,5 +1,5 @@
 {
-  "name": "@teable-group/sdk",
+  "name": "@teable/sdk",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
@@ -45,11 +45,11 @@
     "@lezer/highlight": "1.2.0",
     "@radix-ui/react-icons": "1.3.0",
     "@tanstack/react-query": "4.36.1",
-    "@teable-group/common-i18n": "workspace:*",
-    "@teable-group/core": "workspace:*",
-    "@teable-group/icons": "workspace:*",
-    "@teable-group/openapi": "workspace:*",
-    "@teable-group/ui-lib": "workspace:*",
+    "@teable/common-i18n": "workspace:*",
+    "@teable/core": "workspace:*",
+    "@teable/icons": "workspace:*",
+    "@teable/openapi": "workspace:*",
+    "@teable/ui-lib": "workspace:*",
     "@types/mousetrap": "1.6.15",
     "antlr4ts": "0.5.0-alpha.4",
     "axios": "1.6.7",
@@ -80,7 +80,7 @@
     "react-dom": "^18.0.0"
   },
   "devDependencies": {
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
     "@testing-library/jest-dom": "6.4.0",
     "@testing-library/react": "14.1.2",
     "@types/lodash": "4.14.202",

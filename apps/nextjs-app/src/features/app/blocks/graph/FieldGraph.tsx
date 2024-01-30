@@ -1,6 +1,6 @@
-import type { IFieldRo } from '@teable-group/core';
-import { ColorUtils } from '@teable-group/core';
-import { Badge } from '@teable-group/ui-lib/shadcn';
+import type { IFieldRo } from '@teable/core';
+import { ColorUtils } from '@teable/core';
+import { Badge } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';

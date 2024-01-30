@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
 import { SwaggerModule } from '@nestjs/swagger';
-import { getOpenApiDocumentation } from '@teable-group/openapi';
+import { getOpenApiDocumentation } from '@teable/openapi';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';

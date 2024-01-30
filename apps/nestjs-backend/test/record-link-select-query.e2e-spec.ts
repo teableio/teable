@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IGetRecordsRo, ITableFullVo } from '@teable-group/core';
-import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable-group/core';
-import { getRowCount as apiGetRowCount } from '@teable-group/openapi';
+import type { IFieldRo, IFieldVo, IGetRecordsRo, ITableFullVo } from '@teable/core';
+import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
+import { getRowCount as apiGetRowCount } from '@teable/openapi';
 import {
   createField,
   createTable,

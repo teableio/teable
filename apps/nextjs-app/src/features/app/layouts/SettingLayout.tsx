@@ -1,5 +1,5 @@
-import type { IUser } from '@teable-group/sdk';
-import { AppProvider, SessionProvider } from '@teable-group/sdk';
+import type { IUser } from '@teable/sdk';
+import { AppProvider, SessionProvider } from '@teable/sdk';
 import React from 'react';
 import { AppLayout } from '@/features/app/layouts';
 import { useSdkLocale } from '../hooks/useSdkLocale';

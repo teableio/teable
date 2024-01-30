@@ -1,5 +1,5 @@
-import type { IHttpError } from '@teable-group/core';
-import type { ShareViewGetVo } from '@teable-group/openapi';
+import type { IHttpError } from '@teable/core';
+import type { ShareViewGetVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';

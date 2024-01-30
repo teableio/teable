@@ -1,4 +1,4 @@
-import { DriverClient } from '@teable-group/core';
+import { DriverClient } from '@teable/core';
 
 export function getDriver(): DriverClient {
   if (typeof window === 'object') {

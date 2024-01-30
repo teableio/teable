@@ -1,6 +1,6 @@
-import type { GridViewOptions } from '@teable-group/core';
-import { ArrowUpDown, Filter as FilterIcon, LayoutList } from '@teable-group/icons';
-import { Filter, useView, RowHeight, Group } from '@teable-group/sdk';
+import type { GridViewOptions } from '@teable/core';
+import { ArrowUpDown, Filter as FilterIcon, LayoutList } from '@teable/icons';
+import { Filter, useView, RowHeight, Group } from '@teable/sdk';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
 import { Sort } from './Sort';

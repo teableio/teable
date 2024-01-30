@@ -1,7 +1,7 @@
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { parseDsn } from '@teable-group/core';
+import { parseDsn } from '@teable/core';
 import { KnexModule as BaseKnexModule } from 'nest-knexjs';
 
 @Module({})

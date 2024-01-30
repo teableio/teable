@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string, @typescript-eslint/naming-convention */
-import { FormulaFuncType, FunctionName, FUNCTIONS, FormulaLexer } from '@teable-group/core';
-import { Hash, A, CheckSquare, Calendar } from '@teable-group/icons';
+import { FormulaFuncType, FunctionName, FUNCTIONS, FormulaLexer } from '@teable/core';
+import { Hash, A, CheckSquare, Calendar } from '@teable/icons';
 import type { IFunctionMap, IFunctionSchema } from './interface';
 
 export const Type2IconMap = {

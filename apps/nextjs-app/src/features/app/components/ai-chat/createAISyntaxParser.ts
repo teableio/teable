@@ -1,5 +1,5 @@
-import { FieldKeyType } from '@teable-group/core';
-import { Field, Record, Table, View } from '@teable-group/sdk/model';
+import { FieldKeyType } from '@teable/core';
+import { Field, Record, Table, View } from '@teable/sdk/model';
 import router from 'next/router';
 import { createChart } from '../Chart/createChart';
 import { ChartType } from '../Chart/type';

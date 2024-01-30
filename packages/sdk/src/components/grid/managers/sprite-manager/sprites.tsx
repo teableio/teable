@@ -7,7 +7,7 @@ import {
   ChevronDown,
   ChevronRight,
   Lock,
-} from '@teable-group/icons';
+} from '@teable/icons';
 import { renderToString } from 'react-dom/server';
 
 export interface ISpriteProps {

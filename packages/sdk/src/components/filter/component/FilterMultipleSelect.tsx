@@ -1,4 +1,4 @@
-import { ColorUtils } from '@teable-group/core';
+import { ColorUtils } from '@teable/core';
 import classNames from 'classnames';
 import { useMemo, useEffect } from 'react';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';

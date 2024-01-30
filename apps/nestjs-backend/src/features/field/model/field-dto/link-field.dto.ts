@@ -1,5 +1,5 @@
-import { LinkFieldCore } from '@teable-group/core';
-import type { ILinkCellValue } from '@teable-group/core';
+import { LinkFieldCore } from '@teable/core';
+import type { ILinkCellValue } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class LinkFieldDto extends LinkFieldCore implements IFieldBase {

@@ -1,4 +1,4 @@
-import { FieldType } from '@teable-group/core';
+import { FieldType } from '@teable/core';
 
 /* eslint-disable @typescript-eslint/naming-convention */
 export interface IVisualTableDefaultField {

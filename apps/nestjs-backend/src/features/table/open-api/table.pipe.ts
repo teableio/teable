@@ -1,6 +1,6 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
-import type { ICreateTableRo, IFieldVo } from '@teable-group/core';
+import type { ICreateTableRo, IFieldVo } from '@teable/core';
 import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEWS } from '../constant';
 
 @Injectable()

@@ -1,7 +1,7 @@
 import { LaptopIcon } from '@radix-ui/react-icons';
-import { Moon, Settings, Sun, Table2 } from '@teable-group/icons';
-import { ThemeKey } from '@teable-group/sdk/context';
-import { useBase, useTables, useTheme } from '@teable-group/sdk/hooks';
+import { Moon, Settings, Sun, Table2 } from '@teable/icons';
+import { ThemeKey } from '@teable/sdk/context';
+import { useBase, useTables, useTheme } from '@teable/sdk/hooks';
 import {
   CommandDialog,
   CommandInput,
@@ -11,7 +11,7 @@ import {
   CommandItem,
   CommandSeparator,
   Button,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';

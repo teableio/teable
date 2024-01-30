@@ -1,10 +1,10 @@
-import type { IFormulaFieldOptions } from '@teable-group/core';
-import { getFormattingSchema, getShowAsSchema, CellValueType } from '@teable-group/core';
-import { FormulaEditor } from '@teable-group/sdk/components';
-import { useFields } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
-import { FormulaField } from '@teable-group/sdk/model';
-import { Dialog, DialogContent, DialogTrigger } from '@teable-group/ui-lib/shadcn';
+import type { IFormulaFieldOptions } from '@teable/core';
+import { getFormattingSchema, getShowAsSchema, CellValueType } from '@teable/core';
+import { FormulaEditor } from '@teable/sdk/components';
+import { useFields } from '@teable/sdk/hooks';
+import type { IFieldInstance } from '@teable/sdk/model';
+import { FormulaField } from '@teable/sdk/model';
+import { Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { isEmpty, isEqual, keyBy } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';

@@ -1,5 +1,5 @@
-import { GridViewCore } from '@teable-group/core';
-import { updateViewOptions } from '@teable-group/openapi';
+import { GridViewCore } from '@teable/core';
+import { updateViewOptions } from '@teable/openapi';
 import { Mixin } from 'ts-mixer';
 import { requestWrap } from '../../utils/requestWrap';
 import { View } from './view';

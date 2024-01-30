@@ -1,7 +1,7 @@
-import type { IRatingColors, IRatingFieldOptions } from '@teable-group/core';
-import { ColorUtils, RATING_ICON_COLORS, RatingIcon } from '@teable-group/core';
-import { RATING_ICON_MAP } from '@teable-group/sdk/components';
-import { RatingField } from '@teable-group/sdk/model';
+import type { IRatingColors, IRatingFieldOptions } from '@teable/core';
+import { ColorUtils, RATING_ICON_COLORS, RatingIcon } from '@teable/core';
+import { RATING_ICON_MAP } from '@teable/sdk/components';
+import { RatingField } from '@teable/sdk/model';
 import {
   Label,
   Select,
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
   cn,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 
 export const RATING_ICON_LIST = RATING_ICON_COLORS.map((colorKey) => {
   return [

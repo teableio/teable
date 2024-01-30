@@ -1,6 +1,6 @@
 import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
-import { PrismaModule } from '@teable-group/db-main-prisma';
+import { PrismaModule } from '@teable/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsMiddleware, ClsModule } from 'nestjs-cls';

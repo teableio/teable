@@ -1,4 +1,4 @@
-import { TeableNew } from '@teable-group/icons';
+import { TeableNew } from '@teable/icons';
 import type { FC } from 'react';
 
 export const Error: FC<{ message: string }> = (props) => {

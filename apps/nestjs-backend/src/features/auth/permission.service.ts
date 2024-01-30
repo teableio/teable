@@ -1,7 +1,7 @@
 import { ForbiddenException, NotFoundException, Injectable } from '@nestjs/common';
-import type { PermissionAction, SpaceRole } from '@teable-group/core';
-import { IdPrefix, checkPermissions, getPermissions } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { PermissionAction, SpaceRole } from '@teable/core';
+import { IdPrefix, checkPermissions, getPermissions } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 

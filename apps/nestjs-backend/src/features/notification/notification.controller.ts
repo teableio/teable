@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
-import type { INotificationUnreadCountVo, INotificationVo } from '@teable-group/openapi';
+import type { INotificationUnreadCountVo, INotificationVo } from '@teable/openapi';
 import {
   getNotifyListQuerySchema,
   IGetNotifyListQuery,
   IUpdateNotifyStatusRo,
   updateNotifyStatusRoSchema,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { CacheService } from '../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
 import { second } from '../../utils/second';

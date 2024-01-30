@@ -1,4 +1,4 @@
-import GithubIcon from '@teable-group/ui-lib/icons/social/github.svg';
+import GithubIcon from '@teable/ui-lib/icons/social/github.svg';
 import type { FC } from 'react';
 
 export const MainFooter: FC = () => {

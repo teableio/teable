@@ -1,5 +1,5 @@
-import { ColorUtils, Colors, SingleNumberDisplayType } from '@teable-group/core';
-import type { ISingleNumberShowAs } from '@teable-group/core';
+import { ColorUtils, Colors, SingleNumberDisplayType } from '@teable/core';
+import type { ISingleNumberShowAs } from '@teable/core';
 import {
   Button,
   Input,
@@ -7,8 +7,8 @@ import {
   PopoverContent,
   PopoverTrigger,
   Switch,
-} from '@teable-group/ui-lib/shadcn';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+} from '@teable/ui-lib/shadcn';
+import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';

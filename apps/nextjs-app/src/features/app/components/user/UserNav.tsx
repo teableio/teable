@@ -1,8 +1,8 @@
 import { ExitIcon } from '@radix-ui/react-icons';
 import { useMutation } from '@tanstack/react-query';
-import { Settings } from '@teable-group/icons';
-import { signout } from '@teable-group/openapi';
-import { useSession } from '@teable-group/sdk/hooks';
+import { Settings } from '@teable/icons';
+import { signout } from '@teable/openapi';
+import { useSession } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import React from 'react';
 import { useSettingStore } from '../setting/useSettingStore';

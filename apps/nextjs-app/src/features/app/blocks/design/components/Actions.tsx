@@ -1,12 +1,12 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons';
-import { useTable } from '@teable-group/sdk/hooks';
+import { useTable } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   Button,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { FieldOperator } from '@/features/app/components/field-setting';
 import { useFieldSettingStore } from '../../view/field/useFieldSettingStore';

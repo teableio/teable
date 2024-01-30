@@ -1,5 +1,5 @@
-import type { IFieldVo } from '@teable-group/core';
-import { IdPrefix } from '@teable-group/core';
+import type { IFieldVo } from '@teable/core';
+import { IdPrefix } from '@teable/core';
 import type { FC, ReactNode } from 'react';
 import { useContext, useMemo } from 'react';
 import { createFieldInstance } from '../../model';

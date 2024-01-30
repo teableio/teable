@@ -7,8 +7,8 @@ import type {
   IColumnMetaRo,
   IManualSortRo,
   IGroup,
-} from '@teable-group/core';
-import { ViewCore } from '@teable-group/core';
+} from '@teable/core';
+import { ViewCore } from '@teable/core';
 import {
   createView,
   deleteView,
@@ -25,7 +25,7 @@ import {
   updateViewDescription,
   updateViewShareMeta,
   refreshViewShareId,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import type { AxiosResponse } from 'axios';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';

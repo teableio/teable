@@ -9,7 +9,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import classNames from 'classnames';
 
 import { Check, ChevronsUpDown } from 'lucide-react';

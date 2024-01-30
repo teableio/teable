@@ -1,11 +1,11 @@
-import type { IFilterOperator, IFilterValue } from '@teable-group/core';
+import type { IFilterOperator, IFilterValue } from '@teable/core';
 import {
   CellValueType,
   contains,
   doesNotContain,
   FieldType,
   literalValueListSchema,
-} from '@teable-group/core';
+} from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../../../features/field/model/factory';
 import { AbstractCellValueFilter } from '../../cell-value-filter.abstract';

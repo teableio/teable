@@ -2,9 +2,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { IFilter, ITableFullVo } from '@teable-group/core';
-import { and, FieldKeyType } from '@teable-group/core';
-import { getRecords as apiGetRecords } from '@teable-group/openapi';
+import type { IFilter, ITableFullVo } from '@teable/core';
+import { and, FieldKeyType } from '@teable/core';
+import { getRecords as apiGetRecords } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import {
   CHECKBOX_FIELD_CASES,

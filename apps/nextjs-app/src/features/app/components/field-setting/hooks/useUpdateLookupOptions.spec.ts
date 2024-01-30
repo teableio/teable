@@ -1,5 +1,5 @@
-import { CellValueType, FieldType } from '@teable-group/core';
-import type { IFieldInstance, LinkField } from '@teable-group/sdk/model';
+import { CellValueType, FieldType } from '@teable/core';
+import type { IFieldInstance, LinkField } from '@teable/sdk/model';
 import { renderHook, act } from '@testing-library/react';
 import type { IFieldEditorRo } from '../type';
 import { useUpdateLookupOptions } from './useUpdateLookupOptions';

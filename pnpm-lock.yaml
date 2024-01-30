@@ -24,7 +24,7 @@ importers:
       '@commitlint/config-conventional':
         specifier: 18.6.0
         version: 18.6.0
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:packages/eslint-config-bases
       '@types/shell-quote':
@@ -138,16 +138,16 @@ importers:
       '@prisma/instrumentation':
         specifier: 5.8.1
         version: 5.8.1
-      '@teable-group/common-i18n':
+      '@teable/common-i18n':
         specifier: workspace:^
         version: link:../../packages/common-i18n
-      '@teable-group/core':
+      '@teable/core':
         specifier: workspace:^
         version: link:../../packages/core
-      '@teable-group/db-main-prisma':
+      '@teable/db-main-prisma':
         specifier: workspace:^
         version: link:../../packages/db-main-prisma
-      '@teable-group/openapi':
+      '@teable/openapi':
         specifier: workspace:^
         version: link:../../packages/openapi
       '@teamwork/websocket-json-stream':
@@ -313,7 +313,7 @@ importers:
       '@nestjs/testing':
         specifier: 10.3.1
         version: 10.3.1(@nestjs/common@10.3.1)(@nestjs/core@10.3.1)(@nestjs/platform-express@10.3.1)
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../../packages/eslint-config-bases
       '@types/bcrypt':
@@ -511,22 +511,22 @@ importers:
       '@tanstack/react-table':
         specifier: 8.11.7
         version: 8.11.7(react-dom@18.2.0)(react@18.2.0)
-      '@teable-group/common-i18n':
+      '@teable/common-i18n':
         specifier: workspace:^
         version: link:../../packages/common-i18n
-      '@teable-group/core':
+      '@teable/core':
         specifier: workspace:^
         version: link:../../packages/core
-      '@teable-group/icons':
+      '@teable/icons':
         specifier: workspace:^
         version: link:../../packages/icons
-      '@teable-group/openapi':
+      '@teable/openapi':
         specifier: workspace:^
         version: link:../../packages/openapi
-      '@teable-group/sdk':
+      '@teable/sdk':
         specifier: workspace:^
         version: link:../../packages/sdk
-      '@teable-group/ui-lib':
+      '@teable/ui-lib':
         specifier: workspace:^
         version: link:../../packages/ui-lib
       allotment:
@@ -815,7 +815,7 @@ importers:
 
   packages/common-i18n:
     devDependencies:
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
       '@types/node':
@@ -876,7 +876,7 @@ importers:
       '@size-limit/file':
         specifier: 11.0.2
         version: 11.0.2(size-limit@11.0.2)
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
       '@types/lodash':
@@ -943,7 +943,7 @@ importers:
       '@soluble/dsn-parser':
         specifier: 1.9.2
         version: 1.9.2
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
       '@types/bcrypt':
@@ -1164,7 +1164,7 @@ importers:
       '@asteasolutions/zod-to-openapi':
         specifier: 6.3.1
         version: 6.3.1(zod@3.22.4)
-      '@teable-group/core':
+      '@teable/core':
         specifier: workspace:^
         version: link:../core
       axios:
@@ -1177,7 +1177,7 @@ importers:
         specifier: 3.22.4
         version: 3.22.4
     devDependencies:
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
       eslint:
@@ -1228,19 +1228,19 @@ importers:
       '@tanstack/react-query':
         specifier: 4.36.1
         version: 4.36.1(react-dom@18.2.0)(react@18.2.0)
-      '@teable-group/common-i18n':
+      '@teable/common-i18n':
         specifier: workspace:*
         version: link:../common-i18n
-      '@teable-group/core':
+      '@teable/core':
         specifier: workspace:*
         version: link:../core
-      '@teable-group/icons':
+      '@teable/icons':
         specifier: workspace:*
         version: link:../icons
-      '@teable-group/openapi':
+      '@teable/openapi':
         specifier: workspace:*
         version: link:../openapi
-      '@teable-group/ui-lib':
+      '@teable/ui-lib':
         specifier: workspace:*
         version: link:../ui-lib
       '@types/mousetrap':
@@ -1316,7 +1316,7 @@ importers:
         specifier: 4.5.0
         version: 4.5.0(@types/react@18.2.48)(immer@10.0.3)(react@18.2.0)
     devDependencies:
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
       '@testing-library/jest-dom':
@@ -1463,7 +1463,7 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: 1.0.7
         version: 1.0.7(@types/react-dom@18.2.18)(@types/react@18.2.48)(react-dom@18.2.0)(react@18.2.0)
-      '@teable-group/icons':
+      '@teable/icons':
         specifier: workspace:^
         version: link:../icons
       class-variance-authority:
@@ -1536,7 +1536,7 @@ importers:
       '@tailwindcss/aspect-ratio':
         specifier: 0.4.2
         version: 0.4.2(tailwindcss@3.4.1)
-      '@teable-group/eslint-config-bases':
+      '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
       '@testing-library/react':

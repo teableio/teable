@@ -1,4 +1,4 @@
-import { is, isAnyOf, isEmpty, isNoneOf, isNot, isNotEmpty } from '@teable-group/core';
+import { is, isAnyOf, isEmpty, isNoneOf, isNot, isNotEmpty } from '@teable/core';
 
 export const SINGLE_SELECT_FIELD_CASES = [
   {

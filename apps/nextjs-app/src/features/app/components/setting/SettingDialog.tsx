@@ -1,4 +1,4 @@
-import { Bell, Settings, UserEdit } from '@teable-group/icons';
+import { Bell, Settings, UserEdit } from '@teable/icons';
 import {
   Dialog,
   DialogContent,
@@ -6,7 +6,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { System } from '@/features/app/components/setting/System';
 import { Account } from './Account';

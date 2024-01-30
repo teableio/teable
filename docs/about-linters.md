@@ -16,14 +16,14 @@ module.exports = {
   root: true, // Be sure to set root to true in monorepo.
   ignorePatterns: ["**/node_modules", "**/.cache", "build", ".next"],
   extends: [
-    "@teable-group/eslint-config-bases/typescript",
-    "@teable-group/eslint-config-bases/sonar",
-    "@teable-group/eslint-config-bases/regexp",
-    "@teable-group/eslint-config-bases/jest",
-    "@teable-group/eslint-config-bases/react",
-    "@teable-group/eslint-config-bases/rtl",
-    "@teable-group/eslint-config-bases/graphql-schema",
-    "@teable-group/eslint-config-bases/storybook",
+    "@teable/eslint-config-bases/typescript",
+    "@teable/eslint-config-bases/sonar",
+    "@teable/eslint-config-bases/regexp",
+    "@teable/eslint-config-bases/jest",
+    "@teable/eslint-config-bases/react",
+    "@teable/eslint-config-bases/rtl",
+    "@teable/eslint-config-bases/graphql-schema",
+    "@teable/eslint-config-bases/storybook",
 
     // Add specific rules for your framework if needed.
     // ie:
@@ -33,7 +33,7 @@ module.exports = {
 
     // Post configure the prettier base so there won't be
     // any conficts between eslint / prettier
-    "@teable-group/eslint-config-bases/prettier-plugin",
+    "@teable/eslint-config-bases/prettier-plugin",
   ],
   rules: {
     // Specific global rules for your app or package

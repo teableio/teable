@@ -1,4 +1,4 @@
-import { RatingFieldCore } from '@teable-group/core';
+import { RatingFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class RatingFieldDto extends RatingFieldCore implements IFieldBase {

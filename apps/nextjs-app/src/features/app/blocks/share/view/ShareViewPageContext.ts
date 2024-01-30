@@ -1,4 +1,4 @@
-import type { ShareViewGetVo } from '@teable-group/openapi';
+import type { ShareViewGetVo } from '@teable/openapi';
 import React from 'react';
 
 export const ShareViewPageContext = React.createContext<ShareViewGetVo>(null!);

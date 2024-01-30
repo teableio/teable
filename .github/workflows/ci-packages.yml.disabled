@@ -64,28 +64,28 @@ jobs:
 
       - name: Run prisma db push generate db structure
         run: |
-          yarn workspace @teable-group/db-main-prisma prisma-db-push
+          yarn workspace @teable/db-main-prisma prisma-db-push
 
       # to debug cache issues: ls ${{ github.workspace }}/.cache
       # Build packages that have changed (--include & --since), assuming that
       # apps build are done already. Otherwise --from & --since
       - name: Run build for changed packages
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' run build
+          yarn workspaces foreach -tv --include '@teable/*' run build
 
       # Typecheck packages that have changed + packages and apps that depends on them (--from & --since)
       # That allows to see if we're introducing "surface" regressions (just the types)
       - name: Typecheck
         run: |
-          yarn workspaces foreach -tv --from '@teable-group/*' run typecheck
+          yarn workspaces foreach -tv --from '@teable/*' run typecheck
 
       # Lint packages that have changed (--include & --since)
       - name: Linter
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' run lint
-          yarn workspaces foreach -tv --include '@teable-group/*' run lint-styles
+          yarn workspaces foreach -tv --include '@teable/*' run lint
+          yarn workspaces foreach -tv --include '@teable/*' run lint-styles
 
       # Test packages that have changed (--include & --since)
       - name: Unit tests changed packages
         run: |
-          yarn workspaces foreach -tv --include '@teable-group/*' run test --silent
+          yarn workspaces foreach -tv --include '@teable/*' run test --silent

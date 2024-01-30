@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverTrigger, PopoverContent } from '@teable-group/ui-lib';
+import { Button, Popover, PopoverTrigger, PopoverContent } from '@teable/ui-lib';
 import { ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useFields } from '../../hooks';

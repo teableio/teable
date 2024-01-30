@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable-group/core';
-import { Copy, X } from '@teable-group/icons';
+import type { SpaceRole } from '@teable/core';
+import { Copy, X } from '@teable/icons';
 import {
   deleteSpaceInvitationLink,
   listSpaceInvitationLink,
   updateSpaceInvitationLink,
-} from '@teable-group/openapi';
-import { useSpaceRoleStatic } from '@teable-group/sdk/hooks';
+} from '@teable/openapi';
+import { useSpaceRoleStatic } from '@teable/sdk/hooks';
 import {
   Button,
   Input,
@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
   useToast,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { map } from 'lodash';

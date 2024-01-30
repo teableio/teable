@@ -1,5 +1,5 @@
-import type { IFilterOperator } from '@teable-group/core';
-import { getValidFilterOperators } from '@teable-group/core';
+import type { IFilterOperator } from '@teable/core';
+import { getValidFilterOperators } from '@teable/core';
 import { useEffect, useMemo } from 'react';
 import { useField } from '../../../hooks';
 import { BaseSingleSelect } from '../component';

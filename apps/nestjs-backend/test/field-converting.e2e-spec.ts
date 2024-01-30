@@ -8,7 +8,7 @@ import type {
   IRollupFieldOptions,
   ISelectFieldOptions,
   ITableFullVo,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   Relationship,
   TimeFormatting,
@@ -23,7 +23,7 @@ import {
   SingleLineTextDisplayType,
   DateFormattingPreset,
   generateFieldId,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   getRecords,
   createField,

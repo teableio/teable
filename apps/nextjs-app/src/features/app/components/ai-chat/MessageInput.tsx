@@ -1,6 +1,6 @@
-import { getRandomString } from '@teable-group/core';
-import SendIcon from '@teable-group/ui-lib/icons/app/send.svg';
-import { useToast } from '@teable-group/ui-lib/shadcn/ui/use-toast';
+import { getRandomString } from '@teable/core';
+import SendIcon from '@teable/ui-lib/icons/app/send.svg';
+import { useToast } from '@teable/ui-lib/shadcn/ui/use-toast';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { CreatorRole, MessageStatus, useMessageStore } from 'store/message';

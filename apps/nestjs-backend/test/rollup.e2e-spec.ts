@@ -9,7 +9,7 @@ import type {
   IRecord,
   ITableFullVo,
   LinkFieldCore,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   Colors,
   FieldKeyType,
@@ -17,7 +17,7 @@ import {
   NumberFormattingType,
   Relationship,
   TimeFormatting,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   createField,
   createTable,

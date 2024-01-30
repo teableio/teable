@@ -1,5 +1,5 @@
-import { NotificationStatesEnum } from '@teable-group/core';
-import { CheckSquare, MarkUnread, MoreHorizontal } from '@teable-group/icons';
+import { NotificationStatesEnum } from '@teable/core';
+import { CheckSquare, MarkUnread, MoreHorizontal } from '@teable/icons';
 import {
   Button,
   HoverCard,
@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import React from 'react';
 
 interface ActionBarProps {

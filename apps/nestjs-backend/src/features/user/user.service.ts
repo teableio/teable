@@ -1,9 +1,9 @@
 import { join } from 'path';
 import { Injectable } from '@nestjs/common';
-import { generateSpaceId, SpaceRole } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { UploadType, type ICreateSpaceRo, type IUserNotifyMeta } from '@teable-group/openapi';
+import { generateSpaceId, SpaceRole } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import { UploadType, type ICreateSpaceRo, type IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { getFullStorageUrl } from '../../utils/full-storage-url';

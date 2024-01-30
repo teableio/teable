@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { DriverClient, getRandomString, parseDsn } from '@teable-group/core';
+import { DriverClient, getRandomString, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
 
 interface ITestConfig {

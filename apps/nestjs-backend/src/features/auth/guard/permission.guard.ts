@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { IdPrefix, type PermissionAction } from '@teable-group/core';
+import { IdPrefix, type PermissionAction } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';

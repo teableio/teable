@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IAggregationField, IFilter, ISortItem } from '@teable-group/core';
-import { DriverClient } from '@teable-group/core';
+import type { IAggregationField, IFilter, ISortItem } from '@teable/core';
+import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';

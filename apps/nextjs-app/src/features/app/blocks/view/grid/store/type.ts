@@ -1,5 +1,5 @@
-import type { IPosition, IRectangle } from '@teable-group/sdk/components';
-import type { IFieldInstance, Record } from '@teable-group/sdk/model';
+import type { IPosition, IRectangle } from '@teable/sdk/components';
+import type { IFieldInstance, Record } from '@teable/sdk/model';
 
 export interface IHeaderMenu {
   fields: IFieldInstance[];

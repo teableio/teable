@@ -1,12 +1,6 @@
-import { Home } from '@teable-group/icons';
-import { useSession } from '@teable-group/sdk/hooks';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  Button,
-  Separator,
-} from '@teable-group/ui-lib/shadcn';
+import { Home } from '@teable/icons';
+import { useSession } from '@teable/sdk/hooks';
+import { Avatar, AvatarFallback, AvatarImage, Button, Separator } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { UserNav } from '../../components/user/UserNav';

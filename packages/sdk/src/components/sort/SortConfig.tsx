@@ -1,4 +1,4 @@
-import { Button, Label, Spin, Switch } from '@teable-group/ui-lib';
+import { Button, Label, Spin, Switch } from '@teable/ui-lib';
 
 interface ISortConfigProps {
   value?: boolean;

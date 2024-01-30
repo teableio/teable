@@ -12,7 +12,7 @@ import {
   IUserNotifyMeta,
   updateUserNameRoSchema,
   userNotifyMetaSchema,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';

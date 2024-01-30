@@ -1,15 +1,9 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useQuery } from '@tanstack/react-query';
-import { ChevronsLeft, TeableNew, Sidebar } from '@teable-group/icons';
-import { getBaseById } from '@teable-group/openapi';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  Button,
-} from '@teable-group/ui-lib';
+import { ChevronsLeft, TeableNew, Sidebar } from '@teable/icons';
+import { getBaseById } from '@teable/openapi';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, Button } from '@teable/ui-lib';
 import { useRouter } from 'next/router';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import type { ISideBarInteractionProps } from './SideBar';

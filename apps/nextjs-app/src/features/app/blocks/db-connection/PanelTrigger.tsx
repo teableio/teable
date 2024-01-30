@@ -4,7 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { DbConnectionPanel } from './Panel';
 
 export const DbConnectionPanelTrigger: React.FC<{ children: React.ReactNode }> = ({ children }) => {

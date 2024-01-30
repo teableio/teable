@@ -1,4 +1,4 @@
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { IFormType } from './form/AccessTokenForm';

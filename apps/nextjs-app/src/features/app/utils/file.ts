@@ -1,4 +1,4 @@
-import UnknownFileIcon from '@teable-group/ui-lib/icons/app/unknown-file.svg';
+import UnknownFileIcon from '@teable/ui-lib/icons/app/unknown-file.svg';
 import { renderToString } from 'react-dom/server';
 
 export const getFileCover = (mimetype: string, url: string) => {

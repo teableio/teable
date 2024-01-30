@@ -1,4 +1,4 @@
-import type { ISortItem } from '@teable-group/core';
+import type { ISortItem } from '@teable/core';
 import { OrderSelect } from './OrderSelect';
 import { SortFieldSelect } from './SortFieldSelect';
 

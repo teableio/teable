@@ -1,1 +1,1 @@
-# @teable-group/core
+# @teable/core

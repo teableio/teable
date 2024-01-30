@@ -1,9 +1,9 @@
-import type { IFieldVo, ITableVo } from '@teable-group/core';
-import { ArrowLeft, Table2 } from '@teable-group/icons';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import type { Table } from '@teable-group/sdk';
-import { FieldProvider, useTable, useTablePermission } from '@teable-group/sdk';
-import { Button, cn } from '@teable-group/ui-lib/shadcn';
+import type { IFieldVo, ITableVo } from '@teable/core';
+import { ArrowLeft, Table2 } from '@teable/icons';
+import type { IGetBaseVo } from '@teable/openapi';
+import type { Table } from '@teable/sdk';
+import { FieldProvider, useTable, useTablePermission } from '@teable/sdk';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';

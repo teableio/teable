@@ -1,6 +1,6 @@
-import { ChevronsLeft } from '@teable-group/icons';
-import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable-group/sdk';
-import { ResizablePanelGroup, ResizableHandle, ResizablePanel, Button } from '@teable-group/ui-lib';
+import { ChevronsLeft } from '@teable/icons';
+import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable/sdk';
+import { ResizablePanelGroup, ResizableHandle, ResizablePanel, Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { isString } from 'lodash';
 import React, { useRef, useState, useEffect } from 'react';

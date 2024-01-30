@@ -1,7 +1,7 @@
-import { ViewType } from '@teable-group/core';
-import { Plus } from '@teable-group/icons';
-import { useTablePermission } from '@teable-group/sdk/hooks';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
+import { ViewType } from '@teable/core';
+import { Plus } from '@teable/icons';
+import { useTablePermission } from '@teable/sdk/hooks';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 import { VIEW_ICON_MAP } from '../../view/constant';
 import { useAddView } from '../../view/list/useAddView';

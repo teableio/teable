@@ -1,4 +1,4 @@
-# @teable-group/electron
+# @teable/electron
 
 This is a repository in a monorepo project used to package applications into Electron desktop apps.
 

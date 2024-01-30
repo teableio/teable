@@ -1,5 +1,5 @@
-import { TimeFormatting, type IDateFieldOptions } from '@teable-group/core';
-import { Calendar, Input } from '@teable-group/ui-lib';
+import { TimeFormatting, type IDateFieldOptions } from '@teable/core';
+import { Calendar, Input } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';

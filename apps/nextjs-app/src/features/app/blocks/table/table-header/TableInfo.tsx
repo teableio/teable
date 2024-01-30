@@ -1,6 +1,6 @@
-import { Table2 } from '@teable-group/icons';
-import { useConnection, useTable } from '@teable-group/sdk/hooks';
-import { Spin } from '@teable-group/ui-lib/base';
+import { Table2 } from '@teable/icons';
+import { useConnection, useTable } from '@teable/sdk/hooks';
+import { Spin } from '@teable/ui-lib/base';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';

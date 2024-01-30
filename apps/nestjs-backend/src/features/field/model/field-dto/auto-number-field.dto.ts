@@ -1,4 +1,4 @@
-import { AutoNumberFieldCore } from '@teable-group/core';
+import { AutoNumberFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class AutoNumberFieldDto extends AutoNumberFieldCore implements IFieldBase {

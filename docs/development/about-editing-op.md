@@ -79,7 +79,7 @@ export class NumberField extends NumberFieldCore implements Field {
 可以看到，Grid 组件 DataEditor 中，使用 onColumnResize 来处理 resize 事件，我们定义一个 useColumnResize 的 hook，用于处理 resize 事件, 它将会返回一个 onColumnResize 方法，同时，接受参数 columns 和 setColumns，用于更新 columns 的 width
 
 ```typescript
-import { useFields, useViewId } from "@teable-group/sdk/hooks";
+import { useFields, useViewId } from "@teable/sdk/hooks";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useState } from "react";
 import { useDebounce } from "react-use";

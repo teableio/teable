@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createQueryClient } from '@teable-group/sdk/context';
+import { createQueryClient } from '@teable/sdk/context';
 import type { GetServerSideProps } from 'next';
 import { AuthPage } from '@/features/app/blocks/share/view/AuthPage';
 import { shareConfig } from '@/features/i18n/share.config';

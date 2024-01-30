@@ -1,6 +1,6 @@
-import { AnchorProvider } from '@teable-group/sdk/context';
-import { Tabs } from '@teable-group/ui-lib/shadcn';
-import { Alert, AlertTitle, AlertDescription } from '@teable-group/ui-lib/shadcn/ui/alert';
+import { AnchorProvider } from '@teable/sdk/context';
+import { Tabs } from '@teable/ui-lib/shadcn';
+import { Alert, AlertTitle, AlertDescription } from '@teable/ui-lib/shadcn/ui/alert';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';

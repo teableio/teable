@@ -1,5 +1,5 @@
-import type { IRecord } from '@teable-group/core';
-import { ExpandRecorder, IExpandRecordModel } from '@teable-group/sdk';
+import type { IRecord } from '@teable/core';
+import { ExpandRecorder, IExpandRecordModel } from '@teable/sdk';
 import { useRouter } from 'next/router';
 import { forwardRef, useImperativeHandle, useState } from 'react';
 import type { IExpandRecordContainerRef } from './types';

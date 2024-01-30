@@ -1,5 +1,5 @@
 {
-  "name": "@teable-group/common-i18n",
+  "name": "@teable/common-i18n",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
@@ -32,7 +32,7 @@
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "18.19.0",
     "cross-env": "7.0.3",
     "eslint": "8.56.0",

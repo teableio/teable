@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import type { GridViewOptions, IFilter, IGetRecordsRo } from '@teable-group/core';
-import { RowHeightLevel, mergeFilter } from '@teable-group/core';
-import type { IRangesRo } from '@teable-group/openapi';
-import { shareViewCopy } from '@teable-group/openapi';
+import type { GridViewOptions, IFilter, IGetRecordsRo } from '@teable/core';
+import { RowHeightLevel, mergeFilter } from '@teable/core';
+import type { IRangesRo } from '@teable/openapi';
+import { shareViewCopy } from '@teable/openapi';
 import type {
   CombinedSelection,
   ICell,
@@ -10,7 +10,7 @@ import type {
   IGridRef,
   IGroupPoint,
   IRectangle,
-} from '@teable-group/sdk/components';
+} from '@teable/sdk/components';
 import {
   DraggableType,
   Grid,
@@ -27,7 +27,7 @@ import {
   RowCounter,
   useGridColumnOrder,
   generateLocalId,
-} from '@teable-group/sdk/components';
+} from '@teable/sdk/components';
 import {
   useGroupPoint,
   useIsHydrated,
@@ -37,8 +37,8 @@ import {
   useSSRRecords,
   useTableId,
   useView,
-} from '@teable-group/sdk/hooks';
-import { Skeleton, useToast } from '@teable-group/ui-lib/shadcn';
+} from '@teable/sdk/hooks';
+import { Skeleton, useToast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';

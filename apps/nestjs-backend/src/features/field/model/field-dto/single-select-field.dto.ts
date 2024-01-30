@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable-group/core';
-import { SingleSelectFieldCore, Colors } from '@teable-group/core';
+import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable/core';
+import { SingleSelectFieldCore, Colors } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 class SingleSelectOption implements ISelectFieldChoice {

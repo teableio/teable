@@ -1,5 +1,5 @@
-import type { ISort } from '@teable-group/core';
-import { SortFunc } from '@teable-group/core';
+import type { ISort } from '@teable/core';
+import { SortFunc } from '@teable/core';
 import { useMemo } from 'react';
 import { DraggableSortList } from './DraggableSortList';
 import { SortFieldAddButton } from './SortFieldAddButton';

@@ -1,4 +1,4 @@
-import { getRandomString } from '@teable-group/core';
+import { getRandomString } from '@teable/core';
 import { first, last } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import type { IMessage } from 'store/message';

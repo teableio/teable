@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { IGetBaseVo, IGetSpaceVo } from '@teable-group/openapi';
-import { deleteSpace, updateSpace } from '@teable-group/openapi';
-import { Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
+import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
+import { deleteSpace, updateSpace } from '@teable/openapi';
+import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { type FC, useEffect, useState } from 'react';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';

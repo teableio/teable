@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getGroupPoints } from '@teable-group/openapi';
+import { getGroupPoints } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';

@@ -2,14 +2,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { ICreateTableRo } from '@teable-group/core';
-import { FieldType, RowHeightLevel, ViewType } from '@teable-group/core';
+import type { ICreateTableRo } from '@teable/core';
+import { FieldType, RowHeightLevel, ViewType } from '@teable/core';
 import {
   updateTableDescription,
   updateTableIcon,
   updateTableName,
   updateTableOrder,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { Events } from '../src/event-emitter/events';

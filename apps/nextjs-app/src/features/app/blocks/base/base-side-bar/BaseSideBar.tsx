@@ -1,6 +1,6 @@
-import { Gauge, PackageCheck } from '@teable-group/icons';
-import { cn } from '@teable-group/ui-lib/shadcn';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Gauge, PackageCheck } from '@teable/icons';
+import { cn } from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';

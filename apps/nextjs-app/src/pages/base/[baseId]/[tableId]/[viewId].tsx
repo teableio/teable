@@ -1,4 +1,4 @@
-import type { IHttpError } from '@teable-group/core';
+import type { IHttpError } from '@teable/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';

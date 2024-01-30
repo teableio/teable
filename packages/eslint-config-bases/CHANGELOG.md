@@ -1,1 +1,1 @@
-# @teable-group/eslint-config-bases
+# @teable/eslint-config-bases

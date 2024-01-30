@@ -1,4 +1,4 @@
-import type { ICreateSpaceVo } from '@teable-group/openapi';
+import type { ICreateSpaceVo } from '@teable/openapi';
 import { match } from 'ts-pattern';
 import type { IEventContext } from '../core-event';
 import { CoreEvent } from '../core-event';

@@ -11,7 +11,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   cn,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';

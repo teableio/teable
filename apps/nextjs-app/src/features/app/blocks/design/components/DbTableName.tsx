@@ -1,7 +1,7 @@
-import { useTable, useTablePermission } from '@teable-group/sdk/hooks';
-import type { Table } from '@teable-group/sdk/model';
-import { Button, Input, Label } from '@teable-group/ui-lib/shadcn';
-import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
+import { useTable, useTablePermission } from '@teable/sdk/hooks';
+import type { Table } from '@teable/sdk/model';
+import { Button, Input, Label } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 

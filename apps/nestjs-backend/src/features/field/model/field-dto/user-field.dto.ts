@@ -1,4 +1,4 @@
-import { UserFieldCore } from '@teable-group/core';
+import { UserFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class UserFieldDto extends UserFieldCore implements IFieldBase {

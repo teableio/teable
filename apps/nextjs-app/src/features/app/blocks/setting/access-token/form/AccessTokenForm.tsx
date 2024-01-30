@@ -1,12 +1,12 @@
-import type { AllActions } from '@teable-group/core';
+import type { AllActions } from '@teable/core';
 import {
   createAccessTokenRoSchema,
   type CreateAccessTokenRo,
   type UpdateAccessTokenRo,
   updateAccessTokenRoSchema,
-} from '@teable-group/openapi';
-import { Spin } from '@teable-group/ui-lib/base';
-import { Button, Input, Label, Separator } from '@teable-group/ui-lib/shadcn';
+} from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
+import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';

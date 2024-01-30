@@ -13,7 +13,7 @@ import type {
   IColumnMetaRo,
   IViewPropertyKeys,
   IViewOptions,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   ViewType,
   IManualSortRo,
@@ -21,9 +21,9 @@ import {
   generateShareId,
   VIEW_JSON_KEYS,
   validateOptionsType,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { IViewOrderRo } from '@teable-group/openapi';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { IViewOrderRo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';

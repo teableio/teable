@@ -1,4 +1,4 @@
-import { createAxios } from '@teable-group/openapi';
+import { createAxios } from '@teable/openapi';
 
 export const createAnonymousUserAxios = (appUrl: string) => {
   const anonymousAxios = createAxios();

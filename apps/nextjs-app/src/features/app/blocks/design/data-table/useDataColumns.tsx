@@ -1,12 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import type { IFieldVo } from '@teable-group/core';
-import { Checked, Lock } from '@teable-group/icons';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@teable-group/ui-lib/shadcn';
+import type { IFieldVo } from '@teable/core';
+import { Checked, Lock } from '@teable/icons';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib/shadcn';
 import { Actions } from '../components/Actions';
 import { FieldPropertyEditor } from '../components/FieldPropertyEditor';
 import { FieldGraph } from './FieldGraph';

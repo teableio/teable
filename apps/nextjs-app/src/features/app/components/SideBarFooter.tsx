@@ -1,5 +1,5 @@
-import { useSession } from '@teable-group/sdk';
-import { Avatar, AvatarFallback, AvatarImage, Button } from '@teable-group/ui-lib/shadcn';
+import { useSession } from '@teable/sdk';
+import { Avatar, AvatarFallback, AvatarImage, Button } from '@teable/ui-lib/shadcn';
 import React from 'react';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
 import { SettingDialog } from './setting/SettingDialog';

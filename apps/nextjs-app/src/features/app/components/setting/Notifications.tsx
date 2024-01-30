@@ -1,6 +1,6 @@
-import { updateUserNotifyMeta } from '@teable-group/openapi';
-import { useSession } from '@teable-group/sdk';
-import { Label, Separator, Switch } from '@teable-group/ui-lib/shadcn';
+import { updateUserNotifyMeta } from '@teable/openapi';
+import { useSession } from '@teable/sdk';
+import { Label, Separator, Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 
 export const Notifications: React.FC = () => {

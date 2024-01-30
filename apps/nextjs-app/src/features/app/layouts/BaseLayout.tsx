@@ -1,8 +1,8 @@
-import type { ITableVo } from '@teable-group/core';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { NotificationProvider, SessionProvider } from '@teable-group/sdk';
-import type { IUser } from '@teable-group/sdk';
-import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable-group/sdk/context';
+import type { ITableVo } from '@teable/core';
+import type { IGetBaseVo } from '@teable/openapi';
+import { NotificationProvider, SessionProvider } from '@teable/sdk';
+import type { IUser } from '@teable/sdk';
+import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
 import { useRouter } from 'next/router';
 import React from 'react';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';

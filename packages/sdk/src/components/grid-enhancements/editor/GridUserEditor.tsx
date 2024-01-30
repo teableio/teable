@@ -1,4 +1,4 @@
-import type { IUserCellValue } from '@teable-group/core';
+import type { IUserCellValue } from '@teable/core';
 import type { UserField } from '../../../model';
 import { UserEditorMain } from '../../editor/user';
 import type { IEditorProps } from '../../grid';

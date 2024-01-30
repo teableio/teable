@@ -1,6 +1,6 @@
-import { actionPrefixMap, type ActionPrefix, type AllActions } from '@teable-group/core';
-import { usePermissionActionsStatic } from '@teable-group/sdk/hooks';
-import { Checkbox, Label } from '@teable-group/ui-lib/shadcn';
+import { actionPrefixMap, type ActionPrefix, type AllActions } from '@teable/core';
+import { usePermissionActionsStatic } from '@teable/sdk/hooks';
+import { Checkbox, Label } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 
 interface IScopesSelectProps {

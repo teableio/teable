@@ -1,4 +1,4 @@
-import { SpaceRole } from '@teable-group/core';
+import { SpaceRole } from '@teable/core';
 import { useMemo } from 'react';
 import { useTranslation } from '../context/app/i18n';
 

@@ -1,4 +1,4 @@
-import type { CreateAccessTokenVo, UpdateAccessTokenVo } from '@teable-group/openapi';
+import type { CreateAccessTokenVo, UpdateAccessTokenVo } from '@teable/openapi';
 import { useRouter } from 'next/router';
 import { useEffect, useRef } from 'react';
 import { SettingRight } from '../SettingRight';

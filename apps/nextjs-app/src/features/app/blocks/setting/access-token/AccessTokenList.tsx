@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AllActions } from '@teable-group/core';
-import { Plus } from '@teable-group/icons';
-import { deleteAccessToken, listAccessToken } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config';
-import { usePermissionActionsStatic } from '@teable-group/sdk/hooks';
-import { ConfirmDialog } from '@teable-group/ui-lib/base';
+import type { AllActions } from '@teable/core';
+import { Plus } from '@teable/icons';
+import { deleteAccessToken, listAccessToken } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { usePermissionActionsStatic } from '@teable/sdk/hooks';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Table,
   TableHeader,
@@ -15,7 +15,7 @@ import {
   TableCaption,
   Button,
   Input,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';

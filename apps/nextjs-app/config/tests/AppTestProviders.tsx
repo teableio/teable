@@ -1,8 +1,8 @@
-import type { DriverClient } from '@teable-group/core';
-import type { IAppContext } from '@teable-group/sdk/context';
-import { AppContext, FieldContext, ThemeKey, ViewContext } from '@teable-group/sdk/context';
-import { defaultLocale } from '@teable-group/sdk/context/app/i18n';
-import type { IFieldInstance, IViewInstance } from '@teable-group/sdk/model';
+import type { DriverClient } from '@teable/core';
+import type { IAppContext } from '@teable/sdk/context';
+import { AppContext, FieldContext, ThemeKey, ViewContext } from '@teable/sdk/context';
+import { defaultLocale } from '@teable/sdk/context/app/i18n';
+import type { IFieldInstance, IViewInstance } from '@teable/sdk/model';
 import { noop } from 'lodash';
 import type { FC, PropsWithChildren } from 'react';
 import { I18nextTestStubProvider } from './I18nextTestStubProvider';

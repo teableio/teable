@@ -1,4 +1,4 @@
-import type { IUserMeVo } from '@teable-group/openapi';
+import type { IUserMeVo } from '@teable/openapi';
 import React from 'react';
 
 export type IUser = IUserMeVo;

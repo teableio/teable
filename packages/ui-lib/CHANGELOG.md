@@ -1,1 +1,1 @@
-# @teable-group/ui-lib
+# @teable/ui-lib

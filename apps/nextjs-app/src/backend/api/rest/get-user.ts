@@ -1,4 +1,4 @@
-import type { IUser } from '@teable-group/sdk';
+import type { IUser } from '@teable/sdk';
 import { axios } from './axios';
 
 export async function getUserMe(cookie?: string) {

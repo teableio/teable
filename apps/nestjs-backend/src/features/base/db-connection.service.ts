@@ -5,9 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { IDsn } from '@teable-group/core';
-import { DriverClient, parseDsn } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IDsn } from '@teable/core';
+import { DriverClient, parseDsn } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
 import type { IBaseConfig } from '../../configs/base.config';

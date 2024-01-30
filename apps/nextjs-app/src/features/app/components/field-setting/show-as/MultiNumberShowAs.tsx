@@ -1,7 +1,7 @@
-import { ColorUtils, Colors, MultiNumberDisplayType } from '@teable-group/core';
-import type { IMultiNumberShowAs } from '@teable-group/core';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+import { ColorUtils, Colors, MultiNumberDisplayType } from '@teable/core';
+import type { IMultiNumberShowAs } from '@teable/core';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
+import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';

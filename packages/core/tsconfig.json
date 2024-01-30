@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "@teable-group/core",
+  "display": "@teable/core",
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "module": "CommonJS",
@@ -19,8 +19,8 @@
     "composite": true,
     "rootDir": "src",
     "outDir": "dist",
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals"],
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src"]
+  "include": ["src"],
 }

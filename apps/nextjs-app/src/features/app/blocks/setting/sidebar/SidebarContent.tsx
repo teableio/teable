@@ -1,5 +1,5 @@
-import { Key } from '@teable-group/icons';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { Key } from '@teable/icons';
+import { Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 

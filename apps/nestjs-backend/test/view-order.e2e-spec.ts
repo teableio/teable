@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import { ViewType } from '@teable-group/core';
-import { updateViewOrder as apiSetViewOrder } from '@teable-group/openapi';
+import { ViewType } from '@teable/core';
+import { updateViewOrder as apiSetViewOrder } from '@teable/openapi';
 import { initApp, createTable, deleteTable, getViews } from './utils/init-app';
 
 let app: INestApplication;

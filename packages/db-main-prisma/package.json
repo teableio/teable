@@ -1,5 +1,5 @@
 {
-  "name": "@teable-group/db-main-prisma",
+  "name": "@teable/db-main-prisma",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
@@ -46,7 +46,7 @@
   "devDependencies": {
     "@soluble/dsn-parser": "1.9.2",
     "@faker-js/faker": "8.4.0",
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "18.19.0",
     "@types/bcrypt": "5.0.2",
     "camelcase": "8.0.0",

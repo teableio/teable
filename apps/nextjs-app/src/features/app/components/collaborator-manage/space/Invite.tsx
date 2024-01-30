@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { SpaceRole, hasPermission } from '@teable-group/core';
-import { X } from '@teable-group/icons';
-import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable-group/openapi';
-import { ReactQueryKeys, useSpaceRoleStatic } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib';
+import { SpaceRole, hasPermission } from '@teable/core';
+import { X } from '@teable/icons';
+import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable/openapi';
+import { ReactQueryKeys, useSpaceRoleStatic } from '@teable/sdk';
+import { Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { map } from 'lodash';
 import { useMemo, useState } from 'react';

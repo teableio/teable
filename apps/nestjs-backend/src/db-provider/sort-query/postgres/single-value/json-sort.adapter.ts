@@ -1,4 +1,4 @@
-import { FieldType } from '@teable-group/core';
+import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import { SortFunctionPostgres } from '../sort-query.function';
 

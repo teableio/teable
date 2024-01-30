@@ -1,5 +1,5 @@
-import type { ILookupOptionsRo } from '@teable-group/core';
-import type { LinkField, IFieldInstance } from '@teable-group/sdk/model';
+import type { ILookupOptionsRo } from '@teable/core';
+import type { LinkField, IFieldInstance } from '@teable/sdk/model';
 import { useCallback } from 'react';
 import type { IFieldEditorRo } from '../type';
 

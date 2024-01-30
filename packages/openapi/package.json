@@ -1,5 +1,5 @@
 {
-  "name": "@teable-group/openapi",
+  "name": "@teable/openapi",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
@@ -21,13 +21,13 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "6.3.1",
-    "@teable-group/core": "workspace:^",
+    "@teable/core": "workspace:^",
     "axios": "1.6.7",
     "openapi3-ts": "4.2.1",
     "zod": "3.22.4"
   },
   "devDependencies": {
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
     "eslint": "8.56.0",
     "rimraf": "5.0.5",
     "typescript": "5.3.3"

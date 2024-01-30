@@ -1,4 +1,4 @@
-import { RollupFieldCore } from '@teable-group/core';
+import { RollupFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

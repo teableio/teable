@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { hasPermission } from '@teable-group/core';
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import { getSpaceCollaboratorList } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk';
+import { hasPermission } from '@teable/core';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { getSpaceCollaboratorList } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk';
 import { Collaborators } from './Collaborators';
 import { Invite } from './Invite';
 import { InviteLink } from './InviteLink';

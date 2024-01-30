@@ -1,4 +1,4 @@
-import { KanbanViewCore } from '@teable-group/core';
+import { KanbanViewCore } from '@teable/core';
 import type { AxiosResponse } from 'axios';
 import { Mixin } from 'ts-mixer';
 import { View } from './view';

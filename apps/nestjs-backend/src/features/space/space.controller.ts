@@ -10,7 +10,7 @@ import type {
   UpdateSpaceInvitationLinkVo,
   ListSpaceCollaboratorVo,
   IGetBaseVo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import {
   createSpaceRoSchema,
   ICreateSpaceRo,
@@ -24,7 +24,7 @@ import {
   createSpaceInvitationLinkRoSchema,
   updateSpaceCollaborateRoSchema,
   UpdateSpaceCollaborateRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';

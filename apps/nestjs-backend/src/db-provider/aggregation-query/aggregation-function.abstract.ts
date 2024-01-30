@@ -1,5 +1,5 @@
 import { InternalServerErrorException, Logger } from '@nestjs/common';
-import { StatisticsFunc } from '@teable-group/core';
+import { StatisticsFunc } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IAggregationFunctionInterface } from './aggregation-function.interface';

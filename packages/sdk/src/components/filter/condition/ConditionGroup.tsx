@@ -1,4 +1,4 @@
-import { Trash2, Plus } from '@teable-group/icons';
+import { Trash2, Plus } from '@teable/icons';
 import {
   Button,
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 
 import classNames from 'classnames';
 import { useContext } from 'react';

@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { isMeTag, Me } from '@teable-group/core';
-import { User as UserIcon } from '@teable-group/icons';
-import { getBaseCollaboratorList } from '@teable-group/openapi';
-import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib';
+import { isMeTag, Me } from '@teable/core';
+import { User as UserIcon } from '@teable/icons';
+import { getBaseCollaboratorList } from '@teable/openapi';
+import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
 import React, { useCallback, useMemo } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';

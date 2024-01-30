@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { GridViewCore, RowHeightLevel } from '@teable-group/core';
-import type { GridViewOptions } from '@teable-group/core';
+import { GridViewCore, RowHeightLevel } from '@teable/core';
+import type { GridViewOptions } from '@teable/core';
 
 export class GridViewOptionsDto implements GridViewOptions {
   @ApiProperty({

@@ -1,4 +1,4 @@
-# @teable-group/sdk
+# @teable/sdk
 
 <p align="left">
   <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=workflow%3ACI">

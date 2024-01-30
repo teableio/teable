@@ -1,4 +1,4 @@
-import type { DriverClient, IAggregationField, IFilter, ISortItem } from '@teable-group/core';
+import type { DriverClient, IAggregationField, IFilter, ISortItem } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';

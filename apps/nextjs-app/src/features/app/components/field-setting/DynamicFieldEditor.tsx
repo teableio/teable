@@ -1,4 +1,4 @@
-import { Skeleton } from '@teable-group/ui-lib/shadcn';
+import { Skeleton } from '@teable/ui-lib/shadcn';
 import dynamic from 'next/dynamic';
 
 export const DynamicFieldEditor = dynamic(

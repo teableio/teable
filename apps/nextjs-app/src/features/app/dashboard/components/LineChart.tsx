@@ -1,10 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@teable-group/ui-lib/shadcn';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { Line, LineChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { useLineChartData } from '../hooks/useLineChartData';
 

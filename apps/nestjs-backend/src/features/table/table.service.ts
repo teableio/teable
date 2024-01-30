@@ -6,7 +6,7 @@ import type {
   ISnapshotBase,
   ITableFullVo,
   ITableVo,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   FieldKeyType,
   generateTableId,
@@ -15,9 +15,9 @@ import {
   IdPrefix,
   nullsToUndefined,
   tablePropertyKeySchema,
-} from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';

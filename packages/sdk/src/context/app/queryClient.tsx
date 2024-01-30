@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
-import type { IHttpError } from '@teable-group/core';
-import { toast } from '@teable-group/ui-lib';
+import type { IHttpError } from '@teable/core';
+import { toast } from '@teable/ui-lib';
 
 export const errorRequestHandler = (error: unknown) => {
   const { code, message, status } = error as IHttpError;

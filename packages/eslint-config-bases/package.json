@@ -1,5 +1,5 @@
 {
-  "name": "@teable-group/eslint-config-bases",
+  "name": "@teable/eslint-config-bases",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,

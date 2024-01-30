@@ -1,5 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import { ReactQueryKeys } from '@teable-group/sdk';
+import { ReactQueryKeys } from '@teable/sdk';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';

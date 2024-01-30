@@ -1,4 +1,4 @@
-import { AttachmentFieldCore } from '@teable-group/core';
+import { AttachmentFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

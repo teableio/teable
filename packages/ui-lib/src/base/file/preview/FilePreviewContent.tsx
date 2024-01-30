@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
-import { X, ChevronRight } from '@teable-group/icons';
+import { X, ChevronRight } from '@teable/icons';
 import { useContext, useMemo } from 'react';
 import { Dialog, DialogContent, DialogTrigger, cn } from '../../../shadcn';
 import { FilePreview } from './FilePreview';

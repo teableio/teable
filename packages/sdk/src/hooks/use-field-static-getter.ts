@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { FieldType } from '@teable-group/core';
+import { FieldType } from '@teable/core';
 
 import {
   Calendar as CalendarIcon,
@@ -19,7 +19,7 @@ import {
   History as LastModifiedTimeIcon,
   ListOrdered as AutoNumberIcon,
   User as UserIcon,
-} from '@teable-group/icons';
+} from '@teable/icons';
 
 import { useCallback } from 'react';
 import { useTranslation } from '../context/app/i18n';

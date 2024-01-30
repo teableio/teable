@@ -2,8 +2,8 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { getPermissions, SpaceRole } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { getPermissions, SpaceRole } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';

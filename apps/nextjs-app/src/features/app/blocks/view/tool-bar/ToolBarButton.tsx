@@ -1,4 +1,4 @@
-import { Button } from '@teable-group/ui-lib';
+import { Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import React, { forwardRef } from 'react';
 
