@@ -1,12 +1,12 @@
-import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable-group/core';
-import { COLOR_PALETTE, ColorUtils } from '@teable-group/core';
-import { DraggableHandle, Plus, Trash } from '@teable-group/icons';
-import { DndKitContext, Droppable, Draggable } from '@teable-group/ui-lib/base/dnd-kit';
-import type { DragEndEvent } from '@teable-group/ui-lib/base/dnd-kit';
+import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable/core';
+import { COLOR_PALETTE, ColorUtils } from '@teable/core';
+import { DraggableHandle, Plus, Trash } from '@teable/icons';
+import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base/dnd-kit';
+import type { DragEndEvent } from '@teable/ui-lib/base/dnd-kit';
 
-import { Input } from '@teable-group/ui-lib/shadcn';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+import { Input } from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';

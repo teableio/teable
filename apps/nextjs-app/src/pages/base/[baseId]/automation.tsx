@@ -1,5 +1,5 @@
-import type { ITableVo } from '@teable-group/core';
-import type { IGetBaseVo } from '@teable-group/openapi';
+import type { ITableVo } from '@teable/core';
+import type { IGetBaseVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';

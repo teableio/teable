@@ -11,9 +11,9 @@ import type {
   ITableFullVo,
   ITableVo,
   IViewRo,
-} from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../../db-provider/db.provider';

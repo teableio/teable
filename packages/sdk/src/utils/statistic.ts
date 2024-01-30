@@ -1,4 +1,4 @@
-import { CellValueType, StatisticsFunc } from '@teable-group/core';
+import { CellValueType, StatisticsFunc } from '@teable/core';
 import type { IFieldInstance } from '../model';
 
 export const percentFormatting = (value: number) => {

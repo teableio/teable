@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { SpaceRole } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { SpaceRole } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ListBaseCollaboratorVo,
   ListSpaceCollaboratorVo,
   UpdateSpaceCollaborateRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { isDate } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

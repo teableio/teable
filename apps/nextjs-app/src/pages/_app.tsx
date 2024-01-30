@@ -1,6 +1,6 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import { HttpError, parseDsn } from '@teable-group/core';
-import type { IUser } from '@teable-group/sdk';
+import { HttpError, parseDsn } from '@teable/core';
+import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';

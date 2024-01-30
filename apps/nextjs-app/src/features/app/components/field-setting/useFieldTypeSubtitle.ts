@@ -1,4 +1,4 @@
-import { assertNever, FieldType } from '@teable-group/core';
+import { assertNever, FieldType } from '@teable/core';
 import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';

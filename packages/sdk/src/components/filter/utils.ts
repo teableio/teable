@@ -1,5 +1,5 @@
-import type { IFilter } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
+import type { IFilter } from '@teable/core';
+import { FieldType } from '@teable/core';
 import { cloneDeep } from 'lodash';
 import type { IFieldInstance } from '../../model';
 import { operatorLabelMapping, fieldNumberLabelMap, EMPTYOPERATORS } from './constant';

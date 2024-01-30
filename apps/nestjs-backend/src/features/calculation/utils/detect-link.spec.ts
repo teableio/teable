@@ -1,4 +1,4 @@
-import { IdPrefix } from '@teable-group/core';
+import { IdPrefix } from '@teable/core';
 import { isLinkCellValue } from './detect-link';
 
 describe('isLinkCellValue', () => {

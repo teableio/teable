@@ -1,8 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { SpaceRole, generateSpaceId, getUniqName } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable-group/openapi';
+import { SpaceRole, generateSpaceId, getUniqName } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable/openapi';
 import { keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';

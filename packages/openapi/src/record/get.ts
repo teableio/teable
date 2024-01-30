@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IGetRecordQuery, IRecord } from '@teable-group/core';
-import { getRecordQuerySchema, recordsVoSchema } from '@teable-group/core';
+import type { IGetRecordQuery, IRecord } from '@teable/core';
+import { getRecordQuerySchema, recordsVoSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';

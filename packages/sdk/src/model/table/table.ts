@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IRecord, ITableVo, IUpdateFieldRo, IViewRo } from '@teable-group/core';
-import { FieldKeyType, TableCore } from '@teable-group/core';
+import type { IFieldRo, IRecord, ITableVo, IUpdateFieldRo, IViewRo } from '@teable/core';
+import { FieldKeyType, TableCore } from '@teable/core';
 import {
   createTable,
   deleteTable,
@@ -13,7 +13,7 @@ import {
   updateTableIcon,
   updateTableName,
   updateTableOrder,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 import { Field } from '../field/field';

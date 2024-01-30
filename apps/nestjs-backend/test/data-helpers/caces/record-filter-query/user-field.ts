@@ -10,7 +10,7 @@ import {
   isNot,
   isNotEmpty,
   Me,
-} from '@teable-group/core';
+} from '@teable/core';
 
 export const USER_FIELD_CASES = [
   {

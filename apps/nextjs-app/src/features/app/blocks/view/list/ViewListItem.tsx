@@ -1,13 +1,7 @@
-import { useTableId, useTablePermission } from '@teable-group/sdk/hooks';
-import type { IViewInstance } from '@teable-group/sdk/model';
-import {
-  Button,
-  Separator,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@teable-group/ui-lib/shadcn';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import { useTableId, useTablePermission } from '@teable/sdk/hooks';
+import type { IViewInstance } from '@teable/sdk/model';
+import { Button, Separator, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
+import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import classnames from 'classnames';
 import { useRouter } from 'next/router';
 import { useState } from 'react';

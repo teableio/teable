@@ -33,7 +33,7 @@ jobs:
       - name: 🧩 Generate Prisma Client
         working-directory: packages/db-main-prisma
         run: |
-          pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+          pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
       - name: 🏗 Run build
         run: |

@@ -1,10 +1,10 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import type { FieldType } from '@teable-group/core';
-import { DraggableHandle, Plus } from '@teable-group/icons';
-import { useView } from '@teable-group/sdk';
-import type { IFieldStatic } from '@teable-group/sdk/hooks';
-import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import type { FieldType } from '@teable/core';
+import { DraggableHandle, Plus } from '@teable/icons';
+import { useView } from '@teable/sdk';
+import type { IFieldStatic } from '@teable/sdk/hooks';
+import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable/sdk/hooks';
+import type { IFieldInstance } from '@teable/sdk/model';
 import {
   Button,
   Tooltip,
@@ -12,7 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
   cn,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import type { FC } from 'react';
 import { useMemo } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';

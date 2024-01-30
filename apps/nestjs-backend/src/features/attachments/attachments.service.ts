@@ -1,8 +1,8 @@
 import type { IncomingHttpHeaders } from 'http';
 import { join } from 'path';
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { SignatureRo, SignatureVo } from '@teable-group/openapi';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { SignatureRo, SignatureVo } from '@teable/openapi';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';

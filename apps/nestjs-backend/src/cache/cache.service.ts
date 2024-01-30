@@ -1,6 +1,6 @@
 import sqliteKeyv from '@keyv/sqlite';
 import { Injectable } from '@nestjs/common';
-import { getRandomInt } from '@teable-group/core';
+import { getRandomInt } from '@teable/core';
 import * as fse from 'fs-extra';
 import keyv from 'keyv';
 import { CacheConfig, ICacheConfig } from '../configs/cache.config';

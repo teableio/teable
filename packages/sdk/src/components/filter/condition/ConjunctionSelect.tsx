@@ -1,4 +1,4 @@
-import type { IConjunction } from '@teable-group/core';
+import type { IConjunction } from '@teable/core';
 
 import { BaseSingleSelect } from '../component';
 

@@ -1,4 +1,4 @@
-import { RecordOpBuilder } from '@teable-group/core';
+import { RecordOpBuilder } from '@teable/core';
 import { changeToOp, formatChangesToOps, mergeDuplicateChange } from './changes'; // Change './yourFile' to the correct path.
 
 describe('changeToOp', () => {

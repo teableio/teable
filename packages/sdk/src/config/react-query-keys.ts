@@ -6,8 +6,8 @@ import type {
   IQueryBaseRo,
   IConvertFieldRo,
   NotificationStatesEnum,
-} from '@teable-group/core';
-import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable-group/openapi';
+} from '@teable/core';
+import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable/openapi';
 
 export const ReactQueryKeys = {
   spaceCollaboratorList: (spaceId: string) => ['space-collaborator-list', spaceId] as const,

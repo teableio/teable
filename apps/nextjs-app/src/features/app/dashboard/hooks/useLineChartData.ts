@@ -1,6 +1,6 @@
-import { CellValueType, FieldType } from '@teable-group/core';
-import { useBase, useFields, useTable, useViewId } from '@teable-group/sdk/hooks';
-import { Base } from '@teable-group/sdk/model';
+import { CellValueType, FieldType } from '@teable/core';
+import { useBase, useFields, useTable, useViewId } from '@teable/sdk/hooks';
+import { Base } from '@teable/sdk/model';
 import { useEffect, useMemo, useState } from 'react';
 
 interface IData {

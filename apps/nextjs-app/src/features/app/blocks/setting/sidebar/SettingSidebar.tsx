@@ -1,5 +1,5 @@
-import { TeableNew } from '@teable-group/icons';
-import { Separator } from '@teable-group/ui-lib/shadcn';
+import { TeableNew } from '@teable/icons';
+import { Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 
 interface ISettingSidebarProps {

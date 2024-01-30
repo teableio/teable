@@ -1,4 +1,4 @@
-import { Input } from '@teable-group/ui-lib';
+import { Input } from '@teable/ui-lib';
 import React, { useEffect, useRef } from 'react';
 
 interface SpaceRenamingProps {

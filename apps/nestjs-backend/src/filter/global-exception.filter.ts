@@ -11,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpErrorCode, type IHttpError } from '@teable-group/core';
+import { HttpErrorCode, type IHttpError } from '@teable/core';
 import type { Request, Response } from 'express';
 import type { ILoggerConfig } from '../configs/logger.config';
 

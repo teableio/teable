@@ -1,5 +1,5 @@
-import { Plus } from '@teable-group/icons';
-import { Button } from '@teable-group/ui-lib';
+import { Plus } from '@teable/icons';
+import { Button } from '@teable/ui-lib';
 import { useRef } from 'react';
 
 export const FileInput = (props: { onChange?: (files: File[]) => void }) => {

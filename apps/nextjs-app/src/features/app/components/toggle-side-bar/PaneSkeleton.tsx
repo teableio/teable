@@ -1,4 +1,4 @@
-import { Skeleton, Separator } from '@teable-group/ui-lib';
+import { Skeleton, Separator } from '@teable/ui-lib';
 
 export const PaneSkeleton = () => {
   return (

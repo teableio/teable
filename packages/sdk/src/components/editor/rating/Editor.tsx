@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { ColorUtils, RatingIcon, type IRatingFieldOptions } from '@teable-group/core';
-import { Star, Moon, Sun, Zap, Flame, Heart, Apple, ThumbsUp } from '@teable-group/icons';
-import { cn } from '@teable-group/ui-lib';
+import { ColorUtils, RatingIcon, type IRatingFieldOptions } from '@teable/core';
+import { Star, Moon, Sun, Zap, Flame, Heart, Apple, ThumbsUp } from '@teable/icons';
+import { cn } from '@teable/ui-lib';
 import { useState, type FC } from 'react';
 import type { ICellEditor } from '../type';
 

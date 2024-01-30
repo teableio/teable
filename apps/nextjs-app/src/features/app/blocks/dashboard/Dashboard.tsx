@@ -1,4 +1,4 @@
-import { getRandomString } from '@teable-group/core';
+import { getRandomString } from '@teable/core';
 import { useEffect, useRef, useState } from 'react';
 import type { Layout } from 'react-grid-layout';
 import { Responsive, WidthProvider } from 'react-grid-layout';

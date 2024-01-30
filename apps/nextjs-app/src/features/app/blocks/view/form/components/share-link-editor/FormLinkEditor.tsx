@@ -1,8 +1,8 @@
-import type { ILinkCellValue } from '@teable-group/core';
-import { Plus } from '@teable-group/icons';
-import { LinkCard } from '@teable-group/sdk/components';
-import type { LinkField } from '@teable-group/sdk/model';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
+import type { ILinkCellValue } from '@teable/core';
+import { Plus } from '@teable/icons';
+import { LinkCard } from '@teable/sdk/components';
+import type { LinkField } from '@teable/sdk/model';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useMemo, useState } from 'react';
 import { LinkRecordList } from './LinkRecordList';
 

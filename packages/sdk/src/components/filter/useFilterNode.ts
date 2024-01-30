@@ -1,4 +1,4 @@
-import { Filter as FilterIcon } from '@teable-group/icons';
+import { Filter as FilterIcon } from '@teable/icons';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
 import { useFields } from '../../hooks';

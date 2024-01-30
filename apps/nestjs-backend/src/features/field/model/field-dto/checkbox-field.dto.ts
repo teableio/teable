@@ -1,4 +1,4 @@
-import { CheckboxFieldCore } from '@teable-group/core';
+import { CheckboxFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class CheckboxFieldDto extends CheckboxFieldCore implements IFieldBase {

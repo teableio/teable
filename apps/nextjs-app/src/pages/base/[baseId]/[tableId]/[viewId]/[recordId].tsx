@@ -1,4 +1,4 @@
-import type { IHttpError, IRecord } from '@teable-group/core';
+import type { IHttpError, IRecord } from '@teable/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';

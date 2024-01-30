@@ -5,8 +5,8 @@ import {
   type CreateAccessTokenVo,
   type UpdateAccessTokenRo,
   type UpdateAccessTokenVo,
-} from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config';
+} from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
 import type { IFormType } from './form/AccessTokenForm';
 import { AccessTokenForm } from './form/AccessTokenForm';

@@ -1,8 +1,8 @@
-import { Loader2 } from '@teable-group/icons';
-import { LocalStorageKeys } from '@teable-group/sdk/config';
-import { useFields, useTableId, useView } from '@teable-group/sdk/hooks';
-import { type FormView } from '@teable-group/sdk/model';
-import { Button, cn, useToast } from '@teable-group/ui-lib/shadcn';
+import { Loader2 } from '@teable/icons';
+import { LocalStorageKeys } from '@teable/sdk/config';
+import { useFields, useTableId, useView } from '@teable/sdk/hooks';
+import { type FormView } from '@teable/sdk/model';
+import { Button, cn, useToast } from '@teable/ui-lib/shadcn';
 import { omit } from 'lodash';
 import { useMemo, useRef, useState } from 'react';
 import { useLocalStorage, useMap, useSet } from 'react-use';

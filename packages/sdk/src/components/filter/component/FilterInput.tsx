@@ -1,5 +1,5 @@
-import type { IFilterItem } from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib';
+import type { IFilterItem } from '@teable/core';
+import { Input } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { debounce } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';

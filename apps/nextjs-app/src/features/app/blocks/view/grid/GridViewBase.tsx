@@ -1,5 +1,5 @@
-import type { PermissionAction } from '@teable-group/core';
-import { RowHeightLevel, contractColorForTheme } from '@teable-group/core';
+import type { PermissionAction } from '@teable/core';
+import { RowHeightLevel, contractColorForTheme } from '@teable/core';
 import type {
   IRectangle,
   IPosition,
@@ -10,7 +10,7 @@ import type {
   Record,
   GridView,
   IGroupPoint,
-} from '@teable-group/sdk';
+} from '@teable/sdk';
 import {
   Grid,
   CellType,
@@ -35,9 +35,9 @@ import {
   generateLocalId,
   useGridPrefillingRow,
   SelectableType,
-} from '@teable-group/sdk';
-import { GRID_DEFAULT } from '@teable-group/sdk/components/grid/configs';
-import { useScrollFrameRate } from '@teable-group/sdk/components/grid/hooks';
+} from '@teable/sdk';
+import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
+import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import {
   useFields,
   useGroupPoint,
@@ -50,8 +50,8 @@ import {
   useTablePermission,
   useView,
   useViewId,
-} from '@teable-group/sdk/hooks';
-import { Skeleton, useToast } from '@teable-group/ui-lib';
+} from '@teable/sdk/hooks';
+import { Skeleton, useToast } from '@teable/ui-lib';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';

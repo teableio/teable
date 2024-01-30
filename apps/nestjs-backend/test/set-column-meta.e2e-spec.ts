@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, ITableFullVo } from '@teable-group/core';
-import { StatisticsFunc } from '@teable-group/core';
+import type { IFieldVo, ITableFullVo } from '@teable/core';
+import { StatisticsFunc } from '@teable/core';
 import { sortBy } from 'lodash';
 import {
   initApp,

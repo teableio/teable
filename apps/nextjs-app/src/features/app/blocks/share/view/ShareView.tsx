@@ -1,5 +1,5 @@
-import { ViewType } from '@teable-group/core';
-import { useIsHydrated } from '@teable-group/sdk/hooks';
+import { ViewType } from '@teable/core';
+import { useIsHydrated } from '@teable/sdk/hooks';
 import { useContext } from 'react';
 import { FormView } from './component/FormView';
 import { GridView } from './component/grid/GridView';

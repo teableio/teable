@@ -1,12 +1,12 @@
-import { ThemeKey, useTheme } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { ThemeKey, useTheme } from '@teable/sdk';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn/ui/dropdown-menu';
+} from '@teable/ui-lib/shadcn/ui/dropdown-menu';
 import classNames from 'classnames';
 export const ThemePicker: React.FC<{ className?: string }> = ({ className }) => {
   const { theme, isAutoTheme, setTheme } = useTheme();

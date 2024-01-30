@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IViewOptions, IGridView, IFormView } from '@teable-group/core';
-import { RowHeightLevel, ViewType } from '@teable-group/core';
-import { updateViewOptions as apiSetViewOption } from '@teable-group/openapi';
+import type { IViewOptions, IGridView, IFormView } from '@teable/core';
+import { RowHeightLevel, ViewType } from '@teable/core';
+import { updateViewOptions as apiSetViewOption } from '@teable/openapi';
 import { initApp, getView, createTable, deleteTable } from './utils/init-app';
 
 let app: INestApplication;

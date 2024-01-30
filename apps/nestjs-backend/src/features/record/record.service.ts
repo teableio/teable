@@ -21,7 +21,7 @@ import type {
   IShareViewMeta,
   ISnapshotBase,
   ISortItem,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   CellFormat,
   FieldKeyType,
@@ -34,10 +34,10 @@ import {
   OpName,
   Relationship,
   parseGroup,
-} from '@teable-group/core';
-import type { Field, Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { UploadType } from '@teable-group/openapi';
+} from '@teable/core';
+import type { Field, Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import { UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

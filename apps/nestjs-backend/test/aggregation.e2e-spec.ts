@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import type { ITableFullVo, StatisticsFunc } from '@teable-group/core';
-import { getAggregation, getRowCount } from '@teable-group/openapi';
+import type { ITableFullVo, StatisticsFunc } from '@teable/core';
+import { getAggregation, getRowCount } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import { SIMPLE_AGGREGATION_CACES } from './data-helpers/caces';
 import { createTable, deleteTable, initApp } from './utils/init-app';

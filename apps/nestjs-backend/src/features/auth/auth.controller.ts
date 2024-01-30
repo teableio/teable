@@ -1,10 +1,5 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
-import {
-  IChangePasswordRo,
-  ISignup,
-  changePasswordRoSchema,
-  signupSchema,
-} from '@teable-group/openapi';
+import { IChangePasswordRo, ISignup, changePasswordRoSchema, signupSchema } from '@teable/openapi';
 import { Response, Request } from 'express';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';

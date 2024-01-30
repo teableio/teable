@@ -1,4 +1,4 @@
-import UserIcon from '@teable-group/ui-lib/icons/app/user.svg';
+import UserIcon from '@teable/ui-lib/icons/app/user.svg';
 import dayjs from 'dayjs';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 import type { ReactElement } from 'react';

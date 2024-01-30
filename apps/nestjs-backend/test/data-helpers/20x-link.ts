@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { ITableFullVo } from '@teable-group/core';
-import { FieldType, NumberFormattingType, Relationship } from '@teable-group/core';
+import type { ITableFullVo } from '@teable/core';
+import { FieldType, NumberFormattingType, Relationship } from '@teable/core';
 
 const textField = {
   name: 'text field',

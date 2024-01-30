@@ -1,4 +1,4 @@
-import { TeableNew } from '@teable-group/icons';
+import { TeableNew } from '@teable/icons';
 
 export const SideBarHeader: React.FC = () => {
   return (

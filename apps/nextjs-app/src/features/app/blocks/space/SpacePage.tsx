@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createSpace, getBaseAll, getSpaceList } from '@teable-group/openapi';
-import { Spin } from '@teable-group/ui-lib/base';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { createSpace, getBaseAll, getSpaceList } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
+import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useRef, type FC } from 'react';
 import { SpaceCard } from './SpaceCard';

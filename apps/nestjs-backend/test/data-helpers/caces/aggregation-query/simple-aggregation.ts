@@ -1,4 +1,4 @@
-import { StatisticsFunc } from '@teable-group/core';
+import { StatisticsFunc } from '@teable/core';
 
 export const SIMPLE_AGGREGATION_CACES = [
   {

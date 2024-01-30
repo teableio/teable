@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
+import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/core';
 import {
   createRecordsRoSchema,
   getRecordQuerySchema,
@@ -9,8 +9,8 @@ import {
   IGetRecordQuery,
   IUpdateRecordRo,
   updateRecordRoSchema,
-} from '@teable-group/core';
-import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable-group/openapi';
+} from '@teable/core';
+import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { RecordService } from '../record.service';

@@ -1,21 +1,21 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { IFieldRo } from '@teable-group/core';
-import { convertFieldRoSchema, FieldType, getOptionsSchema } from '@teable-group/core';
-import { Share2 } from '@teable-group/icons';
-import { planFieldCreate, type IPlanFieldConvertVo, planFieldConvert } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config';
-import { useTable, useView } from '@teable-group/sdk/hooks';
-import { ConfirmDialog } from '@teable-group/ui-lib/base';
+import type { IFieldRo } from '@teable/core';
+import { convertFieldRoSchema, FieldType, getOptionsSchema } from '@teable/core';
+import { Share2 } from '@teable/icons';
+import { planFieldCreate, type IPlanFieldConvertVo, planFieldConvert } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { useTable, useView } from '@teable/sdk/hooks';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Dialog,
   DialogClose,
   DialogContent,
   DialogFooter,
   DialogTrigger,
-} from '@teable-group/ui-lib/shadcn';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
-import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
+} from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';

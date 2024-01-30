@@ -1,4 +1,4 @@
-import type { Colors } from '@teable-group/core';
+import type { Colors } from '@teable/core';
 
 interface IOption<T = string> {
   value: T;

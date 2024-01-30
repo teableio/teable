@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
-import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';

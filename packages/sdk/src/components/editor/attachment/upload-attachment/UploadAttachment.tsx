@@ -1,8 +1,8 @@
-import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
-import { generateAttachmentId } from '@teable-group/core';
-import { X, Download } from '@teable-group/icons';
-import { UploadType, type INotifyVo } from '@teable-group/openapi';
-import { Button, FilePreviewItem, FilePreviewProvider, Progress, cn } from '@teable-group/ui-lib';
+import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
+import { generateAttachmentId } from '@teable/core';
+import { X, Download } from '@teable/icons';
+import { UploadType, type INotifyVo } from '@teable/openapi';
+import { Button, FilePreviewItem, FilePreviewProvider, Progress, cn } from '@teable/ui-lib';
 import { map, omit } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getFileCover, isSystemFileIcon } from '../utils';

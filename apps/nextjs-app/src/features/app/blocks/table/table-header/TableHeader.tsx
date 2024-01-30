@@ -1,6 +1,6 @@
-import { Settings, UserPlus } from '@teable-group/icons';
-import { useBase, useTableId } from '@teable-group/sdk/hooks';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { Settings, UserPlus } from '@teable/icons';
+import { useBase, useTableId } from '@teable/sdk/hooks';
+import { Button } from '@teable/ui-lib/shadcn';
 
 import Link from 'next/link';
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';

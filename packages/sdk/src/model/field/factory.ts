@@ -1,5 +1,5 @@
-import type { IFieldVo } from '@teable-group/core';
-import { assertNever, FieldType } from '@teable-group/core';
+import type { IFieldVo } from '@teable/core';
+import { assertNever, FieldType } from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import type { Doc } from 'sharedb/lib/client';
 import { AttachmentField } from './attachment.field';

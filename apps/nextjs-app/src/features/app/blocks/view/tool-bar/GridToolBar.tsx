@@ -1,6 +1,6 @@
-import { Plus } from '@teable-group/icons';
-import { useTable, useTablePermission } from '@teable-group/sdk/hooks';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { Plus } from '@teable/icons';
+import { useTable, useTablePermission } from '@teable/sdk/hooks';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 import { Others } from './Others';

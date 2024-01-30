@@ -1,5 +1,5 @@
-import type { ICreateRecordsRo, IFieldRo, IViewRo } from '@teable-group/core';
-import { Colors, FieldType, ViewType } from '@teable-group/core';
+import type { ICreateRecordsRo, IFieldRo, IViewRo } from '@teable/core';
+import { Colors, FieldType, ViewType } from '@teable/core';
 
 export const DEFAULT_FIELDS: IFieldRo[] = [
   { name: 'Name', type: FieldType.SingleLineText },

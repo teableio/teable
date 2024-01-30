@@ -1,9 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@2.2.0/schema.json",
-  "changelog": [
-    "@changesets/changelog-github",
-    { "repo": "teable-group/teable" }
-  ],
+  "changelog": ["@changesets/changelog-github", { "repo": "teableio/teable" }],
   "privatePackages": { "version": true, "tag": true },
   "commit": true,
   "linked": [],

@@ -2,9 +2,9 @@ import type {
   INotificationUserIcon,
   INotificationIcon,
   INotificationSystemIcon,
-} from '@teable-group/core';
-import { NotificationTypeEnum } from '@teable-group/core';
-import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib';
+} from '@teable/core';
+import { NotificationTypeEnum } from '@teable/core';
+import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
 import React, { useCallback } from 'react';
 
 interface NotificationIconProps {

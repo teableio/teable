@@ -1,5 +1,5 @@
-import type { IRecord } from '@teable-group/core';
-import { useToast } from '@teable-group/ui-lib';
+import type { IRecord } from '@teable/core';
+import { useToast } from '@teable/ui-lib';
 import { type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';

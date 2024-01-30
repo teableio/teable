@@ -1,8 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable-group/icons';
-import type { GridView } from '@teable-group/sdk';
-import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable-group/sdk';
-import { insertSingle } from '@teable-group/sdk/utils';
+import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable/icons';
+import type { GridView } from '@teable/sdk';
+import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable/sdk';
+import { insertSingle } from '@teable/sdk/utils';
 import {
   Command,
   CommandGroup,
@@ -12,7 +12,7 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';

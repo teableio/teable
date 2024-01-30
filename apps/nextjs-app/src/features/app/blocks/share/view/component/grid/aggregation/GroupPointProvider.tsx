@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getShareViewGroupPoints } from '@teable-group/openapi';
-import type { PropKeys } from '@teable-group/sdk';
-import { ReactQueryKeys, useActionTrigger, GroupPointContext, useView } from '@teable-group/sdk';
+import { getShareViewGroupPoints } from '@teable/openapi';
+import type { PropKeys } from '@teable/sdk';
+import { ReactQueryKeys, useActionTrigger, GroupPointContext, useView } from '@teable/sdk';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';

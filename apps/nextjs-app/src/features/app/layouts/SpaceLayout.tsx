@@ -1,6 +1,6 @@
-import type { IUser } from '@teable-group/sdk';
-import { NotificationProvider, SessionProvider } from '@teable-group/sdk';
-import { AppProvider } from '@teable-group/sdk/context';
+import type { IUser } from '@teable/sdk';
+import { NotificationProvider, SessionProvider } from '@teable/sdk';
+import { AppProvider } from '@teable/sdk/context';
 import React from 'react';
 import { SideBar } from '@/features/app/blocks/space/space-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';

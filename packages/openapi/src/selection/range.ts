@@ -1,10 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import {
-  contentQueryBaseSchema,
-  filterSchema,
-  groupSchema,
-  orderBySchema,
-} from '@teable-group/core';
+import { contentQueryBaseSchema, filterSchema, groupSchema, orderBySchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';

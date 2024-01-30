@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { RefreshAccessTokenRo } from '@teable-group/openapi';
-import { refreshAccessToken } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config';
-import { Spin } from '@teable-group/ui-lib/base';
+import type { RefreshAccessTokenRo } from '@teable/openapi';
+import { refreshAccessToken } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { Spin } from '@teable/ui-lib/base';
 import {
   Dialog,
   DialogTrigger,
@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   Label,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';

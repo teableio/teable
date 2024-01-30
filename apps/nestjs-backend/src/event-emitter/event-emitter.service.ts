@@ -1,18 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type {
-  ICreateOpBuilder,
-  IOpBuilder,
-  IOpContextBase,
-  IOtOperation,
-} from '@teable-group/core';
+import type { ICreateOpBuilder, IOpBuilder, IOpContextBase, IOtOperation } from '@teable/core';
 import {
   FieldOpBuilder,
   IdPrefix,
   RecordOpBuilder,
   TableOpBuilder,
   ViewOpBuilder,
-} from '@teable-group/core';
+} from '@teable/core';
 import { get, isEmpty, omit, set } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { GroupedObservable, Observable } from 'rxjs';

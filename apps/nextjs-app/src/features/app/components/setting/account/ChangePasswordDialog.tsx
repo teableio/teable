@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
-import type { HttpError } from '@teable-group/core';
-import { changePassword, changePasswordRoSchema } from '@teable-group/openapi';
-import { Spin } from '@teable-group/ui-lib/base';
+import type { HttpError } from '@teable/core';
+import { changePassword, changePasswordRoSchema } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
   Dialog,
@@ -15,7 +15,7 @@ import {
   Input,
   Label,
   useToast,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';

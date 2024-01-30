@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable-group/core';
-import { getSpaceCollaboratorList } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk';
-import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib';
+import type { SpaceRole } from '@teable/core';
+import { getSpaceCollaboratorList } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk';
+import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
 import React from 'react';
 
 interface SpaceInnerCollaboratorProps {

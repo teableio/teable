@@ -7,8 +7,8 @@ import {
   MultiNumberDisplayType,
   Relationship,
   defaultNumberFormatting,
-} from '@teable-group/core';
-import type { IFieldRo, ITableFullVo } from '@teable-group/core';
+} from '@teable/core';
+import type { IFieldRo, ITableFullVo } from '@teable/core';
 import {
   RangeType,
   IdReturnType,
@@ -16,7 +16,7 @@ import {
   copy as apiCopy,
   paste as apiPaste,
   getFields,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { createField, getRecord, initApp, createTable, deleteTable } from './utils/init-app';
 
 describe('OpenAPI SelectionController (e2e)', () => {

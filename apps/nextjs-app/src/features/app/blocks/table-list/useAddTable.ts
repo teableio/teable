@@ -1,4 +1,4 @@
-import { useBase } from '@teable-group/sdk/hooks';
+import { useBase } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 

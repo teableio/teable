@@ -1,8 +1,8 @@
-import type { IFieldOptionsRo, IFieldVo } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
-import { useFieldStaticGetter } from '@teable-group/sdk';
-import { Textarea } from '@teable-group/ui-lib/shadcn';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import type { IFieldOptionsRo, IFieldVo } from '@teable/core';
+import { FieldType } from '@teable/core';
+import { useFieldStaticGetter } from '@teable/sdk';
+import { Textarea } from '@teable/ui-lib/shadcn';
+import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';

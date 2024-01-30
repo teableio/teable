@@ -1,9 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { HttpError } from '@teable-group/core';
-import { IdPrefix, SpaceRole } from '@teable-group/core';
-import type { ListSpaceCollaboratorVo, ListSpaceInvitationLinkVo } from '@teable-group/openapi';
+import type { HttpError } from '@teable/core';
+import { IdPrefix, SpaceRole } from '@teable/core';
+import type { ListSpaceCollaboratorVo, ListSpaceInvitationLinkVo } from '@teable/openapi';
 import {
   createSpace as apiCreateSpace,
   createSpaceInvitationLink as apiCreateSpaceInvitationLink,
@@ -18,7 +18,7 @@ import {
   listSpaceInvitationLink as apiListSpaceInvitationLink,
   updateSpace as apiUpdateSpace,
   updateSpaceInvitationLink as apiUpdateSpaceInvitationLink,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { Events } from '../src/event-emitter/events';
 import type { SpaceDeleteEvent, SpaceUpdateEvent } from '../src/event-emitter/events';
 import { createNewUserAxios } from './utils/axios-instance/new-user';

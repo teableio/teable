@@ -1,4 +1,4 @@
-import { FieldType } from '@teable-group/core';
+import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { SingleSelectOptionsDto } from '../../../../features/field/model/field-dto/single-select-field.dto';
 import { SortFunctionSqlite } from '../sort-query.function';

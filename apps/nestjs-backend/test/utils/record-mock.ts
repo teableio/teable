@@ -1,8 +1,8 @@
 import { faker } from '@faker-js/faker';
 import type { Field, View } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
-import type { IRatingFieldOptions, ISelectFieldOptions } from '@teable-group/core';
-import { parseDsn, IdPrefix, Colors, FieldType, generateRecordId } from '@teable-group/core';
+import type { IRatingFieldOptions, ISelectFieldOptions } from '@teable/core';
+import { parseDsn, IdPrefix, Colors, FieldType, generateRecordId } from '@teable/core';
 import * as dotenv from 'dotenv-flow';
 import Knex from 'knex';
 import { chunk, flatten, groupBy } from 'lodash';

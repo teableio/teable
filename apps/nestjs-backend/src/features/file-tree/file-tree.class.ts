@@ -1,5 +1,5 @@
 import fs from 'fs';
-import type { IFileNode } from '@teable-group/core';
+import type { IFileNode } from '@teable/core';
 import { TeableFile } from './teable-file.class';
 
 export class FileTree {

@@ -1,12 +1,12 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import type { AllActions } from '@teable-group/core';
-import { generateAccessTokenId, getRandomString } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { AllActions } from '@teable/core';
+import { generateAccessTokenId, getRandomString } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   CreateAccessTokenRo,
   RefreshAccessTokenRo,
   UpdateAccessTokenRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { getAccessToken } from './access-token.encryptor';

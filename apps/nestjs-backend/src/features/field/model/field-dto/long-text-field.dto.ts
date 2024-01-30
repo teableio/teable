@@ -1,4 +1,4 @@
-import { LongTextFieldCore } from '@teable-group/core';
+import { LongTextFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class LongTextFieldDto extends LongTextFieldCore implements IFieldBase {

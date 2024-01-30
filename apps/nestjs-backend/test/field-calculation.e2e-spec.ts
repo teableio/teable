@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IRecordsVo } from '@teable-group/core';
-import { FieldType, NumberFormattingType } from '@teable-group/core';
+import type { IFieldRo, IFieldVo, IRecordsVo } from '@teable/core';
+import { FieldType, NumberFormattingType } from '@teable/core';
 import {
   createField,
   createTable,

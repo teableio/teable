@@ -1,4 +1,4 @@
-import type { IViewVo } from '@teable-group/core';
+import type { IViewVo } from '@teable/core';
 import { match } from 'ts-pattern';
 import { RawOpType } from '../../../share-db/interface';
 import type { IEventContext } from '../core-event';

@@ -1,6 +1,6 @@
 /**
  * Custom config base for projects using typescript / javascript.
- * @see https://github.com/teable-group/teable/tree/main/packages/eslint-config-bases
+ * @see https://github.com/teableio/teable/tree/main/packages/eslint-config-bases
  */
 
 module.exports = {

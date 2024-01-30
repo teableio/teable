@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IViewGroupRo } from '@teable-group/core';
-import { groupSchema } from '@teable-group/core';
+import type { IViewGroupRo } from '@teable/core';
+import { groupSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';

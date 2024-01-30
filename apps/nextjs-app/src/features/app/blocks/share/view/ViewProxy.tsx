@@ -1,6 +1,6 @@
-import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup } from '@teable-group/core';
-import { ViewContext, createViewInstance, useView } from '@teable-group/sdk';
-import type { IViewInstance } from '@teable-group/sdk';
+import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup } from '@teable/core';
+import { ViewContext, createViewInstance, useView } from '@teable/sdk';
+import type { IViewInstance } from '@teable/sdk';
 import { useEffect, useState } from 'react';
 
 type IProxyViewKey = 'filter' | 'sort' | 'rowHeight';

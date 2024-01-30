@@ -7,7 +7,7 @@ import type {
   ILinkFieldOptionsRo,
   ILookupOptionsRo,
   ITableFullVo,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   DateFormattingPreset,
   FieldType,
@@ -15,8 +15,8 @@ import {
   Relationship,
   SingleLineTextFieldCore,
   TimeFormatting,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import type { FieldCreateEvent } from '../src/event-emitter/events';
 import { Events } from '../src/event-emitter/events';

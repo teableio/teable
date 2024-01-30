@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Component, Database, X } from '@teable-group/icons';
-import type { IGetBaseVo, IGetSpaceVo } from '@teable-group/openapi';
-import { getBaseAll, getSpaceList } from '@teable-group/openapi';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { Component, Database, X } from '@teable/icons';
+import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
+import { getBaseAll, getSpaceList } from '@teable/openapi';
+import { Button } from '@teable/ui-lib/shadcn';
 import { isEmpty } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';

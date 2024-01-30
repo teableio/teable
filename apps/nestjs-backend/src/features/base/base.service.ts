@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { generateBaseId } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { ICreateBaseRo, IUpdateBaseRo } from '@teable-group/openapi';
+import { generateBaseId } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateBaseRo, IUpdateBaseRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';

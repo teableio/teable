@@ -1,4 +1,4 @@
-import type { IHttpError } from '@teable-group/core';
+import type { IHttpError } from '@teable/core';
 import type { ReactElement } from 'react';
 import { Design } from '@/features/app/blocks/design/Design';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';

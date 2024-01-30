@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Test } from '@nestjs/testing';
-import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
+import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
 import {
   CellValueType,
   DbFieldType,
@@ -10,7 +10,7 @@ import {
   generateTableId,
   generateViewId,
   generateWorkflowActionId,
-} from '@teable-group/core';
+} from '@teable/core';
 import { vi } from 'vitest';
 import { GlobalModule } from '../../../../../global/global.module';
 import { FieldModule } from '../../../../field/field.module';

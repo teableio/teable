@@ -12,7 +12,7 @@ import type {
   ISelectFieldOptionsRo,
   IConvertFieldRo,
   IUserFieldOptions,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   assertNever,
   AttachmentFieldCore,
@@ -41,8 +41,8 @@ import {
   SelectFieldCore,
   SingleLineTextFieldCore,
   UserFieldCore,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

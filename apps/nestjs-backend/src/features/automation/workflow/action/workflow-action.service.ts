@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IEitherOr } from '@teable-group/core';
-import { identify, IdPrefix } from '@teable-group/core';
+import type { IEitherOr } from '@teable/core';
+import { identify, IdPrefix } from '@teable/core';
 import type {
   AutomationWorkflowAction as AutomationWorkflowActionModel,
   Prisma,
-} from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { isEmpty, keyBy, isNil } from 'lodash';
 import { DEFAULT_DECISION_SCHEMA } from '../../actions';
 import { MetaKit } from '../../engine/json-schema/meta-kit';

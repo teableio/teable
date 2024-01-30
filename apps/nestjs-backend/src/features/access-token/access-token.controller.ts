@@ -6,7 +6,7 @@ import type {
   ListAccessTokenVo,
   RefreshAccessTokenVo,
   UpdateAccessTokenVo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import {
   CreateAccessTokenRo,
   createAccessTokenRoSchema,
@@ -14,7 +14,7 @@ import {
   UpdateAccessTokenRo,
   updateAccessTokenRoSchema,
   RefreshAccessTokenRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AccessTokenService } from './access-token.service';
 

@@ -1,4 +1,4 @@
-import type { CellValueType, IFieldRo, IFieldVo } from '@teable-group/core';
+import type { CellValueType, IFieldRo, IFieldVo } from '@teable/core';
 
 export enum FieldOperator {
   Add,

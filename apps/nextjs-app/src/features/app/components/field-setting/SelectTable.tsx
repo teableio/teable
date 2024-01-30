@@ -1,15 +1,15 @@
-import type { Table } from '@teable-group/sdk/model';
-import ArrowDownIcon from '@teable-group/ui-lib/icons/app/arrow-down.svg';
-import SelectIcon from '@teable-group/ui-lib/icons/app/select.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import type { Table } from '@teable/sdk/model';
+import ArrowDownIcon from '@teable/ui-lib/icons/app/arrow-down.svg';
+import SelectIcon from '@teable/ui-lib/icons/app/select.svg';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
-} from '@teable-group/ui-lib/shadcn/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
+} from '@teable/ui-lib/shadcn/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn/ui/popover';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';

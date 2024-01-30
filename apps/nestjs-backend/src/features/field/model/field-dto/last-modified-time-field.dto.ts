@@ -1,4 +1,4 @@
-import { LastModifiedTimeFieldCore } from '@teable-group/core';
+import { LastModifiedTimeFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class LastModifiedTimeFieldDto extends LastModifiedTimeFieldCore implements IFieldBase {

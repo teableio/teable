@@ -1,4 +1,4 @@
-import { assertNever, DbFieldType, DriverClient } from '@teable-group/core';
+import { assertNever, DbFieldType, DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import { getDriverName } from '../../utils/db-helpers';
 

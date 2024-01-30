@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAccessToken } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config';
-import { Skeleton } from '@teable-group/ui-lib/shadcn';
+import { getAccessToken } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { Skeleton } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import type { IAccessTokenForm } from './AccessTokenForm';
 import { AccessTokenForm } from './AccessTokenForm';

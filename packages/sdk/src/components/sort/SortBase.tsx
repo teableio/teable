@@ -1,5 +1,5 @@
-import type { ISort } from '@teable-group/core';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
+import type { ISort } from '@teable/core';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { SortConfig } from './SortConfig';

@@ -1,5 +1,5 @@
-import type { IRecord } from '@teable-group/core';
-import { IdPrefix } from '@teable-group/core';
+import type { IRecord } from '@teable/core';
+import { IdPrefix } from '@teable/core';
 import { keyBy } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 import type { Record } from '../model/record';

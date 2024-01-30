@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { IActionTriggerBuffer, IColumn } from '@teable-group/core';
-import { getActionTriggerChannel } from '@teable-group/core';
+import type { IActionTriggerBuffer, IColumn } from '@teable/core';
+import { getActionTriggerChannel } from '@teable/core';
 import { isEmpty } from 'lodash';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { RecordDeleteEvent, ViewUpdateEvent } from '../events';

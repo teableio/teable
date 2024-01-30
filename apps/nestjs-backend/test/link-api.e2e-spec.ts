@@ -10,7 +10,7 @@ import type {
   ILookupOptionsVo,
   IRecord,
   ITableFullVo,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -18,8 +18,8 @@ import {
   NumberFormattingType,
   RecordOpBuilder,
   Relationship,
-} from '@teable-group/core';
-import { updateDbTableName } from '@teable-group/openapi';
+} from '@teable/core';
+import { updateDbTableName } from '@teable/openapi';
 import type { Connection, Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import {

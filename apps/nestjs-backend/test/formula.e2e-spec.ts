@@ -1,12 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptionsRo, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, ILinkFieldOptionsRo, ITableFullVo } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
   generateFieldId,
   NumberFormattingType,
   Relationship,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   createField,
   createRecords,

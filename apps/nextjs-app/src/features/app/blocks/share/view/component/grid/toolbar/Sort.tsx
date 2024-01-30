@@ -1,5 +1,5 @@
-import type { ISort } from '@teable-group/core';
-import { SortBase, useSortNode } from '@teable-group/sdk/components';
+import type { ISort } from '@teable/core';
+import { SortBase, useSortNode } from '@teable/sdk/components';
 import { isEqual } from 'lodash';
 import React, { useEffect, useState } from 'react';
 import { useDebounce } from 'react-use';

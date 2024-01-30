@@ -1,9 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
-import type { HttpError } from '@teable-group/core';
-import type { ISignin } from '@teable-group/openapi';
-import { signup, signin, signinSchema, signupSchema } from '@teable-group/openapi';
-import { Spin } from '@teable-group/ui-lib/base';
-import { Button, Input, Label } from '@teable-group/ui-lib/shadcn';
+import type { HttpError } from '@teable/core';
+import type { ISignin } from '@teable/openapi';
+import { signup, signin, signinSchema, signupSchema } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
+import { Button, Input, Label } from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';

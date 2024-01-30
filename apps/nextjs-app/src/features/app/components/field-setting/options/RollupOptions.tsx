@@ -1,7 +1,7 @@
-import type { IRollupFieldOptions, IUnionFormatting, IUnionShowAs } from '@teable-group/core';
-import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable-group/core';
-import { RollupField } from '@teable-group/sdk/model';
-import { Selector } from '@teable-group/ui-lib/base';
+import type { IRollupFieldOptions, IUnionFormatting, IUnionShowAs } from '@teable/core';
+import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable/core';
+import { RollupField } from '@teable/sdk/model';
+import { Selector } from '@teable/ui-lib/base';
 import { useMemo } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';

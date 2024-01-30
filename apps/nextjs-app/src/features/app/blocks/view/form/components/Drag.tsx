@@ -3,7 +3,7 @@ import type { UniqueIdentifier } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import type { IFieldInstance } from '@teable/sdk/model';
 import classNames from 'classnames';
 import React from 'react';
 

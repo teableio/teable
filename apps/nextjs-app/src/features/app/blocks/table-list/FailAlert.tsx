@@ -1,5 +1,5 @@
-import { Frown } from '@teable-group/icons';
-import { Alert, AlertDescription, AlertTitle } from '@teable-group/ui-lib/shadcn/ui/alert';
+import { Frown } from '@teable/icons';
+import { Alert, AlertDescription, AlertTitle } from '@teable/ui-lib/shadcn/ui/alert';
 
 export const FailAlert: React.FC = () => {
   return (

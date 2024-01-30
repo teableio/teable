@@ -1,14 +1,14 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { NotificationStatesEnum } from '@teable-group/core';
-import { Bell, CheckCircle2 as Read, RefreshCcw } from '@teable-group/icons';
+import { NotificationStatesEnum } from '@teable/core';
+import { Bell, CheckCircle2 as Read, RefreshCcw } from '@teable/icons';
 import {
   getNotificationList,
   getNotificationUnreadCount,
   notificationReadAll,
-} from '@teable-group/openapi';
-import { useNotification } from '@teable-group/sdk';
-import { ReactQueryKeys } from '@teable-group/sdk/config/react-query-keys';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
+} from '@teable/openapi';
+import { useNotification } from '@teable/sdk';
+import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import classNames from 'classnames';
 import React, { useEffect, useState } from 'react';
 import { NotificationList } from './NotificationList';

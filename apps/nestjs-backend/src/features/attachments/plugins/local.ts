@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 import { createReadStream, createWriteStream } from 'fs';
 import { resolve, join } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getRandomString } from '@teable-group/core';
+import { getRandomString } from '@teable/core';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
 import sharp from 'sharp';

@@ -1,9 +1,9 @@
-import { Filter as FilterIcon } from '@teable-group/icons';
-import type { IFilter } from '@teable-group/sdk/components';
-import { Filter } from '@teable-group/sdk/components';
-import { useTable, useTables, useView, useViews } from '@teable-group/sdk/hooks';
-import { Selector } from '@teable-group/ui-lib/base';
-import { Button, useToast } from '@teable-group/ui-lib/shadcn';
+import { Filter as FilterIcon } from '@teable/icons';
+import type { IFilter } from '@teable/sdk/components';
+import { Filter } from '@teable/sdk/components';
+import { useTable, useTables, useView, useViews } from '@teable/sdk/hooks';
+import { Selector } from '@teable/ui-lib/base';
+import { Button, useToast } from '@teable/ui-lib/shadcn';
 import { useCallback, useEffect } from 'react';
 import z from 'zod';
 import { fromZodError } from 'zod-validation-error';

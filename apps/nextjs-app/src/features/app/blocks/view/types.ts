@@ -1,4 +1,4 @@
-import type { IRecord } from '@teable-group/core';
+import type { IRecord } from '@teable/core';
 
 export interface IViewBaseProps {
   recordsServerData: { records: IRecord[] };

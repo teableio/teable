@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Plus } from '@teable-group/icons';
-import { createSpace, getSpaceList } from '@teable-group/openapi';
-import { Spin } from '@teable-group/ui-lib/base';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { Plus } from '@teable/icons';
+import { createSpace, getSpaceList } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
+import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { type FC } from 'react';
 import { SpaceItem } from './SpaceItem';

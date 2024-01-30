@@ -1,11 +1,11 @@
-import { RowHeightLevel } from '@teable-group/core';
-import { DivideSquare, Menu, Square, StretchHorizontal } from '@teable-group/icons';
+import { RowHeightLevel } from '@teable/core';
+import { DivideSquare, Menu, Square, StretchHorizontal } from '@teable/icons';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import React from 'react';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention

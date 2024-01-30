@@ -1,4 +1,4 @@
-import { Button } from '@teable-group/ui-lib';
+import { Button } from '@teable/ui-lib';
 import { useRef } from 'react';
 import { useMeasure, useToggle } from 'react-use';
 import type { Field, Record } from '../../model';

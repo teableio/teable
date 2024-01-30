@@ -1,5 +1,5 @@
-import { useFieldStaticGetter, useView } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import { useFieldStaticGetter, useView } from '@teable/sdk/hooks';
+import type { IFieldInstance } from '@teable/sdk/model';
 import type { FC } from 'react';
 import { FormCellEditor } from './FormCellEditor';
 

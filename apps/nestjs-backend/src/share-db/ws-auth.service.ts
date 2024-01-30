@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { HttpErrorCode } from '@teable-group/core';
+import { HttpErrorCode } from '@teable/core';
 import cookie from 'cookie';
 import { AUTH_SESSION_COOKIE_NAME } from '../const';
 import { SessionHandleService } from '../features/auth/session/session-handle.service';

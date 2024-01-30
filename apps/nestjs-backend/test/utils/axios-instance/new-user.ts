@@ -1,4 +1,4 @@
-import { axios, SIGN_UP, createAxios, USER_ME, SIGN_IN } from '@teable-group/openapi';
+import { axios, SIGN_UP, createAxios, USER_ME, SIGN_IN } from '@teable/openapi';
 
 export async function createNewUserAxios(user: { email: string; password: string }) {
   const signAxios = createAxios();

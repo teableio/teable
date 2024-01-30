@@ -1,5 +1,5 @@
-import { ViewType } from '@teable-group/core';
-import { useTable, useViews } from '@teable-group/sdk/hooks';
+import { ViewType } from '@teable/core';
+import { useTable, useViews } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 

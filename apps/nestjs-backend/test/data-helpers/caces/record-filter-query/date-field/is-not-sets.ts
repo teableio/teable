@@ -11,7 +11,7 @@ import {
   today,
   tomorrow,
   yesterday,
-} from '@teable-group/core';
+} from '@teable/core';
 
 export const IS_NOT_SETS = [
   {

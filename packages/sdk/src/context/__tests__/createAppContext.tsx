@@ -1,4 +1,4 @@
-import type { DriverClient } from '@teable-group/core';
+import type { DriverClient } from '@teable/core';
 import { noop } from 'lodash';
 import type { IAppContext } from '../app/AppContext';
 import { AppContext, ThemeKey } from '../app/AppContext';

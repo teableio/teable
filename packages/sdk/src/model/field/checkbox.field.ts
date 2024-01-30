@@ -1,4 +1,4 @@
-import { CheckboxFieldCore } from '@teable-group/core';
+import { CheckboxFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

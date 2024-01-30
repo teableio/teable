@@ -1,13 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable-group/core';
-import { FieldCore } from '@teable-group/core';
-import {
-  createField,
-  deleteField,
-  getFields,
-  convertField,
-  updateField,
-} from '@teable-group/openapi';
+import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable/core';
+import { FieldCore } from '@teable/core';
+import { createField, deleteField, getFields, convertField, updateField } from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 

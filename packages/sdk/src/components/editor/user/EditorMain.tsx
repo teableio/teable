@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IUserCellValue, IUserFieldOptions } from '@teable-group/core';
-import { Check } from '@teable-group/icons';
-import { getBaseCollaboratorList } from '@teable-group/openapi';
+import type { IUserCellValue, IUserFieldOptions } from '@teable/core';
+import { Check } from '@teable/icons';
+import { getBaseCollaboratorList } from '@teable/openapi';
 import {
   Avatar,
   AvatarFallback,
@@ -13,7 +13,7 @@ import {
   CommandItem,
   CommandList,
   Skeleton,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { ReactQueryKeys } from '../../../config';

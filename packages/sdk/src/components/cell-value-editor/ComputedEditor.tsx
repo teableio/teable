@@ -1,4 +1,4 @@
-import { Input } from '@teable-group/ui-lib';
+import { Input } from '@teable/ui-lib';
 
 export const ComputedEditor = (props: { cellValueString?: string }) => {
   const { cellValueString } = props;

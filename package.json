@@ -1,11 +1,11 @@
 {
-  "name": "@teable-group/teable",
+  "name": "@teable/teable",
   "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable"
+    "url": "https://github.com/teableio/teable"
   },
   "author": {
     "name": "tea artist",
@@ -52,7 +52,7 @@
     "@changesets/cli": "2.27.1",
     "@commitlint/cli": "18.6.0",
     "@commitlint/config-conventional": "18.6.0",
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
     "@types/shell-quote": "1.7.5",
     "eslint": "8.56.0",
     "husky": "9.0.7",

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
+import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { DbConnectionPanel } from '../../db-connection/Panel';
 
 export const TableConnection = () => {

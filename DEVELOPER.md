@@ -106,7 +106,7 @@ If needed static resources like **images**,... can be shared by using symlinks i
 
 ```json5
 {
-  "name": "@teable-group/teable",
+  "name": "@teable/teable",
   // Set the directories where your apps, packages will be placed
   "workspaces": ["apps/*", "packages/*"],
   //...
@@ -144,7 +144,7 @@ Initialize a package.json with the name of your package.
 
 ```json5
 {
-  "name": "@teable-group/magnificent-poney",
+  "name": "@teable/magnificent-poney",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -157,7 +157,7 @@ Initialize a package.json with the name of your package.
     "fix:all-files": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
   },
   "devDependencies": {
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
   },
 }
 ```
@@ -174,7 +174,7 @@ yarn and pnpm.
 
 ```bash
 cd apps/my-app
-yarn add @teable-group/magnificent-poney@'workspace:^'
+yarn add @teable/magnificent-poney@'workspace:^'
 ```
 
 Inspiration can be found in [apps/nextjs-app/package.json](./apps/nextjs-app/package.json).
@@ -186,7 +186,7 @@ Inspiration can be found in [apps/nextjs-app/package.json](./apps/nextjs-app/pac
 {
   "name": "my-app",
   "dependencies": {
-    "@teable-group/magnificient-poney": "workspace:^",
+    "@teable/magnificient-poney": "workspace:^",
   },
 }
 ```
@@ -211,8 +211,8 @@ Inspiration can be found in [apps/nextjs-app/tsconfig.json](./apps/nextjs-app/ts
       // regular app aliases
       "@/components/*": ["./components/*"],
       // packages aliases, relative to app_directory/baseUrl
-      "@teable-group/magnificent-poney/*": ["../../../packages/magnificent-poney/src/*"],
-      "@teable-group/magnificent-poney": ["../../../packages/magnificent-poney/src/index"],
+      "@teable/magnificent-poney/*": ["../../../packages/magnificent-poney/src/*"],
+      "@teable/magnificent-poney": ["../../../packages/magnificent-poney/src/index"],
     },
   },
 }
@@ -222,7 +222,7 @@ Inspiration can be found in [apps/nextjs-app/tsconfig.json](./apps/nextjs-app/ts
 >
 > - Don't try to set aliases in the global tsonfig.base.json to keep strict with
 >   graph dependencies.
-> - The **star** in `@teable-group/magnificent-poney/*` allows you to import subfolders. If you use
+> - The **star** in `@teable/magnificent-poney/*` allows you to import subfolders. If you use
 >   a barrel file (index.ts), the alias with star can be removed.
 
 </details>
@@ -275,7 +275,7 @@ const nextConfig = {
 
 #### Step 3.4: Using the package
 
-The packages are now linked to your app, just import them like regular packages: `import { poney } from '@teable-group/magnificent-poney'`.
+The packages are now linked to your app, just import them like regular packages: `import { poney } from '@teable/magnificent-poney'`.
 
 ### 4. Publishing
 

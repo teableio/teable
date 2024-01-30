@@ -4,8 +4,8 @@ import {
   RowCountProvider,
   ActionTriggerProvider,
   GroupPointProvider,
-} from '@teable-group/sdk/context';
-import { useIsHydrated } from '@teable-group/sdk/hooks';
+} from '@teable/sdk/context';
+import { useIsHydrated } from '@teable/sdk/hooks';
 import { DynamicCellGraph } from '../../graph/DynamicCellGraph';
 import { useCellGraphStore } from '../../graph/useCellGraphStore';
 import { GridToolBar } from '../tool-bar/GridToolBar';

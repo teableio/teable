@@ -9,7 +9,7 @@ import {
   pastNumberOfDays,
   pastWeek,
   pastYear,
-} from '@teable-group/core';
+} from '@teable/core';
 
 export const IS_WITH_IN_SETS = [
   {

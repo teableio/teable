@@ -6,10 +6,10 @@ import type {
   IRecord,
   IUpdateRecordRo,
   IUpdateRecordsRo,
-} from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { UploadType } from '@teable-group/openapi';
+} from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { UploadType } from '@teable/openapi';
 import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';

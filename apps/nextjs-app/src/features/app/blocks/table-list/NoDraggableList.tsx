@@ -1,4 +1,4 @@
-import { useTableId, useTables } from '@teable-group/sdk';
+import { useTableId, useTables } from '@teable/sdk';
 import { TableListItem } from './TableListItem';
 
 export const NoDraggableList: React.FC = () => {

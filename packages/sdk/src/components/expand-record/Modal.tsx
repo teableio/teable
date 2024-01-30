@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from '@teable-group/ui-lib';
+import { Dialog, DialogContent } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { type FC, type PropsWithChildren } from 'react';
 

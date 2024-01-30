@@ -1,4 +1,4 @@
-import { Input, Textarea } from '@teable-group/ui-lib';
+import { Input, Textarea } from '@teable/ui-lib';
 import type { ChangeEvent, ForwardRefRenderFunction, KeyboardEvent, RefObject } from 'react';
 import { useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
 import { Key } from 'ts-keycode-enum';

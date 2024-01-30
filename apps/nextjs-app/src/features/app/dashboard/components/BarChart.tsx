@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle, CardContent } from '@teable-group/ui-lib/shadcn';
+import { Card, CardHeader, CardTitle, CardContent } from '@teable/ui-lib/shadcn';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { useChartData } from '../hooks/useChartData';
 

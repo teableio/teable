@@ -1,5 +1,5 @@
-import type { IDatetimeFormatting } from '@teable-group/core';
-import { DateFormattingPreset, TIME_ZONE_LIST, TimeFormatting } from '@teable-group/core';
+import type { IDatetimeFormatting } from '@teable/core';
+import { DateFormattingPreset, TIME_ZONE_LIST, TimeFormatting } from '@teable/core';
 import {
   Select,
   SelectContent,
@@ -7,8 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
   Selector,
-} from '@teable-group/ui-lib';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+} from '@teable/ui-lib';
+import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import dayjs from 'dayjs';
 import 'dayjs/plugin/utc';
 

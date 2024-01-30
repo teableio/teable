@@ -1,4 +1,4 @@
-import type { IFieldPropertyKey, IFieldVo } from '@teable-group/core';
+import type { IFieldPropertyKey, IFieldVo } from '@teable/core';
 import { match } from 'ts-pattern';
 import { RawOpType } from '../../../share-db/interface';
 import type { IEventContext } from '../core-event';

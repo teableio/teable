@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders } from 'http';
-import type { OpName } from '@teable-group/core';
+import type { OpName } from '@teable/core';
 import { nanoid } from 'nanoid';
 import type { Events } from './event.enum';
 

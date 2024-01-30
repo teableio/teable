@@ -1,4 +1,4 @@
-@import url('@teable-group/ui-lib/shadcn/global.shadcn.css');
+@import url('@teable/ui-lib/shadcn/global.shadcn.css');
 
 :root {
   --btn-text-case: none;

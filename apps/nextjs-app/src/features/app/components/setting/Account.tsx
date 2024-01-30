@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
-import { ArrowUpRight } from '@teable-group/icons';
-import { updateUserAvatar, updateUserName } from '@teable-group/openapi';
-import { useSession } from '@teable-group/sdk';
+import { ArrowUpRight } from '@teable/icons';
+import { updateUserAvatar, updateUserName } from '@teable/openapi';
+import { useSession } from '@teable/sdk';
 import {
   Avatar,
   AvatarFallback,
@@ -14,7 +14,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';

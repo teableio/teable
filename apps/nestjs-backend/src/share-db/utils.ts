@@ -1,4 +1,4 @@
-import { ActionPrefix, IdPrefix } from '@teable-group/core';
+import { ActionPrefix, IdPrefix } from '@teable/core';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 
 export const getPrefixAction = (docType: IdPrefix) => {

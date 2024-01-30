@@ -8,7 +8,7 @@ on:
 jobs:
   release:
     # Basic security: the release job can only be executed from this repo and from the main branch (not a remote thing)
-    if: ${{ github.repository == 'teable-group/teable' && contains('refs/heads/main',github.ref)}}
+    if: ${{ github.repository == 'teableio/teable' && contains('refs/heads/main',github.ref)}}
     name: Release and changelog
     runs-on: ubuntu-latest
     steps:

@@ -1,4 +1,4 @@
-import { CreatedTimeFieldCore } from '@teable-group/core';
+import { CreatedTimeFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

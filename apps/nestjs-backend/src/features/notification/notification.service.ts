@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ISendMailOptions } from '@nestjs-modules/mailer';
-import type { INotificationBuffer, INotificationUrl } from '@teable-group/core';
+import type { INotificationBuffer, INotificationUrl } from '@teable/core';
 import {
   generateNotificationId,
   getUserNotificationChannel,
@@ -9,15 +9,15 @@ import {
   notificationUrlSchema,
   systemIconSchema,
   userIconSchema,
-} from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IGetNotifyListQuery,
   INotificationUnreadCountVo,
   INotificationVo,
   IUpdateNotifyStatusRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { ShareDbService } from '../../share-db/share-db.service';

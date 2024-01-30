@@ -5,14 +5,14 @@ import {
   ICreateBaseRo,
   IUpdateBaseRo,
   updateBaseRoSchema,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import type {
   ICreateBaseVo,
   IDbConnectionVo,
   IGetBaseVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';

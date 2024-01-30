@@ -1,12 +1,12 @@
 {
-  "name": "@teable-group/core",
+  "name": "@teable/core",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable",
+    "url": "https://github.com/teableio/teable",
     "directory": "packages/core"
   },
   "author": {
@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@size-limit/file": "11.0.2",
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
     "@types/lodash": "4.14.202",
     "@types/node": "18.19.0",
     "antlr4ts-cli": "0.5.0-alpha.4",

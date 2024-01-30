@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import systemJsonEn from '@teable-group/common-i18n/locales/en/system.json';
+import systemJsonEn from '@teable/common-i18n/locales/en/system.json';
 
 const pageSlug = 'this-page-does-not-exist';
 

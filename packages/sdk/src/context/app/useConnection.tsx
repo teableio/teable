@@ -1,5 +1,5 @@
-import { HttpError, HttpErrorCode } from '@teable-group/core';
-import { toast } from '@teable-group/ui-lib';
+import { HttpError, HttpErrorCode } from '@teable/core';
+import { toast } from '@teable/ui-lib';
 import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';

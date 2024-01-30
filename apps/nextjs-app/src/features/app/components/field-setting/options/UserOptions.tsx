@@ -1,5 +1,5 @@
-import type { CellValueType, IUserFieldOptions } from '@teable-group/core';
-import { Label, Switch } from '@teable-group/ui-lib';
+import type { CellValueType, IUserFieldOptions } from '@teable/core';
+import { Label, Switch } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 

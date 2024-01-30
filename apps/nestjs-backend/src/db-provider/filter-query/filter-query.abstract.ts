@@ -7,7 +7,7 @@ import type {
   IFilterOperator,
   IFilterSet,
   ILiteralValueList,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   CellValueType,
   DbFieldType,
@@ -17,7 +17,7 @@ import {
   isEmpty,
   isMeTag,
   isNotEmpty,
-} from '@teable-group/core';
+} from '@teable/core';
 import type { Knex } from 'knex';
 import { get, includes, invert, isObject } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';

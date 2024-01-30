@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Component, Database, Plus } from '@teable-group/icons';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { getBaseAll, getSpaceList } from '@teable-group/openapi';
-import { Spin } from '@teable-group/ui-lib/base';
+import { Component, Database, Plus } from '@teable/icons';
+import type { IGetBaseVo } from '@teable/openapi';
+import { getBaseAll, getSpaceList } from '@teable/openapi';
+import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
   Command,
@@ -14,7 +14,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';

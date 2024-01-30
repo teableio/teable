@@ -1,4 +1,4 @@
-import type { IHttpError } from '@teable-group/core';
+import type { IHttpError } from '@teable/core';
 import type { GetServerSideProps } from 'next';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
 import type { NextPageWithLayout } from '@/lib/type';

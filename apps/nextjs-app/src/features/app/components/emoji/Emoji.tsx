@@ -1,4 +1,4 @@
-import { cn } from '@teable-group/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib/shadcn';
 
 interface IEmoji {
   className?: string;

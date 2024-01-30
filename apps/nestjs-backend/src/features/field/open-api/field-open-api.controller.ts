@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Put, Post, Query } from '@nestjs/common';
-import type { IFieldVo } from '@teable-group/core';
+import type { IFieldVo } from '@teable/core';
 import {
   createFieldRoSchema,
   getFieldsQuerySchema,
@@ -10,8 +10,8 @@ import {
   convertFieldRoSchema,
   updateFieldRoSchema,
   IUpdateFieldRo,
-} from '@teable-group/core';
-import type { IPlanFieldConvertVo, IPlanFieldVo } from '@teable-group/openapi';
+} from '@teable/core';
+import type { IPlanFieldConvertVo, IPlanFieldVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { FieldService } from '../field.service';

@@ -1,4 +1,4 @@
-import { LocalStorageKeys } from '@teable-group/sdk/config';
+import { LocalStorageKeys } from '@teable/sdk/config';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
