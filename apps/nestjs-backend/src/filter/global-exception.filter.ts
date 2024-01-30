@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpErrorCode, type IHttpError } from '@teable-group/core';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { ILoggerConfig } from '../configs/logger.config';
 
 @Catch()

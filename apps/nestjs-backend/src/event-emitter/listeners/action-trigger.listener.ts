@@ -4,8 +4,8 @@ import type { IActionTriggerBuffer, IColumn } from '@teable-group/core';
 import { getActionTriggerChannel } from '@teable-group/core';
 import { isEmpty } from 'lodash';
 import { ShareDbService } from '../../share-db/share-db.service';
-import type { RecordDeleteEvent, ViewUpdateEvent } from '../model';
-import { Events, RecordCreateEvent, RecordUpdateEvent } from '../model';
+import type { RecordDeleteEvent, ViewUpdateEvent } from '../events';
+import { Events, RecordCreateEvent, RecordUpdateEvent } from '../events';
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
@@ -36,7 +36,7 @@ export class ActionTriggerListener {
       return;
     }
 
-    const { tableId, view } = event;
+    const { tableId, view } = event.payload;
     const { id: viewId, filter, columnMeta, group } = view;
 
     let buffer: IActionTriggerBuffer = {};
@@ -71,7 +71,7 @@ export class ActionTriggerListener {
   }
 
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
-    const { tableId } = event;
+    const { tableId } = event.payload;
     const buffer: IActionTriggerBuffer = {};
 
     switch (event.constructor) {

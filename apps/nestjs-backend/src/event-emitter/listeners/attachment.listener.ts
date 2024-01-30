@@ -7,7 +7,7 @@ import {
   RecordDeleteEvent,
   RecordCreateEvent,
   RecordUpdateEvent,
-} from '../model';
+} from '../events';
 
 @Injectable()
 export class AttachmentListener {
@@ -15,7 +15,10 @@ export class AttachmentListener {
 
   @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
   async recordCreateListener(listenerEvent: RecordCreateEvent) {
-    const { record, tableId, context } = listenerEvent;
+    const {
+      payload: { record, tableId },
+      context,
+    } = listenerEvent;
     await this.attachmentsTableService.createRecords(
       context.user!.id,
       tableId,
@@ -25,7 +28,9 @@ export class AttachmentListener {
 
   @OnEvent(Events.TABLE_RECORD_DELETE, { async: true })
   async recordDeleteListener(listenerEvent: RecordDeleteEvent) {
-    const { tableId, recordId } = listenerEvent;
+    const {
+      payload: { tableId, recordId },
+    } = listenerEvent;
     await this.attachmentsTableService.deleteRecords(
       tableId,
       Array.isArray(recordId) ? recordId : [recordId]
@@ -34,7 +39,10 @@ export class AttachmentListener {
 
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
   async recordUpdateListener(listenerEvent: RecordUpdateEvent) {
-    const { tableId, record, context } = listenerEvent;
+    const {
+      payload: { tableId, record },
+      context,
+    } = listenerEvent;
     await this.attachmentsTableService.updateRecords(
       context.user!.id,
       tableId,
@@ -44,7 +52,9 @@ export class AttachmentListener {
 
   @OnEvent(Events.TABLE_FIELD_DELETE, { async: true })
   async fieldDeleteListener(listenerEvent: FieldDeleteEvent) {
-    const { tableId, fieldId } = listenerEvent;
+    const {
+      payload: { tableId, fieldId },
+    } = listenerEvent;
 
     await this.attachmentsTableService.deleteFields(
       tableId,

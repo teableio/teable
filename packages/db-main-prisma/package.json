@@ -36,18 +36,18 @@
   "peerDependencies": {
     "@prisma/client": "^5.0.0",
     "@nestjs/common": "^10.0.0",
-    "nestjs-cls": ">= 3.5.0"
+    "nestjs-cls": "^4.0.0"
   },
   "dependencies": {
     "@prisma/client": "5.8.1",
     "prisma": "5.8.1",
-    "nanoid": "3.3.6"
+    "nanoid": "3.3.7"
   },
   "devDependencies": {
     "@soluble/dsn-parser": "1.9.2",
-    "@faker-js/faker": "8.3.1",
+    "@faker-js/faker": "8.4.0",
     "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/node": "18.18.2",
+    "@types/node": "18.19.0",
     "@types/bcrypt": "5.0.2",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
@@ -56,7 +56,7 @@
     "handlebars": "4.7.8",
     "is-port-reachable": "3.1.0",
     "mustache": "4.2.0",
-    "npm-run-all": "4.1.5",
+    "npm-run-all2": "6.1.1",
     "picocolors": "1.0.0",
     "prettier": "3.2.4",
     "rimraf": "5.0.5",

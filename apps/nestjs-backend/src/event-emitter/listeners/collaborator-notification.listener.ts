@@ -7,9 +7,8 @@ import { Knex } from 'knex';
 import { has, intersection, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { NotificationService } from '../../features/notification/notification.service';
-import type { IChangeRecord, RecordCreateEvent, RecordUpdateEvent } from '../model';
-import { Events } from '../model';
-import type { IChangeValue } from '../model/table/base-op-event';
+import type { IChangeRecord, IChangeValue, RecordCreateEvent, RecordUpdateEvent } from '../events';
+import { Events } from '../events';
 
 type IListenerEvent = RecordCreateEvent | RecordUpdateEvent;
 
@@ -34,7 +33,7 @@ export class CollaboratorNotificationListener {
   @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
-    const { tableId, record } = listenerEvent;
+    const { tableId, record } = listenerEvent.payload;
 
     const userFieldData = await this.fetchUserFields(tableId);
     if (isEmpty(userFieldData)) {
@@ -70,9 +69,8 @@ export class CollaboratorNotificationListener {
     userFields: Record<string, IUserField>
   ): Promise<void> {
     const {
-      tableId,
+      payload: { tableId, record: eventRecords },
       context: { user },
-      record: eventRecords,
     } = event;
     const recordSets = (Array.isArray(eventRecords) ? eventRecords : [eventRecords]).filter(
       Boolean

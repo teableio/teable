@@ -1,19 +1,14 @@
-#
-# @link https://github.com/teable-group/teable
-#
+ARG NODE_VERSION=18.19.0
 
 ###################################################################
 # Stage 1: Install all workspaces (dev)dependencies               #
 #          and generates node_modules folder(s)                   #
 ###################################################################
 
-ARG NODE_VERSION=18.19.0
-
-
 FROM node:${NODE_VERSION}-bookworm AS deps
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && pnpm add is-ci husky -g
+RUN corepack enable && pnpm add npm-run-all2 zx -g
 
 # Disabling some well-known postinstall scripts
 ENV HUSKY=0
@@ -27,6 +22,7 @@ RUN pnpm fetch
 COPY --link . .
 
 RUN pnpm install --prefer-offline --frozen-lockfile
+RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 ###################################################################
 # Stage 2: Build the app                                          #
@@ -48,14 +44,13 @@ WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
 
-RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
-
 # Distinguish whether it is an integration test operation
-RUN NODE_OPTIONS=--max-old-space-size=8192 && \
-    if [ -n "$INTEGRATION_TEST" ];  \
-    then pnpm -F "./packages/**" run build;  \
-    else pnpm g:build; \
+RUN if [ -n "$INTEGRATION_TEST" ]; then \
+        pnpm -F "./packages/**" run build; \
+    else \
+        NODE_OPTIONS=--max-old-space-size=8192 pnpm g:build; \
     fi
+
 
 ##################################################################
 # Stage 3: Post Builder                                          #
@@ -63,11 +58,12 @@ RUN NODE_OPTIONS=--max-old-space-size=8192 && \
 
 FROM builder as post-builder
 
+ENV NODE_ENV=production
+
 WORKDIR /app
 
 RUN rm -fr node_modules && pnpm nuke:node_modules && \
-      rm -fr ./packages/eslint-config-bases ./packages/ui-lib && \
-      chmod +x ./scripts/post-build-cleanup.sh && bash ./scripts/post-build-cleanup.sh
+      chmod +x ./scripts/post-build-cleanup.mjs && zx ./scripts/post-build-cleanup.mjs
 
 RUN pnpm install --prod --prefer-offline --frozen-lockfile
 RUN pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
@@ -83,7 +79,7 @@ ENV NODE_ENV=production
 ENV TZ=UTC
 ENV PORT=${NEXTJS_APP_PORT:-3000}
 
-RUN npm install pm2 -g && \
+RUN npm install zx -g && \
       apt-get update && apt-get install -y openssl && \
       rm -rf /var/lib/apt/lists/*
 
@@ -118,8 +114,8 @@ COPY --from=post-builder /app/packages ./packages
 COPY --from=post-builder /app/node_modules ./node_modules
 COPY --from=post-builder /app/package.json ./package.json
 
-COPY --from=post-builder /app/apps/nestjs-backend/ecosystem.config.js ./ecosystem.config.js
+COPY scripts/start.mjs ./scripts/start.mjs
 
 EXPOSE ${PORT}
 
-CMD ["pm2-runtime", "ecosystem.config.js"]
+CMD ["scripts/start.mjs"]
