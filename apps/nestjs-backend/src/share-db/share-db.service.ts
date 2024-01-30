@@ -121,6 +121,11 @@ export class ShareDbService extends ShareDBClass {
     // console.log('onSubmit start');
 
     otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
+      const [docType] = context.collection.split('_');
+
+      if (docType !== IdPrefix.Record || !context.op.op) {
+        return next(new Error('only record op can be committed'));
+      }
       next();
     });
 
