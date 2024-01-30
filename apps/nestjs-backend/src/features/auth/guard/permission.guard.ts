@@ -112,21 +112,20 @@ export class PermissionGuard {
       return true;
     }
 
-    // Pre-checking of tokens
-    // The token can only access interfaces that are restricted by permissions or have a token access indicator.
-    const isTokenAccess = this.reflector.getAllAndOverride<boolean>(IS_TOKEN_ACCESS, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (isTokenAccess && accessTokenId) {
-      return true;
-    }
-
     const permissions = this.reflector.getAllAndOverride<PermissionAction[] | undefined>(
       PERMISSIONS_KEY,
       [context.getHandler(), context.getClass()]
     );
+
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId && !permissions?.length) {
+      // Pre-checking of tokens
+      // The token can only access interfaces that are restricted by permissions or have a token access indicator.
+      return this.reflector.getAllAndOverride<boolean>(IS_TOKEN_ACCESS, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+    }
 
     if (!permissions?.length) {
       return true;

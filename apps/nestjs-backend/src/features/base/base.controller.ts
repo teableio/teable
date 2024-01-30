@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   createBaseRoSchema,
   ICreateBaseRo,
@@ -18,13 +18,11 @@ import { Events } from '../../event-emitter/model';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
-import { PermissionGuard } from '../auth/guard/permission.guard';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
 @Controller('api/base/')
-@UseGuards(PermissionGuard)
 export class BaseController {
   constructor(
     private readonly baseService: BaseService,

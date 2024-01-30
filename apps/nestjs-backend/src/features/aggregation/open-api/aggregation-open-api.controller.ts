@@ -11,12 +11,10 @@ import {
 } from '@teable-group/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
-@UseGuards(PermissionGuard)
 export class AggregationOpenApiController {
   constructor(private readonly aggregationOpenApiService: AggregationOpenApiService) {}
 
