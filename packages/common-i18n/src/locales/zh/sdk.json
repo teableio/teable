@@ -80,12 +80,54 @@
     }
   },
   "spaceRole": {
+    "role": {
+      "owner": "拥有者",
+      "creator": "创建者",
+      "editor": "编辑者",
+      "commenter": "评论者",
+      "viewer": "查看者"
+    },
     "description": {
       "owner": "具有完全配置和编辑数据库、管理空间设置和计费的权限",
       "creator": "具有完全配置和编辑数据库的权限",
       "editor": "可以编辑记录和视图，但不能配置表格或字段",
       "commenter": "可以在记录上添加评论的权限",
       "viewer": "无法编辑或评论"
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "创建空间",
+      "spaceDelete": "删除空间",
+      "spaceRead": "查看空间",
+      "spaceUpdate": "更新空间",
+      "spaceInviteEmail": "通过电子邮件邀请进入空间",
+      "spaceInviteLink": "通过链接邀请进入空间",
+      "spaceGrantRole": "在空间中授予角色",
+      "baseCreate": "创建数据库",
+      "baseDelete": "删除数据库",
+      "baseRead": "查看数据库",
+      "baseUpdate": "更新数据库",
+      "baseInviteEmail": "通过电子邮件邀请进入数据库",
+      "baseInviteLink": "通过链接邀请进入数据库",
+      "tableCreate": "创建表格",
+      "tableRead": "查看表格",
+      "tableDelete": "删除表格",
+      "tableUpdate": "更新表格",
+      "tableImport": "导入数据到表格",
+      "viewCreate": "创建视图",
+      "viewDelete": "删除视图",
+      "viewRead": "查看视图",
+      "viewUpdate": "更新视图",
+      "fieldCreate": "创建字段",
+      "fieldDelete": "删除字段",
+      "fieldRead": "查看字段",
+      "fieldUpdate": "更新字段",
+      "recordCreate": "创建记录",
+      "recordComment": "对记录进行评论",
+      "recordDelete": "删除记录",
+      "recordRead": "查看记录",
+      "recordUpdate": "更新记录"
     }
   }
 }

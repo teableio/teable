@@ -1,5 +1,9 @@
 {
   "page": {
     "title": "Teable App"
+  },
+  "quickAction": {
+    "title": "Quick Actions...",
+    "placeHolder": "Type a command or search..."
   }
 }

@@ -1,5 +1,9 @@
 {
   "page": {
     "title": "Teable App"
+  },
+  "quickAction": {
+    "title": "快捷搜索...",
+    "placeHolder": "输入命令或进行搜索..."
   }
 }

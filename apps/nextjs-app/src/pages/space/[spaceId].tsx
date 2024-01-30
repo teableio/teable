@@ -8,7 +8,7 @@ import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../_app';
+import type { NextPageWithLayout } from '../../lib/type';
 
 const Node: NextPageWithLayout = () => <SpaceInnerPage />;
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {

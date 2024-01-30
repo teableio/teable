@@ -3,7 +3,7 @@ import type { ActionPrefixMap, AllActions } from '@teable-group/core';
 import { ActionPrefix, actionPrefixMap } from '@teable-group/core';
 import { useTranslation } from '../context/app/i18n';
 
-const actionDescriptions: Record<AllActions, string> = {
+export const actionDescriptions: Record<AllActions, string> = {
   'space|create': 'spaceCreate',
   'space|delete': 'spaceDelete',
   'space|read': 'spaceRead',

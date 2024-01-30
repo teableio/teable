@@ -1,47 +1,43 @@
-import { Gauge, Home, PackageCheck } from '@teable-group/icons';
+import { Gauge, PackageCheck } from '@teable-group/icons';
 import { cn } from '@teable-group/ui-lib/shadcn';
 import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 import { TableList } from '../../table-list/TableList';
+import { QuickAction } from './QuickAction';
 
 export const BaseSideBar = () => {
   const router = useRouter();
   const { baseId } = router.query;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const pageRoutes: {
     href: string;
     text: string;
-    shortCutKey: string;
     Icon: React.FC<{ className?: string }>;
+    disabled?: boolean;
   }[] = [
     {
-      href: `/base/${baseId}`,
-      text: 'Home',
-      shortCutKey: '⌘H',
-      Icon: Home,
-    },
-    {
       href: `/base/${baseId}/dashboard`,
-      text: 'Dashboard',
-      shortCutKey: '⌘D',
+      text: t('common:noun.dashboard'),
       Icon: Gauge,
     },
     {
       href: `/base/${baseId}/automation`,
-      text: 'Automation',
-      shortCutKey: '⌘A',
+      text: t('common:noun.automation'),
       Icon: PackageCheck,
+      disabled: true,
     },
   ];
   return (
     <>
       <div className="flex flex-col gap-2 px-3">
         <div>
-          <Input className="h-8" type="text" placeholder="Search" />
+          <QuickAction>{t('space:quickAction.title')}</QuickAction>
         </div>
         <ul>
-          {pageRoutes.map(({ href, text, shortCutKey, Icon }) => {
+          {pageRoutes.map(({ href, text, Icon, disabled }) => {
             return (
               <li key={href}>
                 <Button
@@ -52,12 +48,12 @@ export const BaseSideBar = () => {
                     'w-full justify-start text-sm px-2 my-[2px]',
                     href === router.pathname && 'bg-secondary'
                   )}
+                  disabled={disabled}
                 >
                   <Link href={href} className="font-normal">
                     <Icon className="size-4 shrink-0" />
                     <p className="truncate">{text}</p>
                     <div className="grow basis-0"></div>
-                    <p className="text-xs text-slate-500">{shortCutKey}</p>
                   </Link>
                 </Button>
               </li>

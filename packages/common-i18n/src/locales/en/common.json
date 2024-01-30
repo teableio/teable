@@ -21,6 +21,7 @@
   },
   "settings": {
     "title": "Settings",
+    "back": "Back to home",
     "account": {
       "title": "My profile",
       "tab": "My Account",
@@ -46,11 +47,12 @@
       "changePasswordSuccess": {
         "title": "Change password successfully.",
         "desc": "You will be redirected to the login page in 2 seconds."
-      }
+      },
+      "manageToken": "Develop or manage your token"
     },
     "notify": {
       "title": "My Notifications",
-      "label": "Activity in your workspace",
+      "label": "Activity in your space",
       "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
     },
     "setting": {
@@ -61,6 +63,14 @@
       "light": "Light",
       "system": "System"
     }
+  },
+  "noun": {
+    "table": "Table",
+    "view": "View",
+    "space": "Space",
+    "base": "Base",
+    "dashboard": "Dashboard",
+    "automation": "Automation"
   },
   "noResult": "No Result.",
   "name": "Name",
