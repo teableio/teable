@@ -7,7 +7,7 @@ export const MainFooter: FC = () => {
       <div className={'bgImage'}></div>
       <div className={'content'}>
         <a
-          href={'https://github.com/teable-group/teable'}
+          href={'https://github.com/teableio/teable'}
           target={'_blank'}
           rel={'noopener noreferrer'}
         >

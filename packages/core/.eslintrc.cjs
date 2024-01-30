@@ -1,6 +1,6 @@
 /**
  * Specific eslint rules for this workspace, learn how to compose
- * @link https://github.com/teable-group/teable/tree/main/packages/eslint-config-bases
+ * @link https://github.com/teableio/teable/tree/main/packages/eslint-config-bases
  */
 require('@teable-group/eslint-config-bases/patch/modern-module-resolution');
 

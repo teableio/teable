@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable",
+    "url": "https://github.com/teableio/teable",
     "directory": "packages/core"
   },
   "author": {

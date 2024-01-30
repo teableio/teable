@@ -1,6 +1,6 @@
 /**
  * Specific eslint rules for this app/package, extends the base rules
- * @see https://github.com/teable-group/teable/blob/main/docs/about-linters.md
+ * @see https://github.com/teableio/teable/blob/main/docs/about-linters.md
  */
 
 const { getDefaultIgnorePatterns } = require('@teable-group/eslint-config-bases/helpers');

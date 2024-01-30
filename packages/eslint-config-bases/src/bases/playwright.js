@@ -1,6 +1,6 @@
 /**
  * Opinionated config base for projects using playwright.
- * @see https://github.com/teable-group/teable/tree/main/packages/eslint-config-bases
+ * @see https://github.com/teableio/teable/tree/main/packages/eslint-config-bases
  */
 
 const playwrightPatterns = {

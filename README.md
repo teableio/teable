@@ -10,7 +10,7 @@
 </div>
 
 <p align="center">
-  <a aria-label="Build" href="https://github.com/teable-group/teable/actions?query=workflow%3ACI">
+  <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=workflow%3ACI">
     <img alt="build" src="https://img.shields.io/github/workflow/status/teable-group/teable/CI-nextjs-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
   </a>
   <a aria-label="Codefactor grade" href=https://www.codefactor.io/repository/github/teable-group/teable">
@@ -28,10 +28,10 @@
   <a aria-label="LoC">  
     <img alt="LoC" src="https://img.shields.io/tokei/lines/github/teable-group/teable?style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="Top language" href="https://github.com/teable-group/teable/search?l=typescript">
+  <a aria-label="Top language" href="https://github.com/teableio/teable/search?l=typescript">
     <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teable-group/teable?style=flat-square&labelColor=000&color=blue">
   </a>
-  <a aria-label="Licence" href="https://github.com/teable-group/teable/blob/main/LICENSE">
+  <a aria-label="Licence" href="https://github.com/teableio/teable/blob/main/LICENSE">
     <img alt="Licence" src="https://img.shields.io/github/license/teable-group/teable?style=flat-quare&labelColor=000000" />
   </a>
 </p>
@@ -165,7 +165,7 @@ Choose the Sql-database you like
 
 # Structure
 
-[![Open in Gitpod](https://img.shields.io/badge/Open%20In-Gitpod.io-%231966D2?style=for-the-badge&logo=gitpod)](https://gitpod.io/#https://github.com/teable-group/teable)
+[![Open in Gitpod](https://img.shields.io/badge/Open%20In-Gitpod.io-%231966D2?style=for-the-badge&logo=gitpod)](https://gitpod.io/#https://github.com/teableio/teable)
 
 ```
 .

@@ -1,24 +1,24 @@
 # The web-app
 
 <p align="left">
-  <a aria-label="Build" href="https://github.com/teable-group/teable/actions?query=workflow%3ACI">
+  <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=workflow%3ACI">
     <img alt="build" src="https://img.shields.io/github/workflow/status/teable-group/teable/CI-web-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
   </a>
 </p>
 
 ## Intro
 
-Basic demo nextjs nextjs-app, part of the [teable](https://github.com/teable-group/teable).
+Basic demo nextjs nextjs-app, part of the [teable](https://github.com/teableio/teable).
 
 - Home: [Demo/Vercel](https://monorepo-nextjs-app.vercel.app)
 - SSR-I18n: [Demo/Vercel english](https://monorepo-nextjs-app.vercel.app/en/home) | [Demo/vercel french](https://monorepo-nextjs-app.vercel.app/fr/home)
 - API: [Demo rest/Vercel](https://monorepo-nextjs-app.vercel.app/api/rest/post/1)
-- [Changelog](https://github.com/teable-group/teable/blob/main/apps/nextjs-app/CHANGELOG.md)
+- [Changelog](https://github.com/teableio/teable/blob/main/apps/nextjs-app/CHANGELOG.md)
 
 ## Quick start
 
 > For rest/api database access be sure to start `docker-compose up main-db`,
-> see detailed instructions (seeding, docker, supabase...) in the [@teable-group/db-main-prisma README](https://github.com/teable-group/teable/blob/main/packages/db-main-prisma/README.md).
+> see detailed instructions (seeding, docker, supabase...) in the [@teable-group/db-main-prisma README](https://github.com/teableio/teable/blob/main/packages/db-main-prisma/README.md).
 
 ```bash
 $ yarn install
@@ -41,7 +41,7 @@ $ yarn dev
 
 ### Monorepo deps
 
-This app relies on packages in the monorepo, see detailed instructions in [README.md](https://github.com/teable-group/teable)
+This app relies on packages in the monorepo, see detailed instructions in [README.md](https://github.com/teableio/teable)
 
 ```json5
 {
@@ -64,12 +64,8 @@ And their counterparts in [tsconfig.json](./tsconfig.json)
       "@teable-group/ui-lib": ["../../../packages/ui-lib/src/index"],
       "@teable-group/sdk/*": ["../../../packages/sdk/src/*"],
       "@teable-group/sdk": ["../../../packages/sdk/src/index"],
-      "@teable-group/db-main-prisma/*": [
-        "../../../packages/db-main-prisma/src/*",
-      ],
-      "@teable-group/db-main-prisma": [
-        "../../../packages/db-main-prisma/src/index",
-      ],
+      "@teable-group/db-main-prisma/*": ["../../../packages/db-main-prisma/src/*"],
+      "@teable-group/db-main-prisma": ["../../../packages/db-main-prisma/src/index"],
     },
   },
 }

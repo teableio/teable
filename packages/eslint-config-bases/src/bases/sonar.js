@@ -1,6 +1,6 @@
 /**
  * Opinionated config base for projects that enable sonarjs
- * @see https://github.com/teable-group/teable/tree/main/packages/eslint-config-bases
+ * @see https://github.com/teableio/teable/tree/main/packages/eslint-config-bases
  */
 
 const sonarPatterns = {
