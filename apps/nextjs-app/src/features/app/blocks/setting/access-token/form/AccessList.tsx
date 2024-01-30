@@ -68,7 +68,7 @@ export const AccessList = (props: IAccessListProps) => {
   }, [spaceIds, baseIds, spaceMap, baseMap]);
 
   return (
-    <div className="py-3 text-sm">
+    <div className="py-3 pl-1 text-sm">
       {allDisplaySpaceIds.map((spaceId) => {
         const space = spaceMap[spaceId];
         const displaySpace = displaySpaceMap[spaceId];

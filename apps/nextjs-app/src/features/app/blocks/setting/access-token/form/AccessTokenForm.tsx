@@ -96,7 +96,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   };
 
   return (
-    <div className="w-full max-w-5xl space-y-3">
+    <div className="w-full max-w-5xl space-y-3 pl-1">
       {type === 'new' && (
         <>
           <p>{t('token:new.title')}</p>
@@ -105,7 +105,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
       )}
       <div className="space-y-2">
         <Label>
-          {t('name')} <RequireCom />
+          {t('token:name')} <RequireCom />
         </Label>
         <Input className="h-8" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
@@ -120,7 +120,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
       {type === 'new' && (
         <div className="space-y-2">
           <Label>
-            {t('expiration')} <RequireCom />
+            {t('token:expiration')} <RequireCom />
           </Label>
           <ExpirationSelect onChange={setExpiredTime} />
         </div>
@@ -150,7 +150,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
           {t('common:actions.cancel')}
         </Button>
-        <Button size={'sm'} onClick={onSubmitInner} disabled={disableSubmit}>
+        <Button size={'sm'} onClick={onSubmitInner} disabled={disableSubmit || isLoading}>
           {isLoading && <Spin />}
           {t('common:actions.submit')}
         </Button>

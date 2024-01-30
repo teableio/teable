@@ -129,5 +129,13 @@
       "recordRead": "查看记录",
       "recordUpdate": "更新记录"
     }
+  },
+  "noun": {
+    "table": "表格",
+    "view": "视图",
+    "space": "空间",
+    "base": "数据库",
+    "field": "字段",
+    "record": "记录"
   }
 }

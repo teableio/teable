@@ -69,6 +69,8 @@
     "view": "视图",
     "space": "空间",
     "base": "数据库",
+    "field": "字段",
+    "record": "记录",
     "dashboard": "仪表盘",
     "automation": "自动化"
   },

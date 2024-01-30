@@ -3,7 +3,7 @@ import type { AllActions } from '@teable-group/core';
 import { Plus } from '@teable-group/icons';
 import { deleteAccessToken, listAccessToken } from '@teable-group/openapi';
 import { ReactQueryKeys } from '@teable-group/sdk/config';
-import { actionDescriptions } from '@teable-group/sdk/hooks';
+import { usePermissionActionsStatic } from '@teable-group/sdk/hooks';
 import { ConfirmDialog } from '@teable-group/ui-lib/base';
 import {
   Table,
@@ -29,6 +29,7 @@ export const AccessTokenList = (props: { newToken?: string }) => {
   const newTokenRef = useRef<string | undefined>(defaultNewToken);
   const newToken = newTokenRef.current;
   const router = useRouter();
+  const { actionStaticMap } = usePermissionActionsStatic();
   const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
   const [deleteId, setDeleteId] = useState<string>();
   const queryClient = useQueryClient();
@@ -111,10 +112,10 @@ export const AccessTokenList = (props: { newToken?: string }) => {
             ({ id, name, baseIds, spaceIds, scopes, expiredTime, lastUsedTime, createdTime }) => {
               const accessArr: string[] = [];
               if (baseIds?.length) {
-                accessArr.push(`${baseIds.length} base`);
+                accessArr.push(`${baseIds.length} ${t('common:noun.base')}`);
               }
               if (spaceIds?.length) {
-                accessArr.push(`${spaceIds.length} space`);
+                accessArr.push(`${spaceIds.length} ${t('common:noun.space')}`);
               }
               const scopesMoreLen = scopes.slice(2).length;
               return (
@@ -135,14 +136,7 @@ export const AccessTokenList = (props: { newToken?: string }) => {
                   <TableCell title={scopes.join('; ')}>
                     {scopes
                       .slice(0, 2)
-                      .map((action) =>
-                        t(
-                          `sdk:permission.actionDescription.${
-                            actionDescriptions[action as AllActions]
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          }` as any
-                        )
-                      )
+                      .map((action) => actionStaticMap[action as AllActions].description)
                       .join('; ')}
                     {scopesMoreLen ? ` ${t('token:moreScopes', { len: scopesMoreLen })}` : ''}
                   </TableCell>

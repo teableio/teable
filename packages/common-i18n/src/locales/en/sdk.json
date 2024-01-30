@@ -13,6 +13,14 @@
     },
     "selectPlaceHolder": "Select..."
   },
+  "noun": {
+    "table": "Table",
+    "view": "View",
+    "space": "Space",
+    "base": "Base",
+    "field": "Field",
+    "record": "Record"
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "Paste or drag and drop to upload here",

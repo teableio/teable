@@ -64,7 +64,7 @@ export const ExpirationSelect = (props: IExpirationSelect) => {
     <div className="flex gap-6">
       <Select onValueChange={onValueChange}>
         <SelectTrigger className="h-8 w-44">
-          <SelectValue placeholder="Select a fruit" />
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {options.map(({ label, value }) => {
