@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import type { ITableFullVo, ITableListVo, ITableVo } from '@teable-group/core';
 import {
   getTableQuerySchema,
@@ -25,13 +25,11 @@ import {
 } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { TableService } from '../table.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
 @Controller('api/base/:baseId/table')
-@UseGuards(PermissionGuard)
 export class TableController {
   constructor(
     private readonly tableService: TableService,

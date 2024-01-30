@@ -87,6 +87,7 @@ export class SpaceService {
     const spaceList = await this.prismaService.space.findMany({
       where: { id: { in: spaceIds } },
       select: { id: true, name: true },
+      orderBy: { createdTime: 'asc' },
     });
     const roleMap = keyBy(collaboratorSpaceList, 'spaceId');
     return spaceList.map((space) => ({

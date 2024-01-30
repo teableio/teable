@@ -59,6 +59,7 @@ export class AuthService {
       email,
       salt,
       password: hashPassword,
+      lastSignTime: new Date().toISOString(),
     });
   }
 
@@ -95,5 +96,12 @@ export class AuthService {
     });
     // clear session
     await this.sessionStoreService.clearByUserId(userId);
+  }
+
+  async refreshLastSignTime(userId: string) {
+    await this.prismaService.user.update({
+      where: { id: userId, deletedTime: null },
+      data: { lastSignTime: new Date().toISOString() },
+    });
   }
 }

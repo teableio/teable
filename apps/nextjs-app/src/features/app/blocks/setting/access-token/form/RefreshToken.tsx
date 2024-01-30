@@ -63,7 +63,12 @@ export const RefreshToken = (props: IRefreshTokenProps) => {
           <ExpirationSelect onChange={setExpiredTime} />
         </div>
         <DialogFooter>
-          <Button size={'sm'} type="submit" onClick={refreshToken} disabled={!expiredTime}>
+          <Button
+            size={'sm'}
+            type="submit"
+            onClick={refreshToken}
+            disabled={!expiredTime || isLoading}
+          >
             {isLoading && <Spin />}
             {t('common:actions.save')}
           </Button>

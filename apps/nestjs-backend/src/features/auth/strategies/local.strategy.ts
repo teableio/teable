@@ -18,6 +18,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new BadRequestException('Incorrect password.');
     }
+    await this.authService.refreshLastSignTime(user.id);
     return pickUserMe(user);
   }
 }

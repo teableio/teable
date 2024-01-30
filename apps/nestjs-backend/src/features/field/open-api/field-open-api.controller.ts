@@ -1,16 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Put,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Put, Post, Query } from '@nestjs/common';
 import type { IFieldVo } from '@teable-group/core';
 import {
   createFieldRoSchema,
@@ -25,12 +14,10 @@ import {
 import type { IPlanFieldConvertVo, IPlanFieldVo } from '@teable-group/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { FieldService } from '../field.service';
 import { FieldOpenApiService } from './field-open-api.service';
 
 @Controller('api/table/:tableId/field')
-@UseGuards(PermissionGuard)
 export class FieldOpenApiController {
   constructor(
     private readonly fieldService: FieldService,

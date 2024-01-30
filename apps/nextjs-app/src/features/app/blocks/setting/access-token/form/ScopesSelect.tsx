@@ -1,4 +1,4 @@
-import type { ActionPrefix, AllActions } from '@teable-group/core';
+import { actionPrefixMap, type ActionPrefix, type AllActions } from '@teable-group/core';
 import { usePermissionActionsStatic } from '@teable-group/sdk/hooks';
 import { Checkbox, Label } from '@teable-group/ui-lib/shadcn';
 import { useState } from 'react';
@@ -22,7 +22,7 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
     }
     return {} as Record<AllActions, boolean>;
   });
-  const actions = usePermissionActionsStatic();
+  const { actionPrefixStaticMap, actionStaticMap } = usePermissionActionsStatic();
 
   const onCheckBoxChange = (status: boolean, val: AllActions) => {
     const actionMap = { ...value };
@@ -33,25 +33,27 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
   };
 
   return (
-    <div className="space-y-3">
-      {Object.keys(actions).map((actionType) => {
-        const typeActions = actions[actionType as ActionPrefix];
+    <div className="space-y-3 pl-2">
+      {Object.keys(actionPrefixStaticMap).map((_actionPrefix) => {
+        const actionPrefix = _actionPrefix as ActionPrefix;
+        const actions = actionPrefixMap[actionPrefix];
         return (
-          <div key={actionType} className="space-y-1">
-            <Label>{actionType}</Label>
+          <div key={actionPrefix} className="space-y-1">
+            <Label>{actionPrefixStaticMap[actionPrefix].title}</Label>
             <div className="flex gap-3">
-              {typeActions.map(({ action, description }) => (
+              {actions.map((action) => (
                 <div className="flex items-center gap-1 text-sm" key={action}>
                   <Checkbox
+                    id={action}
                     value={action}
                     checked={value[action]}
                     onCheckedChange={(val: boolean) => {
                       onCheckBoxChange(val, action);
                     }}
-                  >
-                    {action}
-                  </Checkbox>
-                  <div>{description}</div>
+                  />
+                  <Label htmlFor={action} className="text-xs font-normal">
+                    {actionStaticMap[action].description}
+                  </Label>
                 </div>
               ))}
             </div>

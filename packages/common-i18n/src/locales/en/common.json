@@ -69,6 +69,8 @@
     "view": "View",
     "space": "Space",
     "base": "Base",
+    "field": "Field",
+    "record": "Record",
     "dashboard": "Dashboard",
     "automation": "Automation"
   },

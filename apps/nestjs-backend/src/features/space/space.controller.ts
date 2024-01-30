@@ -1,15 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  Body,
-  Controller,
-  Param,
-  Patch,
-  Post,
-  Get,
-  Delete,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
@@ -39,13 +29,11 @@ import { EmitControllerEvent } from '../../event-emitter/decorators/emit-control
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../auth/guard/permission.guard';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { SpaceService } from './space.service';
 
 @Controller('api/space/')
-@UseGuards(PermissionGuard)
 export class SpaceController {
   constructor(
     private readonly spaceService: SpaceService,
@@ -54,6 +42,7 @@ export class SpaceController {
   ) {}
 
   @Post()
+  @Permissions('space|create')
   @EmitControllerEvent(Events.SPACE_CREATE)
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
