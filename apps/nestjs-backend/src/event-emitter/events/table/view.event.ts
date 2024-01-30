@@ -23,7 +23,6 @@ export type IChangeView = Record<
   id: string;
 };
 
-// 需要块状事件
 type IViewCreatePayload = { tableId: string; view: IViewVo | IViewVo[] };
 type IViewDeletePayload = { tableId: string; viewId: string };
 type IViewUpdatePayload = {
