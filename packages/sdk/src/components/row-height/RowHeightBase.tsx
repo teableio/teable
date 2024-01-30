@@ -1,9 +1,11 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
-/* eslint-disable jsx-a11y/click-events-have-key-events */
 import { RowHeightLevel } from '@teable-group/core';
 import { DivideSquare, Menu, Square, StretchHorizontal } from '@teable-group/icons';
-import { Popover, PopoverTrigger, PopoverContent } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@teable-group/ui-lib';
 import React from 'react';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -37,28 +39,23 @@ interface IRowHeightBaseProps {
 }
 
 export const RowHeightBase = (props: IRowHeightBaseProps) => {
-  const { value, onChange, children } = props;
+  const { onChange, children } = props;
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="w-40 p-0">
-        <div>
-          {ROW_HEIGHT_MENU_ITEMS.map(({ label, value: valueInner, Icon }) => (
-            <div
-              className={classNames(
-                'flex items-center space-x-2 cursor-pointer hover:bg-accent py-1.5 px-4 text-sm',
-                value === valueInner && 'text-violet-500'
-              )}
-              key={valueInner}
-              onClick={() => onChange?.(valueInner)}
-            >
-              <Icon className="pr-1 text-lg" />
-              {label}
-            </div>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" align="start" className="w-40 p-0">
+        {ROW_HEIGHT_MENU_ITEMS.map(({ label, value: valueInner, Icon }) => (
+          <DropdownMenuItem
+            className="cursor-pointer"
+            key={valueInner}
+            onClick={() => onChange?.(valueInner)}
+          >
+            <Icon className="pr-1 text-lg" />
+            {label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
