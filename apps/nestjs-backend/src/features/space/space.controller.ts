@@ -54,6 +54,7 @@ export class SpaceController {
   ) {}
 
   @Post()
+  @Permissions('space|create')
   @EmitControllerEvent(Events.SPACE_CREATE)
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))

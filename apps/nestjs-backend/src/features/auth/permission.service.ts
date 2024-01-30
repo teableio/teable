@@ -90,15 +90,24 @@ export class PermissionService {
     return await this.checkPermissionByBaseId(table.base.id, permissions);
   }
 
+  async getAccessToken(accessTokenId: string) {
+    const { scopes, spaceIds, baseIds } = await this.prismaService.accessToken.findFirstOrThrow({
+      where: { id: accessTokenId },
+      select: { scopes: true, spaceIds: true, baseIds: true },
+    });
+    return {
+      scopes: JSON.parse(scopes) as PermissionAction[],
+      spaceIds: spaceIds ? JSON.parse(spaceIds) : undefined,
+      baseIds: baseIds ? JSON.parse(baseIds) : undefined,
+    };
+  }
+
   async checkPermissionByAccessToken(
     resourceId: string,
     accessTokenId: string,
     permissions: PermissionAction[]
   ) {
-    const { scopes, spaceIds, baseIds } = await this.prismaService.accessToken.findFirstOrThrow({
-      where: { id: accessTokenId },
-      select: { scopes: true, spaceIds: true, baseIds: true },
-    });
+    const { scopes, spaceIds, baseIds } = await this.getAccessToken(accessTokenId);
 
     if (resourceId.startsWith(IdPrefix.Table)) {
       const table = await this.prismaService.tableMeta.findFirst({
@@ -123,11 +132,11 @@ export class PermissionService {
       throw new ForbiddenException(`not allowed to base ${resourceId}`);
     }
 
-    const accessTokenPermissions = JSON.parse(scopes) as PermissionAction[];
+    const accessTokenPermissions = scopes;
     if (permissions.some((permission) => !accessTokenPermissions.includes(permission))) {
       throw new ForbiddenException(`not allowed to ${resourceId}`);
     }
 
-    return JSON.parse(scopes) as PermissionAction[];
+    return scopes;
   }
 }
