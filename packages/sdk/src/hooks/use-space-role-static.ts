@@ -15,31 +15,31 @@ export const useSpaceRoleStatic = (): ISpaceRoleStatic[] => {
     return [
       {
         role: SpaceRole.Creator,
-        name: 'Creator',
+        name: t('spaceRole.role.creator'),
         description: t('spaceRole.description.creator'),
         level: 1,
       },
       {
         role: SpaceRole.Editor,
-        name: 'Editor',
+        name: t('spaceRole.role.editor'),
         description: t('spaceRole.description.editor'),
         level: 2,
       },
       {
         role: SpaceRole.Commenter,
-        name: 'Commenter',
+        name: t('spaceRole.role.commenter'),
         description: t('spaceRole.description.commenter'),
         level: 3,
       },
       {
         role: SpaceRole.Viewer,
-        name: 'Viewer',
+        name: t('spaceRole.role.viewer'),
         description: t('spaceRole.description.viewer'),
         level: 4,
       },
       {
         role: SpaceRole.Owner,
-        name: 'Owner',
+        name: t('spaceRole.role.owner'),
         description: t('spaceRole.description.owner'),
         level: 0,
       },
