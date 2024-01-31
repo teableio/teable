@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { KanbanViewCore } from '@teable-group/core';
-import type { KanbanViewOptions } from '@teable-group/core';
+import { KanbanViewCore } from '@teable/core';
+import type { KanbanViewOptions } from '@teable/core';
 
 export class KanbanViewOptionsDto implements KanbanViewOptions {
   @ApiPropertyOptional({

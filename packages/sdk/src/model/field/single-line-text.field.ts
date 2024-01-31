@@ -1,4 +1,4 @@
-import { SingleLineTextFieldCore } from '@teable-group/core';
+import { SingleLineTextFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

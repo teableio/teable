@@ -1,10 +1,5 @@
-import type {
-  IFilterOperator,
-  IFilterValue,
-  ILiteralValue,
-  ILiteralValueList,
-} from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
+import type { IFilterOperator, IFilterValue, ILiteralValue, ILiteralValueList } from '@teable/core';
+import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 

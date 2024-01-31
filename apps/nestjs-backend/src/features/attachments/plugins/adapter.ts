@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { UploadType } from '@teable-group/openapi';
+import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';
 import type { IObjectMeta, IPresignParams, IPresignRes } from './types';
 

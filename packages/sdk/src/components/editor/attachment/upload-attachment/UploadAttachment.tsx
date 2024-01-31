@@ -1,8 +1,8 @@
-import type { IAttachmentItem, IAttachmentCellValue } from '@teable-group/core';
-import { generateAttachmentId } from '@teable-group/core';
-import { X, Download } from '@teable-group/icons';
-import { UploadType, type INotifyVo } from '@teable-group/openapi';
-import { Button, FilePreviewItem, FilePreviewProvider, Progress, cn } from '@teable-group/ui-lib';
+import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
+import { generateAttachmentId } from '@teable/core';
+import { X, Download } from '@teable/icons';
+import { UploadType, type INotifyVo } from '@teable/openapi';
+import { Button, FilePreviewItem, FilePreviewProvider, Progress, cn } from '@teable/ui-lib';
 import { map, omit } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getFileCover, isSystemFileIcon } from '../utils';
@@ -174,10 +174,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                 ))}
               </FilePreviewProvider>
               {uploadingFilesList.map(({ id, progress, file }) => (
-                <li
-                  key={id}
-                  className="mb-2 flex h-28 w-1/4 flex-col items-center justify-between pr-1"
-                >
+                <li key={id} className="mb-2 flex h-32 w-28 flex-col pr-3">
                   <div className="relative flex w-full flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-border px-2">
                     <Progress value={progress} />
                     {progress}%

@@ -5,9 +5,9 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { generateUserId } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { IChangePasswordRo } from '@teable-group/openapi';
+import { generateUserId } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { IChangePasswordRo } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -59,6 +59,7 @@ export class AuthService {
       email,
       salt,
       password: hashPassword,
+      lastSignTime: new Date().toISOString(),
     });
   }
 
@@ -95,5 +96,12 @@ export class AuthService {
     });
     // clear session
     await this.sessionStoreService.clearByUserId(userId);
+  }
+
+  async refreshLastSignTime(userId: string) {
+    await this.prismaService.user.update({
+      where: { id: userId, deletedTime: null },
+      data: { lastSignTime: new Date().toISOString() },
+    });
   }
 }

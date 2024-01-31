@@ -1,5 +1,5 @@
 import { InternalServerErrorException, Logger } from '@nestjs/common';
-import { StatisticsFunc } from '@teable-group/core';
+import { StatisticsFunc } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IAggregationFunctionInterface } from './aggregation-function.interface';
@@ -51,7 +51,18 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
 
     let rawSql: string = chosenHandler();
 
-    if (isMultipleCellValue) {
+    const ignoreMcvFunc = [
+      StatisticsFunc.Empty,
+      StatisticsFunc.UnChecked,
+      StatisticsFunc.Filled,
+      StatisticsFunc.Checked,
+      StatisticsFunc.PercentEmpty,
+      StatisticsFunc.PercentUnChecked,
+      StatisticsFunc.PercentFilled,
+      StatisticsFunc.PercentChecked,
+    ];
+
+    if (isMultipleCellValue && !ignoreMcvFunc.includes(aggFunc)) {
       const joinTable = `${fieldId}_mcv`;
 
       builderClient.with(`${fieldId}_mcv`, this.knex.raw(rawSql));

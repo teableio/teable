@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ISelectFieldOptions, ITableFullVo } from '@teable-group/core';
-import { CellFormat, FieldKeyType, FieldType, Relationship } from '@teable-group/core';
+import type { IFieldRo, ISelectFieldOptions, ITableFullVo } from '@teable/core';
+import { CellFormat, FieldKeyType, FieldType, Relationship } from '@teable/core';
 import {
   createField,
   createRecords,
@@ -104,7 +104,7 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(res2.records[0].fields[table.fields[0].id]).toEqual(value2);
     });
 
-    it('should create a record when have error formula', async () => {
+    it('should create a record with order', async () => {
       const viewResponse = await getViews(table.id);
       const viewId = viewResponse[0].id;
       const res = await createRecords(table.id, {

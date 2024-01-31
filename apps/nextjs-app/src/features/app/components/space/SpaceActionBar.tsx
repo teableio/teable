@@ -1,11 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { hasPermission } from '@teable-group/core';
-import { MoreHorizontal, UserPlus } from '@teable-group/icons';
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import { createBase } from '@teable-group/openapi';
-import type { ButtonProps } from '@teable-group/ui-lib';
-import { Button } from '@teable-group/ui-lib';
+import { hasPermission } from '@teable/core';
+import { MoreHorizontal, UserPlus } from '@teable/icons';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { createBase } from '@teable/openapi';
+import type { ButtonProps } from '@teable/ui-lib';
+import { Button } from '@teable/ui-lib';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { SpaceCollaboratorModalTrigger } from '../collaborator-manage/space/SpaceCollaboratorModalTrigger';
 
@@ -21,6 +23,7 @@ interface ActionBarProps {
 export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   const { space, invQueryFilters, className, buttonSize = 'default', onRename, onDelete } = props;
   const queryClient = useQueryClient();
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
     mutationFn: createBase,
@@ -36,12 +39,12 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
           disabled={createBaseLoading}
           onClick={() => createBaseMutator({ spaceId: space.id })}
         >
-          Create Base
+          {t('space:action.createBase')}
         </Button>
       )}
       <SpaceCollaboratorModalTrigger space={space}>
         <Button variant={'outline'} size={buttonSize} disabled={createBaseLoading}>
-          <UserPlus className="size-4" /> Invite
+          <UserPlus className="size-4" /> {t('space:action.invite')}
         </Button>
       </SpaceCollaboratorModalTrigger>
       <SpaceActionTrigger

@@ -1,9 +1,5 @@
-import type {
-  IAttachmentCellValue,
-  INumberShowAs,
-  ISingleLineTextShowAs,
-} from '@teable-group/core';
-import { CellValueType, ColorUtils, FieldType } from '@teable-group/core';
+import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
+import { CellValueType, ColorUtils, FieldType } from '@teable/core';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import { useFields, useView } from '../../../hooks';

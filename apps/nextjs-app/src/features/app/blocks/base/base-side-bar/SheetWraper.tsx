@@ -1,5 +1,5 @@
-import { ChevronsRight } from '@teable-group/icons';
-import { Sheet, SheetContent, Button, SheetTrigger } from '@teable-group/ui-lib';
+import { ChevronsRight } from '@teable/icons';
+import { Sheet, SheetContent, Button, SheetTrigger } from '@teable/ui-lib';
 import classNames from 'classnames';
 
 interface SheetWraperProps {

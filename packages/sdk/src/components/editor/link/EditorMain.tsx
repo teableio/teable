@@ -1,7 +1,7 @@
-import type { IGetRecordsRo, ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
-import { isMultiValueLink } from '@teable-group/core';
-import { Plus } from '@teable-group/icons';
-import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib';
+import type { IGetRecordsRo, ILinkCellValue, ILinkFieldOptions } from '@teable/core';
+import { isMultiValueLink } from '@teable/core';
+import { Plus } from '@teable/icons';
+import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib';
 import {
   forwardRef,
   useCallback,

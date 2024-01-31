@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
-import { TeableNew } from '@teable-group/icons';
-import { ActionTriggerProvider, RecordProvider } from '@teable-group/sdk/context';
-import { useIsHydrated, useView } from '@teable-group/sdk/hooks';
+import { TeableNew } from '@teable/icons';
+import { ActionTriggerProvider, RecordProvider } from '@teable/sdk/context';
+import { useIsHydrated, useView } from '@teable/sdk/hooks';
 import { useContext } from 'react';
 import { ShareViewPageContext } from '../../ShareViewPageContext';
 import { AggregationProvider, RowCountProvider, GroupPointProvider } from './aggregation';

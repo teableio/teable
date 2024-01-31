@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight } from '@teable-group/icons';
-import { Button, cn } from '@teable-group/ui-lib';
+import { ChevronLeft, ChevronRight } from '@teable/icons';
+import { Button, cn } from '@teable/ui-lib';
 import { useState } from 'react';
 
 interface IRowCounterProps {

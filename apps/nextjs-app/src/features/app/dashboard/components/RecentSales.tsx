@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib/shadcn';
+import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib/shadcn';
 
 export function RecentSales() {
   return (

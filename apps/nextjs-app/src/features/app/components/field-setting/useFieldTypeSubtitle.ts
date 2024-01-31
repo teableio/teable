@@ -1,6 +1,6 @@
-import { assertNever, FieldType } from '@teable-group/core';
+import { assertNever, FieldType } from '@teable/core';
+import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export const useFieldTypeSubtitle = () => {

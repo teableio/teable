@@ -1,4 +1,4 @@
-import { MultipleSelectFieldCore } from '@teable-group/core';
+import { MultipleSelectFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

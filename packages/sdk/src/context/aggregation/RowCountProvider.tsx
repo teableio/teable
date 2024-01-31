@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRowCount } from '@teable-group/openapi';
+import { getRowCount } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
@@ -33,12 +33,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   useEffect(() => {
     if (tableId == null) return;
 
-    const relevantProps = [
-      'tableUpdate',
-      'tableAdd',
-      'tableDelete',
-      'applyViewFilter',
-    ] as PropKeys[];
+    const relevantProps: PropKeys[] = ['setRecord', 'addRecord', 'deleteRecord', 'applyViewFilter'];
 
     listener?.(relevantProps, () => updateRowCount(), [tableId, viewId]);
   }, [listener, tableId, updateRowCount, viewId]);

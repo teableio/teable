@@ -1,8 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable-group/icons';
-import type { GridView } from '@teable-group/sdk';
-import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable-group/sdk';
-import { insertSingle } from '@teable-group/sdk/utils';
+import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable/icons';
+import type { GridView } from '@teable/sdk';
+import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable/sdk';
+import { insertSingle } from '@teable/sdk/utils';
 import {
   Command,
   CommandGroup,
@@ -12,10 +12,10 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
+import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -143,7 +143,7 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          view.updateColumnMeta(
+          await view.updateColumnMeta(
             filteredFields.map((field) => ({ fieldId: field.id, columnMeta: { hidden: true } }))
           );
         },
@@ -162,7 +162,9 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          filteredFields.forEach((field) => field.delete());
+          for (const field of filteredFields) {
+            await field.delete();
+          }
         },
       },
     ],

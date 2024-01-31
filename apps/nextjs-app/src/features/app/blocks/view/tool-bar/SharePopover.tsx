@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable-group/core';
-import { Copy, Edit, Loader2 } from '@teable-group/icons';
-import { useView } from '@teable-group/sdk/hooks';
-import type { View } from '@teable-group/sdk/model';
+import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable/core';
+import { Copy, Edit, RefreshCcw } from '@teable/icons';
+import { useView } from '@teable/sdk/hooks';
+import type { View } from '@teable/sdk/model';
 import {
   Button,
   Dialog,
@@ -23,7 +23,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import { debounce, omit } from 'lodash';
 import { useMemo, useState } from 'react';
 
@@ -145,7 +145,7 @@ export const SharePopover: React.FC<{
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button size={'xs'} variant={'outline'} onClick={() => view.setRefreshLink()}>
-                      <Loader2 />
+                      <RefreshCcw />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>

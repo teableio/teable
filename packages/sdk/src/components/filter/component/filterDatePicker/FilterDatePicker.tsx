@@ -1,6 +1,6 @@
-import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable-group/core';
-import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib';
+import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable/core';
+import { exactDate, FieldType, getValidFilterSubOperators } from '@teable/core';
+import { Input } from '@teable/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DateField } from '../../../../model';
 import { BaseSingleSelect } from '../base';

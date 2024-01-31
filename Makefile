@@ -221,13 +221,13 @@ sqlite-db-migration:
 	@_MIGRATION_NAME=$(if $(_MIGRATION_NAME),$(_MIGRATION_NAME),`read -p "Enter name of the migration (sqlite): " migration_name; echo $$migration_name`); \
 	make gen-sqlite-prisma-schema; \
 	PRISMA_DATABASE_URL=file:../../db/.shadow/main.db \
-	pnpm -F @teable-group/db-main-prisma prisma-migrate dev --schema ./prisma/sqlite/schema.prisma --name $$_MIGRATION_NAME
+	pnpm -F @teable/db-main-prisma prisma-migrate dev --schema ./prisma/sqlite/schema.prisma --name $$_MIGRATION_NAME
 
 postgres-db-migration:
 	@_MIGRATION_NAME=$(if $(_MIGRATION_NAME),$(_MIGRATION_NAME),`read -p "Enter name of the migration (postgres): " migration_name; echo $$migration_name`); \
 	make gen-postgres-prisma-schema; \
 	PRISMA_DATABASE_URL=postgresql://teable:teable@127.0.0.1:5432/teable?schema=shadow \
-	pnpm -F @teable-group/db-main-prisma prisma-migrate dev --schema ./prisma/postgres/schema.prisma --name $$_MIGRATION_NAME
+	pnpm -F @teable/db-main-prisma prisma-migrate dev --schema ./prisma/postgres/schema.prisma --name $$_MIGRATION_NAME
 
 db-migration:		## Reruns the existing migration history in the shadow database in order to detect schema drift (edited or deleted migration file, or a manual changes to the database schema)
 	@read -p "Enter name of the migration: " migration_name; \

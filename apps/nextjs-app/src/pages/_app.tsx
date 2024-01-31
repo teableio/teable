@@ -1,18 +1,17 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import { HttpError, parseDsn } from '@teable-group/core';
-import type { IUser } from '@teable-group/sdk';
+import { HttpError, parseDsn } from '@teable/core';
+import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import type { NextPage } from 'next';
 import type { AppContext, AppProps as NextAppProps } from 'next/app';
 import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
-import type { ReactElement, ReactNode } from 'react';
 import { z } from 'zod';
 import { getUserMe } from '@/backend/api/rest/get-user';
 import RouterProgressBar from '@/components/RouterProgress';
+import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
@@ -35,11 +34,6 @@ import '@fontsource-variable/inter';
 export type AppProps = NextAppProps & {
   /** Will be defined only is there was an error */
   err?: Error;
-};
-
-export type NextPageWithLayout<P = Record<string, unknown>, IP = P> = NextPage<P, IP> & {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getLayout?: (page: ReactElement, appProps: any) => ReactNode;
 };
 
 type AppPropsWithLayout = AppProps & {
@@ -136,7 +130,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
 };
 
 const isAuthLoginPage = (pathname: string) => {
-  const needLoginPage = ['/space', '/base', '/invite'];
+  const needLoginPage = ['/space', '/base', '/invite', '/setting'];
   return needLoginPage.some((path) => pathname.startsWith(path));
 };
 

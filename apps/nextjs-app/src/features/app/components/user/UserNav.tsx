@@ -1,22 +1,25 @@
+import { ExitIcon } from '@radix-ui/react-icons';
 import { useMutation } from '@tanstack/react-query';
-import { signout } from '@teable-group/openapi';
-import { useSession } from '@teable-group/sdk/hooks';
+import { Settings } from '@teable/icons';
+import { signout } from '@teable/openapi';
+import { useSession } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import React from 'react';
+import { useSettingStore } from '../setting/useSettingStore';
 
 export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
   const { children } = props;
   const router = useRouter();
   const { user } = useSession();
+  const setting = useSettingStore();
   const { mutateAsync: loginOut, isLoading } = useMutation({
     mutationFn: signout,
   });
@@ -37,9 +40,13 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={loginOutClick} disabled={isLoading}>
+        <DropdownMenuItem className="flex gap-2" onClick={() => setting.setOpen(true)}>
+          <Settings className="size-4 shrink-0" />
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem className="flex gap-2" onClick={loginOutClick} disabled={isLoading}>
+          <ExitIcon className="size-4 shrink-0" />
           Log out
-          <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

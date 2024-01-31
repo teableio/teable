@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Database } from '@teable-group/icons';
-import { deleteDbConnection, getDbConnection, createDbConnection } from '@teable-group/openapi';
-import { useBase } from '@teable-group/sdk/hooks';
-import { Button, CardDescription, Input, Label, Skeleton } from '@teable-group/ui-lib/shadcn';
+import { Copy, Database } from '@teable/icons';
+import { deleteDbConnection, getDbConnection, createDbConnection } from '@teable/openapi';
+import { useBase } from '@teable/sdk/hooks';
+import { Button, CardDescription, Input, Label, Skeleton } from '@teable/ui-lib/shadcn';
 
 export const DbConnectionPanel: React.FC = () => {
   const base = useBase();
@@ -88,9 +88,13 @@ export const DbConnectionPanel: React.FC = () => {
           </div>
           <div className="flex justify-end">
             {data?.data ? (
-              <Button onClick={() => mutationDelete.mutate(base.id)}>Delete</Button>
+              <Button size="sm" onClick={() => mutationDelete.mutate(base.id)}>
+                Delete
+              </Button>
             ) : (
-              <Button onClick={() => mutationCreate.mutate(base.id)}>Create</Button>
+              <Button size="sm" onClick={() => mutationCreate.mutate(base.id)}>
+                Create
+              </Button>
             )}
           </div>
         </>

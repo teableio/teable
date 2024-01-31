@@ -11,7 +11,7 @@ import {
   Body,
   Query,
 } from '@nestjs/common';
-import type { IRecord, IAggregationVo, IRowCountVo, IGroupPointsVo } from '@teable-group/core';
+import type { IRecord, IAggregationVo, IRowCountVo, IGroupPointsVo } from '@teable/core';
 import {
   ShareViewFormSubmitRo,
   shareViewFormSubmitRoSchema,
@@ -25,8 +25,8 @@ import {
   IShareViewAggregationsRo,
   rangesQuerySchema,
   IRangesRo,
-} from '@teable-group/openapi';
-import type { ICopyVo, IShareViewLinkRecordsVo, ShareViewGetVo } from '@teable-group/openapi';
+} from '@teable/openapi';
+import type { ICopyVo, IShareViewLinkRecordsVo, ShareViewGetVo } from '@teable/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';

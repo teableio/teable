@@ -23,8 +23,8 @@ import type {
   ITableFullVo,
   IGetTableQuery,
   ITableVo,
-} from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
+} from '@teable/core';
+import { FieldKeyType } from '@teable/core';
 import {
   axios,
   signin as apiSignin,
@@ -47,7 +47,7 @@ import {
   getTableById as apiGetTableById,
   updateViewFilter as apiSetViewFilter,
   createView as apiCreateView,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { json, urlencoded } from 'express';
 import { AppModule } from '../../src/app.module';
 import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';

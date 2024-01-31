@@ -1,5 +1,5 @@
-import { Toaster as SoonerToaster } from '@teable-group/ui-lib/shadcn/ui/sonner';
-import { Toaster } from '@teable-group/ui-lib/shadcn/ui/toaster';
+import { Toaster as SoonerToaster } from '@teable/ui-lib/shadcn/ui/sonner';
+import { Toaster } from '@teable/ui-lib/shadcn/ui/toaster';
 import type { FC, PropsWithChildren } from 'react';
 
 type Props = PropsWithChildren;

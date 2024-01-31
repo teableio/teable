@@ -1,15 +1,9 @@
-import {
-  daysAgo,
-  daysFromNow,
-  exactDate,
-  nextNumberOfDays,
-  pastNumberOfDays,
-} from '@teable-group/core';
+import { daysAgo, daysFromNow, exactDate, nextNumberOfDays, pastNumberOfDays } from '@teable/core';
 import type {
   IDateTimeFieldSubOperator,
   IDateTimeFieldSubOperatorByIsWithin,
   ITimeZoneString,
-} from '@teable-group/core';
+} from '@teable/core';
 
 const defaultMapping: Record<
   IDateTimeFieldSubOperator | IDateTimeFieldSubOperatorByIsWithin,

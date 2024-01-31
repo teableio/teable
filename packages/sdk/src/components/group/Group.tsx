@@ -1,6 +1,6 @@
-import type { IGroup } from '@teable-group/core';
-import { LayoutList } from '@teable-group/icons';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
+import type { IGroup } from '@teable/core';
+import { LayoutList } from '@teable/icons';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { SortContent } from '../sort/SortContent';

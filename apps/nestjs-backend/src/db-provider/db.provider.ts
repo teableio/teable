@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Provider } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
-import { DriverClient } from '@teable-group/core';
+import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import { getDriverName } from '../utils/db-helpers';
 import { PostgresProvider } from './postgres.provider';

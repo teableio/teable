@@ -2,13 +2,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IAttachmentCellValue, IRecord } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IAttachmentCellValue, IRecord } from '@teable/core';
+import { FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { Mock } from 'vitest';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
-import type { IChangeRecord } from '../../event-emitter/model';
+import type { IChangeRecord } from '../../event-emitter/events';
 import { GlobalModule } from '../../global/global.module';
 import { AttachmentsTableModule } from './attachments-table.module';
 import { AttachmentsTableService } from './attachments-table.service';

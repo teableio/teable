@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IAggregationRo } from '@teable-group/core';
-import type { IShareViewAggregationsRo } from '@teable-group/openapi';
-import { getShareViewAggregations } from '@teable-group/openapi';
-import type { PropKeys } from '@teable-group/sdk';
-import { useView, ReactQueryKeys, AggregationContext, useActionTrigger } from '@teable-group/sdk';
+import type { IAggregationRo } from '@teable/core';
+import type { IShareViewAggregationsRo } from '@teable/openapi';
+import { getShareViewAggregations } from '@teable/openapi';
+import type { PropKeys } from '@teable/sdk';
+import { useView, ReactQueryKeys, AggregationContext, useActionTrigger } from '@teable/sdk';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
@@ -52,13 +52,14 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
   );
 
   useEffect(() => {
-    const relevantProps = [
-      'tableAdd',
-      'tableUpdate',
-      'tableDelete',
+    const relevantProps: PropKeys[] = [
+      'addRecord',
+      'setRecord',
+      'deleteRecord',
       'applyViewFilter',
       'showViewField',
-    ] as PropKeys[];
+      'applyViewStatisticFunc',
+    ];
 
     listener?.(relevantProps, () => updateViewAggregations(), [tableId, viewId]);
   }, [listener, tableId, updateViewAggregations, viewId]);

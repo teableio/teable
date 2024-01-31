@@ -1,4 +1,4 @@
-import type { IRecord, IGetRecordsRo } from '@teable-group/core';
+import type { IRecord, IGetRecordsRo } from '@teable/core';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';

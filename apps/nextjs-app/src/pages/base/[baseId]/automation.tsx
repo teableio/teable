@@ -1,5 +1,5 @@
-import type { ITableVo } from '@teable-group/core';
-import type { IGetBaseVo } from '@teable-group/openapi';
+import type { ITableVo } from '@teable/core';
+import type { IGetBaseVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
@@ -7,8 +7,8 @@ import { AutomationPage } from '@/features/app/automation/Pages';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { automationConfig } from '@/features/i18n/automation';
 import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../_app';
 
 const Node: NextPageWithLayout = () => <AutomationPage />;
 

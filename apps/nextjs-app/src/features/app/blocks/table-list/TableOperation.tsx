@@ -1,13 +1,13 @@
-import { MoreHorizontal, Settings, Trash2 } from '@teable-group/icons';
-import { useBase, useTablePermission, useTables } from '@teable-group/sdk/hooks';
-import type { Table } from '@teable-group/sdk/model';
-import { ConfirmDialog } from '@teable-group/ui-lib/base';
+import { MoreHorizontal, Settings, Trash2 } from '@teable/icons';
+import { useBase, useTablePermission, useTables } from '@teable/sdk/hooks';
+import type { Table } from '@teable/sdk/model';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useMemo } from 'react';

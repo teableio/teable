@@ -1,15 +1,15 @@
-# @teable-group/eslint-config-bases
+# @teable/eslint-config-bases
 
 <p align="left">
-  <a aria-label="Build" href="https://github.com/teable-group/teable/actions?query=workflow%3ACI">
-    <img alt="build" src="https://img.shields.io/github/workflow/status/teable-group/teable/CI-web-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
+  <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=workflow%3ACI">
+    <img alt="build" src="https://img.shields.io/github/workflow/status/teableio/teable/CI-web-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
   </a>
 </p>
 
 # About
 
 Example of composable eslint config bases that can be easily shared and fine-tuned by apps and
-packages that lives in a [monorepo](https://github.com/teable-group/teable).
+packages that lives in a [monorepo](https://github.com/teableio/teable).
 
 ## Features
 
@@ -27,7 +27,7 @@ Add the following devDependencies to workspace (apps/packages in monorepo) or ma
 
 ```bash
 $ yarn add --dev eslint
-$ yarn add --dev @teable-group/eslint-config-bases:"workspace:^"
+$ yarn add --dev @teable/eslint-config-bases:"workspace:^"
 ```
 
 > **Tip** the [workspace:^](https://yarnpkg.com/features/workspaces#workspace-ranges-workspace) is supported by yarn and pnpm.
@@ -39,7 +39,7 @@ existing base configs. For example:
 
 ```javascript
 // Workaround for https://github.com/eslint/eslint/issues/3458 (re-export of @rushstack/eslint-patch)
-require("@teable-group/eslint-config-bases/patch/modern-module-resolution");
+require("@teable/eslint-config-bases/patch/modern-module-resolution");
 
 module.exports = {
   // Be sure to set root to true in monorepo.
@@ -51,14 +51,14 @@ module.exports = {
   },
   ignorePatterns: ["**/node_modules", "**/.cache", "build", ".next"],
   extends: [
-    "@teable-group/eslint-config-bases/typescript",
-    "@teable-group/eslint-config-bases/sonar",
-    "@teable-group/eslint-config-bases/regexp",
-    "@teable-group/eslint-config-bases/react",
-    "@teable-group/eslint-config-bases/jest",
-    "@teable-group/eslint-config-bases/rtl",
-    "@teable-group/eslint-config-bases/storybook",
-    "@teable-group/eslint-config-bases/playwright",
+    "@teable/eslint-config-bases/typescript",
+    "@teable/eslint-config-bases/sonar",
+    "@teable/eslint-config-bases/regexp",
+    "@teable/eslint-config-bases/react",
+    "@teable/eslint-config-bases/jest",
+    "@teable/eslint-config-bases/rtl",
+    "@teable/eslint-config-bases/storybook",
+    "@teable/eslint-config-bases/playwright",
 
     // Add specific rules for your framework if needed.
     // ie:
@@ -68,7 +68,7 @@ module.exports = {
 
     // Post configure the prettier base so there won't be
     // any conficts between eslint / prettier
-    "@teable-group/eslint-config-bases/prettier-plugin",
+    "@teable/eslint-config-bases/prettier-plugin",
   ],
   rules: {
     // Specific global rules for your app or package
@@ -79,7 +79,7 @@ module.exports = {
 };
 ```
 
-> **Tip:** "@teable-group/eslint-config-bases/prettier-plugin" must be set at the end to disable any
+> **Tip:** "@teable/eslint-config-bases/prettier-plugin" must be set at the end to disable any
 > conflicting rules.
 
 ## Bases
@@ -110,10 +110,10 @@ You can find the bases in [./src/bases](./src/bases).
 
 ## Prettier integration
 
-To prevent conflicts between prettier and eslint, you must re-export the prettier base from `@teable-group/eslint-config-bases`.
+To prevent conflicts between prettier and eslint, you must re-export the prettier base from `@teable/eslint-config-bases`.
 
 ```javascript
-const { getPrettierConfig } = require("@teable-group/eslint-config-bases/helpers");
+const { getPrettierConfig } = require("@teable/eslint-config-bases/helpers");
 module.exports = {
   ...prettierConfig,
   overrides: [

@@ -1,5 +1,5 @@
-import { X } from '@teable-group/icons';
-import { Button, cn } from '@teable-group/ui-lib';
+import { X } from '@teable/icons';
+import { Button, cn } from '@teable/ui-lib';
 import { noop } from 'lodash';
 
 interface ILinkCardProps {

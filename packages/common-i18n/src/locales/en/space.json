@@ -1,5 +1,14 @@
 {
   "page": {
     "title": "Teable App"
+  },
+  "quickAction": {
+    "title": "Quick Actions...",
+    "placeHolder": "Type a command or search..."
+  },
+  "action": {
+    "createBase": "Create a base",
+    "createSpace": "Create a space",
+    "invite": "Invite"
   }
 }

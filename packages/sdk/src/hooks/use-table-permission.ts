@@ -1,4 +1,4 @@
-import { getPermissionMap, spacePermissions } from '@teable-group/core';
+import { getPermissionMap, spacePermissions } from '@teable/core';
 import { useBase } from './use-base';
 
 export const useTablePermission = () => {

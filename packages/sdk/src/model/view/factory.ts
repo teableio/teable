@@ -1,5 +1,5 @@
-import type { IViewVo } from '@teable-group/core';
-import { assertNever, ViewType } from '@teable-group/core';
+import type { IViewVo } from '@teable/core';
+import { assertNever, ViewType } from '@teable/core';
 import { plainToInstance } from 'class-transformer';
 import type { Doc } from 'sharedb/lib/client';
 import { FormView } from './form.view';

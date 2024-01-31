@@ -1,4 +1,4 @@
-import type { HttpError } from '@teable-group/core';
+import type { HttpError } from '@teable/core';
 
 export const getError = async (call: () => unknown) => {
   try {

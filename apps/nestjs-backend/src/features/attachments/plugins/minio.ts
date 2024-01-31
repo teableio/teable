@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { join } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getRandomString } from '@teable-group/core';
+import { getRandomString } from '@teable/core';
 import * as minio from 'minio';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';

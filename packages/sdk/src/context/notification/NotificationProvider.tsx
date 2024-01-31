@@ -1,5 +1,5 @@
-import type { INotificationBuffer } from '@teable-group/core';
-import { getUserNotificationChannel } from '@teable-group/core';
+import type { INotificationBuffer } from '@teable/core';
+import { getUserNotificationChannel } from '@teable/core';
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';

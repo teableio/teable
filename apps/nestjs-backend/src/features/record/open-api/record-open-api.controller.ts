@@ -1,15 +1,5 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable-group/core';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/core';
 import {
   createRecordsRoSchema,
   getRecordQuerySchema,
@@ -19,17 +9,15 @@ import {
   IGetRecordQuery,
   IUpdateRecordRo,
   updateRecordRoSchema,
-} from '@teable-group/core';
-import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable-group/openapi';
+} from '@teable/core';
+import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { RecordService } from '../record.service';
 import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
 
 @Controller('api/table/:tableId/record')
-@UseGuards(PermissionGuard)
 export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,

@@ -1,7 +1,7 @@
-import { StatisticsFunc } from '@teable-group/core';
-import { ExpandRecorder } from '@teable-group/sdk/components';
-import { useTableId, useViewId } from '@teable-group/sdk/hooks';
-import { TabsContent, Card, CardContent, CardHeader, CardTitle } from '@teable-group/ui-lib/shadcn';
+import { StatisticsFunc } from '@teable/core';
+import { ExpandRecorder } from '@teable/sdk/components';
+import { useTableId, useViewId } from '@teable/sdk/hooks';
+import { TabsContent, Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 import { GridViewBase } from '../blocks/view/grid/GridViewBase';
 import { BarChartCard } from './components/BarChart';

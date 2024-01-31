@@ -2,12 +2,14 @@
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import type { Request } from 'express';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs';
+import { match, P } from 'ts-pattern';
 import { EMIT_EVENT_NAME } from '../decorators/emit-controller-event.decorator';
 import { EventEmitterService } from '../event-emitter.service';
-import type { IEventContext } from '../interfaces/base-event.interface';
-import { baseEventSchema, Events, spaceEventSchema } from '../model';
+import type { IEventContext } from '../events';
+import { Events, BaseEventFactory, SpaceEventFactory } from '../events';
 
 @Injectable()
 export class EventMiddleware implements NestInterceptor {
@@ -17,78 +19,48 @@ export class EventMiddleware implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const req = context.switchToHttp().getRequest();
+    const req = context.switchToHttp().getRequest<Request>();
     const emitEventName = this.reflector.get<Events>(EMIT_EVENT_NAME, context.getHandler());
-
-    const eventContext: IEventContext = {
-      user: req?.user,
-      headers: req?.headers,
-    };
 
     return next.handle().pipe(
       tap((data) => {
-        const eventInstance = this.createInstance(emitEventName, {
-          reqParams: req?.params,
-          reqQuery: req?.query,
-          reqBody: req?.body,
-          data,
-          eventContext,
-        });
+        const interceptContext = this.interceptContext(req, data);
 
-        const events = Array.isArray(eventInstance) ? eventInstance : [eventInstance];
-        events.forEach((event) => {
-          event && this.eventEmitterService.emitAsync(event.name, event);
-        });
+        const event = this.createEvent(emitEventName, interceptContext);
+        event && this.eventEmitterService.emitAsync(event.name, event);
       })
     );
   }
 
-  private createInstance(emitEventName: Events, plain: any) {
-    switch (emitEventName) {
-      /* base event plain to instance */
-      case Events.BASE_CREATE:
-      case Events.BASE_DELETE:
-      case Events.BASE_UPDATE: {
-        const { reqParams, data: base, eventContext: context } = plain;
-        const { baseId } = reqParams || {};
+  private interceptContext(req: Request, resolveData: any) {
+    return {
+      reqUser: req?.user as any,
+      reqHeaders: req?.headers,
+      reqParams: req?.params,
+      reqQuery: req?.query,
+      reqBody: req?.body,
+      resolveData,
+    };
+  }
 
-        const baseEvent = baseEventSchema.safeParse({
-          name: emitEventName,
-          base,
-          baseId,
-          context,
-        });
-        return baseEvent.success ? baseEvent.data : undefined;
-      }
-      /* space event plain to instance */
-      case Events.SPACE_CREATE:
-      case Events.SPACE_DELETE:
-      case Events.SPACE_UPDATE: {
-        const { reqParams, data: space, eventContext: context } = plain;
-        const { spaceId } = reqParams || {};
+  private createEvent(
+    eventName: Events,
+    interceptContext: ReturnType<typeof this.interceptContext>
+  ) {
+    const { reqUser, reqHeaders, reqParams, resolveData } = interceptContext;
 
-        const spaceEvent = spaceEventSchema.safeParse({
-          name: emitEventName,
-          space,
-          spaceId,
-          context,
-        });
-        return spaceEvent.success ? spaceEvent.data : undefined;
-      }
+    const eventContext: IEventContext = {
+      user: reqUser,
+      headers: reqHeaders,
+    };
 
-      /* user event plain to instance */
-      case Events.USER_SIGNIN:
-        break;
-      case Events.USER_SIGNUP:
-        break;
-      case Events.USER_SIGNOUT:
-        break;
-      case Events.USER_UPDATE:
-        break;
-      case Events.USER_DELETE:
-        break;
-      case Events.USER_PASSWORD_CHANGE:
-        break;
-    }
+    return match(eventName)
+      .with(P.union(Events.BASE_CREATE, Events.BASE_DELETE, Events.BASE_UPDATE), () =>
+        BaseEventFactory.create(eventName, { base: resolveData, ...reqParams }, eventContext)
+      )
+      .with(P.union(Events.SPACE_CREATE, Events.SPACE_DELETE, Events.SPACE_UPDATE), () =>
+        SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
+      )
+      .otherwise(() => null);
   }
 }

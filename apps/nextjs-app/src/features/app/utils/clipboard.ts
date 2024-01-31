@@ -1,4 +1,4 @@
-import { fieldVoSchema, parseClipboardText, type IFieldVo } from '@teable-group/core';
+import { fieldVoSchema, parseClipboardText, type IFieldVo } from '@teable/core';
 import { mapValues } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 

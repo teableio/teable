@@ -1,4 +1,4 @@
-import { is } from '@teable-group/core';
+import { is } from '@teable/core';
 
 export const CHECKBOX_FIELD_CASES = [
   {

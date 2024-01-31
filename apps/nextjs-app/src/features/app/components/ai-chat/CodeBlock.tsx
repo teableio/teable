@@ -1,5 +1,5 @@
-import CopyIcon from '@teable-group/ui-lib/icons/app/copy.svg';
-import { useToast } from '@teable-group/ui-lib/shadcn/ui/use-toast';
+import CopyIcon from '@teable/ui-lib/icons/app/copy.svg';
+import { useToast } from '@teable/ui-lib/shadcn/ui/use-toast';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import type { IChat } from './type';

@@ -1,6 +1,6 @@
-import type { IFieldVo, DbFieldType, CellValueType } from '@teable-group/core';
-import { assertNever, FieldType } from '@teable-group/core';
-import type { Field } from '@teable-group/db-main-prisma';
+import type { IFieldVo, DbFieldType, CellValueType } from '@teable/core';
+import { assertNever, FieldType } from '@teable/core';
+import type { Field } from '@teable/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { AutoNumberFieldDto } from './field-dto/auto-number-field.dto';

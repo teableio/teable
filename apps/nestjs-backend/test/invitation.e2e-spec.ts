@@ -1,13 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
-import { SpaceRole } from '@teable-group/core';
-import type { CreateSpaceInvitationLinkVo, ListSpaceCollaboratorVo } from '@teable-group/openapi';
+import { SpaceRole } from '@teable/core';
+import type { CreateSpaceInvitationLinkVo, ListSpaceCollaboratorVo } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
   createSpace as apiCreateSpace,
   createSpaceInvitationLink as apiCreateSpaceInvitationLink,
   deleteSpace as apiDeleteSpace,
   getSpaceCollaboratorList as apiGetSpaceCollaboratorList,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { initApp } from './utils/init-app';

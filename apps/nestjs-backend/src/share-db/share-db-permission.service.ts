@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ANONYMOUS_USER_ID, IdPrefix } from '@teable-group/core';
-import type { IShareViewMeta, PermissionAction } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { ANONYMOUS_USER_ID, IdPrefix } from '@teable/core';
+import type { IShareViewMeta, PermissionAction } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import ShareDBClass from 'sharedb';
 import { PermissionService } from '../features/auth/permission.service';

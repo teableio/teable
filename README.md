@@ -10,29 +10,29 @@
 </div>
 
 <p align="center">
-  <a aria-label="Build" href="https://github.com/teable-group/teable/actions?query=workflow%3ACI">
-    <img alt="build" src="https://img.shields.io/github/workflow/status/teable-group/teable/CI-nextjs-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
+  <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=workflow%3ACI">
+    <img alt="build" src="https://img.shields.io/github/workflow/status/teableio/teable/CI-nextjs-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="Codefactor grade" href=https://www.codefactor.io/repository/github/teable-group/teable">
-    <img alt="Codefactor" src="https://img.shields.io/codefactor/grade/github/teable-group/teable?label=Codefactor&logo=codefactor&style=flat-quare&labelColor=000000" />
+  <a aria-label="Codefactor grade" href=https://www.codefactor.io/repository/github/teableio/teable">
+    <img alt="Codefactor" src="https://img.shields.io/codefactor/grade/github/teableio/teable?label=Codefactor&logo=codefactor&style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="CodeClimate maintainability" href="https://codeclimate.com/github/teable-group/teable">
-    <img alt="Maintainability" src="https://img.shields.io/codeclimate/maintainability/teable-group/teable?label=Maintainability&logo=code-climate&style=flat-quare&labelColor=000000" />
+  <a aria-label="CodeClimate maintainability" href="https://codeclimate.com/github/teableio/teable">
+    <img alt="Maintainability" src="https://img.shields.io/codeclimate/maintainability/teableio/teable?label=Maintainability&logo=code-climate&style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="CodeClimate technical debt" href="https://codeclimate.com/github/teable-group/teable">
-    <img alt="Techdebt" src="https://img.shields.io/codeclimate/tech-debt/teable-group/teable?label=TechDebt&logo=code-climate&style=flat-quare&labelColor=000000" />
+  <a aria-label="CodeClimate technical debt" href="https://codeclimate.com/github/teableio/teable">
+    <img alt="Techdebt" src="https://img.shields.io/codeclimate/tech-debt/teableio/teable?label=TechDebt&logo=code-climate&style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="Codacy grade" href="https://www.codacy.com/gh/teable-group/teable/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=teable-group/teable&amp;utm_campaign=Badge_Grade">
+  <a aria-label="Codacy grade" href="https://www.codacy.com/gh/teableio/teable/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=teableio/teable&amp;utm_campaign=Badge_Grade">
     <img alt="Codacy grade" src="https://img.shields.io/codacy/grade/dff9c944af284a0fad4e165eb1727467?logo=codacy&style=flat-square&labelColor=000&label=Codacy">
   </a>
   <a aria-label="LoC">  
-    <img alt="LoC" src="https://img.shields.io/tokei/lines/github/teable-group/teable?style=flat-quare&labelColor=000000" />
+    <img alt="LoC" src="https://img.shields.io/tokei/lines/github/teableio/teable?style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="Top language" href="https://github.com/teable-group/teable/search?l=typescript">
-    <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teable-group/teable?style=flat-square&labelColor=000&color=blue">
+  <a aria-label="Top language" href="https://github.com/teableio/teable/search?l=typescript">
+    <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teableio/teable?style=flat-square&labelColor=000&color=blue">
   </a>
-  <a aria-label="Licence" href="https://github.com/teable-group/teable/blob/main/LICENSE">
-    <img alt="Licence" src="https://img.shields.io/github/license/teable-group/teable?style=flat-quare&labelColor=000000" />
+  <a aria-label="Licence" href="https://github.com/teableio/teable/blob/main/LICENSE">
+    <img alt="Licence" src="https://img.shields.io/github/license/teableio/teable?style=flat-quare&labelColor=000000" />
   </a>
 </p>
 
@@ -165,7 +165,7 @@ Choose the Sql-database you like
 
 # Structure
 
-[![Open in Gitpod](https://img.shields.io/badge/Open%20In-Gitpod.io-%231966D2?style=for-the-badge&logo=gitpod)](https://gitpod.io/#https://github.com/teable-group/teable)
+[![Open in Gitpod](https://img.shields.io/badge/Open%20In-Gitpod.io-%231966D2?style=for-the-badge&logo=gitpod)](https://gitpod.io/#https://github.com/teableio/teable)
 
 ```
 .
@@ -240,7 +240,7 @@ Goto [developer readme](./DEVELOPER.md)
 
 ## Sponsors :heart:
 
-If you are enjoying some this project in your company, I'd really appreciate a [sponsorship](https://github.com/sponsors/teable-group), a [coffee](https://ko-fi.com/teable-group) or a dropped star.
+If you are enjoying some this project in your company, I'd really appreciate a [sponsorship](https://github.com/sponsors/teableio), a [coffee](https://ko-fi.com/teableio) or a dropped star.
 That gives me some more time to improve it to the next level.
 
 # License

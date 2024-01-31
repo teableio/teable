@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
-import { IdPrefix, ViewOpBuilder, FieldOpBuilder } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
@@ -11,31 +11,10 @@ import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import { derivateMiddleware } from './derivate.middleware';
-import { IRawOpMap } from './interface';
+import type { IRawOpMap } from './interface';
 import { ShareDbPermissionService } from './share-db-permission.service';
 import { ShareDbAdapter } from './share-db.adapter';
 import { WsDerivateService } from './ws-derivate.service';
-
-// 1 million op in 400ms
-function fastMergeRawOpMaps<T>(objects: { [k1: string]: { [k2: string]: T } }[]): {
-  [k1: string]: { [k2: string]: T };
-} {
-  const result: { [k1: string]: { [k2: string]: T } } = {};
-
-  objects.forEach((obj) => {
-    Object.keys(obj).forEach((k1) => {
-      if (!result[k1]) {
-        result[k1] = { ...obj[k1] };
-      } else {
-        Object.keys(obj[k1]).forEach((k2) => {
-          result[k1][k2] = obj[k1][k2];
-        });
-      }
-    });
-  });
-
-  return result;
-}
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
@@ -66,9 +45,19 @@ export class ShareDbService extends ShareDBClass {
       const stashOpMap = this.cls.get('tx.stashOpMap');
       this.cls.set('tx.rawOpMaps', undefined);
       this.cls.set('tx.stashOpMap', undefined);
-      const rawOpMap = fastMergeRawOpMaps(rawOpMaps || []);
-      this.publishOpsMap(rawOpMap);
-      (rawOpMap || stashOpMap) && this.eventEmitterService.ops2Event(stashOpMap, rawOpMap);
+
+      const ops: IRawOpMap[] = [];
+      if (stashOpMap) {
+        ops.push(stashOpMap);
+      }
+      if (rawOpMaps?.length) {
+        ops.push(...rawOpMaps);
+      }
+
+      if (ops.length) {
+        this.publishOpsMap(rawOpMaps);
+        this.eventEmitterService.ops2Event(ops);
+      }
     });
   }
 
@@ -80,19 +69,24 @@ export class ShareDbService extends ShareDBClass {
   }
 
   @Timing()
-  publishOpsMap(rawOpMap: IRawOpMap) {
-    for (const collection in rawOpMap) {
-      const data = rawOpMap[collection];
-      for (const docId in data) {
-        const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
-        const channels = [collection, `${collection}.${docId}`];
-        rawOp.c = collection;
-        rawOp.d = docId;
-        this.pubsub.publish(channels, rawOp, noop);
+  publishOpsMap(rawOpMaps: IRawOpMap[] | undefined) {
+    if (!rawOpMaps?.length) {
+      return;
+    }
+    for (const rawOpMap of rawOpMaps) {
+      for (const collection in rawOpMap) {
+        const data = rawOpMap[collection];
+        for (const docId in data) {
+          const rawOp = data[docId] as EditOp | CreateOp | DeleteOp;
+          const channels = [collection, `${collection}.${docId}`];
+          rawOp.c = collection;
+          rawOp.d = docId;
+          this.pubsub.publish(channels, rawOp, noop);
 
-        if (this.shouldPublishAction(rawOp)) {
-          const tableId = collection.split('_')[1];
-          this.publishRelatedChannels(tableId, rawOp);
+          if (this.shouldPublishAction(rawOp)) {
+            const tableId = collection.split('_')[1];
+            this.publishRelatedChannels(tableId, rawOp);
+          }
         }
       }
     }
@@ -129,7 +123,7 @@ export class ShareDbService extends ShareDBClass {
     otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
       const [docType] = context.collection.split('_');
 
-      if (docType !== IdPrefix.Record) {
+      if (docType !== IdPrefix.Record || !context.op.op) {
         return next(new Error('only record op can be committed'));
       }
       next();

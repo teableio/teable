@@ -1,4 +1,4 @@
-import type { IHttpError } from '@teable-group/core';
+import type { IHttpError } from '@teable/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
@@ -6,10 +6,10 @@ import { Table } from '@/features/app/blocks/table/Table';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { tableConfig } from '@/features/i18n/table.config';
 import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../../_app';
 
 const Node: NextPageWithLayout<ITableProps> = ({
   fieldServerData,

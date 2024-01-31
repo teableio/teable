@@ -12,8 +12,8 @@ import {
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
-import { SignatureRo, signatureRoSchema } from '@teable-group/openapi';
-import type { INotifyVo, SignatureVo } from '@teable-group/openapi';
+import { SignatureRo, signatureRoSchema } from '@teable/openapi';
+import type { INotifyVo, SignatureVo } from '@teable/openapi';
 import { Response, Request } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';

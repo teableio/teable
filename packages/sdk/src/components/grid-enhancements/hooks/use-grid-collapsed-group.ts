@@ -1,13 +1,4 @@
-import {
-  is,
-  or,
-  and,
-  isNot,
-  hasNoneOf,
-  isNotEmpty,
-  FieldType,
-  GroupPointType,
-} from '@teable-group/core';
+import { is, or, and, isNot, hasNoneOf, isNotEmpty, FieldType, GroupPointType } from '@teable/core';
 import type {
   IFilter,
   IFilterSet,
@@ -17,7 +8,7 @@ import type {
   ILinkCellValue,
   IOperator,
   IUserCellValue,
-} from '@teable-group/core';
+} from '@teable/core';
 import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
 import type { GridView, IFieldInstance } from '../../../model';

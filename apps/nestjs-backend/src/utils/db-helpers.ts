@@ -1,4 +1,4 @@
-import { DriverClient } from '@teable-group/core';
+import { DriverClient } from '@teable/core';
 import type { Knex } from 'knex';
 import { get } from 'lodash';
 

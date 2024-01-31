@@ -1,5 +1,5 @@
-import { FormViewCore } from '@teable-group/core';
-import { updateViewOptions } from '@teable-group/openapi';
+import { FormViewCore } from '@teable/core';
+import { updateViewOptions } from '@teable/openapi';
 import { Mixin } from 'ts-mixer';
 import { requestWrap } from '../../utils/requestWrap';
 import { View } from './view';

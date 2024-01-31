@@ -1,12 +1,12 @@
 {
-  "name": "@teable-group/eslint-config-bases",
+  "name": "@teable/eslint-config-bases",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable",
+    "url": "https://github.com/teableio/teable",
     "directory": "packages/eslint-config-bases"
   },
   "author": {
@@ -82,7 +82,7 @@
     "eslint-plugin-jest": "27.6.0",
     "eslint-plugin-jest-formatting": "3.1.0",
     "eslint-plugin-jsx-a11y": "6.8.0",
-    "eslint-plugin-playwright": "0.21.0",
+    "eslint-plugin-playwright": "0.22.0",
     "eslint-plugin-prettier": "5.1.2",
     "eslint-plugin-react": "7.33.2",
     "eslint-plugin-react-hooks": "4.6.0 || 5.0.0-canary-7118f5dd7-20230705",
@@ -124,16 +124,16 @@
     }
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "6.2.0",
-    "@testing-library/react": "14.1.2",
+    "@testing-library/jest-dom": "6.4.0",
+    "@testing-library/react": "14.2.0",
     "@types/jest": "29.5.11",
-    "@types/node": "18.18.2",
-    "@types/react": "18.2.47",
+    "@types/node": "18.19.0",
+    "@types/react": "18.2.48",
     "@types/react-dom": "18.2.18",
     "es-check": "7.1.1",
     "eslint": "8.56.0",
     "eslint-plugin-mdx": "3.1.5",
-    "eslint-plugin-tailwindcss": "3.14.0",
+    "eslint-plugin-tailwindcss": "3.14.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "rimraf": "5.0.5",

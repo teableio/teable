@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import { HttpError, sharePasswordSchema } from '@teable-group/core';
-import { shareViewAuth } from '@teable-group/openapi';
-import { Button, Input, Label } from '@teable-group/ui-lib';
-import { Spin } from '@teable-group/ui-lib/base';
+import { HttpError, sharePasswordSchema } from '@teable/core';
+import { shareViewAuth } from '@teable/openapi';
+import { Button, Input, Label } from '@teable/ui-lib';
+import { Spin } from '@teable/ui-lib/base';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { fromZodError } from 'zod-validation-error';

@@ -10,7 +10,7 @@ import type {
   ISingleLineTextFieldOptions,
   IUpdateRecordsRo,
   IUserFieldOptions,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   CellValueType,
   FieldKeyType,
@@ -25,16 +25,16 @@ import {
   singleLineTextShowAsSchema,
   singleNumberShowAsSchema,
   stringifyClipboardText,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IRangesToIdQuery,
   IRangesToIdVo,
   IPasteRo,
   IPasteVo,
   IRangesRo,
-} from '@teable-group/openapi';
-import { IdReturnType, RangeType } from '@teable-group/openapi';
+} from '@teable/openapi';
+import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';

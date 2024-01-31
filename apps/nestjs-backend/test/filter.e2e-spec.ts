@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, IFilterRo } from '@teable-group/core';
-import { updateViewFilter as apiSetViewFilter } from '@teable-group/openapi';
+import type { IFieldVo, IFilterRo } from '@teable/core';
+import { updateViewFilter as apiSetViewFilter } from '@teable/openapi';
 import { initApp, getView, createTable, deleteTable } from './utils/init-app';
 
 let app: INestApplication;

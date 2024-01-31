@@ -1,7 +1,7 @@
-import { ColorUtils, getCollaboratorsChannel, contractColorForTheme } from '@teable-group/core';
-import { useSession, useTheme } from '@teable-group/sdk';
-import type { IUser } from '@teable-group/sdk';
-import { useConnection } from '@teable-group/sdk/hooks';
+import { ColorUtils, getCollaboratorsChannel, contractColorForTheme } from '@teable/core';
+import { useSession, useTheme } from '@teable/sdk';
+import type { IUser } from '@teable/sdk';
+import { useConnection } from '@teable/sdk/hooks';
 import {
   Avatar,
   AvatarFallback,
@@ -12,7 +12,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
 import { isEmpty, chunk } from 'lodash';
 import { useRouter } from 'next/router';

@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable-group/core';
+import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable/core';
 import {
   aggregationRoSchema,
   IGroupPointsRo,
@@ -8,15 +8,13 @@ import {
   IAggregationRo,
   queryBaseSchema,
   IQueryBaseRo,
-} from '@teable-group/core';
+} from '@teable/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
-@UseGuards(PermissionGuard)
 export class AggregationOpenApiController {
   constructor(private readonly aggregationOpenApiService: AggregationOpenApiService) {}
 

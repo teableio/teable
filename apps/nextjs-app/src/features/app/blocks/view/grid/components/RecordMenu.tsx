@@ -1,19 +1,19 @@
-import { FieldKeyType } from '@teable-group/core';
-import { Trash, Copy, ArrowUp, ArrowDown } from '@teable-group/icons';
-import { deleteRecords } from '@teable-group/openapi';
-import { SelectionRegionType } from '@teable-group/sdk/components';
-import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
-import { Record } from '@teable-group/sdk/model';
+import { FieldKeyType } from '@teable/core';
+import { Trash, Copy, ArrowUp, ArrowDown } from '@teable/icons';
+import { deleteRecords } from '@teable/openapi';
+import { SelectionRegionType } from '@teable/sdk/components';
+import { useTableId, useTablePermission, useViewId } from '@teable/sdk/hooks';
+import { Record } from '@teable/sdk/model';
 import {
   Command,
   CommandGroup,
   CommandItem,
   CommandList,
   CommandSeparator,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
+import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useSelectionOperation } from '../hooks/useSelectionOperation';

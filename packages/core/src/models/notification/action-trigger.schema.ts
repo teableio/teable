@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
 export const actionTriggerBufferValue = z.object({
-  tableAdd: z.string().array().optional(),
-  tableUpdate: z.string().array().optional(),
-  tableDelete: z.string().array().optional(),
+  addRecord: z.string().array().optional(),
+  setRecord: z.string().array().optional(),
+  deleteRecord: z.string().array().optional(),
+
   applyViewFilter: z.string().array().optional(),
   applyViewGroup: z.string().array().optional(),
+  applyViewStatisticFunc: z.string().array().optional(),
   showViewField: z.string().array().optional(),
 });
 

@@ -1,4 +1,4 @@
-import { CreatedTimeFieldCore } from '@teable-group/core';
+import { CreatedTimeFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class CreatedTimeFieldDto extends CreatedTimeFieldCore implements IFieldBase {

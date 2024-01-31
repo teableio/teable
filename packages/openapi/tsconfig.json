@@ -19,9 +19,9 @@
     "rootDir": "src",
     "outDir": "dist",
     "paths": {
-      "@teable-group/core": ["../core/src"]
-    }
+      "@teable/core": ["../core/src"],
+    },
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src"]
+  "include": ["src"],
 }

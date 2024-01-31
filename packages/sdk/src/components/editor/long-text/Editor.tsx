@@ -1,4 +1,4 @@
-import { Textarea, cn } from '@teable-group/ui-lib';
+import { Textarea, cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';

@@ -1,5 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import { ReactQueryKeys } from '@teable-group/sdk';
+import { ReactQueryKeys } from '@teable/sdk';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
@@ -7,8 +7,8 @@ import { SpaceInnerPage } from '@/features/app/blocks/space';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../_app';
 
 const Node: NextPageWithLayout = () => <SpaceInnerPage />;
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {

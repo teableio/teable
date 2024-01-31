@@ -1,11 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient } from '@teable-group/core';
-import type { IDbConnectionVo } from '@teable-group/openapi';
+import { DriverClient } from '@teable/core';
+import type { IDbConnectionVo } from '@teable/openapi';
 import {
   createDbConnection as apiCreateDbConnection,
   deleteDbConnection as apiDeleteDbConnection,
   getDbConnection as apiGetDbConnection,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { initApp } from './utils/init-app';
 
 describe.skip('OpenAPI Db Connection (e2e)', () => {

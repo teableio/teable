@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { TeableNew } from '@teable-group/icons';
-import { createQueryClient } from '@teable-group/sdk/context/app/queryClient';
-import { Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib/shadcn';
+import { TeableNew } from '@teable/icons';
+import { createQueryClient } from '@teable/sdk/context/app/queryClient';
+import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';

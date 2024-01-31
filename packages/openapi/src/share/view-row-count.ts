@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IRowCountVo } from '@teable-group/core';
-import { rowCountVoSchema, queryBaseSchema } from '@teable-group/core';
+import type { IRowCountVo } from '@teable/core';
+import { rowCountVoSchema, queryBaseSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';

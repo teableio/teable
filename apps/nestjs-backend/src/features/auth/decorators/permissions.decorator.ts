@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import type { PermissionAction } from '@teable-group/core';
+import type { PermissionAction } from '@teable/core';
 
 export const PERMISSIONS_KEY = 'permissions';
 

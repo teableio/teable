@@ -118,10 +118,16 @@ export const tablePropertyKeySchema = tableRoSchema.pick({
 
 export type ITablePropertyKey = keyof z.infer<typeof tablePropertyKeySchema>;
 
-export type ITableOp = Pick<
-  ITableVo,
-  'id' | 'name' | 'description' | 'order' | 'icon' | 'lastModifiedTime'
->;
+export const tableOpSchema = tableVoSchema.pick({
+  id: true,
+  name: true,
+  description: true,
+  order: true,
+  icon: true,
+  lastModifiedTime: true,
+});
+
+export type ITableOp = z.infer<typeof tableOpSchema>;
 
 export const tableListVoSchema = tableVoSchema.array().openapi({
   description: 'The list of tables.',

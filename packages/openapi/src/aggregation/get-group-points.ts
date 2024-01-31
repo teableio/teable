@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IGroupPointsRo, IGroupPointsVo } from '@teable-group/core';
-import { groupPointsRoSchema, groupPointsVoSchema } from '@teable-group/core';
+import type { IGroupPointsRo, IGroupPointsVo } from '@teable/core';
+import { groupPointsRoSchema, groupPointsVoSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';

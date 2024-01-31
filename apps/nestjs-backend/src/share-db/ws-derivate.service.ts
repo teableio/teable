@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IOtOperation } from '@teable-group/core';
-import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IOtOperation } from '@teable/core';
+import { IdPrefix, RecordOpBuilder } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { isEmpty, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type ShareDb from 'sharedb';

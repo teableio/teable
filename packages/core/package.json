@@ -1,12 +1,12 @@
 {
-  "name": "@teable-group/core",
+  "name": "@teable/core",
   "version": "1.0.0",
   "license": "AGPL-3.0",
   "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable",
+    "url": "https://github.com/teableio/teable",
     "directory": "packages/core"
   },
   "author": {
@@ -40,15 +40,15 @@
     "color": "4.2.3",
     "dayjs": "1.11.10",
     "lodash": "4.17.21",
-    "nanoid": "3.3.6",
+    "nanoid": "3.3.7",
     "reflect-metadata": "0.1.13",
     "zod": "3.22.4"
   },
   "devDependencies": {
     "@size-limit/file": "11.0.2",
-    "@teable-group/eslint-config-bases": "workspace:^",
+    "@teable/eslint-config-bases": "workspace:^",
     "@types/lodash": "4.14.202",
-    "@types/node": "18.18.2",
+    "@types/node": "18.19.0",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",
     "es-check": "7.1.1",
@@ -59,6 +59,6 @@
     "size-limit": "11.0.2",
     "typescript": "5.3.3",
     "vite-tsconfig-paths": "4.3.1",
-    "vitest": "1.2.1"
+    "vitest": "1.2.2"
   }
 }

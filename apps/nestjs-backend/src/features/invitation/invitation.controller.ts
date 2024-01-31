@@ -3,7 +3,7 @@ import {
   AcceptInvitationLinkRo,
   acceptInvitationLinkRoSchema,
   type AcceptInvitationLinkVo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { InvitationService } from './invitation.service';
 

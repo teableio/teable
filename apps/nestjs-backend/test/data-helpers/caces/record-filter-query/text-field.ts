@@ -1,4 +1,4 @@
-import { contains, doesNotContain, is, isEmpty, isNot, isNotEmpty } from '@teable-group/core';
+import { contains, doesNotContain, is, isEmpty, isNot, isNotEmpty } from '@teable/core';
 
 export const TEXT_FIELD_CASES = [
   {

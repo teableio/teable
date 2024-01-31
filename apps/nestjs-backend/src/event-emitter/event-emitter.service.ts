@@ -1,66 +1,57 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type {
-  ICreateOpBuilder,
-  IOpBuilder,
-  IOpContextBase,
-  IOtOperation,
-} from '@teable-group/core';
+import type { ICreateOpBuilder, IOpBuilder, IOpContextBase, IOtOperation } from '@teable/core';
 import {
   FieldOpBuilder,
   IdPrefix,
   RecordOpBuilder,
   TableOpBuilder,
   ViewOpBuilder,
-} from '@teable-group/core';
-import { plainToInstance } from 'class-transformer';
-import { get, isEmpty, merge, omit, set } from 'lodash';
+} from '@teable/core';
+import { get, isEmpty, omit, set } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { GroupedObservable, Observable } from 'rxjs';
 import { catchError, EMPTY, from, groupBy, map, mergeMap, toArray } from 'rxjs';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
-import { IRawOpMap, RawOpType } from '../share-db/interface';
+import { match, P } from 'ts-pattern';
+import type { IRawOpMap } from '../share-db/interface';
+import { RawOpType } from '../share-db/interface';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
-import type { Events } from './model';
+import type { IChangeRecord, OpEvent, RecordCreateEvent, RecordUpdateEvent } from './events';
 import {
-  FieldCreateEvent,
-  FieldDeleteEvent,
-  FieldUpdateEvent,
-  RecordCreateEvent,
-  RecordDeleteEvent,
-  RecordUpdateEvent,
-  TableCreateEvent,
-  TableDeleteEvent,
-  TableUpdateEvent,
-  ViewCreateEvent,
-  ViewDeleteEvent,
-  ViewUpdateEvent,
-} from './model';
-import type { BaseOpEvent } from './model/table/base-op-event';
+  Events,
+  FieldEventFactory,
+  RecordEventFactory,
+  TableEventFactory,
+  ViewEventFactory,
+} from './events';
+
+// eslint-disable-next-line @typescript-eslint/naming-convention
+type DocType = IdPrefix.Table | IdPrefix.Field | IdPrefix.View | IdPrefix.Record;
 
 @Injectable()
 export class EventEmitterService {
   private readonly logger = new Logger(EventEmitterService.name);
 
-  private eventClassMap = {
+  private readonly eventNameMapping = {
     [RawOpType.Create]: {
-      [IdPrefix.Table]: TableCreateEvent,
-      [IdPrefix.View]: ViewCreateEvent,
-      [IdPrefix.Field]: FieldCreateEvent,
-      [IdPrefix.Record]: RecordCreateEvent,
+      [IdPrefix.Table]: Events.TABLE_CREATE,
+      [IdPrefix.Field]: Events.TABLE_FIELD_CREATE,
+      [IdPrefix.View]: Events.TABLE_VIEW_CREATE,
+      [IdPrefix.Record]: Events.TABLE_RECORD_CREATE,
     },
     [RawOpType.Del]: {
-      [IdPrefix.Table]: TableDeleteEvent,
-      [IdPrefix.View]: ViewDeleteEvent,
-      [IdPrefix.Field]: FieldDeleteEvent,
-      [IdPrefix.Record]: RecordDeleteEvent,
+      [IdPrefix.Table]: Events.TABLE_DELETE,
+      [IdPrefix.Field]: Events.TABLE_FIELD_DELETE,
+      [IdPrefix.View]: Events.TABLE_VIEW_DELETE,
+      [IdPrefix.Record]: Events.TABLE_RECORD_DELETE,
     },
     [RawOpType.Edit]: {
-      [IdPrefix.Table]: TableUpdateEvent,
-      [IdPrefix.View]: ViewUpdateEvent,
-      [IdPrefix.Field]: FieldUpdateEvent,
-      [IdPrefix.Record]: RecordUpdateEvent,
+      [IdPrefix.Table]: Events.TABLE_UPDATE,
+      [IdPrefix.Field]: Events.TABLE_FIELD_UPDATE,
+      [IdPrefix.View]: Events.TABLE_VIEW_UPDATE,
+      [IdPrefix.Record]: Events.TABLE_RECORD_UPDATE,
     },
   };
 
@@ -85,8 +76,8 @@ export class EventEmitterService {
   }
 
   @Timing()
-  async ops2Event(stashOpMap?: IRawOpMap, publishOpMap?: IRawOpMap): Promise<void> {
-    const generatedEvents = this.collectEventsFromRawOpMap(stashOpMap, publishOpMap);
+  async ops2Event(rawOpMaps?: IRawOpMap[]): Promise<void> {
+    const generatedEvents = this.collectEventsFromRawOpMap(rawOpMaps);
     if (!generatedEvents) {
       return;
     }
@@ -101,20 +92,18 @@ export class EventEmitterService {
       .subscribe((next) => this.handleEventResult(next));
   }
 
-  private aggregateEventsByGroup(
-    project: GroupedObservable<Events, BaseOpEvent>
-  ): Observable<BaseOpEvent> {
+  private aggregateEventsByGroup(project: GroupedObservable<Events, OpEvent>): Observable<OpEvent> {
     return project.pipe(
       toArray(),
       map((groupedEvents) => this.combineEvents(groupedEvents)),
       catchError((error) => {
-        this.logger.error(`1push event stream error: ${error.message}`, error?.stack);
+        this.logger.error(`push event stream error: ${error.message}`, error?.stack);
         return EMPTY;
       })
     );
   }
 
-  private combineEvents(groupedEvents: BaseOpEvent[]): BaseOpEvent {
+  private combineEvents(groupedEvents: OpEvent[]): OpEvent {
     if (groupedEvents.length <= 1) return groupedEvents[0];
 
     return groupedEvents.reduce((combinedEvent, event, index) => {
@@ -125,68 +114,59 @@ export class EventEmitterService {
       }
 
       const changes = this.aggregateEventChanges(combinedEvent, mergePropertyName, event);
-      set(combinedEvent, [mergePropertyName], changes);
+      set(combinedEvent, `payload.${mergePropertyName}`, changes);
       return combinedEvent;
-    }, {} as BaseOpEvent);
+    }, {} as OpEvent);
   }
 
-  private getMergePropertyName(event: BaseOpEvent): string {
-    if (event instanceof ViewCreateEvent) return 'view';
-    if (event instanceof FieldCreateEvent) return 'field';
-    if (event instanceof FieldDeleteEvent) return 'fieldId';
-    if (event instanceof FieldUpdateEvent) return 'field';
-    if (event instanceof RecordCreateEvent) return 'record';
-    if (event instanceof RecordDeleteEvent) return 'recordId';
-    if (event instanceof RecordUpdateEvent) return 'record';
-    return '';
+  private getMergePropertyName(event: OpEvent): string {
+    return match(event)
+      .with({ name: Events.TABLE_VIEW_CREATE }, () => 'view')
+      .with(
+        P.union({ name: Events.TABLE_FIELD_CREATE }, { name: Events.TABLE_FIELD_UPDATE }),
+        () => 'field'
+      )
+      .with({ name: Events.TABLE_FIELD_DELETE }, () => 'fieldId')
+      .with(
+        P.union({ name: Events.TABLE_RECORD_CREATE }, { name: Events.TABLE_RECORD_UPDATE }),
+        () => 'record'
+      )
+      .with({ name: Events.TABLE_RECORD_DELETE }, () => 'recordId')
+      .otherwise(() => '');
   }
 
-  private initAcc(event: BaseOpEvent, mergePropertyName: string): BaseOpEvent {
+  private initAcc(event: OpEvent, mergePropertyName: string): OpEvent {
     return {
-      ...(omit(event, mergePropertyName) as BaseOpEvent),
-      isBatch: true,
+      ...(omit(event, `payload.${mergePropertyName}`) as OpEvent),
+      isBulk: true,
     };
   }
 
-  private aggregateEventChanges(
-    combinedEvent: BaseOpEvent,
-    mergePropertyName: string,
-    event: BaseOpEvent
-  ) {
-    const changes = get(combinedEvent, [mergePropertyName]) || [];
-    changes.push(get(event, [mergePropertyName]));
+  private aggregateEventChanges(combinedEvent: OpEvent, mergePropertyName: string, event: OpEvent) {
+    const changes = get(combinedEvent, ['payload', mergePropertyName]) || [];
+    changes.push(get(event, ['payload', mergePropertyName]));
     return changes;
   }
 
-  private handleEventResult(result: BaseOpEvent): void {
+  private handleEventResult(result: OpEvent): void {
     this.logger.debug({ eventName: result.name, eventList: result });
     this.emitAsync(result.name, result);
   }
 
-  private collectEventsFromRawOpMap(stashOpMap?: IRawOpMap, publishOpMap?: IRawOpMap) {
-    if (!stashOpMap && !publishOpMap) {
+  private collectEventsFromRawOpMap(rawOpMaps?: IRawOpMap[]) {
+    if (!rawOpMaps?.length) {
       return;
     }
 
-    const eventManager: Map<string, BaseOpEvent> = new Map();
-
-    if (stashOpMap) {
-      this.generateEventsFromRawOps(false, stashOpMap, eventManager);
-    }
-
-    if (publishOpMap) {
-      this.generateEventsFromRawOps(!isEmpty(stashOpMap), publishOpMap, eventManager);
-    }
-    return eventManager;
+    return rawOpMaps.reduce((pre, cur) => {
+      this.generateEventsFromRawOps(cur, pre);
+      return pre;
+    }, new Map<string, OpEvent>());
   }
 
-  private generateEventsFromRawOps(
-    isStash: boolean,
-    rawOpMap: IRawOpMap,
-    eventManager: Map<string, BaseOpEvent>
-  ) {
+  private generateEventsFromRawOps(rawOpMap: IRawOpMap, eventManager: Map<string, OpEvent>) {
     for (const collection in rawOpMap) {
-      const [docType, docId] = collection.split('_') as [IdPrefix, string];
+      const [docType, docId] = collection.split('_') as [DocType, string];
       const data = rawOpMap[collection];
 
       for (const id in data) {
@@ -200,9 +180,9 @@ export class EventEmitterService {
           nodeId: id,
           opCreateData: rawOp.create?.data,
           ops: rawOp?.op,
-        }) as BaseOpEvent;
+        }) as OpEvent;
 
-        const eventInstance = this.plainToEventInstance(docType, opType, {
+        const event = this.createEvent(docType, opType, {
           ...extendPlainContext,
           ...plainContext,
           context: {
@@ -211,7 +191,7 @@ export class EventEmitterService {
           },
         });
 
-        eventInstance && this.updateEventManager(eventManager, id, eventInstance, isStash);
+        event && this.mergeEventsForUpdate(eventManager, id, event);
       }
     }
   }
@@ -237,50 +217,77 @@ export class EventEmitterService {
     return null;
   }
 
-  private updateEventManager(
-    eventManager: Map<string, BaseOpEvent>,
+  private mergeEventsForUpdate(
+    eventManager: Map<string, OpEvent>,
     id: string,
-    eventInstance: BaseOpEvent,
-    isStash: boolean
+    event: OpEvent
   ): void {
-    if (isStash) {
-      const stashEvent = eventManager.get(id);
-      stashEvent && eventManager.set(id, merge({}, stashEvent, eventInstance));
-    } else {
-      eventManager.set(id, eventInstance);
+    const existingEvent = eventManager.get(id);
+
+    if (!existingEvent) {
+      eventManager.set(id, event);
+      return;
     }
+
+    if (existingEvent.rawOpType === RawOpType.Create && event.name === Events.TABLE_RECORD_UPDATE) {
+      const fields = this.getUpdateFieldsFromEvent(event as RecordUpdateEvent);
+      event = this.combineUpdateEvents(existingEvent as RecordCreateEvent, fields);
+    }
+
+    eventManager.set(id, event);
   }
 
-  private plainToEventInstance(docType: IdPrefix, action: RawOpType, plain: unknown) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const eventClass: any =
-      this.eventClassMap[action]?.[
-        docType as IdPrefix.Table | IdPrefix.View | IdPrefix.Field | IdPrefix.Record
-      ];
-    return (
-      eventClass &&
-      plainToInstance(eventClass, plain, {
-        exposeDefaultValues: true,
-        excludeExtraneousValues: true,
-      })
+  private getUpdateFieldsFromEvent(event: RecordUpdateEvent): { [key: string]: unknown } {
+    return Object.entries((event.payload.record as IChangeRecord).fields).reduce(
+      (acc, [key, value]) => {
+        acc[key] = value.newValue;
+        return acc;
+      },
+      {} as { [key: string]: unknown }
     );
   }
 
-  private getOpBuilder(docType: IdPrefix) {
-    switch (docType) {
-      case IdPrefix.Table:
-        return TableOpBuilder;
-      case IdPrefix.View:
-        return ViewOpBuilder;
-      case IdPrefix.Field:
-        return FieldOpBuilder;
-      case IdPrefix.Record:
-        return RecordOpBuilder;
-    }
+  private combineUpdateEvents(
+    existingEvent: RecordCreateEvent,
+    fields: { [key: string]: unknown }
+  ): OpEvent {
+    return {
+      ...existingEvent,
+      payload: {
+        ...existingEvent.payload,
+        record: {
+          ...existingEvent.payload.record,
+          fields,
+        },
+      },
+    };
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private createEvent(docType: DocType, action: RawOpType, plain: any) {
+    const { context, ...payload } = plain;
+    const eventName = this.eventNameMapping[action]?.[docType];
+    if (!eventName) return undefined;
+
+    return match(docType)
+      .with(IdPrefix.Table, () => TableEventFactory.create(eventName, payload, context))
+      .with(IdPrefix.Field, () => FieldEventFactory.create(eventName, payload, context))
+      .with(IdPrefix.View, () => ViewEventFactory.create(eventName, payload, context))
+      .with(IdPrefix.Record, () => RecordEventFactory.create(eventName, payload, context))
+      .exhaustive();
+  }
+
+  private getOpBuilder(docType: DocType) {
+    return match(docType)
+      .with(IdPrefix.Table, () => TableOpBuilder)
+      .with(IdPrefix.Field, () => FieldOpBuilder)
+      .with(IdPrefix.View, () => ViewOpBuilder)
+      .with(IdPrefix.Record, () => RecordOpBuilder)
+      .exhaustive();
   }
 
   private convertOpsToClassPlain(
-    docType: IdPrefix,
+    docType: DocType,
     rawOpType: RawOpType,
     params: {
       nodeId: string;
@@ -305,7 +312,7 @@ export class EventEmitterService {
   }
 
   private initData(
-    docType: IdPrefix,
+    docType: DocType,
     nodeId: string,
     createBuilder?: ICreateOpBuilder,
     opCreateData?: unknown
@@ -316,7 +323,7 @@ export class EventEmitterService {
 
     if (opCreateData && createBuilder) {
       const buildData = createBuilder.build(opCreateData);
-      const propertyCategory = this.getPropertyCategoryForType[docType as never];
+      const propertyCategory = this.getPropertyCategoryForType[docType];
 
       const pre = { [propertyCategory]: buildData };
       set(pre, ['context', 'opMeta', 'name'], createBuilder.name);
@@ -325,7 +332,7 @@ export class EventEmitterService {
   }
 
   private applyOperation(
-    docType: IdPrefix,
+    docType: DocType,
     rawOpType: RawOpType,
     acc: object,
     cur: IOpContextBase,
@@ -337,7 +344,7 @@ export class EventEmitterService {
     const opBuilder = editorBuilders[cur.name as keyof typeof editorBuilders];
     if (!opBuilder) return;
 
-    const propertyCategory = this.getPropertyCategoryForType[docType as never];
+    const propertyCategory = this.getPropertyCategoryForType[docType];
     const otOperation = opBuilder.build(cur);
     if (!otOperation) return;
 

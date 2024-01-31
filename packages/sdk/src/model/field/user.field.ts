@@ -1,4 +1,4 @@
-import { UserFieldCore } from '@teable-group/core';
+import { UserFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

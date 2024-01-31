@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { identify, IdPrefix } from '@teable-group/core';
+import { identify, IdPrefix } from '@teable/core';
 import type { TopLevelCondition } from 'json-rules-engine';
 import { findLast, head, join, keyBy, omit, tail } from 'lodash';
 import { JsonRulesEngine } from '../../engine/json-rules-engine';

@@ -1,4 +1,4 @@
-import { RollupFieldCore } from '@teable-group/core';
+import { RollupFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class RollupFieldDto extends RollupFieldCore implements IFieldBase {

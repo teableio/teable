@@ -1,6 +1,6 @@
-import type { ShareViewGetVo } from '@teable-group/openapi';
-import { AnchorContext, AppProvider, FieldProvider, ViewProvider } from '@teable-group/sdk/context';
-import { getWsPath } from '@teable-group/sdk/context/app/useConnection';
+import type { ShareViewGetVo } from '@teable/openapi';
+import { AnchorContext, AppProvider, FieldProvider, ViewProvider } from '@teable/sdk/context';
+import { getWsPath } from '@teable/sdk/context/app/useConnection';
 import { useMemo } from 'react';
 import { useTitle } from 'react-use';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';

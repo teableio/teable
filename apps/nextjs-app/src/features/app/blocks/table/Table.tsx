@@ -1,5 +1,5 @@
-import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
-import { AnchorContext, FieldProvider, useTable, ViewProvider } from '@teable-group/sdk';
+import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
+import { AnchorContext, FieldProvider, useTable, ViewProvider } from '@teable/sdk';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTitle } from 'react-use';

@@ -1,9 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
-import { ColorUtils } from '@teable-group/core';
-import { DraggableHandle, X } from '@teable-group/icons';
-import { IdReturnType, getGraph, getIdsFromRanges } from '@teable-group/openapi';
-import { useBase, useTableId, useViewId } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { ColorUtils } from '@teable/core';
+import { DraggableHandle, X } from '@teable/icons';
+import { IdReturnType, getGraph, getIdsFromRanges } from '@teable/openapi';
+import { useBase, useTableId, useViewId } from '@teable/sdk';
+import { Button } from '@teable/ui-lib/shadcn';
 import { useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useMount } from 'react-use';

@@ -1,9 +1,4 @@
-import type {
-  IFilterOperator,
-  IFilterValue,
-  ILiteralValue,
-  ILiteralValueList,
-} from '@teable-group/core';
+import type { IFilterOperator, IFilterValue, ILiteralValue, ILiteralValueList } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterSqlite } from '../cell-value-filter.sqlite';
 

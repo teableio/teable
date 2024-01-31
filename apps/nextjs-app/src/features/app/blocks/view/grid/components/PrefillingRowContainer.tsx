@@ -1,12 +1,7 @@
-import { ArrowUpDown, HelpCircle } from '@teable-group/icons';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@teable-group/ui-lib/shadcn';
+import { ArrowUpDown, HelpCircle } from '@teable/icons';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 

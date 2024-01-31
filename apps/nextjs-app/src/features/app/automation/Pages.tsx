@@ -1,4 +1,4 @@
-import { PackageCheck } from '@teable-group/icons';
+import { PackageCheck } from '@teable/icons';
 export function AutomationPage() {
   return (
     <div className="h-full flex-col md:flex">

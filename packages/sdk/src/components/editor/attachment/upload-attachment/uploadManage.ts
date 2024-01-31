@@ -1,5 +1,5 @@
-import type { INotifyVo, UploadType } from '@teable-group/openapi';
-import { getSignature, notify } from '@teable-group/openapi';
+import type { INotifyVo, UploadType } from '@teable/openapi';
+import { getSignature, notify } from '@teable/openapi';
 import axios from 'axios';
 import { noop } from 'lodash';
 

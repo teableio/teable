@@ -1,4 +1,4 @@
-import type { RowHeightLevel } from '@teable-group/core';
+import type { RowHeightLevel } from '@teable/core';
 import React from 'react';
 import { RowHeightBase } from './RowHeightBase';
 import { useRowHeightNode } from './useRowHeightNode';

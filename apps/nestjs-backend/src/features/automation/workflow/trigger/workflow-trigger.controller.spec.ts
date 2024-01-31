@@ -1,8 +1,8 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { generateWorkflowId, generateWorkflowTriggerId } from '@teable-group/core';
-import type { AutomationWorkflowTrigger as AutomationWorkflowTriggerModel } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { generateWorkflowId, generateWorkflowTriggerId } from '@teable/core';
+import type { AutomationWorkflowTrigger as AutomationWorkflowTriggerModel } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { TriggerTypeEnums } from '../../enums/trigger-type.enum';
 import type { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro';
 import { WorkflowTriggerController } from './workflow-trigger.controller';

@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
-import type { ICopyVo, IRangesToIdVo, IPasteVo } from '@teable-group/openapi';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import type { ICopyVo, IRangesToIdVo, IPasteVo } from '@teable/openapi';
 import {
   IRangesToIdQuery,
   rangesToIdQuerySchema,
@@ -8,15 +8,13 @@ import {
   pasteRoSchema,
   rangesRoSchema,
   IRangesRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../auth/guard/permission.guard';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { SelectionService } from './selection.service';
 
 @Controller('api/table/:tableId/selection')
-@UseGuards(PermissionGuard)
 export class SelectionController {
   constructor(private selectionService: SelectionService) {}
 

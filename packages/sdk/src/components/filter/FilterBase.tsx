@@ -1,9 +1,9 @@
-import type { IFilter, IFilterItem, IConjunction } from '@teable-group/core';
-import { getValidFilterOperators } from '@teable-group/core';
+import type { IFilter, IFilterItem, IConjunction } from '@teable/core';
+import { getValidFilterOperators } from '@teable/core';
 
-import { Plus } from '@teable-group/icons';
+import { Plus } from '@teable/icons';
 
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 
 import { produce } from 'immer';
 import { cloneDeep, isEqual, set, get } from 'lodash';

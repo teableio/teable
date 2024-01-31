@@ -1,6 +1,6 @@
-import { ArrowUpRight, Code2, Component, Database, Share2 } from '@teable-group/icons';
-import { useDriver } from '@teable-group/sdk/hooks';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
+import { ArrowUpRight, Code2, Component, Database, Share2 } from '@teable/icons';
+import { useDriver } from '@teable/sdk/hooks';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
 import { useCellGraphStore } from '../../graph/useCellGraphStore';

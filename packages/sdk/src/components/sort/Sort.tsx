@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { ISort, IManualSortRo } from '@teable-group/core';
+import type { ISort, IManualSortRo } from '@teable/core';
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';

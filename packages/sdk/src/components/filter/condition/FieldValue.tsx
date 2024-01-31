@@ -1,7 +1,7 @@
-import type { IDateFilter, IFilterItem } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
+import type { IDateFilter, IFilterItem } from '@teable/core';
+import { FieldType } from '@teable/core';
 
-import { Input } from '@teable-group/ui-lib';
+import { Input } from '@teable/ui-lib';
 import { useCallback, useMemo } from 'react';
 import { useField } from '../../../hooks';
 

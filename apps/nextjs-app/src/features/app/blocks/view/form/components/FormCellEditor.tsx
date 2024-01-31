@@ -1,9 +1,9 @@
-import type { IAttachmentCellValue, ILinkCellValue } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
-import { AttachmentManager, CellEditor } from '@teable-group/sdk/components';
-import { UploadAttachment } from '@teable-group/sdk/components/editor/attachment/upload-attachment/UploadAttachment';
-import type { Field, LinkField } from '@teable-group/sdk/model';
-import { cn } from '@teable-group/ui-lib/shadcn';
+import type { IAttachmentCellValue, ILinkCellValue } from '@teable/core';
+import { FieldType } from '@teable/core';
+import { AttachmentManager, CellEditor } from '@teable/sdk/components';
+import { UploadAttachment } from '@teable/sdk/components/editor/attachment/upload-attachment/UploadAttachment';
+import type { Field, LinkField } from '@teable/sdk/model';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { ShareFormLinkEditor } from './share-link-editor/FormLinkEditor';
 

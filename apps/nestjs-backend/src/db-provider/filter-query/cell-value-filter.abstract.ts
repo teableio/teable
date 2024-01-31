@@ -3,12 +3,7 @@ import {
   InternalServerErrorException,
   NotImplementedException,
 } from '@nestjs/common';
-import type {
-  IDateFieldOptions,
-  IDateFilter,
-  IFilterOperator,
-  IFilterValue,
-} from '@teable-group/core';
+import type { IDateFieldOptions, IDateFilter, IFilterOperator, IFilterValue } from '@teable/core';
 import {
   CellValueType,
   contains,
@@ -35,7 +30,7 @@ import {
   isOnOrBefore,
   isWithIn,
   literalValueListSchema,
-} from '@teable-group/core';
+} from '@teable/core';
 import type { Dayjs } from 'dayjs';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';

@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-identical-functions */
-import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable-group/core';
+import type { IDateFieldOptions, IDateFilter, IFilterOperator } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterSqlite } from '../cell-value-filter.sqlite';
 

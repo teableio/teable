@@ -5,6 +5,7 @@ import type share from './locales/en/share.json';
 import type space from './locales/en/space.json';
 import type system from './locales/en/system.json';
 import type table from './locales/en/table.json';
+import type token from './locales/en/token.json';
 
 export interface I18nNamespaces {
   auth: typeof auth;
@@ -14,4 +15,5 @@ export interface I18nNamespaces {
   sdk: typeof sdk;
   share: typeof share;
   table: typeof table;
+  token: typeof token;
 }

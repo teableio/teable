@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { FieldOpBuilder, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { FieldOpBuilder, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { ViewService } from '../../view/view.service';

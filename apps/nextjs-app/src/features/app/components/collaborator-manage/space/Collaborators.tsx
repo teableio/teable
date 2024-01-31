@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable-group/core';
-import { hasPermission } from '@teable-group/core';
-import { X } from '@teable-group/icons';
-import type { ListSpaceCollaboratorVo } from '@teable-group/openapi';
+import type { SpaceRole } from '@teable/core';
+import { hasPermission } from '@teable/core';
+import { X } from '@teable/icons';
+import type { ListSpaceCollaboratorVo } from '@teable/openapi';
 import {
   deleteSpaceCollaborator,
   getSpaceCollaboratorList,
   updateSpaceCollaborator,
-} from '@teable-group/openapi';
-import { ReactQueryKeys, useSession } from '@teable-group/sdk';
+} from '@teable/openapi';
+import { ReactQueryKeys, useSession } from '@teable/sdk';
 import {
   Avatar,
   AvatarFallback,
@@ -19,7 +19,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';

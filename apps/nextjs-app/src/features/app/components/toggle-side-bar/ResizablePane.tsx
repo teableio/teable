@@ -1,6 +1,6 @@
-import { ChevronsLeft } from '@teable-group/icons';
-import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable-group/sdk';
-import { ResizablePanelGroup, ResizableHandle, ResizablePanel, Button } from '@teable-group/ui-lib';
+import { ChevronsLeft } from '@teable/icons';
+import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable/sdk';
+import { ResizablePanelGroup, ResizableHandle, ResizablePanel, Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { isString } from 'lodash';
 import React, { useRef, useState, useEffect } from 'react';
@@ -10,7 +10,7 @@ import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
 import { PaneSkeleton } from './PaneSkeleton';
 
-const ResizeblePanelsPrefix = 'react-resizable-panels';
+const ResizablePanelsPrefix = 'react-resizable-panels';
 
 enum ResizePart {
   LEFT = 'left',
@@ -34,7 +34,7 @@ export const ResizablePane: React.FC<{
 
   useEffect(() => {
     const sizeString = localStorage.getItem(
-      `${ResizeblePanelsPrefix}:${LocalStorageKeys.SideBarSize}`
+      `${ResizablePanelsPrefix}:${LocalStorageKeys.SideBarSize}`
     );
     if (isString(sizeString)) {
       const sizeObj = JSON.parse(sizeString);

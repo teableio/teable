@@ -1,11 +1,5 @@
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@teable-group/ui-lib';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@teable/ui-lib';
 import { SpaceCollaboratorModal } from './SpaceCollaboratorModal';
 
 interface ISpaceCollaboratorModalTrigger {

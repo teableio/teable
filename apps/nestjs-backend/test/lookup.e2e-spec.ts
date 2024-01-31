@@ -9,15 +9,15 @@ import type {
   INumberFieldOptions,
   ITableFullVo,
   LinkFieldCore,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   Colors,
   FieldType,
   NumberFormattingType,
   Relationship,
   TimeFormatting,
-} from '@teable-group/core';
-import { getGraph as apiGetGraph } from '@teable-group/openapi';
+} from '@teable/core';
+import { getGraph as apiGetGraph } from '@teable/openapi';
 import {
   createField,
   deleteField,

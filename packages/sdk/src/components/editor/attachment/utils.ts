@@ -1,4 +1,4 @@
-import { getFileIcon, isImage } from '@teable-group/ui-lib';
+import { getFileIcon, isImage } from '@teable/ui-lib';
 import { renderToString } from 'react-dom/server';
 
 export const getFileCover = (mimetype: string, url?: string) => {

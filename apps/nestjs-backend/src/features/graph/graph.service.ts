@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ITinyRecord, IConvertFieldRo } from '@teable-group/core';
-import { FieldType, Relationship } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IFieldRo, ILinkFieldOptions, ITinyRecord, IConvertFieldRo } from '@teable/core';
+import { FieldType, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IGraphEdge,
   IGraphNode,
@@ -9,7 +9,7 @@ import type {
   IGraphVo,
   IPlanFieldVo,
   IPlanFieldConvertVo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

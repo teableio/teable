@@ -1,4 +1,4 @@
-import type { IRecord } from '@teable-group/core';
+import type { IRecord } from '@teable/core';
 import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { RecordContext } from './RecordContext';

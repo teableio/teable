@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { FormViewCore } from '@teable-group/core';
-import type { FormViewOptions } from '@teable-group/core';
+import { FormViewCore } from '@teable/core';
+import type { FormViewOptions } from '@teable/core';
 
 export class FormViewOptionsDto implements FormViewOptions {
   @ApiProperty({

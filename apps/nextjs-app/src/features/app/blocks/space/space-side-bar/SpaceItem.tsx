@@ -1,6 +1,6 @@
-import { Component } from '@teable-group/icons';
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { Component } from '@teable/icons';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { Button } from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
 import Link from 'next/link';
 import { useRef } from 'react';

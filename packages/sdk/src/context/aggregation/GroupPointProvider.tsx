@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getGroupPoints } from '@teable-group/openapi';
+import { getGroupPoints } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
@@ -50,12 +50,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   useEffect(() => {
     if (tableId == null) return;
 
-    const relevantProps = [
-      'tableAdd',
-      'tableDelete',
-      'tableUpdate',
-      'applyViewFilter',
-    ] as PropKeys[];
+    const relevantProps: PropKeys[] = ['addRecord', 'deleteRecord', 'setRecord', 'applyViewFilter'];
 
     listener?.(relevantProps, () => updateGroupPoints(), [tableId, viewId]);
   }, [listener, tableId, updateGroupPoints, viewId]);

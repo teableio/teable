@@ -1,6 +1,6 @@
-import { useConnection, useTablePermission } from '@teable-group/sdk';
-import AddBoldIcon from '@teable-group/ui-lib/icons/app/add-bold.svg';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { useConnection, useTablePermission } from '@teable/sdk';
+import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { DraggableList } from './DraggableList';
 import { NoDraggableList } from './NoDraggableList';
 import { useAddTable } from './useAddTable';

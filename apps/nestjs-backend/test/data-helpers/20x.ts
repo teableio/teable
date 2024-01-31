@@ -7,7 +7,7 @@ import {
   FieldType,
   NumberFormattingType,
   TimeFormatting,
-} from '@teable-group/core';
+} from '@teable/core';
 
 const textField = {
   name: 'text field',

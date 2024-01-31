@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo } from '@teable-group/core';
+import type { IFieldVo } from '@teable/core';
 import {
   FieldType,
   generateWorkflowActionId,
@@ -8,9 +8,8 @@ import {
   generateWorkflowTriggerId,
   identify,
   IdPrefix,
-} from '@teable-group/core';
-import { axios } from '@teable-group/openapi';
-import { expect } from 'vitest';
+} from '@teable/core';
+import { axios } from '@teable/openapi';
 import { ActionTypeEnums } from '../src/features/automation/enums/action-type.enum';
 import { TriggerTypeEnums } from '../src/features/automation/enums/trigger-type.enum';
 import type { CreateWorkflowActionRo } from '../src/features/automation/model/create-workflow-action.ro';

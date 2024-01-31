@@ -1,4 +1,4 @@
-import type { IFilter, IFilterItem, IFilterSet, IConjunction } from '@teable-group/core';
+import type { IFilter, IFilterItem, IFilterSet, IConjunction } from '@teable/core';
 import type { IFieldInstance } from '../../../model';
 
 enum ConditionAddType {

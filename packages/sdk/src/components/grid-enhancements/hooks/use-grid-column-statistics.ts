@@ -1,5 +1,5 @@
-import type { IAggregationVo } from '@teable-group/core';
-import { statisticFunc2NameMap } from '@teable-group/core';
+import type { IAggregationVo } from '@teable/core';
+import { statisticFunc2NameMap } from '@teable/core';
 import { isEmpty, keyBy } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
 import type { IColumnStatistics, IGridColumn } from '../..';

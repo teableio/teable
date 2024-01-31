@@ -1,10 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@teable-group/ui-lib/shadcn';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { useChartData } from '../hooks/useChartData';
 

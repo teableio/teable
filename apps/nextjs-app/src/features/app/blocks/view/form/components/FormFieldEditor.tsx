@@ -1,8 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { DraggableHandle, EyeOff } from '@teable-group/icons';
-import { CellEditor } from '@teable-group/sdk/components';
-import { useFieldStaticGetter, useTableId, useView } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import { DraggableHandle, EyeOff } from '@teable/icons';
+import { CellEditor } from '@teable/sdk/components';
+import { useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
+import type { IFieldInstance } from '@teable/sdk/model';
 import {
   Label,
   Switch,
@@ -10,7 +10,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import type { FC } from 'react';
 
 interface IFormFieldEditorProps {

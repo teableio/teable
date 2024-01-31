@@ -1,5 +1,5 @@
-import type { IRecord } from '@teable-group/core';
-import { Separator, Skeleton } from '@teable-group/ui-lib';
+import type { IRecord } from '@teable/core';
+import { Separator, Skeleton } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { isEqual } from 'lodash';
 import { useMemo } from 'react';

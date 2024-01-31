@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IActionTriggerBuffer } from '@teable-group/core';
-import { getAggregation } from '@teable-group/openapi';
+import type { IActionTriggerBuffer } from '@teable/core';
+import { getAggregation } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
@@ -35,13 +35,14 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   useEffect(() => {
     if (tableId == null) return;
 
-    const relevantProps = [
-      'tableAdd',
-      'tableUpdate',
-      'tableDelete',
+    const relevantProps: PropKeys[] = [
+      'addRecord',
+      'setRecord',
+      'deleteRecord',
       'applyViewFilter',
       'showViewField',
-    ] as PropKeys[];
+      'applyViewStatisticFunc',
+    ];
 
     listener?.(relevantProps, () => updateAggregations(), [tableId, viewId]);
   }, [listener, tableId, updateAggregations, viewId]);

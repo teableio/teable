@@ -1,4 +1,4 @@
-import { useIsTouchDevice } from '@teable-group/sdk/hooks';
+import { useIsTouchDevice } from '@teable/sdk/hooks';
 import { useEffect, type FC, type PropsWithChildren } from 'react';
 import { MainLayout } from '@/components/layout';
 

@@ -1,5 +1,5 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
-import { assertNever } from '@teable-group/core';
+import { assertNever } from '@teable/core';
 import dayjs from 'dayjs';
 import type { EngineResult, TopLevelCondition } from 'json-rules-engine';
 import { Engine } from 'json-rules-engine';

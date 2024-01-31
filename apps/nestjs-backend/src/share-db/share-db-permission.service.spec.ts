@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { ActionPrefix, IdPrefix } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { ActionPrefix, IdPrefix } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
 import { vi } from 'vitest';

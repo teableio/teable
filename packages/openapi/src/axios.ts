@@ -1,4 +1,4 @@
-import { HttpError } from '@teable-group/core';
+import { HttpError } from '@teable/core';
 import axiosInstance from 'axios';
 
 export const createAxios = () => {

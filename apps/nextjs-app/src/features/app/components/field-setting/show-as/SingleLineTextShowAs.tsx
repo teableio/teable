@@ -1,9 +1,9 @@
-import { SingleLineTextDisplayType } from '@teable-group/core';
-import type { ISingleLineTextShowAs } from '@teable-group/core';
-import { Button } from '@teable-group/ui-lib/shadcn';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+import { SingleLineTextDisplayType } from '@teable/core';
+import type { ISingleLineTextShowAs } from '@teable/core';
+import { Button } from '@teable/ui-lib/shadcn';
+import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import classNames from 'classnames';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 const textFlag = 'text';

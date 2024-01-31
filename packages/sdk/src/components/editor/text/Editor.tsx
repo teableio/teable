@@ -1,7 +1,7 @@
-import { SingleLineTextDisplayType } from '@teable-group/core';
-import type { ISingleLineTextFieldOptions } from '@teable-group/core';
-import { Link, Mail, Phone } from '@teable-group/icons';
-import { Button, Input, cn } from '@teable-group/ui-lib';
+import { SingleLineTextDisplayType } from '@teable/core';
+import type { ISingleLineTextFieldOptions } from '@teable/core';
+import { Link, Mail, Phone } from '@teable/icons';
+import { Button, Input, cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';

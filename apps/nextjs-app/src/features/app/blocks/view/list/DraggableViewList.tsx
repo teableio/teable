@@ -1,12 +1,12 @@
-import { useTablePermission, useViewId, useViews, useIsHydrated } from '@teable-group/sdk';
-import { swapReorder } from '@teable-group/sdk/utils';
+import { useTablePermission, useViewId, useViews, useIsHydrated } from '@teable/sdk';
+import { swapReorder } from '@teable/sdk/utils';
 import {
   DndKitContext,
   Draggable,
   Droppable,
   horizontalListSortingStrategy,
   type DragEndEvent,
-} from '@teable-group/ui-lib/base/dnd-kit';
+} from '@teable/ui-lib/base/dnd-kit';
 import classNames from 'classnames';
 import { useEffect, useState } from 'react';
 import { ViewListItem } from './ViewListItem';

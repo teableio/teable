@@ -1,4 +1,4 @@
-import { DateFieldCore } from '@teable-group/core';
+import { DateFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class DateFieldDto extends DateFieldCore implements IFieldBase {

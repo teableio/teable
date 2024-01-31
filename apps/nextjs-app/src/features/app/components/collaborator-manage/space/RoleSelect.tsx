@@ -1,5 +1,5 @@
-import { SpaceRole } from '@teable-group/core';
-import { useSpaceRoleStatic } from '@teable-group/sdk/hooks';
+import { SpaceRole } from '@teable/core';
+import { useSpaceRoleStatic } from '@teable/sdk/hooks';
 import {
   Select,
   SelectContent,
@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
   Separator,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import classNames from 'classnames';
 import { find } from 'lodash';
 import React, { useMemo } from 'react';

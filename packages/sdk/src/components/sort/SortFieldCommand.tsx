@@ -5,7 +5,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFields, useFieldStaticGetter } from '../../hooks';

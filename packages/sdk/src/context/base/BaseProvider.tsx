@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { getBaseById } from '@teable-group/openapi';
+import type { IGetBaseVo } from '@teable/openapi';
+import { getBaseById } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useContext, useMemo } from 'react';
 import { Base } from '../../model';

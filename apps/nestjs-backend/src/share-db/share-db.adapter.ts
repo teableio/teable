@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IOtOperation, IRecord } from '@teable-group/core';
+import type { IOtOperation, IRecord } from '@teable/core';
 import {
   FieldOpBuilder,
   RecordOpBuilder,
   TableOpBuilder,
   ViewOpBuilder,
   IdPrefix,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

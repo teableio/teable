@@ -1,4 +1,4 @@
-import type { ISnapshotBase } from '@teable-group/core';
+import type { ISnapshotBase } from '@teable/core';
 import type { CreateOp, DB, DeleteOp, EditOp } from 'sharedb';
 export interface IAdapterService {
   create(collectionId: string, snapshot: unknown): Promise<void>;

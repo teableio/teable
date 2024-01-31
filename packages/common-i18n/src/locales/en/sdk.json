@@ -13,10 +13,18 @@
     },
     "selectPlaceHolder": "Select..."
   },
+  "noun": {
+    "table": "Table",
+    "view": "View",
+    "space": "Space",
+    "base": "Base",
+    "field": "Field",
+    "record": "Record"
+  },
   "editor": {
     "attachment": {
-      "uploadDragOver": "Paste or drag and drop to upload here",
-      "uploadDragDefault": "Release to upload file"
+      "uploadDragOver": "Release to upload file",
+      "uploadDragDefault": "Paste or drag and drop to upload here"
     },
     "date": {
       "placeholder": "Pick a date"
@@ -80,6 +88,13 @@
     }
   },
   "spaceRole": {
+    "role": {
+      "owner": "Owner",
+      "creator": "Creator",
+      "editor": "Editor",
+      "commenter": "Commenter",
+      "viewer": "Viewer"
+    },
     "description": {
       "owner": "Can fully configure and edit bases, and manage space settings and billing",
       "creator": "Can fully configure and edit bases",

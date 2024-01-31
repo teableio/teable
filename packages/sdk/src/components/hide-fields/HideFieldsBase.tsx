@@ -1,4 +1,4 @@
-import { DraggableHandle } from '@teable-group/icons';
+import { DraggableHandle } from '@teable/icons';
 import {
   Switch,
   Label,
@@ -15,13 +15,13 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import {
   DndKitContext,
   Droppable,
   Draggable,
   type DragEndEvent,
-} from '@teable-group/ui-lib/src/base/dnd-kit';
+} from '@teable/ui-lib/src/base/dnd-kit';
 import { map } from 'lodash';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from '../../context/app/i18n';

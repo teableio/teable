@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable-group/openapi';
+import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable/openapi';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';

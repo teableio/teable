@@ -1,5 +1,5 @@
-import type { IDateFieldOptions } from '@teable-group/core';
-import { TimeFormatting } from '@teable-group/core';
+import type { IDateFieldOptions } from '@teable/core';
+import { TimeFormatting } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import { DateEditorMain } from '../../editor';

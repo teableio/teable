@@ -6,15 +6,9 @@ import type {
   IOtOperation,
   IRecord,
   ITinyRecord,
-} from '@teable-group/core';
-import {
-  evaluate,
-  FieldType,
-  isMultiValueLink,
-  RecordOpBuilder,
-  Relationship,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { evaluate, FieldType, isMultiValueLink, RecordOpBuilder, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { cloneDeep, difference, groupBy, isEmpty, keyBy, unionWith, uniq } from 'lodash';

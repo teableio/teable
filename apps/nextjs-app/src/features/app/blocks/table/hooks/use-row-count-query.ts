@@ -1,4 +1,4 @@
-import { Table } from '@teable-group/sdk/model';
+import { Table } from '@teable/sdk/model';
 import { useEffect, useState } from 'react';
 
 export const useRowCountQuery = (tableId: string, viewId: string) => {

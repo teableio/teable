@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from '@teable-group/icons';
+import { Check, ChevronDown } from '@teable/icons';
 import { useMemo, useRef, useState } from 'react';
 import {
   Popover,

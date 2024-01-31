@@ -1,13 +1,13 @@
-import { Pencil, Trash2 } from '@teable-group/icons';
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import { ConfirmDialog } from '@teable-group/ui-lib/base';
+import { Pencil, Trash2 } from '@teable/icons';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import React from 'react';
 
 interface ISpaceActionTrigger {

@@ -1,6 +1,6 @@
-import { TimeFormatting } from '@teable-group/core';
-import { Calendar } from '@teable-group/icons';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
+import { TimeFormatting } from '@teable/core';
+import { Calendar } from '@teable/icons';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';

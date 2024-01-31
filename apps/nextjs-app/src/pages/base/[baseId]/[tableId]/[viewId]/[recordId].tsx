@@ -1,4 +1,4 @@
-import type { IHttpError, IRecord } from '@teable-group/core';
+import type { IHttpError, IRecord } from '@teable/core';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { ssrApi } from '@/backend/api/rest/table.ssr';
@@ -7,10 +7,10 @@ import { Table } from '@/features/app/blocks/table/Table';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { tableConfig } from '@/features/i18n/table.config';
 import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../../../_app';
 
 interface IRecordPageProps extends IViewPageProps {
   recordServerData: IRecord;
@@ -37,7 +37,24 @@ export const getServerSideProps: GetServerSideProps<IRecordPageProps> =
     const { baseId, tableId, viewId, recordId } = context.query;
     try {
       const api = ssrApi;
+
+      // jump to record in default view
+      if (viewId === 'default') {
+        const { id: defaultViewId } = await api.getDefaultViewId(
+          baseId as string,
+          tableId as string
+        );
+
+        return {
+          redirect: {
+            destination: `/base/${baseId}/${tableId}/${defaultViewId}/${recordId}`,
+            permanent: false,
+          },
+        };
+      }
+
       const recordServerData = await api.getRecord(tableId as string, recordId as string);
+
       if (!recordServerData) {
         return {
           redirect: {

@@ -1,4 +1,4 @@
-import { GridTooltip } from '@teable-group/sdk/components';
+import { GridTooltip } from '@teable/sdk/components';
 import type { FC } from 'react';
 import { RecordMenu, FieldMenu, FieldSetting, StatisticMenu } from './components';
 

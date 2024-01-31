@@ -1,22 +1,11 @@
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
+import { accessTokenItemSchema } from './types';
 
 export const LIST_ACCESS_TOKEN = '/access-token';
 
-export const listAccessTokenVoSchema = z.array(
-  z.object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string().optional(),
-    scopes: z.array(z.string()),
-    spaceIds: z.array(z.string()).nullable().optional(),
-    baseIds: z.array(z.string()).nullable().optional(),
-    expiredTime: z.string(),
-    createdTime: z.string(),
-    lastUsedTime: z.string().optional(),
-  })
-);
+export const listAccessTokenVoSchema = z.array(accessTokenItemSchema);
 
 export type ListAccessTokenVo = z.infer<typeof listAccessTokenVoSchema>;
 

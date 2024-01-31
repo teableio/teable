@@ -1,13 +1,13 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
+import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import {
   Relationship,
   RelationshipRevert,
   FieldType,
   RecordOpBuilder,
   isMultiValueLink,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/reference.service';

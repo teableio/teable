@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
-import type { ILinkCellValue } from '@teable-group/core';
-import { ColorUtils, FieldType, generateChoiceId } from '@teable-group/core';
-import type { PrismaService } from '@teable-group/db-main-prisma';
+import type { ILinkCellValue } from '@teable/core';
+import { ColorUtils, FieldType, generateChoiceId } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import { isUndefined, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';

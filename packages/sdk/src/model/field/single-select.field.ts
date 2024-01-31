@@ -1,4 +1,4 @@
-import { SingleSelectFieldCore } from '@teable-group/core';
+import { SingleSelectFieldCore } from '@teable/core';
 import { Mixin } from 'ts-mixer';
 import { Field } from './field';
 

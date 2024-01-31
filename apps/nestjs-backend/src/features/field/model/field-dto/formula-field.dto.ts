@@ -1,4 +1,4 @@
-import { FormulaFieldCore } from '@teable-group/core';
+import { FormulaFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {

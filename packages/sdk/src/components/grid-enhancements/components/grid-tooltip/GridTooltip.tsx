@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable-group/ui-lib';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
 import classNames from 'classnames';
 import type { FC } from 'react';
 import { useGridTooltipStore } from './grid-tooltip';

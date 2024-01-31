@@ -1,4 +1,4 @@
-import { Input } from '@teable-group/ui-lib';
+import { Input } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { useEffect } from 'react';
 

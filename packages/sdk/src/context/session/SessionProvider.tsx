@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { userMe } from '@teable-group/openapi';
+import { userMe } from '@teable/openapi';
 import { useCallback, useMemo, useState } from 'react';
 import type { IUser } from './SessionContext';
 import { SessionContext } from './SessionContext';

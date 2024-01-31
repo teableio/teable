@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { NotificationStatesEnum } from '@teable-group/core';
-import { Inbox } from '@teable-group/icons';
-import type { INotificationVo } from '@teable-group/openapi';
-import { updateNotificationStatus } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config/react-query-keys';
-import { Button } from '@teable-group/ui-lib';
+import type { NotificationStatesEnum } from '@teable/core';
+import { Inbox } from '@teable/icons';
+import type { INotificationVo } from '@teable/openapi';
+import { updateNotificationStatus } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
+import { Button } from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import React from 'react';

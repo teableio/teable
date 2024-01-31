@@ -21,6 +21,7 @@
   },
   "settings": {
     "title": "设置",
+    "back": "返回主页",
     "account": {
       "title": "我的档案",
       "tab": "我的帐户",
@@ -46,7 +47,8 @@
       "changePasswordSuccess": {
         "title": "密码更改成功。",
         "desc": "您将在2秒内重定向到登录页面。"
-      }
+      },
+      "manageToken": "开发或管理您的令牌"
     },
     "notify": {
       "title": "我的通知",
@@ -61,6 +63,16 @@
       "light": "浅色",
       "system": "系统"
     }
+  },
+  "noun": {
+    "table": "表格",
+    "view": "视图",
+    "space": "空间",
+    "base": "数据库",
+    "field": "字段",
+    "record": "记录",
+    "dashboard": "仪表盘",
+    "automation": "自动化"
   },
   "noResult": "无结果。",
   "name": "名称",

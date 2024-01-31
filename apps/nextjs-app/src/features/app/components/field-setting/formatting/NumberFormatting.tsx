@@ -1,18 +1,18 @@
-import type { ICurrencyFormatting, INumberFormatting } from '@teable-group/core';
+import type { ICurrencyFormatting, INumberFormatting } from '@teable/core';
 import {
   DEFAULT_CURRENCY_SYMBOL,
   NumberFormattingType,
   defaultNumberFormatting,
-} from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib/shadcn';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
+} from '@teable/core';
+import { Input } from '@teable/ui-lib/shadcn';
+import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@teable-group/ui-lib/shadcn/ui/select';
+} from '@teable/ui-lib/shadcn/ui/select';
 
 export const NUMBER_FORMATTING_TYPE = [
   {

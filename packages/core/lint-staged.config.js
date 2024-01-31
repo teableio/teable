@@ -4,7 +4,7 @@
  * This files overrides the base lint-staged.config.js present in the root directory.
  * It allows to run eslint based the package specific requirements.
  * {@link https://github.com/okonet/lint-staged#how-to-use-lint-staged-in-a-multi-package-monorepo}
- * {@link https://github.com/teable-group/teable/blob/main/docs/about-lint-staged.md}
+ * {@link https://github.com/teableio/teable/blob/main/docs/about-lint-staged.md}
  */
 
 const { concatFilesForPrettier, getEslintFixCmd } = require('../../lint-staged.common');

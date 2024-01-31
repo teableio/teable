@@ -1,4 +1,4 @@
-import type { CombinedSelection } from '@teable-group/sdk/components';
+import type { CombinedSelection } from '@teable/sdk/components';
 import { create } from 'zustand';
 import type { IHeaderMenu, IRecordMenu, IStatisticMenu } from './type';
 

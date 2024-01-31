@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { FieldOpBuilder, IFieldRo } from '@teable-group/core';
-import type { IFieldVo, IConvertFieldRo, IUpdateFieldRo, IOtOperation } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { FieldOpBuilder, IFieldRo } from '@teable/core';
+import type { IFieldVo, IConvertFieldRo, IUpdateFieldRo, IOtOperation } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { Timing } from '../../../utils/timing';

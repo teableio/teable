@@ -1,5 +1,5 @@
-import { ViewType } from '@teable-group/core';
-import { useView } from '@teable-group/sdk';
+import { ViewType } from '@teable/core';
+import { useView } from '@teable/sdk';
 import { FormView } from './form/FormView';
 import { GridView } from './grid/GridView';
 import type { IViewBaseProps } from './types';

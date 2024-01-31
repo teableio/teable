@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
-import type { IHttpError } from '@teable-group/core';
-import { toast } from '@teable-group/ui-lib';
+import type { IHttpError } from '@teable/core';
+import { toast } from '@teable/ui-lib';
 
 export const errorRequestHandler = (error: unknown) => {
   const { code, message, status } = error as IHttpError;
@@ -23,6 +23,7 @@ export const createQueryClient = () => {
         // With SSR, we usually want to set some default staleTime
         // above 0 to avoid refetching immediately on the client
         staleTime: 10 * 1000,
+        retry: false,
       },
     },
     queryCache: new QueryCache({

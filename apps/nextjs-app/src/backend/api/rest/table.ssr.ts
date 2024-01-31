@@ -1,5 +1,5 @@
-import type { IFieldVo, IRecord, ITableFullVo, ITableListVo } from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
+import type { IFieldVo, IRecord, ITableFullVo, ITableListVo } from '@teable/core';
+import { FieldKeyType } from '@teable/core';
 import type {
   AcceptInvitationLinkRo,
   AcceptInvitationLinkVo,
@@ -8,7 +8,7 @@ import type {
   IGetSpaceVo,
   ListSpaceCollaboratorVo,
   ShareViewGetVo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
   GET_BASE,
@@ -22,7 +22,7 @@ import {
   SHARE_VIEW_GET,
   SPACE_COLLABORATE_LIST,
   urlBuilder,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
 

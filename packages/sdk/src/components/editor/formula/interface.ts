@@ -1,4 +1,4 @@
-import type { FormulaFuncType, FunctionName, FUNCTIONS } from '@teable-group/core';
+import type { FormulaFuncType, FunctionName, FUNCTIONS } from '@teable/core';
 
 export interface IFocusToken {
   value: string;

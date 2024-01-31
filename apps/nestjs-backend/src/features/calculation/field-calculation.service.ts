@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { IRecord } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IRecord } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

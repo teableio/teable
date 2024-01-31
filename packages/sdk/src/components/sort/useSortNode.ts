@@ -1,5 +1,5 @@
-import type { ISort } from '@teable-group/core';
-import { ArrowUpDown } from '@teable-group/icons';
+import type { ISort } from '@teable/core';
+import { ArrowUpDown } from '@teable/icons';
 import { useMemo } from 'react';
 
 export const useSortNode = (value?: ISort | null) => {

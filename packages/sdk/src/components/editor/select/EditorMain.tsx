@@ -1,4 +1,4 @@
-import { Check, Plus } from '@teable-group/icons';
+import { Check, Plus } from '@teable/icons';
 import {
   Button,
   Command,
@@ -9,7 +9,7 @@ import {
   CommandList,
   cn,
   useCommandState,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';

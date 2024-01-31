@@ -1,4 +1,4 @@
-import { Input } from '@teable-group/ui-lib/shadcn';
+import { Input } from '@teable/ui-lib/shadcn';
 
 export function Search() {
   return (

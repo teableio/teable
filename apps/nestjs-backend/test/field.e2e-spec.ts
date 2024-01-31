@@ -1,26 +1,29 @@
 import type { INestApplication } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
   IFieldRo,
   IFieldVo,
-  ITableFullVo,
+  ILinkFieldOptions,
   ILinkFieldOptionsRo,
   ILookupOptionsRo,
-  ILinkFieldOptions,
-} from '@teable-group/core';
+  ITableFullVo,
+} from '@teable/core';
 import {
-  Relationship,
   DateFormattingPreset,
-  TimeFormatting,
-  SingleLineTextFieldCore,
   FieldType,
   NumberFormattingType,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+  Relationship,
+  SingleLineTextFieldCore,
+  TimeFormatting,
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
+import type { FieldCreateEvent } from '../src/event-emitter/events';
+import { Events } from '../src/event-emitter/events';
 import {
   createField,
-  deleteField,
   createTable,
+  deleteField,
   deleteTable,
   getFields,
   getRecord,
@@ -31,10 +34,12 @@ import {
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  let event: EventEmitter2;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    event = app.get(EventEmitter2);
   });
 
   afterAll(async () => {
@@ -59,6 +64,13 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     it('/api/table/{tableId}/field (POST)', async () => {
+      event.once(Events.TABLE_FIELD_CREATE, async (payload: FieldCreateEvent) => {
+        expect(payload).toBeDefined();
+        expect(payload?.payload).toBeDefined();
+        expect(payload?.payload?.tableId).toBeDefined();
+        expect(payload?.payload?.field).toBeDefined();
+      });
+
       const fieldRo: IFieldRo = {
         name: 'New field',
         description: 'the new field',

@@ -14,8 +14,8 @@ import {
   useIsHydrated,
   swapReorder,
   reorder,
-} from '@teable-group/sdk';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+} from '@teable/sdk';
+import type { IFieldInstance } from '@teable/sdk/model';
 import { useMemo, useState } from 'react';
 import { FieldSetting } from '../../grid/components';
 import { FormEditorMain } from './FormEditorMain';

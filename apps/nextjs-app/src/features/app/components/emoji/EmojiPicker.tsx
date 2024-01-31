@@ -1,7 +1,7 @@
 import emojiData from '@emoji-mart/data';
 import EmojiPickerCom from '@emoji-mart/react';
-import { useTheme } from '@teable-group/sdk';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
+import { useTheme } from '@teable/sdk';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import classNames from 'classnames';
 import type { FC, PropsWithChildren } from 'react';
 

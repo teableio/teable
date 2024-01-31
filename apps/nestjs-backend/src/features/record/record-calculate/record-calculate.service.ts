@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable-group/core';
-import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/core';
+import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { isEmpty, keyBy } from 'lodash';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';

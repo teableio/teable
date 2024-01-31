@@ -10,7 +10,7 @@ import type {
   IRawRowCountValue,
   IGroupPoint,
   IGroupPointsRo,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   DbFieldType,
   GroupPointType,
@@ -19,9 +19,9 @@ import {
   parseGroup,
   StatisticsFunc,
   ViewType,
-} from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty, isObject } from 'lodash';

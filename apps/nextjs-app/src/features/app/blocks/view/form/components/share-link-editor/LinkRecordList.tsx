@@ -1,9 +1,9 @@
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { contains } from '@teable-group/core';
-import type { IFilter, ILinkCellValue } from '@teable-group/core';
-import { getShareViewLinkRecords } from '@teable-group/openapi';
-import { LinkCard } from '@teable-group/sdk/components';
-import type { LinkField } from '@teable-group/sdk/model';
+import { contains } from '@teable/core';
+import type { IFilter, ILinkCellValue } from '@teable/core';
+import { getShareViewLinkRecords } from '@teable/openapi';
+import { LinkCard } from '@teable/sdk/components';
+import type { LinkField } from '@teable/sdk/model';
 import {
   Button,
   Command,
@@ -12,7 +12,7 @@ import {
   Input,
   Separator,
   cn,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { debounce } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 import { useUnmount } from 'react-use';

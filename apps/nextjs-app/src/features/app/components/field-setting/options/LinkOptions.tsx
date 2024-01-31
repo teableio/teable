@@ -1,9 +1,9 @@
-import type { ILinkFieldOptionsRo } from '@teable-group/core';
-import { Relationship } from '@teable-group/core';
-import { useTableId, useTables } from '@teable-group/sdk/hooks';
-import { Selector } from '@teable-group/ui-lib/base';
-import { Label, Switch } from '@teable-group/ui-lib/shadcn';
-import { Trans, useTranslation } from 'react-i18next';
+import type { ILinkFieldOptionsRo } from '@teable/core';
+import { Relationship } from '@teable/core';
+import { useTableId, useTables } from '@teable/sdk/hooks';
+import { Selector } from '@teable/ui-lib/base';
+import { Label, Switch } from '@teable/ui-lib/shadcn';
+import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export const LinkOptions = (props: {

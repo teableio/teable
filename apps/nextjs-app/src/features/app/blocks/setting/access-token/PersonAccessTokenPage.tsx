@@ -1,0 +1,56 @@
+import type { CreateAccessTokenVo, UpdateAccessTokenVo } from '@teable/openapi';
+import { useRouter } from 'next/router';
+import { useEffect, useRef } from 'react';
+import { SettingRight } from '../SettingRight';
+import { SettingSidebar } from '../sidebar/SettingSidebar';
+import { SettingSidebarTab, SidebarContent } from '../sidebar/SidebarContent';
+import { AccessTokenList } from './AccessTokenList';
+import type { IFormType } from './form/AccessTokenForm';
+import { PersonAccessTokenForm } from './PersonAccessTokenForm';
+import { PersonAccessTokenTitle } from './PersonAccessTokenTitle';
+
+export const PersonAccessTokenPage = () => {
+  const router = useRouter();
+  const formType = router.query.form as IFormType;
+  const newTokenRef = useRef<string>();
+
+  const backList = () => {
+    newTokenRef.current = undefined;
+    router.push({ pathname: router.pathname });
+  };
+
+  const onSubmit = (params: CreateAccessTokenVo | UpdateAccessTokenVo) => {
+    if (formType === 'new') {
+      newTokenRef.current = (params as CreateAccessTokenVo).token;
+    }
+    router.push({ pathname: router.pathname });
+  };
+
+  const onRefresh = (token: string) => {
+    newTokenRef.current = token;
+    router.push({ pathname: router.pathname });
+  };
+
+  useEffect(() => {
+    if (router.query) {
+      newTokenRef.current = undefined;
+    }
+  }, [router.query]);
+
+  return (
+    <>
+      <SettingSidebar>
+        <SidebarContent active={SettingSidebarTab.PersonalAccessTokens} />
+      </SettingSidebar>
+      <SettingRight title={<PersonAccessTokenTitle backList={backList} />}>
+        <div className="my-3 space-y-1">
+          {formType ? (
+            <PersonAccessTokenForm onSubmit={onSubmit} onRefresh={onRefresh} onCancel={backList} />
+          ) : (
+            <AccessTokenList newToken={newTokenRef.current} />
+          )}
+        </div>
+      </SettingRight>
+    </>
+  );
+};

@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IRecord } from '@teable-group/core';
+import type { IRecord } from '@teable/core';
 import {
   CellValueType,
   DbFieldType,
   FieldType,
   NumberFormattingType,
   Relationship,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { CalculationModule } from '../src/features/calculation/calculation.module';
 import type { ITopoItemWithRecords } from '../src/features/calculation/reference.service';

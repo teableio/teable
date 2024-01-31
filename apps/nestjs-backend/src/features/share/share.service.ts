@@ -12,9 +12,9 @@ import type {
   IAggregationVo,
   IGroupPointsVo,
   StatisticsFunc,
-} from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IShareViewLinkRecordsRo,
   ShareViewFormSubmitRo,
@@ -23,7 +23,7 @@ import type {
   IShareViewAggregationsRo,
   IRangesRo,
   IShareViewGroupPointsRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';

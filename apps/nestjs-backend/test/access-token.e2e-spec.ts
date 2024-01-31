@@ -1,11 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { SpaceRole, type ITableFullVo } from '@teable-group/core';
-import type {
-  CreateAccessTokenVo,
-  ICreateSpaceVo,
-  UpdateAccessTokenRo,
-} from '@teable-group/openapi';
+import { SpaceRole, type ITableFullVo } from '@teable/core';
+import type { CreateAccessTokenVo, ICreateSpaceVo, UpdateAccessTokenRo } from '@teable/openapi';
 import {
   createAccessToken,
   deleteAccessToken,
@@ -23,7 +19,7 @@ import {
   DELETE_SPACE,
   createAxios,
   axios as defaultAxios,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import dayjs from 'dayjs';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
