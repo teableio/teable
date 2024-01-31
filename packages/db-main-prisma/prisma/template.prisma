@@ -150,6 +150,7 @@ model Reference {
   id          String @id @default(cuid())
   fromFieldId String @map("from_field_id")
   toFieldId   String @map("to_field_id")
+  createdTime DateTime @default(now()) @map("created_time")
 
   @@unique([toFieldId, fromFieldId])
   @@index([fromFieldId])
