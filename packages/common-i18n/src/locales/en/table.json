@@ -110,5 +110,8 @@
     "deleteField": "Delete field",
     "deleteAllSelectedFields": "Delete all selected fields"
   },
+  "view": {
+    "searchView": "Search view..."
+  },
   "lastModifiedTime": "Last modified time"
 }

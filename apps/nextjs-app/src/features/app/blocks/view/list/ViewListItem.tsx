@@ -37,26 +37,25 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
     permission['view|delete'] || permission['view|update'] || permission['view|create'];
 
   const commonPart = (
-    <div className="flex w-full items-center overflow-hidden px-0.5">
+    <div className="relative flex w-full items-center overflow-hidden px-0.5">
       <ViewIcon className="mr-1 size-4 shrink-0" />
-      {!isEditing ? (
-        isActive && showViewMenu ? (
-          <PopoverTrigger asChild>
-            <div className="flex flex-1 items-center justify-center overflow-hidden">
-              <div className="truncate text-xs font-medium leading-5">{view.name}</div>
-            </div>
-          </PopoverTrigger>
-        ) : (
+      {isActive && showViewMenu ? (
+        <PopoverTrigger asChild>
           <div className="flex flex-1 items-center justify-center overflow-hidden">
             <div className="truncate text-xs font-medium leading-5">{view.name}</div>
           </div>
-        )
+        </PopoverTrigger>
       ) : (
+        <div className="flex flex-1 items-center justify-center overflow-hidden">
+          <div className="truncate text-xs font-medium leading-5">{view.name}</div>
+        </div>
+      )}
+      {isEditing && (
         <Input
           type="text"
           placeholder="name"
           defaultValue={view.name}
-          className="h-6 cursor-text py-0 text-xs focus-visible:ring-transparent focus-visible:ring-offset-0"
+          className="absolute left-0 top-0 size-full py-0 text-xs focus-visible:ring-transparent focus-visible:ring-offset-0"
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           onBlur={(e) => {
@@ -84,7 +83,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
       role="button"
       tabIndex={0}
       className={classnames(
-        'mx-0.5 flex h-7 w-28 items-center overflow-hidden rounded-md bg-popover p-1 text-sm hover:bg-secondary',
+        'flex h-7 max-w-52 items-center overflow-hidden rounded-md bg-popover p-1 text-sm hover:bg-secondary',
         {
           'bg-secondary': isActive,
         }

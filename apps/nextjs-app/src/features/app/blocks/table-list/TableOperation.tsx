@@ -1,4 +1,4 @@
-import { MoreHorizontal, Settings, Trash2 } from '@teable/icons';
+import { MoreHorizontal, Pencil, Settings, Trash2 } from '@teable/icons';
 import { useBase, useTablePermission, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { ConfirmDialog } from '@teable/ui-lib/base';
@@ -15,10 +15,11 @@ import React, { useMemo } from 'react';
 interface ITableOperationProps {
   className?: string;
   table: Table;
+  onRename?: () => void;
 }
 
 export const TableOperation = (props: ITableOperationProps) => {
-  const { table, className } = props;
+  const { table, className, onRename } = props;
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const permission = useTablePermission();
   const base = useBase();
@@ -72,6 +73,10 @@ export const TableOperation = (props: ITableOperationProps) => {
             className="min-w-[160px]"
             onClick={(e) => e.stopPropagation()}
           >
+            <DropdownMenuItem onClick={() => onRename?.()}>
+              <Pencil className="mr-2" />
+              Rename
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link
                 href={{
