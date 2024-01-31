@@ -15,7 +15,7 @@ import {
   SINGLE_SELECT_FIELD_CASES,
   TEXT_FIELD_CASES,
   USER_FIELD_CASES,
-} from './data-helpers/caces';
+} from './data-helpers/caces/record-filter-query';
 import { createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Record-Filter-Query (e2e)', () => {

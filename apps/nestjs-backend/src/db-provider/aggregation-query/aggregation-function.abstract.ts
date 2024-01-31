@@ -51,7 +51,18 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
 
     let rawSql: string = chosenHandler();
 
-    if (isMultipleCellValue) {
+    const ignoreMcvFunc = [
+      StatisticsFunc.Empty,
+      StatisticsFunc.UnChecked,
+      StatisticsFunc.Filled,
+      StatisticsFunc.Checked,
+      StatisticsFunc.PercentEmpty,
+      StatisticsFunc.PercentUnChecked,
+      StatisticsFunc.PercentFilled,
+      StatisticsFunc.PercentChecked,
+    ];
+
+    if (isMultipleCellValue && !ignoreMcvFunc.includes(aggFunc)) {
       const joinTable = `${fieldId}_mcv`;
 
       builderClient.with(`${fieldId}_mcv`, this.knex.raw(rawSql));
