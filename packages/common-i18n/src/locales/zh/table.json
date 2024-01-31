@@ -110,5 +110,8 @@
     "deleteField": "删除字段",
     "deleteAllSelectedFields": "删除所有选定的字段"
   },
+  "view": {
+    "searchView": "搜索视图..."
+  },
   "lastModifiedTime": "最近修改时间"
 }
