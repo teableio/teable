@@ -15,29 +15,26 @@ The base branch is **`main`**.
 
 If applicable:
 
-- [x] **tests** should be included part of your PR (`yarn g:test-unit`).
-- [x] a **changeset** should be provided (`yarn g:changeset`) to request a version bump.
-- [x] **documentation** should be updated (`yarn g:build-doc` to rebuild the api doc).
+- [x] **tests** should be included part of your PR (`pnpm g:test`).
+- [x] a **changeset** should be provided (`pnpm g:changeset`) to request a version bump.
+- [x] **documentation** should be updated (`pnpm g:build-doc` to rebuild the api doc).
 
 ## Local scripts
 
 | Name                         | Description                                                                                                                        |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `yarn g:changeset`           | Add a changeset to declare a new version                                                                                           |
-| `yarn g:typecheck`           | Run typechecks in all workspaces                                                                                                   |
-| `yarn g:lint`                | Display linter issues in all workspaces                                                                                            |
-| `yarn g:lint --fix`          | Attempt to run linter auto-fix in all workspaces                                                                                   |
-| `yarn g:test-unit`           | Run unit tests in all workspaces                                                                                                   |
-| `yarn g:build`               | Run build in all workspaces                                                                                                        |
-| `yarn g:clean`               | Clean builds in all workspaces                                                                                                     |
-| `yarn g:check-dist`          | Ensure build dist files passes es2017 (run `g:build` first).                                                                       |
-| `yarn g:check-size`          | Ensure build files are within size limit (run `g:build` first).                                                                    |
-| `yarn g:build-doc`           | Build documentation (generally api doc)                                                                                            |
-| `yarn clean:global-cache`    | Clean tooling caches (eslint, jest...)                                                                                             |
-| `yarn deps:check --dep dev`  | Will print what packages can be upgraded globally (see also [.ncurc.yml](https://github.com/teableio/teable/blob/main/.ncurc.yml)) |
-| `yarn deps:update --dep dev` | Apply possible updates (run `yarn install && yarn dedupe` after)                                                                   |
-| `yarn check:install`         | Verify if there's no peer-deps missing in packages                                                                                 |
-| `yarn dedupe`                | Built-in yarn deduplication of the lock file                                                                                       |
+| `pnpm g:changeset`           | Add a changeset to declare a new version                                                                                           |
+| `pnpm g:typecheck`           | Run typechecks in all workspaces                                                                                                   |
+| `pnpm g:test`                | Run unit and e2e tests in all workspaces                                                                                           |
+| `pnpm g:lint`                | Display linter issues in all workspaces                                                                                            |
+| `pnpm g:lint --fix`          | Attempt to run linter auto-fix in all workspaces                                                                                   |
+| `pnpm g:build`               | Run build in all workspaces                                                                                                        |
+| `pnpm g:clean`               | Clean builds in all workspaces                                                                                                     |
+| `pnpm clean:global-cache`    | Clean tooling caches (eslint, jest...)                                                                                             |
+| `pnpm deps:check --dep dev`  | Will print what packages can be upgraded globally (see also [.ncurc.yml](https://github.com/teableio/teable/blob/main/.ncurc.yml)) |
+| `pnpm deps:update --dep dev` | Apply possible updates (run `pnpm install && pnpm dedupe` after)                                                                   |
+| `pnpm check:install`         | Verify if there's no peer-deps missing in packages                                                                                 |
+| `pnpm dedupe`                | Built-in pnpm deduplication of the lock file                                                                                       |
 
 ## Git message format
 
