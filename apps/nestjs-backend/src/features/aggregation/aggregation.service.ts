@@ -418,9 +418,7 @@ export class AggregationService {
     groupFields: IFieldInstance[]
   ) {
     const groupPoints: IGroupPoint[] = [];
-
-    let firstDbFieldValue: unknown = Symbol();
-    let secondDbFieldValue: unknown = Symbol();
+    let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
 
     groupResult.forEach((item) => {
       const { __c: count } = item;
@@ -430,17 +428,16 @@ export class AggregationService {
         const fieldValue = isObject(item[dbFieldName])
           ? String(item[dbFieldName])
           : item[dbFieldName];
-        if (index === 0) {
-          if (firstDbFieldValue === fieldValue) return;
-          firstDbFieldValue = fieldValue;
-          secondDbFieldValue = Symbol();
-        }
-        if (index === 1) {
-          if (secondDbFieldValue === fieldValue) return;
-          secondDbFieldValue = fieldValue;
-        }
+
+        if (fieldValues[index] === fieldValue) return;
+
+        fieldValues[index] = fieldValue;
+        fieldValues = fieldValues.map((value, idx) => (idx > index ? Symbol() : value));
+
+        const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
+
         groupPoints.push({
-          id: String(string2Hash(`${id}_${fieldValue}`)),
+          id: String(string2Hash(flagString)),
           type: GroupPointType.Header,
           depth: index,
           value: field.convertDBValue2CellValue(fieldValue),
@@ -500,11 +497,12 @@ export class AggregationService {
     const distinctQueryBuilder = this.knex(dbTableName);
 
     if (mergedFilter) {
+      const withUserId = this.cls.get('user.id');
       this.dbProvider
-        .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter)
+        .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
         .appendQueryBuilder();
       this.dbProvider
-        .filterQuery(distinctQueryBuilder, fieldInstanceMap, mergedFilter)
+        .filterQuery(distinctQueryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
         .appendQueryBuilder();
     }
 
