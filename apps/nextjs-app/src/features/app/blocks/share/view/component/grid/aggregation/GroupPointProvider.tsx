@@ -47,12 +47,7 @@ export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
   useEffect(() => {
     if (tableId == null) return;
 
-    const relevantProps = [
-      'tableAdd',
-      'tableDelete',
-      'tableUpdate',
-      'applyViewFilter',
-    ] as PropKeys[];
+    const relevantProps: PropKeys[] = ['addRecord', 'deleteRecord', 'setRecord', 'applyViewFilter'];
 
     listener?.(relevantProps, () => updateGroupPoints(), [tableId, viewId]);
   }, [listener, tableId, updateGroupPoints, viewId]);

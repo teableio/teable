@@ -35,13 +35,14 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   useEffect(() => {
     if (tableId == null) return;
 
-    const relevantProps = [
-      'tableAdd',
-      'tableUpdate',
-      'tableDelete',
+    const relevantProps: PropKeys[] = [
+      'addRecord',
+      'setRecord',
+      'deleteRecord',
       'applyViewFilter',
       'showViewField',
-    ] as PropKeys[];
+      'applyViewStatisticFunc',
+    ];
 
     listener?.(relevantProps, () => updateAggregations(), [tableId, viewId]);
   }, [listener, tableId, updateAggregations, viewId]);

@@ -73,7 +73,7 @@ export class ShareDbService extends ShareDBClass {
     if (!rawOpMaps?.length) {
       return;
     }
-    rawOpMaps.forEach((rawOpMap) => {
+    for (const rawOpMap of rawOpMaps) {
       for (const collection in rawOpMap) {
         const data = rawOpMap[collection];
         for (const docId in data) {
@@ -89,7 +89,7 @@ export class ShareDbService extends ShareDBClass {
           }
         }
       }
-    });
+    }
   }
 
   private shouldPublishAction(rawOp: EditOp | CreateOp | DeleteOp) {
