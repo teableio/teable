@@ -51,17 +51,16 @@ export const useGridAsyncRecords = (
   const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
     const take = queryRef.current.take ?? LOAD_PAGE_SIZE;
-    const data = records;
     setLoadedRecordMap((preLoadedRecords) => {
       const cacheLen = take * 2;
       const [cacheStartIndex, cacheEndIndex] = [
         Math.max(startIndex - cacheLen / 2, 0),
-        startIndex + data.length + cacheLen / 2,
+        startIndex + records.length + cacheLen / 2,
       ];
       const newRecordsState: IRecordIndexMap = {};
       for (let i = cacheStartIndex; i < cacheEndIndex; i++) {
-        if (startIndex <= i && i < startIndex + data.length) {
-          newRecordsState[i] = data[i - startIndex];
+        if (startIndex <= i && i < startIndex + records.length) {
+          newRecordsState[i] = records[i - startIndex];
           continue;
         }
         newRecordsState[i] = preLoadedRecords[i];
