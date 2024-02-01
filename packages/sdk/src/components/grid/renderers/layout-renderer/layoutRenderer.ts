@@ -121,7 +121,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     startColumnIndex: originStartColumnIndex,
     stopColumnIndex: originStopColumnIndex,
   } = visibleRegion;
-  const { freezeColumnCount, columnInitSize, totalWidth } = coordInstance;
+  const { freezeColumnCount, columnInitSize, totalWidth, rowCount } = coordInstance;
   const { isRowSelection, isColumnSelection } = selection;
   const { scrollLeft, scrollTop } = scrollState;
   const {
@@ -131,18 +131,28 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     isOutOfBounds,
   } = mouseState;
 
+  const cellPropList: ICellDrawerProps[] = [];
+  const rowHeaderPropList: IRowHeaderDrawerProps[] = [];
+  const groupRowList: IGroupRowDrawerProps[] = [];
+  const groupRowHeaderList: IGroupRowHeaderDrawerProps[] = [];
+  const appendRowList: IAppendRowDrawerProps[] = [];
+
+  if (!rowCount) {
+    return {
+      cellPropList,
+      rowHeaderPropList,
+      groupRowList,
+      groupRowHeaderList,
+      appendRowList,
+    };
+  }
+
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const startColumnIndex = isFreezeRegion ? 0 : Math.max(freezeColumnCount, originStartColumnIndex);
   const stopColumnIndex = isFreezeRegion
     ? Math.max(freezeColumnCount - 1, 0)
     : originStopColumnIndex;
   const isFreezeWithoutColumns = isFreezeRegion && freezeColumnCount === 0;
-
-  const cellPropList: ICellDrawerProps[] = [];
-  const rowHeaderPropList: IRowHeaderDrawerProps[] = [];
-  const groupRowList: IGroupRowDrawerProps[] = [];
-  const groupRowHeaderList: IGroupRowHeaderDrawerProps[] = [];
-  const appendRowList: IAppendRowDrawerProps[] = [];
 
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const column = columns[columnIndex];
@@ -836,7 +846,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
           isChecked,
         });
       } else {
-        if (isChecked && !isHover && type === RowControlType.Expand) continue;
+        if (isChecked && !isHover && rowIndexVisible && type === RowControlType.Expand) continue;
         spriteManager.drawSprite(ctx, {
           sprite: icon || spriteIconMap[type],
           x: x + offsetX - halfSize,
@@ -1314,15 +1324,17 @@ export const drawColumnFreezeHandler = (
 };
 
 const setVisibleImageRegion = (props: ILayoutDrawerProps) => {
-  const { imageManager, coordInstance, visibleRegion } = props;
+  const { imageManager, coordInstance, visibleRegion, getLinearRow } = props;
   const { startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex } = visibleRegion;
+  const realStartRowIndex = getLinearRow(startRowIndex).realIndex;
+  const realStopRowIndex = getLinearRow(stopRowIndex).realIndex;
   const { freezeColumnCount } = coordInstance;
   imageManager?.setWindow(
     {
       x: startColumnIndex,
-      y: startRowIndex,
+      y: realStartRowIndex,
       width: stopColumnIndex - startColumnIndex,
-      height: stopRowIndex - startRowIndex,
+      height: realStopRowIndex - realStartRowIndex,
     },
     freezeColumnCount
   );
