@@ -37,13 +37,14 @@ export class ActionTriggerListener {
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async handleTableViewUpdate(event: ViewUpdateEvent): Promise<void> {
     if (!this.isValidViewUpdateOperation(event)) {
       return;
     }
 
     const { tableId, view } = event.payload;
-    const { id: viewId, filter, columnMeta = {}, group } = view;
+    const { id: viewId, filter, columnMeta, group } = view;
 
     const buffer: IActionTriggerBuffer = {
       applyViewFilter: filter ? [tableId, viewId] : undefined,
@@ -52,26 +53,28 @@ export class ActionTriggerListener {
       showViewField: columnMeta ? [tableId, viewId] : undefined,
     };
 
-    Object.entries(columnMeta)?.forEach(([fieldId, { oldValue, newValue }]) => {
-      const oldColumn = oldValue as IColumn;
-      const newColumn = newValue as IColumn;
+    if (columnMeta != null) {
+      Object.entries(columnMeta)?.forEach(([fieldId, { oldValue, newValue }]) => {
+        const oldColumn = oldValue as IColumn;
+        const newColumn = newValue as IColumn;
 
-      const shouldShow = oldColumn.hidden !== newColumn.hidden && !newColumn.hidden;
-      const shouldApplyStatFunc = oldColumn.statisticFunc !== newColumn.statisticFunc;
+        const shouldShow = oldColumn.hidden !== newColumn.hidden && !newColumn.hidden;
+        const shouldApplyStatFunc = oldColumn.statisticFunc !== newColumn.statisticFunc;
 
-      if (shouldShow) {
-        buffer.showViewField!.push(fieldId);
+        if (shouldShow) {
+          buffer.showViewField!.push(fieldId);
+        }
+        if (shouldApplyStatFunc) {
+          buffer.applyViewStatisticFunc!.push(fieldId);
+        }
+      });
+
+      if (buffer.showViewField!.length <= 2) {
+        delete buffer.showViewField;
       }
-      if (shouldApplyStatFunc) {
-        buffer.applyViewStatisticFunc!.push(fieldId);
+      if (buffer.applyViewStatisticFunc!.length <= 2) {
+        delete buffer.applyViewStatisticFunc;
       }
-    });
-
-    if (buffer.showViewField!.length <= 2) {
-      delete buffer.showViewField;
-    }
-    if (buffer.applyViewStatisticFunc!.length <= 2) {
-      delete buffer.applyViewStatisticFunc;
     }
 
     if (!isEmpty(buffer)) {
