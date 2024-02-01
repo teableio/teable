@@ -43,7 +43,7 @@ export class ActionTriggerListener {
     }
 
     const { tableId, view } = event.payload;
-    const { id: viewId, filter, columnMeta, group } = view;
+    const { id: viewId, filter, columnMeta = {}, group } = view;
 
     const buffer: IActionTriggerBuffer = {
       applyViewFilter: filter ? [tableId, viewId] : undefined,
@@ -101,6 +101,7 @@ export class ActionTriggerListener {
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
     const propertyKeys = ['filter', 'group'];
     const { name, propertyKey } = event.context.opMeta || {};
+    console.log('propertyKey', propertyKey);
     return name === OpName.UpdateViewColumnMeta || propertyKeys.includes(propertyKey as string);
   }
 
