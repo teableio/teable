@@ -84,7 +84,6 @@ export class DbConnectionService {
   }
 
   async retrieve(baseId: string): Promise<{ dsn: IDsn; url: string } | null> {
-    const userId = this.cls.get('user.id'); // Assuming this.cls is a context object that has user info
     if (this.dbProvider.driver !== DriverClient.Pg) {
       throw new BadRequestException(`Unsupported database driver: ${this.dbProvider.driver}`);
     }
@@ -97,16 +96,12 @@ export class DbConnectionService {
     const originDsn = parseDsn(this.baseConfig.publicDatabaseAddress); // Assuming parseDsn is already defined to parse the DSN
 
     // Check if the base exists and the user is the owner
-    const base = await this.prismaService.base
-      .findFirstOrThrow({
-        where: { id: baseId, createdBy: userId, deletedTime: null },
-        select: { id: true, schemaPass: true },
-      })
-      .catch(() => {
-        throw new BadRequestException('base not found, you should be base owner');
-      });
+    const base = await this.prismaService.base.findFirst({
+      where: { id: baseId, deletedTime: null },
+      select: { id: true, schemaPass: true },
+    });
 
-    if (!base.schemaPass) {
+    if (!base?.schemaPass) {
       return null;
     }
 

@@ -1,3 +1,4 @@
+import { useTablePermission } from '@teable/sdk/hooks';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
 import { DbConnectionPanel } from './Panel';
 
 export const DbConnectionPanelTrigger: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const permissions = useTablePermission();
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -15,7 +17,7 @@ export const DbConnectionPanelTrigger: React.FC<{ children: React.ReactNode }> =
         <DialogHeader>
           <DialogTitle>Database Connection</DialogTitle>
         </DialogHeader>
-        <DbConnectionPanel />
+        {permissions['base|create'] ? <DbConnectionPanel /> : 'Only base creator can view it'}
       </DialogContent>
     </Dialog>
   );
