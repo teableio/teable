@@ -17,10 +17,10 @@ import type { INotifyVo, SignatureVo } from '@teable/openapi';
 import { Response, Request } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
+import { TokenAccess } from '../auth/decorators/token.decorator';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { AttachmentsService } from './attachments.service';
 import { DynamicAuthGuardFactory } from './guard/auth.guard';
-import { TokenAccess } from '../auth/decorators/token.decorator';
 
 @Controller('api/attachments')
 @Public()
