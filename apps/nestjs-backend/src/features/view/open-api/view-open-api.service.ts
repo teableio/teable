@@ -348,20 +348,14 @@ export class ViewOpenApiService {
     if (!enableShare) {
       throw new BadRequestException(`View ${viewId} has already been disable share`);
     }
-    const shareMeta = JSON.parse(view.shareMeta as string) || undefined;
     const enableShareOp = ViewOpBuilder.editor.setViewProperty.build({
       key: 'enableShare',
       newValue: false,
       oldValue: enableShare || undefined,
     });
 
-    const shareMetaOp = ViewOpBuilder.editor.setViewProperty.build({
-      key: 'shareMeta',
-      oldValue: shareMeta || undefined,
-    });
-
     await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, shareMetaOp]);
+      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp]);
     });
   }
 }
