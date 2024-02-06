@@ -99,10 +99,17 @@ export const useSelection = (props: IUseSelectionProps) => {
 
     const pureSelectColumnOrRow = (colOrRowIndex: number, type: SelectionRegionType) => {
       const range = [colOrRowIndex, colOrRowIndex] as IRange;
-      const newSelection =
-        isPrevRowSelection && isMultiSelectionEnable
-          ? selection.merge(range)
-          : selection.set(type, [range]);
+      let newSelection;
+
+      if (
+        isPrevRowSelection &&
+        (isMultiSelectionEnable ||
+          (!isMultiSelectionEnable && prevSelectionRanges[0][0] === colOrRowIndex))
+      ) {
+        newSelection = selection.merge(range);
+      } else {
+        newSelection = selection.set(type, [range]);
+      }
       if (newSelection.includes(range)) {
         prevSelectedRowIndex.current = colOrRowIndex;
       }
