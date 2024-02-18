@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { loadPackage } from '@nestjs/common/utils/load-package.util';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -6,6 +7,7 @@ import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
+import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
@@ -26,13 +28,26 @@ export class ShareDbService extends ShareDBClass {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly wsDerivateService: WsDerivateService,
-    private readonly shareDbPermissionService: ShareDbPermissionService
+    private readonly shareDbPermissionService: ShareDbPermissionService,
+    @CacheConfig() private readonly cacheConfig: ICacheConfig
   ) {
     super({
       presence: true,
       doNotForwardSendPresenceErrorsToClient: true,
       db: shareDbAdapter,
     });
+
+    const { provider, redis } = this.cacheConfig;
+
+    if (provider === 'redis') {
+      const redisPubsub = loadPackage('sharedb-redis-pubsub', ShareDbService.name, () =>
+        require('sharedb-redis-pubsub')
+      )({ url: redis.uri });
+
+      this.logger.log(`> Detected Redis cache; enabled the Redis pub/sub adapter for ShareDB.`);
+      this.pubsub = redisPubsub;
+    }
+
     // auth
     authMiddleware(this, this.shareDbPermissionService);
     derivateMiddleware(this, this.cls, this.wsDerivateService);

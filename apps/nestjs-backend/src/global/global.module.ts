@@ -24,12 +24,12 @@ import { KnexModule } from './knex';
         idGenerator: (req: Request) => (req.headers[X_REQUEST_ID] as string) ?? nanoid(),
       },
     }),
+    CacheModule.register({ global: true }),
     MailSenderModule.register({ global: true }),
     EventEmitterModule.register({ global: true }),
     KnexModule.register(),
     PrismaModule,
     PermissionModule,
-    CacheModule,
   ],
 })
 export class GlobalModule implements NestModule {

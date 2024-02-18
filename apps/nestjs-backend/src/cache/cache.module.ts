@@ -1,9 +1,23 @@
-import { Global, Module } from '@nestjs/common';
-import { CacheService } from './cache.service';
+/* eslint-disable @typescript-eslint/naming-convention */
+import { ConfigurableModuleBuilder, type DynamicModule, Module } from '@nestjs/common';
+import { CacheProvider } from './cache.provider';
 
-@Global()
+export interface CacheModuleOptions {
+  global?: boolean;
+}
+
+export const { ConfigurableModuleClass: CacheModuleClass, OPTIONS_TYPE } =
+  new ConfigurableModuleBuilder<CacheModuleOptions>().build();
+
 @Module({
-  providers: [CacheService],
-  exports: [CacheService],
+  providers: [CacheProvider],
+  exports: [CacheProvider],
 })
-export class CacheModule {}
+export class CacheModule extends CacheModuleClass {
+  static register(options: typeof OPTIONS_TYPE): DynamicModule {
+    return {
+      global: options.global,
+      ...super.register(options),
+    };
+  }
+}

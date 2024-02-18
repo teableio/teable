@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  teable:
+    image: ghcr.io/teableio/teable:latest
+    restart: always
+    ports:
+      - '3000:3000'
+    volumes:
+      - teable_data:/app:rw
+    environment:
+      - TZ=${TIMEZONE}
+      - NODE_OPTIONS=--max-old-space-size=1024
+      - PUBLIC_ORIGIN=http://127.0.0.1:3000
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable_db:5432/${POSTGRES_DB}
+    networks:
+      - teable-standalone
+    depends_on:
+      teable_db_migrate:
+        condition: service_completed_successfully
+
+  teable_db:
+    image: postgres:15.4
+    restart: always
+    expose:
+      - '5432'
+    volumes:
+      - teable_db:/var/lib/postgresql/data:rw
+    environment:
+      - TZ=${TIMEZONE}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - teable-standalone
+    healthcheck:
+      test: ['CMD-SHELL', "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  teable_db_migrate:
+    image: ghcr.io/teableio/teable-db-migrate:latest
+    environment:
+      - TZ=${TIMEZONE}
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable_db:5432/${POSTGRES_DB}
+    networks:
+      - teable-standalone
+    depends_on:
+      teable_db:
+        condition: service_healthy
+
+networks:
+  teable-standalone:
+    name: teable_standalone_network
+    driver: bridge
+
+volumes:
+  teable_data: {}
+  teable_db: {}

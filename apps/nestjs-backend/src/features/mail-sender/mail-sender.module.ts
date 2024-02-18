@@ -54,7 +54,7 @@ export class MailSenderModule extends MailSenderModuleClass {
       imports: [module],
       module: MailSenderModule,
       global,
-      providers: [MailSenderService, Logger],
+      providers: [MailSenderService],
       exports: [MailSenderService],
     };
   }

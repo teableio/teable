@@ -11,7 +11,7 @@ export const envValidationSchema = Joi.object({
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
 
   // database_url
-  PRISMA_DATABASE_URL: Joi.string(),
+  PRISMA_DATABASE_URL: Joi.string().required(),
 
   ASSET_PREFIX: Joi.string().uri().optional(),
   STORAGE_PREFIX: Joi.string().uri().optional(),
@@ -19,4 +19,17 @@ export const envValidationSchema = Joi.object({
   PUBLIC_ORIGIN: Joi.string().uri(),
 
   BRAND_NAME: Joi.string().required(),
+
+  // cache
+  BACKEND_CACHE_PROVIDER: Joi.string().valid('memory', 'sqlite', 'redis').default('sqlite'),
+  // cache-sqlite
+  BACKEND_CACHE_SQLITE_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
+    is: 'sqlite',
+    then: Joi.string(),
+  }),
+  // cache-redis
+  BACKEND_CACHE_REDIS_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
+    is: 'redis',
+    then: Joi.string(),
+  }),
 });
