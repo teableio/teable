@@ -100,7 +100,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const preTableId = usePrevious(tableId);
   const isTouchDevice = useIsTouchDevice();
   const [isReadyToRender, setReadyToRender] = useState(false);
-  const { copy, paste, clear } = useSelectionOperation();
   const sort = view?.sort;
   const group = view?.group;
   const isAutoSort = sort && !sort?.manualSort;
@@ -122,6 +121,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     undefined,
     viewGroupQuery
   );
+
+  const { copy, paste, clear } = useSelectionOperation(viewGroupQuery?.filter);
 
   const {
     prefillingRowIndex,
