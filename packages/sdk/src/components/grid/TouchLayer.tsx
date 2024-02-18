@@ -77,6 +77,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     forceRenderFlag,
     rowIndexVisible,
     groupCollection,
+    columnHeaderVisible,
     getCellContent,
     getLinearRow,
     real2RowIndex,
@@ -192,6 +193,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
           selection={emptySelection}
           isSelecting={false}
           forceRenderFlag={forceRenderFlag}
+          columnHeaderVisible={columnHeaderVisible}
           columnFreezeState={DEFAULT_FREEZE_COLUMN_STATE}
           columnResizeState={DEFAULT_COLUMN_RESIZE_STATE}
           hoverCellPosition={null}
