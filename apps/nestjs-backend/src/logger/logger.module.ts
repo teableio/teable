@@ -5,6 +5,7 @@ import { context, trace } from '@opentelemetry/api';
 import { ClsService } from 'nestjs-cls';
 import { LoggerModule as BaseLoggerModule } from 'nestjs-pino';
 import type { ILoggerConfig } from '../configs/logger.config';
+import { X_REQUEST_ID } from '../const';
 
 @Module({})
 export class LoggerModule {
@@ -18,14 +19,15 @@ export class LoggerModule {
           pinoHttp: {
             name: 'teable',
             level: level,
-            // quietReqLogger: true,
-            // genReqId: (req, res) => {
-            //   const existingID = req.id ?? req.headers[X_REQUEST_ID];
-            //   if (existingID) return existingID;
-            //   const id = cls.getId();
-            //   res.setHeader(X_REQUEST_ID, id);
-            //   return id;
-            // },
+            autoLogging: false,
+            quietReqLogger: true,
+            genReqId: (req, res) => {
+              const existingID = req.id ?? req.headers[X_REQUEST_ID];
+              if (existingID) return existingID;
+              const id = cls.getId();
+              res.setHeader(X_REQUEST_ID, id);
+              return id;
+            },
             transport:
               process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty' } : undefined,
             formatters: {

@@ -1,5 +1,6 @@
 import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
+import { context, trace } from '@opentelemetry/api';
 import { PrismaModule } from '@teable/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
@@ -21,7 +22,16 @@ import { KnexModule } from './knex';
       middleware: {
         mount: true,
         generateId: true,
-        idGenerator: (req: Request) => (req.headers[X_REQUEST_ID] as string) ?? nanoid(),
+        idGenerator: (req: Request) => {
+          const existingID = req.headers[X_REQUEST_ID] as string;
+          if (existingID) return existingID;
+
+          const span = trace.getSpan(context.active());
+          if (!span) return nanoid();
+
+          const { traceId } = span.spanContext();
+          return traceId;
+        },
       },
     }),
     CacheModule.register({ global: true }),
