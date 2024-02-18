@@ -2,7 +2,6 @@ import type { IGetRecordsRo, ILinkCellValue, ILinkFieldOptions } from '@teable/c
 import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib';
-import { uniqueId } from 'lodash';
 import {
   forwardRef,
   useCallback,
@@ -17,25 +16,9 @@ import { AnchorProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBase, useTable } from '../../../hooks';
 import { Table } from '../../../model';
-import type { IGridRef } from '../../grid/Grid';
-import { Grid } from '../../grid/Grid';
-import type { ICell, ICellItem, IRectangle } from '../../grid/interface';
-import {
-  CellType,
-  DraggableType,
-  RegionType,
-  SelectableType,
-  SelectionRegionType,
-} from '../../grid/interface';
-import { emptySelection, CombinedSelection } from '../../grid/managers';
-import {
-  GridTooltip,
-  useGridAsyncRecords,
-  useGridColumns,
-  useGridIcons,
-  useGridTheme,
-  useGridTooltipStore,
-} from '../../grid-enhancements';
+import { LinkListType } from './interface';
+import type { ILinkListRef } from './LinkList';
+import { LinkList } from './LinkList';
 
 export interface ILinkEditorMainProps {
   fieldId: string;
@@ -52,27 +35,32 @@ export interface ILinkEditorMainRef {
   onReset: () => void;
 }
 
-enum ViewType {
-  Selected = 'selected',
-  Unselected = 'unselected',
-}
-
 const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEditorMainProps> = (
   props,
   forwardRef
 ) => {
   const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange, onExpandRecord } =
     props;
-  const isMultiple = isMultiValueLink(options.relationship);
-  const [viewType, setViewType] = useState<ViewType>(ViewType.Unselected);
-  const isSelectedView = viewType === ViewType.Selected;
 
   useImperativeHandle(forwardRef, () => ({
     onReset,
   }));
 
+  const base = useBase();
+  const table = useTable();
+  const { t } = useTranslation();
+
+  const listRef = useRef<ILinkListRef>(null);
+  const [rowCount, setRowCount] = useState<number>(0);
+  const [values, setValues] = useState<ILinkCellValue[]>();
+  const [listType, setListType] = useState<LinkListType>(LinkListType.Unselected);
+
+  const baseId = base.id;
+  const tableId = table?.id;
+  const isMultiple = isMultiValueLink(options.relationship);
+
   const recordQuery = useMemo((): IGetRecordsRo => {
-    if (viewType === ViewType.Selected) {
+    if (listType === LinkListType.Selected) {
       return {
         filterLinkCellSelected: recordId ? [fieldId, recordId] : fieldId,
       };
@@ -80,45 +68,14 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     return {
       filterLinkCellCandidate: recordId ? [fieldId, recordId] : fieldId,
     };
-  }, [fieldId, recordId, viewType]);
-
-  const base = useBase();
-  const table = useTable();
-  const baseId = base.id;
-  const tableId = table?.id;
-  const theme = useGridTheme();
-  const { t } = useTranslation();
-  const customIcons = useGridIcons();
-  const { openTooltip, closeTooltip } = useGridTooltipStore();
-  const { columns, cellValue2GridDisplay } = useGridColumns(false);
-  const {
-    recordMap,
-    onForceUpdate,
-    onVisibleRegionChanged,
-    onReset: onResetRecordMap,
-  } = useGridAsyncRecords(undefined, recordQuery);
-
-  const gridRef = useRef<IGridRef>(null);
-  const [values, setValues] = useState<ILinkCellValue[]>();
-  const [rowCount, setRowCount] = useState<number>(0);
-
-  const componentId = useMemo(() => uniqueId('link-editor-'), []);
+  }, [fieldId, recordId, listType]);
 
   useEffect(() => {
     if (!isEditing) return;
-    onForceUpdate();
+    listRef.current?.onForceUpdate();
     if (cellValue == null) return setValues(cellValue);
     setValues(Array.isArray(cellValue) ? cellValue : [cellValue]);
-  }, [cellValue, onForceUpdate, isEditing]);
-
-  useEffect(() => {
-    rowCount &&
-      gridRef.current?.setSelection(
-        viewType === ViewType.Unselected
-          ? emptySelection
-          : new CombinedSelection(SelectionRegionType.Rows, [[0, rowCount - 1]])
-      );
-  }, [rowCount, viewType]);
+  }, [cellValue, isEditing]);
 
   useEffect(() => {
     if (baseId == null || tableId == null) return;
@@ -128,75 +85,10 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     });
   }, [tableId, baseId, recordQuery]);
 
-  const onItemHovered = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
-    const [columnIndex] = cellItem;
-    const { description } = columns[columnIndex] ?? {};
-
-    closeTooltip();
-
-    if (type === RegionType.ColumnDescription && description) {
-      openTooltip({
-        id: componentId,
-        text: description,
-        position: bounds,
-      });
-    }
-  };
-
-  const getCellContent = useCallback<(cell: ICellItem) => ICell>(
-    (cell) => {
-      const [colIndex, rowIndex] = cell;
-      const record = recordMap[rowIndex];
-      if (record !== undefined) {
-        const fieldId = columns[colIndex]?.id;
-        if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(record, colIndex);
-      }
-      return { type: CellType.Loading };
-    },
-    [recordMap, columns, cellValue2GridDisplay]
-  );
-
-  const onSelectionChanged = useCallback(
-    // eslint-disable-next-line sonarjs/cognitive-complexity
-    (selection: CombinedSelection) => {
-      const { type } = selection;
-
-      if (type === SelectionRegionType.None) {
-        if (isSelectedView) {
-          return setValues(undefined);
-        }
-        return cellValue
-          ? setValues(Array.isArray(cellValue) ? cellValue : [cellValue])
-          : setValues(cellValue);
-      }
-
-      if (type !== SelectionRegionType.Rows) return;
-
-      const rowIndexList = selection.flatten();
-      const newValues = rowIndexList
-        .map((rowIndex) => {
-          const record = recordMap[rowIndex];
-          const id = record?.id;
-          const title = record?.name ?? 'Untitled';
-          return { id, title };
-        })
-        .filter((r) => r.id);
-
-      if (isSelectedView) {
-        return setValues(newValues);
-      }
-
-      const cv = cellValue == null ? null : Array.isArray(cellValue) ? cellValue : [cellValue];
-      return setValues(isMultiple && cv ? [...cv, ...newValues] : newValues);
-    },
-    [isSelectedView, cellValue, recordMap, isMultiple]
-  );
-
-  const onViewShown = (type: ViewType) => {
-    if (type === viewType) return;
-    onResetRecordMap();
-    setViewType(type);
+  const onViewShown = (type: LinkListType) => {
+    if (type === listType) return;
+    listRef.current?.onReset();
+    setListType(type);
   };
 
   const onAppendRecord = async () => {
@@ -212,16 +104,20 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     Table.getRowCount(tableId, recordQuery).then((res) => {
       const rowCount = res.data.rowCount;
       setRowCount(() => rowCount);
-      gridRef.current?.scrollToItem([0, rowCount - 1]);
+      listRef.current?.scrollToItem([0, rowCount - 1]);
     });
   };
 
   const onReset = () => {
     setValues(undefined);
     setEditing?.(false);
-    setViewType(ViewType.Unselected);
-    onResetRecordMap();
+    setListType(LinkListType.Unselected);
+    listRef.current?.onReset();
   };
+
+  const onListChange = useCallback((value?: ILinkCellValue[]) => {
+    setValues(value);
+  }, []);
 
   const onConfirm = () => {
     onReset();
@@ -240,14 +136,14 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
               <TabsTrigger
                 className="px-4"
                 value="unselected"
-                onClick={() => onViewShown(ViewType.Unselected)}
+                onClick={() => onViewShown(LinkListType.Unselected)}
               >
                 {t('editor.link.unselected')}
               </TabsTrigger>
               <TabsTrigger
                 className="px-4"
                 value="selected"
-                onClick={() => onViewShown(ViewType.Selected)}
+                onClick={() => onViewShown(LinkListType.Selected)}
               >
                 {t('editor.link.selected')}
               </TabsTrigger>
@@ -256,29 +152,15 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
         </div>
       </div>
       <div className="relative w-full flex-1 overflow-hidden rounded-md border">
-        <Grid
-          ref={gridRef}
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-          scrollBufferX={0}
-          scrollBufferY={0}
-          theme={theme}
-          columns={columns}
-          freezeColumnCount={0}
-          rowCount={isSelectedView && !cellValue ? 0 : rowCount ?? 0}
-          rowIndexVisible={false}
-          customIcons={customIcons}
-          draggable={DraggableType.None}
-          selectable={SelectableType.Row}
-          isMultiSelectionEnable={isMultiple}
-          onItemHovered={onItemHovered}
-          getCellContent={getCellContent}
-          onSelectionChanged={onSelectionChanged}
-          onVisibleRegionChanged={onVisibleRegionChanged}
+        <LinkList
+          ref={listRef}
+          type={listType}
+          rowCount={rowCount}
+          cellValue={cellValue}
+          isMultiple={isMultiple}
+          recordQuery={recordQuery}
+          onChange={onListChange}
         />
-        <GridTooltip id={componentId} />
       </div>
       <div className="flex justify-between">
         <Button variant="ghost" onClick={onAppendRecord}>

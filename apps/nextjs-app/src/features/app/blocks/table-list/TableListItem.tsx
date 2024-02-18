@@ -5,7 +5,7 @@ import { Button } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import classNames from 'classnames';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { TableOperation } from './TableOperation';
@@ -19,6 +19,7 @@ interface IProps {
 
 export const TableListItem: React.FC<IProps> = ({ table, isActive, className, isDragging }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { baseId } = router.query;
   const viewId = router.query.viewId;
@@ -38,6 +39,13 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
       { shallow: Boolean(viewId) }
     );
   };
+
+  useEffect(() => {
+    if (isEditing) {
+      setTimeout(() => inputRef.current?.focus());
+    }
+  }, [isEditing]);
+
   return (
     <>
       <Button
@@ -76,12 +84,14 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
             <TableOperation
               table={table}
               className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+              onRename={() => setIsEditing(true)}
             />
           )}
         </div>
       </Button>
       {isEditing && (
         <Input
+          ref={inputRef}
           type="text"
           placeholder="name"
           defaultValue={table.name}
@@ -89,8 +99,6 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
             boxShadow: 'none',
           }}
           className="round-none absolute left-0 top-0 size-full cursor-text bg-background px-4 outline-none"
-          // eslint-disable-next-line jsx-a11y/no-autofocus
-          autoFocus
           onBlur={(e) => {
             if (e.target.value && e.target.value !== table.name) {
               table.updateName(e.target.value);

@@ -43,7 +43,7 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="xs" onClick={() => expandSideBar?.()}>
-                <Sidebar className="size-5"></Sidebar>
+                <Sidebar className="size-4"></Sidebar>
               </Button>
             </TooltipTrigger>
             <TooltipContent hideWhenDetached={true}>

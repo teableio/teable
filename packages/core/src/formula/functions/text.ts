@@ -66,7 +66,7 @@ export class Find extends TextFunc {
 
   getReturnType(params?: TypedValue[]) {
     params && this.validateParams(params);
-    return { type: CellValueType.String };
+    return { type: CellValueType.Number };
   }
 
   eval(params: TypedValue<string | number | null | (string | number | null)[]>[]): number | null {
@@ -96,7 +96,7 @@ export class Search extends TextFunc {
 
   getReturnType(params?: TypedValue[]) {
     params && this.validateParams(params);
-    return { type: CellValueType.String };
+    return { type: CellValueType.Number };
   }
 
   eval(params: TypedValue<string | number | null | (string | number | null)[]>[]): number | null {

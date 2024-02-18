@@ -192,7 +192,7 @@ export class TableOpenApiService {
 
         // clean ops for table
         await prisma.ops.deleteMany({
-          where: { docId: tableId },
+          where: { collection: baseId, docId: tableId },
         });
 
         const fieldRaws = await prisma.field.findMany({
