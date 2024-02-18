@@ -17,6 +17,7 @@ CREATE TABLE "base" (
     "name" TEXT NOT NULL,
     "order" DOUBLE PRECISION NOT NULL,
     "icon" TEXT,
+    "schema_pass" TEXT,
     "deleted_time" TIMESTAMP(3),
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
@@ -60,11 +61,11 @@ CREATE TABLE "field" (
     "is_primary" BOOLEAN,
     "is_computed" BOOLEAN,
     "is_lookup" BOOLEAN,
+    "is_pending" BOOLEAN,
     "has_error" BOOLEAN,
     "lookup_linked_field_id" TEXT,
     "lookup_options" TEXT,
     "table_id" TEXT NOT NULL,
-    "column_meta" TEXT NOT NULL,
     "version" INTEGER NOT NULL,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "last_modified_time" TIMESTAMP(3) NOT NULL,
@@ -88,6 +89,10 @@ CREATE TABLE "view" (
     "options" TEXT,
     "order" DOUBLE PRECISION NOT NULL,
     "version" INTEGER NOT NULL,
+    "column_meta" TEXT NOT NULL,
+    "enable_share" BOOLEAN,
+    "share_id" TEXT,
+    "share_meta" TEXT,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "last_modified_time" TIMESTAMP(3) NOT NULL,
     "deleted_time" TIMESTAMP(3),
@@ -101,6 +106,7 @@ CREATE TABLE "view" (
 CREATE TABLE "ops" (
     "collection" TEXT NOT NULL,
     "doc_id" TEXT NOT NULL,
+    "doc_type" TEXT NOT NULL,
     "version" INTEGER NOT NULL,
     "operation" TEXT NOT NULL,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -121,6 +127,7 @@ CREATE TABLE "reference" (
     "id" TEXT NOT NULL,
     "from_field_id" TEXT NOT NULL,
     "to_field_id" TEXT NOT NULL,
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "reference_pkey" PRIMARY KEY ("id")
 );
@@ -134,6 +141,7 @@ CREATE TABLE "users" (
     "phone" TEXT,
     "email" TEXT NOT NULL,
     "avatar" TEXT,
+    "notify_meta" TEXT,
     "provider" TEXT,
     "provider_id" TEXT,
     "last_sign_time" TIMESTAMP(3),
@@ -148,12 +156,12 @@ CREATE TABLE "users" (
 -- CreateTable
 CREATE TABLE "attachments" (
     "id" TEXT NOT NULL,
+    "bucket" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "hash" TEXT NOT NULL,
     "size" INTEGER NOT NULL,
     "mimetype" TEXT NOT NULL,
     "path" TEXT NOT NULL,
-    "url" TEXT NOT NULL,
     "width" INTEGER,
     "height" INTEGER,
     "deleted_time" TIMESTAMP(3),
@@ -244,6 +252,86 @@ CREATE TABLE "automation_workflow_execution_history" (
     CONSTRAINT "automation_workflow_execution_history_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "collaborator" (
+    "id" TEXT NOT NULL,
+    "role_name" TEXT NOT NULL,
+    "base_id" TEXT,
+    "space_id" TEXT,
+    "user_id" TEXT NOT NULL,
+    "deleted_time" TIMESTAMP(3),
+    "created_by" TEXT NOT NULL,
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_by" TEXT NOT NULL,
+
+    CONSTRAINT "collaborator_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "invitation" (
+    "id" TEXT NOT NULL,
+    "base_id" TEXT,
+    "space_id" TEXT,
+    "type" TEXT NOT NULL,
+    "role" TEXT NOT NULL,
+    "invitation_code" TEXT NOT NULL,
+    "expired_time" TIMESTAMP(3),
+    "create_by" TEXT NOT NULL,
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_time" TIMESTAMP(3),
+
+    CONSTRAINT "invitation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "invitation_record" (
+    "id" TEXT NOT NULL,
+    "invitation_id" TEXT NOT NULL,
+    "base_id" TEXT,
+    "space_id" TEXT,
+    "type" TEXT NOT NULL,
+    "inviter" TEXT NOT NULL,
+    "accepter" TEXT NOT NULL,
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "invitation_record_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "notification" (
+    "id" TEXT NOT NULL,
+    "from_user" TEXT,
+    "to_user" TEXT,
+    "from_user_id" TEXT NOT NULL,
+    "to_user_id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "url_meta" TEXT,
+    "is_read" BOOLEAN NOT NULL DEFAULT false,
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_by" TEXT NOT NULL,
+
+    CONSTRAINT "notification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "access_token" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "user_id" TEXT NOT NULL,
+    "scopes" TEXT NOT NULL,
+    "space_ids" TEXT,
+    "base_ids" TEXT,
+    "sign" TEXT NOT NULL,
+    "expired_time" TIMESTAMP(3) NOT NULL,
+    "last_used_time" TIMESTAMP(3),
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "access_token_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE INDEX "base_order_idx" ON "base"("order");
 
@@ -272,7 +360,7 @@ CREATE INDEX "reference_from_field_id_idx" ON "reference"("from_field_id");
 CREATE INDEX "reference_to_field_id_idx" ON "reference"("to_field_id");
 
 -- CreateIndex
-CREATE INDEX "reference_to_field_id_from_field_id_idx" ON "reference"("to_field_id", "from_field_id");
+CREATE UNIQUE INDEX "reference_to_field_id_from_field_id_key" ON "reference"("to_field_id", "from_field_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
@@ -303,6 +391,9 @@ CREATE INDEX "automation_workflow_action_workflow_id_idx" ON "automation_workflo
 
 -- CreateIndex
 CREATE INDEX "automation_workflow_execution_history_workflow_id_idx" ON "automation_workflow_execution_history"("workflow_id");
+
+-- CreateIndex
+CREATE INDEX "notification_to_user_id_is_read_created_time_idx" ON "notification"("to_user_id", "is_read", "created_time");
 
 -- AddForeignKey
 ALTER TABLE "base" ADD CONSTRAINT "base_space_id_fkey" FOREIGN KEY ("space_id") REFERENCES "space"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
