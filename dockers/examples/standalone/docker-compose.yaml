@@ -7,7 +7,7 @@ services:
     ports:
       - '3000:3000'
     volumes:
-      - teable_data:/app:rw
+      - teable_data:/app/.assets:rw
     environment:
       - TZ=${TIMEZONE}
       - NODE_OPTIONS=--max-old-space-size=1024

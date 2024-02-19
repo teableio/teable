@@ -74,7 +74,7 @@ services:
 
   teable_reverse_proxy:
     image: nginx:alpine
-    restart: always
+    restart: unless-stopped
     ports:
       - '80:80'
       - '443:443'

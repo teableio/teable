@@ -8,7 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,7 +46,18 @@ jobs:
           username: ${{ secrets.ALI_DOCKER_USERNAME }}
           password: ${{ secrets.ALI_DOCKER_PASSWORD }}
 
-      - name: Build and push
+      - name: Build and push（Dockerfile.db-migrate）
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: dockers/teable/Dockerfile.db-migrate
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          # platforms: linux/amd64,linux/arm64
+          cache-from: type=registry,ref=ghcr.io/teableio/teable-db-migrate:buildcache
+          cache-to: type=registry,ref=ghcr.io/teableio/teable-db-migrate:buildcache,mode=max
+
+      - name: Build and push（Dockerfile）
         uses: docker/build-push-action@v5
         with:
           context: .

@@ -1,4 +1,5 @@
 import Joi from 'joi';
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('test', 'development', 'production').default('development'),
   PORT: Joi.number().default(3000),
@@ -25,11 +26,15 @@ export const envValidationSchema = Joi.object({
   // cache-sqlite
   BACKEND_CACHE_SQLITE_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
     is: 'sqlite',
-    then: Joi.string(),
+    then: Joi.string()
+      .pattern(/^sqlite:\/\//)
+      .message('Cache `sqlite` the URI must start with the protocol `sqlite://`'),
   }),
   // cache-redis
   BACKEND_CACHE_REDIS_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
     is: 'redis',
-    then: Joi.string(),
+    then: Joi.string()
+      .pattern(/^(redis:\/\/|rediss:\/\/)/)
+      .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`'),
   }),
 });
