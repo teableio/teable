@@ -38,14 +38,21 @@ jobs:
           username: ${{ secrets.ALI_DOCKER_USERNAME }}
           password: ${{ secrets.ALI_DOCKER_PASSWORD }}
 
-      - name: Build and push
+      - name: 📦 Build and push
         uses: ./.github/actions/docker-build-push
         with:
           context: .
-          file: dockers/teable/${{ matrix.file }}
-          images: |
+          dockerfile: dockers/teable/${{ matrix.file }}
+          push: true
+          push-images: |
             registry.cn-shenzhen.aliyuncs.com/teable/${{ matrix.image }}
             ghcr.io/teableio/${{ matrix.image }}
-          push: true
+          push-tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            # set latest tag for default branch
+            type=raw,value=latest,enable={{is_default_branch}}
           cache-from: type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache
           cache-to: type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max
