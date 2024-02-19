@@ -100,9 +100,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   const cellContent = useMemo(() => {
     return getCellContent([columnIndex, realRowIndex]) as IInnerCell;
   }, [columnIndex, realRowIndex, getCellContent]);
-  const { type: cellType, readonly } = cellContent;
+  const { type: cellType, readonly, editorWidth } = cellContent;
   const editingEnable = !readonly && isEditing && activeCell;
-  const width = coordInstance.getColumnWidth(columnIndex);
+  const width = editorWidth ?? coordInstance.getColumnWidth(columnIndex);
   const height = activeCellBound?.height ?? coordInstance.getRowHeight(rowIndex);
   const editorRef = useRef<IEditorRef | null>(null);
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
@@ -270,7 +270,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   return (
-    <div className="click-outside-ignore pointer-events-none absolute left-0 top-0">
+    <div className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full">
       <div
         className="absolute z-10"
         style={{

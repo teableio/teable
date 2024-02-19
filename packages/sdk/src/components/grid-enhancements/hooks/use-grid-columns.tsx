@@ -221,6 +221,7 @@ export const createCellValue2GridDisplay =
           type: CellType.Text,
           data: (cellValue as string) || '',
           displayData,
+          editorWidth: 250,
           customEditor: (props, editorRef) => (
             <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
           ),
@@ -334,6 +335,7 @@ export const createCellValue2GridDisplay =
           displayData: data,
           choices,
           isMultiple,
+          editorWidth: 220,
           customEditor: (props, editorRef) => (
             <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
           ),

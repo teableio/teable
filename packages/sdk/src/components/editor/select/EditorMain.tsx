@@ -93,7 +93,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
     onChange?.(searchValue);
   };
 
-  const addOptionText = `Add an option "${searchValue}"`;
+  const addOptionText = `Add an option '${searchValue}'`;
   const optionAddable = searchValue && options.findIndex((v) => v.value === searchValue) === -1;
 
   return (

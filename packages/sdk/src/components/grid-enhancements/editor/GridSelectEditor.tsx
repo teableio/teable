@@ -83,7 +83,6 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
         ...style,
         ...attachStyle,
         height: 'auto',
-        minWidth: 180,
       }}
       className="absolute rounded-sm border p-2 shadow-sm"
       value={cellValue === null ? undefined : cellValue}

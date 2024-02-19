@@ -36,6 +36,7 @@ export interface IBaseCell {
 }
 
 export interface IEditableCell extends IBaseCell {
+  editorWidth?: number;
   customEditor?: ICustomEditor;
 }
 

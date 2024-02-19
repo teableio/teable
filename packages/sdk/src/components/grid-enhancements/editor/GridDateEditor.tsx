@@ -21,6 +21,7 @@ const GridDateEditorBase: ForwardRefRenderFunction<
   const attachStyle = useGridPopupPosition(rect);
 
   useImperativeHandle(ref, () => ({
+    focus: () => editorRef.current?.focus?.(),
     setValue: (value?: string) => editorRef.current?.setValue?.(value),
     saveValue: () => editorRef.current?.saveValue?.(),
   }));
