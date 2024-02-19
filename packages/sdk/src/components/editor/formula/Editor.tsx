@@ -43,7 +43,7 @@ const Functions = Array.from(FORMULA_FUNCTIONS_MAP).map((item) => item[1]);
 
 export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const { expression, onConfirm } = props;
-  const fields = useFields();
+  const fields = useFields({ withHidden: true });
   const { theme } = useTheme();
   const { t } = useTranslation();
   const isLightTheme = theme === ThemeKey.Light;
