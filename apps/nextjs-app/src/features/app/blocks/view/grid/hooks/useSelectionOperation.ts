@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue } from '@teable/core';
+import type { IAttachmentCellValue, IFilter } from '@teable/core';
 import { AttachmentFieldCore } from '@teable/core';
 import type { ICopyVo, IPasteRo, IRangesRo } from '@teable/openapi';
 import { clear, copy, paste, RangeType } from '@teable/openapi';
@@ -56,7 +56,7 @@ export const useCopy = (props: {
   );
 };
 
-export const useSelectionOperation = () => {
+export const useSelectionOperation = (filter?: IFilter) => {
   const tableId = useTableId();
   const viewId = useViewId();
   const fields = useFields();
@@ -64,15 +64,15 @@ export const useSelectionOperation = () => {
   const groupBy = view?.group;
 
   const { mutateAsync: copyReq } = useMutation({
-    mutationFn: (copyRo: IRangesRo) => copy(tableId!, { ...copyRo, viewId, groupBy }),
+    mutationFn: (copyRo: IRangesRo) => copy(tableId!, { ...copyRo, viewId, groupBy, filter }),
   });
 
   const { mutateAsync: pasteReq } = useMutation({
-    mutationFn: (pasteRo: IPasteRo) => paste(tableId!, { ...pasteRo, viewId, groupBy }),
+    mutationFn: (pasteRo: IPasteRo) => paste(tableId!, { ...pasteRo, viewId, groupBy, filter }),
   });
 
   const { mutateAsync: clearReq } = useMutation({
-    mutationFn: (clearRo: IRangesRo) => clear(tableId!, { ...clearRo, viewId, groupBy }),
+    mutationFn: (clearRo: IRangesRo) => clear(tableId!, { ...clearRo, viewId, groupBy, filter }),
   });
 
   const { toast } = useToast();

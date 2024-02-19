@@ -542,6 +542,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             spriteManager={spriteManager}
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
+            columnHeaderVisible={columnHeaderVisible}
             forceRenderFlag={forceRenderFlag}
             rowIndexVisible={rowIndexVisible}
             groupCollection={groupCollection}
