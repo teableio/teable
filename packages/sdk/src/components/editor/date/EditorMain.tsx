@@ -19,8 +19,10 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   const { time } = options?.formatting || {};
   const [date, setDate] = useState<string | null>(value || null);
   const hasTimePicker = time !== TimeFormatting.None;
+  const defaultFocusRef = useRef<HTMLInputElement | null>(null);
 
   useImperativeHandle(ref, () => ({
+    focus: () => defaultFocusRef.current?.focus?.(),
     setValue: (value?: string) => setDate(value || null),
     saveValue,
   }));
@@ -69,28 +71,31 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   };
 
   return (
-    <Calendar
-      style={style}
-      mode="single"
-      selected={selectedDate}
-      defaultMonth={selectedDate}
-      onSelect={onSelect}
-      className={className}
-      disabled={readonly}
-      footer={
-        hasTimePicker && date ? (
-          <div className="flex items-center p-1">
-            <Input
-              ref={inputRef}
-              type="time"
-              value={timeValue}
-              onChange={onTimeChange}
-              onBlur={saveValue}
-            />
-          </div>
-        ) : null
-      }
-    />
+    <>
+      <Calendar
+        style={style}
+        mode="single"
+        selected={selectedDate}
+        defaultMonth={selectedDate}
+        onSelect={onSelect}
+        className={className}
+        disabled={readonly}
+        footer={
+          hasTimePicker && date ? (
+            <div className="flex items-center p-1">
+              <Input
+                ref={inputRef}
+                type="time"
+                value={timeValue}
+                onChange={onTimeChange}
+                onBlur={saveValue}
+              />
+            </div>
+          ) : null
+        }
+      />
+      <input className="opacity-0" ref={defaultFocusRef} />
+    </>
   );
 };
 
