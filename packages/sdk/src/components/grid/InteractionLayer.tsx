@@ -651,6 +651,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   };
 
   useEventListener('mousemove', onMouseMove, isInteracting ? window : stageRef.current, true);
+  useEventListener('mouseup', onMouseUp, isInteracting ? window : stageRef.current, true);
 
   useClickAway(containerRef, () => {
     setEditing(false);
@@ -675,7 +676,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         ref={stageRef}
         className="size-full"
         onClick={onSmartClick}
-        onMouseUp={onMouseUp}
         onMouseDown={onMouseDown}
         onMouseLeave={onMouseLeave}
         onContextMenu={onContextMenuInner}
