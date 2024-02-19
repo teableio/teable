@@ -1,5 +1,28 @@
 SHELL := /usr/bin/env bash
 
+# define standard colors
+ifneq (,$(findstring xterm,${TERM}))
+	BLACK        := $(shell tput -Txterm setaf 0)
+	RED          := $(shell tput -Txterm setaf 1)
+	GREEN        := $(shell tput -Txterm setaf 2)
+	YELLOW       := $(shell tput -Txterm setaf 3)
+	LIGHTPURPLE  := $(shell tput -Txterm setaf 4)
+	PURPLE       := $(shell tput -Txterm setaf 5)
+	BLUE         := $(shell tput -Txterm setaf 6)
+	WHITE        := $(shell tput -Txterm setaf 7)
+	RESET := $(shell tput -Txterm sgr0)
+else
+	BLACK        := ""
+	RED          := ""
+	GREEN        := ""
+	YELLOW       := ""
+	LIGHTPURPLE  := ""
+	PURPLE       := ""
+	BLUE         := ""
+	WHITE        := ""
+	RESET        := ""
+endif
+
 ENV_PATH ?= apps/nextjs-app
 
 DOCKER_COMPOSE ?= docker compose
@@ -108,12 +131,14 @@ endef
 
 docker.create.network:
 ifneq ($(NETWORK_MODE),host)
-	docker network inspect $(NETWORK_MODE) &> /dev/null || ([ $$? -ne 0 ] && docker network create $(NETWORK_MODE))
+	@docker network inspect $(NETWORK_MODE) &> /dev/null || ([ $$? -ne 0 ] && docker network create $(NETWORK_MODE))
+	$(info ${GREEN}network $(NETWORK_MODE) create success${RESET})
 endif
 
 docker.rm.network:
 ifneq ($(NETWORK_MODE),host)
-	docker network inspect $(NETWORK_MODE) &> /dev/null && ([ $$? -eq 0 ] && docker network rm $(NETWORK_MODE)) || true
+	@docker network inspect $(NETWORK_MODE) &> /dev/null && ([ $$? -eq 0 ] && docker network rm $(NETWORK_MODE)) || true
+	$(warning ${GREEN}network $(NETWORK_MODE) removed${RESET})
 endif
 
 docker.build:
@@ -123,7 +148,7 @@ docker.run: docker.create.network
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm $(SERVICE) $(SERVICE_ARGS)
 
 docker.up: docker.create.network
-	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) up --no-recreate -d $(SERVICE)
+	@$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) up --no-recreate -d $(SERVICE)
 
 docker.down: docker.rm.network
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) down
@@ -154,12 +179,12 @@ docker.await: ## max timeout of 300
 			sleep 1; \
 			time=$$(expr $$time + 1); \
 			if [ $${time} -gt $(TIMEOUT) ]; then \
-				echo "Timeout reached waiting for $${i} to become healthy"; \
+				echo "${YELLOW}Timeout reached waiting for $${i} to become healthy${RESET}"; \
 				docker logs $${i}; \
 				exit 1; \
 			fi; \
 		done; \
-		echo "Service $${i} is healthy"; \
+		echo "${GREEN}Service $${i} is healthy${RESET}"; \
 	done
 
 docker.status:

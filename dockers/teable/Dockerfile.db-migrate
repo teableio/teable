@@ -1,0 +1,43 @@
+ARG NODE_VERSION=20.9.0
+ARG PRISMA_VERSION=5.9.1
+
+FROM node:${NODE_VERSION}-bookworm AS prisma
+
+RUN corepack enable && \
+    npm add @prisma/client@${PRISMA_VERSION} \
+            prisma@${PRISMA_VERSION} -g
+
+WORKDIR /prisma
+
+COPY --link packages/db-main-prisma/prisma/postgres ./postgres_migrate
+
+COPY --link packages/db-main-prisma/prisma/sqlite ./sqlite_migrate
+
+RUN cd postgres_migrate && \
+      prisma generate
+
+RUN cd sqlite_migrate && \
+      prisma generate
+
+
+FROM node:${NODE_VERSION}-bookworm-slim AS runner
+
+ENV NODE_ENV=production
+ENV FORCE_COLOR='1'
+ENV TZ=UTC
+
+RUN npm install zx @soluble/dsn-parser @prisma/client@${PRISMA_VERSION} prisma@${PRISMA_VERSION} -g && \
+      apt-get update && apt-get install -y openssl netcat-traditional wget && \
+      rm -rf /var/lib/apt/lists/*
+
+WORKDIR /prisma
+
+RUN ln -s /usr/local/lib/node_modules node_modules
+
+COPY --from=prisma /prisma/postgres_migrate ./postgres_migrate
+COPY --from=prisma /prisma/sqlite_migrate ./sqlite_migrate
+
+COPY scripts/db-migrate.mjs ./scripts/db-migrate.mjs
+COPY scripts/wait-for ./scripts/wait-for
+
+CMD ["scripts/db-migrate.mjs"]

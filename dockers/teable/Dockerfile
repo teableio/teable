@@ -1,4 +1,4 @@
-ARG NODE_VERSION=18.19.0
+ARG NODE_VERSION=20.9.0
 
 ###################################################################
 # Stage 1: Install all workspaces (dev)dependencies               #

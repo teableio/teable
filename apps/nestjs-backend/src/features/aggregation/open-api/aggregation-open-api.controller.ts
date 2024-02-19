@@ -1,13 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable/core';
 import {
   aggregationRoSchema,
-  IGroupPointsRo,
   groupPointsRoSchema,
   IAggregationRo,
-  queryBaseSchema,
+  IGroupPointsRo,
   IQueryBaseRo,
+  queryBaseSchema,
 } from '@teable/core';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';

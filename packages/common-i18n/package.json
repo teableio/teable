@@ -33,10 +33,10 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "18.19.0",
+    "@types/node": "20.9.0",
     "cross-env": "7.0.3",
     "eslint": "8.56.0",
-    "prettier": "3.2.4",
+    "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "typescript": "5.3.3"
   }
