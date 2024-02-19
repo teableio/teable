@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "/dockers/teable/Dockerfile"
 
 [deploy]
-numReplicas = 2
+numReplicas = 1
 sleepApplication = false
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
