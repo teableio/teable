@@ -46,13 +46,13 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const [boardUsers, hiddenUser] = chunk(users, maxAvatarLen);
 
   useEffect(() => {
-    if (!connection?.id || !tableId || !user) {
+    if (!connection || !tableId || !user) {
       return;
     }
     const channel = getCollaboratorsChannel(tableId as string);
     setPresence(connection.getPresence(channel));
     setUsers([{ ...user }]);
-  }, [connection, connection?.id, tableId, user]);
+  }, [connection, tableId, user]);
 
   useEffect(() => {
     if (!presence) {
@@ -67,7 +67,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
 
     presence.subscribe();
 
-    const presenceKey = `${tableId}_${user.id}_${connection.id}`;
+    const presenceKey = `${tableId}_${user.id}`;
     const localPresence = presence.create(presenceKey);
     localPresence.submit(user, (error) => {
       error && console.error('submit error:', error);
@@ -91,7 +91,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       presence.unsubscribe();
       presence?.removeListener('receive', receiveHandler);
     };
-  }, [connection, presence, tableId, user, connection?.id]);
+  }, [connection, presence, tableId, user]);
 
   const avatarRender = ({ name, avatar, id }: ICollaboratorUser) => {
     const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
