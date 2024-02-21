@@ -16,7 +16,7 @@ interface IFormPreviewerProps {
 export const FormPreviewer = (props: IFormPreviewerProps) => {
   const { submit } = props;
   const tableId = useTableId();
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const fields = useFields();
   const { toast } = useToast();
   const localKey = generateUniqLocalKey(tableId, view?.id);

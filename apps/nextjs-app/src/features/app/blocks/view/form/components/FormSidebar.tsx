@@ -4,7 +4,7 @@ import { DraggableHandle, Plus } from '@teable/icons';
 import { useView } from '@teable/sdk';
 import type { IFieldStatic } from '@teable/sdk/hooks';
 import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable/sdk/hooks';
-import type { IFieldInstance } from '@teable/sdk/model';
+import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Button,
   Tooltip,
@@ -66,7 +66,7 @@ export const DragItem: FC<IDragItemProps> = (props) => {
 
 export const FormSidebar = () => {
   const isHydrated = useIsHydrated();
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const activeViewId = view?.id;
   const allFields = useFields({ withHidden: true });
   const getFieldStatic = useFieldStaticGetter();
@@ -88,7 +88,7 @@ export const FormSidebar = () => {
       if (isComputed || isLookup) {
         return unavailableFields.push(field);
       }
-      if (!view.columnMeta?.[id]?.hidden) {
+      if (view.columnMeta?.[id]?.visible) {
         return visibleFields.push(field);
       }
       hiddenFields.push(field);
@@ -106,15 +106,17 @@ export const FormSidebar = () => {
         {
           fieldId: field.id,
           columnMeta: {
-            hidden: false,
+            visible: true,
           },
         },
       ]);
   };
 
-  const onFieldsHiddenChange = (fields: IFieldInstance[], hidden: boolean) => {
+  const onFieldsVisibleChange = (fields: IFieldInstance[], visible: boolean) => {
     view &&
-      view.updateColumnMeta(fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } })));
+      view.updateColumnMeta(
+        fields.map((field) => ({ fieldId: field.id, columnMeta: { visible } }))
+      );
   };
 
   return (
@@ -127,7 +129,7 @@ export const FormSidebar = () => {
             size={'xs'}
             className="font-normal"
             disabled={!hiddenFields.length}
-            onClick={() => onFieldsHiddenChange(hiddenFields, false)}
+            onClick={() => onFieldsVisibleChange(hiddenFields, true)}
           >
             Add All
           </Button>
@@ -136,7 +138,7 @@ export const FormSidebar = () => {
             size={'xs'}
             className="font-normal"
             disabled={!visibleFields.length}
-            onClick={() => onFieldsHiddenChange(visibleFields, true)}
+            onClick={() => onFieldsVisibleChange(visibleFields, false)}
           >
             Remove All
           </Button>

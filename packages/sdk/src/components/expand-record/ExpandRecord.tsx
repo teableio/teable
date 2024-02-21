@@ -12,6 +12,7 @@ import {
   useViewId,
   useViews,
 } from '../../hooks';
+import type { GridView } from '../../model';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordRight } from './ExpandRecordRight';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
@@ -49,9 +50,10 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     onCopyUrl,
     onShowActivity,
   } = props;
-  const defaultViewId = useViews()?.[0]?.id;
+  const views = useViews() as (GridView | undefined)[];
+  const defaultViewId = views?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
-  const columnMeta = useViews()?.[0]?.columnMeta;
+  const columnMeta = views?.[0]?.columnMeta;
   const allFields = useFields({ withHidden: true });
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();

@@ -1,4 +1,5 @@
 import z from 'zod';
+import type { IGridColumnMeta } from '../column-meta.schema';
 import { RowHeightLevel } from '../constant';
 import type { ViewType } from '../constant';
 import { ViewCore } from '../view';
@@ -25,4 +26,6 @@ export class GridViewCore extends ViewCore {
   type!: ViewType.Grid;
 
   options!: GridViewOptions;
+
+  columnMeta!: IGridColumnMeta;
 }

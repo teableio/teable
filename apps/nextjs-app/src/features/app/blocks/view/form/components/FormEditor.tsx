@@ -117,7 +117,7 @@ export const FormEditor = () => {
         {
           fieldId: draggingField.id,
           columnMeta: {
-            hidden: false,
+            visible: true,
           },
         },
       ]);

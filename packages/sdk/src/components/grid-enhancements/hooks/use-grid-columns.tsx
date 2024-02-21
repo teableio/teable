@@ -9,7 +9,7 @@ import { CellType, getFileCover, hexToRGBA, onMixedTextClick } from '../..';
 import { ThemeKey } from '../../../context';
 import { useTablePermission, useFields, useView, useTheme } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
-import type { IViewInstance } from '../../../model/view';
+import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/utils';
 import type { IGridTheme } from '../../grid/configs';
 import { GRID_DEFAULT } from '../../grid/configs';
@@ -30,7 +30,7 @@ const iconString = (type: FieldType, isLookup: boolean | undefined) => {
 
 interface IGenerateColumnsProps {
   fields: IFieldInstance[];
-  view?: IViewInstance;
+  view?: GridView;
   hasMenu?: boolean;
   theme?: ThemeKey;
   sortFieldIds?: Set<string>;
@@ -419,7 +419,7 @@ export const createCellValue2GridDisplay =
   };
 
 export function useGridColumns(hasMenu?: boolean) {
-  const view = useView();
+  const view = useView() as GridView | undefined;
   const fields = useFields();
   const totalFields = useFields({ withHidden: true });
   const permission = useTablePermission();

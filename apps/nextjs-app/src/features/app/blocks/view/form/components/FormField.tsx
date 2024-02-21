@@ -1,5 +1,5 @@
 import { useFieldStaticGetter, useView } from '@teable/sdk/hooks';
-import type { IFieldInstance } from '@teable/sdk/model';
+import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import type { FC } from 'react';
 import { FormCellEditor } from './FormCellEditor';
 
@@ -12,7 +12,7 @@ interface IFormFieldEditorProps {
 
 export const FormField: FC<IFormFieldEditorProps> = (props) => {
   const { field, value, errors, onChange } = props;
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const activeViewId = view?.id;
   const getFieldStatic = useFieldStaticGetter();
 

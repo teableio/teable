@@ -2,7 +2,7 @@
 import { DraggableHandle, EyeOff } from '@teable/icons';
 import { CellEditor } from '@teable/sdk/components';
 import { useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
-import type { IFieldInstance } from '@teable/sdk/model';
+import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Label,
   Switch,
@@ -19,7 +19,7 @@ interface IFormFieldEditorProps {
 
 export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   const { field } = props;
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const tableId = useTableId();
   const getFieldStatic = useFieldStaticGetter();
 
@@ -34,7 +34,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
       {
         fieldId: fieldId,
         columnMeta: {
-          hidden: true,
+          visible: false,
         },
       },
     ]);
