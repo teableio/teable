@@ -1,6 +1,7 @@
-import { Input, Textarea } from '@teable/ui-lib';
+import { Input } from '@teable/ui-lib';
 import type { ChangeEvent, ForwardRefRenderFunction, KeyboardEvent, RefObject } from 'react';
 import { useState, useRef, useImperativeHandle, forwardRef, useMemo } from 'react';
+import AutoSizeTextarea from 'react-textarea-autosize';
 import { Key } from 'ts-keycode-enum';
 import { GRID_DEFAULT } from '../../configs';
 import type { ILinkCell, INumberCell, ITextCell } from '../../renderers';
@@ -50,7 +51,7 @@ const TextEditorBase: ForwardRefRenderFunction<
   const attachStyle = useMemo(() => {
     const style: React.CSSProperties = {
       width: width + 4,
-      height: needWrap ? Math.max(84, height + 4) : height + 4,
+      height: needWrap ? 'auto' : height + 4,
       marginLeft: -2,
       marginTop: -2.5,
       textAlign: type === CellType.Number ? 'right' : 'left',
@@ -71,18 +72,19 @@ const TextEditorBase: ForwardRefRenderFunction<
             paddingBottom: 16,
             border: `2px solid ${cellLineColorActived}`,
           }}
-          className="relative flex flex-col rounded-md"
+          className="relative rounded-md bg-background"
         >
-          <Textarea
+          <AutoSizeTextarea
             ref={inputRef as RefObject<HTMLTextAreaElement>}
-            style={{ boxShadow: 'none' }}
-            className="min-h-[80px] w-full flex-1 resize-none rounded border-none bg-background px-2 pt-[6px] leading-[22px]"
+            className="w-full resize-none rounded border-none bg-background px-2 pt-2 text-sm leading-6 focus-visible:outline-none"
             value={value}
-            onChange={onChangeInner}
-            onKeyDown={onKeyDown}
+            minRows={2}
+            maxRows={5}
             onBlur={saveValue}
+            onKeyDown={onKeyDown}
+            onChange={onChangeInner}
           />
-          <div className="absolute bottom-0 left-0 w-full rounded-b-md bg-background pb-[2px] pr-1 text-right text-xs text-slate-400 dark:text-slate-600">
+          <div className="absolute bottom-[2px] left-0 w-full rounded-b-md bg-background pb-[2px] pr-1 text-right text-xs text-slate-400 dark:text-slate-600">
             Shift + Enter
           </div>
         </div>
