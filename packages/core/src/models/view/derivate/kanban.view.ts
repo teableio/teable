@@ -1,4 +1,5 @@
 import z from 'zod';
+import type { IKanbanColumnMeta } from '../column-meta.schema';
 import type { ViewType } from '../constant';
 import { ViewCore } from '../view';
 import type { IViewVo } from '../view.schema';
@@ -22,4 +23,6 @@ export class KanbanViewCore extends ViewCore {
   type!: ViewType.Kanban;
 
   options!: KanbanViewOptions;
+
+  columnMeta!: IKanbanColumnMeta;
 }

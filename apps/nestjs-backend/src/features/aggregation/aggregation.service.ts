@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type {
   IAggregationField,
-  IColumnMeta,
+  IGridColumnMeta,
   IFilter,
   IGetRecordsRo,
   IQueryBaseRo,
@@ -255,7 +255,7 @@ export class AggregationService {
 
   private getStatisticFields(
     fieldInstances: IFieldInstance[],
-    columnMeta?: IColumnMeta,
+    columnMeta?: IGridColumnMeta,
     customFieldStats?: ICustomFieldStats[]
   ) {
     let calculatedStatisticFields: IAggregationField[] | undefined;
@@ -449,24 +449,8 @@ export class AggregationService {
     return groupPoints;
   }
 
-  private async checkGroupingOverLimit(
-    fieldIds: string[],
-    fieldInstanceMap: Record<string, IFieldInstance>,
-    queryBuilder: Knex.QueryBuilder
-  ) {
-    fieldIds.forEach((fieldId) => {
-      const field = fieldInstanceMap[fieldId];
-
-      if (!field) return;
-
-      const { dbFieldType, dbFieldName } = field;
-      const column =
-        dbFieldType === DbFieldType.Json
-          ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
-          : this.knex.ref(dbFieldName).toQuery();
-
-      queryBuilder.countDistinct(this.knex.raw(`${column}`));
-    });
+  private async checkGroupingOverLimit(dbFieldNames: string[], queryBuilder: Knex.QueryBuilder) {
+    queryBuilder.countDistinct(dbFieldNames);
 
     const distinctResult = await this.prisma.$queryRawUnsafe<{ count: number }[]>(
       queryBuilder.toQuery()
@@ -506,9 +490,10 @@ export class AggregationService {
         .appendQueryBuilder();
     }
 
+    const dbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
+
     const isGroupingOverLimit = await this.checkGroupingOverLimit(
-      groupFieldIds,
-      fieldInstanceMap,
+      dbFieldNames,
       distinctQueryBuilder
     );
     if (isGroupingOverLimit) {
@@ -533,9 +518,7 @@ export class AggregationService {
           ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
           : this.knex.ref(dbFieldName).toQuery();
 
-      queryBuilder
-        .select(this.knex.raw(`${column}`))
-        .groupByRaw(this.knex.raw(`${column}`).toQuery());
+      queryBuilder.select(this.knex.raw(`${column}`)).groupBy(dbFieldName);
     });
 
     const groupSql = queryBuilder.toQuery();

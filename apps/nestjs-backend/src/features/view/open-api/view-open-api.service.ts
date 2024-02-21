@@ -13,6 +13,7 @@ import type {
   IColumnMetaRo,
   IViewPropertyKeys,
   IViewOptions,
+  IGridColumnMeta,
 } from '@teable/core';
 import {
   ViewType,
@@ -156,7 +157,7 @@ export class ViewOpenApiService {
     const primaryFields = fields.filter((field) => field.isPrimary).map((field) => field.id);
 
     const isHiddenPrimaryField = columnMetaRo.some(
-      (f) => primaryFields.includes(f.fieldId) && f.columnMeta.hidden
+      (f) => primaryFields.includes(f.fieldId) && (f.columnMeta as IGridColumnMeta).hidden
     );
     const fieldIds = columnMetaRo.map(({ fieldId }) => fieldId);
 
