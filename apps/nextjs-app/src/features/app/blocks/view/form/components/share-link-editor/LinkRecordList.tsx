@@ -15,7 +15,9 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { debounce } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useUnmount } from 'react-use';
+import { tableConfig } from '@/features/i18n/table.config';
 
 interface ILinkRecordListProps {
   shareId: string;
@@ -28,6 +30,7 @@ const pageSize = 50;
 
 export const LinkRecordList = (props: ILinkRecordListProps) => {
   const { shareId, field, selectedRecordIds, onSelected } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<IFilter>();
@@ -102,8 +105,8 @@ export const LinkRecordList = (props: ILinkRecordListProps) => {
       </div>
       <Separator className="my-2" />
       <CommandList>
-        {status === 'loading' && <div className="text-center">Loading...</div>}
-        {status === 'success' && isEmpty && <div className="text-center">No results found.</div>}
+        {status === 'loading' && <div className="text-center">{t('actions.loading')}</div>}
+        {status === 'success' && isEmpty && <div className="text-center">{t('noResult')}</div>}
         {status === 'success' &&
           data.pages.map((page) => {
             return page.records.map(({ id, name }) => (
@@ -136,7 +139,7 @@ export const LinkRecordList = (props: ILinkRecordListProps) => {
               onKeyDown={(e) => e.key === 'Enter' && fetchNextPage()}
               onClick={() => fetchNextPage()}
             >
-              {isFetchingNextPage ? 'Loading more...' : 'Load More'}
+              {isFetchingNextPage ? t('actions.loading') : t('actions.loadMore')}
             </Button>
           </div>
         )}

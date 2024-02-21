@@ -5,7 +5,9 @@ import { type FormView } from '@teable/sdk/model';
 import { Button, cn, useToast } from '@teable/ui-lib/shadcn';
 import { omit } from 'lodash';
 import { useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocalStorage, useMap, useSet } from 'react-use';
+import { tableConfig } from '@/features/i18n/table.config';
 import { generateUniqLocalKey } from '../util';
 import { FormField } from './FormField';
 
@@ -19,6 +21,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
   const view = useView() as FormView | undefined;
   const fields = useFields();
   const { toast } = useToast();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const localKey = generateUniqLocalKey(tableId, view?.id);
   const [formDataMap, setFormDataMap] = useLocalStorage<Record<string, Record<string, unknown>>>(
     LocalStorageKeys.ViewFromData,
@@ -143,7 +146,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
           className="mb-6 mt-8 w-full px-6 text-center text-3xl leading-9 sm:px-12"
           style={{ overflowWrap: 'break-word' }}
         >
-          {name ?? 'Untitled'}
+          {name ?? t('untitled')}
         </div>
 
         {description && <div className="mb-4 w-full px-12">{description}</div>}
@@ -171,7 +174,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
                 disabled={loading}
               >
                 {loading && <Loader2 className="size-4 animate-spin" />}
-                Submit
+                {t('actions.submit')}
               </Button>
             </div>
           </div>

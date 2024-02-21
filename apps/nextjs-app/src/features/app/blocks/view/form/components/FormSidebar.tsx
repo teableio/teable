@@ -15,7 +15,9 @@ import {
 } from '@teable/ui-lib/shadcn';
 import type { FC } from 'react';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FieldOperator } from '@/features/app/components/field-setting';
+import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { DraggableItem } from './Drag';
 
@@ -28,6 +30,7 @@ interface IDragItemProps {
 
 export const DragItem: FC<IDragItemProps> = (props) => {
   const { field, disabled, onClick, getFieldStatic } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { type, name, isLookup } = field;
   const Icon = getFieldStatic(type, isLookup).Icon;
   const content = (
@@ -53,7 +56,7 @@ export const DragItem: FC<IDragItemProps> = (props) => {
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>{content}</TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
-              Unable to add this type field
+              {t('table:form.unableAddFieldTip')}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -71,6 +74,7 @@ export const FormSidebar = () => {
   const allFields = useFields({ withHidden: true });
   const getFieldStatic = useFieldStaticGetter();
   const { openSetting } = useFieldSettingStore();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const { hiddenFields, visibleFields, unavailableFields } = useMemo(() => {
     if (!activeViewId) {
@@ -122,7 +126,7 @@ export const FormSidebar = () => {
   return (
     <div className="flex h-full w-64 shrink-0 flex-col border-r py-3">
       <div className="mb-2 flex justify-between px-4">
-        <h2 className="text-lg">Fields</h2>
+        <h2 className="text-lg">{t('table:form.fieldsManagement')}</h2>
         <div>
           <Button
             variant={'ghost'}
@@ -131,7 +135,7 @@ export const FormSidebar = () => {
             disabled={!hiddenFields.length}
             onClick={() => onFieldsVisibleChange(hiddenFields, true)}
           >
-            Add All
+            {t('table:form.addAll')}
           </Button>
           <Button
             variant={'ghost'}
@@ -140,7 +144,7 @@ export const FormSidebar = () => {
             disabled={!visibleFields.length}
             onClick={() => onFieldsVisibleChange(visibleFields, false)}
           >
-            Remove All
+            {t('table:form.removeAll')}
           </Button>
         </div>
       </div>
@@ -175,7 +179,7 @@ export const FormSidebar = () => {
           </>
         )}
         <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400">
-          Hide the field to here
+          {t('table:form.hideFieldTip')}
         </div>
       </div>
 
@@ -186,7 +190,7 @@ export const FormSidebar = () => {
           onClick={() => openSetting({ operator: FieldOperator.Add })}
         >
           <Plus fontSize={16} />
-          Add Field
+          {t('table:field.editor.addField')}
         </Button>
       </div>
     </div>

@@ -96,6 +96,15 @@
     "prefillingRowTitle": "Row moved",
     "prefillingRowTooltip": "This row will move to its new position when you select another row"
   },
+  "form": {
+    "fieldsManagement": "Fields",
+    "addAll": "Add All",
+    "removeAll": "Remove All",
+    "hideFieldTip": "Hide the field to here",
+    "unableAddFieldTip": "Unable to add this type field",
+    "removeFromFormTip": "Remove from the form",
+    "descriptionPlaceholder": "Enter from description"
+  },
   "menu": {
     "insertRecordAbove": "Insert record above",
     "insertRecordBelow": "Insert record below",
@@ -111,6 +120,7 @@
     "deleteAllSelectedFields": "Delete all selected fields"
   },
   "view": {
+    "addRecord": "Add record",
     "searchView": "Search view..."
   },
   "lastModifiedTime": "Last modified time"

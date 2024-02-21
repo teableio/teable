@@ -7,6 +7,7 @@
     "confirm": "Confirm",
     "close": "Close",
     "edit": "Edit",
+    "fill": "Fill",
     "update": "Update",
     "delete": "Delete",
     "cancel": "Cancel",
@@ -17,7 +18,9 @@
     "submitSucceed": "Submit Succeed!",
     "editSucceed": "Edit Succeed!",
     "updateSucceed": "Update Succeed!",
-    "deleteSucceed": "Delete Succeed!"
+    "deleteSucceed": "Delete Succeed!",
+    "loading": "Loading...",
+    "loadMore": "Load more"
   },
   "settings": {
     "title": "Settings",
@@ -75,6 +78,8 @@
     "automation": "Automation"
   },
   "noResult": "No Result.",
+  "untitled": "Untitled",
   "name": "Name",
-  "description": "Description"
+  "description": "Description",
+  "required": "Required"
 }

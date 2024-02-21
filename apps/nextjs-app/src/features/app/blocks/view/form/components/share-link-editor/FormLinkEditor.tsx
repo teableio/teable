@@ -4,6 +4,8 @@ import { LinkCard } from '@teable/sdk/components';
 import type { LinkField } from '@teable/sdk/model';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 import { LinkRecordList } from './LinkRecordList';
 
 interface IShareFormLinkEditorProps {
@@ -17,6 +19,7 @@ interface IShareFormLinkEditorProps {
 export const ShareFormLinkEditor = (props: IShareFormLinkEditorProps) => {
   const { cellValue, shareId, className, field, onChange } = props;
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const isMultiple = field.isMultipleCellValue;
 
@@ -52,7 +55,7 @@ export const ShareFormLinkEditor = (props: IShareFormLinkEditorProps) => {
         <PopoverTrigger asChild>
           <Button variant="outline" size={'sm'} className={className}>
             <Plus />
-            Add Record
+            {t('table:view.addRecord')}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="h-[350px] w-screen md:w-[480px]">
