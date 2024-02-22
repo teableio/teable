@@ -8,7 +8,9 @@ import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
 import { DriverClient, parseDsn } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IBaseConfig } from '../../configs/base.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -23,7 +25,8 @@ export class DbConnectionService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {
     this.baseConfig = this.configService.get<IBaseConfig>('base')!;
   }
@@ -62,25 +65,45 @@ export class DbConnectionService {
 
       // Revoke permissions from the role for the schema
       await prisma.$executeRawUnsafe(
-        `REVOKE USAGE ON SCHEMA "${schemaName}" FROM "${readOnlyRole}"`
+        this.knex.raw('REVOKE USAGE ON SCHEMA ?? FROM ??', [schemaName, readOnlyRole]).toQuery()
       );
 
       await prisma.$executeRawUnsafe(
-        `ALTER DEFAULT PRIVILEGES FOR ROLE teable IN SCHEMA "${schemaName}" REVOKE ALL ON TABLES FROM "${readOnlyRole}"`
+        this.knex
+          .raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA ?? REVOKE ALL ON TABLES FROM ??`, [
+            schemaName,
+            readOnlyRole,
+          ])
+          .toQuery()
       );
 
       // Revoke permissions from the role for the tables in schema
       await prisma.$executeRawUnsafe(
-        `REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA "${schemaName}" FROM "${readOnlyRole}"`
+        this.knex
+          .raw('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA ?? FROM ??', [
+            schemaName,
+            readOnlyRole,
+          ])
+          .toQuery()
       );
-      // Optionally, drop the role
-      await prisma.$executeRawUnsafe(`DROP ROLE IF EXISTS "${readOnlyRole}"`);
+
+      // drop the role
+      await prisma.$executeRawUnsafe(
+        this.knex.raw('DROP ROLE IF EXISTS ??', [readOnlyRole]).toQuery()
+      );
 
       await prisma.base.update({
         where: { id: baseId },
         data: { schemaPass: null },
       });
     });
+  }
+
+  private async roleExits(role: string): Promise<boolean> {
+    const roleExists = await this.prismaService.$queryRaw<
+      { count: bigint }[]
+    >`SELECT count(*) FROM pg_roles WHERE rolname=${role}`;
+    return Boolean(roleExists[0].count);
   }
 
   async retrieve(baseId: string): Promise<{ dsn: IDsn; url: string } | null> {
@@ -106,10 +129,7 @@ export class DbConnectionService {
     }
 
     // Check if the read-only role already exists
-    const roleExists = await this.prismaService
-      .$executeRaw`SELECT EXISTS (SELECT FROM pg_roles WHERE rolname=${readOnlyRole})`;
-
-    if (!roleExists) {
+    if (!(await this.roleExits(readOnlyRole))) {
       throw new InternalServerErrorException(`Role does not exist: ${readOnlyRole}`);
     }
 
@@ -173,19 +193,31 @@ export class DbConnectionService {
 
         // Create a read-only role
         await prisma.$executeRawUnsafe(
-          `CREATE ROLE "${readOnlyRole}" WITH LOGIN PASSWORD '${password}' NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION`
+          this.knex
+            .raw(
+              `CREATE ROLE ?? WITH LOGIN PASSWORD ? NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION`,
+              [readOnlyRole, password]
+            )
+            .toQuery()
         );
 
         await prisma.$executeRawUnsafe(
-          `GRANT USAGE ON SCHEMA "${schemaName}" TO "${readOnlyRole}"`
+          this.knex.raw(`GRANT USAGE ON SCHEMA ?? TO ??`, [schemaName, readOnlyRole]).toQuery()
         );
 
         await prisma.$executeRawUnsafe(
-          `GRANT SELECT ON ALL TABLES IN SCHEMA "${schemaName}" TO "${readOnlyRole}"`
+          this.knex
+            .raw(`GRANT SELECT ON ALL TABLES IN SCHEMA ?? TO ??`, [schemaName, readOnlyRole])
+            .toQuery()
         );
 
         await prisma.$executeRawUnsafe(
-          `ALTER DEFAULT PRIVILEGES IN SCHEMA "${schemaName}" GRANT SELECT ON TABLES TO "${readOnlyRole}"`
+          this.knex
+            .raw(`ALTER DEFAULT PRIVILEGES IN SCHEMA ?? GRANT SELECT ON TABLES TO ??`, [
+              schemaName,
+              readOnlyRole,
+            ])
+            .toQuery()
         );
 
         const dsn = {
