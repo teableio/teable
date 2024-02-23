@@ -73,7 +73,7 @@ export const AccessSelect = (props: IFormAccess) => {
       spaceIds: spaces,
       baseIds: newBases,
     });
-  }
+  };
 
   const onDeleteSpaceId = (spaceId: string) => {
     const newSpaces = spaces.filter((id) => id !== spaceId);
@@ -82,7 +82,7 @@ export const AccessSelect = (props: IFormAccess) => {
       spaceIds: newSpaces,
       baseIds: bases,
     });
-  }
+  };
 
   if (spaceListLoading || baseListLoading) {
     return <Spin className="size-5" />;
