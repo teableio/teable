@@ -17,7 +17,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 
 interface IExpirationSelect {
-  onChange?: (value: string) => void;
+  onChange?: (value: string | undefined) => void;
 }
 
 export const ExpirationSelect = (props: IExpirationSelect) => {
@@ -60,6 +60,12 @@ export const ExpirationSelect = (props: IExpirationSelect) => {
     }
     onChange?.(dayjs().add(Number(value), 'day').toDate().toLocaleDateString());
   };
+
+  const onDateChange = (date: Date | undefined) => {
+    setDate(date);
+    onChange?.(date?.toLocaleDateString() || undefined);
+  };
+
   return (
     <div className="flex gap-6">
       <Select onValueChange={onValueChange}>
@@ -96,7 +102,7 @@ export const ExpirationSelect = (props: IExpirationSelect) => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
+            <Calendar mode="single" selected={date} onSelect={onDateChange} initialFocus />
           </PopoverContent>
         </Popover>
       )}
