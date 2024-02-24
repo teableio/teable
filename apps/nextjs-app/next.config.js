@@ -81,7 +81,6 @@ const secureHeaders = createSecureHeaders({
           frameSrc: ["'self'"],
           connectSrc: [
             "'self'",
-            'https://vitals.vercel-insights.com',
             'https://*.sentry.io',
             'https://*.teable.io',
             'http://localhost:9000',

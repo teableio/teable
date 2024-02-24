@@ -1,5 +1,6 @@
 import type { DocumentProps } from 'next/document';
 import Document, { Html, Main, Head, NextScript } from 'next/document';
+import { MicrosoftClarity } from '@/components/Metrics';
 
 type Props = DocumentProps & {
   emotionStyleTags?: string[];
@@ -39,6 +40,7 @@ class MyDocument extends Document<Props> {
         </Head>
         <body>
           <Main />
+          <MicrosoftClarity />
           <NextScript />
         </body>
       </Html>
