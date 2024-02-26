@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocalStorage, useMap, useSet } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { generateUniqLocalKey } from '../util';
+import { BrandFooter } from './BrandFooter';
 import { FormField } from './FormField';
 
 interface IFormPreviewerProps {
@@ -108,24 +109,24 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
       onReset();
       containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       toast({
-        title: 'Submit success',
+        title: t('actions.submitSucceed'),
         variant: 'default',
         duration: 2000,
       });
     }, 1000);
   };
 
-  const coverUrl = (view as FormView)?.options?.coverUrl;
+  const { coverUrl, logoUrl, submitLabel } = view?.options ?? {};
 
   return (
     <div
       className={cn(
-        'w-full overflow-y-auto sm:py-8',
+        'w-full overflow-y-auto pb-8 sm:pt-8',
         loading && 'pointer-events-none cursor-not-allowed'
       )}
       ref={containerRef}
     >
-      <div className="mx-auto flex min-h-full w-full max-w-[640px] flex-col items-center overflow-hidden pb-12 shadow-md sm:rounded-lg sm:border">
+      <div className="relative mx-auto mb-12 flex w-full max-w-[640px] flex-col items-center overflow-hidden sm:min-h-full sm:rounded-lg sm:border sm:pb-12 sm:shadow-md">
         <div
           className={cn(
             'relative h-36 w-full',
@@ -133,17 +134,22 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
               'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600 dark:from-green-600 dark:via-blue-600 dark:to-blue-900'
           )}
         >
-          {coverUrl && (
-            <img
-              src={(view as FormView)?.options?.coverUrl}
-              alt="form cover"
-              className="size-full object-cover"
-            />
-          )}
+          {coverUrl && <img src={coverUrl} alt="form cover" className="size-full object-cover" />}
+        </div>
+
+        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
+          <img
+            src={logoUrl}
+            alt="form logo"
+            className="size-full rounded-lg object-cover shadow-sm"
+          />
         </div>
 
         <div
-          className="mb-6 mt-8 w-full px-6 text-center text-3xl leading-9 sm:px-12"
+          className={cn(
+            'mb-6 w-full px-6 text-center text-3xl leading-9 sm:px-12',
+            logoUrl ? 'mt-16' : 'mt-8'
+          )}
           style={{ overflowWrap: 'break-word' }}
         >
           {name ?? t('untitled')}
@@ -168,18 +174,20 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
 
             <div className="mb-12 mt-8 flex w-full justify-center sm:mb-0 sm:px-12">
               <Button
-                className="w-full text-base sm:w-48"
+                className="w-full text-base sm:w-56"
                 size={'lg'}
                 onClick={onSubmit}
                 disabled={loading}
               >
                 {loading && <Loader2 className="size-4 animate-spin" />}
-                {t('actions.submit')}
+                {submitLabel || t('common:actions.submit')}
               </Button>
             </div>
           </div>
         )}
       </div>
+
+      <BrandFooter />
     </div>
   );
 };

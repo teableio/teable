@@ -81,5 +81,6 @@
   "untitled": "未命名",
   "name": "名称",
   "description": "描述",
-  "required": "必填"
+  "required": "必填",
+  "poweredBy": "<0></0> 提供技术支持"
 }

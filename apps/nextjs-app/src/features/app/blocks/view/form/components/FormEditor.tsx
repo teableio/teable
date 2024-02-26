@@ -134,6 +134,8 @@ export const FormEditor = () => {
         },
       ]);
 
+      if (!visibleFields.length) return;
+
       const finalIndex = targetIndex ?? 0;
       const newOrders = reorder(1, finalIndex, visibleFields.length, (index) => {
         const fieldId = visibleFields[index].id;

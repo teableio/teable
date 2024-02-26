@@ -74,4 +74,20 @@ describe('OpenAPI ViewController (e2e) option (PUT) update form view option', ()
     const coverUrl = (updatedView.options as IFormView['options']).coverUrl;
     expect(coverUrl).toBe(assertUrl);
   });
+
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update option logoUrl`, async () => {
+    const assertUrl = 'https://test.ico';
+    await updateViewOptions(tableId, viewId, { logoUrl: assertUrl });
+    const updatedView = await getView(tableId, viewId);
+    const logoUrl = (updatedView.options as IFormView['options']).logoUrl;
+    expect(logoUrl).toBe(assertUrl);
+  });
+
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update option submitLabel`, async () => {
+    const assertLabel = 'Confirm';
+    await updateViewOptions(tableId, viewId, { submitLabel: assertLabel });
+    const updatedView = await getView(tableId, viewId);
+    const submitLabel = (updatedView.options as IFormView['options']).submitLabel;
+    expect(submitLabel).toBe(assertLabel);
+  });
 });

@@ -178,7 +178,7 @@ export const FormSidebar = () => {
             })}
           </>
         )}
-        <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400">
+        <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400 dark:text-slate-600">
           {t('table:form.hideFieldTip')}
         </div>
       </div>

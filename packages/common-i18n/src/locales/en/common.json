@@ -81,5 +81,6 @@
   "untitled": "Untitled",
   "name": "Name",
   "description": "Description",
-  "required": "Required"
+  "required": "Required",
+  "poweredBy": "Powered by <0></0>"
 }
