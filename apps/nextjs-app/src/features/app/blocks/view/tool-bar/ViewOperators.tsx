@@ -1,4 +1,4 @@
-import type { GridViewOptions } from '@teable/core';
+import type { IGridViewOptions } from '@teable/core';
 import {
   ArrowUpDown,
   PaintBucket,
@@ -114,7 +114,7 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
       </TooltipProvider>
 
       <RowHeight
-        rowHeight={(view?.options as GridViewOptions)?.rowHeight || null}
+        rowHeight={(view?.options as IGridViewOptions)?.rowHeight || null}
         onChange={onRowHeightChange}
       >
         {(_, isActive, Icon) => (
