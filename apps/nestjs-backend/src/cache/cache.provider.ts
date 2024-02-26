@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import path from 'path';
 import KeyvRedis from '@keyv/redis';
 import KeyvSqlite from '@keyv/sqlite';
 import type { Provider } from '@nestjs/common';
@@ -16,11 +17,20 @@ export const CacheProvider: Provider = {
   useFactory: async (config: ICacheConfig) => {
     const { provider, sqlite, redis } = config;
 
+    Logger.log(`[Cache Manager Adapter]: ${provider}`);
+
     const store = match(provider)
       .with('memory', () => new Map())
       .with('sqlite', () => {
-        fse.ensureFileSync(sqlite.uri);
-        return new KeyvSqlite(sqlite);
+        const uri = sqlite.uri.replace(/^sqlite:\/\//, '');
+        fse.ensureFileSync(uri);
+
+        Logger.log(`[Cache Manager File Path]: ${path.resolve(uri)}`);
+
+        return new KeyvSqlite({
+          ...sqlite,
+          uri,
+        });
       })
       .with('redis', () => new KeyvRedis(redis, { useRedisSets: false }))
       .exhaustive();
@@ -30,7 +40,6 @@ export const CacheProvider: Provider = {
       error && Logger.error(error, 'Cache Manager Connection Error');
     });
 
-    Logger.log(`[Cache Manager Adapter]: ${provider}`);
     Logger.log(`[Cache Manager Namespace]: ${keyv.opts.namespace}`);
     return new CacheService(keyv);
   },

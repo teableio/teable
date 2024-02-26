@@ -133,6 +133,7 @@ export interface IImageCell extends IEditableCell {
 export interface IUserData {
   id: string;
   name: string;
+  avatarUrl?: string;
 }
 
 export interface IUserCell extends IEditableCell {

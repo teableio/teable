@@ -58,8 +58,8 @@ export class ActionTriggerListener {
         const oldColumn = oldValue as IColumn;
         const newColumn = newValue as IColumn;
 
-        const shouldShow = oldColumn.hidden !== newColumn.hidden && !newColumn.hidden;
-        const shouldApplyStatFunc = oldColumn.statisticFunc !== newColumn.statisticFunc;
+        const shouldShow = !newColumn?.hidden && oldColumn?.hidden !== newColumn?.hidden;
+        const shouldApplyStatFunc = oldColumn?.statisticFunc !== newColumn?.statisticFunc;
 
         if (shouldShow) {
           buffer.showViewField!.push(fieldId);

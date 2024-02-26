@@ -127,6 +127,7 @@ export class RecordOpenApiService {
           prismaService: this.prismaService,
           fieldConvertingService: this.fieldConvertingService,
           recordService: this.recordService,
+          attachmentsStorageService: this.attachmentsStorageService,
         },
         field,
         tableId,
@@ -143,35 +144,6 @@ export class RecordOpenApiService {
           recordField[fieldIdOrName] = newCellValues[i];
         }
       });
-
-      if (field.type === FieldType.Attachment) {
-        // attachment presignedUrl reparation
-        for (const recordField of newRecordsFields) {
-          const attachmentCellValue = recordField[fieldIdOrName] as IAttachmentCellValue;
-          if (!attachmentCellValue) {
-            continue;
-          }
-          recordField[fieldIdOrName] = await Promise.all(
-            attachmentCellValue.map(async (item) => {
-              const { path, mimetype, token } = item;
-              const presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-                StorageAdapter.getBucket(UploadType.Table),
-                path,
-                token,
-                undefined,
-                {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  'Content-Type': mimetype,
-                }
-              );
-              return {
-                ...item,
-                presignedUrl,
-              };
-            })
-          );
-        }
-      }
     }
 
     return records.map((record, i) => ({

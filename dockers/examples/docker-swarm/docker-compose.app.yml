@@ -1,0 +1,38 @@
+version: '3.9'
+
+services:
+  teable:
+    image: ghcr.io/teableio/teable:latest
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+    expose:
+      - '3000'
+    environment:
+      - TZ=${TIMEZONE}
+      - NODE_OPTIONS=--max-old-space-size=1024
+      - PUBLIC_ORIGIN=http://127.0.0.1
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable-db:5432/${POSTGRES_DB}
+      - BACKEND_CACHE_PROVIDER=redis
+      - BACKEND_CACHE_REDIS_URI=redis://:${POSTGRES_PASSWORD}@teable-cache:6379/0
+      - BACKEND_STORAGE_PROVIDER=minio
+      - BACKEND_STORAGE_PUBLIC_BUCKET=public
+      - BACKEND_STORAGE_PRIVATE_BUCKET=private
+      - BACKEND_STORAGE_MINIO_ENDPOINT=127.0.0.1
+      - BACKEND_STORAGE_MINIO_PORT=9000
+      - BACKEND_STORAGE_MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - BACKEND_STORAGE_MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - STORAGE_PREFIX=http://127.0.0.1:9000
+    networks:
+      - teable-swarm
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 3

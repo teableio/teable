@@ -84,6 +84,8 @@ const secureHeaders = createSecureHeaders({
             'https://vitals.vercel-insights.com',
             'https://*.sentry.io',
             'https://*.teable.io',
+            'http://localhost:9000',
+            'http://127.0.0.1:9000',
           ],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
           workerSrc: ['blob:'],

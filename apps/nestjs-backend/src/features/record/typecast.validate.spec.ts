@@ -9,6 +9,7 @@ import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
 import type { RecordService } from './record.service';
 import { TypeCastAndValidate } from './typecast.validate';
+import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 
 vi.mock('zod-validation-error', () => {
   return {
@@ -21,11 +22,13 @@ describe('TypeCastAndValidate', () => {
   const prismaService = mockDeep<PrismaService>();
   const fieldConvertingService = mockDeep<FieldConvertingService>();
   const recordService = mockDeep<RecordService>();
+  const attachmentsStorageService = mockDeep<AttachmentsStorageService>();
 
   const services = {
     prismaService,
     fieldConvertingService,
     recordService,
+    attachmentsStorageService,
   };
   const tableId = 'tableId';
 

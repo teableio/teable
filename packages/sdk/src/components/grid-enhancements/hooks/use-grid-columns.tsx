@@ -1,4 +1,4 @@
-import type { INumberShowAs, ISingleLineTextShowAs, IAttachmentCellValue } from '@teable/core';
+import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
 import { CellValueType, ColorUtils, FieldType } from '@teable/core';
 import { keyBy } from 'lodash';
 import { LRUCache } from 'lru-cache';
@@ -7,7 +7,7 @@ import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
 import { CellType, getFileCover, hexToRGBA, onMixedTextClick } from '../..';
 import { ThemeKey } from '../../../context';
-import { useTablePermission, useFields, useView, useTheme } from '../../../hooks';
+import { useFields, useTablePermission, useTheme, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { IViewInstance } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/utils';
@@ -17,8 +17,8 @@ import {
   GridAttachmentEditor,
   GridDateEditor,
   GridLinkEditor,
-  GridSelectEditor,
   GridNumberEditor,
+  GridSelectEditor,
 } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
 
@@ -403,7 +403,7 @@ export const createCellValue2GridDisplay =
       }
       case FieldType.User: {
         const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        const data = cv.map(({ id, title }) => ({ id, name: title }));
+        const data = cv.map(({ title, ...data }) => ({ ...data, name: title }));
 
         return {
           ...baseCellProps,
