@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateBaseRo, IUpdateBaseRo } from '@teable/openapi';
+import type { ICreateBaseRo, IDuplicateBaseRo, IUpdateBaseRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { BaseDuplicateService } from './base-duplicate.service';
 
 @Injectable()
 export class BaseService {
@@ -14,6 +15,7 @@ export class BaseService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
+    private readonly baseDuplicateService: BaseDuplicateService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -81,19 +83,21 @@ export class BaseService {
     return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
   }
 
+  private async getMaxOrder(spaceId: string) {
+    const spaceAggregate = await this.prismaService.base.aggregate({
+      where: { spaceId, deletedTime: null },
+      _max: { order: true },
+    });
+    return spaceAggregate._max.order || 0;
+  }
+
   async createBase(createBaseRo: ICreateBaseRo) {
     const userId = this.cls.get('user.id');
     const { name, spaceId } = createBaseRo;
 
     return this.prismaService.$transaction(async (prisma) => {
-      let order = createBaseRo.order;
-      if (!order) {
-        const spaceAggregate = await prisma.base.aggregate({
-          where: { spaceId, deletedTime: null },
-          _max: { order: true },
-        });
-        order = (spaceAggregate._max.order || 0) + 1;
-      }
+      const order =
+        createBaseRo.order == null ? (await this.getMaxOrder(spaceId)) + 1 : createBaseRo.order;
 
       const base = await prisma.base.create({
         data: {
@@ -151,6 +155,15 @@ export class BaseService {
     await this.prismaService.base.update({
       data: { deletedTime: new Date(), lastModifiedBy: userId },
       where: { id: baseId, deletedTime: null },
+    });
+  }
+
+  async duplicateBase(baseId: string, duplicateBaseRo: IDuplicateBaseRo) {
+    return await this.prismaService.$tx(async () => {
+      const newBaseId = await this.baseDuplicateService.duplicate(baseId, duplicateBaseRo);
+      return {
+        baseId: newBaseId,
+      };
     });
   }
 }

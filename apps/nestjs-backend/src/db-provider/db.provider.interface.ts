@@ -40,9 +40,18 @@ export interface IDbProvider {
 
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
 
+  duplicateTable(
+    fromSchema: string,
+    toSchema: string,
+    tableName: string,
+    withData?: boolean
+  ): string;
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
 
-  joinDbTableName(schemaName: string, tableName: string): string;
+  splitTableName(tableName: string): string[];
+
+  joinDbTableName(schemaName: string, dbTableName: string): string;
 
   executeUpdateRecordsSqlList(params: {
     dbTableName: string;

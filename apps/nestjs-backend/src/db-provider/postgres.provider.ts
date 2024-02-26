@@ -99,8 +99,30 @@ export class PostgresProvider implements IDbProvider {
     ];
   }
 
-  joinDbTableName(schemaName: string, tableName: string) {
-    return `${schemaName}.${tableName}`;
+  splitTableName(tableName: string): string[] {
+    return tableName.split('.');
+  }
+
+  joinDbTableName(schemaName: string, dbTableName: string) {
+    return `${schemaName}.${dbTableName}`;
+  }
+
+  duplicateTable(
+    fromSchema: string,
+    toSchema: string,
+    tableName: string,
+    withData?: boolean
+  ): string {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, dbTableName] = this.splitTableName(tableName);
+    return this.knex
+      .raw(`CREATE TABLE ??.?? AS TABLE ??.?? ${withData ? '' : 'WITH NO DATA'}`, [
+        toSchema,
+        dbTableName,
+        fromSchema,
+        dbTableName,
+      ])
+      .toQuery();
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
