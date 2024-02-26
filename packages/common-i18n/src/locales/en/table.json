@@ -103,7 +103,8 @@
     "hideFieldTip": "Hide the field to here",
     "unableAddFieldTip": "Unable to add this type field",
     "removeFromFormTip": "Remove from the form",
-    "descriptionPlaceholder": "Enter from description"
+    "descriptionPlaceholder": "Enter from description",
+    "dragToFormTip": "Drag the field here to add it to the form"
   },
   "menu": {
     "insertRecordAbove": "Insert record above",

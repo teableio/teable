@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { GridViewOptions, IFilter, IGetRecordsRo } from '@teable/core';
+import type { IGridViewOptions, IFilter, IGetRecordsRo } from '@teable/core';
 import { RowHeightLevel, mergeFilter } from '@teable/core';
 import type { IRangesRo } from '@teable/openapi';
 import { shareViewCopy } from '@teable/openapi';
@@ -132,7 +132,7 @@ export const GridViewBase = () => {
 
   const rowHeightLevel = useMemo(() => {
     if (view == null) return RowHeightLevel.Short;
-    return (view.options as GridViewOptions)?.rowHeight || RowHeightLevel.Short;
+    return (view.options as IGridViewOptions)?.rowHeight || RowHeightLevel.Short;
   }, [view]);
 
   const onSelectionChanged = useCallback(

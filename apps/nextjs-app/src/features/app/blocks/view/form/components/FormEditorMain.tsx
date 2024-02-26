@@ -1,14 +1,22 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { generateAttachmentId } from '@teable/core';
-import { Pencil } from '@teable/icons';
+import { Pencil, Plus } from '@teable/icons';
 import type { INotifyVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import type { IFile } from '@teable/sdk/components';
 import { AttachmentManager } from '@teable/sdk/components';
 import { useIsHydrated, useView } from '@teable/sdk/hooks';
 import type { FormView, IFieldInstance } from '@teable/sdk/model';
-import { Button, Input, Textarea, cn } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Textarea,
+  cn,
+} from '@teable/ui-lib/shadcn';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FieldOperator } from '@/features/app/components/field-setting';
@@ -22,14 +30,20 @@ const attachmentManager = new AttachmentManager(2);
 
 export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const { fields } = props;
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const isHydrated = useIsHydrated();
   const { openSetting } = useFieldSettingStore();
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [coverUrl, setCoverUrl] = useState((view as FormView)?.options?.coverUrl ?? '');
+
+  const coverInput = useRef<HTMLInputElement>(null);
+  const logoInput = useRef<HTMLInputElement>(null);
+
   const [name, setName] = useState(view?.name ?? '');
   const [isNameEditing, setNameEditing] = useState(false);
   const [description, setDescription] = useState(view?.description ?? '');
+  const [coverUrl, setCoverUrl] = useState(view?.options?.coverUrl ?? '');
+  const [logoUrl, setLogoUrl] = useState(view?.options?.logoUrl ?? '');
+  const [submitLabel, setSubmitLabel] = useState(view?.options?.submitLabel);
+
   const { setNodeRef } = useDroppable({ id: FORM_EDITOR_DROPPABLE_ID });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -59,21 +73,37 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
     await view.updateDescription(description);
   };
 
-  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'cover') => {
     const fileList = e.target.files;
 
     if (fileList == null) return;
 
+    const isCover = type === 'cover';
     const files = Array.from(fileList);
     const uploadItem = { instance: files[0], id: generateAttachmentId() };
     attachmentManager.upload([uploadItem], UploadType.Form, {
       successCallback: (_file: IFile, attachment: INotifyVo) => {
         const url = attachment.url;
-        setCoverUrl(url);
-        view.updateOption({ coverUrl: url });
+        const optionProp = isCover ? 'coverUrl' : 'logoUrl';
+        isCover ? setCoverUrl(url) : setLogoUrl(url);
+        view.updateOption({ [optionProp]: url });
       },
     });
     e.target.value = '';
+  };
+
+  const onSubmitTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSubmitLabel(value);
+  };
+
+  const onSubmitTextInputBlur = async () => {
+    if (submitLabel === view.options?.submitLabel) return;
+    if (!submitLabel) {
+      await view.updateOption({ submitLabel: t('common:actions.submit') });
+      return setSubmitLabel(t('common:actions.submit'));
+    }
+    await view.updateOption({ submitLabel });
   };
 
   const onNameClick = () => {
@@ -84,7 +114,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
 
   return (
     <div className="w-full overflow-y-auto sm:py-8">
-      <div className="mx-auto flex w-full max-w-[640px] flex-col items-center overflow-hidden border pb-12 shadow-md sm:rounded-lg">
+      <div className="relative mx-auto flex w-full max-w-[640px] flex-col items-center overflow-hidden border pb-12 shadow-md sm:rounded-lg">
         <div
           className={cn(
             'relative h-36 w-full',
@@ -97,16 +127,56 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             variant={'ghost'}
             size={'icon'}
             className="absolute left-2 top-2 m-1 bg-accent/40 font-normal"
-            onClick={() => fileInput.current?.click()}
+            onClick={() => coverInput.current?.click()}
           >
-            <input type="file" className="hidden" ref={fileInput} onChange={onFileSelected} />
+            <input
+              type="file"
+              className="hidden"
+              ref={coverInput}
+              onChange={(e) => onFileSelected(e, 'cover')}
+            />
             <Pencil />
           </Button>
         </div>
 
+        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
+          {logoUrl ? (
+            <>
+              <img
+                src={logoUrl}
+                alt="form logo"
+                className="size-full rounded-lg object-cover shadow-sm"
+              />
+              <Button
+                variant={'ghost'}
+                size={'icon'}
+                className="absolute left-0 top-0 size-full font-normal opacity-0 group-hover:opacity-30"
+                onClick={() => logoInput.current?.click()}
+              >
+                <Pencil className="size-6" />
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant={'outline'}
+              size={'icon'}
+              className="size-full rounded-lg font-normal"
+              onClick={() => logoInput.current?.click()}
+            >
+              <Plus className="size-8" />
+            </Button>
+          )}
+          <input
+            type="file"
+            className="hidden"
+            ref={logoInput}
+            onChange={(e) => onFileSelected(e, 'logo')}
+          />
+        </div>
+
         {isNameEditing ? (
           <Input
-            className="mb-6 mt-8 w-2/3 text-center text-3xl shadow-none"
+            className="mb-6 mt-16 w-2/3 text-center text-3xl shadow-none"
             value={name}
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
@@ -115,7 +185,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           />
         ) : (
           <div
-            className="mb-6 mt-8 w-full px-6 text-center text-3xl sm:px-12"
+            className="mb-6 mt-16 w-full px-6 text-center text-3xl sm:px-12"
             style={{ overflowWrap: 'break-word' }}
             tabIndex={0}
             role={'button'}
@@ -126,7 +196,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             }}
             onClick={onNameClick}
           >
-            {name ?? 'Untitled'}
+            {name ?? t('untitled')}
           </div>
         )}
 
@@ -144,6 +214,11 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           {isHydrated && (
             <DroppableContainer id={FORM_EDITOR_DROPPABLE_ID} items={fields}>
               <SortableContext items={fields} strategy={verticalListSortingStrategy}>
+                {!fields.length && (
+                  <div className="flex h-20 w-full items-center justify-center rounded border border-dashed text-sm text-slate-400 dark:text-slate-600">
+                    {t('table:form.dragToFormTip')}
+                  </div>
+                )}
                 <div ref={setNodeRef}>
                   {fields.map((field, index) => {
                     const { id } = field;
@@ -165,6 +240,27 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               </SortableContext>
             </DroppableContainer>
           )}
+        </div>
+
+        <div className="mb-12 mt-8 flex w-full items-center justify-center sm:mb-0 sm:px-12">
+          <Button className="mr-2 w-full text-base sm:w-56" size={'lg'}>
+            {submitLabel ?? t('common:actions.submit')}
+          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant={'ghost'} size={'icon'} className="font-normal">
+                <Pencil />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start" side="right">
+              <Input
+                maxLength={12}
+                value={submitLabel}
+                onChange={onSubmitTextChange}
+                onBlur={onSubmitTextInputBlur}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </div>
