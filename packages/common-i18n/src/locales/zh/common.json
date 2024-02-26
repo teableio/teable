@@ -7,6 +7,7 @@
     "confirm": "确认",
     "close": "关闭",
     "edit": "编辑",
+    "fill": "填写",
     "update": "更新",
     "delete": "删除",
     "cancel": "取消",
@@ -17,7 +18,9 @@
     "submitSucceed": "提交成功！",
     "editSucceed": "编辑成功！",
     "updateSucceed": "更新成功！",
-    "deleteSucceed": "删除成功！"
+    "deleteSucceed": "删除成功！",
+    "loading": "加载中...",
+    "loadMore": "加载更多"
   },
   "settings": {
     "title": "设置",
@@ -75,6 +78,8 @@
     "automation": "自动化"
   },
   "noResult": "无结果。",
+  "untitled": "未命名",
   "name": "名称",
-  "description": "描述"
+  "description": "描述",
+  "required": "必填"
 }

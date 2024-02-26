@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { IActionTriggerBuffer, IColumn } from '@teable/core';
+import type { IActionTriggerBuffer, IGridColumn } from '@teable/core';
 import { getActionTriggerChannel, OpName } from '@teable/core';
 import { isEmpty } from 'lodash';
 import { match } from 'ts-pattern';
@@ -55,8 +55,8 @@ export class ActionTriggerListener {
 
     if (columnMeta != null) {
       Object.entries(columnMeta)?.forEach(([fieldId, { oldValue, newValue }]) => {
-        const oldColumn = oldValue as IColumn;
-        const newColumn = newValue as IColumn;
+        const oldColumn = oldValue as IGridColumn;
+        const newColumn = newValue as IGridColumn;
 
         const shouldShow = !newColumn?.hidden && oldColumn?.hidden !== newColumn?.hidden;
         const shouldApplyStatFunc = oldColumn?.statisticFunc !== newColumn?.statisticFunc;

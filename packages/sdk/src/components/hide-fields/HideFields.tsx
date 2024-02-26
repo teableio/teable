@@ -1,7 +1,7 @@
 import { difference, map } from 'lodash';
 import React from 'react';
 import { useViewId, useFields, useView } from '../../hooks';
-import type { IFieldInstance } from '../../model';
+import type { GridView, IFieldInstance } from '../../model';
 import { HideFieldsBase } from './HideFieldsBase';
 
 export const HideFields: React.FC<{
@@ -9,7 +9,7 @@ export const HideFields: React.FC<{
 }> = ({ children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true });
-  const view = useView();
+  const view = useView() as GridView | undefined;
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>
     fields.filter(

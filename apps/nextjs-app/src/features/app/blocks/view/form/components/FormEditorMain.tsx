@@ -10,7 +10,9 @@ import { useIsHydrated, useView } from '@teable/sdk/hooks';
 import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import { Button, Input, Textarea, cn } from '@teable/ui-lib/shadcn';
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FieldOperator } from '@/features/app/components/field-setting';
+import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { FORM_EDITOR_DROPPABLE_ID } from '../constant';
 import { DroppableContainer, SortableItem } from './Drag';
@@ -29,6 +31,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const [isNameEditing, setNameEditing] = useState(false);
   const [description, setDescription] = useState(view?.description ?? '');
   const { setNodeRef } = useDroppable({ id: FORM_EDITOR_DROPPABLE_ID });
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   if (view == null) return null;
 
@@ -131,7 +134,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           <Textarea
             className="min-h-[80px] w-full resize-none"
             value={description}
-            placeholder="Enter from description"
+            placeholder={t('table:form.descriptionPlaceholder')}
             onChange={onDescriptionChange}
             onBlur={onDescriptionBlur}
           />

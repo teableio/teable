@@ -39,5 +39,5 @@ export abstract class ViewCore implements IViewVo {
 
   lastModifiedTime!: string;
 
-  columnMeta!: IColumnMeta;
+  abstract columnMeta: IColumnMeta;
 }

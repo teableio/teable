@@ -1,6 +1,7 @@
-import { Textarea, cn } from '@teable/ui-lib';
+import { cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import AutoSizeTextarea from 'react-textarea-autosize';
 import type { ICellEditor, IEditorRef } from '../type';
 
 type ITextEditor = ICellEditor<string | null>;
@@ -9,7 +10,7 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
   props,
   ref
 ) => {
-  const { value, onChange, className, readonly, style } = props;
+  const { value, onChange, className, readonly } = props;
   const [text, setText] = useState<string>(value || '');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -28,14 +29,18 @@ const LongTextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEdit
   };
 
   return (
-    <Textarea
+    <AutoSizeTextarea
       ref={inputRef}
-      style={style}
-      className={cn('bg-background resize-none h-20', className)}
+      className={cn(
+        'w-full resize-none rounded-md border border-input bg-background p-2 text-sm leading-6 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+        className
+      )}
       value={text}
-      onChange={onChangeInner}
+      minRows={2}
+      maxRows={10}
+      readOnly={readonly}
       onBlur={saveValue}
-      disabled={readonly}
+      onChange={onChangeInner}
     />
   );
 };

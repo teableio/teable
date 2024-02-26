@@ -96,6 +96,15 @@
     "prefillingRowTitle": "此行已移动",
     "prefillingRowTooltip": "当您选择另一行时，此行将移动到其新的位置"
   },
+  "form": {
+    "fieldsManagement": "字段管理",
+    "addAll": "全部添加",
+    "removeAll": "全部移除",
+    "hideFieldTip": "拖拽到这里移除表单中的字段",
+    "unableAddFieldTip": "不支持添加该字段类型",
+    "removeFromFormTip": "从表单中移除该字段",
+    "descriptionPlaceholder": "请输入表单描述"
+  },
   "menu": {
     "insertRecordAbove": "在上方插入记录",
     "insertRecordBelow": "在下方插入记录",
@@ -111,6 +120,7 @@
     "deleteAllSelectedFields": "删除所有选定的字段"
   },
   "view": {
+    "addRecord": "添加记录",
     "searchView": "搜索视图..."
   },
   "lastModifiedTime": "最近修改时间"

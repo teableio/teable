@@ -1,16 +1,12 @@
 import { ChevronsLeft } from '@teable/icons';
-import { LocalStorageKeys, useIsHydrated, useIsMobile } from '@teable/sdk';
+import { useIsHydrated, useIsMobile } from '@teable/sdk';
 import { ResizablePanelGroup, ResizableHandle, ResizablePanel, Button } from '@teable/ui-lib';
 import classNames from 'classnames';
-import { isString } from 'lodash';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { HoverWraper } from '../../blocks/base/base-side-bar/HoverWraper';
 import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
-import { PaneSkeleton } from './PaneSkeleton';
-
-const ResizablePanelsPrefix = 'react-resizable-panels';
 
 enum ResizePart {
   LEFT = 'left',
@@ -27,26 +23,9 @@ export const ResizablePane: React.FC<{
   const isHydrated = useIsHydrated();
   const [left, center, right] = children;
   const [offset, setOffset] = useState(DefaultLeftSize);
-  const [defaultLeftSize, setDefaultLeftSize] = useState<number>(DefaultLeftSize);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [leftVisible, setLeftVisible] = useState<boolean>(true);
   const leftMenuRef = useRef<React.ComponentRef<typeof ResizablePanel>>(null);
-
-  useEffect(() => {
-    const sizeString = localStorage.getItem(
-      `${ResizablePanelsPrefix}:${LocalStorageKeys.SideBarSize}`
-    );
-    if (isString(sizeString)) {
-      const sizeObj = JSON.parse(sizeString);
-      const keys = Object.keys(sizeObj);
-      const key = keys?.[0];
-      const collapseSize = sizeObj?.[key]?.expandToSizes?.[ResizePart.LEFT] ?? DefaultLeftSize;
-      const lastLeftLayout = sizeObj?.[key]?.layout?.[0] ?? DefaultLeftSize;
-      setOffset(collapseSize);
-      // in some cases, the left panel will transition from default, so constrain the default size
-      setDefaultLeftSize(lastLeftLayout);
-    }
-  }, []);
 
   useHotkeys(`meta+b`, () => {
     if (leftVisible) {
@@ -57,7 +36,13 @@ export const ResizablePane: React.FC<{
   });
 
   if (!isHydrated) {
-    return <PaneSkeleton />;
+    return (
+      <>
+        {left}
+        {center}
+        {right}
+      </>
+    );
   }
 
   return (
@@ -84,11 +69,7 @@ export const ResizablePane: React.FC<{
         </HoverWraper>
       )}
 
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="relative"
-        autoSaveId={LocalStorageKeys.SideBarSize}
-      >
+      <ResizablePanelGroup direction="horizontal" className="relative">
         {isMobile ? (
           <SheetWraper>{left}</SheetWraper>
         ) : (
@@ -97,7 +78,7 @@ export const ResizablePane: React.FC<{
             order={1}
             className={classNames('h-full will-change-auto')}
             minSize={15}
-            defaultSize={defaultLeftSize}
+            defaultSize={DefaultLeftSize}
             maxSize={30}
             collapsible={true}
             ref={leftMenuRef}

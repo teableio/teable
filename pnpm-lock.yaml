@@ -1294,6 +1294,9 @@ importers:
       react-hammerjs:
         specifier: 1.0.1
         version: 1.0.1(react@18.2.0)
+      react-textarea-autosize:
+        specifier: 8.5.3
+        version: 8.5.3(@types/react@18.2.56)(react@18.2.0)
       react-use:
         specifier: 17.5.0
         version: 17.5.0(react-dom@18.2.0)(react@18.2.0)

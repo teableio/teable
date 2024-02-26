@@ -1,4 +1,5 @@
 import z from 'zod';
+import type { IFormColumnMeta } from '../column-meta.schema';
 import type { ViewType } from '../constant';
 import { ViewCore } from '../view';
 import type { IViewVo } from '../view.schema';
@@ -22,4 +23,6 @@ export class FormViewCore extends ViewCore {
   type!: ViewType.Form;
 
   options!: FormViewOptions;
+
+  columnMeta!: IFormColumnMeta;
 }

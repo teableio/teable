@@ -1,9 +1,9 @@
-import { Settings, UserPlus } from '@teable/icons';
+import { HelpCircle, Settings, UserPlus } from '@teable/icons';
 import { useBase, useTableId } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
-
 import Link from 'next/link';
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { getHelpLink } from '@/lib/help-link';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
 import { ViewList } from '../../view/list/ViewList';
 
@@ -25,17 +25,24 @@ export const TableHeader: React.FC = () => {
       <div className="grow basis-0"></div>
       <Collaborators />
 
-      <Button asChild variant="ghost" size="xs" className="hidden sm:flex">
-        <Link
-          href={{
-            pathname: '/base/[baseId]/[tableId]/design',
-            query: { baseId: base.id, tableId },
-          }}
-          title="Design"
-        >
-          <Settings className="size-4" />
-        </Link>
-      </Button>
+      <div className="flex">
+        <Button asChild variant="ghost" size="xs" className="hidden sm:flex">
+          <Link
+            href={{
+              pathname: '/base/[baseId]/[tableId]/design',
+              query: { baseId: base.id, tableId },
+            }}
+            title="Design"
+          >
+            <Settings className="size-4" />
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" size="xs" className="hidden sm:flex">
+          <a href={getHelpLink()} title="Help" target="_blank" rel="noreferrer">
+            <HelpCircle className="size-4" />
+          </a>
+        </Button>
+      </div>
       <SpaceCollaboratorModalTrigger
         space={{
           name: base.name,

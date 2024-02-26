@@ -2,7 +2,7 @@
 import { DraggableHandle, EyeOff } from '@teable/icons';
 import { CellEditor } from '@teable/sdk/components';
 import { useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
-import type { IFieldInstance } from '@teable/sdk/model';
+import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Label,
   Switch,
@@ -12,6 +12,8 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import type { FC } from 'react';
+import { useTranslation } from 'react-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 
 interface IFormFieldEditorProps {
   field: IFieldInstance;
@@ -19,9 +21,10 @@ interface IFormFieldEditorProps {
 
 export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   const { field } = props;
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const tableId = useTableId();
   const getFieldStatic = useFieldStaticGetter();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   if (!view || !tableId) return null;
 
@@ -34,7 +37,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
       {
         fieldId: fieldId,
         columnMeta: {
-          hidden: true,
+          visible: false,
         },
       },
     ]);
@@ -63,7 +66,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
         <div className="flex items-center">
           {!isComputed && (
             <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-              <Label htmlFor="form-field-required">Required</Label>
+              <Label htmlFor="form-field-required">{t('required')}</Label>
               <Switch
                 id="form-field-required"
                 className="ml-1 mr-2"
@@ -82,7 +85,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
                   />
                 </span>
               </TooltipTrigger>
-              <TooltipContent sideOffset={8}>Remove from the form</TooltipContent>
+              <TooltipContent sideOffset={8}>{t('table:form.removeFromFormTip')}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
