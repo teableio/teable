@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
-  IAttachmentCellValue,
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecord,
@@ -9,10 +8,8 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
 import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
-import StorageAdapter from '../../attachments/plugins/adapter';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';

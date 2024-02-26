@@ -3,13 +3,13 @@ import { Colors, FieldType } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
+import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
 import type { RecordService } from './record.service';
 import { TypeCastAndValidate } from './typecast.validate';
-import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 
 vi.mock('zod-validation-error', () => {
   return {
