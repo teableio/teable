@@ -35,14 +35,14 @@ export class PostgresProvider implements IDbProvider {
   }
 
   renameTableName(oldTableName: string, newTableName: string) {
-    const nameWithoutSchema = newTableName.split('.')[1];
+    const nameWithoutSchema = this.splitTableName(newTableName)[1];
     return [
       this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, nameWithoutSchema]).toQuery(),
     ];
   }
 
   dropTable(tableName: string): string {
-    const [schemaName, dbTableName] = tableName.split('.');
+    const [schemaName, dbTableName] = this.splitTableName(tableName);
     return this.knex.raw('DROP TABLE ??.??', [schemaName, dbTableName]).toQuery();
   }
 
@@ -69,7 +69,7 @@ export class PostgresProvider implements IDbProvider {
     return this.dropColumn(tableName, columnName);
   }
 
-  columnInfo(tableName: string, columnName: string): string {
+  columnInfo(tableName: string): string {
     const [schemaName, dbTableName] = tableName.split('.');
     return this.knex
       .select({
@@ -79,7 +79,6 @@ export class PostgresProvider implements IDbProvider {
       .where({
         table_schema: schemaName,
         table_name: dbTableName,
-        column_name: columnName,
       })
       .toQuery();
   }

@@ -45,7 +45,7 @@ export class FieldService implements IAdapterService {
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
     let dbFieldName = convertNameToValidCharacter(name, 40);
 
-    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId), dbFieldName);
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId));
     const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
     // fallback logic
     if (columns.some((column) => column.name === dbFieldName)) {

@@ -77,7 +77,7 @@ export class SqliteProvider implements IDbProvider {
     ];
   }
 
-  columnInfo(tableName: string, _columnName: string): string {
+  columnInfo(tableName: string): string {
     return this.knex.raw(`PRAGMA table_info(??)`, [tableName]).toQuery();
   }
 

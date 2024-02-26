@@ -34,7 +34,7 @@ export interface IDbProvider {
   dropColumn(tableName: string, columnName: string): string[];
 
   // sql response format: { name: string }[], name for columnName.
-  columnInfo(tableName: string, columnName: string): string;
+  columnInfo(tableName: string): string;
 
   dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[];
 
