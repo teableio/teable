@@ -39,8 +39,8 @@
     "nestjs-cls": "^4.0.0"
   },
   "dependencies": {
-    "@prisma/client": "5.9.1",
-    "prisma": "5.9.1",
+    "@prisma/client": "5.10.2",
+    "prisma": "5.10.2",
     "nanoid": "3.3.7"
   },
   "devDependencies": {
@@ -52,7 +52,7 @@
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.1.1",
-    "eslint": "8.56.0",
+    "eslint": "8.57.0",
     "handlebars": "4.7.8",
     "is-port-reachable": "3.1.0",
     "mustache": "4.2.0",

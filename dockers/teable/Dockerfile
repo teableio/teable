@@ -80,7 +80,7 @@ ENV TZ=UTC
 ENV PORT=${NEXTJS_APP_PORT:-3000}
 
 RUN npm install zx -g && \
-      apt-get update && apt-get install -y openssl && \
+      apt-get update && apt-get install -y curl openssl && \
       rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

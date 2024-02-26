@@ -4,7 +4,7 @@ import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
 
 export const storageConfig = registerAs('storage', () => ({
-  provider: process.env.BACKEND_STORAGE_PROVIDER ?? 'local',
+  provider: (process.env.BACKEND_STORAGE_PROVIDER ?? 'local') as 'local' | 'minio',
   local: {
     path: process.env.BACKEND_STORAGE_LOCAL_PATH ?? '.assets/uploads',
   },
@@ -12,9 +12,7 @@ export const storageConfig = registerAs('storage', () => ({
   privateBucket: process.env.BACKEND_STORAGE_PRIVATE_BUCKET || '',
   minio: {
     endPoint: process.env.BACKEND_STORAGE_MINIO_ENDPOINT,
-    port: process.env.BACKEND_STORAGE_MINIO_PORT
-      ? parseInt(process.env.BACKEND_STORAGE_MINIO_PORT)
-      : 9000,
+    port: Number(process.env.BACKEND_STORAGE_MINIO_PORT ?? 9000),
     useSSL: process.env.BACKEND_STORAGE_MINIO_USE_SSL === 'true',
     accessKey: process.env.BACKEND_STORAGE_MINIO_ACCESS_KEY,
     secretKey: process.env.BACKEND_STORAGE_MINIO_SECRET_KEY,

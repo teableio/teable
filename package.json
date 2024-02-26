@@ -54,7 +54,7 @@
     "@commitlint/config-conventional": "18.6.2",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/shell-quote": "1.7.5",
-    "eslint": "8.56.0",
+    "eslint": "8.57.0",
     "husky": "9.0.11",
     "lint-staged": "15.2.2",
     "npm-run-all2": "6.1.2",
@@ -70,5 +70,5 @@
     "pnpm": ">=8.15.0",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.15.3"
+  "packageManager": "pnpm@8.15.4"
 }

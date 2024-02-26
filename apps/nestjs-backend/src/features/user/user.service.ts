@@ -3,12 +3,12 @@ import { Injectable } from '@nestjs/common';
 import { generateSpaceId, SpaceRole } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, type ICreateSpaceRo, type IUserNotifyMeta } from '@teable/openapi';
+import { type ICreateSpaceRo, type IUserNotifyMeta, UploadType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { getFullStorageUrl } from '../../utils/full-storage-url';
 import StorageAdapter from '../attachments/plugins/adapter';
-import type { LocalStorage } from '../attachments/plugins/local';
+import { LocalStorage } from '../attachments/plugins/local';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 
 @Injectable()
@@ -106,10 +106,21 @@ export class UserService {
       'Content-Type': avatarFile.mimetype,
     });
 
-    const localStorage = this.storageAdapter as LocalStorage;
     const { size, mimetype, path: filePath } = avatarFile;
-    const hash = await localStorage.getHash(filePath);
-    const { width, height } = await localStorage.getFileMate(filePath);
+    let hash, width, height;
+
+    const storage = this.storageAdapter;
+    if (storage instanceof LocalStorage) {
+      hash = await storage.getHash(filePath);
+      const fileMate = await storage.getFileMate(filePath);
+      width = fileMate.width;
+      height = fileMate.height;
+    } else {
+      const objectMeta = await storage.getObject(bucket, path, id);
+      hash = objectMeta.hash;
+      width = objectMeta.width;
+      height = objectMeta.height;
+    }
 
     const isExist = await this.prismaService.txClient().attachments.count({
       where: {

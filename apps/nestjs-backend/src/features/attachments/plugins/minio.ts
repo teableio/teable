@@ -58,8 +58,8 @@ export class MinioStorage implements StorageAdapter {
     }
   }
 
-  async getObject(bucket: string, path: string, token: string) {
-    const objectName = join(path, token);
+  async getObject(bucket: string, path: string, _token: string) {
+    const objectName = path;
     const { metaData, size, etag: hash } = await this.minioClient.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
     const url = `/${bucket}/${objectName}`;

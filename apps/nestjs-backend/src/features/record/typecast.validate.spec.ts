@@ -3,6 +3,7 @@ import { Colors, FieldType } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
+import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -21,11 +22,13 @@ describe('TypeCastAndValidate', () => {
   const prismaService = mockDeep<PrismaService>();
   const fieldConvertingService = mockDeep<FieldConvertingService>();
   const recordService = mockDeep<RecordService>();
+  const attachmentsStorageService = mockDeep<AttachmentsStorageService>();
 
   const services = {
     prismaService,
     fieldConvertingService,
     recordService,
+    attachmentsStorageService,
   };
   const tableId = 'tableId';
 

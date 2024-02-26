@@ -11,8 +11,8 @@ import type {
   IExtraResult,
   IFilter,
   IGetRecordQuery,
-  IGroup,
   IGetRecordsRo,
+  IGroup,
   ILinkCellValue,
   IRecord,
   IRecordsVo,
@@ -32,8 +32,8 @@ import {
   mergeWithDefaultFilter,
   mergeWithDefaultSort,
   OpName,
-  Relationship,
   parseGroup,
+  Relationship,
 } from '@teable/core';
 import type { Field, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
