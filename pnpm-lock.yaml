@@ -1296,7 +1296,7 @@ importers:
         version: 1.0.1(react@18.2.0)
       react-textarea-autosize:
         specifier: 8.5.3
-        version: 8.5.3(@types/react@18.2.56)(react@18.2.0)
+        version: 8.5.3(@types/react@18.2.58)(react@18.2.0)
       react-use:
         specifier: 17.5.0
         version: 17.5.0(react-dom@18.2.0)(react@18.2.0)
@@ -3983,8 +3983,8 @@ packages:
       postcss: 8.4.35
     dev: true
 
-  /@csstools/postcss-gradients-interpolation-method@4.0.10(postcss@8.4.35):
-    resolution: {integrity: sha512-PwKOxVuX8lo52bPtPeKjaIp6oH2EzhcBxCndRcvGZKsqZYQ35k9A5G4yihZ+wp7PoxPqDNiXuhQsvQG2lqMpOA==}
+  /@csstools/postcss-gradients-interpolation-method@4.0.11(postcss@8.4.35):
+    resolution: {integrity: sha512-LFom5jCVUfzF+iuiOZvhvX7RRN8vc+tKpcKo9s4keEBAU2mPwV5/Fgz5iylEfXP/DZbEdq2C0At20urMi/lupw==}
     engines: {node: ^14 || ^16 || >=18}
     peerDependencies:
       postcss: ^8.4
@@ -13074,8 +13074,8 @@ packages:
     resolution: {integrity: sha512-YUifsXXuknHlUsmlgyY0PKzgPOr7/FjCePfHNt0jxm83wHZi44VDMQ7/fGNkjY3/jV1MC+1CmZbaHzugyeRtpg==}
     dev: true
 
-  /cssdb@7.11.0:
-    resolution: {integrity: sha512-YUVAJhjDcTZzVD5XE49l3PQtGE29vvhzaL1bM3BtkvSmIRJeYENdfn1dn5jauBI7BBF+IyyiBS+oSVx3Hz/Gaw==}
+  /cssdb@7.11.1:
+    resolution: {integrity: sha512-F0nEoX/Rv8ENTHsjMPGHd9opdjGfXkgRBafSUGnQKPzGZFB7Lm0BbT10x21TMOCrKLbVsJ0NoCDMk6AfKqw8/A==}
     dev: true
 
   /cssesc@3.0.0:
@@ -21587,7 +21587,7 @@ packages:
       '@csstools/postcss-exponential-functions': 1.0.4(postcss@8.4.35)
       '@csstools/postcss-font-format-keywords': 3.0.2(postcss@8.4.35)
       '@csstools/postcss-gamut-mapping': 1.0.3(postcss@8.4.35)
-      '@csstools/postcss-gradients-interpolation-method': 4.0.10(postcss@8.4.35)
+      '@csstools/postcss-gradients-interpolation-method': 4.0.11(postcss@8.4.35)
       '@csstools/postcss-hwb-function': 3.0.9(postcss@8.4.35)
       '@csstools/postcss-ic-unit': 3.0.4(postcss@8.4.35)
       '@csstools/postcss-initial': 1.0.1(postcss@8.4.35)
@@ -21615,7 +21615,7 @@ packages:
       css-blank-pseudo: 6.0.1(postcss@8.4.35)
       css-has-pseudo: 6.0.2(postcss@8.4.35)
       css-prefers-color-scheme: 9.0.1(postcss@8.4.35)
-      cssdb: 7.11.0
+      cssdb: 7.11.1
       postcss: 8.4.35
       postcss-attribute-case-insensitive: 6.0.3(postcss@8.4.35)
       postcss-clamp: 4.1.0(postcss@8.4.35)
