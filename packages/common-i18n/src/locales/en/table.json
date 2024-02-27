@@ -81,7 +81,9 @@
       "autoNumber": "Automatically generate unique incremental numbers for each record.",
       "button": "Trigger a customized action.",
       "lookup": "See values from a field in a linked record."
-    }
+    },
+    "fieldName": "Field Name",
+    "fieldType": "Field Type"
   },
   "table": {
     "dbTableName": "Table name in physical database",
@@ -90,7 +92,30 @@
     "tableInfoDetail": "Basic information for the table",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
-    "nameForTable": "Name for this table"
+    "nameForTable": "Name for this table",
+    "operator": {
+      "createBlank": "Create a blank table"
+    }
+  },
+  "import": {
+    "title": {
+      "import": "import",
+      "importTitle": "Create a new table",
+      "optionsTitle": "Import option"
+    },
+    "menu": {
+      "addFromOtherSource": "Add from other sources",
+      "csvFile": "Csv file",
+      "cancel": "Cancel"
+    },
+    "tips": {
+      "importWayTip": "Click or drag file to this area to upload"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Auto-select field types",
+      "useFirstRowAsHeaderOptionName": "Use first row as header",
+      "importDataOptionName": "Import Data"
+    }
   },
   "grid": {
     "prefillingRowTitle": "Row moved",

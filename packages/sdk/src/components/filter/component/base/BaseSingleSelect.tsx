@@ -8,6 +8,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  CommandList,
 } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
@@ -71,7 +72,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -98,7 +99,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
             />
           ) : null}
           <CommandEmpty>{notFoundText}</CommandEmpty>
-          <CommandGroup>
+          <CommandList>
             {options?.map((option) => (
               <CommandItem
                 key={option.value}
@@ -118,7 +119,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
                 {optionRender?.(option) ?? option.label ?? t('common.untitled')}
               </CommandItem>
             ))}
-          </CommandGroup>
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>

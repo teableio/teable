@@ -56,3 +56,22 @@ export const RelationshipRevert = {
 
 export const isMultiValueLink = (relationship: Relationship): boolean =>
   relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
+
+export const PRIMARY_SUPPORTED_TYPES = [
+  FieldType.SingleLineText,
+  FieldType.LongText,
+  FieldType.Date,
+  FieldType.Number,
+];
+
+export const IMPORT_SUPPORTED_TYPES = [
+  FieldType.SingleLineText,
+  FieldType.LongText,
+  FieldType.Date,
+  FieldType.Number,
+  FieldType.Attachment,
+  FieldType.Checkbox,
+  FieldType.MultipleSelect,
+  FieldType.SingleSelect,
+  FieldType.User,
+];

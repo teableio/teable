@@ -81,7 +81,9 @@
       "autoNumber": "为每条记录自动生成唯一的递增数字。",
       "button": "触发自定义操作。",
       "lookup": "通过绑定一个关联字段，从关联表中查找已关联记录的信息。"
-    }
+    },
+    "fieldName": "字段名",
+    "fieldType": "字段类型"
   },
   "table": {
     "dbTableName": "物理数据库中的表名",
@@ -90,7 +92,30 @@
     "tableInfoDetail": "当前表的基础属性",
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
-    "nameForTable": "表的名称"
+    "nameForTable": "表的名称",
+    "operator": {
+      "createBlank": "创建一个新表格"
+    }
+  },
+  "import": {
+    "title": {
+      "import": "导入",
+      "importTitle": "创建一个新表格",
+      "optionsTitle": "导入选项"
+    },
+    "menu": {
+      "addFromOtherSource": "从第三方资源导入",
+      "csvFile": "csv 文件",
+      "cancel": "取消"
+    },
+    "tips": {
+      "importWayTip": "点击或者拖拽到此区域上传"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "自动预测类型",
+      "useFirstRowAsHeaderOptionName": "使用第一行作为行头",
+      "importDataOptionName": "导入数据"
+    }
   },
   "grid": {
     "prefillingRowTitle": "此行已移动",
