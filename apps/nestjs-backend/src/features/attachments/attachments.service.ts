@@ -53,8 +53,8 @@ export class AttachmentsService {
     if (!path) {
       throw new HttpException(`Could not find attachment: ${token}`, HttpStatus.NOT_FOUND);
     }
-    const { dir, token: tokenInPath } = localStorage.parsePath(path);
-    if (token && !StorageAdapter.isPublicDir(dir)) {
+    const { bucket, token: tokenInPath } = localStorage.parsePath(path);
+    if (token && !StorageAdapter.isPublicBucket(bucket)) {
       respHeaders = localStorage.verifyReadToken(token).respHeaders ?? {};
     } else {
       const attachment = await this.prismaService

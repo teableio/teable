@@ -32,7 +32,8 @@ export class MinioStorage implements StorageAdapter {
     const { tokenExpireIn, uploadMethod } = this.config;
     const { expiresIn, contentLength, contentType, hash } = presignedParams;
     const token = getRandomString(12);
-    const path = join(dir, hash ?? token);
+    const filename = hash ?? token;
+    const path = join(dir, filename);
     const requestHeaders = {
       'Content-Type': contentType,
       'Content-Length': contentLength,
@@ -41,7 +42,7 @@ export class MinioStorage implements StorageAdapter {
       const url = await this.minioClient.presignedUrl(
         uploadMethod,
         bucket,
-        join(dir, hash ?? token),
+        path,
         expiresIn ?? second(tokenExpireIn),
         requestHeaders
       );
