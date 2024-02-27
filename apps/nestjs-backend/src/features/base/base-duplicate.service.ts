@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import {
   FieldType,
@@ -22,6 +22,8 @@ import { replaceExpressionFieldIds, replaceJsonStringFieldIds } from './utils';
 
 @Injectable()
 export class BaseDuplicateService {
+  private logger = new Logger(BaseDuplicateService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
@@ -288,8 +290,9 @@ export class BaseDuplicateService {
 
     for (const dbTableName of toDuplicate) {
       const sql = this.dbProvider.duplicateTable(fromBaseId, toBaseId, dbTableName, withRecords);
+      const newDbTableName = this.replaceDbTableName(dbTableName, toBaseId);
       await this.prismaService.txClient().$executeRawUnsafe(sql);
-      const updateSql = this.knex(this.replaceDbTableName(dbTableName, toBaseId))
+      const updateSql = this.knex(newDbTableName)
         .update({
           __created_time: new Date(),
           __last_modified_time: null,
@@ -299,6 +302,27 @@ export class BaseDuplicateService {
         })
         .toQuery();
       await this.prismaService.txClient().$executeRawUnsafe(updateSql);
+
+      const alterAutoNumber = this.dbProvider.alterAutoNumber(newDbTableName);
+      for (const sql of alterAutoNumber) {
+        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      }
+
+      const alterTableSchemaSql = this.knex.schema
+        .alterTable(newDbTableName, (table) => {
+          table.dropNullable('__id');
+          table.unique('__id');
+          table.unique('__auto_number');
+          table.dateTime('__created_time').defaultTo(this.knex.fn.now()).notNullable().alter();
+          table.dropNullable('__created_by');
+          table.dropNullable('__version');
+        })
+        .toSQL()
+        .map((item) => item.sql);
+
+      for (const sql of alterTableSchemaSql) {
+        await this.prismaService.txClient().$executeRawUnsafe(sql);
+      }
     }
 
     for (const { dbTableName } of tableRaws) {
@@ -309,8 +333,56 @@ export class BaseDuplicateService {
     }
   }
 
-  private async duplicateDbIndexes() {
-    // todo: implement
+  private async duplicateDbIndexes(
+    fromBaseId: string,
+    toBaseId: string,
+    old2NewViewIdMap: Record<string, string>
+  ) {
+    const query = this.knex('pg_indexes')
+      .select('*')
+      .where({
+        schemaname: fromBaseId,
+      })
+      .where('indexname', 'like', 'idx___row%')
+      .toQuery();
+
+    const beforeIndexedResult = await this.prismaService.txClient().$queryRawUnsafe<
+      {
+        schemaname: string;
+        tablename: string;
+        indexname: string;
+      }[]
+    >(query);
+
+    this.logger.log(beforeIndexedResult, 'beforeIndexed');
+
+    const indexSql = beforeIndexedResult
+      .map((item) =>
+        this.knex.schema
+          .withSchema(toBaseId)
+          .alterTable(item.tablename, (table) => {
+            const oldViewId = item.indexname.substring('idx___row_'.length);
+            const newViewId = old2NewViewIdMap[oldViewId];
+            table.index([`${ROW_ORDER_FIELD_PREFIX}_${newViewId}`], `idx___row_${newViewId}`);
+          })
+          .toSQL()
+          .map((item) => item.sql)
+      )
+      .flat();
+
+    for (const sql of indexSql) {
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
+    }
+
+    const toBaseQuery = this.knex('pg_indexes')
+      .select('*')
+      .where({
+        schemaname: toBaseId,
+      })
+      .where('indexname', 'like', 'idx___row%')
+      .toQuery();
+    const afterIndexedResult = await this.prismaService.txClient().$queryRawUnsafe(toBaseQuery);
+    this.logger.log(afterIndexedResult, 'afterIndexed');
   }
 
   private async duplicateAttachments(
@@ -348,7 +420,7 @@ export class BaseDuplicateService {
     const old2NewViewIdMap = await this.duplicateViews(old2NewTableIdMap, old2NewFieldIdMap);
     await this.duplicateReferences(old2NewFieldIdMap);
     await this.duplicateDbTable(baseId, toBaseId, old2NewViewIdMap, withRecords);
-    await this.duplicateDbIndexes();
+    await this.duplicateDbIndexes(baseId, toBaseId, old2NewViewIdMap);
     if (withRecords) {
       await this.duplicateAttachments(old2NewTableIdMap, old2NewFieldIdMap);
     }

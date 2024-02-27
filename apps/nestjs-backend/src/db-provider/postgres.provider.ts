@@ -124,6 +124,28 @@ export class PostgresProvider implements IDbProvider {
       .toQuery();
   }
 
+  alterAutoNumber(tableName: string): string[] {
+    const [schema, dbTableName] = this.splitTableName(tableName);
+    const seqName = `${schema}_${dbTableName}_seq`;
+    return [
+      this.knex.raw(`CREATE SEQUENCE ??`, [seqName]).toQuery(),
+      this.knex
+        .raw(`ALTER TABLE ??.?? ALTER COLUMN __auto_number SET DEFAULT nextval('??')`, [
+          schema,
+          dbTableName,
+          seqName,
+        ])
+        .toQuery(),
+      this.knex
+        .raw(`SELECT setval('??', (SELECT MAX(__auto_number) FROM ??.??))`, [
+          seqName,
+          schema,
+          dbTableName,
+        ])
+        .toQuery(),
+    ];
+  }
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
     return this.knex.insert(insertData).into(tableName).toQuery();
   }

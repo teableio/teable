@@ -97,6 +97,10 @@ export class SqliteProvider implements IDbProvider {
       .toQuery();
   }
 
+  alterAutoNumber(_tableName: string): string[] {
+    return [];
+  }
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
     // TODO: The code doesn't taste good because knex utilizes the "select-stmt" mode to construct SQL queries for SQLite batchInsert.
     //  This is a temporary solution, and I'm actively keeping an eye on this issue for further developments.

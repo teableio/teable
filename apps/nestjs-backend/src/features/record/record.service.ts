@@ -852,6 +852,12 @@ export class RecordService implements IAdapterService {
       {} as { [recordId: string]: number }
     );
 
+    recordIds.forEach((recordId) => {
+      if (!(recordId in recordIdsMap)) {
+        throw new NotFoundException(`Record ${recordId} not found`);
+      }
+    });
+
     const primaryFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { tableId, isPrimary: true, deletedTime: null },
     });

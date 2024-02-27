@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/core';
 import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -73,6 +73,9 @@ export class RecordCalculateService {
 
     for (const record of records) {
       Object.entries(record.fields).forEach(([fieldNameOrId, value]) => {
+        if (!fieldIdMap[fieldNameOrId]) {
+          throw new NotFoundException(`Field ${fieldNameOrId} not found`);
+        }
         const fieldId = fieldIdMap[fieldNameOrId].id;
         const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id].fields[fieldId];
         cellContexts.push({

@@ -47,6 +47,8 @@ export interface IDbProvider {
     withData?: boolean
   ): string;
 
+  alterAutoNumber(tableName: string): string[];
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
 
   splitTableName(tableName: string): string[];
