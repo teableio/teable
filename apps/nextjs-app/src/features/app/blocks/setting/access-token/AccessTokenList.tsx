@@ -140,8 +140,8 @@ export const AccessTokenList = (props: { newToken?: string }) => {
                       .join('; ')}
                     {scopesMoreLen ? ` ${t('token:moreScopes', { len: scopesMoreLen })}` : ''}
                   </TableCell>
-                  <TableCell>{new Date(expiredTime).toLocaleDateString()}</TableCell>
                   <TableCell>{new Date(createdTime).toLocaleString()}</TableCell>
+                  <TableCell>{new Date(expiredTime).toLocaleDateString()}</TableCell>
                   <TableCell>
                     {lastUsedTime ? new Date(lastUsedTime).toLocaleString() : '-'}
                   </TableCell>
