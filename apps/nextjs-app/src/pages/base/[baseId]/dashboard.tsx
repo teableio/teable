@@ -2,7 +2,6 @@ import type { ITableVo } from '@teable/core';
 import type { IGetBaseVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
 import { DashboardPage } from '@/features/app/dashboard/Pages';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
@@ -12,7 +11,7 @@ import withAuthSSR from '@/lib/withAuthSSR';
 
 const Node: NextPageWithLayout = () => <DashboardPage />;
 
-export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {
+export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { baseId } = context.query;
   const result = await ssrApi.getTables(baseId as string);
   const base = await ssrApi.getBaseById(baseId as string);
