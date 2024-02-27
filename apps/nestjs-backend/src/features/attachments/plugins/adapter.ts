@@ -29,16 +29,8 @@ export default abstract class StorageAdapter {
     }
   };
 
-  static readonly isPublicDir = (dir: string) => {
-    switch (dir) {
-      case 'avatar':
-      case 'form':
-        return true;
-      case 'table':
-        return false;
-      default:
-        throw new BadRequestException('Invalid file dir');
-    }
+  static readonly isPublicBucket = (bucket: string) => {
+    return bucket === storageConfig().publicBucket;
   };
 
   /**
