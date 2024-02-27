@@ -1,7 +1,7 @@
 import type { IHttpError } from '@teable/core';
 import type { ShareViewGetVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
+import { SsrApi } from '@/backend/api/rest/table.ssr';
 import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';
 import { ShareViewPage } from '@/features/app/blocks/share/view/ShareViewPage';
 import { shareConfig } from '@/features/i18n/share.config';
@@ -13,6 +13,7 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async
   const { i18nNamespaces } = shareConfig;
 
   try {
+    const ssrApi = new SsrApi();
     res.setHeader('Content-Security-Policy', "frame-ancestors 'self' *;");
     ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
     const shareViewData = await ssrApi.getShareView(shareId as string);
