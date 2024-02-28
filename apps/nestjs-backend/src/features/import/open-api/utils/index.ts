@@ -1,12 +1,10 @@
-import axios from 'axios';
+import type { IValidateTypes } from '@teable/core';
+import { getUniqName, FieldType, SUPPORTEDTYPE } from '@teable/core';
 import { zip } from 'lodash';
+import fetch from 'node-fetch';
 import Papa from 'papaparse';
 import type { ZodType } from 'zod';
 import z from 'zod';
-import { FieldType } from '../models';
-import { getUniqName } from '../utils';
-import { SUPPORTEDTYPE } from './types';
-import type { IValidateTypes } from './types';
 
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.Checkbox]: z.boolean(),
@@ -20,20 +18,20 @@ export abstract class Importer {
 
   constructor(public config: { url: string }) {}
 
-  abstract getFile(): unknown;
+  // abstract getFile(): unknown;
 
   abstract parse(options?: unknown): Promise<unknown>;
 
   abstract streamParse(
     options: unknown,
-    fn: (chunk: Papa.ParseResult<unknown>['data']) => void
+    fn: (chunk: Papa.ParseResult<unknown>['data']) => Promise<void>
   ): void;
 
   abstract getSupportedFieldTypes(): IValidateTypes[];
 
-  async generateColumnInfo() {
+  async genColumns() {
     const supportTypes = this.getSupportedFieldTypes();
-    const columnInfo = (await this.parse({ preview: 2000 })) as string[];
+    const columnInfo = (await this.parse()) as string[];
     const zipColumnInfo = zip(...columnInfo);
     const existNames: string[] = [];
     const calculatedColumnHeaders = zipColumnInfo.map((column, index) => {
@@ -70,10 +68,6 @@ export abstract class Importer {
       calculatedColumnHeaders,
     };
   }
-
-  async generatePreWriteData() {
-    return await this.parse();
-  }
 }
 
 export class CsvImporter extends Importer {
@@ -90,55 +84,70 @@ export class CsvImporter extends Importer {
   getSupportedFieldTypes() {
     return CsvImporter.SUPPORTEDTYPE;
   }
-  async getFile() {
-    const result = await axios.get(this.config.url, { responseType: 'stream' });
-    return result.data;
-  }
-  async parse(options: Papa.ParseConfig) {
-    const fileStream = await this.getFile();
-    return await new Promise((resolve, reject) => {
-      Papa.parse(fileStream, {
-        header: false,
-        dynamicTyping: true,
-        complete: function (results) {
-          resolve(results.data);
-        },
-        error: (error) => {
-          reject(error);
-        },
-        ...options,
+  async parse(): Promise<unknown[]> {
+    const { url } = this.config;
+    return new Promise((resolve, reject) => {
+      fetch(url).then((response) => {
+        const stream = response.body;
+        const data: Papa.ParseResult<unknown>['data'] = [];
+        Papa.parse(stream, {
+          download: false,
+          dynamicTyping: true,
+          preview: 2000,
+          chunkSize: Importer.CHUNK_SIZE,
+          chunk: (chunk) => {
+            data.push(...chunk.data);
+          },
+          complete: () => {
+            resolve(data);
+          },
+          error: (err) => {
+            reject(err);
+          },
+        });
       });
     });
   }
-  async streamParse(
+  streamParse(
     options: Papa.ParseConfig & { skipFirstNLines: number },
-    cb: (chunk: Papa.ParseResult<string>['data']) => void
+    cb: (chunk: unknown[][]) => Promise<void>
   ) {
-    const fileStream = await this.getFile();
-    let isFirst = false;
-    return await new Promise((resolve, reject) => {
-      Papa.parse(fileStream, {
-        header: false,
-        dynamicTyping: true,
-        complete: function (results) {
-          resolve(results);
-        },
-        error: (error) => {
-          reject(error);
-        },
-        chunkSize: Importer.CHUNK_SIZE,
-        chunk: (result) => {
-          // papaparse skipFirstNLines does't work hack it
-          const newResult = [...result.data];
-          if (options.skipFirstNLines && !isFirst) {
-            isFirst = true;
-            newResult.splice(0, 1);
-          }
-
-          cb(newResult);
-        },
-        ...options,
-      });
+    const { url } = this.config;
+    return new Promise((resolve, reject) => {
+      fetch(url)
+        .then((response) => {
+          let isFirst = true;
+          const stream = response.body;
+          Papa.parse(stream, {
+            download: false,
+            dynamicTyping: true,
+            chunkSize: Importer.CHUNK_SIZE,
+            chunk: (chunk, parser) => {
+              const newChunk = [...chunk.data] as unknown[][];
+              if (isFirst && options.skipFirstNLines) {
+                newChunk.splice(0, 1);
+                isFirst = false;
+              }
+              parser.pause();
+              cb(newChunk)
+                .then(() => {
+                  parser.resume();
+                })
+                .catch(() => {
+                  parser.pause();
+                });
+            },
+            complete: () => {
+              resolve({});
+            },
+            error: (err) => {
+              reject(err);
+            },
+          });
+        })
+        .catch((e) => {
+          reject(e);
+        });
     });
   }
 }
