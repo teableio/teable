@@ -20,7 +20,7 @@ import {
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { maxBy, isEmpty } from 'lodash';
+import { maxBy, isEmpty, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
@@ -79,7 +79,7 @@ export class ViewService implements IAdapterService {
 
     const orderColumnMeta = await this.generateViewOrderColumnMeta(tableId);
 
-    const mergedColumnMeta = { ...orderColumnMeta, ...columnMeta };
+    const mergedColumnMeta = merge(orderColumnMeta, columnMeta);
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,
@@ -389,6 +389,17 @@ export class ViewService implements IAdapterService {
         tableId,
         deletedTime: null,
       },
+      orderBy: [
+        {
+          isPrimary: {
+            sort: 'asc',
+            nulls: 'last',
+          },
+        },
+        {
+          createdTime: 'asc',
+        },
+      ],
     });
 
     // create table first view there is no field should return
