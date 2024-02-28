@@ -1188,6 +1188,9 @@ importers:
       '@teable/core':
         specifier: workspace:^
         version: link:../core
+      '@types/node':
+        specifier: 20.9.0
+        version: 20.9.0
       axios:
         specifier: 1.6.7
         version: 1.6.7
