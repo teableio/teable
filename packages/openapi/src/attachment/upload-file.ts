@@ -34,7 +34,7 @@ export const UploadFileRoute: RouteConfig = registerRoute({
 
 export const uploadFile = async (
   token: string,
-  data: File,
+  data: Buffer,
   header: Record<string, unknown>,
   shareId?: string
 ) => {
