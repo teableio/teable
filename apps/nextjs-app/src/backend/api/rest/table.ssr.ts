@@ -108,5 +108,3 @@ export class SsrApi {
       .then(({ data }) => data);
   }
 }
-
-export const ssrApi = new SsrApi();

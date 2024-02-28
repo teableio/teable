@@ -1,5 +1,4 @@
 import type { IHttpError } from '@teable/core';
-import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
@@ -25,40 +24,39 @@ const Node: NextPageWithLayout<ITableProps> = ({
   );
 };
 
-export const getServerSideProps: GetServerSideProps<IViewPageProps> = withAuthSSR<IViewPageProps>(
-  async (context) => {
-    const { tableId, viewId, baseId } = context.query;
-    try {
-      const serverData = await getViewPageServerData(
-        baseId as string,
-        tableId as string,
-        viewId as string
-      );
-      if (serverData) {
-        const { i18nNamespaces } = tableConfig;
-        return {
-          props: {
-            ...serverData,
-            ...(await getTranslationsProps(context, i18nNamespaces)),
-          },
-        };
-      }
+export const getServerSideProps = withAuthSSR<IViewPageProps>(async (context, ssrApi) => {
+  const { tableId, viewId, baseId } = context.query;
+  try {
+    const serverData = await getViewPageServerData(
+      ssrApi,
+      baseId as string,
+      tableId as string,
+      viewId as string
+    );
+    if (serverData) {
+      const { i18nNamespaces } = tableConfig;
+      return {
+        props: {
+          ...serverData,
+          ...(await getTranslationsProps(context, i18nNamespaces)),
+        },
+      };
+    }
+    return {
+      err: '',
+      notFound: true,
+    };
+  } catch (e) {
+    const error = e as IHttpError;
+    if (error.status !== 401) {
       return {
         err: '',
         notFound: true,
       };
-    } catch (e) {
-      const error = e as IHttpError;
-      if (error.status !== 401) {
-        return {
-          err: '',
-          notFound: true,
-        };
-      }
-      throw error;
     }
+    throw error;
   }
-);
+});
 
 Node.getLayout = function getLayout(page: ReactElement, pageProps: IViewPageProps) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;

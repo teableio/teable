@@ -1,6 +1,6 @@
 import type { IFieldVo, IRecord, ITableVo, IViewVo } from '@teable/core';
 import type { IGetBaseVo } from '@teable/openapi';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
+import type { SsrApi } from '@/backend/api/rest/table.ssr';
 
 export interface IViewPageProps {
   baseServerData: IGetBaseVo;
@@ -11,6 +11,7 @@ export interface IViewPageProps {
 }
 
 export const getViewPageServerData = async (
+  ssrApi: SsrApi,
   baseId: string,
   tableId: string,
   viewId: string
