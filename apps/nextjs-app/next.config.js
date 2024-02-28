@@ -83,6 +83,7 @@ const secureHeaders = createSecureHeaders({
             "'self'",
             'https://*.sentry.io',
             'https://*.teable.io',
+            'https://*.teable.cn',
             'http://localhost:9000',
             'http://127.0.0.1:9000',
           ],

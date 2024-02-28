@@ -3,6 +3,7 @@ import { generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseRo, IDuplicateBaseRo, IUpdateBaseRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -16,7 +17,8 @@ export class BaseService {
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
     private readonly baseDuplicateService: BaseDuplicateService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async getBaseById(baseId: string) {
@@ -159,11 +161,14 @@ export class BaseService {
   }
 
   async duplicateBase(baseId: string, duplicateBaseRo: IDuplicateBaseRo) {
-    return await this.prismaService.$tx(async () => {
-      const newBaseId = await this.baseDuplicateService.duplicate(baseId, duplicateBaseRo);
-      return {
-        baseId: newBaseId,
-      };
-    });
+    return await this.prismaService.$tx(
+      async () => {
+        const newBaseId = await this.baseDuplicateService.duplicate(baseId, duplicateBaseRo);
+        return {
+          baseId: newBaseId,
+        };
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
   }
 }

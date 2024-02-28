@@ -76,7 +76,7 @@ export class BaseController {
   }
 
   @Post(':baseId/duplicate')
-  @Permissions('base|update')
+  @Permissions('base|read')
   async duplicateBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(duplicateBaseRoSchema))

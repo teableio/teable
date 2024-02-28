@@ -20,7 +20,6 @@ export const useDuplicateBaseStore = create<IDuplicateBaseState>((set) => ({
     set((state) => {
       return {
         ...state,
-        open: true,
         base,
       };
     });
