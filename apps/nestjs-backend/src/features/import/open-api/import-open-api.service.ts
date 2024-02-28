@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 
-import { FieldKeyType, importerFactory } from '@teable/core';
+import { FieldKeyType } from '@teable/core';
 import type { IAnalyzeRo, IImportOptionRo, ICreateRecordsVo } from '@teable/core';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
+import { importerFactory } from './utils';
 
 @Injectable()
 export class ImportOpenApiService {
@@ -20,7 +21,7 @@ export class ImportOpenApiService {
       url: attachmentUrl,
     });
 
-    return await importer.generateColumnInfo();
+    return await importer.genColumns();
   }
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo) {

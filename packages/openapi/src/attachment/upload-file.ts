@@ -1,5 +1,4 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { AxiosHeaders } from 'axios';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 
@@ -35,7 +34,7 @@ export const UploadFileRoute: RouteConfig = registerRoute({
 
 export const uploadFile = async (
   token: string,
-  data: Buffer,
+  data: File,
   header: Record<string, unknown>,
   shareId?: string
 ) => {
