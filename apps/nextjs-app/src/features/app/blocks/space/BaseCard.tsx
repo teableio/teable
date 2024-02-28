@@ -122,8 +122,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
             <div className="shrink-0">
               <BaseActionTrigger
                 base={base}
-                showRename={hasReadPermission}
-                showDuplicate={hasUpdatePermission}
+                showRename={hasUpdatePermission}
+                showDuplicate={hasReadPermission}
                 showDelete={hasDeletePermission}
                 onDelete={() => deleteBaseMutator(base.id)}
                 onRename={onRename}

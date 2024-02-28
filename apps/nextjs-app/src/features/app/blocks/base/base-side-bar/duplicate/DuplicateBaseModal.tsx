@@ -96,7 +96,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
           <Database className="size-14 min-w-[3.5rem]" />
         )}
         <div>
-          <Input id="name" value={baseName} onChange={(e) => setBaseName(e.target.value)} />
+          <Input value={baseName} onChange={(e) => setBaseName(e.target.value)} />
         </div>
       </div>
       <hr />

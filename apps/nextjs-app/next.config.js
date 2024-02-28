@@ -77,7 +77,7 @@ const secureHeaders = createSecureHeaders({
       ? {
           defaultSrc: "'self'",
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", 'https://www.clarity.ms'],
           frameSrc: ["'self'"],
           connectSrc: [
             "'self'",

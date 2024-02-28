@@ -289,7 +289,7 @@ export class BaseDuplicateService {
     const dbTableNameSet = new Set(tableRaws.map((tableRaw) => tableRaw.dbTableName));
 
     const linkFieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId: { in: tableIds }, type: FieldType.Link },
+      where: { tableId: { in: tableIds }, type: FieldType.Link, deletedTime: null },
       select: { id: true, options: true },
     });
 
@@ -454,11 +454,15 @@ export class BaseDuplicateService {
     this.logger.log(beforeIndexedResult, 'beforeViewIndexed');
 
     const indexSql = beforeIndexedResult
-      .map((item) =>
+      .map((item) => ({
+        oldViewId: item.indexname.substring('idx___row_'.length),
+        tablename: item.tablename,
+      }))
+      .filter(({ oldViewId }) => old2NewViewIdMap[oldViewId])
+      .map(({ oldViewId, tablename }) =>
         this.knex.schema
           .withSchema(toBaseId)
-          .alterTable(item.tablename, (table) => {
-            const oldViewId = item.indexname.substring('idx___row_'.length);
+          .alterTable(tablename, (table) => {
             const newViewId = old2NewViewIdMap[oldViewId];
             table.index([`${ROW_ORDER_FIELD_PREFIX}_${newViewId}`], `idx___row_${newViewId}`);
           })
