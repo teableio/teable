@@ -10,6 +10,7 @@ import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import { z } from 'zod';
 import { getUserMe } from '@/backend/api/rest/get-user';
+import { MicrosoftClarity } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
@@ -74,6 +75,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
         {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
       </AppProviders>
+      <MicrosoftClarity />
       <RouterProgressBar />
     </>
   );
