@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
-
 import { FieldKeyType } from '@teable/core';
 import type { IAnalyzeRo, IImportOptionRo, ICreateRecordsVo } from '@teable/core';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
-import { importerFactory } from './utils';
+import { importerFactory } from './import.class';
 
 @Injectable()
 export class ImportOpenApiService {

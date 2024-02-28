@@ -16,8 +16,8 @@ let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
 const csvTmpPath = 'test.csv';
 const data = `field_1,field_2,field_3,field_4
-1,string_1,true,2022-11-11
-2,string_2,false,2022-11-12`;
+1,string_1,true,2022-11-10 16:00:00
+2,string_2,false,2022-11-11 16:00:00`;
 let csvUrl: string;
 
 beforeAll(async () => {
@@ -142,18 +142,22 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       includeContent: true,
     });
     tableIds.push(id);
-    const filledRecords = records?.map((rec) => ({ ...rec.fields }));
+    const filledRecords = records?.map((rec) => {
+      const newRec = { ...rec.fields };
+      newRec['field_4'] = +new Date(newRec['field_4'] as string);
+      return { ...newRec };
+    });
     const assertRecords = [
       {
         field_1: 1,
         field_2: 'string_1',
         field_3: true,
-        field_4: '2022-11-10T16:00:00.000Z',
+        field_4: +new Date(new Date('2022-11-10 16:00:00').toUTCString()),
       },
       {
         field_1: 2,
         field_2: 'string_2',
-        field_4: '2022-11-11T16:00:00.000Z',
+        field_4: +new Date(new Date('2022-11-11 16:00:00').toUTCString()),
       },
     ];
     expect(createdFields).toEqual(assertHeaders);

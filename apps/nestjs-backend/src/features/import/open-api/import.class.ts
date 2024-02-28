@@ -1,7 +1,7 @@
 import type { IValidateTypes } from '@teable/core';
 import { getUniqName, FieldType, SUPPORTEDTYPE } from '@teable/core';
+import { axios } from '@teable/openapi';
 import { zip } from 'lodash';
-import fetch from 'node-fetch';
 import Papa from 'papaparse';
 import type { ZodType } from 'zod';
 import z from 'zod';
@@ -18,7 +18,7 @@ export abstract class Importer {
 
   constructor(public config: { url: string }) {}
 
-  // abstract getFile(): unknown;
+  abstract getFile(): unknown;
 
   abstract parse(options?: unknown): Promise<unknown>;
 
@@ -71,6 +71,7 @@ export abstract class Importer {
 }
 
 export class CsvImporter extends Importer {
+  public static CHECK_LINES = 5000;
   // order make sence
   public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
     FieldType.Checkbox,
@@ -84,70 +85,64 @@ export class CsvImporter extends Importer {
   getSupportedFieldTypes() {
     return CsvImporter.SUPPORTEDTYPE;
   }
-  async parse(): Promise<unknown[]> {
+  async getFile() {
     const { url } = this.config;
+    const { data: stream } = await axios.get(url, {
+      responseType: 'stream',
+    });
+    return stream;
+  }
+  async parse(): Promise<unknown[]> {
+    const stream = await this.getFile();
+    const data: Papa.ParseResult<unknown>['data'] = [];
     return new Promise((resolve, reject) => {
-      fetch(url).then((response) => {
-        const stream = response.body;
-        const data: Papa.ParseResult<unknown>['data'] = [];
-        Papa.parse(stream, {
-          download: false,
-          dynamicTyping: true,
-          preview: 2000,
-          chunkSize: Importer.CHUNK_SIZE,
-          chunk: (chunk) => {
-            data.push(...chunk.data);
-          },
-          complete: () => {
-            resolve(data);
-          },
-          error: (err) => {
-            reject(err);
-          },
-        });
+      Papa.parse(stream, {
+        download: false,
+        dynamicTyping: true,
+        preview: CsvImporter.CHECK_LINES,
+        chunkSize: Importer.CHUNK_SIZE,
+        chunk: (chunk) => {
+          data.push(...chunk.data);
+        },
+        complete: () => {
+          resolve(data);
+        },
+        error: (err) => {
+          reject(err);
+        },
       });
     });
   }
-  streamParse(
+  async streamParse(
     options: Papa.ParseConfig & { skipFirstNLines: number },
     cb: (chunk: unknown[][]) => Promise<void>
   ) {
-    const { url } = this.config;
+    const stream = await this.getFile();
     return new Promise((resolve, reject) => {
-      fetch(url)
-        .then((response) => {
-          let isFirst = true;
-          const stream = response.body;
-          Papa.parse(stream, {
-            download: false,
-            dynamicTyping: true,
-            chunkSize: Importer.CHUNK_SIZE,
-            chunk: (chunk, parser) => {
-              const newChunk = [...chunk.data] as unknown[][];
-              if (isFirst && options.skipFirstNLines) {
-                newChunk.splice(0, 1);
-                isFirst = false;
-              }
-              parser.pause();
-              cb(newChunk)
-                .then(() => {
-                  parser.resume();
-                })
-                .catch(() => {
-                  parser.pause();
-                });
-            },
-            complete: () => {
-              resolve({});
-            },
-            error: (err) => {
-              reject(err);
-            },
-          });
-        })
-        .catch((e) => {
-          reject(e);
-        });
+      let isFirst = true;
+      Papa.parse(stream, {
+        download: false,
+        dynamicTyping: true,
+        chunkSize: Importer.CHUNK_SIZE,
+        chunk: (chunk, parser) => {
+          (async () => {
+            const newChunk = [...chunk.data] as unknown[][];
+            if (isFirst && options.skipFirstNLines) {
+              newChunk.splice(0, 1);
+              isFirst = false;
+            }
+            parser.pause();
+            await cb(newChunk);
+            parser.resume();
+          })();
+        },
+        complete: () => {
+          resolve({});
+        },
+        error: (err) => {
+          reject(err);
+        },
+      });
     });
   }
 }
