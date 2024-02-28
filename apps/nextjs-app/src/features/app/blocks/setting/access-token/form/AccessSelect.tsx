@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Component, Database, Plus } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { getBaseAll, getSpaceList } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
@@ -38,9 +39,10 @@ export const AccessSelect = (props: IFormAccess) => {
   const [open, setOpen] = useState(false);
 
   const { data: spaceList, isLoading: spaceListLoading } = useQuery({
-    queryKey: ['space-list'],
-    queryFn: getSpaceList,
+    queryKey: ReactQueryKeys.spaceList(),
+    queryFn: () => getSpaceList(),
   });
+
   const { data: baseList, isLoading: baseListLoading } = useQuery({
     queryKey: ['base-all'],
     queryFn: () => getBaseAll(),

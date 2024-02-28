@@ -56,7 +56,8 @@ export const DuplicateBaseRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
-export const duplicateBase = async (baseId: string, duplicateBaseRo: IDuplicateBaseRo) => {
+export const duplicateBase = async (params: { baseId: string } & IDuplicateBaseRo) => {
+  const { baseId, ...duplicateBaseRo } = params;
   return axios.post<IDuplicateBaseVo>(
     urlBuilder(DUPLICATE_BASE, {
       baseId,

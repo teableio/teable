@@ -2,6 +2,7 @@ import { useSession } from '@teable/sdk';
 import { Avatar, AvatarFallback, AvatarImage, Button } from '@teable/ui-lib/shadcn';
 import React from 'react';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
+import { DuplicateBaseModal } from '../blocks/base/base-side-bar/duplicate/DuplicateBaseModal';
 import { SettingDialog } from './setting/SettingDialog';
 import { UserNav } from './user/UserNav';
 
@@ -21,6 +22,7 @@ export const SideBarFooter: React.FC = () => {
           </Button>
         </UserNav>
         <SettingDialog />
+        <DuplicateBaseModal />
         <NotificationsManage />
       </div>
     </div>

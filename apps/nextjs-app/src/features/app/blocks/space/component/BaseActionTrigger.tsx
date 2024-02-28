@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from '@teable/icons';
+import { Copy, Pencil, Trash2 } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -9,18 +9,21 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
 import React from 'react';
+import { useDuplicateBaseStore } from '../../base/base-side-bar/duplicate/useDuplicateBaseModal';
 
 interface IBaseActionTrigger {
   base: IGetBaseVo;
   showRename: boolean;
   showDelete: boolean;
+  showDuplicate: boolean;
   onRename?: () => void;
   onDelete?: () => void;
 }
 
 export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrigger>> = (props) => {
-  const { base, children, showRename, showDelete, onDelete, onRename } = props;
+  const { base, children, showRename, showDelete, showDuplicate, onDelete, onRename } = props;
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  const baseStore = useDuplicateBaseStore();
   if (!showDelete && !showRename) {
     return null;
   }
@@ -34,6 +37,12 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
             <DropdownMenuItem onClick={onRename}>
               <Pencil className="mr-2" />
               Rename
+            </DropdownMenuItem>
+          )}
+          {showDuplicate && (
+            <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
+              <Copy className="mr-2" />
+              Duplicate
             </DropdownMenuItem>
           )}
           {showDelete && (

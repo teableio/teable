@@ -69,7 +69,7 @@ export class PermissionGuard {
         permissions
       );
     } else {
-      throw new ForbiddenException('no check permissions method available');
+      throw new ForbiddenException('request path is not valid');
     }
 
     const accessTokenId = this.cls.get('accessTokenId');

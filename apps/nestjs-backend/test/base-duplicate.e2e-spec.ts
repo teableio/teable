@@ -45,7 +45,11 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
   it('duplicate within current space', async () => {
     const table1 = await createTable(base.id, { name: 'table1' });
-    const dupResult = await duplicateBase(base.id, { toSpaceId: spaceId, name: 'test base copy' });
+    const dupResult = await duplicateBase({
+      baseId: base.id,
+      toSpaceId: spaceId,
+      name: 'test base copy',
+    });
 
     const getResult = await getTableList(dupResult.data.baseId);
     const records = await getRecords(getResult.data[0].id);
@@ -63,7 +67,8 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       record: { fields: { [table1.fields[0].name]: 'new value' } },
     });
 
-    const dupResult = await duplicateBase(base.id, {
+    const dupResult = await duplicateBase({
+      baseId: base.id,
       toSpaceId: spaceId,
       name: 'test base copy',
       withRecords: true,
@@ -87,7 +92,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       name: 'link field',
       type: FieldType.Link,
       options: {
-        relationship: Relationship.OneOne,
+        relationship: Relationship.ManyMany,
         foreignTableId: table1.id,
       },
     };
@@ -118,13 +123,14 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     const table2Records = await getRecords(table2.id);
     // update record before copy
     await updateRecord(table2.id, table2Records.records[0].id, {
-      record: { fields: { [table2LinkField.name]: { id: table1Records.records[0].id } } },
+      record: { fields: { [table2LinkField.name]: [{ id: table1Records.records[0].id }] } },
     });
     await updateRecord(table1.id, table1Records.records[0].id, {
       record: { fields: { [table1.fields[0].name]: 'text 1' } },
     });
 
-    const dupResult = await duplicateBase(base.id, {
+    const dupResult = await duplicateBase({
+      baseId: base.id,
       toSpaceId: spaceId,
       name: 'test base copy',
       withRecords: true,
@@ -139,32 +145,54 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     const newTable2Records = await getRecords(newTable2.id);
     expect(newTable1Records.records[0].lastModifiedBy).toBeFalsy();
     expect(newTable1Records.records[0].createdTime).toBeTruthy();
-    expect(newTable1Records.records[0].fields[table1LinkField.name]).toMatchObject({
-      id: newTable2Records.records[0].id,
-    });
-    expect(newTable2Records.records[0].fields[table2LookupField.name]).toEqual('text 1');
+    expect(newTable1Records.records[0].fields[table1LinkField.name]).toMatchObject([
+      {
+        id: newTable2Records.records[0].id,
+      },
+    ]);
+    expect(newTable2Records.records[0].fields[table2LookupField.name]).toEqual(['text 1']);
     expect(newTable1Records.records.length).toBe(3);
 
     // update record in duplicated table
     await updateRecord(newTable2.id, table2Records.records[0].id, {
-      record: { fields: { [table2LinkField.name]: { id: table1Records.records[1].id } } },
+      record: { fields: { [table2LinkField.name]: [{ id: table1Records.records[1].id }] } },
+    });
+    await updateRecord(newTable1.id, table1Records.records[2].id, {
+      record: { fields: { [table1LinkField.name]: [{ id: table2Records.records[2].id }] } },
     });
     await updateRecord(newTable1.id, table1Records.records[1].id, {
       record: { fields: { [table1.fields[0].name]: 'text 2' } },
     });
 
+    // const table1Fields = await getFields(table1.id);
+    // const table2Fields = await getFields(table2.id);
+    // const newTable1Fields = await getFields(newTable1.id);
+    // const newTable2Fields = await getFields(newTable2.id);
+    // console.log('table1LinkField', table1Fields[3]);
+    // console.log('table2LinkField', table2Fields[3]);
+    // console.log('newTable1LinkField', newTable1Fields[3]);
+    // console.log('newTable2LinkField', newTable2Fields[3]);
+
     const newTable1RecordsAfter = await getRecords(newTable1.id);
     const newTable2RecordsAfter = await getRecords(newTable2.id);
     expect(newTable1RecordsAfter.records[0].fields[table1LinkField.name]).toBeUndefined();
-    expect(newTable1RecordsAfter.records[1].fields[table1LinkField.name]).toMatchObject({
-      id: newTable2Records.records[0].id,
-    });
-    expect(newTable2RecordsAfter.records[0].fields[table2LookupField.name]).toEqual('text 2');
+    expect(newTable1RecordsAfter.records[1].fields[table1LinkField.name]).toMatchObject([
+      {
+        id: newTable2Records.records[0].id,
+      },
+    ]);
+    expect(newTable2RecordsAfter.records[2].fields[table2LinkField.name]).toMatchObject([
+      {
+        id: newTable1Records.records[2].id,
+      },
+    ]);
+    expect(newTable2RecordsAfter.records[0].fields[table2LookupField.name]).toEqual(['text 2']);
   });
 
   it('should autoNumber work in a duplicated table', async () => {
     await createTable(base.id, { name: 'table1' });
-    const dupResult = await duplicateBase(base.id, {
+    const dupResult = await duplicateBase({
+      baseId: base.id,
       toSpaceId: spaceId,
       name: 'test base copy',
       withRecords: true,
@@ -192,7 +220,8 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
     it('duplicate cross space', async () => {
       await createTable(base.id, { name: 'table1' });
-      const dupResult = await duplicateBase(base.id, {
+      const dupResult = await duplicateBase({
+        baseId: base.id,
         toSpaceId: newSpace.id,
         name: 'test base copy',
       });

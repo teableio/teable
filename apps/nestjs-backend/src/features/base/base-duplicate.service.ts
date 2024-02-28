@@ -11,11 +11,13 @@ import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDuplicateBaseRo } from '@teable/openapi';
 import { Knex } from 'knex';
+import { uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { replaceExpressionFieldIds, replaceJsonStringFieldIds } from './utils';
@@ -101,63 +103,83 @@ export class BaseDuplicateService {
     return this.dbProvider.joinDbTableName(toBaseId, tableName);
   }
 
-  private async duplicateFields(toBaseId: string, old2NewTableIdMap: Record<string, string>) {
-    const old2NewFieldIdMap: Record<string, string> = {};
+  private reBuildFieldRaw(
+    toBaseId: string,
+    field: IFieldInstance,
+    fieldRaw: Field,
+    old2NewTableIdMap: Record<string, string>,
+    old2NewFieldIdMap: Record<string, string>
+  ) {
     const userId = this.cls.get('user.id');
+    const newFieldRaw: Field = {
+      ...fieldRaw,
+      id: old2NewFieldIdMap[field.id],
+      tableId: old2NewTableIdMap[fieldRaw.tableId],
+      version: 1,
+      createdTime: new Date(),
+      lastModifiedTime: new Date(),
+      createdBy: userId,
+      lastModifiedBy: userId,
+    };
+
+    if (field.lookupOptions) {
+      newFieldRaw.lookupOptions = JSON.stringify({
+        ...field.lookupOptions,
+        foreignTableId: old2NewTableIdMap[field.lookupOptions.foreignTableId],
+        lookupFieldId: old2NewFieldIdMap[field.lookupOptions.lookupFieldId],
+        linkFieldId: old2NewFieldIdMap[field.lookupOptions.linkFieldId],
+        fkHostTableName: this.replaceDbTableName(field.lookupOptions.fkHostTableName, toBaseId),
+      });
+    }
+
+    if (field.type === FieldType.Link) {
+      newFieldRaw.options = JSON.stringify({
+        ...field.options,
+        foreignTableId: old2NewTableIdMap[field.options.foreignTableId],
+        lookupFieldId: old2NewFieldIdMap[field.options.lookupFieldId],
+        symmetricFieldId: field.options.symmetricFieldId
+          ? old2NewFieldIdMap[field.options.symmetricFieldId]
+          : undefined,
+        fkHostTableName: this.replaceDbTableName(field.options.fkHostTableName, toBaseId),
+      });
+    }
+
+    if (field.type === FieldType.Formula || field.type === FieldType.Rollup) {
+      newFieldRaw.options = JSON.stringify({
+        ...field.options,
+        expression: replaceExpressionFieldIds(field.options.expression, old2NewFieldIdMap),
+      });
+    }
+
+    if (fieldRaw.lookupLinkedFieldId) {
+      newFieldRaw.lookupLinkedFieldId = old2NewFieldIdMap[fieldRaw.lookupLinkedFieldId];
+    }
+
+    return newFieldRaw;
+  }
+
+  private async duplicateFields(toBaseId: string, old2NewTableIdMap: Record<string, string>) {
     const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: {
         tableId: { in: Object.keys(old2NewTableIdMap) },
         deletedTime: null,
       },
     });
+    const old2NewFieldIdMap = fieldRaws.reduce<Record<string, string>>((acc, fieldRaw) => {
+      acc[fieldRaw.id] = generateFieldId();
+      return acc;
+    }, {});
 
     for (const fieldRaw of fieldRaws) {
       const field = createFieldInstanceByRaw(fieldRaw);
-      old2NewFieldIdMap[fieldRaw.id] = generateFieldId();
 
-      const newFieldRaw: Field = {
-        ...fieldRaw,
-        id: old2NewFieldIdMap[field.id],
-        tableId: old2NewTableIdMap[fieldRaw.tableId],
-        version: 1,
-        createdTime: new Date(),
-        lastModifiedTime: new Date(),
-        createdBy: userId,
-        lastModifiedBy: userId,
-      };
-
-      if (field.lookupOptions) {
-        newFieldRaw.lookupOptions = JSON.stringify({
-          ...field.lookupOptions,
-          foreignTableId: old2NewTableIdMap[field.lookupOptions.foreignTableId],
-          lookupFieldId: old2NewFieldIdMap[field.lookupOptions.lookupFieldId],
-          linkFieldId: old2NewFieldIdMap[field.lookupOptions.linkFieldId],
-          fkHostTableName: this.replaceDbTableName(field.lookupOptions.fkHostTableName, toBaseId),
-        });
-      }
-
-      if (field.type === FieldType.Link) {
-        newFieldRaw.options = JSON.stringify({
-          ...field.options,
-          foreignTableId: old2NewTableIdMap[field.options.foreignTableId],
-          lookupFieldId: old2NewFieldIdMap[field.options.lookupFieldId],
-          symmetricFieldId: field.options.symmetricFieldId
-            ? old2NewFieldIdMap[field.options.symmetricFieldId]
-            : undefined,
-          fkHostTableName: this.replaceDbTableName(field.options.fkHostTableName, toBaseId),
-        });
-      }
-
-      if (field.type === FieldType.Formula || field.type === FieldType.Rollup) {
-        newFieldRaw.options = JSON.stringify({
-          ...field.options,
-          expression: replaceExpressionFieldIds(field.options.expression, old2NewFieldIdMap),
-        });
-      }
-
-      if (fieldRaw.lookupLinkedFieldId) {
-        newFieldRaw.lookupLinkedFieldId = old2NewFieldIdMap[fieldRaw.lookupLinkedFieldId];
-      }
+      const newFieldRaw = this.reBuildFieldRaw(
+        toBaseId,
+        field,
+        fieldRaw,
+        old2NewTableIdMap,
+        old2NewFieldIdMap
+      );
 
       await this.prismaService.txClient().field.create({
         data: newFieldRaw,
@@ -209,7 +231,7 @@ export class BaseDuplicateService {
   private async duplicateReferences(old2NewFieldIdMap: Record<string, string>) {
     const allFieldIds = Object.keys(old2NewFieldIdMap);
     const references = await this.prismaService.txClient().reference.findMany({
-      where: { fromFieldId: { in: allFieldIds } },
+      where: { OR: [{ fromFieldId: { in: allFieldIds } }, { toFieldId: { in: allFieldIds } }] },
       select: { fromFieldId: true, toFieldId: true },
     });
 
@@ -257,20 +279,12 @@ export class BaseDuplicateService {
     }
   }
 
-  private async duplicateDbTable(
+  private async duplicateJunctionTable(
     fromBaseId: string,
     toBaseId: string,
-    old2NewViewIdMap: Record<string, string>,
+    tableRaws: { id: string; dbTableName: string }[],
     withRecords?: boolean
   ) {
-    const userId = this.cls.get('user.id');
-    await this.createSchema(toBaseId);
-
-    const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
-      where: { baseId: fromBaseId, deletedTime: null },
-      select: { id: true, dbTableName: true },
-    });
-
     const tableIds = tableRaws.map((tableRaw) => tableRaw.id);
     const dbTableNameSet = new Set(tableRaws.map((tableRaw) => tableRaw.dbTableName));
 
@@ -279,14 +293,29 @@ export class BaseDuplicateService {
       select: { id: true, options: true },
     });
 
-    const junctionTables = linkFieldRaws
-      .map((linkFieldRaw) => {
-        const options = JSON.parse(linkFieldRaw.options as string) as ILinkFieldOptions;
-        return options.fkHostTableName;
-      })
-      .filter((tableName) => !dbTableNameSet.has(tableName));
+    const junctionTables = uniq(
+      linkFieldRaws
+        .map((linkFieldRaw) => {
+          const options = JSON.parse(linkFieldRaw.options as string) as ILinkFieldOptions;
+          return options.fkHostTableName;
+        })
+        .filter((tableName) => !dbTableNameSet.has(tableName))
+    );
 
-    const toDuplicate = tableRaws.map((tableRaw) => tableRaw.dbTableName).concat(junctionTables);
+    for (const dbTableName of junctionTables) {
+      const sql = this.dbProvider.duplicateTable(fromBaseId, toBaseId, dbTableName, withRecords);
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
+    }
+  }
+
+  private async duplicateDataTable(
+    fromBaseId: string,
+    toBaseId: string,
+    tableRaws: { id: string; dbTableName: string }[],
+    withRecords?: boolean
+  ) {
+    const userId = this.cls.get('user.id');
+    const toDuplicate = tableRaws.map((tableRaw) => tableRaw.dbTableName);
 
     for (const dbTableName of toDuplicate) {
       const sql = this.dbProvider.duplicateTable(fromBaseId, toBaseId, dbTableName, withRecords);
@@ -324,13 +353,81 @@ export class BaseDuplicateService {
         await this.prismaService.txClient().$executeRawUnsafe(sql);
       }
     }
+  }
 
+  private async duplicateDbTable(
+    fromBaseId: string,
+    toBaseId: string,
+    old2NewViewIdMap: Record<string, string>,
+    withRecords?: boolean
+  ) {
+    // create pg schema
+    await this.createSchema(toBaseId);
+
+    const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
+      where: { baseId: fromBaseId, deletedTime: null },
+      select: { id: true, dbTableName: true },
+    });
+
+    // create visible table
+    await this.duplicateDataTable(fromBaseId, toBaseId, tableRaws, withRecords);
+
+    // rename view index fields
     for (const { dbTableName } of tableRaws) {
       await this.renameViewIndexes(
         this.replaceDbTableName(dbTableName, toBaseId),
         old2NewViewIdMap
       );
     }
+
+    // create junction tables for many to many link fields
+    await this.duplicateJunctionTable(fromBaseId, toBaseId, tableRaws, withRecords);
+  }
+
+  private async duplicateJunctionTableIndexes(fromBaseId: string, toBaseId: string) {
+    const query = this.knex('pg_indexes')
+      .select('*')
+      .where({
+        schemaname: fromBaseId,
+      })
+      .where('indexname', 'like', 'index_%')
+      .toQuery();
+
+    const beforeIndexedResult = await this.prismaService.txClient().$queryRawUnsafe<
+      {
+        schemaname: string;
+        tablename: string;
+        indexname: string;
+        indexdef: string;
+      }[]
+    >(query);
+
+    this.logger.log(beforeIndexedResult, 'beforeJunctionIndexed');
+
+    for (const item of beforeIndexedResult) {
+      const regex = new RegExp(`"${fromBaseId}"`, 'g');
+      const updatedIndexDef = item.indexdef.replace(regex, `"${toBaseId}"`);
+      await this.prismaService.txClient().$executeRawUnsafe(updatedIndexDef);
+    }
+
+    const afterQuery = this.knex('pg_indexes')
+      .select('*')
+      .where({
+        schemaname: toBaseId,
+      })
+      .where('indexname', 'like', 'index_%')
+      .toQuery();
+
+    const afterIndexedResult = await this.prismaService.txClient().$queryRawUnsafe<
+      {
+        schemaname: string;
+        tablename: string;
+        indexname: string;
+        indexdef: string;
+      }[]
+    >(afterQuery);
+
+    this.logger.log(afterIndexedResult, 'afterJunctionIndexed');
   }
 
   private async duplicateDbIndexes(
@@ -354,7 +451,7 @@ export class BaseDuplicateService {
       }[]
     >(query);
 
-    this.logger.log(beforeIndexedResult, 'beforeIndexed');
+    this.logger.log(beforeIndexedResult, 'beforeViewIndexed');
 
     const indexSql = beforeIndexedResult
       .map((item) =>
@@ -382,7 +479,9 @@ export class BaseDuplicateService {
       .where('indexname', 'like', 'idx___row%')
       .toQuery();
     const afterIndexedResult = await this.prismaService.txClient().$queryRawUnsafe(toBaseQuery);
-    this.logger.log(afterIndexedResult, 'afterIndexed');
+    this.logger.log(afterIndexedResult, 'afterViewIndexed');
+
+    await this.duplicateJunctionTableIndexes(fromBaseId, toBaseId);
   }
 
   private async duplicateAttachments(
