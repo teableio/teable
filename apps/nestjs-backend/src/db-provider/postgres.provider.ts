@@ -35,14 +35,14 @@ export class PostgresProvider implements IDbProvider {
   }
 
   renameTableName(oldTableName: string, newTableName: string) {
-    const nameWithoutSchema = newTableName.split('.')[1];
+    const nameWithoutSchema = this.splitTableName(newTableName)[1];
     return [
       this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, nameWithoutSchema]).toQuery(),
     ];
   }
 
   dropTable(tableName: string): string {
-    const [schemaName, dbTableName] = tableName.split('.');
+    const [schemaName, dbTableName] = this.splitTableName(tableName);
     return this.knex.raw('DROP TABLE ??.??', [schemaName, dbTableName]).toQuery();
   }
 
@@ -69,7 +69,7 @@ export class PostgresProvider implements IDbProvider {
     return this.dropColumn(tableName, columnName);
   }
 
-  columnInfo(tableName: string, columnName: string): string {
+  columnInfo(tableName: string): string {
     const [schemaName, dbTableName] = tableName.split('.');
     return this.knex
       .select({
@@ -79,7 +79,6 @@ export class PostgresProvider implements IDbProvider {
       .where({
         table_schema: schemaName,
         table_name: dbTableName,
-        column_name: columnName,
       })
       .toQuery();
   }
@@ -99,8 +98,52 @@ export class PostgresProvider implements IDbProvider {
     ];
   }
 
-  joinDbTableName(schemaName: string, tableName: string) {
-    return `${schemaName}.${tableName}`;
+  splitTableName(tableName: string): string[] {
+    return tableName.split('.');
+  }
+
+  joinDbTableName(schemaName: string, dbTableName: string) {
+    return `${schemaName}.${dbTableName}`;
+  }
+
+  duplicateTable(
+    fromSchema: string,
+    toSchema: string,
+    tableName: string,
+    withData?: boolean
+  ): string {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, dbTableName] = this.splitTableName(tableName);
+    return this.knex
+      .raw(`CREATE TABLE ??.?? AS TABLE ??.?? ${withData ? '' : 'WITH NO DATA'}`, [
+        toSchema,
+        dbTableName,
+        fromSchema,
+        dbTableName,
+      ])
+      .toQuery();
+  }
+
+  alterAutoNumber(tableName: string): string[] {
+    const [schema, dbTableName] = this.splitTableName(tableName);
+    const seqName = `${schema}_${dbTableName}_seq`;
+    return [
+      this.knex.raw(`CREATE SEQUENCE ??`, [seqName]).toQuery(),
+      this.knex
+        .raw(`ALTER TABLE ??.?? ALTER COLUMN __auto_number SET DEFAULT nextval('??')`, [
+          schema,
+          dbTableName,
+          seqName,
+        ])
+        .toQuery(),
+      this.knex
+        .raw(`SELECT setval('??', (SELECT MAX(__auto_number) FROM ??.??))`, [
+          seqName,
+          schema,
+          dbTableName,
+        ])
+        .toQuery(),
+    ];
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

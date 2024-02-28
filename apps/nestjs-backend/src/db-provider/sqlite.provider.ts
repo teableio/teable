@@ -58,8 +58,12 @@ export class SqliteProvider implements IDbProvider {
     ];
   }
 
-  joinDbTableName(schemaName: string, tableName: string) {
-    return `${schemaName}_${tableName}`;
+  splitTableName(tableName: string): string[] {
+    return tableName.split('_');
+  }
+
+  joinDbTableName(schemaName: string, dbTableName: string) {
+    return `${schemaName}_${dbTableName}`;
   }
 
   dropColumn(tableName: string, columnName: string): string[] {
@@ -73,8 +77,28 @@ export class SqliteProvider implements IDbProvider {
     ];
   }
 
-  columnInfo(tableName: string, _columnName: string): string {
+  columnInfo(tableName: string): string {
     return this.knex.raw(`PRAGMA table_info(??)`, [tableName]).toQuery();
+  }
+
+  duplicateTable(
+    fromSchema: string,
+    toSchema: string,
+    tableName: string,
+    withData?: boolean
+  ): string {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, dbTableName] = this.splitTableName(tableName);
+    return this.knex
+      .raw(`CREATE TABLE ?? AS SELECT * FROM ?? ${withData ? '' : 'WHERE 1=0'}`, [
+        this.joinDbTableName(toSchema, dbTableName),
+        this.joinDbTableName(fromSchema, dbTableName),
+      ])
+      .toQuery();
+  }
+
+  alterAutoNumber(_tableName: string): string[] {
+    return [];
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {

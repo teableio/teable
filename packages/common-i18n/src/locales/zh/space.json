@@ -10,5 +10,17 @@
     "createBase": "创建数据库",
     "createSpace": "创建空间",
     "invite": "邀请"
+  },
+  "allSpaces": "所有空间",
+  "spaceIsEmpty": "当前空间为空",
+  "baseModal": {
+    "copy": "副本",
+    "duplicate": "复制 \"{{baseName}}\"",
+    "duplicateRecords": "复制记录",
+    "duplicateRecordsTip": "您的记录修改历史不会被复制",
+    "copyToSpace": "复制到空间",
+    "duplicateBase": "复制数据库",
+    "missTargetTip": "请选择要复制到的空间",
+    "copying": "复制中，请稍作等待..."
   }
 }

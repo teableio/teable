@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Component, Database, X } from '@teable/icons';
 import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { getBaseAll, getSpaceList } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button } from '@teable/ui-lib/shadcn';
 import { isEmpty } from 'lodash';
 import { useTranslation } from 'next-i18next';
@@ -20,8 +21,8 @@ export const AccessList = (props: IAccessListProps) => {
   const { t } = useTranslation('token');
 
   const { data: spaceList } = useQuery({
-    queryKey: ['space-list'],
-    queryFn: getSpaceList,
+    queryKey: ReactQueryKeys.spaceList(),
+    queryFn: () => getSpaceList(),
   });
   const { data: baseList } = useQuery({
     queryKey: ['base-all'],

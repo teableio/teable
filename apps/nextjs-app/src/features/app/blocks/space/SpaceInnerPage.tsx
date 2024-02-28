@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
@@ -12,6 +15,7 @@ export const SpaceInnerPage: React.FC = () => {
   const queryClient = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
   const spaceId = router.query.spaceId as string;
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
@@ -29,7 +33,7 @@ export const SpaceInnerPage: React.FC = () => {
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['space-list'] });
+      await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
       router.push({
         pathname: '/space',
       });
@@ -40,7 +44,7 @@ export const SpaceInnerPage: React.FC = () => {
     mutationFn: updateSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['space'] });
-      queryClient.invalidateQueries({ queryKey: ['space-list'] });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
     },
   });
 
@@ -88,7 +92,7 @@ export const SpaceInnerPage: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center justify-center">
-              <h1>This workspace is empty</h1>
+              <h1>{t('space:spaceIsEmpty')}</h1>
             </div>
           )}
         </div>

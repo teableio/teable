@@ -10,5 +10,17 @@
     "createBase": "Create a base",
     "createSpace": "Create a space",
     "invite": "Invite"
+  },
+  "allSpaces": "All spaces",
+  "spaceIsEmpty": "This space is empty",
+  "baseModal": {
+    "copy": "Copy",
+    "duplicate": "Duplicate \"{{baseName}}\"",
+    "duplicateRecords": "Duplicate records",
+    "duplicateRecordsTip": "Your revision history will not be duplicated.",
+    "copyToSpace": "Copy to space",
+    "duplicateBase": "Duplicate base",
+    "missTargetTip": "Please select a space to duplicate the base.",
+    "copying": "Duplicating base, it may take a while..."
   }
 }
