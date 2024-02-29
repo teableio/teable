@@ -7,7 +7,7 @@ import { useRouter } from 'next/router';
 import React from 'react';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
-import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
+import { Pane } from '../components/toggle-side-bar/Pane';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 
 export const BaseLayout: React.FC<{
@@ -35,10 +35,10 @@ export const BaseLayout: React.FC<{
               <BaseProvider serverData={baseServerData}>
                 <TableProvider serverData={tableServerData}>
                   <div id="portal" className="relative flex h-screen w-full items-start">
-                    <ResizablePane>
+                    <Pane>
                       <SideBar />
                       {children}
-                    </ResizablePane>
+                    </Pane>
                   </div>
                 </TableProvider>
               </BaseProvider>

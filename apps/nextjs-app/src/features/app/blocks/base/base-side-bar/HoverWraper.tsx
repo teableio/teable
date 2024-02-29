@@ -11,7 +11,7 @@ interface IHoverWraperTag {
 }
 
 export const HoverWraper = (props: IHoverWraperProps) => {
-  const { children, size = 25 } = props;
+  const { children, size = 240 } = props;
   const [trigger, content] = children;
   const [hover, setHover] = useState(false);
 
@@ -40,7 +40,7 @@ export const HoverWraper = (props: IHoverWraperProps) => {
               'transition-[width] overflow-hidden drop-shadow-2xl border-r will-change-auto'
             )}
             style={{
-              width: hover ? `${size}%` : '0%',
+              width: hover ? `${size}px` : '0',
             }}
           >
             {content}
