@@ -5,6 +5,7 @@ services:
     image: redis:7.2.4
     container_name: teable-cache
     hostname: teable-cache
+    restart: always
     ports:
       - '6379:6379'
     networks:
@@ -20,7 +21,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-    restart: always
 
 volumes:
   cache_data:

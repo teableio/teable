@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Component, Database, Plus } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { getBaseAll, getSpaceList } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
@@ -38,9 +39,10 @@ export const AccessSelect = (props: IFormAccess) => {
   const [open, setOpen] = useState(false);
 
   const { data: spaceList, isLoading: spaceListLoading } = useQuery({
-    queryKey: ['space-list'],
-    queryFn: getSpaceList,
+    queryKey: ReactQueryKeys.spaceList(),
+    queryFn: () => getSpaceList(),
   });
+
   const { data: baseList, isLoading: baseListLoading } = useQuery({
     queryKey: ['base-all'],
     queryFn: () => getBaseAll(),
@@ -66,6 +68,24 @@ export const AccessSelect = (props: IFormAccess) => {
     });
   };
 
+  const onDeleteBaseId = (baseId: string) => {
+    const newBases = bases.filter((id) => id !== baseId);
+    setBases(newBases);
+    onChange({
+      spaceIds: spaces,
+      baseIds: newBases,
+    });
+  };
+
+  const onDeleteSpaceId = (spaceId: string) => {
+    const newSpaces = spaces.filter((id) => id !== spaceId);
+    setSpaces(newSpaces);
+    onChange({
+      spaceIds: newSpaces,
+      baseIds: bases,
+    });
+  };
+
   if (spaceListLoading || baseListLoading) {
     return <Spin className="size-5" />;
   }
@@ -75,10 +95,8 @@ export const AccessSelect = (props: IFormAccess) => {
       <AccessList
         spaceIds={spaces}
         baseIds={bases}
-        onDeleteBaseId={(baseId: string) => setBases((prev) => prev.filter((id) => id !== baseId))}
-        onDeleteSpaceId={(spaceId: string) =>
-          setSpaces((prev) => prev.filter((id) => id !== spaceId))
-        }
+        onDeleteBaseId={onDeleteBaseId}
+        onDeleteSpaceId={onDeleteSpaceId}
       />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>

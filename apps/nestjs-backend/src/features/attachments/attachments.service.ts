@@ -2,7 +2,7 @@ import type { IncomingHttpHeaders } from 'http';
 import { join } from 'path';
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { SignatureRo, SignatureVo } from '@teable/openapi';
+import type { INotifyVo, SignatureRo, SignatureVo } from '@teable/openapi';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
@@ -53,8 +53,8 @@ export class AttachmentsService {
     if (!path) {
       throw new HttpException(`Could not find attachment: ${token}`, HttpStatus.NOT_FOUND);
     }
-    const { dir, token: tokenInPath } = localStorage.parsePath(path);
-    if (token && !StorageAdapter.isPublicDir(dir)) {
+    const { bucket, token: tokenInPath } = localStorage.parsePath(path);
+    if (token && !StorageAdapter.isPublicBucket(bucket)) {
       respHeaders = localStorage.verifyReadToken(token).respHeaders ?? {};
     } else {
       const attachment = await this.prismaService
@@ -109,7 +109,7 @@ export class AttachmentsService {
     return res;
   }
 
-  async notify(token: string) {
+  async notify(token: string): Promise<INotifyVo> {
     const tokenCache = await this.cacheService.get(`attachment:signature:${token}`);
     if (!tokenCache) {
       throw new BadRequestException(`Invalid token: ${token}`);
@@ -147,7 +147,6 @@ export class AttachmentsService {
       ...attachment,
       width: attachment.width ?? undefined,
       height: attachment.height ?? undefined,
-      bucket,
       url,
       presignedUrl: await this.attachmentsStorageService.getPreviewUrlByPath(
         bucket,

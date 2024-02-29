@@ -1,0 +1,10 @@
+version: '3.9'
+
+networks:
+  teable-swarm:
+    external: true
+
+volumes:
+  teable-db:
+  teable-cache:
+  teable-storage:

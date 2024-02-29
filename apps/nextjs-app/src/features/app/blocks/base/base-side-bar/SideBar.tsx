@@ -9,7 +9,7 @@ export interface ISideBarInteractionProps {
 
 export const SideBar = (props: ISideBarInteractionProps) => {
   return (
-    <div className="relative h-full bg-popover">
+    <div className="relative size-full bg-popover">
       <div className={classNames('width-full flex h-full basis-[300px] flex-col')}>
         <SideBarHeader {...props} />
         <div className="divide-base-300 flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">

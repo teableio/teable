@@ -76,7 +76,7 @@ export function UserEditorMain(props: IUserEditorMainProps) {
               <CommandItem
                 key={userId}
                 value={userName}
-                onSelect={() => onSelect({ id: userId, title: userName })}
+                onSelect={() => onSelect({ id: userId, title: userName, avatarUrl: avatar })}
                 className="flex justify-between"
               >
                 <div className="flex items-center space-x-4">

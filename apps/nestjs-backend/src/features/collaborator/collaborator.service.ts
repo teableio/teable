@@ -11,6 +11,7 @@ import { isDate } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { getFullStorageUrl } from '../../utils/full-storage-url';
 
 @Injectable()
 export class CollaboratorService {
@@ -112,6 +113,9 @@ export class CollaboratorService {
     return collaborators.map((collaborator) => {
       if (isDate(collaborator.createdTime)) {
         collaborator.createdTime = collaborator.createdTime.toISOString();
+      }
+      if (collaborator.avatar) {
+        collaborator.avatar = getFullStorageUrl(collaborator.avatar);
       }
       return collaborator;
     });

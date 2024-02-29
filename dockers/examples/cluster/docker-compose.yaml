@@ -9,29 +9,35 @@ services:
     expose:
       - '3000'
     volumes:
-      - teable_data:/app/.assets:rw
+      - teable-data:/app/.assets:rw
     environment:
       - TZ=${TIMEZONE}
       - NODE_OPTIONS=--max-old-space-size=1024
       - PUBLIC_ORIGIN=http://127.0.0.1
-      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable_db:5432/${POSTGRES_DB}
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable-db:5432/${POSTGRES_DB}
       - BACKEND_CACHE_PROVIDER=redis
-      - BACKEND_CACHE_REDIS_URI=redis://:${POSTGRES_PASSWORD}@teable_cache:6379/0
+      - BACKEND_CACHE_REDIS_URI=redis://:${POSTGRES_PASSWORD}@teable-cache:6379/0
     networks:
       - teable-cluster
     depends_on:
-      teable_db_migrate:
+      teable-db-migrate:
         condition: service_completed_successfully
-      teable_cache:
+      teable-cache:
         condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 3
 
-  teable_db:
+  teable-db:
     image: postgres:15.4
     restart: always
     expose:
       - '5432'
     volumes:
-      - teable_db:/var/lib/postgresql/data:rw
+      - teable-db:/var/lib/postgresql/data:rw
     environment:
       - TZ=${TIMEZONE}
       - POSTGRES_DB=${POSTGRES_DB}
@@ -45,13 +51,13 @@ services:
       timeout: 3s
       retries: 3
 
-  teable_cache:
+  teable-cache:
     image: redis:7.2.4
     restart: always
     expose:
       - '6379'
     volumes:
-      - teable_cache:/data:rw
+      - teable-cache:/data:rw
     networks:
       - teable-cluster
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
@@ -61,37 +67,42 @@ services:
       timeout: 3s
       retries: 3
 
-  teable_db_migrate:
+  teable-db-migrate:
     image: ghcr.io/teableio/teable-db-migrate:latest
     environment:
       - TZ=${TIMEZONE}
-      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable_db:5432/${POSTGRES_DB}
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable-db:5432/${POSTGRES_DB}
     networks:
       - teable-cluster
     depends_on:
-      teable_db:
+      teable-db:
         condition: service_healthy
 
-  teable_reverse_proxy:
-    image: nginx:alpine
+  teable-gateway:
+    image: openresty/openresty:1.25.3.1-2-bookworm-fat
     restart: unless-stopped
     ports:
       - '80:80'
       - '443:443'
     volumes:
-      - './nginx/conf.d:/etc/nginx/conf.d'
+      - './gateway/conf.d:/etc/nginx/conf.d'
     networks:
       - teable-cluster
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost/healthcheck']
+      interval: 10s
+      timeout: 3s
+      retries: 3
     depends_on:
       teable:
         condition: service_started
 
 networks:
   teable-cluster:
-    name: teable_cluster_network
+    name: teable-cluster-network
     driver: bridge
 
 volumes:
-  teable_data: {}
-  teable_db: {}
-  teable_cache: {}
+  teable-data: {}
+  teable-db: {}
+  teable-cache: {}

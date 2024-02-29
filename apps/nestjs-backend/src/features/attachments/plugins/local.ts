@@ -50,22 +50,23 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
-  private getUrl(path: string, params: ITokenEncryptor) {
+  private getUrl(bucket: string, path: string, params: ITokenEncryptor) {
     const token = this.expireTokenEncryptor.encrypt(params);
-    return `${join(this.readPath, path)}?token=${token}`;
+    return `${join(this.readPath, bucket, path)}?token=${token}`;
   }
 
   parsePath(path: string) {
-    const [dir, token] = path.split('/');
+    const parts = path.split('/');
     return {
-      dir,
-      token,
+      bucket: parts[0],
+      token: parts[parts.length - 1],
     };
   }
 
   async presigned(_bucket: string, dir: string, params: IPresignParams) {
     const { contentType, contentLength, hash } = params;
     const token = getRandomString(12);
+    const filename = hash ?? token;
     const expiresIn = params?.expiresIn ?? second(this.config.tokenExpireIn);
     await this.cacheService.set(
       `attachment:local-signature:${token}`,
@@ -77,7 +78,7 @@ export class LocalStorage implements StorageAdapter {
       expiresIn
     );
 
-    const path = join(dir, hash ?? token);
+    const path = join(dir, filename);
     return {
       token,
       path,
@@ -196,7 +197,7 @@ export class LocalStorage implements StorageAdapter {
       hash,
       mimetype,
       size,
-      url: this.getUrl(path, {
+      url: this.getUrl(bucket, path, {
         respHeaders: { 'Content-Type': mimetype },
         expiresDate: -1,
       }),
@@ -212,12 +213,12 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async getPreviewUrl(
-    _bucket: string,
+    bucket: string,
     path: string,
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ): Promise<string> {
-    const url = this.getUrl(path, {
+    const url = this.getUrl(bucket, path, {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,
     });

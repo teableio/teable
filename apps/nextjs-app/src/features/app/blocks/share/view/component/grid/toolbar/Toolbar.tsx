@@ -1,4 +1,4 @@
-import type { GridViewOptions } from '@teable/core';
+import type { IGridViewOptions } from '@teable/core';
 import { ArrowUpDown, Filter as FilterIcon, LayoutList } from '@teable/icons';
 import { Filter, useView, RowHeight, Group } from '@teable/sdk';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -63,7 +63,7 @@ export const Toolbar = () => {
         )}
       </Group>
       <RowHeight
-        rowHeight={(view?.options as GridViewOptions)?.rowHeight || null}
+        rowHeight={(view?.options as IGridViewOptions)?.rowHeight || null}
         onChange={onRowHeightChange}
       >
         {(_, isActive, Icon) => (

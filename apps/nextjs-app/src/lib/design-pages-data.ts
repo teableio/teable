@@ -1,6 +1,6 @@
 import type { IFieldVo, ITableVo } from '@teable/core';
 import type { IGetBaseVo } from '@teable/openapi';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
+import type { SsrApi } from '@/backend/api/rest/table.ssr';
 
 export interface IDesignPageProps {
   baseServerData: IGetBaseVo;
@@ -9,6 +9,7 @@ export interface IDesignPageProps {
 }
 
 export const getDesignPageServerData = async (
+  ssrApi: SsrApi,
   baseId: string,
   tableId: string
 ): Promise<IDesignPageProps | undefined> => {

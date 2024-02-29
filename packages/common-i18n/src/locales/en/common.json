@@ -99,5 +99,6 @@
     "viewSortingTooltipContent": "While in a view, you can sort your records so that they appear in a particular order according to the values in specific fields. <br></br>Sorting your records in one view doesn't affect the order of records in other views—it just applies to the view you're currently using to look at your table.",
     "viewGroupingTooltipTitle": "Grouping records",
     "viewGroupingTooltipContent": "Grouping records allows creators to build a set of one or more conditions that will help to categorize the dataset that is being presented within a particular view."
-  }
+  },
+  "poweredBy": "Powered by <0></0>"
 }

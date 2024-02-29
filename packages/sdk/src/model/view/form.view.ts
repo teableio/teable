@@ -5,7 +5,9 @@ import { requestWrap } from '../../utils/requestWrap';
 import { View } from './view';
 
 export class FormView extends Mixin(FormViewCore, View) {
-  async updateOption({ coverUrl }: FormView['options']) {
-    return await requestWrap(updateViewOptions)(this.tableId, this.id, { options: { coverUrl } });
+  async updateOption({ coverUrl, logoUrl, submitLabel }: FormView['options']) {
+    return await requestWrap(updateViewOptions)(this.tableId, this.id, {
+      options: { coverUrl, logoUrl, submitLabel },
+    });
   }
 }

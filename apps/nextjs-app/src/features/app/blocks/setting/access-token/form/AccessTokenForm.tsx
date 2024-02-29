@@ -47,8 +47,10 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   const [spaceIds, setSpaceIds] = useState<string[] | undefined>(defaultData?.spaceIds);
   const [baseIds, setBaseIds] = useState<string[] | undefined>(defaultData?.baseIds);
   const [expiredTime, setExpiredTime] = useState<string | undefined>(defaultData?.expiredTime);
-  const [name, setName] = useState<string | undefined>(defaultData?.name);
-  const [description, setDescription] = useState<string | undefined>(defaultData?.description);
+  const [name, setName] = useState<string | undefined>(defaultData?.name || '');
+  const [description, setDescription] = useState<string | undefined>(
+    defaultData?.description || ''
+  );
   const [scopes, setScopes] = useState<string[]>(defaultData?.scopes || []);
 
   const disableSubmit = useMemo(() => {

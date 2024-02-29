@@ -11,6 +11,7 @@ import { appWithTranslation } from 'next-i18next';
 import { z } from 'zod';
 import { getUserMe } from '@/backend/api/rest/get-user';
 import { Guide } from '@/components/Guide';
+import { MicrosoftClarity } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
@@ -76,6 +77,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
       </AppProviders>
       <Guide user={user} />
+      <MicrosoftClarity />
       <RouterProgressBar />
     </>
   );

@@ -280,7 +280,7 @@ describe('LocalStorage', () => {
       expect(storage.getFileMate).toHaveBeenCalledWith(
         resolve(storage.storageDir, mockBucket, mockPath)
       );
-      expect(storage['getUrl']).toHaveBeenCalledWith(mockPath, {
+      expect(storage['getUrl']).toHaveBeenCalledWith(mockBucket, mockPath, {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         respHeaders: mockRespHeaders,
         expiresDate: -1,
@@ -312,7 +312,7 @@ describe('LocalStorage', () => {
       const result = await storage.getObject(mockBucket, mockPath, mockToken);
 
       expect(mockCacheService.get).toHaveBeenCalledWith(`attachment:upload:${mockToken}`);
-      expect(storage['getUrl']).toHaveBeenCalledWith(mockPath, {
+      expect(storage['getUrl']).toHaveBeenCalledWith(mockBucket, mockPath, {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         respHeaders: { 'Content-Type': 'text/plain' },
         expiresDate: -1,
@@ -355,7 +355,7 @@ describe('LocalStorage', () => {
         respHeaders: mockRespHeaders,
       });
       expect(fullStorageUrlModule.getFullStorageUrl).toHaveBeenCalledWith(
-        '/api/attachments/read/mock/file/path?token=mock-token'
+        '/api/attachments/read/mock-bucket/mock/file/path?token=mock-token'
       );
       expect(result).toBe('http://example.com');
     });

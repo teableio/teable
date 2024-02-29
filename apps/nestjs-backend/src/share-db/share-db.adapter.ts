@@ -214,11 +214,13 @@ export class ShareDbAdapter extends ShareDb.DB {
           where: { collection: collectionId, docId: id },
         });
 
-        const maxVersion = opsResult._max.version == null ? 0 : opsResult._max.version + 1;
+        if (opsResult._max.version != null) {
+          const maxVersion = opsResult._max.version + 1;
 
-        if (rawOp.v !== maxVersion) {
-          this.logger.log({ message: 'op crashed', crashed: rawOp.op });
-          throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
+          if (rawOp.v !== maxVersion) {
+            this.logger.log({ message: 'op crashed', crashed: rawOp.op });
+            throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
+          }
         }
 
         // 1. save op in db;

@@ -1,6 +1,6 @@
 # Example with teable cluster
 
-Look into the `.env` file and update the vaiables before executing `docker-compose up -d`.
+Look into the `.env` file and update the vaiables before executing `docker compose up -d`.
 
 ## Teable
 

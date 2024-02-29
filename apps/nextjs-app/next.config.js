@@ -77,13 +77,16 @@ const secureHeaders = createSecureHeaders({
       ? {
           defaultSrc: "'self'",
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", 'https://www.clarity.ms'],
           frameSrc: ["'self'"],
           connectSrc: [
             "'self'",
-            'https://vitals.vercel-insights.com',
             'https://*.sentry.io',
             'https://*.teable.io',
+            'https://*.teable.cn',
+            'https://*.clarity.ms',
+            'http://localhost:9000',
+            'http://127.0.0.1:9000',
           ],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
           workerSrc: ['blob:'],

@@ -7,25 +7,28 @@ import type { IViewVo } from '../view.schema';
 
 export interface IGridView extends IViewVo {
   type: ViewType.Grid;
-  options: GridViewOptions;
+  options: IGridViewOptions;
 }
 
-export class GridViewOptions {
-  rowHeight?: RowHeightLevel;
-  frozenColumnCount?: number;
-}
+export type IGridViewOptions = z.infer<typeof gridViewOptionSchema>;
 
 export const gridViewOptionSchema = z
   .object({
-    rowHeight: z.nativeEnum(RowHeightLevel).optional(),
-    frozenColumnCount: z.number().optional(),
+    rowHeight: z
+      .nativeEnum(RowHeightLevel)
+      .optional()
+      .openapi({ description: 'The row height level of row in view' }),
+    frozenColumnCount: z
+      .number()
+      .optional()
+      .openapi({ description: 'The frozen column count in view' }),
   })
   .strict();
 
 export class GridViewCore extends ViewCore {
   type!: ViewType.Grid;
 
-  options!: GridViewOptions;
+  options!: IGridViewOptions;
 
   columnMeta!: IGridColumnMeta;
 }

@@ -101,8 +101,8 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         fontFamily,
         user: {
           ...user,
+          avatar: user.avatarUrl,
           email: '',
-          avatar: '',
         },
       });
 

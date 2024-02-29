@@ -11,8 +11,8 @@ import type {
   IExtraResult,
   IFilter,
   IGetRecordQuery,
-  IGroup,
   IGetRecordsRo,
+  IGroup,
   ILinkCellValue,
   IRecord,
   IRecordsVo,
@@ -32,8 +32,8 @@ import {
   mergeWithDefaultFilter,
   mergeWithDefaultSort,
   OpName,
-  Relationship,
   parseGroup,
+  Relationship,
 } from '@teable/core';
 import type { Field, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -657,7 +657,6 @@ export class RecordService implements IAdapterService {
         return {
           __id: snapshot.id,
           __created_by: userId,
-          __last_modified_by: userId,
           __version: 1,
           ...order,
         };
@@ -853,6 +852,12 @@ export class RecordService implements IAdapterService {
       {} as { [recordId: string]: number }
     );
 
+    recordIds.forEach((recordId) => {
+      if (!(recordId in recordIdsMap)) {
+        throw new NotFoundException(`Record ${recordId} not found`);
+      }
+    });
+
     const primaryFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
       where: { tableId, isPrimary: true, deletedTime: null },
     });
@@ -888,7 +893,7 @@ export class RecordService implements IAdapterService {
             createdTime: record.__created_time?.toISOString(),
             lastModifiedTime: record.__last_modified_time?.toISOString(),
             createdBy: record.__created_by,
-            lastModifiedBy: record.__last_modified_by,
+            lastModifiedBy: record.__last_modified_by || undefined,
             recordOrder,
           },
         };

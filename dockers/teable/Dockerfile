@@ -32,6 +32,8 @@ FROM deps AS builder
 
 ARG INTEGRATION_TEST
 
+ARG NEXT_PUBLIC_MICROSOFT_CLARITY
+
 ENV NEXT_BUILD_ENV_TYPECHECK=false
 ENV NEXT_BUILD_ENV_LINT=false
 ENV NEXT_BUILD_ENV_OUTPUT=classic
@@ -80,7 +82,7 @@ ENV TZ=UTC
 ENV PORT=${NEXTJS_APP_PORT:-3000}
 
 RUN npm install zx -g && \
-      apt-get update && apt-get install -y openssl && \
+      apt-get update && apt-get install -y curl openssl && \
       rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -14,10 +14,10 @@ const Node: NextPageWithLayout<IDesignPageProps> = (props) => {
   return <Design {...props} />;
 };
 
-export const getServerSideProps = withAuthSSR<IDesignPageProps>(async (context) => {
+export const getServerSideProps = withAuthSSR<IDesignPageProps>(async (context, ssrApi) => {
   const { tableId, baseId } = context.query;
   try {
-    const pageData = await getDesignPageServerData(baseId as string, tableId as string);
+    const pageData = await getDesignPageServerData(ssrApi, baseId as string, tableId as string);
     if (pageData) {
       const { i18nNamespaces } = tableConfig;
       return {

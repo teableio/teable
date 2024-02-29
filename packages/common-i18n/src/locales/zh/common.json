@@ -99,5 +99,6 @@
     "viewSortingTooltipContent": "在视图中时，您可以对记录进行排序，以便它们根据特定字段中的值以特定顺序显示。<br></br>对一个视图中的记录进行排序不会影响其他视图中的记录顺序，它仅适用于您当前用于查看表格的视图。",
     "viewGroupingTooltipTitle": "记录分组",
     "viewGroupingTooltipContent": "记录分组允许创建者构建一组一个或多个条件，这将有助于对特定视图中呈现的数据集进行分类。"
-  }
+  },
+  "poweredBy": "<0></0> 提供技术支持"
 }

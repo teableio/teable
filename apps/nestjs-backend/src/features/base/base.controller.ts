@@ -2,13 +2,16 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   createBaseRoSchema,
+  duplicateBaseRoSchema,
   ICreateBaseRo,
   IUpdateBaseRo,
   updateBaseRoSchema,
+  IDuplicateBaseRo,
 } from '@teable/openapi';
 import type {
   ICreateBaseVo,
   IDbConnectionVo,
+  IDuplicateBaseVo,
   IGetBaseVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
@@ -18,6 +21,7 @@ import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
+import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
@@ -27,7 +31,8 @@ export class BaseController {
   constructor(
     private readonly baseService: BaseService,
     private readonly dbConnectionService: DbConnectionService,
-    private readonly collaboratorService: CollaboratorService
+    private readonly collaboratorService: CollaboratorService,
+    private readonly permissionService: PermissionService
   ) {}
 
   @Post()
@@ -67,8 +72,20 @@ export class BaseController {
   @Permissions('base|delete')
   @EmitControllerEvent(Events.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
-    await this.baseService.deleteBase(baseId);
-    return null;
+    return await this.baseService.deleteBase(baseId);
+  }
+
+  @Post(':baseId/duplicate')
+  @Permissions('base|read')
+  async duplicateBase(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(duplicateBaseRoSchema))
+    duplicateBaseRo: IDuplicateBaseRo
+  ): Promise<IDuplicateBaseVo> {
+    await this.permissionService.checkPermissionBySpaceId(duplicateBaseRo.toSpaceId, [
+      'base|create',
+    ]);
+    return await this.baseService.duplicateBase(baseId, duplicateBaseRo);
   }
 
   @Permissions('base|create')

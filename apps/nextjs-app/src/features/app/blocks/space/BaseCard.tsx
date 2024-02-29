@@ -82,6 +82,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     });
   };
 
+  const hasReadPermission = hasPermission(base.role, 'base|read');
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
   return (
@@ -122,6 +123,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               <BaseActionTrigger
                 base={base}
                 showRename={hasUpdatePermission}
+                showDuplicate={hasReadPermission}
                 showDelete={hasDeletePermission}
                 onDelete={() => deleteBaseMutator(base.id)}
                 onRename={onRename}

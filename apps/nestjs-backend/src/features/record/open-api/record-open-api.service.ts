@@ -1,6 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
-  IAttachmentCellValue,
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecord,
@@ -9,10 +8,8 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
 import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
-import StorageAdapter from '../../attachments/plugins/adapter';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
@@ -127,6 +124,7 @@ export class RecordOpenApiService {
           prismaService: this.prismaService,
           fieldConvertingService: this.fieldConvertingService,
           recordService: this.recordService,
+          attachmentsStorageService: this.attachmentsStorageService,
         },
         field,
         tableId,
@@ -143,35 +141,6 @@ export class RecordOpenApiService {
           recordField[fieldIdOrName] = newCellValues[i];
         }
       });
-
-      if (field.type === FieldType.Attachment) {
-        // attachment presignedUrl reparation
-        for (const recordField of newRecordsFields) {
-          const attachmentCellValue = recordField[fieldIdOrName] as IAttachmentCellValue;
-          if (!attachmentCellValue) {
-            continue;
-          }
-          recordField[fieldIdOrName] = await Promise.all(
-            attachmentCellValue.map(async (item) => {
-              const { path, mimetype, token } = item;
-              const presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-                StorageAdapter.getBucket(UploadType.Table),
-                path,
-                token,
-                undefined,
-                {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  'Content-Type': mimetype,
-                }
-              );
-              return {
-                ...item,
-                presignedUrl,
-              };
-            })
-          );
-        }
-      }
     }
 
     return records.map((record, i) => ({

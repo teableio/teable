@@ -440,23 +440,22 @@ export class SelectionService {
       return acc.concat(tokensInRecord);
     }, [] as string[]);
 
-    return nullsToUndefined(
-      await this.prismaService.attachments.findMany({
-        where: {
-          token: {
-            in: tokens,
-          },
+    const attachments = await this.prismaService.attachments.findMany({
+      where: {
+        token: {
+          in: tokens,
         },
-        select: {
-          token: true,
-          size: true,
-          mimetype: true,
-          width: true,
-          height: true,
-          path: true,
-        },
-      })
-    );
+      },
+      select: {
+        token: true,
+        size: true,
+        mimetype: true,
+        width: true,
+        height: true,
+        path: true,
+      },
+    });
+    return attachments.map(nullsToUndefined);
   }
 
   private parseCopyContent(content: string): string[][] {

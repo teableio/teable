@@ -58,7 +58,7 @@ export class FieldOpenApiService {
           }
         }
       },
-      { timeout: this.thresholdConfig.fieldTransactionTimeout }
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
 
     return fieldVo;
@@ -174,7 +174,7 @@ export class FieldOpenApiService {
           await this.fieldConvertingService.stageCalculate(tableId, newField, oldField);
         }
       },
-      { timeout: this.thresholdConfig.fieldTransactionTimeout }
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
 
     return instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
