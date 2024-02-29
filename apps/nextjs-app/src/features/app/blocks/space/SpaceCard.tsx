@@ -8,7 +8,7 @@ import { type FC, useEffect, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
-import { BaseCard } from './BaseCard';
+import { DraggableBaseGrid } from './DraggableBaseGrid';
 
 interface ISpaceCard {
   space: IGetSpaceVo;
@@ -78,15 +78,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
       </CardHeader>
       <CardContent>
         {bases?.length ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-4">
-            {bases.map((base) => (
-              <BaseCard
-                key={base.id}
-                className="h-24 min-w-[17rem] max-w-[34rem] flex-1"
-                base={base}
-              />
-            ))}
-          </div>
+          <DraggableBaseGrid bases={bases} />
         ) : (
           <div className="flex h-24 w-full items-center justify-center">
             {t('space:spaceIsEmpty')}

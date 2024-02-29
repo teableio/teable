@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable/openapi';
+import { useIsHydrated } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -8,12 +9,13 @@ import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
-import { BaseCard } from './BaseCard';
+import { DraggableBaseGrid } from './DraggableBaseGrid';
 
 export const SpaceInnerPage: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
+  const isHydrated = useIsHydrated();
   const spaceId = router.query.spaceId as string;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
@@ -66,6 +68,7 @@ export const SpaceInnerPage: React.FC = () => {
   };
 
   return (
+    isHydrated &&
     space && (
       <div ref={ref} className="flex size-full min-w-[760px] px-12 pt-8">
         <div className="w-full flex-1 space-y-6">
@@ -81,15 +84,7 @@ export const SpaceInnerPage: React.FC = () => {
           </div>
 
           {bases?.length ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
-              {bases.map((base) => (
-                <BaseCard
-                  key={base.id}
-                  className="h-24 min-w-[17rem] max-w-[34rem] flex-1"
-                  base={base}
-                />
-              ))}
-            </div>
+            <DraggableBaseGrid bases={bases} />
           ) : (
             <div className="flex items-center justify-center">
               <h1>{t('space:spaceIsEmpty')}</h1>
