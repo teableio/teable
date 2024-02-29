@@ -44,8 +44,8 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   const { type, isLoading, onCancel, onSubmit, onRefresh, defaultData, id } = props;
   const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
 
-  const [spaceIds, setSpaceIds] = useState<string[] | undefined>(defaultData?.spaceIds);
-  const [baseIds, setBaseIds] = useState<string[] | undefined>(defaultData?.baseIds);
+  const [spaceIds, setSpaceIds] = useState<string[] | undefined | null>(defaultData?.spaceIds);
+  const [baseIds, setBaseIds] = useState<string[] | undefined | null>(defaultData?.baseIds);
   const [expiredTime, setExpiredTime] = useState<string | undefined>(defaultData?.expiredTime);
   const [name, setName] = useState<string | undefined>(defaultData?.name || '');
   const [description, setDescription] = useState<string | undefined>(
@@ -84,7 +84,6 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
         baseIds,
       });
     }
-
     if (type === 'edit') {
       return onSubmit?.({
         name: name!,
@@ -140,8 +139,8 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
           <AccessSelect
             value={{ spaceIds: spaceIds || [], baseIds: baseIds || [] }}
             onChange={({ spaceIds, baseIds }) => {
-              setSpaceIds(spaceIds.length ? spaceIds : undefined);
-              setBaseIds(baseIds.length ? baseIds : undefined);
+              setSpaceIds(spaceIds.length ? spaceIds : null);
+              setBaseIds(baseIds.length ? baseIds : null);
             }}
           />
         </div>
