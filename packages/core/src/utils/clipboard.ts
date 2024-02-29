@@ -60,6 +60,11 @@ export const parseClipboardText = (content: string) => {
     }
     cursor++;
     row.push(cell);
+    // Handling of the last column with no content, example: "text1"\t"text2"\t
+    if (endOfCell && cursor >= len && content[cursor - 1] === '\t') {
+      endOfRow = true;
+      row.push('');
+    }
 
     if (endOfRow) {
       tableData.push(row);
