@@ -115,6 +115,7 @@
     },
     "menu": {
       "addFromOtherSource": "Add from other sources",
+      "excelFile": "Microsoft Excel",
       "csvFile": "Csv file",
       "cancel": "Cancel",
       "leave": "Leave"
