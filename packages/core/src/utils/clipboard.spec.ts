@@ -64,6 +64,16 @@ describe('clipboard', () => {
       const data = parseClipboardText('"text1"\t"text2"\t');
       expect(data).toEqual([['"text1"', '"text2"', '']]);
     });
+
+    it('content has continuous \t', () => {
+      const data = parseClipboardText('text1\t\t"text2"');
+      expect(data).toEqual([['text1', '', '"text2"']]);
+    });
+
+    it('content hash continuous \n', () => {
+      const data = parseClipboardText('text1\n\n"text2"');
+      expect(data).toEqual([['text1'], [''], ['"text2"']]);
+    });
   });
 
   describe('stringify', () => {

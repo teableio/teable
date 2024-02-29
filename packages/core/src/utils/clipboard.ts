@@ -18,6 +18,11 @@ export const parseClipboardText = (content: string) => {
     let endOfCell = false;
     if (content[cursor] === '"') {
       quoted = true;
+    } else if (content[cursor] === delimiter) {
+      endOfCell = true;
+    } else if (content[cursor] === newline) {
+      endOfCell = true;
+      endOfRow = true;
     } else {
       cell += content[cursor];
     }
@@ -60,6 +65,7 @@ export const parseClipboardText = (content: string) => {
     }
     cursor++;
     row.push(cell);
+    console.log('row === ', row, cell, cursor);
     // Handling of the last column with no content, example: "text1"\t"text2"\t
     if (endOfCell && cursor >= len && content[cursor - 1] === '\t') {
       endOfRow = true;
