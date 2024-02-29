@@ -81,5 +81,23 @@
   "untitled": "未命名",
   "name": "名称",
   "description": "描述",
-  "required": "必填"
+  "required": "必填",
+  "guide": {
+    "prev": "上一步",
+    "next": "下一步",
+    "done": "完成",
+    "skip": "跳过",
+    "createSpaceTooltipTitle": "创建空间",
+    "createSpaceTooltipContent": "组织内部可以创建多个空间，空间可以让拥有共同目标、同类职能或利益相关者在同一个环境内进行协作。",
+    "createBaseTooltipTitle": "创建数据库",
+    "createBaseTooltipContent": "数据库是存储重要数据的地方，所有的工作流程也依赖于它。",
+    "createTableTooltipTitle": "创建表格",
+    "createTableTooltipContent": "表格是一种结构化数据存储方式，用于存储应用内相关数据的集合。",
+    "viewFilteringTooltipTitle": "记录筛选",
+    "viewFilteringTooltipContent": "视图的核心功能之一是能够根据您设置的条件从视图中过滤掉记录。<br></br>当根据条件过滤掉记录时，它不会被删除，它只是在您用于查看表的特定视图中隐藏。",
+    "viewSortingTooltipTitle": "记录排序",
+    "viewSortingTooltipContent": "在视图中时，您可以对记录进行排序，以便它们根据特定字段中的值以特定顺序显示。<br></br>对一个视图中的记录进行排序不会影响其他视图中的记录顺序，它仅适用于您当前用于查看表格的视图。",
+    "viewGroupingTooltipTitle": "记录分组",
+    "viewGroupingTooltipContent": "记录分组允许创建者构建一组一个或多个条件，这将有助于对特定视图中呈现的数据集进行分类。"
+  }
 }
