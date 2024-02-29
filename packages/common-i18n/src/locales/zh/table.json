@@ -116,6 +116,7 @@
     },
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
+      "excelFile": "Microsoft Excel",
       "csvFile": "csv 文件",
       "cancel": "取消",
       "leave": "取消"
