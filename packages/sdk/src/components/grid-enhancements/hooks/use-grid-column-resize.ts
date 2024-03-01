@@ -31,7 +31,7 @@ export function useGridColumnResize<T extends { id: string }>(_columns: T[]) {
         },
       ]);
     },
-    200,
+    300,
     [index, newSize]
   );
 
