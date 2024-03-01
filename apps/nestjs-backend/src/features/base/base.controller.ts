@@ -21,7 +21,6 @@ import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
-import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
@@ -31,8 +30,7 @@ export class BaseController {
   constructor(
     private readonly baseService: BaseService,
     private readonly dbConnectionService: DbConnectionService,
-    private readonly collaboratorService: CollaboratorService,
-    private readonly permissionService: PermissionService
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   @Post()
@@ -82,9 +80,6 @@ export class BaseController {
     @Body(new ZodValidationPipe(duplicateBaseRoSchema))
     duplicateBaseRo: IDuplicateBaseRo
   ): Promise<IDuplicateBaseVo> {
-    await this.permissionService.checkPermissionBySpaceId(duplicateBaseRo.toSpaceId, [
-      'base|create',
-    ]);
     return await this.baseService.duplicateBase(baseId, duplicateBaseRo);
   }
 

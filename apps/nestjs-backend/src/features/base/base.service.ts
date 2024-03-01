@@ -7,6 +7,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 
@@ -17,6 +18,7 @@ export class BaseService {
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
     private readonly baseDuplicateService: BaseDuplicateService,
+    private readonly permissionService: PermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -161,6 +163,8 @@ export class BaseService {
   }
 
   async duplicateBase(baseId: string, duplicateBaseRo: IDuplicateBaseRo) {
+    // permission check, base read permission
+    await this.checkBaseReadPermission(baseId);
     return await this.prismaService.$tx(
       async () => {
         const newBaseId = await this.baseDuplicateService.duplicate(baseId, duplicateBaseRo);
@@ -170,5 +174,18 @@ export class BaseService {
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+  }
+
+  private async checkBaseReadPermission(baseId: string) {
+    // First check if the user has the base read permission
+    await this.permissionService.checkPermissionByBaseId(baseId, ['base|read']);
+
+    // Then check the token permissions if the request was made with a token
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      await this.permissionService.checkPermissionByAccessToken(baseId, accessTokenId, [
+        'base|read',
+      ]);
+    }
   }
 }
