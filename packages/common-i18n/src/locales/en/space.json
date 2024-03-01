@@ -16,11 +16,14 @@
   "baseModal": {
     "copy": "Copy",
     "duplicate": "Duplicate \"{{baseName}}\"",
+    "createBaseFromTemplate": "Create base from template",
     "duplicateRecords": "Duplicate records",
     "duplicateRecordsTip": "Your revision history will not be duplicated.",
+    "toSpace": "To space",
     "copyToSpace": "Copy to space",
     "duplicateBase": "Duplicate base",
     "missTargetTip": "Please select a space to duplicate the base.",
-    "copying": "Duplicating base, it may take a while..."
+    "copying": "Duplicating base, it may take a while...",
+    "copyingTemplate": "Creating base from template, it may take a while..."
   }
 }

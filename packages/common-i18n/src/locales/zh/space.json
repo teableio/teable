@@ -16,11 +16,14 @@
   "baseModal": {
     "copy": "副本",
     "duplicate": "复制 \"{{baseName}}\"",
+    "createBaseFromTemplate": "从模板创建数据库",
     "duplicateRecords": "复制记录",
     "duplicateRecordsTip": "您的记录修改历史不会被复制",
+    "toSpace": "选择空间",
     "copyToSpace": "复制到空间",
     "duplicateBase": "复制数据库",
     "missTargetTip": "请选择要复制到的空间",
-    "copying": "复制中，请稍作等待..."
+    "copying": "复制中，请稍作等待...",
+    "copyingTemplate": "从模板创建中，请稍作等待..."
   }
 }
