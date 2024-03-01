@@ -243,6 +243,10 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         tooltipFooter: {
           marginTop: 8,
         },
+        spotlight: {
+          border: `1px solid ${colors.white}`,
+          borderRadius: 8,
+        },
       }}
       getHelpers={getHelpers}
       callback={onCallback}
