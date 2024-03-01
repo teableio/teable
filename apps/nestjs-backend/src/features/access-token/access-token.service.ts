@@ -88,6 +88,7 @@ export class AccessTokenService {
         expiredTime: true,
         lastUsedTime: true,
       },
+      orderBy: { createdTime: 'desc' },
     });
     return list.map(this.transformAccessTokenEntity);
   }

@@ -11,9 +11,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpErrorCode, type IHttpError } from '@teable/core';
+import { HttpErrorCode } from '@teable/core';
 import type { Request, Response } from 'express';
 import type { ILoggerConfig } from '../configs/logger.config';
+import { CustomHttpException, getDefaultCodeByStatus } from '../custom.exception';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -40,25 +41,28 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     )
       this.logError(exception, request);
 
-    if (
-      exception instanceof BadRequestException ||
-      ('getStatus' in exception && exception.getStatus?.() === 400)
-    ) {
-      return response.status(400).json({
+    if (exception instanceof CustomHttpException) {
+      const customException = exception as CustomHttpException;
+      const status = customException.getStatus();
+      return response.status(status).json({
         message: exception.message,
-        status: 400,
-        code: HttpErrorCode.INVALID_REQUEST,
-      } as IHttpError);
+        status: status,
+        code: customException.code,
+      });
     }
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
-      return response.status(status).json({ message: exception.message, status } as IHttpError);
+      return response
+        .status(status)
+        .json({ message: exception.message, status, code: getDefaultCodeByStatus(status) });
     }
 
-    response
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json({ message: 'Internal Server Error' } as IHttpError);
+    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      message: 'Internal Server Error',
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      code: HttpErrorCode.INTERNAL_SERVER_ERROR,
+    });
   }
 
   protected logError(exception: Error, request: Request) {
