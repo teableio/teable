@@ -1,4 +1,4 @@
-import { File } from '@teable/icons';
+import { File, FileCsv } from '@teable/icons';
 import { useConnection, useTablePermission } from '@teable/sdk';
 import {
   DropdownMenu,
@@ -40,7 +40,7 @@ export const TableList: React.FC = () => {
         <DropdownMenuContent>
           <DropdownMenuItem onClick={addTable} className="cursor-pointer">
             <Button variant="ghost" size="xs" className="h-4">
-              <File className="size-4"></File>
+              <File className="size-4" />
               {t('table.operator.createBlank')}
             </Button>
           </DropdownMenuItem>
@@ -50,7 +50,7 @@ export const TableList: React.FC = () => {
           </DropdownMenuLabel>
           <DropdownMenuItem className="cursor-pointer" onClick={() => setDialogVisible(true)}>
             <Button variant="ghost" size="xs" className="h-4">
-              <File className="size-4"></File>
+              <FileCsv className="size-4" />
               {t('table:import.menu.csvFile')}
             </Button>
           </DropdownMenuItem>

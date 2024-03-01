@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
-import type { IAnalyzeRo, IImportOptionRo, ICreateRecordsVo } from '@teable/core';
+import type { IAnalyzeRo, IImportOptionRo } from '@teable/core';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
@@ -49,8 +49,6 @@ export class ImportOpenApiService {
     });
     const { fields } = table;
 
-    const insertPromiseList: Array<() => Promise<ICreateRecordsVo>> = [];
-
     if (importData) {
       await importer.streamParse(
         {
@@ -70,19 +68,13 @@ export class ImportOpenApiService {
           if (records.length === 0) {
             return;
           }
-          insertPromiseList.push(() =>
-            this.recordOpenApiService.multipleCreateRecords(table.id, {
-              fieldKeyType: FieldKeyType.Id,
-              typecast: true,
-              records,
-            })
-          );
+          await this.recordOpenApiService.multipleCreateRecords(table.id, {
+            fieldKeyType: FieldKeyType.Id,
+            typecast: true,
+            records,
+          });
         }
       );
-
-      for (let i = 0; i < insertPromiseList.length; i++) {
-        await insertPromiseList[i]();
-      }
     }
 
     return table;
