@@ -6,6 +6,7 @@ import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, type FC } from 'react';
+import { GUIDE_CREATE_SPACE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceCard } from './SpaceCard';
 
@@ -41,7 +42,12 @@ export const SpacePage: FC = () => {
     <div ref={ref} className="flex h-screen w-full flex-col py-8">
       <div className="flex items-center justify-between px-12">
         <h1 className="text-2xl font-semibold">{t('space:allSpaces')}</h1>
-        <Button size={'sm'} disabled={isLoading} onClick={() => createSpaceMutator({})}>
+        <Button
+          className={GUIDE_CREATE_SPACE}
+          size={'sm'}
+          disabled={isLoading}
+          onClick={() => createSpaceMutator({})}
+        >
           {isLoading && <Spin className="size-3" />}
           {t('space:action.createSpace')}
         </Button>

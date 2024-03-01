@@ -7,4 +7,5 @@ export enum LocalStorageKeys {
   ViewFromData = 'ls_view_form_data',
   ViewFromMode = 'ls_view_form_mode',
   ViewGridCollapsedGroup = 'ls_view_grid_collapsed_group',
+  CompletedGuideMap = 'ls_completed_guide_map',
 }

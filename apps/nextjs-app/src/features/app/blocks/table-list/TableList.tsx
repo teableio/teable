@@ -1,6 +1,7 @@
 import { useConnection, useTablePermission } from '@teable/sdk';
 import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { GUIDE_CREATE_TABLE } from '@/components/Guide';
 import { DraggableList } from './DraggableList';
 import { NoDraggableList } from './NoDraggableList';
 import { useAddTable } from './useAddTable';
@@ -14,7 +15,12 @@ export const TableList: React.FC = () => {
     <div className="flex flex-col gap-2 overflow-auto pt-4">
       <div className="px-3">
         {permission['table|create'] && (
-          <Button variant={'outline'} size={'xs'} className="w-full" onClick={addTable}>
+          <Button
+            variant={'outline'}
+            size={'xs'}
+            className={`${GUIDE_CREATE_TABLE} w-full`}
+            onClick={addTable}
+          >
             <AddBoldIcon />
           </Button>
         )}

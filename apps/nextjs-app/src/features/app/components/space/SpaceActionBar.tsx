@@ -7,6 +7,7 @@ import type { ButtonProps } from '@teable/ui-lib';
 import { Button } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { GUIDE_CREATE_BASE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { SpaceCollaboratorModalTrigger } from '../collaborator-manage/space/SpaceCollaboratorModalTrigger';
@@ -31,10 +32,12 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
       queryClient.invalidateQueries({ queryKey: invQueryFilters });
     },
   });
+
   return (
     <div className={className}>
       {hasPermission(space.role, 'base|create') && (
         <Button
+          className={GUIDE_CREATE_BASE}
           size={buttonSize}
           disabled={createBaseLoading}
           onClick={() => createBaseMutator({ spaceId: space.id })}

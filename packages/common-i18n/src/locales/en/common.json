@@ -82,5 +82,28 @@
   "name": "Name",
   "description": "Description",
   "required": "Required",
+  "guide": {
+    "prev": "Prev",
+    "next": "Next",
+    "done": "Done",
+    "skip": "Skip",
+    "createSpaceTooltipTitle": "Create a space",
+    "createSpaceTooltipContent": "Teable is organized into spaces, where each space invites users to collaborate. <br></br>Spaces in Teable serve as a primary navigation element within the menu bar, offering a foundational platform for users to add and manage databases as needed.",
+    "createBaseTooltipTitle": "Create a base",
+    "createBaseTooltipContent": "A base (short for \"database\") is a place to store important data, and the workflows that depend on it.",
+    "createTableTooltipTitle": "Create a table",
+    "createTableTooltipContent": "Tables are designed to efficiently handle diverse datasets, offering a versatile display of information through various data types.",
+    "createViewTooltipTitle": "Create a view",
+    "createViewTooltipContent": "Currently, users can create Grid and Form views, with Gallery, Kanban, and Calendar views planned for future releases. <br></br>This variety equips users with a comprehensive toolkit for various data management tasks.",
+    "viewFilteringTooltipTitle": "Filtering records",
+    "viewFilteringTooltipContent": "One of the core features of views is the ability to filter out records from a view according to the conditions you set. <br></br>When a record is filtered out based on a condition, it is not deleted—it's just hidden from the particular view you're using to look at your table.",
+    "viewSortingTooltipTitle": "Sorting records",
+    "viewSortingTooltipContent": "While in a view, you can sort your records so that they appear in a particular order according to the values in specific fields. <br></br>Sorting your records in one view doesn't affect the order of records in other views—it just applies to the view you're currently using to look at your table.",
+    "viewGroupingTooltipTitle": "Grouping records",
+    "viewGroupingTooltipContent": "Grouping records allows creators to build a set of one or more conditions that will help to categorize the dataset that is being presented within a particular view.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable offers a powerful API that supports nearly all product features, allowing developers to make calls using an <a>Token</a>."
+  },
+  "token": "Token",
   "poweredBy": "Powered by <0></0>"
 }

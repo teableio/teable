@@ -65,7 +65,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
         </div>
         <div className="flex items-center">
           {!isComputed && (
-            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
               <Label htmlFor="form-field-required">{t('required')}</Label>
               <Switch
                 id="form-field-required"
