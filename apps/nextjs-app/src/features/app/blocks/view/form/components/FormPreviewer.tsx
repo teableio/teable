@@ -137,13 +137,15 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
           {coverUrl && <img src={coverUrl} alt="form cover" className="size-full object-cover" />}
         </div>
 
-        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
-          <img
-            src={logoUrl}
-            alt="form logo"
-            className="size-full rounded-lg object-cover shadow-sm"
-          />
-        </div>
+        {logoUrl && (
+          <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
+            <img
+              src={logoUrl}
+              alt="form logo"
+              className="size-full rounded-lg object-cover shadow-sm"
+            />
+          </div>
+        )}
 
         <div
           className={cn(
