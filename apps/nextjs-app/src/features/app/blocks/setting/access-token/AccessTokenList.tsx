@@ -140,13 +140,18 @@ export const AccessTokenList = (props: { newToken?: string }) => {
                       .join('; ')}
                     {scopesMoreLen ? ` ${t('token:moreScopes', { len: scopesMoreLen })}` : ''}
                   </TableCell>
-                  <TableCell>{new Date(createdTime).toLocaleString()}</TableCell>
+                  <TableCell>{new Date(createdTime).toLocaleDateString()}</TableCell>
                   <TableCell>{new Date(expiredTime).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    {lastUsedTime ? new Date(lastUsedTime).toLocaleString() : '-'}
+                    {lastUsedTime ? new Date(lastUsedTime).toLocaleDateString() : '-'}
                   </TableCell>
                   <TableCell>
-                    <Button size={'sm'} variant="destructive" onClick={() => setDeleteId(id)}>
+                    <Button
+                      size={'sm'}
+                      variant="outline"
+                      className="h-7 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => setDeleteId(id)}
+                    >
                       {t('common:actions.delete')}
                     </Button>
                   </TableCell>

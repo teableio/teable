@@ -107,11 +107,19 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
       <div className="space-y-2">
         <Label>
           {t('token:name')} <RequireCom />
+          <div className="text-xs font-normal text-muted-foreground">
+            {t('token:formLabelTips.name')}
+          </div>
         </Label>
         <Input className="h-8" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="space-y-2">
-        <Label>{t('token:description')}</Label>
+        <Label>
+          {t('token:description')}
+          <div className="text-xs font-normal text-muted-foreground">
+            {t('token:formLabelTips.description')}
+          </div>
+        </Label>
         <Input
           className="h-8"
           value={description}
@@ -128,13 +136,20 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
       )}
       <div className="space-y-2">
         <Label>
-          {t('token:scopes')}
-          <RequireCom />
+          {t('token:scopes')} <RequireCom />
+          <div className="text-xs font-normal text-muted-foreground">
+            {t('token:formLabelTips.scopes')}
+          </div>
         </Label>
         <ScopesSelect initValue={scopes as AllActions[]} onChange={setScopes} />
       </div>
       <div className="space-y-2">
-        <Label aria-required>{t('token:access')}</Label>
+        <Label aria-required>
+          {t('token:access')}
+          <div className="text-xs font-normal text-muted-foreground">
+            {t('token:formLabelTips.access')}
+          </div>
+        </Label>
         <div>
           <AccessSelect
             value={{ spaceIds: spaceIds || [], baseIds: baseIds || [] }}
