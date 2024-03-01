@@ -43,7 +43,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       closeModal();
       router.push({
         pathname: '/base/[baseId]',
-        query: { baseId: data.baseId },
+        query: { baseId: data.id },
       });
     },
   });
@@ -61,8 +61,8 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
     toast.message(t('space:baseModal.copying'));
 
     duplicateBaseMutator({
-      baseId: base.id,
-      toSpaceId: targetSpaceId,
+      fromBaseId: base.id,
+      spaceId: targetSpaceId,
       name: baseName,
       withRecords,
     });

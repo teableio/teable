@@ -9,7 +9,7 @@ import {
 } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IDuplicateBaseRo } from '@teable/openapi';
+import type { ICreateBaseVo, IDuplicateBaseRo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -41,11 +41,11 @@ export class BaseDuplicateService {
     return spaceAggregate._max.order || 0;
   }
 
-  private async duplicateBaseMeta(baseId: string, duplicateBaseRo: IDuplicateBaseRo) {
-    const { toSpaceId, name } = duplicateBaseRo;
+  private async duplicateBaseMeta(duplicateBaseRo: IDuplicateBaseRo) {
+    const { spaceId, fromBaseId, name } = duplicateBaseRo;
     const base = await this.prismaService.txClient().base.findFirst({
       where: {
-        id: baseId,
+        id: fromBaseId,
         deletedTime: null,
       },
     });
@@ -54,18 +54,24 @@ export class BaseDuplicateService {
     }
     const userId = this.cls.get('user.id');
     const toBaseId = generateBaseId();
-    await this.prismaService.txClient().base.create({
+    return await this.prismaService.txClient().base.create({
       data: {
         id: toBaseId,
         name: name ? name : base.name,
         icon: base.icon,
-        order: (await this.getMaxOrder(toSpaceId)) + 1,
-        spaceId: toSpaceId,
+        order: (await this.getMaxOrder(spaceId)) + 1,
+        spaceId: spaceId,
         createdBy: userId,
         lastModifiedBy: userId,
       },
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        spaceId: true,
+        order: true,
+      },
     });
-    return toBaseId;
   }
 
   private async duplicateTableMeta(fromBaseId: string, toBaseId: string) {
@@ -515,18 +521,19 @@ export class BaseDuplicateService {
     }
   }
 
-  async duplicate(baseId: string, duplicateBaseRo: IDuplicateBaseRo): Promise<string> {
-    const withRecords = duplicateBaseRo.withRecords;
-    const toBaseId = await this.duplicateBaseMeta(baseId, duplicateBaseRo);
-    const old2NewTableIdMap = await this.duplicateTableMeta(baseId, toBaseId);
+  async duplicate(duplicateBaseRo: IDuplicateBaseRo): Promise<ICreateBaseVo> {
+    const { fromBaseId, withRecords } = duplicateBaseRo;
+    const newBase = await this.duplicateBaseMeta(duplicateBaseRo);
+    const toBaseId = newBase.id;
+    const old2NewTableIdMap = await this.duplicateTableMeta(fromBaseId, toBaseId);
     const old2NewFieldIdMap = await this.duplicateFields(toBaseId, old2NewTableIdMap);
     const old2NewViewIdMap = await this.duplicateViews(old2NewTableIdMap, old2NewFieldIdMap);
     await this.duplicateReferences(old2NewFieldIdMap);
-    await this.duplicateDbTable(baseId, toBaseId, old2NewViewIdMap, withRecords);
-    await this.duplicateDbIndexes(baseId, toBaseId, old2NewViewIdMap);
+    await this.duplicateDbTable(fromBaseId, toBaseId, old2NewViewIdMap, withRecords);
+    await this.duplicateDbIndexes(fromBaseId, toBaseId, old2NewViewIdMap);
     if (withRecords) {
       await this.duplicateAttachments(old2NewTableIdMap, old2NewFieldIdMap);
     }
-    return toBaseId;
+    return newBase;
   }
 }

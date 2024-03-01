@@ -1,7 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateBaseRo, IDuplicateBaseRo, IUpdateBaseRo } from '@teable/openapi';
+import type {
+  ICreateBaseFromTemplateRo,
+  ICreateBaseRo,
+  IDuplicateBaseRo,
+  IUpdateBaseRo,
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -162,15 +167,12 @@ export class BaseService {
     });
   }
 
-  async duplicateBase(baseId: string, duplicateBaseRo: IDuplicateBaseRo) {
+  async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
     // permission check, base read permission
-    await this.checkBaseReadPermission(baseId);
+    await this.checkBaseReadPermission(duplicateBaseRo.fromBaseId);
     return await this.prismaService.$tx(
       async () => {
-        const newBaseId = await this.baseDuplicateService.duplicate(baseId, duplicateBaseRo);
-        return {
-          baseId: newBaseId,
-        };
+        return await this.baseDuplicateService.duplicate(duplicateBaseRo);
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
@@ -187,5 +189,16 @@ export class BaseService {
         'base|read',
       ]);
     }
+  }
+
+  async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
+    const { spaceId, templateId, withRecords } = createBaseFromTemplateRo;
+    return await this.prismaService.$tx(async () => {
+      return await this.baseDuplicateService.duplicate({
+        fromBaseId: templateId,
+        spaceId,
+        withRecords,
+      });
+    });
   }
 }

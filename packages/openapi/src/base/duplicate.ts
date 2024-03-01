@@ -1,12 +1,17 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { registerRoute, urlBuilder } from '../utils';
+import { registerRoute } from '../utils';
 import { z } from '../zod';
+import type { ICreateBaseVo } from './create';
+import { createBaseVoSchema } from './create';
 
-export const DUPLICATE_BASE = '/base/{baseId}/duplicate';
+export const DUPLICATE_BASE = '/base/duplicate';
 
 export const duplicateBaseRoSchema = z.object({
-  toSpaceId: z.string().openapi({
+  fromBaseId: z.string().openapi({
+    description: 'The base to duplicate',
+  }),
+  spaceId: z.string().openapi({
     description: 'The space to duplicate the base to',
   }),
   withRecords: z.boolean().optional().openapi({
@@ -18,14 +23,6 @@ export const duplicateBaseRoSchema = z.object({
 });
 
 export type IDuplicateBaseRo = z.infer<typeof duplicateBaseRoSchema>;
-
-export const duplicateBaseVoSchema = z.object({
-  baseId: z.string().openapi({
-    description: 'The id of the duplicated base',
-  }),
-});
-
-export type IDuplicateBaseVo = z.infer<typeof duplicateBaseVoSchema>;
 
 export const DuplicateBaseRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -48,7 +45,7 @@ export const DuplicateBaseRoute: RouteConfig = registerRoute({
       description: 'Returns information about a successfully duplicated base.',
       content: {
         'application/json': {
-          schema: duplicateBaseVoSchema,
+          schema: createBaseVoSchema,
         },
       },
     },
@@ -56,12 +53,6 @@ export const DuplicateBaseRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
-export const duplicateBase = async (params: { baseId: string } & IDuplicateBaseRo) => {
-  const { baseId, ...duplicateBaseRo } = params;
-  return axios.post<IDuplicateBaseVo>(
-    urlBuilder(DUPLICATE_BASE, {
-      baseId,
-    }),
-    duplicateBaseRo
-  );
+export const duplicateBase = async (params: IDuplicateBaseRo) => {
+  return axios.post<ICreateBaseVo>(DUPLICATE_BASE, params);
 };

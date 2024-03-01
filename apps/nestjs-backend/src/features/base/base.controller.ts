@@ -7,11 +7,12 @@ import {
   IUpdateBaseRo,
   updateBaseRoSchema,
   IDuplicateBaseRo,
+  createBaseFromTemplateRoSchema,
+  ICreateBaseFromTemplateRo,
 } from '@teable/openapi';
 import type {
   ICreateBaseVo,
   IDbConnectionVo,
-  IDuplicateBaseVo,
   IGetBaseVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
@@ -44,6 +45,29 @@ export class BaseController {
     return await this.baseService.createBase(createBaseRo);
   }
 
+  @Post('duplicate')
+  @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
+  @EmitControllerEvent(Events.BASE_CREATE)
+  async duplicateBase(
+    @Body(new ZodValidationPipe(duplicateBaseRoSchema))
+    duplicateBaseRo: IDuplicateBaseRo
+  ): Promise<ICreateBaseRo> {
+    console.log('duplicateBaseRo', duplicateBaseRo);
+    return await this.baseService.duplicateBase(duplicateBaseRo);
+  }
+
+  @Post('createFromTemplate')
+  @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
+  @EmitControllerEvent(Events.BASE_CREATE)
+  async createBaseFromTemplate(
+    @Body(new ZodValidationPipe(createBaseFromTemplateRoSchema))
+    createBaseFromTemplateRo: ICreateBaseFromTemplateRo
+  ): Promise<ICreateBaseVo> {
+    return await this.baseService.createBaseFromTemplate(createBaseFromTemplateRo);
+  }
+
   @Patch(':baseId')
   @Permissions('base|update')
   @EmitControllerEvent(Events.BASE_UPDATE)
@@ -71,16 +95,6 @@ export class BaseController {
   @EmitControllerEvent(Events.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
     return await this.baseService.deleteBase(baseId);
-  }
-
-  @Post(':baseId/duplicate')
-  @Permissions('base|read')
-  async duplicateBase(
-    @Param('baseId') baseId: string,
-    @Body(new ZodValidationPipe(duplicateBaseRoSchema))
-    duplicateBaseRo: IDuplicateBaseRo
-  ): Promise<IDuplicateBaseVo> {
-    return await this.baseService.duplicateBase(baseId, duplicateBaseRo);
   }
 
   @Permissions('base|create')
