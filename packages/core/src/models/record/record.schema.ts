@@ -54,9 +54,9 @@ export const typecastSchema = z.boolean().optional().openapi({
 });
 
 export const getRecordQuerySchema = z.object({
-  projection: z.record(z.boolean()).optional().openapi({
+  projection: z.string().array().optional().openapi({
     description:
-      'Objects with a fields key mapping field id or field name to value for that field.',
+      'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained, The parameter value depends on the specified fieldKeyType to determine whether it is name or id',
   }),
   cellFormat: z
     .nativeEnum(CellFormat, {

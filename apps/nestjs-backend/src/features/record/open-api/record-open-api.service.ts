@@ -91,6 +91,7 @@ export class RecordOpenApiService {
       where: {
         tableId,
         [fieldKeyType]: { in: usedFieldIdsOrNames },
+        deletedTime: null,
       },
     });
 

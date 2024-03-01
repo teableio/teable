@@ -69,7 +69,10 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.__s = ${JSON.stringify(serverInfo)};`,
+            __html: `
+              window.__s = ${JSON.stringify(serverInfo)};
+              window.clarity && window.clarity("identify", "${user?.email || user?.id}");
+            `,
           }}
         />
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}

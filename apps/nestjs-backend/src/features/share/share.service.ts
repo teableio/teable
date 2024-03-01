@@ -74,13 +74,7 @@ export class ShareService {
       skip: 0,
       take: 50,
       fieldKeyType: FieldKeyType.Id,
-      projection: fields.reduce(
-        (acc, field) => {
-          acc[field.id] = true;
-          return acc;
-        },
-        {} as Record<string, boolean>
-      ),
+      projection: fields.map((f) => f.id),
     });
     return {
       shareMeta,
@@ -166,9 +160,7 @@ export class ShareService {
       (field.options as ILinkFieldOptions).lookupFieldId
     );
     const fieldKeyType = shareViewLinkRecordsRo.fieldKeyType ?? FieldKeyType.Name;
-    const projection = {
-      [linkField[fieldKeyType]]: true,
-    };
+    const projection = [linkField[fieldKeyType]];
     return this.recordService.getRecords(linkTableId, {
       ...shareViewLinkRecordsRo,
       projection,

@@ -15,6 +15,7 @@ import {
   getRecords,
   getViews,
   initApp,
+  updateRecord,
   updateRecordByApi,
 } from './utils/init-app';
 
@@ -69,6 +70,23 @@ describe('OpenAPI RecordController (e2e)', () => {
 
       expect(record.fields[table.fields[0].id]).toEqual('text value');
       expect(record.fields[table.fields[1].id]).toEqual('123.00');
+    });
+
+    it('should get records with projections', async () => {
+      await updateRecord(table.id, table.records[0].id, {
+        record: {
+          fields: {
+            [table.fields[0].name]: 'text',
+            [table.fields[1].name]: 1,
+          },
+        },
+      });
+
+      const result = await getRecords(table.id, {
+        projection: [table.fields[0].name],
+      });
+
+      expect(Object.keys(result.records[0].fields).length).toEqual(1);
     });
 
     it('should create a record', async () => {

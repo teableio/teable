@@ -590,9 +590,7 @@ describe('selectionService', () => {
       expect(recordService.getRecordsFields).toHaveBeenCalledWith(tableId, {
         viewId,
         skip: 1,
-        projection: {
-          fieldId3: true,
-        },
+        projection: ['fieldId3'],
         take: tableData.length,
         fieldKeyType: 'id',
       });
