@@ -4,18 +4,18 @@ import { persist } from 'zustand/middleware';
 
 interface ICompletedGuideMapState {
   completedGuideMap: Record<string, string[]>;
-  setCompletedGuideMap: (userId: string, pathnames: string[]) => void;
+  setCompletedGuideMap: (userId: string, stepKeys: string[]) => void;
 }
 
 export const useCompletedGuideMapStore = create<ICompletedGuideMapState>()(
   persist(
     (set, get) => ({
       completedGuideMap: {},
-      setCompletedGuideMap: (userId: string, pathnames: string[]) => {
+      setCompletedGuideMap: (userId: string, stepKeys: string[]) => {
         set({
           completedGuideMap: {
             ...get().completedGuideMap,
-            [userId]: pathnames,
+            [userId]: stepKeys,
           },
         });
       },

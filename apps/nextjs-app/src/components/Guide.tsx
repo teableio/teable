@@ -16,9 +16,41 @@ export const GUIDE_PREFIX = 't-guide-';
 export const GUIDE_CREATE_SPACE = GUIDE_PREFIX + 'create-space';
 export const GUIDE_CREATE_BASE = GUIDE_PREFIX + 'create-base';
 export const GUIDE_CREATE_TABLE = GUIDE_PREFIX + 'create-table';
+export const GUIDE_CREATE_VIEW = GUIDE_PREFIX + 'create-view';
 export const GUIDE_VIEW_FILTERING = GUIDE_PREFIX + 'view-filtering';
 export const GUIDE_VIEW_SORTING = GUIDE_PREFIX + 'view-sorting';
 export const GUIDE_VIEW_GROUPING = GUIDE_PREFIX + 'view-grouping';
+export const GUIDE_API_BUTTON = GUIDE_PREFIX + 'api-button';
+
+export enum StepKey {
+  CreateSpace = 'createSpace',
+  CreateBase = 'createBase',
+  CreateTable = 'createTable',
+  CreateView = 'createView',
+  ViewFiltering = 'viewFiltering',
+  ViewSorting = 'viewSorting',
+  ViewGrouping = 'viewGrouping',
+  ApiButton = 'apiButton',
+}
+
+type EnhanceStep = { key: StepKey; step: Step };
+
+const findStepsForPath = (
+  guideMap: Record<string, EnhanceStep[]>,
+  path: string
+): EnhanceStep[] | null => {
+  if (guideMap[path]) {
+    return guideMap[path];
+  }
+
+  const includePath = Object.keys(guideMap).find((p) => path.includes(p));
+
+  if (includePath) {
+    return guideMap[includePath];
+  }
+
+  return null;
+};
 
 export const Guide = ({ user }: { user?: IUserMeVo }) => {
   const router = useRouter();
@@ -33,77 +65,126 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
   const userId = user?.id;
   const { pathname, isReady } = router;
 
-  const guideStepMap: Record<string, Step[]> = useMemo(
+  const guideStepMap: Record<StepKey, Step> = useMemo(
     () => ({
-      '/space': [
-        {
-          target: `.${GUIDE_CREATE_SPACE}`,
-          title: <div className="text-base">{t('guide.createSpaceTooltipTitle')}</div>,
-          content: (
-            <div className="text-left text-[13px]">{t('guide.createSpaceTooltipContent')}</div>
-          ),
-          disableBeacon: true,
-        },
-        {
-          target: `.${GUIDE_CREATE_BASE}`,
-          title: <div className="text-base">{t('guide.createBaseTooltipTitle')}</div>,
-          content: (
-            <div className="text-left text-[13px]">{t('guide.createBaseTooltipContent')}</div>
-          ),
-          disableBeacon: true,
-        },
-      ],
-      '/base/[baseId]/dashboard': [
-        {
-          target: `.${GUIDE_CREATE_TABLE}`,
-          title: <div className="text-base">{t('guide.createTableTooltipTitle')}</div>,
-          content: (
-            <div className="text-left text-[13px]">{t('guide.createTableTooltipContent')}</div>
-          ),
-          disableBeacon: true,
-          placement: 'right',
-        },
-      ],
-      '/base/[baseId]/[tableId]/[viewId]': [
-        {
-          target: `.${GUIDE_VIEW_FILTERING}`,
-          title: <div className="text-base">{t('guide.viewFilteringTooltipTitle')}</div>,
-          content: (
-            <div className="text-left text-[13px]">
-              <Trans
-                ns="common"
-                i18nKey="guide.viewFilteringTooltipContent"
-                components={{ br: <br /> }}
-              />
-            </div>
-          ),
-          disableBeacon: true,
-        },
-        {
-          target: `.${GUIDE_VIEW_SORTING}`,
-          title: <div className="text-base">{t('guide.viewSortingTooltipTitle')}</div>,
-          content: (
-            <div className="text-left text-[13px]">
-              <Trans
-                ns="common"
-                i18nKey="guide.viewSortingTooltipContent"
-                components={{ br: <br /> }}
-              />
-            </div>
-          ),
-          disableBeacon: true,
-        },
-        {
-          target: `.${GUIDE_VIEW_GROUPING}`,
-          title: <div className="text-base">{t('guide.viewGroupingTooltipTitle')}</div>,
-          content: (
-            <div className="text-left text-[13px]">{t('guide.viewGroupingTooltipContent')}</div>
-          ),
-          disableBeacon: true,
-        },
-      ],
+      [StepKey.CreateSpace]: {
+        target: `.${GUIDE_CREATE_SPACE}`,
+        title: <div className="text-base">{t('guide.createSpaceTooltipTitle')}</div>,
+        content: (
+          <div className="text-left text-[13px]">{t('guide.createSpaceTooltipContent')}</div>
+        ),
+        disableBeacon: true,
+      },
+      [StepKey.CreateBase]: {
+        target: `.${GUIDE_CREATE_BASE}`,
+        title: <div className="text-base">{t('guide.createBaseTooltipTitle')}</div>,
+        content: <div className="text-left text-[13px]">{t('guide.createBaseTooltipContent')}</div>,
+        disableBeacon: true,
+      },
+      [StepKey.CreateTable]: {
+        target: `.${GUIDE_CREATE_TABLE}`,
+        title: <div className="text-base">{t('guide.createTableTooltipTitle')}</div>,
+        content: (
+          <div className="text-left text-[13px]">{t('guide.createTableTooltipContent')}</div>
+        ),
+        disableBeacon: true,
+        placement: 'right',
+      },
+      [StepKey.CreateView]: {
+        target: `.${GUIDE_CREATE_VIEW}`,
+        title: <div className="text-base">{t('guide.createViewTooltipTitle')}</div>,
+        content: (
+          <div className="text-left text-[13px]">
+            <Trans
+              ns="common"
+              i18nKey="guide.createViewTooltipContent"
+              components={{ br: <br /> }}
+            />
+          </div>
+        ),
+        disableBeacon: true,
+        placement: 'right',
+      },
+      [StepKey.ViewFiltering]: {
+        target: `.${GUIDE_VIEW_FILTERING}`,
+        title: <div className="text-base">{t('guide.viewFilteringTooltipTitle')}</div>,
+        content: (
+          <div className="text-left text-[13px]">
+            <Trans
+              ns="common"
+              i18nKey="guide.viewFilteringTooltipContent"
+              components={{ br: <br /> }}
+            />
+          </div>
+        ),
+        disableBeacon: true,
+      },
+      [StepKey.ViewSorting]: {
+        target: `.${GUIDE_VIEW_SORTING}`,
+        title: <div className="text-base">{t('guide.viewSortingTooltipTitle')}</div>,
+        content: (
+          <div className="text-left text-[13px]">
+            <Trans
+              ns="common"
+              i18nKey="guide.viewSortingTooltipContent"
+              components={{ br: <br /> }}
+            />
+          </div>
+        ),
+        disableBeacon: true,
+      },
+      [StepKey.ViewGrouping]: {
+        target: `.${GUIDE_VIEW_GROUPING}`,
+        title: <div className="text-base">{t('guide.viewGroupingTooltipTitle')}</div>,
+        content: (
+          <div className="text-left text-[13px]">{t('guide.viewGroupingTooltipContent')}</div>
+        ),
+        disableBeacon: true,
+      },
+      [StepKey.ApiButton]: {
+        target: `.${GUIDE_API_BUTTON}`,
+        title: <div className="text-base">{t('guide.apiButtonTooltipTitle')}</div>,
+        content: (
+          <div className="text-left text-[13px]">
+            <Trans
+              ns="common"
+              i18nKey="guide.apiButtonTooltipContent"
+              components={{
+                a: (
+                  // eslint-disable-next-line jsx-a11y/anchor-has-content
+                  <a
+                    className="text-violet-500"
+                    href="/setting/personal-access-token"
+                    target="_blank"
+                  />
+                ),
+              }}
+            />
+          </div>
+        ),
+        disableBeacon: true,
+      },
     }),
     [t]
+  );
+
+  const orderedGuideMap: Record<string, EnhanceStep[]> = useMemo(
+    () => ({
+      '/space': [
+        { key: StepKey.CreateSpace, step: guideStepMap[StepKey.CreateSpace] },
+        { key: StepKey.CreateBase, step: guideStepMap[StepKey.CreateBase] },
+      ],
+      '/base/[baseId]': [{ key: StepKey.CreateTable, step: guideStepMap[StepKey.CreateTable] }],
+      '/base/[baseId]/[tableId]/[viewId]': [
+        { key: StepKey.CreateTable, step: guideStepMap[StepKey.CreateTable] },
+        { key: StepKey.CreateView, step: guideStepMap[StepKey.CreateView] },
+        { key: StepKey.ViewFiltering, step: guideStepMap[StepKey.ViewFiltering] },
+        { key: StepKey.ViewSorting, step: guideStepMap[StepKey.ViewSorting] },
+        { key: StepKey.ViewGrouping, step: guideStepMap[StepKey.ViewGrouping] },
+        { key: StepKey.ApiButton, step: guideStepMap[StepKey.ApiButton] },
+      ],
+    }),
+    [guideStepMap]
   );
 
   const getHelpers = (storeHelpers: StoreHelpers) => {
@@ -121,15 +202,16 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
 
     if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type as never)) {
       setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
-    } else if (
-      [STATUS.FINISHED, STATUS.SKIPPED].includes(status as never) ||
-      type === EVENTS.TOUR_END
-    ) {
+    } else if (status === STATUS.FINISHED || type === EVENTS.TOUR_END) {
       setRun(false);
 
       if (!userId) return;
-      const prevCompletedSteps = completedGuideMap[userId] || [];
-      setCompletedGuideMap(userId, [...new Set([...prevCompletedSteps, router.pathname])]);
+      const prevCompletedStepKeys = completedGuideMap[userId] || [];
+      const enhanceSteps = findStepsForPath(orderedGuideMap, pathname);
+      if (!enhanceSteps?.length) return;
+      setCompletedGuideMap(userId, [
+        ...new Set([...prevCompletedStepKeys, ...enhanceSteps.map(({ key }) => key)]),
+      ]);
     }
   };
 
@@ -149,21 +231,24 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
   useEffect(() => {
     if (!isReady) return;
 
-    let retryCount = 0;
-    let timer: number | undefined;
+    let enhanceSteps = findStepsForPath(orderedGuideMap, pathname);
 
-    const pathKey = Object.keys(guideStepMap).find((p) => pathname === p);
-
-    if (!pathKey) return;
+    if (!enhanceSteps?.length) return;
 
     if (userId) {
-      const prevCompletedSteps = completedGuideMap[userId];
-      if (prevCompletedSteps?.includes(pathKey)) return;
+      const prevCompletedSteps = completedGuideMap[userId] || [];
+
+      if (prevCompletedSteps.length) {
+        enhanceSteps = enhanceSteps.filter(({ key }) => !prevCompletedSteps.includes(key));
+      }
     }
 
-    const steps = guideStepMap[pathKey];
+    if (!enhanceSteps.length) return;
 
-    if (!steps?.length) return;
+    const steps = enhanceSteps.map(({ step }) => step);
+
+    let retryCount = 0;
+    let timer: number | undefined;
 
     timer = window.setInterval(() => {
       const step = steps[stepIndex];
@@ -194,7 +279,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
       clearInterval(timer);
       timer = undefined;
     };
-  }, [completedGuideMap, guideStepMap, pathname, isReady, stepIndex, userId]);
+  }, [completedGuideMap, isReady, orderedGuideMap, pathname, stepIndex, userId]);
 
   return (
     <JoyRideNoSSR
@@ -204,6 +289,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
       spotlightPadding={8}
       continuous
       showSkipButton
+      hideBackButton
       hideCloseButton
       disableCloseOnEsc
       disableOverlayClose

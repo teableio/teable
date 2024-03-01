@@ -2,6 +2,7 @@ import { ArrowUpRight, Code2, Component, Database, Share2 } from '@teable/icons'
 import { useDriver } from '@teable/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
+import { GUIDE_API_BUTTON } from '@/components/Guide';
 import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
 import { useCellGraphStore } from '../../graph/useCellGraphStore';
 import { SharePopover } from './SharePopover';
@@ -45,7 +46,11 @@ export const Others: React.FC = () => {
 
       <Popover>
         <PopoverTrigger asChild>
-          <ToolBarButton text="API" textClassName="@[234px]/toolbar-others:inline">
+          <ToolBarButton
+            text="API"
+            className={GUIDE_API_BUTTON}
+            textClassName="@[234px]/toolbar-others:inline"
+          >
             <Code2 className="size-4" />
           </ToolBarButton>
         </PopoverTrigger>

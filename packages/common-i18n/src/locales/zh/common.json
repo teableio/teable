@@ -93,12 +93,17 @@
     "createBaseTooltipContent": "数据库是存储重要数据的地方，所有的工作流程也依赖于它。",
     "createTableTooltipTitle": "创建表格",
     "createTableTooltipContent": "表格是一种结构化数据存储方式，用于存储应用内相关数据的集合。",
+    "createViewTooltipTitle": "创建视图",
+    "createViewTooltipContent": "目前，用户可以创建表格和表单视图，未来的版本计划还包括相册、看板和日历视图。<br></br>这种多样性为用户提供了一个全面的工具，用于处理各种数据管理任务。",
     "viewFilteringTooltipTitle": "记录筛选",
     "viewFilteringTooltipContent": "视图的核心功能之一是能够根据您设置的条件从视图中过滤掉记录。<br></br>当根据条件过滤掉记录时，它不会被删除，它只是在您用于查看表的特定视图中隐藏。",
     "viewSortingTooltipTitle": "记录排序",
     "viewSortingTooltipContent": "在视图中时，您可以对记录进行排序，以便它们根据特定字段中的值以特定顺序显示。<br></br>对一个视图中的记录进行排序不会影响其他视图中的记录顺序，它仅适用于您当前用于查看表格的视图。",
     "viewGroupingTooltipTitle": "记录分组",
-    "viewGroupingTooltipContent": "记录分组允许创建者构建一组一个或多个条件，这将有助于对特定视图中呈现的数据集进行分类。"
+    "viewGroupingTooltipContent": "记录分组允许创建者构建一组一个或多个条件，这将有助于对特定视图中呈现的数据集进行分类。",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable 提供了强大的 API，支持几乎所有的产品功能，允许开发者使用<a>令牌</a>进行调用。"
   },
+  "token": "令牌",
   "poweredBy": "<0></0> 提供技术支持"
 }
