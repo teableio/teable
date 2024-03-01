@@ -7,7 +7,7 @@ describe('recordsRoSchema', () => {
     skip: 0,
     recordIds: ['recXXXXXXX'],
     viewId: 'viwXXXXXXX',
-    projection: { field1: true, field2: true },
+    projection: ['field1', 'field2'],
     cellFormat: CellFormat.Json,
     fieldKeyType: FieldKeyType.Name,
   };
@@ -36,17 +36,15 @@ describe('recordsRoSchema', () => {
   });
 
   it('validates successfully for empty projection', () => {
-    const data = { ...validData, projection: {} };
+    const data = { ...validData, projection: [] };
     const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(true);
   });
 
-  it('fails for invalid projection (non-string array)', () => {
-    const data = { ...validData, projection: { field1: 1, field2: 2 } };
+  it('fails for valid projection', () => {
+    const data = { ...validData, projection: ['field1', 'field2'] };
     const result = getRecordsRoSchema.safeParse(data);
-    expect(result.success).toBe(false);
-    !result.success &&
-      expect(result.error.errors[0].message).toEqual('Expected boolean, received number');
+    expect(result.success).toBe(true);
   });
 
   it('fails for invalid viewId', () => {

@@ -527,6 +527,13 @@ export class RecordService implements IAdapterService {
     return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
   }
 
+  private convertProjection(fieldKeys?: string[]) {
+    return fieldKeys?.reduce<Record<string, boolean>>((acc, cur) => {
+      acc[cur] = true;
+      return acc;
+    }, {});
+  }
+
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
     const queryResult = await this.getDocIdsByQuery(tableId, {
       viewId: query.viewId,
@@ -542,7 +549,7 @@ export class RecordService implements IAdapterService {
     const recordSnapshot = await this.getSnapshotBulk(
       tableId,
       queryResult.ids,
-      query.projection,
+      this.convertProjection(query.projection),
       query.fieldKeyType || FieldKeyType.Name,
       query.cellFormat
     );
@@ -556,7 +563,7 @@ export class RecordService implements IAdapterService {
     const recordSnapshot = await this.getSnapshotBulk(
       tableId,
       [recordId],
-      projection,
+      this.convertProjection(projection),
       fieldKeyType,
       cellFormat
     );
@@ -570,7 +577,7 @@ export class RecordService implements IAdapterService {
 
   async getCellValue(tableId: string, recordId: string, fieldId: string) {
     const record = await this.getRecord(tableId, recordId, {
-      projection: { [fieldId]: true },
+      projection: [fieldId],
       fieldKeyType: FieldKeyType.Id,
     });
     return record.fields[fieldId];
@@ -984,7 +991,11 @@ export class RecordService implements IAdapterService {
       filterLinkCellCandidate,
     } = query;
 
-    const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
+    const fields = await this.getFieldsByProjection(
+      tableId,
+      this.convertProjection(projection),
+      fieldKeyType
+    );
     const fieldNames = fields.map((f) => f.dbFieldName);
 
     const { queryBuilder } = await this.buildFilterSortQuery(tableId, {

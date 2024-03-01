@@ -156,13 +156,7 @@ export class SelectionService {
   }
 
   private fieldsToProjection(fields: IFieldVo[], fieldKeyType: FieldKeyType) {
-    return fields.reduce(
-      (acc, field) => {
-        acc[field[fieldKeyType]] = true;
-        return acc;
-      },
-      {} as Record<string, boolean>
-    );
+    return fields.map((f) => f[fieldKeyType]);
   }
 
   private async columnsSelectionCtx(tableId: string, rangesRo: IRangesRo) {
@@ -680,13 +674,7 @@ export class SelectionService {
 
     const effectFields = fields.slice(col, col + tableColCount);
 
-    const projection = effectFields.reduce(
-      (acc, field) => {
-        acc[field.id] = true;
-        return acc;
-      },
-      {} as Record<string, boolean>
-    );
+    const projection = effectFields.map((f) => f.id);
 
     const records = await this.recordService.getRecordsFields(tableId, {
       ...queryRo,
