@@ -18,10 +18,17 @@ export const ExpandRecordContainer = forwardRef<
     if (!router.asPath.includes(`/${recordId}`)) {
       return;
     }
-    const url = router.asPath.replace(`/${recordId}`, '');
-    router.push(url, undefined, {
-      shallow: true,
-    });
+    const { recordId: _recordId, ...resetQuery } = router.query;
+    router.push(
+      {
+        pathname: router.pathname.replace('/[recordId]', ''),
+        query: { ...resetQuery },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
   }, [recordId, router]);
 
   const onUpdateRecordIdCallback = useCallback(
