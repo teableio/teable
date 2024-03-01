@@ -1,12 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateBaseRo, IDuplicateBaseRo, IUpdateBaseRo } from '@teable/openapi';
+import type {
+  ICreateBaseFromTemplateRo,
+  ICreateBaseRo,
+  IDuplicateBaseRo,
+  IUpdateBaseRo,
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 
@@ -17,6 +23,7 @@ export class BaseService {
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
     private readonly baseDuplicateService: BaseDuplicateService,
+    private readonly permissionService: PermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -160,15 +167,38 @@ export class BaseService {
     });
   }
 
-  async duplicateBase(baseId: string, duplicateBaseRo: IDuplicateBaseRo) {
+  async duplicateBase(duplicateBaseRo: IDuplicateBaseRo) {
+    // permission check, base read permission
+    await this.checkBaseReadPermission(duplicateBaseRo.fromBaseId);
     return await this.prismaService.$tx(
       async () => {
-        const newBaseId = await this.baseDuplicateService.duplicate(baseId, duplicateBaseRo);
-        return {
-          baseId: newBaseId,
-        };
+        return await this.baseDuplicateService.duplicate(duplicateBaseRo);
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+  }
+
+  private async checkBaseReadPermission(baseId: string) {
+    // First check if the user has the base read permission
+    await this.permissionService.checkPermissionByBaseId(baseId, ['base|read']);
+
+    // Then check the token permissions if the request was made with a token
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      await this.permissionService.checkPermissionByAccessToken(baseId, accessTokenId, [
+        'base|read',
+      ]);
+    }
+  }
+
+  async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
+    const { spaceId, templateId, withRecords } = createBaseFromTemplateRo;
+    return await this.prismaService.$tx(async () => {
+      return await this.baseDuplicateService.duplicate({
+        fromBaseId: templateId,
+        spaceId,
+        withRecords,
+      });
+    });
   }
 }

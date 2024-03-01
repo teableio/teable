@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { Database } from '@teable/icons';
-import { duplicateBase, getSpaceList, type IGetBaseVo } from '@teable/openapi';
+import { createBaseFromTemplate, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Selector } from '@teable/ui-lib/base';
 import {
@@ -12,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
   Label,
   Switch,
 } from '@teable/ui-lib/shadcn';
@@ -20,25 +18,29 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
-import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { useDuplicateBaseStore } from './useDuplicateBaseStore';
+import { useTemplateCreateBaseStore } from './useTemplateCreateBaseStore';
 
-const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
-  const { closeModal } = useDuplicateBaseStore();
+const TemplateBase = ({ templateId }: { templateId: string }) => {
+  const { closeModal } = useTemplateCreateBaseStore();
   const [withRecords, setWithRecords] = useState(true);
   const [targetSpaceId, setTargetSpaceId] = useState<string>();
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-  const [baseName, setBaseName] = useState(`${base.name} (${t('space:baseModal.copy')})`);
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: () => getSpaceList(),
   });
 
-  const { mutateAsync: duplicateBaseMutator } = useMutation({
-    mutationFn: duplicateBase,
+  useEffect(() => {
+    if (!targetSpaceId) {
+      setTargetSpaceId(spaceList?.data[0]?.id);
+    }
+  }, [spaceList, targetSpaceId, templateId]);
+
+  const { mutateAsync: templateCreateBaseMutator } = useMutation({
+    mutationFn: createBaseFromTemplate,
     onSuccess: ({ data }) => {
       closeModal();
       router.push({
@@ -58,49 +60,21 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       return;
     }
 
-    toast.message(t('space:baseModal.copying'));
+    toast.message(t('space:baseModal.copyingTemplate'));
 
-    duplicateBaseMutator({
-      fromBaseId: base.id,
+    templateCreateBaseMutator({
+      templateId,
       spaceId: targetSpaceId,
-      name: baseName,
       withRecords,
     });
   };
 
-  useEffect(() => {
-    if (!targetSpaceId && editableSpaceList) {
-      const currentSpace = editableSpaceList.find((space) => space.id === base.spaceId);
-      if (currentSpace) {
-        setTargetSpaceId(currentSpace.id);
-      } else {
-        setTargetSpaceId(editableSpaceList[0].id);
-      }
-    }
-  }, [base.spaceId, editableSpaceList, targetSpaceId]);
   return (
     <DialogContent className="sm:max-w-[425px]">
       <DialogHeader>
-        <DialogTitle>
-          {t('space:baseModal.duplicate', {
-            baseName: base.name,
-          })}
-        </DialogTitle>
+        <DialogTitle>{t('space:baseModal.createBaseFromTemplate')}</DialogTitle>
       </DialogHeader>
-      <div className="flex flex-col items-center gap-4 py-4">
-        {base.icon ? (
-          <div className="size-14 min-w-[3.5rem] text-[3.5rem] leading-none">
-            <Emoji emoji={base.icon} size={56} />
-          </div>
-        ) : (
-          <Database className="size-14 min-w-[3.5rem]" />
-        )}
-        <div>
-          <Input value={baseName} onChange={(e) => setBaseName(e.target.value)} />
-        </div>
-      </div>
-      <hr />
-      <div className="space-y-4">
+      <div className="space-y-4 pt-4">
         <div className="flex items-center gap-4">
           <Label htmlFor="duplicate-records-mode">{t('space:baseModal.duplicateRecords')}</Label>
           <Switch
@@ -109,14 +83,12 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
             onCheckedChange={(v) => setWithRecords(v)}
           />
         </div>
-        <p className="text-xs text-secondary-foreground">
-          {t('space:baseModal.duplicateRecordsTip')}
-        </p>
         <div className="flex items-center gap-4">
           <Label htmlFor="username" className="text-right">
-            {t('space:baseModal.copyToSpace')}
+            {t('space:baseModal.toSpace')} ss
           </Label>
           <Selector
+            className="min-w-40"
             candidates={editableSpaceList}
             selectedId={targetSpaceId}
             onChange={(id) => setTargetSpaceId(id)}
@@ -130,18 +102,18 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
           </Button>
         </DialogClose>
         <Button size="sm" type="submit" onClick={() => onSubmit()}>
-          {t('space:baseModal.duplicateBase')}
+          {t('common:actions.confirm')}
         </Button>
       </DialogFooter>
     </DialogContent>
   );
 };
 
-export const DuplicateBaseModal = () => {
-  const { base, closeModal } = useDuplicateBaseStore();
+export const TemplateCreateBaseModal = () => {
+  const { templateId, closeModal } = useTemplateCreateBaseStore();
   return (
-    <Dialog open={Boolean(base)} onOpenChange={(isOpen) => !isOpen && closeModal()}>
-      {base && <DuplicateBase base={base} />}
+    <Dialog open={Boolean(templateId)} onOpenChange={(isOpen) => !isOpen && closeModal()}>
+      {templateId && <TemplateBase templateId={templateId} />}
     </Dialog>
   );
 };

@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
 import React from 'react';
-import { useDuplicateBaseStore } from '../../base/base-side-bar/duplicate/useDuplicateBaseModal';
+import { useDuplicateBaseStore } from '../../base/base-side-bar/duplicate/useDuplicateBaseStore';
 
 interface IBaseActionTrigger {
   base: IGetBaseVo;

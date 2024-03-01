@@ -67,6 +67,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
+        <MicrosoftClarity />
         <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
         <script
           dangerouslySetInnerHTML={{
@@ -80,7 +81,6 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
       </AppProviders>
       <Guide user={user} />
-      <MicrosoftClarity />
       <RouterProgressBar />
     </>
   );

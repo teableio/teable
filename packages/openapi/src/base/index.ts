@@ -5,3 +5,4 @@ export * from './update';
 export * from './all-list';
 export * from './collaborator-get-list';
 export * from './duplicate';
+export * from './create-from-template';

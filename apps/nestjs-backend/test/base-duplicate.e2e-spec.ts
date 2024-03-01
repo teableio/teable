@@ -46,12 +46,12 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
   it('duplicate within current space', async () => {
     const table1 = await createTable(base.id, { name: 'table1' });
     const dupResult = await duplicateBase({
-      baseId: base.id,
-      toSpaceId: spaceId,
+      fromBaseId: base.id,
+      spaceId: spaceId,
       name: 'test base copy',
     });
 
-    const getResult = await getTableList(dupResult.data.baseId);
+    const getResult = await getTableList(dupResult.data.id);
     const records = await getRecords(getResult.data[0].id);
     expect(records.records.length).toBe(0);
 
@@ -68,13 +68,13 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     });
 
     const dupResult = await duplicateBase({
-      baseId: base.id,
-      toSpaceId: spaceId,
+      fromBaseId: base.id,
+      spaceId: spaceId,
       name: 'test base copy',
       withRecords: true,
     });
 
-    const getResult = await getTableList(dupResult.data.baseId);
+    const getResult = await getTableList(dupResult.data.id);
 
     const records = await getRecords(getResult.data[0].id);
     expect(records.records[0].lastModifiedBy).toBeFalsy();
@@ -130,12 +130,12 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     });
 
     const dupResult = await duplicateBase({
-      baseId: base.id,
-      toSpaceId: spaceId,
+      fromBaseId: base.id,
+      spaceId: spaceId,
       name: 'test base copy',
       withRecords: true,
     });
-    const newBaseId = dupResult.data.baseId;
+    const newBaseId = dupResult.data.id;
 
     const getResult = await getTableList(newBaseId);
     const newTable1 = getResult.data[0];
@@ -192,13 +192,13 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
   it('should autoNumber work in a duplicated table', async () => {
     await createTable(base.id, { name: 'table1' });
     const dupResult = await duplicateBase({
-      baseId: base.id,
-      toSpaceId: spaceId,
+      fromBaseId: base.id,
+      spaceId: spaceId,
       name: 'test base copy',
       withRecords: true,
     });
 
-    const getResult = await getTableList(dupResult.data.baseId);
+    const getResult = await getTableList(dupResult.data.id);
     const newTable = getResult.data[0];
 
     await createRecords(newTable.id, { records: [{ fields: {} }] });
@@ -221,13 +221,13 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     it('duplicate cross space', async () => {
       await createTable(base.id, { name: 'table1' });
       const dupResult = await duplicateBase({
-        baseId: base.id,
-        toSpaceId: newSpace.id,
+        fromBaseId: base.id,
+        spaceId: newSpace.id,
         name: 'test base copy',
       });
 
       const baseResult = await getBaseList({ spaceId: newSpace.id });
-      const tableResult = await getTableList(dupResult.data.baseId);
+      const tableResult = await getTableList(dupResult.data.id);
       const records = await getRecords(tableResult.data[0].id);
       expect(records.records.length).toBe(0);
       expect(baseResult.data.length).toBe(1);

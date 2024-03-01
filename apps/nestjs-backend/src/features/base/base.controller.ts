@@ -7,11 +7,12 @@ import {
   IUpdateBaseRo,
   updateBaseRoSchema,
   IDuplicateBaseRo,
+  createBaseFromTemplateRoSchema,
+  ICreateBaseFromTemplateRo,
 } from '@teable/openapi';
 import type {
   ICreateBaseVo,
   IDbConnectionVo,
-  IDuplicateBaseVo,
   IGetBaseVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
@@ -21,7 +22,6 @@ import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
-import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
@@ -31,8 +31,7 @@ export class BaseController {
   constructor(
     private readonly baseService: BaseService,
     private readonly dbConnectionService: DbConnectionService,
-    private readonly collaboratorService: CollaboratorService,
-    private readonly permissionService: PermissionService
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   @Post()
@@ -44,6 +43,29 @@ export class BaseController {
     createBaseRo: ICreateBaseRo
   ): Promise<ICreateBaseVo> {
     return await this.baseService.createBase(createBaseRo);
+  }
+
+  @Post('duplicate')
+  @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
+  @EmitControllerEvent(Events.BASE_CREATE)
+  async duplicateBase(
+    @Body(new ZodValidationPipe(duplicateBaseRoSchema))
+    duplicateBaseRo: IDuplicateBaseRo
+  ): Promise<ICreateBaseRo> {
+    console.log('duplicateBaseRo', duplicateBaseRo);
+    return await this.baseService.duplicateBase(duplicateBaseRo);
+  }
+
+  @Post('createFromTemplate')
+  @Permissions('base|create')
+  @ResourceMeta('spaceId', 'body')
+  @EmitControllerEvent(Events.BASE_CREATE)
+  async createBaseFromTemplate(
+    @Body(new ZodValidationPipe(createBaseFromTemplateRoSchema))
+    createBaseFromTemplateRo: ICreateBaseFromTemplateRo
+  ): Promise<ICreateBaseVo> {
+    return await this.baseService.createBaseFromTemplate(createBaseFromTemplateRo);
   }
 
   @Patch(':baseId')
@@ -73,19 +95,6 @@ export class BaseController {
   @EmitControllerEvent(Events.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
     return await this.baseService.deleteBase(baseId);
-  }
-
-  @Post(':baseId/duplicate')
-  @Permissions('base|read')
-  async duplicateBase(
-    @Param('baseId') baseId: string,
-    @Body(new ZodValidationPipe(duplicateBaseRoSchema))
-    duplicateBaseRo: IDuplicateBaseRo
-  ): Promise<IDuplicateBaseVo> {
-    await this.permissionService.checkPermissionBySpaceId(duplicateBaseRo.toSpaceId, [
-      'base|create',
-    ]);
-    return await this.baseService.duplicateBase(baseId, duplicateBaseRo);
   }
 
   @Permissions('base|create')

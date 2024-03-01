@@ -8,6 +8,7 @@ export const baseConfig = registerAs('base', () => ({
   storagePrefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN!,
   secretKey: process.env.SECRET_KEY ?? 'defaultSecretKey',
   publicDatabaseAddress: process.env.PUBLIC_DATABASE_ADDRESS,
+  templateSpaceId: process.env.TEMPLATE_SPACE_ID,
 }));
 
 export const BaseConfig = () => Inject(baseConfig.KEY);
