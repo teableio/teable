@@ -53,15 +53,13 @@ export const CreateBaseModalTrigger = ({
             {t('space:baseModal.fromScratch')}
           </Button>
           <Button
-            asChild
             className="flex h-auto grow flex-col items-center gap-4"
             variant="ghost"
             disabled={!templateCenterLink}
+            onClick={() => (window.location.href = templateCenterLink as string)}
           >
-            <a href={templateCenterLink}>
-              <LayoutTemplate className="size-8" />
-              {t('space:baseModal.fromTemplate')}
-            </a>
+            <LayoutTemplate className="size-8" />
+            {t('space:baseModal.fromTemplate')}
           </Button>
         </div>
       </DialogContent>
