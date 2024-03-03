@@ -1,8 +1,8 @@
 import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable/icons';
 import { useTableId, useTablePermission, useViewId } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { generateUniqLocalKey } from '../form/util';
 import { SharePopover } from './SharePopover';

@@ -11,8 +11,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
-import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface IFormFieldEditorProps {

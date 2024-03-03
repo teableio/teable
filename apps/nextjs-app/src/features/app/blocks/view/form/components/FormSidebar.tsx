@@ -13,9 +13,9 @@ import {
   TooltipTrigger,
   cn,
 } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import { FieldOperator } from '@/features/app/components/field-setting';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';

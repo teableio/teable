@@ -1,3 +1,4 @@
+import type { DriverClient } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import { AppProvider } from '@teable/sdk/context';
@@ -10,12 +11,13 @@ export const SpaceLayout: React.FC<{
   children: React.ReactNode;
   user?: IUser;
   dehydratedState?: unknown;
-}> = ({ children, user, dehydratedState }) => {
+  driver: DriverClient;
+}> = ({ children, user, driver, dehydratedState }) => {
   const sdkLocale = useSdkLocale();
 
   return (
     <AppLayout>
-      <AppProvider locale={sdkLocale} dehydratedState={dehydratedState}>
+      <AppProvider locale={sdkLocale} dehydratedState={dehydratedState} driver={driver}>
         <SessionProvider user={user}>
           <NotificationProvider>
             <div id="portal" className="relative flex h-screen w-full items-start">

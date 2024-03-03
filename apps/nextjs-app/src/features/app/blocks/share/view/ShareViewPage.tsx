@@ -1,3 +1,4 @@
+import type { DriverClient } from '@teable/core';
 import type { ShareViewGetVo } from '@teable/openapi';
 import { AnchorContext, AppProvider, FieldProvider, ViewProvider } from '@teable/sdk/context';
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
@@ -12,6 +13,7 @@ import { ViewProxy } from './ViewProxy';
 
 export interface IShareViewPageProps {
   shareViewData: ShareViewGetVo;
+  driver: DriverClient;
 }
 
 export const ShareViewPage = (props: IShareViewPageProps) => {
@@ -30,7 +32,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
   return (
     <ShareViewPageContext.Provider value={props.shareViewData}>
       <AppLayout>
-        <AppProvider wsPath={wsPath} locale={sdkLocale}>
+        <AppProvider wsPath={wsPath} locale={sdkLocale} driver={props.driver}>
           <AnchorContext.Provider
             value={{
               tableId,
