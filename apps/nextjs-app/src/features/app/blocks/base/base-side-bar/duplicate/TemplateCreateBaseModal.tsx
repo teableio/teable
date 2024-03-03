@@ -85,7 +85,7 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
         </div>
         <div className="flex items-center gap-4">
           <Label htmlFor="username" className="text-right">
-            {t('space:baseModal.toSpace')} ss
+            {t('space:baseModal.toSpace')}
           </Label>
           <Selector
             className="min-w-40"

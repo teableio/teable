@@ -24,6 +24,9 @@
     "duplicateBase": "复制数据库",
     "missTargetTip": "请选择要复制到的空间",
     "copying": "复制中，请稍作等待...",
-    "copyingTemplate": "从模板创建中，请稍作等待..."
+    "copyingTemplate": "从模板创建中，请稍作等待...",
+    "howToCreate": "如何创建一个数据库?",
+    "fromScratch": "空白数据库",
+    "fromTemplate": "从模板创建"
   }
 }

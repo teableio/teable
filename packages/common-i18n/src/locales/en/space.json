@@ -24,6 +24,9 @@
     "duplicateBase": "Duplicate base",
     "missTargetTip": "Please select a space to duplicate the base.",
     "copying": "Duplicating base, it may take a while...",
-    "copyingTemplate": "Creating base from template, it may take a while..."
+    "copyingTemplate": "Creating base from template, it may take a while...",
+    "howToCreate": "How do you want to start?",
+    "fromScratch": "From scratch",
+    "fromTemplate": "From template"
   }
 }

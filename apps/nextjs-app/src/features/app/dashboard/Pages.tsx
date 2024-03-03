@@ -4,7 +4,7 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
-import { getHelpLink } from '@/lib/help-link';
+import { getHelpLink } from '@/lib/off-site-link';
 import { Pickers } from './components/Pickers';
 import { GridContent } from './GridContent';
 
