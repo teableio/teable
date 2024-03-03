@@ -13,7 +13,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { getTemplateCenterLink } from '@/lib/off-site-link';
+import { useEnv } from '../../hooks/useEnv';
 
 export const CreateBaseModalTrigger = ({
   spaceId,
@@ -33,7 +33,7 @@ export const CreateBaseModalTrigger = ({
       });
     },
   });
-  const templateCenterLink = getTemplateCenterLink();
+  const { templateSiteLink } = useEnv();
 
   return (
     <Dialog>
@@ -55,8 +55,8 @@ export const CreateBaseModalTrigger = ({
           <Button
             className="flex h-auto grow flex-col items-center gap-4"
             variant="ghost"
-            disabled={!templateCenterLink}
-            onClick={() => (window.location.href = templateCenterLink as string)}
+            disabled={!templateSiteLink}
+            onClick={() => (window.location.href = templateSiteLink as string)}
           >
             <LayoutTemplate className="size-8" />
             {t('space:baseModal.fromTemplate')}

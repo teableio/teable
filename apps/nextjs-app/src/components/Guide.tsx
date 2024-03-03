@@ -1,8 +1,8 @@
 import type { IUserMeVo } from '@teable/openapi';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
+import { useTranslation, Trans } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation, Trans } from 'react-i18next';
 import { ACTIONS, EVENTS, STATUS } from 'react-joyride';
 import type { CallBackProps, Step, StoreHelpers } from 'react-joyride';
 import colors from 'tailwindcss/colors';

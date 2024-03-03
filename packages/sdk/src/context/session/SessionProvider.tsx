@@ -8,15 +8,6 @@ interface ISessionProviderProps {
   user?: IUser;
 }
 
-declare global {
-  interface Window {
-    __s: {
-      user?: IUser;
-      driver: string;
-    };
-  }
-}
-
 export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderProps>> = (
   props
 ) => {
@@ -24,9 +15,6 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   const [currentUser, setCurrentUser] = useState<IUser | undefined>(() => {
     if (user) {
       return user;
-    }
-    if (typeof window === 'object') {
-      return window.__s.user;
     }
     return undefined;
   });

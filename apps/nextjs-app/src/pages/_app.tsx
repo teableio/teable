@@ -13,6 +13,7 @@ import { getUserMe } from '@/backend/api/rest/get-user';
 import { Guide } from '@/components/Guide';
 import { MicrosoftClarity } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
+import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
@@ -42,24 +43,20 @@ type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout;
   user?: IUser;
   driver: string;
+  env: IServerEnv;
 };
 
 /**
  * @link https://nextjs.org/docs/advanced-features/custom-app
  */
 const MyApp = (appProps: AppPropsWithLayout) => {
-  const { Component, pageProps, err, user, driver } = appProps;
+  const { Component, pageProps, err, user, driver, env } = appProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
 
-  const serverInfo = {
-    driver,
-    user,
-  };
-
   return (
     <>
-      <AppProviders>
+      <AppProviders env={env}>
         <Head>
           <meta
             name="viewport"
@@ -67,18 +64,17 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
-        <MicrosoftClarity />
+        <MicrosoftClarity clarityId={env?.microsoftClarityId} />
         <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              window.__s = ${JSON.stringify(serverInfo)};
               window.clarity && window.clarity("identify", "${user?.email || user?.id}");
             `,
           }}
         />
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
+        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user, driver })}
       </AppProviders>
       <Guide user={user} />
       <RouterProgressBar />
@@ -106,6 +102,11 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   const initialProps = {
     ...appProps,
     driver,
+    env: {
+      helpSiteLink: process.env.HELP_SITE_LINK,
+      templateSiteLink: process.env.TEMPLATE_SITE_LINK,
+      microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
+    },
   };
   if (!isLoginPage && !needLoginPage) {
     return initialProps;

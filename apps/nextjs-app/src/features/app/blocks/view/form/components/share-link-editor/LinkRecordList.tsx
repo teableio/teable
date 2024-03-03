@@ -14,8 +14,8 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { debounce } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useUnmount } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 

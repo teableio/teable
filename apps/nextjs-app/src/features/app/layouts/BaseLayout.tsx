@@ -1,4 +1,4 @@
-import type { ITableVo } from '@teable/core';
+import type { DriverClient, ITableVo } from '@teable/core';
 import type { IGetBaseVo } from '@teable/openapi';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import type { IUser } from '@teable/sdk';
@@ -14,15 +14,16 @@ export const BaseLayout: React.FC<{
   children: React.ReactNode;
   tableServerData: ITableVo[];
   baseServerData: IGetBaseVo;
+  driver?: DriverClient;
   user?: IUser;
-}> = ({ children, tableServerData, baseServerData, user }) => {
+}> = ({ children, tableServerData, baseServerData, driver, user }) => {
   const router = useRouter();
   const { baseId, tableId, viewId } = router.query;
   const sdkLocale = useSdkLocale();
 
   return (
     <AppLayout>
-      <AppProvider locale={sdkLocale}>
+      <AppProvider locale={sdkLocale} driver={driver as DriverClient}>
         <SessionProvider user={user}>
           <NotificationProvider>
             <AnchorContext.Provider

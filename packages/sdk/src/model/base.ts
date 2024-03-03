@@ -1,21 +1,18 @@
-import type { ICreateTableRo, SpaceRole } from '@teable/core';
+import type { DriverClient, ICreateTableRo, SpaceRole } from '@teable/core';
 import type { IGetBaseVo } from '@teable/openapi';
-import knex from 'knex';
-import { getDriver } from '../utils/driver';
+import { knex, type Knex } from 'knex';
 import { Table } from './table/table';
 
 export class Base implements IGetBaseVo {
-  // eslint-disable-next-line @typescript-eslint/naming-convention
-  static knex = knex({ client: getDriver() });
-
   id: string;
   name: string;
   spaceId: string;
   order: number;
   icon: string | null;
   role: SpaceRole;
+  knex: Knex;
 
-  constructor(base: IGetBaseVo) {
+  constructor(base: IGetBaseVo, driver: DriverClient) {
     const { id, name, order, spaceId, icon, role } = base;
     this.id = id;
     this.name = name;
@@ -23,6 +20,7 @@ export class Base implements IGetBaseVo {
     this.order = order;
     this.icon = icon;
     this.role = role;
+    this.knex = knex({ client: driver });
   }
 
   async sqlQuery(tableId: string, viewId: string, sql: string) {

@@ -2,10 +2,10 @@ import { HelpCircle, Settings, UserPlus } from '@teable/icons';
 import { useBase, useTableId } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { getHelpLink } from '@/lib/off-site-link';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
 import { ViewList } from '../../view/list/ViewList';
 
@@ -16,6 +16,7 @@ import { TableInfo } from './TableInfo';
 export const TableHeader: React.FC = () => {
   const base = useBase();
   const tableId = useTableId();
+  const { helpSiteLink } = useEnv();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   return (
@@ -42,7 +43,7 @@ export const TableHeader: React.FC = () => {
           </Link>
         </Button>
         <Button asChild variant="ghost" size="xs" className="hidden sm:flex">
-          <a href={getHelpLink()} title="Help" target="_blank" rel="noreferrer">
+          <a href={helpSiteLink} title="Help" target="_blank" rel="noreferrer">
             <HelpCircle className="size-4" />
           </a>
         </Button>

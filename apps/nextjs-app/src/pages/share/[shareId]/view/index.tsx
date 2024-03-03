@@ -1,4 +1,4 @@
-import type { IHttpError } from '@teable/core';
+import { parseDsn, type DriverClient, type IHttpError } from '@teable/core';
 import type { ShareViewGetVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import { SsrApi } from '@/backend/api/rest/table.ssr';
@@ -17,9 +17,11 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async
     res.setHeader('Content-Security-Policy', "frame-ancestors 'self' *;");
     ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
     const shareViewData = await ssrApi.getShareView(shareId as string);
+    const driver = parseDsn(process.env.PRISMA_DATABASE_URL as string).driver as DriverClient;
     return {
       props: {
         shareViewData,
+        driver,
         ...(await getTranslationsProps(context, i18nNamespaces)),
       },
     };
@@ -40,6 +42,12 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async
   }
 };
 
-export default function ShareView({ shareViewData }: { shareViewData: ShareViewGetVo }) {
-  return <ShareViewPage shareViewData={shareViewData} />;
+export default function ShareView({
+  shareViewData,
+  driver,
+}: {
+  shareViewData: ShareViewGetVo;
+  driver: DriverClient;
+}) {
+  return <ShareViewPage shareViewData={shareViewData} driver={driver} />;
 }
