@@ -2,8 +2,10 @@ import { HelpCircle, Settings, UserPlus } from '@teable/icons';
 import { useBase, useTableId } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
-import { getHelpLink } from '@/lib/help-link';
+import { spaceConfig } from '@/features/i18n/space.config';
+import { getHelpLink } from '@/lib/off-site-link';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
 import { ViewList } from '../../view/list/ViewList';
 
@@ -14,6 +16,8 @@ import { TableInfo } from './TableInfo';
 export const TableHeader: React.FC = () => {
   const base = useBase();
   const tableId = useTableId();
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
+
   return (
     <div className="flex h-[42px] shrink-0 flex-row items-center gap-2 px-4">
       <TableInfo className="shrink-0 grow-0" />
@@ -51,7 +55,7 @@ export const TableHeader: React.FC = () => {
         }}
       >
         <Button variant="default" size="xs" className="hidden sm:flex">
-          <UserPlus className="size-4" /> Invite
+          <UserPlus className="size-4" /> {t('space:action.invite')}
         </Button>
       </SpaceCollaboratorModalTrigger>
     </div>

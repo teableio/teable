@@ -1,8 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { MoreHorizontal, UserPlus } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
-import { createBase } from '@teable/openapi';
 import type { ButtonProps } from '@teable/ui-lib';
 import { Button } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
@@ -11,6 +9,7 @@ import { GUIDE_CREATE_BASE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { SpaceCollaboratorModalTrigger } from '../collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { CreateBaseModalTrigger } from './CreateBaseModal';
 
 interface ActionBarProps {
   space: IGetSpaceVo;
@@ -22,31 +21,20 @@ interface ActionBarProps {
 }
 
 export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
-  const { space, invQueryFilters, className, buttonSize = 'default', onRename, onDelete } = props;
-  const queryClient = useQueryClient();
+  const { space, className, buttonSize = 'default', onRename, onDelete } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-
-  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
-    mutationFn: createBase,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: invQueryFilters });
-    },
-  });
 
   return (
     <div className={className}>
       {hasPermission(space.role, 'base|create') && (
-        <Button
-          className={GUIDE_CREATE_BASE}
-          size={buttonSize}
-          disabled={createBaseLoading}
-          onClick={() => createBaseMutator({ spaceId: space.id })}
-        >
-          {t('space:action.createBase')}
-        </Button>
+        <CreateBaseModalTrigger spaceId={space.id}>
+          <Button className={GUIDE_CREATE_BASE} size={buttonSize}>
+            {t('space:action.createBase')}
+          </Button>
+        </CreateBaseModalTrigger>
       )}
       <SpaceCollaboratorModalTrigger space={space}>
-        <Button variant={'outline'} size={buttonSize} disabled={createBaseLoading}>
+        <Button variant={'outline'} size={buttonSize}>
           <UserPlus className="size-4" /> {t('space:action.invite')}
         </Button>
       </SpaceCollaboratorModalTrigger>

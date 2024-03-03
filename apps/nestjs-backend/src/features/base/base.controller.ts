@@ -53,7 +53,6 @@ export class BaseController {
     @Body(new ZodValidationPipe(duplicateBaseRoSchema))
     duplicateBaseRo: IDuplicateBaseRo
   ): Promise<ICreateBaseRo> {
-    console.log('duplicateBaseRo', duplicateBaseRo);
     return await this.baseService.duplicateBase(duplicateBaseRo);
   }
 
