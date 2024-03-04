@@ -92,6 +92,8 @@ export async function initApp() {
 
   console.log('url', url);
 
+  process.env.STORAGE_PREFIX = url;
+
   axios.defaults.baseURL = url + '/api';
 
   const cookie = (

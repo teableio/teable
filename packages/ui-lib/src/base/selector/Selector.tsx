@@ -11,6 +11,7 @@ import {
   CommandEmpty,
   CommandItem,
   CommandList,
+  CommandGroup,
 } from '../../shadcn';
 
 export interface ISelectorItem {

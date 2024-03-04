@@ -10,13 +10,13 @@ import { CollaboratorModule } from './features/collaborator/collaborator.module'
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
 import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { HealthModule } from './features/health/health.module';
+import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
 import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
 import { NotificationModule } from './features/notification/notification.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
-import { TableOpenApiModule } from './features/table/open-api/table-open-api.module';
 import { UserModule } from './features/user/user.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
@@ -30,7 +30,6 @@ import { WsModule } from './ws/ws.module';
     HealthModule,
     NextModule,
     FileTreeModule,
-    TableOpenApiModule,
     FieldOpenApiModule,
     BaseModule,
     ChatModule,
@@ -47,6 +46,7 @@ import { WsModule } from './ws/ws.module';
     ShareModule,
     NotificationModule,
     AccessTokenModule,
+    ImportOpenApiModule,
   ],
   providers: [InitBootstrapProvider],
 })
