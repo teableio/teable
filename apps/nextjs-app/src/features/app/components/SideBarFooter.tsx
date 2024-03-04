@@ -2,8 +2,8 @@ import { useSession } from '@teable/sdk';
 import { Avatar, AvatarFallback, AvatarImage, Button } from '@teable/ui-lib/shadcn';
 import React from 'react';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
-import { DuplicateBaseModal } from '../blocks/base/base-side-bar/duplicate/DuplicateBaseModal';
-import { TemplateCreateBaseModal } from '../blocks/base/base-side-bar/duplicate/TemplateCreateBaseModal';
+import { DuplicateBaseModal } from '../blocks/base/duplicate/DuplicateBaseModal';
+import { TemplateCreateBaseModal } from '../blocks/base/duplicate/TemplateCreateBaseModal';
 import { SettingDialog } from './setting/SettingDialog';
 import { UserNav } from './user/UserNav';
 

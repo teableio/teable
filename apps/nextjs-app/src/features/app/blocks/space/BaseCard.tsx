@@ -43,12 +43,11 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     },
   });
 
-  const toggleRenameBase = async (e: React.FocusEvent<HTMLInputElement, Element>) => {
-    const name = e.target.value;
-    if (name && name !== base.name) {
+  const toggleRenameBase = async () => {
+    if (baseName && baseName !== base.name) {
       await updateBaseMutator({
         baseId: base.id,
-        updateBaseRo: { name },
+        updateBaseRo: { name: baseName },
       });
     }
     setTimeout(() => setRenaming(false), 200);
@@ -106,14 +105,21 @@ export const BaseCard: FC<IBaseCard> = (props) => {
         <div className="h-full flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-3 p-0.5">
             {renaming ? (
-              <Input
-                ref={inputRef}
-                className="h-7 flex-1"
-                value={baseName}
-                onChange={(e) => setBaseName(e.target.value)}
-                onBlur={toggleRenameBase}
-                onClick={clickStopPropagation}
-              />
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  toggleRenameBase();
+                }}
+              >
+                <Input
+                  ref={inputRef}
+                  className="h-7 flex-1"
+                  value={baseName}
+                  onChange={(e) => setBaseName(e.target.value)}
+                  onBlur={toggleRenameBase}
+                  onClick={clickStopPropagation}
+                />
+              </form>
             ) : (
               <h3 className="line-clamp-2 flex-1 px-4	" title={base.name}>
                 {base.name}
@@ -130,10 +136,10 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               >
                 <Button
                   className="sm:opacity-0 sm:group-hover:opacity-100"
-                  variant={'ghost'}
-                  size={'sm'}
+                  variant="outline"
+                  size={'xs'}
                 >
-                  <MoreHorizontal />
+                  <MoreHorizontal className="size-4" />
                 </Button>
               </BaseActionTrigger>
             </div>

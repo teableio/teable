@@ -10,6 +10,8 @@ import type {
 import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable/openapi';
 
 export const ReactQueryKeys = {
+  base: (baseId: string) => ['base', baseId] as const,
+
   spaceList: () => ['space-list'] as const,
 
   spaceCollaboratorList: (spaceId: string) => ['space-collaborator-list', spaceId] as const,

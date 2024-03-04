@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
 import React from 'react';
-import { useDuplicateBaseStore } from '../../base/base-side-bar/duplicate/useDuplicateBaseStore';
+import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
 
 interface IBaseActionTrigger {
   base: IGetBaseVo;
@@ -18,13 +18,23 @@ interface IBaseActionTrigger {
   showDuplicate: boolean;
   onRename?: () => void;
   onDelete?: () => void;
+  align?: 'center' | 'end' | 'start';
 }
 
 export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrigger>> = (props) => {
-  const { base, children, showRename, showDelete, showDuplicate, onDelete, onRename } = props;
+  const {
+    base,
+    children,
+    showRename,
+    showDelete,
+    showDuplicate,
+    onDelete,
+    onRename,
+    align = 'end',
+  } = props;
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const baseStore = useDuplicateBaseStore();
-  if (!showDelete && !showRename) {
+  if (!showDelete && !showRename && !showDuplicate) {
     return null;
   }
 
@@ -32,7 +42,11 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[160px]" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuContent
+          align={align}
+          className="w-[160px]"
+          onClick={(e) => e.stopPropagation()}
+        >
           {showRename && (
             <DropdownMenuItem onClick={onRename}>
               <Pencil className="mr-2" />
