@@ -8,7 +8,7 @@ import { useTranslation } from 'next-i18next';
 import { useRef, type FC } from 'react';
 import { GUIDE_CREATE_SPACE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { useTemplateMonitor } from '../base/base-side-bar/duplicate/useTemplateMonitor';
+import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { SpaceCard } from './SpaceCard';
 
 export const SpacePage: FC = () => {
