@@ -413,7 +413,14 @@ export class BaseDuplicateService {
     for (const item of beforeIndexedResult) {
       const regex = new RegExp(`"${fromBaseId}"`, 'g');
       const updatedIndexDef = item.indexdef.replace(regex, `"${toBaseId}"`);
-      await this.prismaService.txClient().$executeRawUnsafe(updatedIndexDef);
+      try {
+        await this.prismaService.txClient().$executeRawUnsafe(updatedIndexDef);
+      } catch (e) {
+        this.logger.error(
+          { def: updatedIndexDef, msg: (e as { message: string }).message },
+          'indexUpdateError'
+        );
+      }
     }
 
     const afterQuery = this.knex('pg_indexes')
@@ -526,11 +533,11 @@ export class BaseDuplicateService {
     const newBase = await this.duplicateBaseMeta(duplicateBaseRo);
     const toBaseId = newBase.id;
     const old2NewTableIdMap = await this.duplicateTableMeta(fromBaseId, toBaseId);
+    this.logger.log(old2NewTableIdMap, 'old2NewTableIdMap');
     const old2NewFieldIdMap = await this.duplicateFields(toBaseId, old2NewTableIdMap);
+    this.logger.log(old2NewFieldIdMap, 'old2NewFieldIdMap');
     const old2NewViewIdMap = await this.duplicateViews(old2NewTableIdMap, old2NewFieldIdMap);
-    this.logger.log(old2NewTableIdMap, ['old2NewTableIdMap']);
-    this.logger.log(old2NewFieldIdMap, ['old2NewFieldIdMap']);
-    this.logger.log(old2NewViewIdMap, ['old2NewViewIdMap']);
+    this.logger.log(old2NewViewIdMap, 'old2NewViewIdMap');
     await this.duplicateReferences(old2NewFieldIdMap);
     await this.duplicateDbTable(fromBaseId, toBaseId, old2NewViewIdMap, withRecords);
     await this.duplicateDbIndexes(fromBaseId, toBaseId, old2NewViewIdMap);

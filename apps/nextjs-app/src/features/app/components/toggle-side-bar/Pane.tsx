@@ -8,7 +8,7 @@ import { HoverWraper } from '../../blocks/base/base-side-bar/HoverWraper';
 import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
 
-const DefaultLeftSize = 240;
+const DefaultLeftSize = 288;
 
 export const Pane: React.FC<{
   children: React.ReactNode[];
@@ -25,7 +25,7 @@ export const Pane: React.FC<{
   if (!isHydrated) {
     return (
       <>
-        {left}
+        <div className="flex h-full w-72 border-r">{left}</div>
         {center}
         {right}
       </>
@@ -62,7 +62,7 @@ export const Pane: React.FC<{
         ) : (
           <div
             className={classNames('transition-all flex w-0 border-r will-change-auto', {
-              'w-60': leftVisible,
+              'w-72': leftVisible,
               'overflow-hidden': !leftVisible,
             })}
           >
