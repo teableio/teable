@@ -2303,6 +2303,18 @@ describe('OpenAPI link (e2e)', () => {
         id: table2.records[0].id,
       });
 
+      const table2RecordPre = await getRecord(table2.id, table2.records[0].id);
+      expect(table2RecordPre.fields[symManyOneField.id]).toEqual([
+        {
+          title: 'x1',
+          id: table1.records[0].id,
+        },
+        {
+          title: 'x2',
+          id: table1.records[1].id,
+        },
+      ]);
+
       await deleteRecord(table1.id, table1.records[0].id);
 
       const table2Record = await getRecord(table2.id, table2.records[0].id);
@@ -2361,6 +2373,47 @@ describe('OpenAPI link (e2e)', () => {
       expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
       expect(table2Record.fields[symOneManyField.id]).toBeUndefined();
     });
+
+    it.each([
+      { relationship: Relationship.OneOne },
+      { relationship: Relationship.ManyMany },
+      { relationship: Relationship.ManyOne },
+      { relationship: Relationship.OneMany },
+    ])(
+      'should clean one-way $relationship link record when delete a record',
+      async ({ relationship }) => {
+        const manyOneFieldRo: IFieldRo = {
+          type: FieldType.Link,
+          options: {
+            relationship,
+            foreignTableId: table2.id,
+            isOneWay: true,
+          },
+        };
+
+        // set primary key 'x' in table2
+        await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+        // get get a oneManyField involved
+        const manyOneField = await createField(table1.id, manyOneFieldRo);
+
+        if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
+          await updateRecordByApi(table1.id, table1.records[0].id, manyOneField.id, {
+            id: table2.records[0].id,
+          });
+        } else {
+          await updateRecordByApi(table1.id, table1.records[0].id, manyOneField.id, [
+            {
+              id: table2.records[0].id,
+            },
+          ]);
+        }
+
+        await deleteRecord(table2.id, table2.records[0].id);
+
+        const table1Record = await getRecord(table1.id, table1.records[0].id);
+        expect(table1Record.fields[manyOneField.id]).toBeUndefined();
+      }
+    );
   });
 
   describe('Create two bi-link for two tables', () => {
