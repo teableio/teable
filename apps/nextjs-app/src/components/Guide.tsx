@@ -71,7 +71,15 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         target: `.${GUIDE_CREATE_SPACE}`,
         title: <div className="text-base">{t('guide.createSpaceTooltipTitle')}</div>,
         content: (
-          <div className="text-left text-[13px]">{t('guide.createSpaceTooltipContent')}</div>
+          <div className="text-left text-[13px]">
+            <div className="text-left text-[13px]">
+              <Trans
+                ns="common"
+                i18nKey="guide.createSpaceTooltipContent"
+                components={{ br: <br /> }}
+              />
+            </div>
+          </div>
         ),
         disableBeacon: true,
       },
@@ -103,7 +111,6 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
           </div>
         ),
         disableBeacon: true,
-        placement: 'right',
       },
       [StepKey.ViewFiltering]: {
         target: `.${GUIDE_VIEW_FILTERING}`,
@@ -296,7 +303,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
       disableScrollParentFix
       styles={{
         options: {
-          primaryColor: colors.violet[500],
+          primaryColor: colors.black,
           width: 320,
         },
         tooltip: {
