@@ -568,6 +568,9 @@ importers:
       express:
         specifier: 4.18.2
         version: 4.18.2
+      filesize:
+        specifier: 10.1.0
+        version: 10.1.0
       fuse.js:
         specifier: 7.0.0
         version: 7.0.0
@@ -15260,6 +15263,11 @@ packages:
     resolution: {integrity: sha512-w1cEuf3S+DrLCQL7ET6kz+gmlJdbq9J7yXCSjK/OZCPA+qEN1WyF4ZAf0YYJa4/shHJra2t/d/r8SV4Ji+x+8Q==}
     dependencies:
       minimatch: 5.1.6
+
+  /filesize@10.1.0:
+    resolution: {integrity: sha512-GTLKYyBSDz3nPhlLVPjPWZCnhkd9TrrRArNcy8Z+J2cqScB7h2McAzR6NBX6nYOoWafql0roY8hrocxnZBv9CQ==}
+    engines: {node: '>= 10.4.0'}
+    dev: false
 
   /filesize@6.4.0:
     resolution: {integrity: sha512-mjFIpOHC4jbfcTfoh4rkWpI31mF7viw9ikj/JyLoKzqlwG/YsefKfvYlYhdYdg/9mtK2z1AzgN/0LvVQ3zdlSQ==}

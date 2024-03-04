@@ -5,6 +5,7 @@ import { UploadType } from '@teable/openapi';
 import { getFieldIconString } from '@teable/sdk';
 import { AttachmentManager } from '@teable/sdk/components';
 import { Progress } from '@teable/ui-lib';
+import { filesize } from 'filesize';
 import { useEffect, useState } from 'react';
 
 interface IFileItemProps {
@@ -40,7 +41,7 @@ export const FileItem = (props: IFileItemProps) => {
           alt={name}
         />
         <div>{name}</div>
-        <div>{size}</div>
+        <div>{filesize(size)}</div>
         <X
           className="absolute -right-2 -top-2 hidden size-4 cursor-pointer rounded-full bg-secondary p-0.5 group-hover:block hover:opacity-70"
           onClick={() => onClose(file)}
