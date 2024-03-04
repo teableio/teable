@@ -117,6 +117,42 @@ export class RecordCalculateService {
     };
   }
 
+  async calculateDeletedRecord(tableId: string, recordIds: string[]) {
+    const cellContextsByTableId = await this.linkService.getDeleteRecordUpdateContext(
+      tableId,
+      recordIds
+    );
+
+    // console.log('calculateDeletedRecord', tableId, recordIds);
+
+    for (const effectedTableId in cellContextsByTableId) {
+      const cellContexts = cellContextsByTableId[effectedTableId];
+      const opsMapOrigin = formatChangesToOps(
+        cellContexts.map((data) => {
+          return {
+            tableId: effectedTableId,
+            recordId: data.recordId,
+            fieldId: data.fieldId,
+            newValue: data.newValue,
+            oldValue: data.oldValue,
+          };
+        })
+      );
+
+      // 2. get cell changes by derivation
+      const { opsMap, fieldMap, tableId2DbTableName } = await this.getRecordUpdateDerivation(
+        effectedTableId,
+        opsMapOrigin,
+        cellContexts
+      );
+
+      // 3. save all ops
+      if (!isEmpty(opsMap)) {
+        await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
+      }
+    }
+  }
+
   async calculateUpdatedRecord(
     tableId: string,
     fieldKeyType: FieldKeyType = FieldKeyType.Name,

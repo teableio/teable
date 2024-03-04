@@ -6,7 +6,7 @@ import type {
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable/core';
-import { FieldKeyType, FieldType } from '@teable/core';
+import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
@@ -191,31 +191,8 @@ export class RecordOpenApiService {
   }
 
   async deleteRecords(tableId: string, recordIds: string[]) {
-    return await this.prismaService.$tx(async (prisma) => {
-      const linkFieldRaws = await prisma.field.findMany({
-        where: {
-          tableId,
-          type: FieldType.Link,
-          deletedTime: null,
-          isLookup: null,
-        },
-        select: { id: true },
-      });
-
-      // reset link fields to null to clean relational data
-      const recordFields = linkFieldRaws.reduce<{ [fieldId: string]: null }>((pre, cur) => {
-        pre[cur.id] = null;
-        return pre;
-      }, {});
-
-      await this.recordCalculateService.calculateUpdatedRecord(
-        tableId,
-        FieldKeyType.Id,
-        recordIds.map((id) => ({
-          id,
-          fields: recordFields,
-        }))
-      );
+    return await this.prismaService.$tx(async () => {
+      await this.recordCalculateService.calculateDeletedRecord(tableId, recordIds);
 
       await this.recordService.batchDeleteRecords(tableId, recordIds);
     });
