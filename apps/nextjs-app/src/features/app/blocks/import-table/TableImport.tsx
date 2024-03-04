@@ -1,5 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IAnalyzeVo, IImportOptionRo, IAnalyzeRo } from '@teable/core';
+import type {
+  IAnalyzeColumn,
+  IImportOptionRo,
+  IAnalyzeRo,
+  IImportColumn,
+  IImportOption,
+} from '@teable/core';
 import { FieldType } from '@teable/core';
 import { SUPPORTEDTYPE } from '@teable/core/src/import/types';
 import { analyzeFile, importTableFromFile } from '@teable/openapi';
@@ -40,7 +46,9 @@ interface ITableImportProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-export type ITableImportOptions = IImportOptionRo['options'] & { autoSelectType: boolean };
+export type ITableImportOptions = IImportOption & {
+  autoSelectType: boolean;
+};
 
 enum Step {
   UPLOAD = 'upload',
@@ -57,8 +65,8 @@ export const TableImport = (props: ITableImportProps) => {
   const [alterDialogVisible, setAlterDialogVisible] = useState(false);
   const [files, setFiles] = useState<File[] | null>(null);
   const [fileInfo, setFileInfo] = useState<IAnalyzeRo>({} as IAnalyzeRo);
-  const initCaculatedColumns = useRef<IAnalyzeVo['calculatedColumnHeaders']>([]);
-  const [caculatedColumns, setCalculateColumns] = useState<IImportOptionRo['columnInfo']>([]);
+  const initCaculatedColumns = useRef<IAnalyzeColumn[]>([]);
+  const [caculatedColumns, setCalculateColumns] = useState<IImportColumn[]>([]);
   const [importOptions, setImportOptions] = useState<ITableImportOptions>({
     autoSelectType: true,
     useFirstRowAsHeader: true,
@@ -69,7 +77,7 @@ export const TableImport = (props: ITableImportProps) => {
     dialogOpenProxy(false);
   };
 
-  const columnsChangeHandler = (newColumns: IImportOptionRo['columnInfo']) => {
+  const columnsChangeHandler = (newColumns: IImportColumn[]) => {
     const uniqueData = uniqBy(newColumns, 'name');
     if (newColumns.length !== uniqueData.length) {
       setErrorMessage('field name should be unique');
@@ -119,8 +127,8 @@ export const TableImport = (props: ITableImportProps) => {
       return (await importTableFromFile(baseId, importRo)).data;
     },
     onSuccess: (data) => {
-      const { defaultViewId: viewId, id: tableId } = data;
-      closeDialog();
+      const { defaultViewId: viewId, id: tableId } = data[0];
+      onOpenChange?.(false);
       router.push(
         {
           pathname: '/base/[baseId]/[tableId]/[viewId]',
@@ -138,11 +146,16 @@ export const TableImport = (props: ITableImportProps) => {
     mutateAsync({
       baseId: base.id,
       importRo: {
-        columnInfo: caculatedColumns,
-        options: {
-          importData: importOptions.importData,
-          useFirstRowAsHeader: importOptions.useFirstRowAsHeader,
-        },
+        worksheets: [
+          {
+            name: 'import table',
+            columns: caculatedColumns,
+            options: {
+              importData: importOptions.importData,
+              useFirstRowAsHeader: importOptions.useFirstRowAsHeader,
+            },
+          },
+        ],
         ...fileInfo,
       },
     });
@@ -159,8 +172,11 @@ export const TableImport = (props: ITableImportProps) => {
       fileType: SUPPORTEDTYPE.CSV,
     });
     const {
-      data: { calculatedColumnHeaders },
+      data: { worksheets },
     } = analyzeData;
+
+    // TODO support groups
+    const calculatedColumnHeaders = worksheets?.[0].columns || [];
     const columnHeaderWithIndex = calculatedColumnHeaders.map((col, index) => ({
       ...col,
       sourceColumnIndex: index,

@@ -55,29 +55,33 @@ afterAll(async () => {
 describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from analyze sheet (Get) ', () => {
   it(`should return column header info from csv file`, async () => {
     const {
-      data: { calculatedColumnHeaders },
+      data: { worksheets },
     } = await apiAnalyzeFile({
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
-    const assertHeaders = [
-      {
-        type: 'number',
-        name: 'field_1',
-      },
-      {
-        type: 'longText',
-        name: 'field_2',
-      },
-      {
-        type: 'checkbox',
-        name: 'field_3',
-      },
-      {
-        type: 'date',
-        name: 'field_4',
-      },
-    ];
+    const calculatedColumnHeaders = worksheets[0];
+    const assertHeaders = {
+      name: 'import table',
+      columns: [
+        {
+          type: 'number',
+          name: 'field_1',
+        },
+        {
+          type: 'longText',
+          name: 'field_2',
+        },
+        {
+          type: 'checkbox',
+          name: 'field_3',
+        },
+        {
+          type: 'date',
+          name: 'field_4',
+        },
+      ],
+    };
     expect(calculatedColumnHeaders).toEqual(assertHeaders);
   });
 });
@@ -92,26 +96,32 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
 
   it(`should create a new Table from csv file`, async () => {
     const {
-      data: { calculatedColumnHeaders },
+      data: { worksheets },
     } = await apiAnalyzeFile({
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
+    const calculatedColumnHeaders = worksheets[0].columns;
 
     const table = await apiImportTableFromFile(baseId, {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
-      columnInfo: calculatedColumnHeaders.map((column, index) => ({
-        ...column,
-        sourceColumnIndex: index,
-      })),
-      options: {
-        useFirstRowAsHeader: true,
-        importData: true,
-      },
+      worksheets: [
+        {
+          name: 'sheet1',
+          columns: calculatedColumnHeaders.map((column, index) => ({
+            ...column,
+            sourceColumnIndex: index,
+          })),
+          options: {
+            useFirstRowAsHeader: true,
+            importData: true,
+          },
+        },
+      ],
     });
 
-    const { fields, id } = table.data;
+    const { fields, id } = table.data[0];
 
     const createdFields = fields.map((field) => ({
       type: field.type,
@@ -138,7 +148,7 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
 
     const {
       data: { records },
-    } = await apiGetTableById(baseId, table.data.id, {
+    } = await apiGetTableById(baseId, table.data[0].id, {
       includeContent: true,
     });
     tableIds.push(id);
@@ -167,26 +177,32 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
 
   it(`should create a new Table from csv file only fields without data`, async () => {
     const {
-      data: { calculatedColumnHeaders },
+      data: { worksheets },
     } = await apiAnalyzeFile({
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
+    const calculatedColumnHeaders = worksheets[0].columns;
 
     const table = await apiImportTableFromFile(baseId, {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
-      columnInfo: calculatedColumnHeaders.map((column, index) => ({
-        ...column,
-        sourceColumnIndex: index,
-      })),
-      options: {
-        useFirstRowAsHeader: true,
-        importData: false,
-      },
+      worksheets: [
+        {
+          name: 'sheet1',
+          columns: calculatedColumnHeaders.map((column, index) => ({
+            ...column,
+            sourceColumnIndex: index,
+          })),
+          options: {
+            useFirstRowAsHeader: true,
+            importData: false,
+          },
+        },
+      ],
     });
 
-    const { fields, id } = table.data;
+    const { fields, id } = table.data[0];
 
     const createdFields = fields.map((field) => ({
       type: field.type,
@@ -213,7 +229,7 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
 
     const {
       data: { records },
-    } = await apiGetTableById(baseId, table.data.id, {
+    } = await apiGetTableById(baseId, table.data[0].id, {
       includeContent: true,
     });
     tableIds.push(id);
@@ -224,26 +240,33 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
 
   it(`should create a new Table from csv file useFirstRowAsHeader: false`, async () => {
     const {
-      data: { calculatedColumnHeaders },
+      data: { worksheets },
     } = await apiAnalyzeFile({
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
 
+    const calculatedColumnHeaders = worksheets[0].columns;
+
     const table = await apiImportTableFromFile(baseId, {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
-      columnInfo: calculatedColumnHeaders.map((column, index) => ({
-        ...column,
-        sourceColumnIndex: index,
-      })),
-      options: {
-        useFirstRowAsHeader: false,
-        importData: true,
-      },
+      worksheets: [
+        {
+          name: 'sheet1',
+          columns: calculatedColumnHeaders.map((column, index) => ({
+            ...column,
+            sourceColumnIndex: index,
+          })),
+          options: {
+            useFirstRowAsHeader: false,
+            importData: true,
+          },
+        },
+      ],
     });
 
-    const { fields, id } = table.data;
+    const { fields, id } = table.data[0];
 
     const createdFields = fields.map((field) => ({
       type: field.type,
@@ -270,7 +293,7 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
 
     const {
       data: { records },
-    } = await apiGetTableById(baseId, table.data.id, {
+    } = await apiGetTableById(baseId, table.data[0].id, {
       includeContent: true,
     });
     tableIds.push(id);

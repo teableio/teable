@@ -1,5 +1,5 @@
 import { IMPORT_SUPPORTED_TYPES } from '@teable/core';
-import type { FieldType, IImportOptionRo } from '@teable/core';
+import type { FieldType, IImportColumn } from '@teable/core';
 import { Trash, Lock } from '@teable/icons';
 import { useFieldStaticGetter } from '@teable/sdk';
 import { BaseSingleSelect } from '@teable/sdk/components/filter/component';
@@ -17,8 +17,8 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 
 interface IPreviewColumnProps {
-  columns: IImportOptionRo['columnInfo'];
-  onChange: (columns: IImportOptionRo['columnInfo']) => void;
+  columns: IImportColumn[];
+  onChange: (columns: IImportColumn[]) => void;
 }
 
 export const PreviewColumn = (props: IPreviewColumnProps) => {
@@ -54,7 +54,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
   //   [getFieldStatic]
   // );
 
-  const onChangeHandler = (data: IImportOptionRo['columnInfo']) => {
+  const onChangeHandler = (data: IImportColumn[]) => {
     onChange(data);
   };
 

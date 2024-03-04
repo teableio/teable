@@ -37,5 +37,5 @@ export const ImportTableFromFileRoute: RouteConfig = registerRoute({
 });
 
 export const importTableFromFile = async (baseId: string, importRo: IImportOptionRo) => {
-  return axios.post<ITableFullVo>(urlBuilder(IMPORT_TABLE, { baseId }), importRo);
+  return axios.post<ITableFullVo[]>(urlBuilder(IMPORT_TABLE, { baseId }), importRo);
 };

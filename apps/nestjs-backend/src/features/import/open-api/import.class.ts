@@ -54,7 +54,6 @@ export abstract class Importer {
         validatingFieldTypes = matchTypes;
       }
 
-      // why do this, papa parser return data in first data add extra ·
       const name = getUniqName(column?.[0] ?? `Field ${index}`, existNames);
 
       existNames.push(name);
@@ -65,7 +64,12 @@ export abstract class Importer {
       };
     });
     return {
-      calculatedColumnHeaders,
+      worksheets: [
+        {
+          name: 'import table',
+          columns: calculatedColumnHeaders,
+        },
+      ],
     };
   }
 }

@@ -21,7 +21,7 @@ export class ImportController {
   async createTableFromImport(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(importOptionRoSchema)) importRo: IImportOptionRo
-  ): Promise<ITableFullVo> {
+  ): Promise<ITableFullVo[]> {
     return await this.importOpenService.createTableFromImport(baseId, importRo);
   }
 }

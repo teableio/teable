@@ -24,12 +24,15 @@ export class ImportOpenApiService {
   }
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo) {
+    // TODO support groups
+    const { attachmentUrl, fileType, worksheets } = importRo;
+
     const {
       options: { importData, useFirstRowAsHeader },
-      attachmentUrl,
-      fileType,
-      columnInfo,
-    } = importRo;
+      columns: columnInfo,
+      name,
+    } = worksheets[0];
+
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
     });
@@ -42,7 +45,7 @@ export class ImportOpenApiService {
 
     // create table with column
     const table = await this.tableOpenApiService.createTable(baseId, {
-      name: 'import table',
+      name: name || 'import table',
       fields: fieldsRo,
       views: DEFAULT_VIEWS,
       records: [],
@@ -77,6 +80,6 @@ export class ImportOpenApiService {
       );
     }
 
-    return table;
+    return [table];
   }
 }
