@@ -628,7 +628,12 @@ export class FieldConvertingService {
         if (!context) {
           throw new Error('Invalid operation');
         }
-        changes.push({ ...context, oldValue: null, recordId }); // old value by no means when converting
+        changes.push({
+          recordId,
+          fieldId: context.fieldId,
+          oldValue: null, // old value by no means when converting
+          newValue: context.newCellValue,
+        });
       }
     }
 

@@ -1346,6 +1346,13 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[0]).toEqual({ title: 'x', id: records[0].id });
       // clean up invalid value
       expect(values[1]).toBeUndefined();
+
+      const table2LinkField = await getField(
+        table2.id,
+        (newField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+
+      expect(records[0].fields[table2LinkField.id]).toMatchObject([{ id: table1.records[0].id }]);
     });
 
     it('should convert text to one-many link', async () => {
