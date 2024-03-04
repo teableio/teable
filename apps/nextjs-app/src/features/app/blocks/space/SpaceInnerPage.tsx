@@ -92,7 +92,7 @@ export const SpaceInnerPage: React.FC = () => {
           )}
         </div>
 
-        <div className="ml-16 w-60 min-w-60">
+        <div className="ml-16 w-72 min-w-60">
           <SpaceActionBar
             className="flex shrink-0 items-center justify-end gap-3 pb-8"
             space={space}

@@ -62,7 +62,7 @@ export const Pane: React.FC<{
         ) : (
           <div
             className={classNames('transition-all flex w-0 border-r will-change-auto', {
-              'w-60': leftVisible,
+              'w-72': leftVisible,
               'overflow-hidden': !leftVisible,
             })}
           >
