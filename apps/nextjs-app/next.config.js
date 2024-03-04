@@ -120,8 +120,9 @@ const nextConfig = {
   },
 
   // @link https://nextjs.org/docs/advanced-features/compiler#minification
+  // @link discussion: https://github.com/vercel/next.js/discussions/30237
   // Sometimes buggy so enable/disable when debugging.
-  swcMinify: true,
+  swcMinify: false,
 
   compiler: {
     // emotion: true,
