@@ -101,15 +101,18 @@
     "title": {
       "import": "import",
       "importTitle": "Create a new table",
-      "optionsTitle": "Import option"
+      "optionsTitle": "Import option",
+      "leaveTitle": "Are you sure to leave this page?"
     },
     "menu": {
       "addFromOtherSource": "Add from other sources",
       "csvFile": "Csv file",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "leave": "Leave"
     },
     "tips": {
-      "importWayTip": "Click or drag file to this area to upload"
+      "importWayTip": "Click or drag file to this area to upload",
+      "leaveTip": "Your data will still be imported."
     },
     "options": {
       "autoSelectFieldOptionName": "Auto-select field types",

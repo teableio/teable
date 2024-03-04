@@ -101,15 +101,18 @@
     "title": {
       "import": "导入",
       "importTitle": "创建一个新表格",
-      "optionsTitle": "导入选项"
+      "optionsTitle": "导入选项",
+      "leaveTitle": "确定离开此页面?"
     },
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
       "csvFile": "csv 文件",
-      "cancel": "取消"
+      "cancel": "取消",
+      "leave": "取消"
     },
     "tips": {
-      "importWayTip": "点击或者拖拽到此区域上传"
+      "importWayTip": "点击或者拖拽到此区域上传",
+      "leaveTip": "你的数据仍然会被导入"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",

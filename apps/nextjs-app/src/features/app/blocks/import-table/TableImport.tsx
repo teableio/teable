@@ -16,6 +16,14 @@ import {
   TabsList,
   TabsTrigger,
   Spin,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@teable/ui-lib';
 import { uniqBy } from 'lodash';
 import { useRouter } from 'next/router';
@@ -46,6 +54,7 @@ export const TableImport = (props: ITableImportProps) => {
   const [step, setStep] = useState(Step.UPLOAD);
   const { children, open, onOpenChange } = props;
   const [errorMessage, setErrorMessage] = useState('');
+  const [alterDialogVisible, setAlterDialogVisible] = useState(false);
   const [files, setFiles] = useState<File[] | null>(null);
   const [fileInfo, setFileInfo] = useState<IAnalyzeRo>({} as IAnalyzeRo);
   const initCaculatedColumns = useRef<IAnalyzeVo['calculatedColumnHeaders']>([]);
@@ -55,8 +64,9 @@ export const TableImport = (props: ITableImportProps) => {
     useFirstRowAsHeader: true,
     importData: true,
   });
+
   const closeDialog = () => {
-    onOpenChange?.(false);
+    dialogOpenProxy(false);
   };
 
   const columnsChangeHandler = (newColumns: IImportOptionRo['columnInfo']) => {
@@ -160,83 +170,115 @@ export const TableImport = (props: ITableImportProps) => {
     initCaculatedColumns.current = calculatedColumnHeaders;
   }, []);
 
+  const dialogOpenProxy = (open: boolean) => {
+    if (!open && Step.CONFIG && isLoading) {
+      setAlterDialogVisible(true);
+      return;
+    }
+    onOpenChange?.(open);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      {children && <DialogTrigger>{children}</DialogTrigger>}
-      {open && (
-        <DialogContent className="flex max-h-[80%] w-[800px] min-w-[800px] max-w-fit flex-col overflow-hidden">
-          <Tabs defaultValue="upload" className="flex-1 overflow-auto">
-            <TabsList className="">
-              <TabsTrigger value="upload">{t('table:import.title.import')}</TabsTrigger>
-            </TabsList>
-            <TabsContent value="upload">
-              {step === Step.UPLOAD && (
-                <div className="relative flex h-96 items-center justify-center">
-                  {!files?.length && (
-                    <Upload
-                      accept="text/csv"
-                      onChange={(files) => {
-                        setFiles(files);
-                      }}
-                    >
-                      <div className="flex h-full cursor-pointer items-center justify-center rounded-sm border border-dashed hover:border-secondary">
-                        <Button variant="ghost">{t('table:import.tips.importWayTip')}</Button>
-                      </div>
-                    </Upload>
-                  )}
-                  {files?.length &&
-                    Array.from(files).map((file) => (
-                      <FileItem
-                        key={file.name}
-                        file={file}
-                        onClose={() => setFiles(null)}
-                        onFinished={fileFinishedHandler}
-                      />
-                    ))}
-                </div>
-              )}
-              {step === Step.CONFIG && (
-                <div className="flex flex-col">
-                  <div>
-                    <p className="text-base font-bold">{t('table:import.title.importTitle')}</p>
+    <>
+      <Dialog open={open} onOpenChange={dialogOpenProxy}>
+        {children && <DialogTrigger>{children}</DialogTrigger>}
+        {open && (
+          <DialogContent className="flex max-h-[80%] w-[800px] min-w-[800px] max-w-fit flex-col overflow-hidden">
+            <Tabs defaultValue="upload" className="flex-1 overflow-auto">
+              <TabsList className="">
+                <TabsTrigger value="upload">{t('table:import.title.import')}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="upload">
+                {step === Step.UPLOAD && (
+                  <div className="relative flex h-96 items-center justify-center">
+                    {!files?.length && (
+                      <Upload
+                        accept="text/csv"
+                        onChange={(files) => {
+                          setFiles(files);
+                        }}
+                      >
+                        <div className="flex h-full cursor-pointer items-center justify-center rounded-sm border border-dashed hover:border-secondary">
+                          <Button variant="ghost">{t('table:import.tips.importWayTip')}</Button>
+                        </div>
+                      </Upload>
+                    )}
+                    {files?.length &&
+                      Array.from(files).map((file) => (
+                        <FileItem
+                          key={file.name}
+                          file={file}
+                          onClose={() => setFiles(null)}
+                          onFinished={fileFinishedHandler}
+                        />
+                      ))}
                   </div>
+                )}
+                {step === Step.CONFIG && (
+                  <div className="flex flex-col">
+                    <div>
+                      <p className="text-base font-bold">{t('table:import.title.importTitle')}</p>
+                    </div>
 
-                  <div className="my-2 h-[400px] overflow-y-auto rounded-sm border border-secondary">
-                    <PreviewColumn
-                      columns={caculatedColumns}
-                      onChange={columnsChangeHandler}
-                    ></PreviewColumn>
+                    <div className="my-2 h-[400px] overflow-y-auto rounded-sm border border-secondary">
+                      <PreviewColumn
+                        columns={caculatedColumns}
+                        onChange={columnsChangeHandler}
+                      ></PreviewColumn>
+                    </div>
+
+                    {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
+
+                    <CollapsePanel
+                      onChange={optionChangeHandler}
+                      options={importOptions}
+                    ></CollapsePanel>
                   </div>
+                )}
+              </TabsContent>
+            </Tabs>
+            <DialogFooter>
+              <footer className="mt-1 flex items-center justify-end">
+                <Button variant="ghost" size="sm" onClick={() => closeDialog()}>
+                  {t('table:import.menu.cancel')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-1"
+                  onClick={() => importTable()}
+                  disabled={!!errorMessage || isLoading}
+                >
+                  {isLoading && <Spin className="mr-1 size-4" />}
+                  {t('table:import.title.import')}
+                </Button>
+              </footer>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
 
-                  {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
-
-                  <CollapsePanel
-                    onChange={optionChangeHandler}
-                    options={importOptions}
-                  ></CollapsePanel>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-          <DialogFooter>
-            <footer className="mt-1 flex items-center justify-end">
-              <Button variant="ghost" size="sm" onClick={() => closeDialog()}>
-                {t('table:import.menu.cancel')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-1"
-                onClick={() => importTable()}
-                disabled={!!errorMessage || isLoading}
-              >
-                {isLoading && <Spin className="mr-1 size-4" />}
-                {t('table:import.title.import')}
-              </Button>
-            </footer>
-          </DialogFooter>
-        </DialogContent>
-      )}
-    </Dialog>
+      <AlertDialog
+        open={alterDialogVisible}
+        onOpenChange={(open: boolean) => setAlterDialogVisible(open)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('table:import.title.leaveTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('table:import.tips.leaveTip')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onOpenChange?.(false);
+              }}
+            >
+              {t('table:import.menu.leave')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
