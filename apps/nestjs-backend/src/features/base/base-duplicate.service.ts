@@ -528,6 +528,9 @@ export class BaseDuplicateService {
     const old2NewTableIdMap = await this.duplicateTableMeta(fromBaseId, toBaseId);
     const old2NewFieldIdMap = await this.duplicateFields(toBaseId, old2NewTableIdMap);
     const old2NewViewIdMap = await this.duplicateViews(old2NewTableIdMap, old2NewFieldIdMap);
+    this.logger.log(old2NewTableIdMap, ['old2NewTableIdMap']);
+    this.logger.log(old2NewFieldIdMap, ['old2NewFieldIdMap']);
+    this.logger.log(old2NewViewIdMap, ['old2NewViewIdMap']);
     await this.duplicateReferences(old2NewFieldIdMap);
     await this.duplicateDbTable(fromBaseId, toBaseId, old2NewViewIdMap, withRecords);
     await this.duplicateDbIndexes(fromBaseId, toBaseId, old2NewViewIdMap);
