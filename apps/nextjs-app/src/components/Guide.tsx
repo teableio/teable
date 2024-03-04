@@ -72,13 +72,11 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         title: <div className="text-base">{t('guide.createSpaceTooltipTitle')}</div>,
         content: (
           <div className="text-left text-[13px]">
-            <div className="text-left text-[13px]">
-              <Trans
-                ns="common"
-                i18nKey="guide.createSpaceTooltipContent"
-                components={{ br: <br /> }}
-              />
-            </div>
+            <Trans
+              ns="common"
+              i18nKey="guide.createSpaceTooltipContent"
+              components={{ br: <br /> }}
+            />
           </div>
         ),
         disableBeacon: true,
