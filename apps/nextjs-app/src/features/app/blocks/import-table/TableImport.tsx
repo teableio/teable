@@ -305,7 +305,7 @@ export const TableImport = (props: ITableImportProps) => {
                         }}
                       >
                         {analyzeLoading && <Spin className="mr-1 size-4" />}
-                        Upload
+                        {t('table:import.title.upload')}
                       </Button>
                     </div>
                     {errorMessage && <p className="p-2 text-sm text-red-500">{errorMessage}</p>}

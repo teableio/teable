@@ -99,6 +99,7 @@
   },
   "import": {
     "title": {
+      "upload": "上传",
       "import": "导入",
       "localFile": "本地文件",
       "linkUrl": "Link(URL)",
@@ -125,8 +126,8 @@
     "form": {
       "defaultFieldName": "字段",
       "error": {
-        "urlEmptyTip": "链接不能为空!",
-        "urlValidateTip": "错误的链接格式!"
+        "urlEmptyTip": "URL不能为空!",
+        "urlValidateTip": "不能解析该URL，请重新输入!"
       }
     }
   },

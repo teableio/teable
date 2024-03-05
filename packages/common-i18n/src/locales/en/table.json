@@ -99,6 +99,7 @@
   },
   "import": {
     "title": {
+      "upload": "Upload",
       "import": "Import",
       "localFile": "Local Files",
       "linkUrl": "Link(URL)",
@@ -126,7 +127,7 @@
       "defaultFieldName": "Field",
       "error": {
         "urlEmptyTip": "URL should not be empty!",
-        "urlValidateTip": "Error format URL!"
+        "urlValidateTip": "Couldn't parse URL. Try a different URL!"
       }
     }
   },
