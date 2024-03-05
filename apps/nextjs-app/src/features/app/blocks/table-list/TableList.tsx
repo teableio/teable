@@ -45,7 +45,7 @@ export const TableList: React.FC = () => {
             </Button>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="px-4">
+          <DropdownMenuLabel className="px-4 text-xs font-normal text-muted-foreground">
             {t('table:import.menu.addFromOtherSource')}
           </DropdownMenuLabel>
           <DropdownMenuItem className="cursor-pointer" onClick={() => setDialogVisible(true)}>
