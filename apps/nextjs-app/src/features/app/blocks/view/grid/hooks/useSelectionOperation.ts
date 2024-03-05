@@ -135,7 +135,7 @@ export const useSelectionOperation = (filter?: IFilter) => {
       }
 
       await pasteReq({
-        content: text,
+        content: hasHtml ? text : text.trim(),
         ranges: selection.serialize(),
         type: rangeTypes[selection.type],
         header: header.result,
