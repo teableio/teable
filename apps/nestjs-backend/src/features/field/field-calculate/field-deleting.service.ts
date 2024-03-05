@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { FieldOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Timing } from '../../../utils/timing';
@@ -66,15 +66,11 @@ export class FieldDeletingService {
     await this.fieldService.batchDeleteFields(tableId, [field.id]);
   }
 
-  async getField(tableId: string, fieldId: string): Promise<IFieldInstance> {
-    const fieldRaw = await this.prismaService.field
-      .findFirstOrThrow({
-        where: { tableId, id: fieldId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new NotFoundException(`field ${fieldId} not found`);
-      });
-    return createFieldInstanceByRaw(fieldRaw);
+  async getField(tableId: string, fieldId: string): Promise<IFieldInstance | null> {
+    const fieldRaw = await this.prismaService.field.findFirst({
+      where: { tableId, id: fieldId, deletedTime: null },
+    });
+    return fieldRaw && createFieldInstanceByRaw(fieldRaw);
   }
 
   @Timing()
@@ -97,7 +93,7 @@ export class FieldDeletingService {
 
       if (symmetricFieldId) {
         const symmetricField = await this.getField(foreignTableId, symmetricFieldId);
-        await this.delateFieldItem(foreignTableId, symmetricField);
+        symmetricField && (await this.delateFieldItem(foreignTableId, symmetricField));
         return [
           { tableId, fieldId },
           { tableId: foreignTableId, fieldId: symmetricFieldId },

@@ -72,7 +72,7 @@ export class FieldConvertingLinkService {
     if (oldField.options.symmetricFieldId) {
       const { foreignTableId, symmetricFieldId } = oldField.options;
       const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
-      await this.fieldDeletingService.delateFieldItem(foreignTableId, symField);
+      symField && (await this.fieldDeletingService.delateFieldItem(foreignTableId, symField));
     }
 
     // create new symmetric link
@@ -139,7 +139,7 @@ export class FieldConvertingLinkService {
     if (oldField.options.symmetricFieldId) {
       const { foreignTableId, symmetricFieldId } = oldField.options;
       const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
-      await this.fieldDeletingService.delateFieldItem(foreignTableId, symField);
+      symField && (await this.fieldDeletingService.delateFieldItem(foreignTableId, symField));
     }
   }
 
