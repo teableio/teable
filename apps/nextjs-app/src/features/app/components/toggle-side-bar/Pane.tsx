@@ -4,11 +4,10 @@ import { Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import React, { useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { HoverWraper } from '../../blocks/base/base-side-bar/HoverWraper';
-import { SheetWraper } from '../../blocks/base/base-side-bar/SheetWraper';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
-
-const DefaultLeftSize = 288;
+import { SIDEBARWIDTH } from './constant';
+import { HoverWraper } from './HoverWraper';
+import { SheetWraper } from './SheetWraper';
 
 export const Pane: React.FC<{
   children: React.ReactNode[];
@@ -35,7 +34,7 @@ export const Pane: React.FC<{
   return (
     <>
       {!leftVisible && !isMobile && (
-        <HoverWraper size={DefaultLeftSize}>
+        <HoverWraper size={SIDEBARWIDTH}>
           <HoverWraper.Trigger>
             <Button
               className={classNames(
@@ -62,9 +61,11 @@ export const Pane: React.FC<{
         ) : (
           <div
             className={classNames('transition-all flex w-0 border-r will-change-auto', {
-              'w-72': leftVisible,
               'overflow-hidden': !leftVisible,
             })}
+            style={{
+              width: leftVisible ? `${SIDEBARWIDTH}px` : '',
+            }}
           >
             {React.cloneElement(left as React.ReactElement, {
               expandSideBar: () => setLeftVisible(!leftVisible),
