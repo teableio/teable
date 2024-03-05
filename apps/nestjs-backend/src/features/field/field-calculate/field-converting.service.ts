@@ -573,7 +573,7 @@ export class FieldConvertingService {
 
     switch (newField.type) {
       case FieldType.Link:
-        return this.fieldConvertingLinkService.convertLink(
+        return this.fieldConvertingLinkService.modifyLinkOptions(
           tableId,
           newField as LinkFieldDto,
           oldField as LinkFieldDto

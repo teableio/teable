@@ -1,5 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
+import type { ILinkCellValue, ILinkFieldOptions, IOtOperation } from '@teable/core';
 import {
   Relationship,
   RelationshipRevert,
@@ -8,8 +8,9 @@ import {
   isMultiValueLink,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { isEqual } from 'lodash';
+import { groupBy, isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
+import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import type { IFieldInstance } from '../model/factory';
 import {
@@ -26,6 +27,7 @@ import { FieldSupplementService } from './field-supplement.service';
 export class FieldConvertingLinkService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly linkService: LinkService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -199,6 +201,55 @@ export class FieldConvertingLinkService {
     }
 
     return records;
+  }
+
+  async oneWayToTwoWay(newField: LinkFieldDto) {
+    const { foreignTableId, relationship, symmetricFieldId } = newField.options;
+    const foreignKeys = await this.linkService.getAllForeignKeys(newField.options);
+    const foreignKeyMap = groupBy(foreignKeys, 'foreignId');
+
+    const opsMap: {
+      [recordId: string]: IOtOperation[];
+    } = {};
+
+    Object.keys(foreignKeyMap).forEach((foreignId) => {
+      const ids = foreignKeyMap[foreignId].map((item) => item.id);
+      // relational behavior needs to be reversed
+      if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
+        opsMap[foreignId] = [
+          RecordOpBuilder.editor.setRecord.build({
+            fieldId: symmetricFieldId as string,
+            newCellValue: { id: ids[0] },
+            oldCellValue: null,
+          }),
+        ];
+      }
+
+      if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
+        opsMap[foreignId] = [
+          RecordOpBuilder.editor.setRecord.build({
+            fieldId: symmetricFieldId as string,
+            newCellValue: ids.map((id) => ({ id })),
+            oldCellValue: null,
+          }),
+        ];
+      }
+    });
+
+    return { recordOpsMap: { [foreignTableId]: opsMap } };
+  }
+
+  async modifyLinkOptions(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
+    if (
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.relationship === oldField.options.relationship &&
+      newField.options.symmetricFieldId &&
+      !newField.options.isOneWay &&
+      oldField.options.isOneWay
+    ) {
+      return this.oneWayToTwoWay(newField);
+    }
+    return this.convertLink(tableId, newField, oldField);
   }
 
   /**
