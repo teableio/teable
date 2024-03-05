@@ -5,7 +5,7 @@ import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
-import { CellType, getFileCover, hexToRGBA, onMixedTextClick } from '../..';
+import { CellType, convertNextImageUrl, getFileCover, hexToRGBA, onMixedTextClick } from '../..';
 import { ThemeKey } from '../../../context';
 import { useFields, useTablePermission, useTheme, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
@@ -359,7 +359,12 @@ export const createCellValue2GridDisplay =
         const cv = (cellValue ?? []) as IAttachmentCellValue;
         const data = cv.map(({ id, mimetype, presignedUrl }) => ({
           id,
-          url: getFileCover(mimetype, presignedUrl),
+          url: convertNextImageUrl({
+            url: getFileCover(mimetype, presignedUrl),
+            w: 128,
+            q: 75,
+            fit: 'scale-down',
+          }),
         }));
         const displayData = data.map(({ url }) => url);
         return {
