@@ -120,7 +120,7 @@ export const GridViewBase = () => {
     }
     router.push(
       {
-        pathname: `${router.pathname}/[recordId]`,
+        pathname: router.pathname,
         query: { ...router.query, recordId },
       },
       undefined,

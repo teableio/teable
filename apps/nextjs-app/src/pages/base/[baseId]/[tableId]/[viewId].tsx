@@ -14,19 +14,34 @@ const Node: NextPageWithLayout<ITableProps> = ({
   fieldServerData,
   viewServerData,
   recordsServerData,
+  recordServerData,
 }) => {
   return (
     <Table
       fieldServerData={fieldServerData}
       viewServerData={viewServerData}
       recordsServerData={recordsServerData}
+      recordServerData={recordServerData}
     />
   );
 };
 
 export const getServerSideProps = withAuthSSR<IViewPageProps>(async (context, ssrApi) => {
-  const { tableId, viewId, baseId } = context.query;
+  const { tableId, viewId, baseId, recordId } = context.query;
   try {
+    let recordServerData;
+    if (recordId) {
+      recordServerData = await ssrApi.getRecord(tableId as string, recordId as string);
+
+      if (!recordServerData) {
+        return {
+          redirect: {
+            destination: `/base/${baseId}/${tableId}/${viewId}`,
+            permanent: false,
+          },
+        };
+      }
+    }
     const serverData = await getViewPageServerData(
       ssrApi,
       baseId as string,
@@ -38,6 +53,7 @@ export const getServerSideProps = withAuthSSR<IViewPageProps>(async (context, ss
       return {
         props: {
           ...serverData,
+          ...(recordServerData ? { recordServerData } : {}),
           ...(await getTranslationsProps(context, i18nNamespaces)),
         },
       };

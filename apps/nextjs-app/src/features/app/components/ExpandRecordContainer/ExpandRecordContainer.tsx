@@ -15,14 +15,14 @@ export const ExpandRecordContainer = forwardRef<
   const recordId = router.query.recordId as string;
 
   const onClose = useCallback(() => {
-    if (!router.asPath.includes(`/${recordId}`)) {
+    if (!recordId) {
       return;
     }
     const { recordId: _recordId, ...resetQuery } = router.query;
     router.push(
       {
-        pathname: router.pathname.replace('/[recordId]', ''),
-        query: { ...resetQuery },
+        pathname: router.pathname,
+        query: resetQuery,
       },
       undefined,
       {
@@ -35,7 +35,7 @@ export const ExpandRecordContainer = forwardRef<
     (recordId: string) => {
       router.push(
         {
-          pathname: `${router.pathname}/[recordId]`,
+          pathname: router.pathname,
           query: { ...router.query, recordId },
         },
         undefined,
