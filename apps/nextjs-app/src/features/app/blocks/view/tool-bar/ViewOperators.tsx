@@ -106,8 +106,8 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
       </Group>
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger>
-            <ToolBarButton disabled={true} text="Color">
+          <TooltipTrigger asChild>
+            <ToolBarButton className="opacity-30" text="Color">
               <PaintBucket className="size-4 text-sm" />
             </ToolBarButton>
           </TooltipTrigger>
