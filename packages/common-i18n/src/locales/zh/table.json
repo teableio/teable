@@ -86,6 +86,9 @@
     "fieldType": "字段类型"
   },
   "table": {
+    "rename": "重命名",
+    "design": "设计",
+    "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
     "tableInfo": "表信息",
@@ -93,6 +96,8 @@
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
+    "deleteTip1": "其他表中关联了此表的关联字段将会被转换成文本字段",
+    "deleteTip2": "该操作无法撤销.",
     "operator": {
       "createBlank": "创建一个新表格"
     }

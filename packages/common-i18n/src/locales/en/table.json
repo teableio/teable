@@ -86,6 +86,9 @@
     "fieldType": "Field Type"
   },
   "table": {
+    "rename": "Rename",
+    "design": "Design",
+    "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
     "tableInfo": "Table Info",
@@ -93,6 +96,8 @@
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
+    "deleteTip1": "Link fields linked with this table in other tables will be converted to text fields.",
+    "deleteTip2": "This operation cannot be undone.",
     "operator": {
       "createBlank": "Create a blank table"
     }
