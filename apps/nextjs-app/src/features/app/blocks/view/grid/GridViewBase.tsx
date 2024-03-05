@@ -446,7 +446,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     }
     router.push(
       {
-        pathname: `${router.pathname}/[recordId]`,
+        pathname: router.pathname,
         query: { ...router.query, recordId },
       },
       undefined,
@@ -465,7 +465,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     }
     router.push(
       {
-        pathname: `${router.pathname}/[recordId]`,
+        pathname: router.pathname,
         query: { ...router.query, recordId: prefillingRecordId },
       },
       undefined,
