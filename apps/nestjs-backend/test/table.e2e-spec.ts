@@ -9,6 +9,7 @@ import {
   updateTableIcon,
   updateTableName,
   updateTableOrder,
+  deleteTable as apiDeleteTable,
 } from '@teable/openapi';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
@@ -240,7 +241,6 @@ describe('OpenAPI TableController (e2e)', () => {
 
   it('should delete table and clean up link and lookup fields', async () => {
     const table1 = await createTable(baseId, {
-      name: 'table1',
       fields: [
         {
           name: 'name',
@@ -267,7 +267,6 @@ describe('OpenAPI TableController (e2e)', () => {
     });
 
     const table2 = await createTable(baseId, {
-      name: 'table2',
       fields: [
         {
           name: 'name',
@@ -332,7 +331,7 @@ describe('OpenAPI TableController (e2e)', () => {
       fieldKeyType: FieldKeyType.Id,
     });
 
-    await deleteTable(baseId, table1.id);
+    await apiDeleteTable(baseId, table1.id);
 
     const fields = await getFields(table2.id);
     const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
