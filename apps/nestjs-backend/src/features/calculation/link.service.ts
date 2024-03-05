@@ -446,6 +446,23 @@ export class LinkService {
       .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
   }
 
+  async getAllForeignKeys(options: ILinkFieldOptions) {
+    const { fkHostTableName, selfKeyName, foreignKeyName } = options;
+
+    const query = this.knex(fkHostTableName)
+      .select({
+        id: selfKeyName,
+        foreignId: foreignKeyName,
+      })
+      .whereNotNull(selfKeyName)
+      .whereNotNull(foreignKeyName)
+      .toQuery();
+
+    return this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
+  }
+
   private async getJoinedForeignKeys(linkRecordIds: string[], options: ILinkFieldOptions) {
     const { fkHostTableName, selfKeyName, foreignKeyName } = options;
 
