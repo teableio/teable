@@ -3,7 +3,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { ICreateTableRo } from '@teable/core';
-import { FieldType, RowHeightLevel, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, Relationship, RowHeightLevel, ViewType } from '@teable/core';
 import {
   updateTableDescription,
   updateTableIcon,
@@ -20,12 +20,15 @@ import type {
   RecordCreateEvent,
 } from '../src/event-emitter/events';
 import {
+  createField,
   createRecords,
   createTable,
   deleteTable,
+  getFields,
   getRecords,
   getTable,
   initApp,
+  updateRecord,
 } from './utils/init-app';
 
 const assertData: ICreateTableRo = {
@@ -110,7 +113,7 @@ const assertData: ICreateTableRo = {
   ],
 };
 
-describe('OpenAPI FieldController (e2e)', () => {
+describe('OpenAPI TableController (e2e)', () => {
   let app: INestApplication;
   let tableId = '';
   let dbProvider: IDbProvider;
@@ -233,5 +236,112 @@ describe('OpenAPI FieldController (e2e)', () => {
     expect(table.description).toEqual('newDescription');
     expect(table.icon).toEqual('😀');
     expect(table.order).toEqual(1.1);
+  });
+
+  it('should delete table and clean up link and lookup fields', async () => {
+    const table1 = await createTable(baseId, {
+      name: 'table1',
+      fields: [
+        {
+          name: 'name',
+          type: FieldType.SingleLineText,
+        },
+        {
+          name: 'other',
+          type: FieldType.SingleLineText,
+        },
+      ],
+      records: [
+        {
+          fields: {
+            name: 'A',
+            other: 'Other',
+          },
+        },
+        {
+          fields: {
+            name: 'B',
+          },
+        },
+      ],
+    });
+
+    const table2 = await createTable(baseId, {
+      name: 'table2',
+      fields: [
+        {
+          name: 'name',
+          type: FieldType.SingleLineText,
+        },
+      ],
+    });
+    tableId = table2.id;
+
+    const twoWayLinkRo = {
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyMany,
+        foreignTableId: table1.id,
+      },
+    };
+
+    const oneWayLinkRo = {
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.OneOne,
+        foreignTableId: table1.id,
+        isOneWay: true,
+      },
+    };
+
+    const twoWayLink = await createField(table2.id, twoWayLinkRo);
+    const oneWayLink = await createField(table2.id, oneWayLinkRo);
+
+    const lookupFieldRo = {
+      type: FieldType.SingleLineText,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: table1.id,
+        lookupFieldId: table1.fields[1].id,
+        linkFieldId: twoWayLink.id,
+      },
+    };
+
+    const rollupFieldRo = {
+      type: FieldType.Rollup,
+      options: {
+        expression: 'countall({values})',
+      },
+      lookupOptions: {
+        foreignTableId: table1.id,
+        lookupFieldId: table1.fields[1].id,
+        linkFieldId: twoWayLink.id,
+      },
+    };
+
+    await createField(table2.id, lookupFieldRo);
+    await createField(table2.id, rollupFieldRo);
+
+    await updateRecord(table2.id, table2.records[0].id, {
+      record: {
+        fields: {
+          [twoWayLink.id]: [{ id: table1.records[0].id }],
+          [oneWayLink.id]: { id: table1.records[0].id },
+        },
+      },
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    await deleteTable(baseId, table1.id);
+
+    const fields = await getFields(table2.id);
+    const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+    expect(fields[1].type).toEqual(FieldType.SingleLineText);
+    expect(fields[2].type).toEqual(FieldType.SingleLineText);
+
+    expect(records[0].fields[fields[1].id]).toEqual('A');
+    expect(records[0].fields[fields[2].id]).toEqual('A');
+    expect(fields[3].hasError).toBeTruthy();
+    expect(fields[4].hasError).toBeTruthy();
   });
 });

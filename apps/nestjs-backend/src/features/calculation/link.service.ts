@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
+import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { cloneDeep, keyBy, difference, groupBy, isEqual, set } from 'lodash';
@@ -1105,17 +1106,8 @@ export class LinkService {
     }, {});
   }
 
-  private async getContextByDelete(referenceFieldIds: string[], recordIds: string[]) {
+  private async getContextByDelete(linkFieldRaws: Field[], recordIds: string[]) {
     const cellContextsMap: { [tableId: string]: ICellContext[] } = {};
-
-    const linkFieldRaws = await this.prismaService.txClient().field.findMany({
-      where: {
-        id: { in: referenceFieldIds },
-        type: FieldType.Link,
-        isLookup: null,
-        deletedTime: null,
-      },
-    });
 
     const keyToValue = (key: string | string[] | null) =>
       key ? (Array.isArray(key) ? key.map((id) => ({ id })) : { id: key }) : null;
@@ -1142,7 +1134,7 @@ export class LinkService {
     return cellContextsMap;
   }
 
-  async getDeleteRecordUpdateContext(tableId: string, recordIds: string[]) {
+  async getRelatedLinkFieldRaws(tableId: string) {
     const { id: primaryFieldId } = await this.prismaService
       .txClient()
       .field.findFirstOrThrow({
@@ -1160,6 +1152,19 @@ export class LinkService {
 
     const referenceFieldIds = references.map((ref) => ref.toFieldId);
 
-    return await this.getContextByDelete(referenceFieldIds, recordIds);
+    return await this.prismaService.txClient().field.findMany({
+      where: {
+        id: { in: referenceFieldIds },
+        type: FieldType.Link,
+        isLookup: null,
+        deletedTime: null,
+      },
+    });
+  }
+
+  async getDeleteRecordUpdateContext(tableId: string, recordIds: string[]) {
+    const linkFieldRaws = await this.getRelatedLinkFieldRaws(tableId);
+
+    return await this.getContextByDelete(linkFieldRaws, recordIds);
   }
 }
