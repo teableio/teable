@@ -100,6 +100,9 @@
   "import": {
     "title": {
       "import": "导入",
+      "localFile": "本地文件",
+      "linkUrl": "Link(URL)",
+      "linkUrlInputTitle": "从URl下载文件",
       "importTitle": "创建一个新表格",
       "optionsTitle": "导入选项",
       "leaveTitle": "确定离开此页面?"
@@ -118,6 +121,13 @@
       "autoSelectFieldOptionName": "自动预测类型",
       "useFirstRowAsHeaderOptionName": "使用第一行作为行头",
       "importDataOptionName": "导入数据"
+    },
+    "form": {
+      "defaultFieldName": "字段",
+      "error": {
+        "urlEmptyTip": "链接不能为空!",
+        "urlValidateTip": "错误的链接格式!"
+      }
     }
   },
   "grid": {

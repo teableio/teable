@@ -100,6 +100,9 @@
   "import": {
     "title": {
       "import": "Import",
+      "localFile": "Local Files",
+      "linkUrl": "Link(URL)",
+      "linkUrlInputTitle": "Add file from URL",
       "importTitle": "Create a new table",
       "optionsTitle": "Import option",
       "leaveTitle": "Are you sure to leave this page?"
@@ -118,6 +121,13 @@
       "autoSelectFieldOptionName": "Auto-select field types",
       "useFirstRowAsHeaderOptionName": "Use first row as header",
       "importDataOptionName": "Import Data"
+    },
+    "form": {
+      "defaultFieldName": "Field",
+      "error": {
+        "urlEmptyTip": "URL should not be empty!",
+        "urlValidateTip": "Error format URL!"
+      }
     }
   },
   "grid": {
