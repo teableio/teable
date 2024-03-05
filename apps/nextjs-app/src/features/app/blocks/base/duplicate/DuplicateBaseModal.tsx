@@ -69,7 +69,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
   };
 
   useEffect(() => {
-    if (!targetSpaceId && editableSpaceList) {
+    if (!targetSpaceId && editableSpaceList?.length) {
       const currentSpace = editableSpaceList.find((space) => space.id === base.spaceId);
       if (currentSpace) {
         setTargetSpaceId(currentSpace.id);
