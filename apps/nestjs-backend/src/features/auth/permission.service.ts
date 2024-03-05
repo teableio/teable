@@ -191,7 +191,9 @@ export class PermissionService {
 
     const accessTokenPermissions = scopes;
     if (permissions.some((permission) => !accessTokenPermissions.includes(permission))) {
-      throw new ForbiddenException(`not allowed to ${resourceId}`);
+      throw new ForbiddenException(
+        `not allowed to operate ${permissions.join(', ')} on ${resourceId}`
+      );
     }
 
     return scopes;

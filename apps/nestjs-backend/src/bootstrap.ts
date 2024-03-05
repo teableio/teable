@@ -16,7 +16,8 @@ import { Logger } from 'nestjs-pino';
 import type { RedocOptions } from 'nestjs-redoc';
 import { RedocModule } from 'nestjs-redoc';
 import { AppModule } from './app.module';
-import type { ISecurityWebConfig, ISwaggerConfig } from './configs/bootstrap.config';
+import type { IBaseConfig } from './configs/base.config';
+import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import otelSDK from './tracing';
 
@@ -35,11 +36,15 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
 
-  const swaggerConfig = configService.get<ISwaggerConfig>('swagger');
+  const apiDocConfig = configService.get<IApiDocConfig>('apiDoc');
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');
-  const openApiDocumentation = getOpenApiDocumentation();
+  const baseConfig = configService.get<IBaseConfig>('base');
+  if (!apiDocConfig?.disabled) {
+    const openApiDocumentation = await getOpenApiDocumentation({
+      origin: baseConfig?.publicOrigin,
+      snippet: apiDocConfig?.enabledSnippet,
+    });
 
-  if (!swaggerConfig?.disabled) {
     const jsonString = JSON.stringify(openApiDocumentation);
     fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
