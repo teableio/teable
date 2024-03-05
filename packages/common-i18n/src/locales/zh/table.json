@@ -33,7 +33,7 @@
       "autoFillDate": "自动填充当前日期",
       "createSymmetricLink": "在关联表中创建对称的关联字段",
       "allowLinkMultipleRecords": "允许添加到多个记录到单元格",
-      "allowLinkToDuplicateRecords": "允许重复选择关联记录",
+      "allowLinkToDuplicateRecords": "允许记录被多次关联",
       "allowSymmetricFieldLinkMultipleRecords": "对称字段中允许添加到多个记录到单元格",
       "oneToOne": "一对一",
       "oneToMany": "一对多",

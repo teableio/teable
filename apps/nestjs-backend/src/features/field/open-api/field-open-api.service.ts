@@ -66,6 +66,9 @@ export class FieldOpenApiService {
 
   async deleteField(tableId: string, fieldId: string) {
     const field = await this.fieldDeletingService.getField(tableId, fieldId);
+    if (!field) {
+      throw new NotFoundException(`Field ${fieldId} not found`);
+    }
 
     await this.prismaService.$tx(async () => {
       await this.fieldDeletingService.alterDeleteField(tableId, field);

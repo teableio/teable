@@ -33,7 +33,7 @@
       "autoFillDate": "Auto Fill with current date",
       "createSymmetricLink": "Create a symmetric link field in the link table",
       "allowLinkMultipleRecords": "Allow linking to multiple records",
-      "allowLinkToDuplicateRecords": "Allow linking to duplicate records",
+      "allowLinkToDuplicateRecords": "Allows a record to be linked multiple times",
       "allowSymmetricFieldLinkMultipleRecords": "Allow symmetric field linking to multiple records",
       "oneToOne": "one-to-one",
       "oneToMany": "one-to-many",
