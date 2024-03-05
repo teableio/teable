@@ -37,7 +37,7 @@ export const TableList: React.FC = () => {
             )}
           </div>
         </DropdownMenuTrigger>
-        <DropdownMenuContent>
+        <DropdownMenuContent className="w-64">
           <DropdownMenuItem onClick={addTable} className="cursor-pointer">
             <Button variant="ghost" size="xs" className="h-4">
               <File className="size-4" />

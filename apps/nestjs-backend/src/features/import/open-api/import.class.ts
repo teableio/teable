@@ -10,11 +10,16 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.Checkbox]: z.boolean(),
   [FieldType.Date]: z.coerce.date(),
   [FieldType.Number]: z.number(),
-  [FieldType.LongText]: z.string(),
+  [FieldType.LongText]: z
+    .string()
+    .refine((value) => z.string().safeParse(value) && /\n/.test(value)),
+  [FieldType.SingleLineText]: z.string(),
 };
 
 export abstract class Importer {
   public static CHUNK_SIZE = 1024 * 1024 * 1;
+
+  public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
   constructor(public config: { url: string }) {}
 
@@ -35,6 +40,7 @@ export abstract class Importer {
     const zipColumnInfo = zip(...columnInfo);
     const existNames: string[] = [];
     const calculatedColumnHeaders = zipColumnInfo.map((column, index) => {
+      let isColumnEmpty = true;
       let validatingFieldTypes = [...supportTypes];
       for (let i = 0; i < column.length; i++) {
         if (validatingFieldTypes.length <= 1) {
@@ -46,6 +52,15 @@ export abstract class Importer {
           continue;
         }
 
+        // when the whole columns aren't empty should flag
+        isColumnEmpty = false;
+
+        // when one of column's value validates long text, then break;
+        if (validateZodSchemaMap[FieldType.LongText].safeParse(column[i]).success) {
+          validatingFieldTypes = [FieldType.LongText];
+          break;
+        }
+
         const matchTypes = validatingFieldTypes.filter((type) => {
           const schema = validateZodSchemaMap[type];
           return schema.safeParse(column[i]).success;
@@ -54,12 +69,15 @@ export abstract class Importer {
         validatingFieldTypes = matchTypes;
       }
 
+      // empty columns should be default type
+      validatingFieldTypes = !isColumnEmpty ? validatingFieldTypes : [Importer.DEFAULT_COLUMN_TYPE];
+
       const name = getUniqName(column?.[0] ?? `Field ${index}`, existNames);
 
       existNames.push(name);
 
       return {
-        type: validatingFieldTypes[0],
+        type: validatingFieldTypes[0] || Importer.DEFAULT_COLUMN_TYPE,
         name: name.toString(),
       };
     });
@@ -82,6 +100,7 @@ export class CsvImporter extends Importer {
     FieldType.Number,
     FieldType.Date,
     FieldType.LongText,
+    FieldType.SingleLineText,
   ];
   constructor(public config: { url: string }) {
     super(config);
