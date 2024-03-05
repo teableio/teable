@@ -35,7 +35,8 @@ export type IValidateTypes =
   | FieldType.Number
   | FieldType.Date
   | FieldType.LongText
-  | FieldType.Checkbox;
+  | FieldType.Checkbox
+  | FieldType.SingleLineText;
 
 export const importColumnSchema = analyzeColumnSchema.extend({
   sourceColumnIndex: z.number(),

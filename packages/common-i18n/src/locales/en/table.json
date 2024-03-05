@@ -99,7 +99,7 @@
   },
   "import": {
     "title": {
-      "import": "import",
+      "import": "Import",
       "importTitle": "Create a new table",
       "optionsTitle": "Import option",
       "leaveTitle": "Are you sure to leave this page?"

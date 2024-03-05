@@ -214,7 +214,7 @@ export const TableImport = (props: ITableImportProps) => {
                           setFiles(files);
                         }}
                       >
-                        <div className="flex h-full cursor-pointer items-center justify-center rounded-sm border border-dashed hover:border-secondary">
+                        <div className="flex h-full cursor-pointer items-center justify-center rounded-sm border-2 border-dashed hover:border-secondary">
                           <Button variant="ghost">{t('table:import.tips.importWayTip')}</Button>
                         </div>
                       </Upload>
@@ -255,11 +255,10 @@ export const TableImport = (props: ITableImportProps) => {
             </Tabs>
             <DialogFooter>
               <footer className="mt-1 flex items-center justify-end">
-                <Button variant="ghost" size="sm" onClick={() => closeDialog()}>
+                <Button size="sm" variant="secondary" onClick={() => closeDialog()}>
                   {t('table:import.menu.cancel')}
                 </Button>
                 <Button
-                  variant="ghost"
                   size="sm"
                   className="ml-1"
                   onClick={() => importTable()}
