@@ -586,6 +586,13 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     };
   }, [rowHeight, prefillingRowIndex]);
 
+  useEffect(() => {
+    if (prefillingRowIndex == null) return;
+    const scrollState = gridRef.current?.getScrollState();
+    if (scrollState == null) return;
+    prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
+  }, [prefillingRowIndex]);
+
   useClickAway(containerRef, () => {
     gridRef.current?.resetState();
   });
