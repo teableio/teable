@@ -117,6 +117,7 @@ export interface ISelectCell extends IEditableCell {
   displayData: string[];
   choices?: ISelectChoice[];
   isMultiple?: boolean;
+  isEditingOnClick?: boolean;
 }
 
 export interface IImageData {

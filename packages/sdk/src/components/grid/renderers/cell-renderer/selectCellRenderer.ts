@@ -265,13 +265,13 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     return { type: CellRegionType.Blank };
   },
   onClick: (cell: ISelectCell, props: ICellClickProps, callback: ICellClickCallback) => {
-    const { readonly } = cell;
+    const { readonly, isEditingOnClick } = cell;
     const { isActive } = props;
     const cellRegion = selectCellRenderer.checkRegion?.(cell, props, true);
     if (!cellRegion) return;
     if (cellRegion.type === CellRegionType.Blank) {
       const editable = !readonly && isActive;
-      if (editable) {
+      if (editable && isEditingOnClick) {
         return callback({ type: CellRegionType.ToggleEditing, data: null });
       }
       return;

@@ -344,6 +344,7 @@ export const createCellValue2GridDisplay =
           choices,
           isMultiple,
           editorWidth: 220,
+          isEditingOnClick: true,
           customEditor: (props, editorRef) => (
             <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
           ),
