@@ -115,11 +115,12 @@ export class CsvImporter extends Importer {
     const { data: stream } = await axios.get(url, {
       responseType: 'stream',
     });
-    const fileFormat = stream?.headers?.['content-type'];
+    const fileFormat = stream?.headers?.['content-type']?.split(';')?.[0];
+
     if (!CsvImporter.SUPPORTFILETYPE.includes(fileFormat)) {
-      throw new BadRequestException(`
-        Error file format, only ${CsvImporter.SUPPORTFILETYPE.join(', ')} are supported,
-      `);
+      throw new BadRequestException(
+        `File format is not supported, only ${CsvImporter.SUPPORTFILETYPE.join(', ')} are supported,`
+      );
     }
     return stream;
   }
