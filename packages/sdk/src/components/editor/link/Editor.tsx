@@ -2,8 +2,9 @@ import type { IGetRecordsRo, ILinkCellValue, ILinkFieldOptions } from '@teable/c
 import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { Button, Dialog, DialogContent, DialogTrigger, useToast } from '@teable/ui-lib';
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { AnchorProvider } from '../../../context';
+import { useTranslation } from '../../../context/app/i18n';
 import { ExpandRecorder } from '../../expand-record';
 import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
@@ -27,7 +28,9 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
   const [isEditing, setEditing] = useState<boolean>(false);
+  const [values, setValues] = useState<ILinkCellValue[]>();
   const [expandRecordId, setExpandRecordId] = useState<string>();
+  const { t } = useTranslation();
 
   const { foreignTableId, relationship } = options;
   const isMultiple = isMultiValueLink(relationship);
@@ -41,6 +44,11 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     };
   }, [fieldId, recordId]);
 
+  useEffect(() => {
+    if (cellValue == null) return setValues(cellValue);
+    setValues(Array.isArray(cellValue) ? cellValue : [cellValue]);
+  }, [cellValue]);
+
   const updateExpandRecordId = (recordId?: string) => {
     if (recordId) {
       const existed = document.getElementById(`${foreignTableId}-${recordId}`);
@@ -52,14 +60,13 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     setExpandRecordId(recordId);
   };
 
-  const onSelectedRecordExpand = (recordId: string) => {
+  const onRecordExpand = (recordId: string) => {
     updateExpandRecordId(recordId);
   };
 
-  const onSelectedRecordChange = (value?: ILinkCellValue[]) => {
-    if (value == null) return onChange?.(undefined);
-    onChange?.(isMultiple ? value : value[0]);
-  };
+  const onRecordListChange = useCallback((value?: ILinkCellValue[]) => {
+    setValues(value);
+  }, []);
 
   const onOpenChange = (open: boolean) => {
     if (open) return setEditing?.(true);
@@ -68,6 +75,11 @@ export const LinkEditor = (props: ILinkEditorProps) => {
 
   const onExpandRecord = (recordId: string) => {
     setExpandRecordId(recordId);
+  };
+
+  const onConfirm = () => {
+    if (values == null) return onChange?.(undefined);
+    onChange?.(isMultiple ? values : values[0]);
   };
 
   return (
@@ -82,39 +94,46 @@ export const LinkEditor = (props: ILinkEditorProps) => {
               cellValue={cellValue}
               isMultiple={isMultiple}
               recordQuery={recordQuery}
-              onChange={onSelectedRecordChange}
-              onExpand={onSelectedRecordExpand}
+              onChange={onRecordListChange}
+              onExpand={onRecordExpand}
             />
           </AnchorProvider>
         </div>
       )}
       {!readonly && (
-        <ExpandRecorder
-          tableId={foreignTableId}
-          recordId={expandRecordId}
-          recordIds={recordIds}
-          onUpdateRecordIdCallback={updateExpandRecordId}
-          onClose={() => updateExpandRecordId(undefined)}
-        />
-      )}
-      {!readonly && (
-        <Dialog open={isEditing} onOpenChange={onOpenChange}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size={'sm'} className={className}>
-              <Plus />
-              Add Record
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="flex h-[520px] max-w-4xl flex-col">
-            <LinkEditorMain
-              {...props}
-              ref={linkEditorMainRef}
-              isEditing={isEditing}
-              setEditing={setEditing}
-              onExpandRecord={onExpandRecord}
-            />
-          </DialogContent>
-        </Dialog>
+        <>
+          <div className="flex justify-between">
+            <Dialog open={isEditing} onOpenChange={onOpenChange}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size={'sm'} className={className}>
+                  <Plus />
+                  {t('editor.link.selectRecord')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="flex h-[520px] max-w-4xl flex-col">
+                <LinkEditorMain
+                  {...props}
+                  ref={linkEditorMainRef}
+                  isEditing={isEditing}
+                  setEditing={setEditing}
+                  onExpandRecord={onExpandRecord}
+                />
+              </DialogContent>
+            </Dialog>
+            {Boolean(selectedRowCount) && (
+              <Button size={'sm'} onClick={onConfirm}>
+                {t('common.confirm')}
+              </Button>
+            )}
+          </div>
+          <ExpandRecorder
+            tableId={foreignTableId}
+            recordId={expandRecordId}
+            recordIds={recordIds}
+            onUpdateRecordIdCallback={updateExpandRecordId}
+            onClose={() => updateExpandRecordId(undefined)}
+          />
+        </>
       )}
     </div>
   );

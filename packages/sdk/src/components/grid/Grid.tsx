@@ -137,6 +137,7 @@ export interface IGridRef {
   getActiveCell: () => ICellItem | null;
   getRowOffset: (rowIndex: number) => number;
   setSelection: (selection: CombinedSelection) => void;
+  getScrollState: () => IScrollState;
   scrollBy: (deltaX: number, deltaY: number) => void;
   scrollTo: (scrollLeft?: number, scrollTop?: number) => void;
   scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
@@ -220,6 +221,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollBy,
     scrollTo,
     scrollToItem,
+    getScrollState: () => scrollState,
   }));
 
   const hasAppendRow = onRowAppend != null;
