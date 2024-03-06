@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createReadStream, createWriteStream } from 'fs';
-import { join, resolve } from 'path';
+import { join, resolve, dirname } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
 import type { Request } from 'express';
@@ -242,7 +242,9 @@ export class LocalStorage implements StorageAdapter {
     const distPath = resolve(this.storageDir);
     const newFilePath = resolve(distPath, join(bucket, path));
 
-    fse.writeFileSync(newFilePath, stream);
+    await fse.ensureDir(dirname(newFilePath));
+
+    await fse.writeFile(newFilePath, stream);
     return join(this.readPath, bucket, path);
   }
 }

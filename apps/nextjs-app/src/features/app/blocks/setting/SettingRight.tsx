@@ -1,6 +1,7 @@
 import { Home } from '@teable/icons';
 import { useSession } from '@teable/sdk/hooks';
 import { Avatar, AvatarFallback, AvatarImage, Button, Separator } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { UserNav } from '../../components/user/UserNav';
@@ -25,7 +26,9 @@ export const SettingRight = (props: ISettingRight) => {
         </Button>
         <UserNav>
           <Avatar className="size-7">
-            <AvatarImage src={user.avatar as string} alt="avatar-name" />
+            <AvatarImage asChild src={user.avatar as string}>
+              <Image src={user.avatar as string} alt={user.name} width={28} height={28} />
+            </AvatarImage>
             <AvatarFallback>{user.name?.slice(0, 1)}</AvatarFallback>
           </Avatar>
         </UserNav>

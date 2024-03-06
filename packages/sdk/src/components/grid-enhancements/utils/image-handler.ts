@@ -1,7 +1,7 @@
 interface NextImageOptimizationParams {
   url: string;
   w: number;
-  q?: number;
+  q: number;
   fit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   format?: 'webp' | 'png' | 'jpg';
 }

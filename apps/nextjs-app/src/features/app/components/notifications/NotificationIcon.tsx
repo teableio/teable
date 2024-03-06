@@ -5,6 +5,7 @@ import type {
 } from '@teable/core';
 import { NotificationTypeEnum } from '@teable/core';
 import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
+import Image from 'next/image';
 import React, { useCallback } from 'react';
 
 interface NotificationIconProps {
@@ -21,7 +22,9 @@ const NotificationIcon = (props: NotificationIconProps) => {
         const { iconUrl } = notifyIcon as INotificationSystemIcon;
         return (
           <Avatar className="size-9">
-            <AvatarImage src={iconUrl} alt={'System'} />
+            <AvatarImage asChild src={iconUrl as string}>
+              <Image src={iconUrl as string} alt={'System'} width={28} height={28} />
+            </AvatarImage>
             <AvatarFallback>{'System'.slice(0, 1)}</AvatarFallback>
           </Avatar>
         );
@@ -31,7 +34,9 @@ const NotificationIcon = (props: NotificationIconProps) => {
         const { userAvatarUrl, userName } = notifyIcon as INotificationUserIcon;
         return (
           <Avatar className="size-9">
-            <AvatarImage src={userAvatarUrl as string} alt={userName} />
+            <AvatarImage asChild src={userAvatarUrl as string}>
+              <Image src={userAvatarUrl as string} alt={userName} width={28} height={28} />
+            </AvatarImage>
             <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
           </Avatar>
         );

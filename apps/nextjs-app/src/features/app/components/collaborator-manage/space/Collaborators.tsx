@@ -23,6 +23,7 @@ import {
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';
+import Image from 'next/image';
 import React, { useMemo, useState } from 'react';
 import { RoleSelect } from './RoleSelect';
 
@@ -88,7 +89,9 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
           <div key={userId} className="relative flex items-center gap-3 pr-7">
             <div className="flex flex-1">
               <Avatar className="size-7">
-                <AvatarImage src={avatar as string} alt="avatar-name" />
+                <AvatarImage asChild src={avatar as string}>
+                  <Image src={avatar as string} alt={userName} width={28} height={28} />
+                </AvatarImage>
                 <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
               </Avatar>
               <div className="ml-2 flex flex-1 flex-col space-y-1">

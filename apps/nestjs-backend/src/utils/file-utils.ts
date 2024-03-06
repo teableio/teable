@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { createReadStream } from 'fs';
+import { createReadStream } from 'node:fs';
 import { pipeline, Readable as ReadableStream } from 'node:stream';
 import { promisify } from 'node:util';
 
