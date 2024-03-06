@@ -1,3 +1,4 @@
+import type { DehydratedState } from '@tanstack/react-query';
 import type { DriverClient } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
@@ -6,17 +7,19 @@ import React from 'react';
 import { SideBar } from '@/features/app/blocks/space/space-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
 import { useSdkLocale } from '../hooks/useSdkLocale';
+import { SpacePageTitle } from './SpacePageTitle';
 
 export const SpaceLayout: React.FC<{
   children: React.ReactNode;
   user?: IUser;
-  dehydratedState?: unknown;
+  dehydratedState?: DehydratedState;
   driver: DriverClient;
 }> = ({ children, user, driver, dehydratedState }) => {
   const sdkLocale = useSdkLocale();
 
   return (
     <AppLayout>
+      <SpacePageTitle dehydratedState={dehydratedState} />
       <AppProvider locale={sdkLocale} dehydratedState={dehydratedState} driver={driver}>
         <SessionProvider user={user}>
           <NotificationProvider>

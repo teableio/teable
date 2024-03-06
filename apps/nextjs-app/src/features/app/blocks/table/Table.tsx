@@ -1,13 +1,15 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
+import type { IGetBaseVo } from '@teable/openapi';
 import { AnchorContext, FieldProvider, useTable, ViewProvider } from '@teable/sdk';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useTitle } from 'react-use';
 import { FailAlert } from '../table-list/FailAlert';
 import { View } from '../view/View';
 import { TableHeader } from './table-header/TableHeader';
 
 export interface ITableProps {
+  baseServerData: IGetBaseVo;
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
@@ -15,6 +17,7 @@ export interface ITableProps {
 }
 
 export const Table: React.FC<ITableProps> = ({
+  baseServerData,
   fieldServerData,
   viewServerData,
   recordsServerData,
@@ -23,10 +26,15 @@ export const Table: React.FC<ITableProps> = ({
   const table = useTable();
   const router = useRouter();
   const { tableId, viewId } = router.query as { tableId: string; viewId: string };
-  useTitle(table?.name ? `${table?.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable');
-
   return (
     <AnchorContext.Provider value={{ tableId, viewId }}>
+      <Head>
+        <title>
+          {table?.name
+            ? `${table?.icon ? table.icon + ' ' : ''}${table.name}: ${baseServerData.name} - Teable`
+            : 'Teable'}
+        </title>
+      </Head>
       <ViewProvider serverData={viewServerData}>
         <div className="flex h-full grow basis-[500px] flex-col">
           <TableHeader />

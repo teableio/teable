@@ -11,6 +11,7 @@ import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
 
 const Node: NextPageWithLayout<ITableProps> = ({
+  baseServerData,
   fieldServerData,
   viewServerData,
   recordsServerData,
@@ -18,6 +19,7 @@ const Node: NextPageWithLayout<ITableProps> = ({
 }) => {
   return (
     <Table
+      baseServerData={baseServerData}
       fieldServerData={fieldServerData}
       viewServerData={viewServerData}
       recordsServerData={recordsServerData}
