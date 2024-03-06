@@ -6,9 +6,7 @@ import { z } from '../zod';
 
 export const VIEW_SHARE_META = '/table/{tableId}/view/{viewId}/share-meta';
 
-export const viewShareMetaRoSchema = z.object({
-  shareMeta: shareViewMetaSchema,
-});
+export const viewShareMetaRoSchema = shareViewMetaSchema;
 
 export type IViewShareMetaRo = z.infer<typeof viewShareMetaRoSchema>;
 
@@ -47,8 +45,6 @@ export const updateViewShareMeta = async (
       tableId,
       viewId,
     }),
-    {
-      shareMeta,
-    }
+    shareMeta
   );
 };

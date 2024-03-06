@@ -10,8 +10,9 @@ export const UPDATE_FIELD = '/table/{tableId}/field/{fieldId}';
 export const UpdateFieldRoute: RouteConfig = registerRoute({
   method: 'patch',
   path: UPDATE_FIELD,
+  summary: 'Update a field',
   description:
-    'Update the field name, description or dbFieldName. for other properties, you should use the convert field api',
+    'Only for common props, include name, description and dbFieldName. for other properties, you should use the convert field api',
   request: {
     params: z.object({
       tableId: z.string(),

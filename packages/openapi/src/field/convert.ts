@@ -10,8 +10,9 @@ export const CONVERT_FIELD = '/table/{tableId}/field/{fieldId}/convert';
 export const ConvertFieldRoute: RouteConfig = registerRoute({
   method: 'put',
   path: CONVERT_FIELD,
+  summary: 'Convert a field',
   description:
-    'Convert a field, this field of all records will automatically be type casted, you mate',
+    'All records of this field will automatically be type casted, and symmetric field will auto generate or delete if needed',
   request: {
     params: z.object({
       tableId: z.string(),

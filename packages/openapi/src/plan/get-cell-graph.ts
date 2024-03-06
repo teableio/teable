@@ -78,7 +78,7 @@ export const GetCellGraphRoute: RouteConfig = registerRoute({
       },
     },
   },
-  tags: ['graph'],
+  tags: ['plan'],
 });
 
 export const getGraph = async ({

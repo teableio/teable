@@ -35,6 +35,7 @@ export const SelectFieldType = (props: {
 
   return (
     <Selector
+      contentClassName="select-field-type"
       candidates={candidates}
       selectedId={value}
       onChange={(id) => onChange?.(id as FieldType | 'lookup')}

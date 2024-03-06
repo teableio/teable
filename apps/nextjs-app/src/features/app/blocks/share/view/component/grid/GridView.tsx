@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 import { TeableNew } from '@teable/icons';
 import { ActionTriggerProvider, RecordProvider } from '@teable/sdk/context';
-import { useIsHydrated, useView } from '@teable/sdk/hooks';
+import { useIsHydrated } from '@teable/sdk/hooks';
 import { useContext } from 'react';
 import { ShareViewPageContext } from '../../ShareViewPageContext';
 import { AggregationProvider, RowCountProvider, GroupPointProvider } from './aggregation';
@@ -9,13 +9,8 @@ import { GridViewBase } from './GridViewBase';
 import { Toolbar } from './toolbar';
 
 export const GridView = () => {
-  const { records } = useContext(ShareViewPageContext);
-  const view = useView();
+  const { records, view } = useContext(ShareViewPageContext);
   const isHydrated = useIsHydrated();
-
-  if (!isHydrated) {
-    return <div className="w-full grow overflow-hidden pl-2" />;
-  }
 
   return (
     <div className="flex size-full flex-col px-3 pb-3">
@@ -34,7 +29,7 @@ export const GridView = () => {
               <RowCountProvider>
                 <GroupPointProvider>
                   <div className="w-full grow overflow-hidden">
-                    <GridViewBase />
+                    {isHydrated && <GridViewBase />}
                   </div>
                 </GroupPointProvider>
               </RowCountProvider>

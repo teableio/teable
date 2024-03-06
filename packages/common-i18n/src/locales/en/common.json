@@ -65,6 +65,10 @@
       "dark": "Dark",
       "light": "Light",
       "system": "System"
+    },
+    "nav": {
+      "settings": "Settings",
+      "logout": "Log out"
     }
   },
   "noun": {
@@ -105,5 +109,26 @@
     "apiButtonTooltipContent": "Teable offers a powerful API that supports nearly all product features, allowing developers to make calls using an <a>Token</a>."
   },
   "token": "Token",
-  "poweredBy": "Powered by <0></0>"
+  "poweredBy": "Powered by <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}} space sharing",
+      "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all bases within this space.",
+      "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all bases within this space.",
+      "tabEmail": "Invite by email",
+      "emailPlaceholder": "Invite more space collaborators via email",
+      "tabLink": "Invite by link",
+      "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
+      "emailSend": "Send invite",
+      "linkSend": "Create link",
+      "spaceTitle": "Space collaborators",
+      "collaboratorSearchPlaceholder": "Find a space collaborator by name or email",
+      "collaboratorJoin": "joined {{joinTime}}",
+      "collaboratorRemove": "Remove collaborator",
+      "linkTitle": "Invite links",
+      "linkCreatedTime": "created {{createdTime}}",
+      "linkCopySuccess": "Link copied",
+      "linkRemove": "Remove link"
+    }
+  }
 }
