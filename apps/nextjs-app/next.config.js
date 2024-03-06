@@ -2,7 +2,6 @@
 
 const { readFileSync } = require('fs');
 const path = require('path');
-const url = require('url');
 const { createSecureHeaders } = require('next-secure-headers');
 const pc = require('picocolors');
 
@@ -46,10 +45,6 @@ const NEXT_BUILD_ENV_SENTRY_TRACING = trueEnv.includes(
 );
 
 const NEXTJS_SOCKET_PORT = process.env.SOCKET_PORT || '3001';
-
-const NEXTJS_PUBLIC_ORIGIN = process.env?.PUBLIC_ORIGIN || 'https://teable.io';
-
-const parsedUrl = url.parse(NEXTJS_PUBLIC_ORIGIN);
 
 if (!NEXT_BUILD_ENV_SOURCEMAPS) {
   console.log(
@@ -157,10 +152,12 @@ const nextConfig = {
         hostname: 'avatars.githubusercontent.com',
       },
       {
-        // @ts-ignore
-        protocol: parsedUrl.protocol.slice(0, -1),
-        // @ts-ignore
-        hostname: parsedUrl.hostname,
+        protocol: 'https',
+        hostname: '*.teable.*',
+      },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
       },
     ],
     unoptimized: false,
