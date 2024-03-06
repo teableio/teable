@@ -60,17 +60,23 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
             <NotificationActionBar
               key={id}
               notifyStatus={notifyStatus}
-              onStatusCheck={() => {
+              onStatusCheck={() =>
                 updateStatusMutator({
                   notificationId: id,
                   updateNotifyStatusRo: { isRead: !isRead },
-                });
-              }}
+                })
+              }
             >
               <div className="max-h-[80px]">
                 <a
                   className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
                   href={url}
+                  onClick={() =>
+                    updateStatusMutator({
+                      notificationId: id,
+                      updateNotifyStatusRo: { isRead: true },
+                    })
+                  }
                 >
                   <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
                   <div className="mr-3 w-[calc(100%_-_100px)]  items-center whitespace-pre-wrap break-words text-sm font-normal">

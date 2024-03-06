@@ -94,9 +94,11 @@
                         </p>
                         {{#each recordIds}}
                             The <strong>{{../fieldName}}</strong> field of a record:
-                            <a href="{{../viewRecordUrlPrefix}}/{{this}}" style="color:#3276dc"
-                               target="_blank">{{../viewRecordUrlPrefix}}
-                                /{{this}}
+                            <a
+                                    href="{{../viewRecordUrlPrefix}}/default/{{this}}?fromNotify={{../notifyId}}"
+                            target="_blank"
+                            style="color:#3276dc"
+                            >{{../viewRecordUrlPrefix}}/{{this}}?fromNotify={{../notifyId}}
                             </a>
                             <br>
                             <br>

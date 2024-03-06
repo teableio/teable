@@ -32,7 +32,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.3.1",
+    "@asteasolutions/zod-to-openapi": "6.4.0",
     "@soluble/dsn-parser": "1.9.2",
     "@types/color": "3.0.6",
     "@types/papaparse": "5.3.14",

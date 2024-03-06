@@ -127,7 +127,7 @@
     "@testing-library/jest-dom": "6.4.2",
     "@testing-library/react": "14.2.1",
     "@types/node": "20.9.0",
-    "@types/react": "18.2.58",
+    "@types/react": "18.2.60",
     "@types/react-dom": "18.2.19",
     "es-check": "7.1.1",
     "eslint": "8.57.0",

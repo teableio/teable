@@ -5,7 +5,12 @@ import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { Resource } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import {
+  SEMRESATTRS_HOST_NAME,
+  SEMRESATTRS_SERVICE_NAME,
+  SEMRESATTRS_SERVICE_VERSION,
+  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
+} from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
 
 const otelSDK = new NodeSDK({
@@ -20,10 +25,10 @@ const otelSDK = new NodeSDK({
     new PinoInstrumentation(),
   ],
   resource: new Resource({
-    [SemanticResourceAttributes.HOST_NAME]: os.hostname(),
-    [SemanticResourceAttributes.SERVICE_NAME]: 'teable',
-    [SemanticResourceAttributes.SERVICE_VERSION]: 'v1.0.0',
-    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+    [SEMRESATTRS_HOST_NAME]: os.hostname(),
+    [SEMRESATTRS_SERVICE_NAME]: 'teable',
+    [SEMRESATTRS_SERVICE_VERSION]: 'v1.0.0',
+    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
   }),
 });
 

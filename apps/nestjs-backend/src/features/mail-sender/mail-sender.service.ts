@@ -40,6 +40,7 @@ export class MailSenderService {
   }
 
   collaboratorCellTagEmailOptions(info: {
+    notifyId: string;
     fromUserName: string;
     refRecord: {
       baseId: string;
@@ -50,6 +51,7 @@ export class MailSenderService {
     };
   }) {
     const {
+      notifyId,
       fromUserName,
       refRecord: { baseId, tableId, fieldName, tableName, recordIds },
     } = info;
@@ -71,6 +73,7 @@ export class MailSenderService {
       subject: `${subject} - Teable`,
       template,
       context: {
+        notifyId,
         fromUserName,
         refLength,
         tableName,

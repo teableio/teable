@@ -1,11 +1,13 @@
 import { join } from 'path';
 import { Injectable } from '@nestjs/common';
-import { generateSpaceId, SpaceRole } from '@teable/core';
+import { generateSpaceId, minidenticon, SpaceRole } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { type ICreateSpaceRo, type IUserNotifyMeta, UploadType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import sharp from 'sharp';
 import type { IClsStore } from '../../types/cls';
+import { FileUtils } from '../../utils';
 import { getFullStorageUrl } from '../../utils/full-storage-url';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { LocalStorage } from '../attachments/plugins/local';
@@ -77,6 +79,15 @@ export class UserService {
       ...user,
       notifyMeta: JSON.stringify(defaultNotifyMeta),
     };
+
+    if (!user?.avatar) {
+      const avatar = await this.generateDefaultAvatar(user.id!);
+      user = {
+        ...user,
+        avatar,
+      };
+    }
+
     // default space created
     return await this.prismaService.$tx(async (prisma) => {
       const newUser = await prisma.user.create({ data: user });
@@ -111,62 +122,54 @@ export class UserService {
 
     const storage = this.storageAdapter;
     if (storage instanceof LocalStorage) {
-      hash = await storage.getHash(filePath);
+      hash = await FileUtils.getHash(filePath);
       const fileMate = await storage.getFileMate(filePath);
       width = fileMate.width;
       height = fileMate.height;
     } else {
-      const objectMeta = await storage.getObject(bucket, path, id);
+      const objectMeta = await storage.getObjectMeta(bucket, path, id);
       hash = objectMeta.hash;
       width = objectMeta.width;
       height = objectMeta.height;
     }
 
-    const isExist = await this.prismaService.txClient().attachments.count({
-      where: {
-        deletedTime: null,
-        token: id,
-      },
+    await this.mountAttachment(id, {
+      bucket,
+      hash,
+      size,
+      mimetype,
+      token: id,
+      path,
+      width,
+      height,
     });
-    if (isExist) {
-      await this.prismaService.txClient().attachments.update({
-        where: {
-          deletedTime: null,
-          token: id,
-        },
-        data: {
-          bucket,
-          hash,
-          size,
-          mimetype,
-          token: id,
-          path,
-          width,
-          height,
-          lastModifiedBy: id,
-        },
-      });
-    } else {
-      await this.prismaService.txClient().attachments.create({
-        data: {
-          bucket,
-          hash,
-          size,
-          mimetype,
-          token: id,
-          path,
-          width,
-          height,
-          createdBy: id,
-          lastModifiedBy: id,
-        },
-      });
-    }
+
     await this.prismaService.txClient().user.update({
       data: {
         avatar: url,
       },
       where: { id, deletedTime: null },
+    });
+  }
+
+  private async mountAttachment(
+    userId: string,
+    input: Prisma.AttachmentsCreateInput | Prisma.AttachmentsUpdateInput
+  ) {
+    await this.prismaService.txClient().attachments.upsert({
+      create: {
+        ...input,
+        createdBy: userId,
+        lastModifiedBy: userId,
+      } as Prisma.AttachmentsCreateInput,
+      update: {
+        ...input,
+        lastModifiedBy: userId,
+      } as Prisma.AttachmentsUpdateInput,
+      where: {
+        token: userId,
+        deletedTime: null,
+      },
     });
   }
 
@@ -176,6 +179,37 @@ export class UserService {
         notifyMeta: JSON.stringify(notifyMetaRo),
       },
       where: { id, deletedTime: null },
+    });
+  }
+
+  private async generateDefaultAvatar(id: string) {
+    const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
+    const bucket = StorageAdapter.getBucket(UploadType.Avatar);
+
+    const svgSize = [410, 410];
+    const svgString = minidenticon(id);
+    const svgObject = sharp(Buffer.from(svgString))
+      .resize(svgSize[0], svgSize[1])
+      .flatten({ background: '#f0f0f0' })
+      .png({ quality: 90 });
+    const { size } = await svgObject.metadata();
+    const svgBuffer = await svgObject.toBuffer();
+    const svgHash = await FileUtils.getHash(svgBuffer);
+
+    await this.mountAttachment(id, {
+      bucket: bucket,
+      hash: svgHash,
+      size: size,
+      mimetype: 'image/png',
+      token: id,
+      path: path,
+      width: svgSize[0],
+      height: svgSize[1],
+    });
+
+    return this.storageAdapter.uploadFile(bucket, path, svgBuffer, {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': 'image/png',
     });
   }
 }

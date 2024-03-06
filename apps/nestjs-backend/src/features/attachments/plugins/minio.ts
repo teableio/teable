@@ -59,7 +59,7 @@ export class MinioStorage implements StorageAdapter {
     }
   }
 
-  async getObject(bucket: string, path: string, _token: string) {
+  async getObjectMeta(bucket: string, path: string, _token: string) {
     const objectName = path;
     const { metaData, size, etag: hash } = await this.minioClient.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
@@ -102,6 +102,16 @@ export class MinioStorage implements StorageAdapter {
     metadata: Record<string, unknown>
   ) {
     await this.minioClient.fPutObject(bucket, path, filePath, metadata);
+    return `/${bucket}/${path}`;
+  }
+
+  async uploadFile(
+    bucket: string,
+    path: string,
+    stream: Buffer,
+    metadata?: Record<string, unknown>
+  ): Promise<string> {
+    await this.minioClient.putObject(bucket, path, stream, metadata);
     return `/${bucket}/${path}`;
   }
 }

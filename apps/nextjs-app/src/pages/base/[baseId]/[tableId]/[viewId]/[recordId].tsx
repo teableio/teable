@@ -31,9 +31,14 @@ const Node: NextPageWithLayout<ITableProps> = ({
 };
 
 export const getServerSideProps = withAuthSSR<IRecordPageProps>(async (context, ssrApi) => {
-  const { baseId, tableId, viewId, recordId } = context.query;
+  const { baseId, tableId, viewId, recordId, fromNotify: notifyId } = context.query;
+
   try {
     const api = ssrApi;
+
+    if (notifyId) {
+      await api.updateNotificationStatus(notifyId as string, { isRead: true });
+    }
 
     // jump to record in default view
     if (viewId === 'default') {

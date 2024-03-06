@@ -98,9 +98,20 @@
                             in
                             <strong>{{tableName}}</strong>.
                         </p>
-                        <a href="{{viewRecordUrlPrefix}}/{{lookup recordIds 0}}" class="button"
-                           style="background-color: #22bc66; color: #ffffff; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold; display: inline-block; margin: 20px 0;">View
-                            record
+                        <a
+                                href="{{viewRecordUrlPrefix}}/default/{{lookup recordIds 0}}?fromNotify={{notifyId}}"
+                        class="button"
+                        style="
+                        padding: 12px 24px;
+                        margin: 20px 0;
+                        background-color: #22bc66;
+                        color: #ffffff;
+                        border-radius: 5px;
+                        text-decoration: none;
+                        font-weight: bold;
+                        display: inline-block;
+                        "
+                        >View record
                         </a>
                     </td>
                 </tr>

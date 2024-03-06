@@ -8,7 +8,6 @@ import { BaseModule } from './features/base/base.module';
 import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
-import { FileTreeModule } from './features/file-tree/file-tree.module';
 import { HealthModule } from './features/health/health.module';
 import { ImportOpenApiModule } from './features/import/open-api/import-open-api.module';
 import { InvitationModule } from './features/invitation/invitation.module';
@@ -29,7 +28,6 @@ import { WsModule } from './ws/ws.module';
     LoggerModule.register(),
     HealthModule,
     NextModule,
-    FileTreeModule,
     FieldOpenApiModule,
     BaseModule,
     ChatModule,

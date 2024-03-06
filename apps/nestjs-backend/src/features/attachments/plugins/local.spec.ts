@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
-import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { join, resolve } from 'path';
 import { BadRequestException } from '@nestjs/common';
@@ -19,7 +18,6 @@ import type { ILocalFileUpload } from './types';
 vi.mock('fs-extra');
 vi.mock('../../../utils/full-storage-url');
 vi.mock('fs');
-vi.mock('crypto');
 
 describe('LocalStorage', () => {
   let storage: LocalStorage;
@@ -233,28 +231,6 @@ describe('LocalStorage', () => {
     });
   });
 
-  describe('getHash', () => {
-    it('should get file hash', async () => {
-      const mockPath = '/mock/file/path';
-
-      const mockHash = 'mock-hash';
-
-      vi.spyOn(crypto, 'createHash').mockReturnValueOnce({
-        update: vi.fn(),
-        digest: vi.fn().mockReturnValueOnce(mockHash),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
-      vi.spyOn(fs, 'createReadStream').mockReturnValue({
-        on: (_event: string, callback: () => void) => {
-          callback();
-        },
-      } as any);
-      const result = await storage.getHash(mockPath);
-
-      expect(result).toBe(mockHash);
-    });
-  });
-
   describe('getObject', () => {
     it('should get object metadata', async () => {
       const mockBucket = 'mock-bucket';
@@ -274,7 +250,7 @@ describe('LocalStorage', () => {
       });
       vi.spyOn(storage as any, 'getUrl').mockReturnValue(mockUrl);
 
-      const result = await storage.getObject(mockBucket, mockPath, mockToken);
+      const result = await storage.getObjectMeta(mockBucket, mockPath, mockToken);
 
       expect(mockCacheService.get).toHaveBeenCalledWith(`attachment:upload:${mockToken}`);
       expect(storage.getFileMate).toHaveBeenCalledWith(
@@ -309,7 +285,7 @@ describe('LocalStorage', () => {
       vi.spyOn(mockCacheService, 'get').mockResolvedValueOnce(mockCacheValue);
       vi.spyOn(storage as any, 'getUrl').mockReturnValue(mockUrl);
 
-      const result = await storage.getObject(mockBucket, mockPath, mockToken);
+      const result = await storage.getObjectMeta(mockBucket, mockPath, mockToken);
 
       expect(mockCacheService.get).toHaveBeenCalledWith(`attachment:upload:${mockToken}`);
       expect(storage['getUrl']).toHaveBeenCalledWith(mockBucket, mockPath, {
@@ -329,7 +305,7 @@ describe('LocalStorage', () => {
       vi.spyOn(mockCacheService, 'get').mockResolvedValueOnce(null);
 
       await expect(
-        storage.getObject('mock-bucket', 'mock/file/path', 'invalid-token')
+        storage.getObjectMeta('mock-bucket', 'mock/file/path', 'invalid-token')
       ).rejects.toThrow(BadRequestException);
     });
   });

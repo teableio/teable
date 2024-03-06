@@ -2,10 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation, IRecord } from '@teable/core';
 import {
   FieldOpBuilder,
+  IdPrefix,
   RecordOpBuilder,
   TableOpBuilder,
   ViewOpBuilder,
-  IdPrefix,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -21,6 +21,7 @@ import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import type { IClsStore } from '../types/cls';
 import type { IAdapterService } from './interface';
+import { WsAuthService } from './ws-auth.service';
 
 export interface ICollectionSnapshot {
   type: string;
@@ -43,7 +44,8 @@ export class ShareDbAdapter extends ShareDb.DB {
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly wsAuthService: WsAuthService
   ) {
     super();
     this.closed = false;
@@ -104,13 +106,24 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: ShareDb.Error | null, ids: string[], extra?: any) => void
   ) {
     try {
-      const [docType, collectionId] = collection.split('_');
+      let currentUser = this.cls.get('user');
+      const { sessionTicket } = (query ?? {}) as { sessionTicket?: string };
 
-      const queryResult = await this.getService(docType as IdPrefix).getDocIdsByQuery(
-        collectionId,
-        query
-      );
-      callback(null, queryResult.ids, queryResult.extra);
+      if (!currentUser && sessionTicket) {
+        currentUser = await this.wsAuthService.checkSession(sessionTicket);
+      }
+
+      await this.cls.runWith(this.cls.get(), async () => {
+        this.cls.set('user', currentUser);
+
+        const [docType, collectionId] = collection.split('_');
+
+        const queryResult = await this.getService(docType as IdPrefix).getDocIdsByQuery(
+          collectionId,
+          query
+        );
+        callback(null, queryResult.ids, queryResult.extra);
+      });
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       callback(e as any, []);
