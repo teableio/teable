@@ -62,7 +62,7 @@
     "knex": "3.1.0",
     "lodash": "4.17.21",
     "lru-cache": "10.2.0",
-    "lucide-react": "0.341.0",
+    "lucide-react": "0.344.0",
     "mousetrap": "1.6.5",
     "react-day-picker": "8.10.0",
     "react-hammerjs": "1.0.1",
@@ -73,7 +73,7 @@
     "ts-key-enum": "2.0.12",
     "ts-keycode-enum": "1.0.6",
     "ts-mixer": "6.0.4",
-    "zustand": "4.5.1",
+    "zustand": "4.5.2",
     "react-textarea-autosize": "8.5.3"
   },
   "peerDependencies": {
@@ -86,7 +86,7 @@
     "@testing-library/react": "14.2.1",
     "@types/lodash": "4.14.202",
     "@types/node": "20.9.0",
-    "@types/react": "18.2.58",
+    "@types/react": "18.2.60",
     "@types/react-dom": "18.2.19",
     "@types/react-hammerjs": "1.0.7",
     "@types/scroller": "0.1.5",

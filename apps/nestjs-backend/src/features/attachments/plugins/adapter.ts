@@ -49,7 +49,7 @@ export default abstract class StorageAdapter {
    * @param token presigned token
    * @returns object meta
    */
-  abstract getObject(bucket: string, path: string, token: string): Promise<IObjectMeta>;
+  abstract getObjectMeta(bucket: string, path: string, token: string): Promise<IObjectMeta>;
 
   /**
    * get preview url
@@ -79,5 +79,19 @@ export default abstract class StorageAdapter {
     path: string,
     filePath: string,
     metadata: Record<string, unknown>
+  ): Promise<string>;
+
+  /**
+   * uploadFile with file stream
+   * @param bucket bucket name
+   * @param path path name
+   * @param stream file stream
+   * @param metadata Metadata of the object.
+   */
+  abstract uploadFile(
+    bucket: string,
+    path: string,
+    stream: Buffer,
+    metadata?: Record<string, unknown>
   ): Promise<string>;
 }

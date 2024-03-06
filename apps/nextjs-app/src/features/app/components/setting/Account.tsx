@@ -15,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
@@ -67,11 +68,14 @@ export const Account: React.FC = () => {
             <TooltipTrigger asChild>
               <div className="group relative flex h-fit items-center justify-center">
                 <Avatar className="size-14">
-                  <AvatarImage
-                    id={`${sessionUser.id}-avatar`}
-                    src={sessionUser.avatar as string}
-                    alt="avatar-name"
-                  />
+                  <AvatarImage asChild src={sessionUser.avatar as string}>
+                    <Image
+                      src={sessionUser.avatar as string}
+                      alt={sessionUser.name}
+                      width={28}
+                      height={28}
+                    />
+                  </AvatarImage>
                   <AvatarFallback className="text-2xl">
                     {sessionUser.name.slice(0, 1)}
                   </AvatarFallback>

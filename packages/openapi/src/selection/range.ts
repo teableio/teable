@@ -58,10 +58,7 @@ export const rangesQuerySchema = contentQueryBaseSchema.extend({
       type: 'string',
       description:
         'The parameter "ranges" is used to represent the coordinates [column, row][] of a selected range in a table. ',
-      example: [
-        [0, 0],
-        [1, 1],
-      ],
+      example: '[[0, 0], [1, 1]]',
     }),
   type: rangeTypeSchema,
 });

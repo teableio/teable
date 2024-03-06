@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { Prisma } from '@teable/db-main-prisma';
 import { pick } from 'lodash';
 
 export const pickUserMe = (user: Partial<Prisma.UserGetPayload<null>>) => {

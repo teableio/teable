@@ -11,6 +11,7 @@ import {
 } from '@teable/ui-lib';
 import classNames from 'classnames';
 import React, { useRef, useState } from 'react';
+import { convertNextImageUrl } from '../../grid-enhancements';
 import type { IUserEditorMainProps } from './EditorMain';
 import { UserEditorMain } from './EditorMain';
 
@@ -45,10 +46,17 @@ export const UserEditor = (props: IUserEditorMainProps) => {
         className
       )}
     >
-      {arrayValue?.map(({ id, title }) => (
+      {arrayValue?.map(({ id, title, avatarUrl }) => (
         <div key={id} className="flex items-center">
           <Avatar className="box-content size-7 cursor-pointer border">
-            <AvatarImage src={'avatar' as string} alt="avatar-name" />
+            <AvatarImage
+              src={convertNextImageUrl({
+                url: avatarUrl as string,
+                w: 64,
+                q: 75,
+              })}
+              alt={title}
+            />
             <AvatarFallback className="text-sm">{title?.slice(0, 1)}</AvatarFallback>
           </Avatar>
           {/**/}

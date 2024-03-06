@@ -1,5 +1,6 @@
 import { useSession } from '@teable/sdk';
 import { Avatar, AvatarFallback, AvatarImage, Button } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import React from 'react';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
 import { DuplicateBaseModal } from '../blocks/base/duplicate/DuplicateBaseModal';
@@ -16,7 +17,9 @@ export const SideBarFooter: React.FC = () => {
         <UserNav>
           <Button variant="ghost" size={'xs'} className="w-full justify-start text-sm font-normal">
             <Avatar className="size-7">
-              <AvatarImage src={user.avatar as string} alt="avatar-name" />
+              <AvatarImage asChild src={user.avatar as string}>
+                <Image src={user.avatar as string} alt={user.name} width={28} height={28} />
+              </AvatarImage>
               <AvatarFallback>{user.name.slice(0, 1)}</AvatarFallback>
             </Avatar>
             {user.name}

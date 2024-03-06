@@ -1,6 +1,7 @@
 import { isEqual } from 'lodash';
-import { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { Doc, Query } from 'sharedb/lib/client';
+import { useSession } from '../../hooks';
 import { AppContext } from '../app/AppContext';
 import { OpListenersManager } from './opListener';
 import type { IInstanceAction } from './reducer';
@@ -46,6 +47,15 @@ export function useInstances<T, R extends { id: string }>({
   const [instances, dispatch] = useReducer(
     (state: R[], action: IInstanceAction<T>) => instanceReducer(state, action, factory),
     initData && !connected ? initData.map((data) => factory(data)) : []
+  );
+  const { user: sessionUser } = useSession();
+
+  const newQueryParams = useMemo(
+    () => ({
+      ...(queryParams || {}),
+      sessionTicket: (sessionUser as unknown as { _session_ticket?: string })?._session_ticket,
+    }),
+    [queryParams, sessionUser]
   );
 
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
@@ -95,16 +105,16 @@ export function useInstances<T, R extends { id: string }>({
       if (!collection || !connection) {
         return undefined;
       }
-      if (query && isEqual(queryParams, query.query) && collection === query.collection) {
+      if (query && isEqual(newQueryParams, query.query) && collection === query.collection) {
         return query;
       }
 
       queryDestroy(preQueryRef.current);
-      const newQuery = connection.createSubscribeQuery<T>(collection, queryParams || {});
+      const newQuery = connection.createSubscribeQuery<T>(collection, newQueryParams);
       preQueryRef.current = newQuery;
       return newQuery;
     });
-  }, [connection, collection, queryParams]);
+  }, [connection, collection, newQueryParams]);
 
   useEffect(() => {
     return () => {

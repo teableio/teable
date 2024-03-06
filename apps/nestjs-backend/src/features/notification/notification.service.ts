@@ -59,6 +59,7 @@ export class NotificationService {
 
     const notifyId = generateNotificationId();
     const emailOptions = this.mailSenderService.collaboratorCellTagEmailOptions({
+      notifyId,
       fromUserName: fromUser.name,
       refRecord,
     });

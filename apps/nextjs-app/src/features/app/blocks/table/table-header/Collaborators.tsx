@@ -15,8 +15,9 @@ import {
 } from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
 import { isEmpty, chunk } from 'lodash';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 
 interface CollaboratorsProps {
@@ -102,7 +103,9 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
           borderColor: contractColorForTheme(borderColor, theme),
         }}
       >
-        <AvatarImage src={avatar as string} alt={`${name} avatar`} />
+        <AvatarImage asChild src={avatar as string}>
+          <Image src={avatar as string} alt={name} width={28} height={28} />
+        </AvatarImage>
         <AvatarFallback className="text-sm leading-6">{name.slice(0, 1)}</AvatarFallback>
       </Avatar>
     );

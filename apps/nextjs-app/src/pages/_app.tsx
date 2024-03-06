@@ -70,6 +70,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           dangerouslySetInnerHTML={{
             __html: `
               window.clarity && window.clarity("identify", "${user?.email || user?.id}");
+              window.version="${process.env.NEXT_PUBLIC_BUILD_VERSION ?? 'develop'}";
             `,
           }}
         />
