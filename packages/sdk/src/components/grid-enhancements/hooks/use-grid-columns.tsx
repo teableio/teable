@@ -26,6 +26,7 @@ import {
   GridLinkEditor,
   GridNumberEditor,
   GridSelectEditor,
+  expandPreviewModal,
 } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
 
@@ -378,6 +379,13 @@ export const createCellValue2GridDisplay =
           type: CellType.Image,
           data,
           displayData,
+          onPreview: (activeId: string) => {
+            expandPreviewModal({
+              activeId,
+              field,
+              record,
+            });
+          },
           customEditor: (props) => (
             <GridAttachmentEditor field={field} record={record} {...props} />
           ),

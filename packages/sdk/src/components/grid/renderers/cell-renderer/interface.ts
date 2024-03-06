@@ -128,6 +128,7 @@ export interface IImageCell extends IEditableCell {
   type: CellType.Image;
   data: IImageData[];
   displayData: string[];
+  onPreview?: (activeId: string) => void;
 }
 
 export interface IUserData {
