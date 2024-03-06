@@ -26,22 +26,30 @@ interface IProxyView extends IProxyViewInstance {
   updateColumnMeta: (columnMeta: IColumnMetaRo) => void;
 }
 
+export const getViewData = (view?: IViewInstance, initData?: IViewVo[]) => {
+  const data = view?.['doc']?.data || initData?.[0];
+  if (!data) {
+    return;
+  }
+  const enableValue = enableKey.reduce((acc, key) => {
+    acc[key] = null;
+    return acc;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }, {} as any);
+  return { ...data, ...enableValue };
+};
+
 export const ViewProxy = (props: IViewProxyProps) => {
   const { proxyKeys, serverData, children } = props;
   const view = useView();
-  const [proxyView, setProxyView] = useState<IProxyView>();
-  const [viewData, setViewData] = useState<IViewVo>();
+  const [viewData, setViewData] = useState<IViewVo>(getViewData(view, serverData));
+  const [proxyView, setProxyView] = useState<IProxyView | undefined>(() => {
+    if (!viewData || !view?.id) return;
+    return createViewInstance(viewData) as IProxyView;
+  });
+
   useEffect(() => {
-    const data = view?.['doc']?.data || serverData?.[0];
-    if (!data) {
-      return;
-    }
-    const enableValue = enableKey.reduce((acc, key) => {
-      acc[key] = null;
-      return acc;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    }, {} as any);
-    setViewData((viewData) => ({ ...data, ...enableValue, ...viewData }));
+    setViewData((viewData) => ({ ...getViewData(view, serverData), ...viewData }));
   }, [serverData, view]);
 
   useEffect(() => {

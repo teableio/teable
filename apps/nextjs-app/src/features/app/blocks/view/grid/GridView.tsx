@@ -17,10 +17,6 @@ export const GridView = (props: IViewBaseProps) => {
   const { graphOpen } = useCellGraphStore();
   const isHydrated = useIsHydrated();
 
-  if (!isHydrated) {
-    return <div className="w-full grow overflow-hidden pl-2" />;
-  }
-
   return (
     <ActionTriggerProvider>
       <GridToolBar />
@@ -29,7 +25,7 @@ export const GridView = (props: IViewBaseProps) => {
           <RowCountProvider>
             <GroupPointProvider>
               <div className="w-full grow overflow-hidden sm:pl-2">
-                <GridViewBase />
+                {isHydrated && <GridViewBase />}
                 {graphOpen && <DynamicCellGraph />}
               </div>
             </GroupPointProvider>
