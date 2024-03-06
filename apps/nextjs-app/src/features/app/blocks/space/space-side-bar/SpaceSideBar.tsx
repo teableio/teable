@@ -3,10 +3,13 @@ import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceList } from './SpaceList';
 
 export const SpaceSideBar = () => {
   const router = useRouter();
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   const pageRoutes: {
     href: string;
@@ -15,7 +18,7 @@ export const SpaceSideBar = () => {
   }[] = [
     {
       href: '/space',
-      text: 'All spaces',
+      text: t('space:allSpaces'),
       Icon: Home,
     },
   ];
