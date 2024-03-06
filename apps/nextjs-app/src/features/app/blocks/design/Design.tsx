@@ -4,10 +4,10 @@ import type { IGetBaseVo } from '@teable/openapi';
 import type { Table } from '@teable/sdk';
 import { FieldProvider, useTable, useTablePermission } from '@teable/sdk';
 import { Button, cn } from '@teable/ui-lib/shadcn';
+import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useTitle } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
@@ -32,14 +32,18 @@ export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
   const router = useRouter();
   const { baseId, tableId } = router.query as { baseId: string; tableId: string };
   const table = useTable() as Table;
-  useTitle(
-    table.name ? `${table.icon ? table.icon + ' ' : ''}${table.name}` : 'Teable' + ' - Designing'
-  );
   const permission = useTablePermission();
   const columns = useDataColumns();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   return (
     <FieldProvider serverSideData={fields}>
+      <Head>
+        <title>
+          {table.name
+            ? `${table.icon ? table.icon + ' ' : ''}${table.name}`
+            : 'Teable' + ' - Designing'}
+        </title>
+      </Head>
       <div className="flex h-full grow basis-[500px] flex-col gap-4 overflow-auto p-4 pt-0">
         <h1 className="flex items-center gap-2 pt-2 text-xl font-bold tracking-tight">
           <Button size="xs" variant="ghost" asChild>

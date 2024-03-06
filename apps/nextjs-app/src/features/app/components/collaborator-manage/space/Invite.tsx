@@ -6,6 +6,7 @@ import { ReactQueryKeys, useSpaceRoleStatic } from '@teable/sdk';
 import { Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { map } from 'lodash';
+import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
 import { RoleSelect } from './RoleSelect';
@@ -20,6 +21,7 @@ interface IInvite {
 export const Invite: React.FC<IInvite> = (props) => {
   const { className, spaceId, role } = props;
   const queryClient = useQueryClient();
+  const { t } = useTranslation('common');
 
   const [inviteType, setInviteType] = useState<'link' | 'email'>('email');
   const [inviteRole, setInviteRole] = useState<SpaceRole>(role);
@@ -114,7 +116,7 @@ export const Invite: React.FC<IInvite> = (props) => {
           ))}
           <input
             className="h-6 flex-auto bg-background text-xs outline-none"
-            placeholder="Invite more space collaborators via email"
+            placeholder={t('invite.dialog.emailPlaceholder')}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -129,7 +131,7 @@ export const Invite: React.FC<IInvite> = (props) => {
         disabled={(!isEmailInputValid && inviteEmails.length === 0) || updateCollaboratorLoading}
         onClick={sendInviteEmail}
       >
-        Send invite
+        {t('invite.dialog.emailSend')}
       </Button>
     </div>
   );
@@ -137,14 +139,14 @@ export const Invite: React.FC<IInvite> = (props) => {
   const LinkInvite = (
     <div>
       <div className="flex items-center text-sm">
-        Create an invite link that grants
-        <RoleSelect
-          className="mx-1"
-          filterRoles={filterRoles}
-          value={inviteRole}
-          onChange={setInviteRole}
-        />
-        access to anyone who opens it.
+        <Trans ns="common" i18nKey={'invite.dialog.linkPlaceholder'}>
+          <RoleSelect
+            className="mx-1"
+            filterRoles={filterRoles}
+            value={inviteRole}
+            onChange={setInviteRole}
+          />
+        </Trans>
       </div>
       <Button
         className="mt-2"
@@ -152,7 +154,7 @@ export const Invite: React.FC<IInvite> = (props) => {
         disabled={createInviteLinkLoading}
         onClick={createInviteLink}
       >
-        Create link
+        {t('invite.dialog.linkSend')}
       </Button>
     </div>
   );
@@ -172,7 +174,7 @@ export const Invite: React.FC<IInvite> = (props) => {
           variant={'link'}
           onClick={() => changeInviteType('email')}
         >
-          invite by email
+          {t('invite.dialog.tabEmail')}
         </Button>
         <Button
           className="p-0 data-[state=active]:underline"
@@ -180,7 +182,7 @@ export const Invite: React.FC<IInvite> = (props) => {
           variant={'link'}
           onClick={() => changeInviteType('link')}
         >
-          invite by link
+          {t('invite.dialog.tabLink')}
         </Button>
       </div>
       <div>{inviteType === 'email' ? EmailInvite : LinkInvite}</div>
