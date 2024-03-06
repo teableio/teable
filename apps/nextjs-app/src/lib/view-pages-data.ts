@@ -8,6 +8,7 @@ export interface IViewPageProps {
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
+  recordServerData?: IRecord;
 }
 
 export const getViewPageServerData = async (

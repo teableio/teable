@@ -1559,6 +1559,135 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual({ title: 'zzz', id: records[2].id });
     });
 
+    it('should convert one-way link to two-way link', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: false,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
+
+      const sourceField = await createField(table1.id, sourceFieldRo);
+      await updateRecordByApi(table1.id, table1.records[0].id, sourceField.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+      const newField = await convertField(table1.id, sourceField.id, newFieldRo);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          isOneWay: false,
+        },
+      });
+
+      const symmetricFieldId = (newField.options as ILinkFieldOptions).symmetricFieldId;
+      expect(symmetricFieldId).toBeDefined();
+
+      const symmetricField = await getField(table2.id, symmetricFieldId as string);
+
+      expect(symmetricField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+        },
+      });
+
+      const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
+      expect(records[1].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
+    });
+
+    it('should convert one-way link to two-way link and to other table', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table3.id,
+          isOneWay: false,
+        },
+      };
+
+      // set primary key in table2/table3
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table3.id, table3.records[0].id, table3.fields[0].id, 'x');
+      await updateRecordByApi(table3.id, table3.records[1].id, table3.fields[0].id, 'y');
+
+      const sourceField = await createField(table1.id, sourceFieldRo);
+      await updateRecordByApi(table1.id, table1.records[0].id, sourceField.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+      const newField = await convertField(table1.id, sourceField.id, newFieldRo);
+
+      expect(newField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table3.id,
+          lookupFieldId: table3.fields[0].id,
+          isOneWay: false,
+        },
+      });
+
+      const symmetricFieldId = (newField.options as ILinkFieldOptions).symmetricFieldId;
+      expect(symmetricFieldId).toBeDefined();
+
+      const symmetricField = await getField(table3.id, symmetricFieldId as string);
+
+      expect(symmetricField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+        },
+      });
+
+      const { records } = await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id });
+      expect(records[0].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
+      expect(records[1].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
+    });
+
     it('should convert link from one table to another', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,

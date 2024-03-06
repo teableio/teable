@@ -10,7 +10,9 @@ import {
 } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import React, { useMemo } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 
 interface ITableOperationProps {
   className?: string;
@@ -26,6 +28,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const tables = useTables();
   const router = useRouter();
   const { baseId, tableId: routerTableId } = router.query;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const menuPermission = useMemo(() => {
     return {
@@ -75,7 +78,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           >
             <DropdownMenuItem onClick={() => onRename?.()}>
               <Pencil className="mr-2" />
-              Rename
+              {t('table:table.rename')}
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link
@@ -83,15 +86,15 @@ export const TableOperation = (props: ITableOperationProps) => {
                   pathname: '/base/[baseId]/[tableId]/design',
                   query: { baseId, tableId: table.id },
                 }}
-                title="Design"
+                title={t('table:table.design')}
               >
                 <Settings className="mr-2" />
-                Design
+                {t('table:table.design')}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
               <Trash2 className="mr-2" />
-              Delete
+              {t('common:actions.delete')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -99,9 +102,15 @@ export const TableOperation = (props: ITableOperationProps) => {
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
-        title={`Are you sure you want to delete ${table?.name}?`}
-        cancelText="Cancel"
-        confirmText="Continue"
+        title={t('table:table.deleteConfirm', { tableName: table?.name })}
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.confirm')}
+        content={
+          <div className="space-y-2 text-sm">
+            <p>1. {t('table:table.deleteTip1')}</p>
+            <p>2. {t('table:table.deleteTip2')}</p>
+          </div>
+        }
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={deleteTable}
       />

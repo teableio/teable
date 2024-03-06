@@ -15,9 +15,36 @@ import { initApp, deleteTable } from './utils/init-app';
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
 const csvTmpPath = 'test.csv';
-const data = `field_1,field_2,field_3,field_4
-1,string_1,true,2022-11-10 16:00:00
-2,string_2,false,2022-11-11 16:00:00`;
+const data = `field_1,field_2,field_3,field_4,field_5,field_6
+1,string_1,true,2022-11-10 16:00:00,,"long
+text"
+2,string_2,false,2022-11-11 16:00:00,,`;
+const assertHeaders = [
+  {
+    type: 'number',
+    name: 'field_1',
+  },
+  {
+    type: 'singleLineText',
+    name: 'field_2',
+  },
+  {
+    type: 'checkbox',
+    name: 'field_3',
+  },
+  {
+    type: 'date',
+    name: 'field_4',
+  },
+  {
+    type: 'singleLineText',
+    name: 'field_5',
+  },
+  {
+    type: 'longText',
+    name: 'field_6',
+  },
+];
 let csvUrl: string;
 
 beforeAll(async () => {
@@ -60,28 +87,7 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
-    const calculatedColumnHeaders = worksheets[0];
-    const assertHeaders = {
-      name: 'import table',
-      columns: [
-        {
-          type: 'number',
-          name: 'field_1',
-        },
-        {
-          type: 'longText',
-          name: 'field_2',
-        },
-        {
-          type: 'checkbox',
-          name: 'field_3',
-        },
-        {
-          type: 'date',
-          name: 'field_4',
-        },
-      ],
-    };
+    const calculatedColumnHeaders = worksheets[0].columns;
     expect(calculatedColumnHeaders).toEqual(assertHeaders);
   });
 });
@@ -127,24 +133,6 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       type: field.type,
       name: field.name,
     }));
-    const assertHeaders = [
-      {
-        type: 'number',
-        name: 'field_1',
-      },
-      {
-        type: 'longText',
-        name: 'field_2',
-      },
-      {
-        type: 'checkbox',
-        name: 'field_3',
-      },
-      {
-        type: 'date',
-        name: 'field_4',
-      },
-    ];
 
     const {
       data: { records },
@@ -163,6 +151,7 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
         field_2: 'string_1',
         field_3: true,
         field_4: +new Date(new Date('2022-11-10 16:00:00').toUTCString()),
+        field_6: 'long\ntext',
       },
       {
         field_1: 2,
@@ -208,24 +197,6 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       type: field.type,
       name: field.name,
     }));
-    const assertHeaders = [
-      {
-        type: 'number',
-        name: 'field_1',
-      },
-      {
-        type: 'longText',
-        name: 'field_2',
-      },
-      {
-        type: 'checkbox',
-        name: 'field_3',
-      },
-      {
-        type: 'date',
-        name: 'field_4',
-      },
-    ];
 
     const {
       data: { records },
@@ -272,24 +243,6 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       type: field.type,
       name: field.name,
     }));
-    const assertHeaders = [
-      {
-        type: 'number',
-        name: 'field_1',
-      },
-      {
-        type: 'longText',
-        name: 'field_2',
-      },
-      {
-        type: 'checkbox',
-        name: 'field_3',
-      },
-      {
-        type: 'date',
-        name: 'field_4',
-      },
-    ];
 
     const {
       data: { records },

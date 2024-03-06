@@ -279,7 +279,7 @@ export class FieldSupplementService {
         options: {
           ...oldOptions,
           ...newOptionsRo,
-          symmetricFieldId: newOptionsRo.isOneWay ? undefined : oldOptions.symmetricFieldId,
+          symmetricFieldId: newOptionsRo.isOneWay ? undefined : generateFieldId(),
         },
       };
     }

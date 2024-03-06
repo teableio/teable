@@ -12,16 +12,16 @@ export const securityWebConfig = registerAs('security.web', () => ({
   },
 }));
 
-export const swaggerConfig = registerAs('swagger', () => ({
-  disabled: process.env.SWAGGER_DISABLED === 'true',
-}));
-
 export const tracingConfig = registerAs('tracing', () => ({
   enabled: process.env.TRACING_ENABLED === 'true',
 }));
 
+export const apiDocConfig = registerAs('apiDoc', () => ({
+  disabled: process.env.API_DOC_DISENABLED === 'true',
+  enabledSnippet: process.env.API_DOC_ENABLED_SNIPPET === 'true',
+}));
+
 export type INextJsConfig = ConfigType<typeof nextJsConfig>;
 export type ISecurityWebConfig = ConfigType<typeof securityWebConfig>;
-export type ISwaggerConfig = ConfigType<typeof swaggerConfig>;
-
-export const bootstrapConfigs = [nextJsConfig, securityWebConfig, swaggerConfig];
+export type IApiDocConfig = ConfigType<typeof apiDocConfig>;
+export const bootstrapConfigs = [nextJsConfig, securityWebConfig, apiDocConfig];

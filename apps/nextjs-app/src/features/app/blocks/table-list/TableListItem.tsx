@@ -60,11 +60,13 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
           }
         )}
         onClick={navigateHandler}
-        onDoubleClick={() => {
-          permission['table|update'] && setIsEditing(true);
-        }}
       >
-        <div>
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
+        <div
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
           <div onClick={(e) => e.stopPropagation()}>
             <EmojiPicker
@@ -79,7 +81,14 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
               )}
             </EmojiPicker>
           </div>
-          <p className="grow truncate">{' ' + table.name}</p>
+          <p
+            className="grow truncate"
+            onDoubleClick={() => {
+              permission['table|update'] && setIsEditing(true);
+            }}
+          >
+            {' ' + table.name}
+          </p>
           {!isDragging && (
             <TableOperation
               table={table}

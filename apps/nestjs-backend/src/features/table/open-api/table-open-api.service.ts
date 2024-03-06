@@ -14,13 +14,14 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
+import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { LinkService } from '../../calculation/link.service';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
+import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { GraphService } from '../../graph/graph.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
@@ -37,10 +38,12 @@ export class TableOpenApiService {
     private readonly graphService: GraphService,
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
+    private readonly linkService: LinkService,
+    private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -170,9 +173,24 @@ export class TableOpenApiService {
     });
   }
 
+  async detachLink(tableId: string) {
+    const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
+
+    for (const field of relatedLinkFieldRaws) {
+      await this.fieldOpenApiService.convertField(field.tableId, field.id, {
+        type: FieldType.SingleLineText,
+      });
+    }
+  }
+
   async deleteTable(baseId: string, tableId: string, arbitrary = false) {
+    if (!arbitrary) {
+      await this.detachLink(tableId);
+    }
+
     return await this.prismaService.$tx(
       async (prisma) => {
+        console.log('detachLink', tableId);
         await this.tableService.deleteTable(baseId, tableId);
 
         // delete field for table
@@ -195,18 +213,6 @@ export class TableOpenApiService {
           where: { collection: baseId, docId: tableId },
         });
 
-        const fieldRaws = await prisma.field.findMany({
-          where: { tableId, deletedTime: null },
-          select: { id: true, options: true },
-        });
-        const fieldIds = fieldRaws.map((field) => field.id);
-
-        // TODO: markErrors
-        // TODO: delete Junction tables
-        await prisma.reference.deleteMany({
-          where: { OR: [{ fromFieldId: { in: fieldIds } }, { toFieldId: { in: fieldIds } }] },
-        });
-
         if (arbitrary) {
           const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
             where: { id: tableId, deletedTime: null },
@@ -216,7 +222,7 @@ export class TableOpenApiService {
         }
       },
       {
-        timeout: 100_000,
+        timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
   }
