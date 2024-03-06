@@ -35,7 +35,7 @@ export const planFieldCreateRoute: RouteConfig = registerRoute({
       },
     },
   },
-  tags: ['field', 'plan'],
+  tags: ['plan'],
 });
 
 export const planFieldCreate = async (tableId: string, fieldRo: IFieldRo) => {

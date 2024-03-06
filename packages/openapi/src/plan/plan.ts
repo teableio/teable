@@ -1,8 +1,8 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { graphVoSchema } from '../table/get-cell-graph';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { graphVoSchema } from './get-cell-graph';
 
 export const PLAN_FIELD = '/table/{tableId}/field/{fieldId}/plan';
 
@@ -34,7 +34,7 @@ export const planFieldRoute: RouteConfig = registerRoute({
       },
     },
   },
-  tags: ['field', 'plan'],
+  tags: ['plan'],
 });
 
 export const planField = async (tableId: string, fieldId: string) => {

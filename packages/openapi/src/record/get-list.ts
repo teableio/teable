@@ -10,7 +10,7 @@ export const GET_RECORDS_URL = '/table/{tableId}/record';
 export const GetRecordsRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_RECORDS_URL,
-  description: 'List of records',
+  description: 'Get multiple records',
   request: {
     params: z.object({
       tableId: z.string(),
