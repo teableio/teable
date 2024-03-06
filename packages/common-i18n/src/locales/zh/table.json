@@ -131,8 +131,9 @@
     "form": {
       "defaultFieldName": "字段",
       "error": {
-        "urlEmptyTip": "URL不能为空!",
-        "urlValidateTip": "不能解析该URL，请重新输入!"
+        "urlEmptyTip": "URL不能为空！",
+        "urlValidateTip": "不能解析该URL，请重新输入！",
+        "errorFileFormat": "文件格式错误！"
       }
     }
   },
