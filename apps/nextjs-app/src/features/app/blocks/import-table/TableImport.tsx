@@ -241,6 +241,7 @@ export const TableImport = (props: ITableImportProps) => {
                     {files?.length &&
                       Array.from(files).map((file) => (
                         <FileItem
+                          accept="text/csv"
                           key={file.name}
                           file={file}
                           onClose={() => setFiles(null)}
@@ -278,7 +279,7 @@ export const TableImport = (props: ITableImportProps) => {
                     <div className="flex w-full">
                       <Input
                         type="url"
-                        placeholder="https://www.example.com/file.png"
+                        placeholder="https://www.example.com/file.csv"
                         className="mr-2 w-full"
                         value={linkUrl}
                         onChange={(e) => {

@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import type { IValidateTypes } from '@teable/core';
 import { getUniqName, FieldType, SUPPORTEDTYPE } from '@teable/core';
 import { axios } from '@teable/openapi';
@@ -93,7 +94,8 @@ export abstract class Importer {
 }
 
 export class CsvImporter extends Importer {
-  public static CHECK_LINES = 5000;
+  public static readonly SUPPORTFILETYPE = ['text/csv'];
+  public static readonly CHECK_LINES = 5000;
   // order make sence
   public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
     FieldType.Checkbox,
@@ -113,6 +115,12 @@ export class CsvImporter extends Importer {
     const { data: stream } = await axios.get(url, {
       responseType: 'stream',
     });
+    const fileFormat = stream?.headers?.['content-type'];
+    if (!CsvImporter.SUPPORTFILETYPE.includes(fileFormat)) {
+      throw new BadRequestException(`
+        Error file format, only ${CsvImporter.SUPPORTFILETYPE.join(', ')} are supported,
+      `);
+    }
     return stream;
   }
   async parse(): Promise<unknown[]> {
