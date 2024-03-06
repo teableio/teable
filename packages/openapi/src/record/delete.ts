@@ -8,7 +8,7 @@ export const DELETE_RECORD_URL = '/table/{tableId}/record/{recordId}';
 export const DeleteRecordRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_RECORD_URL,
-  description: 'Delete a single record by id',
+  description: 'Delete a record',
   request: {
     params: z.object({
       tableId: z.string(),

@@ -41,7 +41,7 @@ export const planFieldConvertRoute: RouteConfig = registerRoute({
       },
     },
   },
-  tags: ['field', 'plan'],
+  tags: ['plan'],
 });
 
 export const planFieldConvert = async (

@@ -46,7 +46,10 @@ export const fieldKeyTypeRoSchema = z
   .default(FieldKeyType.Name) // is not work with optional()...
   .transform((v) => v ?? FieldKeyType.Name)
   .optional()
-  .openapi({ description: 'Define the key type of record.fields[key], default is "name"' });
+  .openapi({
+    description:
+      'Define the key type of record.fields[key], You can click "systemInfo" in the field edit box to get fieldId or enter the table design screen with all the field details',
+  });
 
 export const typecastSchema = z.boolean().optional().openapi({
   description:
@@ -66,7 +69,7 @@ export const getRecordQuerySchema = z.object({
     .optional()
     .openapi({
       description:
-        'Define the return value  formate, you can set it to text if you only need simple string value',
+        'Define the return value formate, you can set it to text if you only need simple string value',
     }),
   fieldKeyType: fieldKeyTypeRoSchema,
 });
@@ -74,7 +77,7 @@ export const getRecordQuerySchema = z.object({
 export type IGetRecordQuery = z.infer<typeof getRecordQuerySchema>;
 
 const defaultPageSize = 100;
-const maxPageSize = 10000;
+const maxPageSize = 2000;
 
 export const queryBaseSchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
@@ -198,7 +201,7 @@ export const getRecordsRoSchema = getRecordQuerySchema.merge(contentQueryBaseSch
     .optional()
     .openapi({
       example: defaultPageSize,
-      description: 'The record count you want to take',
+      description: `The record count you want to take, maximum is ${maxPageSize}`,
     }),
   skip: z
     .string()
