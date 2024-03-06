@@ -27,6 +27,7 @@ import { LinkListType } from './interface';
 interface ILinkListProps {
   type: LinkListType;
   rowCount: number;
+  readonly?: boolean;
   isMultiple?: boolean;
   recordQuery?: IGetRecordsRo;
   cellValue?: ILinkCellValue | ILinkCellValue[];
@@ -45,7 +46,8 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   props,
   forwardRef
 ) => {
-  const { type, rowCount, cellValue, recordQuery, isMultiple, onChange, onExpand } = props;
+  const { readonly, type, rowCount, cellValue, recordQuery, isMultiple, onChange, onExpand } =
+    props;
 
   useImperativeHandle(forwardRef, () => ({
     onReset,
@@ -77,12 +79,14 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   const componentId = useMemo(() => uniqueId('link-editor-'), []);
 
   const rowControls = useMemo(() => {
-    const controls = [
-      {
+    const controls = [];
+
+    if (!readonly) {
+      controls.push({
         type: RowControlType.Checkbox,
         icon: RowControlType.Checkbox,
-      },
-    ];
+      });
+    }
 
     if (isExpandEnable) {
       controls.push({
@@ -91,7 +95,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
       });
     }
     return controls;
-  }, [isExpandEnable]);
+  }, [isExpandEnable, readonly]);
 
   useEffect(() => {
     if (!rowCount) return;
@@ -197,7 +201,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
         customIcons={customIcons}
         rowControls={rowControls}
         draggable={DraggableType.None}
-        selectable={SelectableType.Row}
+        selectable={readonly ? SelectableType.None : SelectableType.Row}
         isMultiSelectionEnable={isMultiple}
         onItemHovered={onItemHovered}
         getCellContent={getCellContent}

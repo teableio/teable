@@ -39,6 +39,7 @@
       "placeholder": "Select records to link",
       "searchPlaceholder": "Search records",
       "create": "Add Record",
+      "selectRecord": "Select Record",
       "unselected": "Unselected",
       "selected": "Selected"
     }

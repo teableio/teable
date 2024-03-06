@@ -15,6 +15,7 @@ import { initApp, deleteTable } from './utils/init-app';
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
 const csvTmpPath = 'test.csv';
+const textTmpPath = 'test.txt';
 const data = `field_1,field_2,field_3,field_4,field_5,field_6
 1,string_1,true,2022-11-10 16:00:00,,"long
 text"
@@ -46,6 +47,7 @@ const assertHeaders = [
   },
 ];
 let csvUrl: string;
+let textUrl: string;
 
 beforeAll(async () => {
   const appCtx = await initApp();
@@ -53,6 +55,10 @@ beforeAll(async () => {
   fs.writeFileSync(csvTmpPath, data);
   const fileData = fs.readFileSync(csvTmpPath);
   const fileStats = fs.statSync(csvTmpPath);
+
+  fs.writeFileSync(textTmpPath, data);
+  const textFileData = fs.readFileSync(textTmpPath);
+  const textStats = fs.statSync(textTmpPath);
 
   const { token, requestHeaders } = (
     await apiGetSignature(
@@ -65,15 +71,34 @@ beforeAll(async () => {
     )
   ).data;
 
+  const { token: txtToken, requestHeaders: txtRequestHeaders } = (
+    await apiGetSignature(
+      {
+        type: 1,
+        contentLength: textStats.size,
+        contentType: 'text/plain',
+      },
+      undefined
+    )
+  ).data;
+
   await apiUploadFile(token, fileData, requestHeaders);
 
+  await apiUploadFile(txtToken, textFileData, txtRequestHeaders);
+
   const res = await apiNotify(token);
+  const txtRes = await apiNotify(txtToken);
   csvUrl = res.data.presignedUrl;
+  textUrl = txtRes.data.presignedUrl;
 });
 
 afterAll(async () => {
   await app.close();
   fs.unlink(csvTmpPath, (err) => {
+    if (err) throw err;
+    console.log('delete csv tmp file success!');
+  });
+  fs.unlink(textTmpPath, (err) => {
     if (err) throw err;
     console.log('delete csv tmp file success!');
   });
@@ -89,6 +114,18 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
     });
     const calculatedColumnHeaders = worksheets[0].columns;
     expect(calculatedColumnHeaders).toEqual(assertHeaders);
+  });
+
+  it(`should return 400, when url file type is not csv`, async () => {
+    await expect(
+      apiAnalyzeFile({
+        attachmentUrl: textUrl,
+        fileType: SUPPORTEDTYPE.CSV,
+      })
+    ).rejects.toMatchObject({
+      status: 400,
+      code: 'validation_error',
+    });
   });
 });
 

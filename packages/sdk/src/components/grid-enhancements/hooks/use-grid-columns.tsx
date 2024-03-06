@@ -5,7 +5,14 @@ import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
-import { CellType, getFileCover, hexToRGBA, onMixedTextClick } from '../..';
+import {
+  CellType,
+  hexToRGBA,
+  getFileCover,
+  findClosestWidth,
+  convertNextImageUrl,
+  onMixedTextClick,
+} from '../..';
 import { ThemeKey } from '../../../context';
 import { useFields, useTablePermission, useTheme, useView } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
@@ -19,6 +26,7 @@ import {
   GridLinkEditor,
   GridNumberEditor,
   GridSelectEditor,
+  expandPreviewModal,
 } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
 
@@ -336,6 +344,7 @@ export const createCellValue2GridDisplay =
           choices,
           isMultiple,
           editorWidth: 220,
+          isEditingOnClick: true,
           customEditor: (props, editorRef) => (
             <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
           ),
@@ -357,9 +366,13 @@ export const createCellValue2GridDisplay =
       }
       case FieldType.Attachment: {
         const cv = (cellValue ?? []) as IAttachmentCellValue;
-        const data = cv.map(({ id, mimetype, presignedUrl }) => ({
+        const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => ({
           id,
-          url: getFileCover(mimetype, presignedUrl),
+          url: convertNextImageUrl({
+            url: getFileCover(mimetype, presignedUrl),
+            w: findClosestWidth(width as number, height as number),
+            q: 75,
+          }),
         }));
         const displayData = data.map(({ url }) => url);
         return {
@@ -367,6 +380,13 @@ export const createCellValue2GridDisplay =
           type: CellType.Image,
           data,
           displayData,
+          onPreview: (activeId: string) => {
+            expandPreviewModal({
+              activeId,
+              field,
+              record,
+            });
+          },
           customEditor: (props) => (
             <GridAttachmentEditor field={field} record={record} {...props} />
           ),

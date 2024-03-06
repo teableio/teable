@@ -4,8 +4,8 @@ import { FilePreviewContext } from './FilePreviewContext';
 import { genFileId } from './genFileId';
 
 export interface IFilePreviewDialogRef {
-  openPreview?: (activeId?: IFileId) => void;
-  closePreview?: () => void;
+  openPreview: (activeId?: IFileId) => void;
+  closePreview: () => void;
 }
 
 interface IFilePreviewDialogProps {
@@ -15,7 +15,7 @@ interface IFilePreviewDialogProps {
 export const FilePreviewDialog = forwardRef<IFilePreviewDialogRef, IFilePreviewDialogProps>(
   (props, ref) => {
     const { files } = props;
-    const filesRef = useRef<IFileItem[]>(files);
+    const filesRef = useRef<IFileItem[]>();
     const {
       currentFile,
       files: oldFiles,
@@ -24,7 +24,7 @@ export const FilePreviewDialog = forwardRef<IFilePreviewDialogRef, IFilePreviewD
       resetFiles,
     } = useContext(FilePreviewContext);
     useImperativeHandle(ref, () => ({
-      openFilePreview: (activeId?: number | string) => {
+      openPreview: (activeId?: number | string) => {
         openPreview(activeId);
       },
       closePreview: () => {
