@@ -20,10 +20,10 @@ import { CustomHttpException, getDefaultCodeByStatus } from '../custom.exception
 export class GlobalExceptionFilter implements ExceptionFilter {
   private logger = new Logger(GlobalExceptionFilter.name);
 
-  constructor(private readonly configService: ConfigService<ILoggerConfig>) {}
+  constructor(private readonly configService: ConfigService) {}
 
   catch(exception: Error | HttpException, host: ArgumentsHost) {
-    const enableGlobalErrorLogging = this.configService.get<boolean>('enableGlobalErrorLogging');
+    const { enableGlobalErrorLogging } = this.configService.getOrThrow<ILoggerConfig>('logger');
 
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
