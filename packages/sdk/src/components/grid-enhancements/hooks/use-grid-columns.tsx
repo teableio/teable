@@ -10,6 +10,7 @@ import {
   hexToRGBA,
   getFileCover,
   findClosestWidth,
+  isSystemFileIcon,
   convertNextImageUrl,
   onMixedTextClick,
 } from '../..';
@@ -366,14 +367,19 @@ export const createCellValue2GridDisplay =
       }
       case FieldType.Attachment: {
         const cv = (cellValue ?? []) as IAttachmentCellValue;
-        const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => ({
-          id,
-          url: convertNextImageUrl({
-            url: getFileCover(mimetype, presignedUrl),
-            w: findClosestWidth(width as number, height as number),
-            q: 75,
-          }),
-        }));
+        const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => {
+          const url = getFileCover(mimetype, presignedUrl);
+          return {
+            id,
+            url: isSystemFileIcon(mimetype)
+              ? url
+              : convertNextImageUrl({
+                  url,
+                  w: findClosestWidth(width as number, height as number),
+                  q: 75,
+                }),
+          };
+        });
         const displayData = data.map(({ url }) => url);
         return {
           ...baseCellProps,
