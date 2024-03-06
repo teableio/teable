@@ -39,15 +39,15 @@ export const GridFilePreviewer = (props: IGridFilePreviewerProps) => {
   );
 };
 
-let preCloseModalFn = noop;
+let closeModalFn = noop;
 
-export const expandPreviewModalClose = () => {
-  preCloseModalFn();
-  preCloseModalFn = noop;
+export const closePreviewModal = () => {
+  closeModalFn();
+  closeModalFn = noop;
 };
 
 export const expandPreviewModal = (props: IGridFilePreviewerProps) => {
-  preCloseModalFn();
+  closeModalFn();
   const div = document.createElement('div');
   document.body.appendChild(div);
   const root = createRoot(div);
@@ -57,7 +57,7 @@ export const expandPreviewModal = (props: IGridFilePreviewerProps) => {
       div.parentNode.removeChild(div);
     }
   };
-  preCloseModalFn = close;
+  closeModalFn = close;
 
   const render = (props: IGridFilePreviewerProps) => {
     root.render(<GridFilePreviewer {...props} />);

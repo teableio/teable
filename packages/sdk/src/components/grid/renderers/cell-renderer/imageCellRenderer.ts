@@ -51,7 +51,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
   draw: (cell: IImageCell, props: ICellRenderProps) => {
     const { rect, columnIndex, rowIndex, theme, ctx, imageManager, isActive, spriteManager } =
       props;
-    const { iconSizeSM } = theme;
+    const { iconSizeSM, cellLineColor } = theme;
     const { data, readonly } = cell;
     const { x, y, width, height } = rect;
     const editable = !readonly && isActive;
@@ -88,6 +88,14 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
       if (drawX > x + width) break;
       const { id, img } = imgItem;
       const imgWidth = img.width * (imgHeight / img.height);
+      drawRect(ctx, {
+        x: drawX,
+        y: y + cellVerticalPaddingXS,
+        width: imgWidth,
+        height: imgHeight,
+        radius: INNER_PADDING,
+        stroke: cellLineColor,
+      });
 
       ctx.save();
       drawRect(ctx, {
