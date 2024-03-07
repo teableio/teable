@@ -23,7 +23,6 @@ COPY --link . .
 
 RUN pnpm install --prefer-offline --frozen-lockfile
 RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
-RUN chmod +x ./scripts/semver.mjs && zx ./scripts/semver.mjs
 
 ###################################################################
 # Stage 2: Build the app                                          #
@@ -32,18 +31,23 @@ RUN chmod +x ./scripts/semver.mjs && zx ./scripts/semver.mjs
 FROM deps AS builder
 
 ARG INTEGRATION_TEST
+ARG BUILD_VERSION="1.0.0-alpha"
+ARG SENTRY_ENABLED=false
+ARG SENTRY_TRACING=false
 
+ENV NODE_ENV=production
 ENV NEXT_BUILD_ENV_TYPECHECK=false
 ENV NEXT_BUILD_ENV_LINT=false
 ENV NEXT_BUILD_ENV_OUTPUT=classic
-ENV NEXT_BUILD_ENV_SENTRY_ENABLED=false
-ENV NEXT_BUILD_ENV_SENTRY_TRACING=false
-
-ENV NODE_ENV=production
+ENV NEXT_BUILD_ENV_SENTRY_ENABLED=$SENTRY_ENABLED
+ENV NEXT_BUILD_ENV_SENTRY_TRACING=$SENTRY_TRACING
 
 WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
+
+RUN set -eux; \
+    sed -i~ '$a\NEXT_PUBLIC_BUILD_VERSION=$BUILD_VERSION' apps/nextjs-app/.env
 
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ]; then \
@@ -64,8 +68,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 RUN rm -fr node_modules && pnpm nuke:node_modules && \
-      chmod +x ./scripts/post-build-cleanup.mjs && zx ./scripts/post-build-cleanup.mjs && \
-      chmod +x ./scripts/semver.mjs && zx ./scripts/semver.mjs
+      chmod +x ./scripts/post-build-cleanup.mjs && zx ./scripts/post-build-cleanup.mjs
 
 RUN pnpm install --prod --prefer-offline --frozen-lockfile
 RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
