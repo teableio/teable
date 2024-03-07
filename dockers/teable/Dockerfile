@@ -23,6 +23,7 @@ COPY --link . .
 
 RUN pnpm install --prefer-offline --frozen-lockfile
 RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+RUN chmod +x ./scripts/semver.mjs && zx ./scripts/semver.mjs
 
 ###################################################################
 # Stage 2: Build the app                                          #
@@ -43,8 +44,6 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
-
-RUN chmod +x ./scripts/semver.mjs && zx ./scripts/semver.mjs
 
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ]; then \

@@ -40,9 +40,6 @@ runs:
   using: 'composite'
 
   steps:
-    - name: ⚙️ Set env
-      shell: bash
-      run: echo "GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c 1-6)" >> $GITHUB_ENV
     - name: ⚙️ Docker meta
       id: meta
       uses: docker/metadata-action@v5
@@ -59,6 +56,11 @@ runs:
 
     - name: 📦 Build and push（Dockerfile）
       uses: docker/build-push-action@v5
+      env:
+        GITHUB_ACTIONS: $env:GITHUB_ACTIONS
+        GITHUB_REF_TYPE: $GITHUB_REF_TYPE
+        GITHUB_RUN_NUMBER: GITHUB_RUN_NUMBER
+        GITHUB_SHA: GITHUB_SHA
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
