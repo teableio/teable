@@ -8,6 +8,11 @@ import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-tabl
 import { useFields } from '@teable/sdk/hooks';
 
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +22,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import * as React from 'react';
+import { baseConfig } from '@/features/i18n/base.config';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -30,7 +36,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const fieldInstances = useFields();
   const reactiveData = (fieldInstances || data) as TData[];
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(baseConfig.i18nNamespaces);
   const table = useReactTable({
     data: reactiveData,
     columns,
@@ -50,8 +56,12 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
   });
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-md border">
+    <Card>
+      <CardHeader className="py-4">
+        <CardTitle>{t('table:field.fieldManagement')}</CardTitle>
+        <CardDescription>{t('table:field.fieldManagementDesc')}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col p-0 px-2">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -88,7 +98,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
             )}
           </TableBody>
         </Table>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -8,28 +8,26 @@ import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
 import { DriverClient, parseDsn } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IDbConnectionVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import type { IBaseConfig } from '../../configs/base.config';
+import { BaseConfig, type IBaseConfig } from '../../configs/base.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class DbConnectionService {
-  private readonly baseConfig: IBaseConfig;
-
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
-  ) {
-    this.baseConfig = this.configService.get<IBaseConfig>('base')!;
-  }
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @BaseConfig() private readonly baseConfig: IBaseConfig
+  ) {}
 
   private getUrlFromDsn(dsn: IDsn): string {
     const { driver, host, port, db, user, pass, params } = dsn;
@@ -106,7 +104,14 @@ export class DbConnectionService {
     return Boolean(roleExists[0].count);
   }
 
-  async retrieve(baseId: string): Promise<{ dsn: IDsn; url: string } | null> {
+  private async getConnectionCount(role: string): Promise<number> {
+    const roleExists = await this.prismaService.$queryRaw<
+      { count: bigint }[]
+    >`SELECT COUNT(*) FROM pg_stat_activity WHERE usename=${role}`;
+    return Number(roleExists[0].count);
+  }
+
+  async retrieve(baseId: string): Promise<IDbConnectionVo | null> {
     if (this.dbProvider.driver !== DriverClient.Pg) {
       throw new BadRequestException(`Unsupported database driver: ${this.dbProvider.driver}`);
     }
@@ -133,8 +138,10 @@ export class DbConnectionService {
       throw new InternalServerErrorException(`Role does not exist: ${readOnlyRole}`);
     }
 
+    const currentConnections = await this.getConnectionCount(readOnlyRole);
+
     // Construct the DSN for the read-only role
-    const dsn: IDsn = {
+    const dsn: IDbConnectionVo['dsn'] = {
       driver: DriverClient.Pg,
       host: originDsn.host,
       port: originDsn.port,
@@ -151,6 +158,10 @@ export class DbConnectionService {
 
     return {
       dsn,
+      connection: {
+        max: this.baseConfig.defaultMaxBaseDBConnections,
+        current: currentConnections,
+      },
       url,
     };
   }
@@ -195,8 +206,8 @@ export class DbConnectionService {
         await prisma.$executeRawUnsafe(
           this.knex
             .raw(
-              `CREATE ROLE ?? WITH LOGIN PASSWORD ? NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION`,
-              [readOnlyRole, password]
+              `CREATE ROLE ?? WITH LOGIN PASSWORD ? NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION CONNECTION LIMIT ?`,
+              [readOnlyRole, password, this.baseConfig.defaultMaxBaseDBConnections]
             )
             .toQuery()
         );
@@ -220,7 +231,7 @@ export class DbConnectionService {
             .toQuery()
         );
 
-        const dsn = {
+        const dsn: IDbConnectionVo['dsn'] = {
           driver: DriverClient.Pg,
           host: originDsn.host,
           port: originDsn.port,
@@ -234,6 +245,10 @@ export class DbConnectionService {
 
         return {
           dsn,
+          connection: {
+            max: this.baseConfig.defaultMaxBaseDBConnections,
+            current: 0,
+          },
           url: this.getUrlFromDsn(dsn),
         };
       });
