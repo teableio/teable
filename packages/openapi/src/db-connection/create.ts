@@ -19,6 +19,10 @@ export const dbConnectionVoSchema = z.object({
     pass: z.string().optional(),
     params: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
   }),
+  connection: z.object({
+    max: z.number(),
+    current: z.number(),
+  }),
   url: z.string().openapi({ description: 'The URL that can be used to connect to the database' }),
 });
 
@@ -42,7 +46,7 @@ export const CreateDbConnectionRoute: RouteConfig = registerRoute({
       description: 'Connection created successfully',
       content: {
         'application/json': {
-          schema: dbConnectionVoSchema,
+          schema: dbConnectionVoSchema.nullable(),
         },
       },
     },

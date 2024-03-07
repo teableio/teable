@@ -20,7 +20,7 @@ import {
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { maxBy, isEmpty, merge } from 'lodash';
+import { isEmpty, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
@@ -62,7 +62,7 @@ export class ViewService implements IAdapterService {
     name = getUniqName(name ?? 'New view', names);
 
     if (order == null) {
-      const maxOrder = maxBy(viewRaws)?.order;
+      const maxOrder = viewRaws[viewRaws.length - 1].order;
       order = maxOrder == null ? 0 : maxOrder + 1;
     }
     return { name, order };
@@ -158,7 +158,7 @@ export class ViewService implements IAdapterService {
       orderBy: { order: 'asc' },
     });
 
-    return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as IViewVo);
+    return viewRaws.map((viewRaw) => createViewVoByRaw(viewRaw));
   }
 
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {

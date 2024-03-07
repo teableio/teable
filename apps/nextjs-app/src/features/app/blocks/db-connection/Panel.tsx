@@ -1,13 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Database } from '@teable/icons';
+import { Copy, Database, HelpCircle } from '@teable/icons';
 import { deleteDbConnection, getDbConnection, createDbConnection } from '@teable/openapi';
-import { useBase } from '@teable/sdk/hooks';
-import { Button, CardDescription, Input, Label, Skeleton } from '@teable/ui-lib/shadcn';
+import { useBase, useTablePermission } from '@teable/sdk/hooks';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Skeleton,
+} from '@teable/ui-lib/shadcn';
+import { Trans, useTranslation } from 'next-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 
-export const DbConnectionPanel: React.FC = () => {
+const ContentCard = () => {
   const base = useBase();
   const queryClient = useQueryClient();
-
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { data, isLoading } = useQuery({
     queryKey: ['connection', base.id],
     queryFn: ({ queryKey }) => getDbConnection(queryKey[1]),
@@ -24,30 +36,36 @@ export const DbConnectionPanel: React.FC = () => {
       queryClient.invalidateQueries(['connection', base.id]);
     },
   });
-
   const dataArray = data?.data?.dsn
     ? Object.entries(data?.data?.dsn).map(([label, value]) => {
         if (label === 'params') {
           return {
             label,
+            type: 'text',
             value: Object.entries(value)
               .map((v) => v.join('='))
               .join('&'),
           };
         }
-        return { label, value: String(value ?? '') };
+        if (label === 'pass') {
+          return {
+            label,
+            type: 'password',
+            value: String(value ?? ''),
+          };
+        }
+        return { label, type: 'text', value: String(value ?? '') };
       })
     : [];
+
   dataArray.unshift({
     label: 'url',
+    type: 'text',
     value: data?.data?.url || '',
   });
 
   return (
-    <div className="flex flex-col gap-8">
-      <CardDescription>
-        A db connection url that directly access to all tables in the base
-      </CardDescription>
+    <div className="flex flex-col gap-4">
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-6 w-full" />
@@ -59,14 +77,30 @@ export const DbConnectionPanel: React.FC = () => {
       ) : (
         <>
           <div className="flex flex-col gap-2">
-            {dataArray.map(({ label, value }) => (
+            {dataArray.map(({ label, type, value }) => (
               <div key={label} className="flex flex-col gap-2">
                 {data?.data ? (
                   <div className="flex items-center gap-2">
                     <Label className="w-20" htmlFor="subject">
                       {label}
                     </Label>
-                    <Input readOnly value={value} />
+                    <Input
+                      readOnly
+                      data-pass={label === 'pass' ? true : undefined}
+                      type={type}
+                      value={value}
+                      onMouseEnter={(e) => {
+                        if ((e.target as HTMLInputElement).type === 'password') {
+                          (e.target as HTMLInputElement).type = 'text';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        console.log(e.target);
+                        if ((e.target as HTMLInputElement).getAttribute('data-pass')) {
+                          (e.target as HTMLInputElement).type = 'password';
+                        }
+                      }}
+                    />
                     <Button
                       className="shrink-0"
                       size="icon"
@@ -86,19 +120,56 @@ export const DbConnectionPanel: React.FC = () => {
               </div>
             ))}
           </div>
+          {data?.data && (
+            <div className="text-sm text-secondary-foreground">
+              <Trans
+                ns="table"
+                i18nKey="connection.connectionCountTip"
+                components={{ b: <b /> }}
+                values={{
+                  max: data?.data?.connection.max,
+                  current: data?.data?.connection.current,
+                }}
+              />
+            </div>
+          )}
           <div className="flex justify-end">
             {data?.data ? (
               <Button size="sm" onClick={() => mutationDelete.mutate(base.id)}>
-                Delete
+                {t('common:actions.delete')}
               </Button>
             ) : (
               <Button size="sm" onClick={() => mutationCreate.mutate(base.id)}>
-                Create
+                {t('common:actions.create')}
               </Button>
             )}
           </div>
         </>
       )}
     </div>
+  );
+};
+
+export const DbConnectionPanel = ({ className }: { className?: string }) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permissions = useTablePermission();
+
+  return (
+    <Card className={className}>
+      <CardHeader className="py-4">
+        <CardTitle>
+          {t('table:connection.title')}
+          <Button variant="ghost" size="icon">
+            <a href={t('table:connection.helpLink')} target="_blank" rel="noreferrer">
+              <HelpCircle className="size-4" />
+            </a>
+          </Button>
+        </CardTitle>
+        <CardDescription>{t('table:connection.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col">
+        {permissions['base|create'] ? <ContentCard /> : t('table:connection.noPermission')}
+      </CardContent>
+    </Card>
   );
 };

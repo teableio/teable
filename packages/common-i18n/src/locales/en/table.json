@@ -4,6 +4,7 @@
   },
   "field": {
     "fieldManagement": "Field Management",
+    "fieldManagementDesc": "Detailed properties for all fields of the current table",
     "editor": {
       "addField": "Add Field",
       "editField": "Edit Field",
@@ -164,6 +165,13 @@
     "hideField": "Hide field",
     "deleteField": "Delete field",
     "deleteAllSelectedFields": "Delete all selected fields"
+  },
+  "connection": {
+    "title": "Database Connection",
+    "description": "You can access the database directly through the database connection, including all the tables under the current base",
+    "noPermission": "You don't have permission to access the database",
+    "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
+    "helpLink": "https://help.teable.io/developer/api/database-connection"
   },
   "view": {
     "addRecord": "Add record",

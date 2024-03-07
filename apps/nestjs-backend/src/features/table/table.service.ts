@@ -238,6 +238,7 @@ export class TableService implements IAdapterService {
     const viewRaw = await this.prismaService.view.findFirst({
       where: { tableId, deletedTime: null },
       select: { id: true },
+      orderBy: { order: 'asc' },
     });
     if (!viewRaw) {
       throw new NotFoundException('Table No found');
@@ -389,6 +390,7 @@ export class TableService implements IAdapterService {
   async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { baseId, id: { in: ids }, deletedTime: null },
+      orderBy: { order: 'asc' },
     });
     const tableTime = await this.getTableLastModifiedTime(ids);
     const tableDefaultViewIds = await this.getTableDefaultViewId(ids);
