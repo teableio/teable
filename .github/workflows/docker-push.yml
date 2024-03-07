@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - chore/upgrade
 
 jobs:
   build-push:
@@ -40,6 +41,11 @@ jobs:
 
       - name: 📦 Build and push
         uses: ./.github/actions/docker-build-push
+        env:
+          GITHUB_ACTIONS: $env:GITHUB_ACTIONS
+          GITHUB_REF_TYPE: GITHUB_REF_TYPE
+          GITHUB_RUN_NUMBER: GITHUB_RUN_NUMBER
+          GITHUB_SHA: GITHUB_SHA
         with:
           context: .
           dockerfile: dockers/teable/${{ matrix.file }}

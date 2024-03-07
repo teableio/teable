@@ -2,17 +2,20 @@
 
 const env = $.env;
 
+console.log('all environment variables: ', env);
+
 const nextjsDir = env.NEXTJS_DIR ?? 'apps/nextjs-app';
 const envPath = `${nextjsDir}/.env`;
 const { version } = await fs.readJson(`${nextjsDir}/package.json`);
-let semver = `${version}-develop`;
+let semver = `${version}-alpha`;
 
 if (env.GITHUB_ACTIONS) {
   // github action
+  const refType = env.GITHUB_REF_TYPE;
   const runNumber = env.GITHUB_RUN_NUMBER;
   const sha = env.GITHUB_SHA.substring(0, 7);
 
-  switch (env.GITHUB_REF_TYPE) {
+  switch (refType) {
     case 'branch':
       semver = `${version}-alpha+build.${runNumber}.sha-${sha}`;
       break;

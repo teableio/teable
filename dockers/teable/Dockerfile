@@ -87,31 +87,35 @@ RUN npm install zx -g && \
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN adduser --system --uid 1001 nodejs
 
-USER nextjs
+# Set the correct permission for local cache
+RUN mkdir .assets && chown nodejs:nodejs .assets && \
+    mkdir .temporary && chown nodejs:nodejs .temporary
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/next.config.js \
+USER nodejs
+
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/next.config.js \
                     /app/apps/nextjs-app/next-i18next.config.js \
                     /app/apps/nextjs-app/package.json \
                     /app/apps/nextjs-app/.env \
                     ./apps/nextjs-app/
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
 
-COPY --from=builder --chown=nextjs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
+COPY --from=builder --chown=nodejs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/packages ./packages
-COPY --from=post-builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=post-builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=post-builder --chown=nodejs:nodejs /app/packages ./packages
+COPY --from=post-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
 
-COPY --chown=nextjs:nodejs scripts/start.mjs ./scripts/start.mjs
+COPY --chown=nodejs:nodejs scripts/start.mjs ./scripts/start.mjs
 
 EXPOSE ${PORT}
 

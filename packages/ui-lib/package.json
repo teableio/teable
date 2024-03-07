@@ -64,8 +64,8 @@
     "@teable/eslint-config-bases": "workspace:^",
     "@testing-library/react": "14.2.1",
     "@types/node": "20.9.0",
-    "@types/react": "18.2.60",
-    "@types/react-dom": "18.2.19",
+    "@types/react": "18.2.64",
+    "@types/react-dom": "18.2.21",
     "autoprefixer": "10.4.18",
     "core-js": "3.36.0",
     "cross-env": "7.0.3",
@@ -84,7 +84,7 @@
     "sirv-cli": "2.0.2",
     "tailwindcss": "3.4.1",
     "tsconfig-paths-webpack-plugin": "4.1.0",
-    "typescript": "5.3.3",
+    "typescript": "5.4.2",
     "webpack": "5.90.2"
   },
   "dependencies": {
