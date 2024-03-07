@@ -44,6 +44,8 @@ WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
 
+RUN chmod +x ./scripts/semver.mjs && zx ./scripts/semver.mjs
+
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ]; then \
         pnpm -F "./packages/**" run build; \

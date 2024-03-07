@@ -40,6 +40,9 @@ runs:
   using: 'composite'
 
   steps:
+    - name: ⚙️ Set env
+      shell: bash
+      run: echo "GITHUB_SHA_SHORT=$(echo $GITHUB_SHA | cut -c 1-6)" >> $GITHUB_ENV
     - name: ⚙️ Docker meta
       id: meta
       uses: docker/metadata-action@v5
