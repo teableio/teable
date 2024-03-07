@@ -69,5 +69,5 @@ jobs:
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
               --cache-from=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache \
               --cache-to=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max \
-              --tag=${{ steps.meta.outputs.tags }} \
+              --tag="${{ steps.meta.outputs.tags }}" \
               --push
