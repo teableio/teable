@@ -229,14 +229,14 @@ describe('OpenAPI TableController (e2e)', () => {
     await updateTableName(baseId, tableId, { name: 'newTableName' });
     await updateTableDescription(baseId, tableId, { description: 'newDescription' });
     await updateTableIcon(baseId, tableId, { icon: '😀' });
-    await updateTableOrder(baseId, tableId, { order: 1.1 });
+    await updateTableOrder(baseId, tableId, { order: 1.11 });
 
     const table = await getTable(baseId, tableId);
 
     expect(table.name).toEqual('newTableName');
     expect(table.description).toEqual('newDescription');
     expect(table.icon).toEqual('😀');
-    expect(table.order).toEqual(1.1);
+    expect(table.order).toEqual(1.11);
   });
 
   it('should delete table and clean up link and lookup fields', async () => {

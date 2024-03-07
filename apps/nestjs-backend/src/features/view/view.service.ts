@@ -62,7 +62,7 @@ export class ViewService implements IAdapterService {
     name = getUniqName(name ?? 'New view', names);
 
     if (order == null) {
-      const maxOrder = viewRaws[viewRaws.length - 1].order;
+      const maxOrder = viewRaws[viewRaws.length - 1]?.order;
       order = maxOrder == null ? 0 : maxOrder + 1;
     }
     return { name, order };
