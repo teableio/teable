@@ -46,11 +46,11 @@ const getSemver = async () => {
   return semver;
 };
 
-const toArray = (input) => {
+const toArray = (input, commaSplit = false) => {
   if (input === undefined) {
     return [];
   }
-  if (typeof input === 'string') {
+  if (typeof input === 'string' && !commaSplit) {
     return input.split(',').map((item) => item.trim());
   }
   if (Array.isArray(input)) {
@@ -79,7 +79,7 @@ const buildArgs = toArray(buildArg);
 const cacheFrom = toArray(cacheFromArg);
 const cacheTo = toArray(cacheToArg);
 const tags = toArray(tag);
-const platforms = toArray(platformsArg);
+const platforms = toArray(platformsArg, true);
 const push = toBoolean(pushArg);
 
 const command = ['docker', 'buildx', 'build'];
