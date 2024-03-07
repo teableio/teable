@@ -50,7 +50,7 @@ const toArray = (input, commaSplit = false) => {
   if (input === undefined) {
     return [];
   }
-  if (typeof input === 'string' && !commaSplit) {
+  if (typeof input === 'string' && commaSplit) {
     return input.split(',').map((item) => item.trim());
   }
   if (Array.isArray(input)) {
