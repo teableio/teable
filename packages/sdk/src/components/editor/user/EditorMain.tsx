@@ -18,6 +18,7 @@ import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useBase } from '../../../hooks';
+import { convertNextImageUrl } from '../../grid-enhancements';
 import type { ICellEditor } from '../type';
 
 export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUserCellValue[]> {
@@ -81,7 +82,14 @@ export function UserEditorMain(props: IUserEditorMainProps) {
               >
                 <div className="flex items-center space-x-4">
                   <Avatar className="box-content size-7 cursor-pointer border">
-                    <AvatarImage src={avatar as string} alt="avatar-name" />
+                    <AvatarImage
+                      src={convertNextImageUrl({
+                        url: avatar as string,
+                        w: 64,
+                        q: 75,
+                      })}
+                      alt={userName}
+                    />
                     <AvatarFallback className="text-sm">{userName.slice(0, 1)}</AvatarFallback>
                   </Avatar>
                   <div>

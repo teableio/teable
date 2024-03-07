@@ -8,6 +8,7 @@ import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBase, useSession } from '../../../hooks';
 import type { UserField } from '../../../model';
+import { convertNextImageUrl } from '../../grid-enhancements';
 import { BaseMultipleSelect, BaseSingleSelect } from './base';
 
 interface IFilterUserProps {
@@ -64,7 +65,14 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
               </span>
             ) : (
               <>
-                <AvatarImage src={option.avatar as string} alt="avatar-name" />
+                <AvatarImage
+                  src={convertNextImageUrl({
+                    url: option.avatar as string,
+                    w: 64,
+                    q: 75,
+                  })}
+                  alt={option.label}
+                />
                 <AvatarFallback className="text-sm">{option.label.slice(0, 1)}</AvatarFallback>
               </>
             )}
@@ -89,7 +97,14 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
               </span>
             ) : (
               <>
-                <AvatarImage src={option.avatar as string} alt="avatar-name" />
+                <AvatarImage
+                  src={convertNextImageUrl({
+                    url: option.avatar as string,
+                    w: 64,
+                    q: 75,
+                  })}
+                  alt={option.label}
+                />
                 <AvatarFallback className="text-sm">{option.label.slice(0, 1)}</AvatarFallback>
               </>
             )}

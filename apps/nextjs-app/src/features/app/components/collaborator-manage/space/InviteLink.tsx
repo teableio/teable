@@ -19,6 +19,7 @@ import {
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { map } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { RoleSelect } from './RoleSelect';
 import { getRolesWithLowerPermissions } from './utils';
@@ -33,6 +34,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
   const { spaceId, role } = props;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation('common');
 
   const linkList = useQuery({
     queryKey: ['invite-link-list', spaceId],
@@ -55,7 +57,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
 
   const copyInviteUrl = async (url: string) => {
     await navigator.clipboard.writeText(url);
-    toast({ title: 'Link copied' });
+    toast({ title: t('invite.dialog.linkCopySuccess') });
   };
 
   const spaceRoleStatic = useSpaceRoleStatic();
@@ -70,7 +72,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
 
   return (
     <div>
-      <div className="mb-3 text-sm text-muted-foreground">Invite links</div>
+      <div className="mb-3 text-sm text-muted-foreground">{t('invite.dialog.linkTitle')}</div>
       <div className="space-y-3">
         {linkList.map(({ invitationId, inviteUrl, createdTime, role }) => (
           <div key={invitationId} className="relative flex items-center gap-3 pr-7">
@@ -82,7 +84,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
               />
             </div>
             <div className="text-xs text-muted-foreground">
-              created {dayjs(createdTime).fromNow()}
+              {t('invite.dialog.linkCreatedTime', { createdTime: dayjs(createdTime).fromNow() })}
             </div>
             <RoleSelect
               value={role}
@@ -106,7 +108,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Remove link</p>
+                  <p>{t('invite.dialog.linkRemove')}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

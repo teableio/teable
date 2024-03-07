@@ -90,6 +90,6 @@ export abstract class View extends ViewCore {
   }
 
   async setShareMeta(shareMeta: IShareViewMeta) {
-    return await requestWrap(updateViewShareMeta)(this.tableId, this.id, { shareMeta });
+    return await requestWrap(updateViewShareMeta)(this.tableId, this.id, shareMeta);
   }
 }

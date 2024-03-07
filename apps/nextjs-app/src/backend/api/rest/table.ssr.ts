@@ -6,6 +6,7 @@ import type {
   IGetBaseVo,
   IGetDefaultViewIdVo,
   IGetSpaceVo,
+  IUpdateNotifyStatusRo,
   ListSpaceCollaboratorVo,
   ShareViewGetVo,
 } from '@teable/openapi';
@@ -21,6 +22,7 @@ import {
   GET_TABLE_LIST,
   SHARE_VIEW_GET,
   SPACE_COLLABORATE_LIST,
+  UPDATE_NOTIFICATION_STATUS,
   urlBuilder,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
@@ -105,6 +107,12 @@ export class SsrApi {
   async getShareView(shareId: string) {
     return this.axios
       .get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }))
+      .then(({ data }) => data);
+  }
+
+  async updateNotificationStatus(notificationId: string, data: IUpdateNotifyStatusRo) {
+    return this.axios
+      .patch<void>(urlBuilder(UPDATE_NOTIFICATION_STATUS, { notificationId }), data)
       .then(({ data }) => data);
   }
 }

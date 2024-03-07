@@ -131,7 +131,7 @@ export class ShareDbService extends ShareDBClass {
     next: (err?: unknown) => void
   ) => {
     const tracer = otelTrace.getTracer('default');
-    const currentSpan = tracer.startSpan('Submit Op');
+    const currentSpan = tracer.startSpan('submitOp');
 
     // console.log('onSubmit start');
 

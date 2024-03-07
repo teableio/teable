@@ -109,7 +109,7 @@ export class ViewOpenApiController {
       tableId,
       viewId,
       'shareMeta',
-      viewShareMetaRo.shareMeta
+      viewShareMetaRo
     );
   }
 

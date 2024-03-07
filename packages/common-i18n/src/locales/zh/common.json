@@ -65,6 +65,10 @@
       "dark": "深色",
       "light": "浅色",
       "system": "系统"
+    },
+    "nav": {
+      "settings": "设置",
+      "logout": "退出登录"
     }
   },
   "noun": {
@@ -105,5 +109,25 @@
     "apiButtonTooltipContent": "Teable 提供了强大的 API，支持几乎所有的产品功能，允许开发者使用<a>令牌</a>进行调用。"
   },
   "token": "令牌",
-  "poweredBy": "<0></0> 提供技术支持"
+  "poweredBy": "<0></0> 提供技术支持",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}} 空间分享",
+      "desc": "这个空间有<b>{{count}} 个协作者</b>。添加一个空间协作者将使他们能够访问该空间内的所有数据库。",
+      "tabEmail": "通过电子邮件邀请",
+      "emailPlaceholder": "通过电子邮件邀请更多空间协作者",
+      "tabLink": "通过链接邀请",
+      "linkPlaceholder": "创建一个邀请链接，让任何打开它的人获得<0/>权限。",
+      "emailSend": "发送邀请",
+      "linkSend": "创建链接",
+      "spaceTitle": "空间协作者",
+      "collaboratorSearchPlaceholder": "按姓名或电子邮件查找空间协作者",
+      "collaboratorJoin": "加入于 {{joinTime}}",
+      "collaboratorRemove": "移除协作者",
+      "linkTitle": "邀请链接",
+      "linkCreatedTime": "创建于 {{createdTime}}",
+      "linkCopySuccess": "链接已复制",
+      "linkRemove": "移除链接"
+    }
+  }
 }

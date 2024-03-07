@@ -8,6 +8,7 @@ import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { StorageConfig, IStorageConfig } from '../../configs/storage';
 import type { IClsStore } from '../../types/cls';
+import { FileUtils } from '../../utils';
 import { second } from '../../utils/second';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
@@ -36,7 +37,7 @@ export class AttachmentsService {
     const { path, bucket } = tokenCache;
     const file = await localStorage.saveTemporaryFile(req);
     await localStorage.validateToken(token, file);
-    const hash = await localStorage.getHash(file.path);
+    const hash = await FileUtils.getHash(file.path);
     await localStorage.save(file.path, join(bucket, path));
 
     await this.cacheService.set(
@@ -116,7 +117,7 @@ export class AttachmentsService {
     }
     const userId = this.cls.get('user.id');
     const { path, bucket } = tokenCache;
-    const { hash, size, mimetype, width, height, url } = await this.storageAdapter.getObject(
+    const { hash, size, mimetype, width, height, url } = await this.storageAdapter.getObjectMeta(
       bucket,
       path,
       token

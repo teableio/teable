@@ -12,12 +12,14 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useSettingStore } from '../setting/useSettingStore';
 
 export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
   const { children } = props;
   const router = useRouter();
+  const { t } = useTranslation(['common']);
   const { user } = useSession();
   const setting = useSettingStore();
   const { mutateAsync: loginOut, isLoading } = useMutation({
@@ -42,11 +44,11 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
         <DropdownMenuSeparator />
         <DropdownMenuItem className="flex gap-2" onClick={() => setting.setOpen(true)}>
           <Settings className="size-4 shrink-0" />
-          Settings
+          {t('settings.nav.settings')}
         </DropdownMenuItem>
         <DropdownMenuItem className="flex gap-2" onClick={loginOutClick} disabled={isLoading}>
           <ExitIcon className="size-4 shrink-0" />
-          Log out
+          {t('settings.nav.logout')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

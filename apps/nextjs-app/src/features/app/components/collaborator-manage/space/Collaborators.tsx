@@ -23,6 +23,8 @@ import {
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';
+import Image from 'next/image';
+import { useTranslation } from 'next-i18next';
 import React, { useMemo, useState } from 'react';
 import { RoleSelect } from './RoleSelect';
 
@@ -47,6 +49,7 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
   const [search, setSearch] = useState<string>('');
   const queryClient = useQueryClient();
   const { user } = useSession();
+  const { t } = useTranslation('common');
 
   const { data: collaborators } = useQuery({
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
@@ -75,11 +78,11 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
 
   return (
     <div>
-      <div className="text-sm text-muted-foreground">Space collaborators</div>
+      <div className="text-sm text-muted-foreground">{t('invite.dialog.spaceTitle')}</div>
       <Input
         className="mb-5 mt-3 h-8"
         type="search"
-        placeholder="Find a space collaborator by name or email"
+        placeholder={t('invite.dialog.collaboratorSearchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
@@ -88,7 +91,9 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
           <div key={userId} className="relative flex items-center gap-3 pr-7">
             <div className="flex flex-1">
               <Avatar className="size-7">
-                <AvatarImage src={avatar as string} alt="avatar-name" />
+                <AvatarImage asChild src={avatar as string}>
+                  <Image src={avatar as string} alt={userName} width={28} height={28} />
+                </AvatarImage>
                 <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
               </Avatar>
               <div className="ml-2 flex flex-1 flex-col space-y-1">
@@ -97,7 +102,9 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
               </div>
             </div>
             <div className="text-xs text-muted-foreground">
-              joined {dayjs(createdTime).fromNow()}
+              {t('invite.dialog.collaboratorJoin', {
+                joinTime: dayjs(createdTime).fromNow(),
+              })}
             </div>
             <RoleSelect
               value={role}
@@ -121,7 +128,7 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Remove collaborator</p>
+                    <p>{t('invite.dialog.collaboratorRemove')}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

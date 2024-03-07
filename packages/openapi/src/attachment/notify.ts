@@ -29,7 +29,7 @@ export type INotifyVo = z.infer<typeof notifyVoSchema>;
 export const NotifyRoute: RouteConfig = registerRoute({
   method: 'post',
   path: NOTIFY_URL,
-  description: 'Attachment information',
+  description: 'Get Attachment information',
   request: {
     params: z.object({
       token: z.string(),

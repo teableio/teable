@@ -2,8 +2,8 @@ import type { DriverClient } from '@teable/core';
 import type { ShareViewGetVo } from '@teable/openapi';
 import { AnchorContext, AppProvider, FieldProvider, ViewProvider } from '@teable/sdk/context';
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
+import Head from 'next/head';
 import { useMemo } from 'react';
-import { useTitle } from 'react-use';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
 import { AppLayout } from '@/features/app/layouts';
 import { addQueryParamsToWebSocketUrl } from '@/features/app/utils/socket-url';
@@ -27,10 +27,11 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
     return undefined;
   }, [shareId]);
 
-  useTitle(view?.name ?? 'Teable');
-
   return (
     <ShareViewPageContext.Provider value={props.shareViewData}>
+      <Head>
+        <title>{view?.name ?? 'Teable'}</title>
+      </Head>
       <AppLayout>
         <AppProvider wsPath={wsPath} locale={sdkLocale} driver={props.driver}>
           <AnchorContext.Provider

@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable/openapi';
-import { useIsHydrated } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -15,7 +14,6 @@ export const SpaceInnerPage: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
-  const isHydrated = useIsHydrated();
   const spaceId = router.query.spaceId as string;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
@@ -68,7 +66,6 @@ export const SpaceInnerPage: React.FC = () => {
   };
 
   return (
-    isHydrated &&
     space && (
       <div ref={ref} className="flex size-full min-w-[760px] px-12 pt-8">
         <div className="w-full flex-1 space-y-6">

@@ -11,6 +11,7 @@ import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
 
 const Node: NextPageWithLayout<ITableProps> = ({
+  baseServerData,
   fieldServerData,
   viewServerData,
   recordsServerData,
@@ -18,6 +19,7 @@ const Node: NextPageWithLayout<ITableProps> = ({
 }) => {
   return (
     <Table
+      baseServerData={baseServerData}
       fieldServerData={fieldServerData}
       viewServerData={viewServerData}
       recordsServerData={recordsServerData}
@@ -27,10 +29,14 @@ const Node: NextPageWithLayout<ITableProps> = ({
 };
 
 export const getServerSideProps = withAuthSSR<IViewPageProps>(async (context, ssrApi) => {
-  const { tableId, viewId, baseId, recordId } = context.query;
+  const { tableId, viewId, baseId, recordId, fromNotify: notifyId } = context.query;
   try {
     let recordServerData;
     if (recordId) {
+      if (notifyId) {
+        await ssrApi.updateNotificationStatus(notifyId as string, { isRead: true });
+      }
+
       recordServerData = await ssrApi.getRecord(tableId as string, recordId as string);
 
       if (!recordServerData) {

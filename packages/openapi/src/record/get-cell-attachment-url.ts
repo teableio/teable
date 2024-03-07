@@ -13,7 +13,7 @@ export type GetCellAttachmentUrlVo = z.infer<typeof getCellAttachmentUrlVoSchema
 export const GetCellAttachmentUrlRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_CELL_ATTACHMENT_URL,
-  description: 'Get a record',
+  description: 'Get signed attachment url from cell',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -23,7 +23,7 @@ export const GetCellAttachmentUrlRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Get a cellValue attachment url',
+      description: 'a cellValue attachment url',
       content: {
         'application/json': {
           schema: getCellAttachmentUrlVoSchema,

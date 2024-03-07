@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import * as crypto from 'crypto';
 import { createReadStream, createWriteStream } from 'fs';
-import { resolve, join } from 'path';
+import { join, resolve, dirname } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
 import type { Request } from 'express';
@@ -173,20 +172,7 @@ export class LocalStorage implements StorageAdapter {
     };
   }
 
-  async getHash(path: string): Promise<string> {
-    const hash = crypto.createHash('sha256');
-    const fileReadStream = createReadStream(path);
-    fileReadStream.on('data', (data) => {
-      hash.update(data);
-    });
-    return new Promise((resolve) => {
-      fileReadStream.on('end', () => {
-        resolve(hash.digest('hex'));
-      });
-    });
-  }
-
-  async getObject(bucket: string, path: string, token: string): Promise<IObjectMeta> {
+  async getObjectMeta(bucket: string, path: string, token: string): Promise<IObjectMeta> {
     const uploadCache = await this.cacheService.get(`attachment:upload:${token}`);
     if (!uploadCache) {
       throw new BadRequestException(`Invalid token: ${token}`);
@@ -244,6 +230,21 @@ export class LocalStorage implements StorageAdapter {
     _metadata: Record<string, unknown>
   ) {
     this.save(filePath, join(bucket, path));
-    return join(this.readPath, path);
+    return join(this.readPath, bucket, path);
+  }
+
+  async uploadFile(
+    bucket: string,
+    path: string,
+    stream: Buffer,
+    _metadata?: Record<string, unknown>
+  ): Promise<string> {
+    const distPath = resolve(this.storageDir);
+    const newFilePath = resolve(distPath, join(bucket, path));
+
+    await fse.ensureDir(dirname(newFilePath));
+
+    await fse.writeFile(newFilePath, stream);
+    return join(this.readPath, bucket, path);
   }
 }
