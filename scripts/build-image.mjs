@@ -21,7 +21,7 @@
 const env = $.env;
 
 const getSemver = async () => {
-  console.log('all environment variables: ', env);
+  // console.log('all environment variables: ', env);
 
   const nextjsDir = env.NEXTJS_DIR ?? 'apps/nextjs-app';
   const { version } = await fs.readJson(`${nextjsDir}/package.json`);
@@ -46,12 +46,16 @@ const getSemver = async () => {
   return semver;
 };
 
-const toArray = (input, commaSplit = false) => {
+const toArray = (input, commaSplit = false, newlineSplit = false) => {
   if (input === undefined) {
     return [];
   }
-  if (typeof input === 'string' && commaSplit) {
-    return input.split(',').map((item) => item.trim());
+  if (typeof input === 'string') {
+    if (commaSplit) {
+      return input.split(',').map((item) => item.trim());
+    } else if (newlineSplit) {
+      return input.split('\n').map((item) => item.trim());
+    }
   }
   if (Array.isArray(input)) {
     return input.map((item) => (typeof item === 'string' ? item.trim() : item));
@@ -78,7 +82,7 @@ const {
 const buildArgs = toArray(buildArg);
 const cacheFrom = toArray(cacheFromArg);
 const cacheTo = toArray(cacheToArg);
-const tags = toArray(tag);
+const tags = toArray(tag, false, true);
 const platforms = toArray(platformsArg, true);
 const push = toBoolean(pushArg);
 
