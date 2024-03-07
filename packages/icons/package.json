@@ -34,7 +34,7 @@
     "@svgr/plugin-svgo": "8.1.0",
     "@types/fs-extra": "11.0.4",
     "@types/node": "20.9.0",
-    "@types/react": "18.2.60",
+    "@types/react": "18.2.64",
     "axios": "1.6.7",
     "chalk": "5.3.0",
     "dotenv": "16.4.5",
@@ -43,6 +43,6 @@
     "fs-extra": "11.2.0",
     "lodash": "4.17.21",
     "rimraf": "5.0.5",
-    "typescript": "5.3.3"
+    "typescript": "5.4.2"
   }
 }

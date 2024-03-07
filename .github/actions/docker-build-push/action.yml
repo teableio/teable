@@ -56,6 +56,11 @@ runs:
 
     - name: 📦 Build and push（Dockerfile）
       uses: docker/build-push-action@v5
+      env:
+        GITHUB_ACTIONS: $env:GITHUB_ACTIONS
+        GITHUB_REF_TYPE: $GITHUB_REF_TYPE
+        GITHUB_RUN_NUMBER: GITHUB_RUN_NUMBER
+        GITHUB_SHA: GITHUB_SHA
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}

@@ -22,9 +22,10 @@ RUN cd sqlite_migrate && \
 
 FROM node:${NODE_VERSION}-bookworm-slim AS runner
 
-ENV NODE_ENV=production
-ENV FORCE_COLOR='1'
+ARG BUILD_VERSION="1.0.0-alpha"
+
 ENV TZ=UTC
+ENV NODE_ENV=production
 
 RUN npm install zx @soluble/dsn-parser @prisma/client@${PRISMA_VERSION} prisma@${PRISMA_VERSION} -g && \
       apt-get update && apt-get install -y openssl netcat-traditional wget && \
