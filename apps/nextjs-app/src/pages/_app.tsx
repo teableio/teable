@@ -1,4 +1,5 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import * as Sentry from '@sentry/nextjs';
 import { HttpError, parseDsn } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
@@ -8,6 +9,7 @@ import type { AppContext, AppProps as NextAppProps } from 'next/app';
 import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
+import { useEffect } from 'react';
 import { z } from 'zod';
 import { getUserMe } from '@/backend/api/rest/get-user';
 import { Guide } from '@/components/Guide';
@@ -54,6 +56,10 @@ const MyApp = (appProps: AppPropsWithLayout) => {
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
 
+  useEffect(() => {
+    Sentry.setUser(user ? { id: user.id, email: user.email } : null);
+  }, [user]);
+
   return (
     <>
       <AppProviders env={env}>
@@ -71,6 +77,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
             __html: `
               window.clarity && window.clarity("identify", "${user?.email || user?.id}");
               window.version="${process.env.NEXT_PUBLIC_BUILD_VERSION ?? 'develop'}";
+              window.__TE__=${JSON.stringify(env)};
             `,
           }}
         />
@@ -107,6 +114,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       helpSiteLink: process.env.HELP_SITE_LINK || 'https://help.teable.io',
       templateSiteLink: process.env.TEMPLATE_SITE_LINK,
       microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
+      sentryDsn: process.env.SENTRY_DSN,
     },
   };
   if (!isLoginPage && !needLoginPage) {
