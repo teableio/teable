@@ -36,6 +36,8 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
       const hours = prevDatetime.get('hour');
       const minutes = prevDatetime.get('minute');
       curDatetime = curDatetime.set('hour', hours).set('minute', minutes);
+    } else {
+      curDatetime = curDatetime.set('hour', 8).set('minute', 0).set('second', 0);
     }
 
     const dateStr = curDatetime.toISOString();
