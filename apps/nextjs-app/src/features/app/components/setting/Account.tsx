@@ -55,9 +55,7 @@ export const Account: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">{t('settings.account.title')}</h3>
-      </div>
+      <h3 className="text-lg font-medium">{t('settings.account.title')}</h3>
       <Separator />
       <div className="flex">
         <TooltipProvider>
@@ -71,7 +69,7 @@ export const Account: React.FC = () => {
                     className="absolute inset-0 size-full opacity-0"
                     accept="image/*"
                     onChange={uploadAvatar}
-                  ></input>
+                  />
                 </div>
               </div>
             </TooltipTrigger>
