@@ -11,6 +11,7 @@ declare global {
 }
 
 Sentry.init({
+  release: process.env.NEXT_PUBLIC_BUILD_VERSION,
   dsn: process.env.SENTRY_DSN || window.__TE__.sentryDsn,
   // Adjust this value in production, or use tracesSampler for greater control
   tracesSampleRate: 1,
@@ -25,11 +26,5 @@ Sentry.init({
   replaysSessionSampleRate: 0.1,
 
   // You can remove this option if you're not planning to use the Sentry Session Replay feature:
-  integrations: [
-    Sentry.replayIntegration({
-      // Additional Replay configuration goes in here, for example:
-      maskAllText: true,
-      blockAllMedia: true,
-    }),
-  ],
+  integrations: [],
 });
