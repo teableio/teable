@@ -13,7 +13,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
-import { useRef } from 'react';
+import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useSelectionOperation } from '../hooks/useSelectionOperation';
@@ -175,8 +175,8 @@ export const RecordMenu = () => {
           if (!items.length) return null;
 
           return (
-            <>
-              <CommandGroup key={`rm-group-${index}`} aria-valuetext="name">
+            <Fragment key={index}>
+              <CommandGroup aria-valuetext="name">
                 {items.map(({ type, name, icon, className, onClick }) => (
                   <CommandItem
                     className={classNames('px-4 py-2', className)}
@@ -192,8 +192,8 @@ export const RecordMenu = () => {
                   </CommandItem>
                 ))}
               </CommandGroup>
-              {nextItems.length > 0 && <CommandSeparator key={`rm-separator-${index}`} />}
-            </>
+              {nextItems.length > 0 && <CommandSeparator />}
+            </Fragment>
           );
         })}
       </CommandList>
