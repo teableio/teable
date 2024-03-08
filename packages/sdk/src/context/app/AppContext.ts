@@ -15,6 +15,7 @@ export interface IAppContext {
   theme: ThemeKey;
   isAutoTheme: boolean;
   locale: ILocale;
+  lang?: string;
   setTheme: (theme: ThemeKey | null) => void;
 }
 

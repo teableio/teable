@@ -1,14 +1,21 @@
 import { TimeFormatting, type IDateFieldOptions } from '@teable/core';
 import { Calendar, Input } from '@teable/ui-lib';
+import { zhCN, enUS } from 'date-fns/locale';
 import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useContext, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { AppContext } from '../../../context';
 import type { ICellEditor, IEditorRef } from '../type';
 
 export interface IDateEditorMain extends ICellEditor<string | null> {
   style?: React.CSSProperties;
   options?: IDateFieldOptions;
 }
+
+const LOCAL_MAP = {
+  zh: zhCN,
+  en: enUS,
+};
 
 const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMain> = (
   props,
@@ -20,6 +27,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   const [date, setDate] = useState<string | null>(value || null);
   const hasTimePicker = time !== TimeFormatting.None;
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
+  const { lang = 'en' } = useContext(AppContext);
 
   useImperativeHandle(ref, () => ({
     focus: () => defaultFocusRef.current?.focus?.(),
@@ -75,6 +83,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   return (
     <>
       <Calendar
+        locale={LOCAL_MAP[lang as keyof typeof LOCAL_MAP]}
         style={style}
         mode="single"
         selected={selectedDate}
