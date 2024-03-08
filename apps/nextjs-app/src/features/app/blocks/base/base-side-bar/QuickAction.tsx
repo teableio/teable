@@ -28,9 +28,15 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const theme = useTheme();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
-  useHotkeys(`meta+k`, () => {
-    setOpen(!open);
-  });
+  useHotkeys(
+    `meta+k`,
+    () => {
+      setOpen(!open);
+    },
+    {
+      enableOnFormTags: ['input', 'select', 'textarea'],
+    }
+  );
 
   return (
     <>

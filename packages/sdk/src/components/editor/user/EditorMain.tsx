@@ -15,11 +15,12 @@ import {
   Skeleton,
 } from '@teable/ui-lib';
 import classNames from 'classnames';
-import React, { useCallback } from 'react';
+import type { ForwardRefRenderFunction } from 'react';
+import React, { useCallback, useImperativeHandle, useRef, forwardRef } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useBase } from '../../../hooks';
 import { convertNextImageUrl } from '../../grid-enhancements';
-import type { ICellEditor } from '../type';
+import type { ICellEditor, IEditorRef } from '../type';
 
 export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUserCellValue[]> {
   options: IUserFieldOptions;
@@ -28,10 +29,20 @@ export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUser
   className?: string;
 }
 
-export function UserEditorMain(props: IUserEditorMainProps) {
+const UserEditorMainBase: ForwardRefRenderFunction<
+  IEditorRef<IUserCellValue | IUserCellValue[] | undefined>,
+  IUserEditorMainProps
+> = (props, ref) => {
   const { options, value: cellValue, onChange, className, style } = props;
   const { isMultiple } = options;
   const { id: baseId } = useBase();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+  }));
 
   const { data: collaborators, isLoading } = useQuery({
     queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
@@ -63,7 +74,7 @@ export function UserEditorMain(props: IUserEditorMainProps) {
 
   return (
     <Command className={className} style={style}>
-      <CommandInput placeholder="Search user" />
+      <CommandInput ref={inputRef} placeholder="Search user" />
       <CommandList>
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
@@ -110,4 +121,6 @@ export function UserEditorMain(props: IUserEditorMainProps) {
       </CommandList>
     </Command>
   );
-}
+};
+
+export const UserEditorMain = forwardRef(UserEditorMainBase);

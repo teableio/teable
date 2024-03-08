@@ -58,7 +58,7 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
         key={option.value}
       >
         <div className="flex items-center space-x-2">
-          <Avatar className="size-7 border">
+          <Avatar className="size-6 border">
             {isMeTag(option.value) ? (
               <span className="flex size-full items-center justify-center">
                 <UserIcon className="size-4" />

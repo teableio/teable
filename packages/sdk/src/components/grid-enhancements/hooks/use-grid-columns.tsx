@@ -435,7 +435,9 @@ export const createCellValue2GridDisplay =
           ...baseCellProps,
           type: CellType.User,
           data: data,
-          customEditor: (props) => <GridUserEditor field={field} record={record} {...props} />,
+          customEditor: (props, editorRef) => (
+            <GridUserEditor ref={editorRef} field={field} record={record} {...props} />
+          ),
         };
       }
       default: {

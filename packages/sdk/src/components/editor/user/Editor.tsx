@@ -42,13 +42,13 @@ export const UserEditor = (props: IUserEditorMainProps) => {
       role="combobox"
       aria-expanded={open}
       className={classNames(
-        'w-full h-auto min-h-[48px] sm:min-h-[48px] flex flex-wrap justify-start hover:bg-transparent gap-2',
+        'w-full h-auto min-h-[40px] sm:min-h-[40px] flex flex-wrap justify-start hover:bg-transparent gap-2',
         className
       )}
     >
       {arrayValue?.map(({ id, title, avatarUrl }) => (
         <div key={id} className="flex items-center">
-          <Avatar className="box-content size-7 cursor-pointer border">
+          <Avatar className="box-content size-6 cursor-pointer border">
             <AvatarImage
               src={convertNextImageUrl({
                 url: avatarUrl as string,
@@ -59,12 +59,11 @@ export const UserEditor = (props: IUserEditorMainProps) => {
             />
             <AvatarFallback className="text-sm">{title?.slice(0, 1)}</AvatarFallback>
           </Avatar>
-          {/**/}
           <div className="-ml-3 flex items-center overflow-hidden rounded-[6px] bg-secondary pl-4 pr-2 text-sm text-secondary-foreground">
             <p className="flex-1 truncate">{title}</p>
             {!readonly && (
               <X
-                className="cursor-pointer opacity-50 hover:opacity-100"
+                className="ml-[2px] cursor-pointer opacity-50 hover:opacity-100"
                 onClick={(e) => {
                   e.preventDefault();
                   onDelete({ id, title });
