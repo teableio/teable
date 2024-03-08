@@ -1,4 +1,4 @@
-import { Home } from '@teable/icons';
+import { Home, ArrowUpRight } from '@teable/icons';
 import { useSession } from '@teable/sdk/hooks';
 import { Button, Separator } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -21,6 +21,12 @@ export const SettingRight = (props: ISettingRight) => {
     <div className="flex h-full flex-1 flex-col">
       <div className="flex h-20 items-center gap-4">
         <h2 className="flex-1 text-base">{title}</h2>
+        <Button variant="link" asChild>
+          <a href={t('help.apiLink')} target="_blank" rel="noreferrer">
+            <ArrowUpRight /> {t('help.devDocs')}
+          </a>
+        </Button>
+
         <Button variant={'ghost'} onClick={() => router.push('/')}>
           <Home />
           {t('settings.back')}

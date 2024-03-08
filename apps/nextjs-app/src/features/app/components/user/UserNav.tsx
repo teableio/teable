@@ -1,6 +1,6 @@
 import { ExitIcon } from '@radix-ui/react-icons';
 import { useMutation } from '@tanstack/react-query';
-import { Settings } from '@teable/icons';
+import { Code, HelpCircle, Settings } from '@teable/icons';
 import { signout } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
 import {
@@ -45,6 +45,19 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
         <DropdownMenuItem className="flex gap-2" onClick={() => setting.setOpen(true)}>
           <Settings className="size-4 shrink-0" />
           {t('settings.nav.settings')}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="flex gap-2" asChild>
+          <a href={t('help.mainLink')} target="_blank" rel="noreferrer">
+            <HelpCircle className="size-4 shrink-0" />
+            {t('help.title')}
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="flex gap-2"
+          onClick={() => router.push('/setting/personal-access-token')}
+        >
+          <Code className="size-4 shrink-0" />
+          {t('settings.account.manageToken')}
         </DropdownMenuItem>
         <DropdownMenuItem className="flex gap-2" onClick={loginOutClick} disabled={isLoading}>
           <ExitIcon className="size-4 shrink-0" />

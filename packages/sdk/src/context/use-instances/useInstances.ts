@@ -62,7 +62,13 @@ export function useInstances<T, R extends { id: string }>({
   const preQueryRef = useRef<Query<T>>();
 
   const handleReady = useCallback((query: Query<T>) => {
-    console.log(`${query.collection}:ready:`, query.query);
+    console.log(
+      `${query.collection}:ready:`,
+      (() => {
+        const { sessionTicket: _, ...logQuery } = query.query;
+        return logQuery;
+      })()
+    );
     if (!query.results) {
       return;
     }
@@ -76,7 +82,11 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleInsert = useCallback((docs: Doc<T>[], index: number) => {
-    console.log(`${docs[0]?.collection}:insert:`, docs, index);
+    console.log(
+      `${docs[0]?.collection}:insert:`,
+      docs.map((doc) => doc.id),
+      index
+    );
     dispatch({ type: 'insert', docs, index });
 
     docs.forEach((doc) => {
@@ -88,7 +98,11 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleRemove = useCallback((docs: Doc<T>[], index: number) => {
-    console.log(`${docs[0]?.collection}:remove:`, docs, index);
+    console.log(
+      `${docs[0]?.collection}:remove:`,
+      docs.map((doc) => doc.id),
+      index
+    );
     dispatch({ type: 'remove', docs, index });
     docs.forEach((doc) => {
       opListeners.current.remove(doc);
@@ -96,7 +110,12 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleMove = useCallback((docs: Doc<T>[], from: number, to: number) => {
-    console.log(`${docs[0]?.collection}:move:`, docs, from, to);
+    console.log(
+      `${docs[0]?.collection}:move:`,
+      docs.map((doc) => doc.id),
+      from,
+      to
+    );
     dispatch({ type: 'move', docs, from, to });
   }, []);
 
@@ -132,7 +151,10 @@ export function useInstances<T, R extends { id: string }>({
 
     const readyListener = () => handleReady(query);
     const changedListener = (docs: Doc<T>[]) => {
-      console.log(`${docs[0]?.collection}:changed:`, docs);
+      console.log(
+        `${docs[0]?.collection}:changed:`,
+        docs.map((doc) => doc.id)
+      );
     };
 
     query.on('ready', readyListener);

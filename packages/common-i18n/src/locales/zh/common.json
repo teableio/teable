@@ -52,7 +52,7 @@
         "title": "密码更改成功。",
         "desc": "您将在2秒内重定向到登录页面。"
       },
-      "manageToken": "开发或管理您的令牌"
+      "manageToken": "开发者令牌"
     },
     "notify": {
       "title": "我的通知",
@@ -130,5 +130,11 @@
       "linkCopySuccess": "链接已复制",
       "linkRemove": "移除链接"
     }
+  },
+  "help": {
+    "title": "帮助",
+    "devDocs": "开发者文档",
+    "mainLink": "https://help.teable.cn",
+    "apiLink": "https://help.teable.cn/gao-dai-ma-kai-fa/api"
   }
 }
