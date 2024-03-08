@@ -110,7 +110,6 @@ export class SpaceService {
       id: generateSpaceId(),
       name: uniqName,
       createdBy: userId,
-      lastModifiedBy: userId,
     });
   }
 

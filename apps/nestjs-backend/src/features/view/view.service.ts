@@ -98,7 +98,6 @@ export class ViewService implements IAdapterService {
       version: 1,
       order,
       createdBy: userId,
-      lastModifiedBy: userId,
       columnMeta: mergedColumnMeta ? JSON.stringify(mergedColumnMeta) : JSON.stringify({}),
     };
 

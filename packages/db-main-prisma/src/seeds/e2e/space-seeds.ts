@@ -47,7 +47,6 @@ export const generateCollaborator = async (
     roleName: 'owner',
     userId: userSets[i].id!,
     createdBy: userSets[i].id!,
-    lastModifiedBy: userSets[i].id!,
   }));
 };
 

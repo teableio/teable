@@ -167,7 +167,7 @@ export class TableOpenApiService {
         ...tableMeta,
         description: tableMeta.description ?? undefined,
         icon: tableMeta.icon ?? undefined,
-        lastModifiedTime: time || tableMeta.lastModifiedTime.toISOString(),
+        lastModifiedTime: time || tableMeta.lastModifiedTime?.toISOString(),
         defaultViewId,
       };
     });

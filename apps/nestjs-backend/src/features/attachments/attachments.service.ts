@@ -133,7 +133,6 @@ export class AttachmentsService {
         width,
         height,
         createdBy: userId,
-        lastModifiedBy: userId,
       },
       select: {
         token: true,

@@ -40,9 +40,9 @@ export function createViewVoByRaw(viewRaw: View): IViewVo {
     enableShare: viewRaw.enableShare || undefined,
     order: viewRaw.order,
     createdBy: viewRaw.createdBy,
-    lastModifiedBy: viewRaw.lastModifiedBy,
+    lastModifiedBy: viewRaw.lastModifiedBy || undefined,
     createdTime: viewRaw.createdTime.toISOString(),
-    lastModifiedTime: viewRaw.lastModifiedTime.toISOString(),
+    lastModifiedTime: viewRaw.lastModifiedTime ? viewRaw.lastModifiedTime.toISOString() : undefined,
     columnMeta: JSON.parse(viewRaw.columnMeta as string) || undefined,
   };
 }

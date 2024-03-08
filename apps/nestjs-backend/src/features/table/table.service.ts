@@ -100,8 +100,6 @@ export class TableService implements IAdapterService {
       dbTableName,
       order,
       createdBy: userId,
-      lastModifiedBy: userId,
-      lastModifiedTime: new Date(),
       version: 1,
     };
 
