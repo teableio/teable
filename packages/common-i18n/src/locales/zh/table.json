@@ -4,6 +4,7 @@
   },
   "field": {
     "fieldManagement": "字段管理",
+    "fieldManagementDesc": "当前表格所有字段的详细信息",
     "editor": {
       "addField": "添加字段",
       "editField": "编辑字段",
@@ -164,6 +165,13 @@
     "hideField": "隐藏字段",
     "deleteField": "删除字段",
     "deleteAllSelectedFields": "删除所有选定的字段"
+  },
+  "connection": {
+    "title": "数据库连接",
+    "description": "你可以通过数据库连接来直接访问数据库",
+    "noPermission": "你没有权限访问数据库连接",
+    "connectionCountTip": "最大数据库连接数为 <b>{max}</b> 当前已建立的连接数为 <b>{current}</b>",
+    "helpLink": "https://help.teable.cn/gao-dai-ma-kai-fa/api/shu-ju-ku-lian-jie"
   },
   "view": {
     "addRecord": "添加记录",

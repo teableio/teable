@@ -31,18 +31,23 @@ RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/sc
 FROM deps AS builder
 
 ARG INTEGRATION_TEST
+ARG BUILD_VERSION="1.0.0-alpha"
+ARG SENTRY_ENABLED=true
+ARG SENTRY_TRACING=true
 
+ENV NODE_ENV=production
 ENV NEXT_BUILD_ENV_TYPECHECK=false
 ENV NEXT_BUILD_ENV_LINT=false
 ENV NEXT_BUILD_ENV_OUTPUT=classic
-ENV NEXT_BUILD_ENV_SENTRY_ENABLED=false
-ENV NEXT_BUILD_ENV_SENTRY_TRACING=false
-
-ENV NODE_ENV=production
+ENV NEXT_BUILD_ENV_SENTRY_ENABLED=$SENTRY_ENABLED
+ENV NEXT_BUILD_ENV_SENTRY_TRACING=$SENTRY_TRACING
 
 WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
+
+RUN set -eux; \
+    sed -i~ '$a\NEXT_PUBLIC_BUILD_VERSION=$BUILD_VERSION' apps/nextjs-app/.env
 
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ]; then \
@@ -63,8 +68,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 RUN rm -fr node_modules && pnpm nuke:node_modules && \
-      chmod +x ./scripts/post-build-cleanup.mjs && zx ./scripts/post-build-cleanup.mjs && \
-      chmod +x ./scripts/semver.mjs && zx ./scripts/semver.mjs
+      chmod +x ./scripts/post-build-cleanup.mjs && zx ./scripts/post-build-cleanup.mjs
 
 RUN pnpm install --prod --prefer-offline --frozen-lockfile
 RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
@@ -87,31 +91,35 @@ RUN npm install zx -g && \
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN adduser --system --uid 1001 nodejs
 
-USER nextjs
+# Set the correct permission for local cache
+RUN mkdir .assets && chown nodejs:nodejs .assets && \
+    mkdir .temporary && chown nodejs:nodejs .temporary
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/next.config.js \
+USER nodejs
+
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/next.config.js \
                     /app/apps/nextjs-app/next-i18next.config.js \
                     /app/apps/nextjs-app/package.json \
                     /app/apps/nextjs-app/.env \
                     ./apps/nextjs-app/
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
-COPY --from=post-builder --chown=nextjs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
+COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
 
-COPY --from=builder --chown=nextjs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
+COPY --from=builder --chown=nodejs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
 
-COPY --from=post-builder --chown=nextjs:nodejs /app/packages ./packages
-COPY --from=post-builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=post-builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=post-builder --chown=nodejs:nodejs /app/packages ./packages
+COPY --from=post-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
 
-COPY --chown=nextjs:nodejs scripts/start.mjs ./scripts/start.mjs
+COPY --chown=nodejs:nodejs scripts/start.mjs ./scripts/start.mjs
 
 EXPOSE ${PORT}
 

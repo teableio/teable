@@ -10,9 +10,6 @@ import {
 } from '@teable/openapi';
 import { ReactQueryKeys, useSession } from '@teable/sdk';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Button,
   Input,
   Tooltip,
@@ -23,9 +20,9 @@ import {
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';
-import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import React, { useMemo, useState } from 'react';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { RoleSelect } from './RoleSelect';
 
 extend(relativeTime);
@@ -90,12 +87,7 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
         {collaboratorsFiltered?.map(({ userId, userName, email, role, avatar, createdTime }) => (
           <div key={userId} className="relative flex items-center gap-3 pr-7">
             <div className="flex flex-1">
-              <Avatar className="size-7">
-                <AvatarImage asChild src={avatar as string}>
-                  <Image src={avatar as string} alt={userName} width={28} height={28} />
-                </AvatarImage>
-                <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
-              </Avatar>
+              <UserAvatar user={{ name: userName, avatar }} />
               <div className="ml-2 flex flex-1 flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{userName}</p>
                 <p className="text-xs leading-none text-muted-foreground">{email}</p>

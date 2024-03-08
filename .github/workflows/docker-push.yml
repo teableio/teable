@@ -38,21 +38,34 @@ jobs:
           username: ${{ secrets.ALI_DOCKER_USERNAME }}
           password: ${{ secrets.ALI_DOCKER_PASSWORD }}
 
-      - name: 📦 Build and push
-        uses: ./.github/actions/docker-build-push
+      - uses: actions/setup-node@v4
         with:
-          context: .
-          dockerfile: dockers/teable/${{ matrix.file }}
-          push: true
-          push-images: |
+          node-version: 20.9.0
+      - name: ⚙️ Install zx
+        run: npm install -g zx
+
+      - name: ⚙️ Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
             registry.cn-shenzhen.aliyuncs.com/teable/${{ matrix.image }}
             ghcr.io/teableio/${{ matrix.image }}
-          push-tags: |
+          tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
             # set latest tag for default branch
             type=raw,value=latest,enable={{is_default_branch}}
-          cache-from: type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache
-          cache-to: type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max
+      - name: ⚙️ Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: ⚙️ Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: 📦 Build and push
+        run: |
+          zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
+              --cache-from=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache \
+              --cache-to=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max \
+              --tag="${{ steps.meta.outputs.tags }}" \
+              --push

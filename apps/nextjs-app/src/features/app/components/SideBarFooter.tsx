@@ -1,8 +1,8 @@
 import { useSession } from '@teable/sdk';
-import { Avatar, AvatarFallback, AvatarImage, Button } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
+import { Button } from '@teable/ui-lib/shadcn';
 import React from 'react';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { DuplicateBaseModal } from '../blocks/base/duplicate/DuplicateBaseModal';
 import { TemplateCreateBaseModal } from '../blocks/base/duplicate/TemplateCreateBaseModal';
 import { SettingDialog } from './setting/SettingDialog';
@@ -16,12 +16,7 @@ export const SideBarFooter: React.FC = () => {
       <div className="flex w-full justify-between">
         <UserNav>
           <Button variant="ghost" size={'xs'} className="w-full justify-start text-sm font-normal">
-            <Avatar className="size-7">
-              <AvatarImage asChild src={user.avatar as string}>
-                <Image src={user.avatar as string} alt={user.name} width={28} height={28} />
-              </AvatarImage>
-              <AvatarFallback>{user.name.slice(0, 1)}</AvatarFallback>
-            </Avatar>
+            <UserAvatar user={user} />
             {user.name}
           </Button>
         </UserNav>

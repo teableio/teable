@@ -3,7 +3,7 @@ import { ArrowLeft, Table2 } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import type { Table } from '@teable/sdk';
 import { FieldProvider, useTable, useTablePermission } from '@teable/sdk';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -11,8 +11,8 @@ import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
+import { DbConnectionPanel } from '../db-connection/Panel';
 import { FieldSetting } from '../view/field/FieldSetting';
-import { TableConnection } from './card/TableConnection';
 import { TableDetail } from './card/TableDetail';
 import { DataTable } from './data-table/DataTable';
 import { useDataColumns } from './data-table/useDataColumns';
@@ -21,11 +21,6 @@ export interface IDesignProps {
   fieldServerData: IFieldVo[];
   baseServerData: IGetBaseVo;
   tableServerData: ITableVo[];
-}
-function CardContainer({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('flex items-center justify-center [&>div]:w-full', className)} {...props} />
-  );
 }
 
 export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
@@ -70,22 +65,15 @@ export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
           </EmojiPicker>
           {table.name}
         </h1>
-        <div className="grid grid-cols-1 items-start justify-center gap-6 rounded-lg sm:grid-cols-2 lg:grid-cols-3">
-          <div className="items-start gap-6">
-            <CardContainer>
-              <TableDetail />
-            </CardContainer>
+        <div className="grid grid-cols-1 items-start justify-center gap-6 rounded-lg md:grid-cols-2 lg:grid-cols-3 min-[1600px]:grid-cols-4">
+          <div className="col-span-1 items-start">
+            <TableDetail />
           </div>
-          <div className="items-start gap-6 ">
-            <CardContainer>
-              <TableConnection />
-            </CardContainer>
+          <div className="col-span-1 h-full items-start">
+            <DbConnectionPanel />
           </div>
         </div>
         <div>
-          <h2 className="pb-4 text-lg font-semibold leading-none tracking-tight">
-            {t('table:field.fieldManagement')}
-          </h2>
           <DataTable data={fields} columns={columns} />
         </div>
       </div>

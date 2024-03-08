@@ -385,7 +385,7 @@ export class RecordService implements IAdapterService {
     return this.prismaService
       .txClient()
       .view.findFirstOrThrow({
-        select: { id: true, filter: true, sort: true, group: true },
+        select: { id: true, type: true, filter: true, sort: true, group: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
