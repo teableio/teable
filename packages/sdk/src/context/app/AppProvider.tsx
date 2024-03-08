@@ -14,13 +14,14 @@ const queryClient = createQueryClient();
 interface IAppProviderProps {
   children: React.ReactNode;
   wsPath?: string;
+  lang?: string;
   locale?: ILocalePartial;
   driver: DriverClient;
   dehydratedState?: unknown;
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { children, wsPath, locale, driver, dehydratedState } = props;
+  const { children, wsPath, lang, locale, driver, dehydratedState } = props;
 
   const { connected, connection } = useConnection(wsPath);
   const themeProps = useTheme();
@@ -36,10 +37,11 @@ export const AppProvider = (props: IAppProviderProps) => {
       connection,
       connected,
       driver,
+      lang,
       locale: isObject(locale) ? ({ ...defaultLocale, ...locale } as ILocale) : defaultLocale,
       ...themeProps,
     };
-  }, [connection, connected, driver, locale, themeProps]);
+  }, [connection, connected, driver, lang, locale, themeProps]);
 
   return (
     <AppContext.Provider value={value}>

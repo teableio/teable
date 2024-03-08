@@ -111,7 +111,6 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
     ...appProps,
     driver,
     env: {
-      helpSiteLink: process.env.HELP_SITE_LINK || 'https://help.teable.io',
       templateSiteLink: process.env.TEMPLATE_SITE_LINK,
       microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
       sentryDsn: process.env.SENTRY_DSN,

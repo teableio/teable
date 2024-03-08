@@ -171,7 +171,7 @@
     "description": "You can access the database directly through the database connection, including all the tables under the current base",
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
-    "helpLink": "https://help.teable.io/developer/api/database-connection"
+    "helpLink": "https://help.teable.io/developer/database-connection"
   },
   "view": {
     "addRecord": "Add record",

@@ -4,6 +4,7 @@ import { AnchorContext, AppProvider, FieldProvider, ViewProvider } from '@teable
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
 import Head from 'next/head';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
 import { AppLayout } from '@/features/app/layouts';
 import { addQueryParamsToWebSocketUrl } from '@/features/app/utils/socket-url';
@@ -19,6 +20,7 @@ export interface IShareViewPageProps {
 export const ShareViewPage = (props: IShareViewPageProps) => {
   const { tableId, viewId, view, fields, shareId } = props.shareViewData;
   const sdkLocale = useSdkLocale();
+  const { i18n } = useTranslation();
 
   const wsPath = useMemo(() => {
     if (typeof window === 'object') {
@@ -33,7 +35,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
         <title>{view?.name ?? 'Teable'}</title>
       </Head>
       <AppLayout>
-        <AppProvider wsPath={wsPath} locale={sdkLocale} driver={props.driver}>
+        <AppProvider lang={i18n.language} wsPath={wsPath} locale={sdkLocale} driver={props.driver}>
           <AnchorContext.Provider
             value={{
               tableId,

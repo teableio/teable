@@ -5,6 +5,7 @@ import type { IUser } from '@teable/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
 import { useRouter } from 'next/router';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
 import { Pane } from '../components/toggle-side-bar/Pane';
@@ -20,10 +21,11 @@ export const BaseLayout: React.FC<{
   const router = useRouter();
   const { baseId, tableId, viewId } = router.query;
   const sdkLocale = useSdkLocale();
+  const { i18n } = useTranslation();
 
   return (
     <AppLayout>
-      <AppProvider locale={sdkLocale} driver={driver as DriverClient}>
+      <AppProvider lang={i18n.language} locale={sdkLocale} driver={driver as DriverClient}>
         <SessionProvider user={user}>
           <NotificationProvider>
             <AnchorContext.Provider
