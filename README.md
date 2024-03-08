@@ -171,7 +171,7 @@ for more details, see [dockers/examples](dockers/examples)
 
 ### Deploy with Railway
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/wada5e?referralCode=rE4BjB)
 
 ## Development
 
