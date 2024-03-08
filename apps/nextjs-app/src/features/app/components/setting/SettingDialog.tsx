@@ -25,21 +25,21 @@ export const SettingDialog = () => {
               value="profile"
               className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
-              <UserEdit />
+              <UserEdit className="shrink-0" />
               {t('settings.account.tab')}
             </TabsTrigger>
             <TabsTrigger
               value="system"
               className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
-              <Settings />
+              <Settings className="shrink-0" />
               {t('settings.setting.title')}
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
               className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
             >
-              <Bell />
+              <Bell className="shrink-0" />
               {t('settings.notify.title')}
             </TabsTrigger>
           </TabsList>

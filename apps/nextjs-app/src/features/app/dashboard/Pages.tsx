@@ -4,8 +4,6 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
-
-import { useEnv } from '../hooks/useEnv';
 import { Pickers } from './components/Pickers';
 import { GridContent } from './GridContent';
 
@@ -14,7 +12,6 @@ export function DashboardPage() {
   const [anchor, setAnchor] = useState<{ tableId?: string; viewId?: string }>({});
   const { viewId, tableId } = anchor;
   const [showDashboard, setShowDashboard] = useLocalStorage('showDashboard', false);
-  const { helpSiteLink } = useEnv();
   return (
     <AnchorProvider viewId={viewId} tableId={tableId}>
       <div className="h-full flex-col md:flex">
@@ -29,7 +26,7 @@ export function DashboardPage() {
                 <li>
                   Visit the{' '}
                   <a
-                    href={helpSiteLink}
+                    href={t('help.mainLink')}
                     className="text-blue-500 hover:text-blue-700"
                     target="_blank"
                     rel="noreferrer"
