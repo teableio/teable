@@ -1,11 +1,8 @@
-import { ColorUtils, getCollaboratorsChannel, contractColorForTheme } from '@teable/core';
-import { useSession, useTheme } from '@teable/sdk';
+import { ColorUtils, contractColorForTheme, getCollaboratorsChannel } from '@teable/core';
 import type { IUser } from '@teable/sdk';
+import { useSession, useTheme } from '@teable/sdk';
 import { useConnection } from '@teable/sdk/hooks';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -14,11 +11,11 @@ import {
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
-import { isEmpty, chunk } from 'lodash';
-import Image from 'next/image';
+import { chunk, isEmpty } from 'lodash';
 import { useRouter } from 'next/router';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 
 interface CollaboratorsProps {
   className?: string;
@@ -97,17 +94,13 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const avatarRender = ({ name, avatar, id }: ICollaboratorUser) => {
     const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
     return (
-      <Avatar
+      <UserAvatar
+        user={{ name, avatar }}
         className="size-6 cursor-pointer border-2"
         style={{
           borderColor: contractColorForTheme(borderColor, theme),
         }}
-      >
-        <AvatarImage asChild src={avatar as string}>
-          <Image src={avatar as string} alt={name} width={28} height={28} />
-        </AvatarImage>
-        <AvatarFallback className="text-sm leading-6">{name.slice(0, 1)}</AvatarFallback>
-      </Avatar>
+      />
     );
   };
 

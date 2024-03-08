@@ -1,12 +1,13 @@
 import type {
-  INotificationUserIcon,
   INotificationIcon,
   INotificationSystemIcon,
+  INotificationUserIcon,
 } from '@teable/core';
 import { NotificationTypeEnum } from '@teable/core';
 import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
-import Image from 'next/image';
+import { getImageProps } from 'next/image';
 import React, { useCallback } from 'react';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 
 interface NotificationIconProps {
   notifyIcon: INotificationIcon;
@@ -20,11 +21,17 @@ const NotificationIcon = (props: NotificationIconProps) => {
     switch (notifyType) {
       case NotificationTypeEnum.System: {
         const { iconUrl } = notifyIcon as INotificationSystemIcon;
+
+        const { props: systemProps } = getImageProps({
+          width: 36,
+          height: 36,
+          src: iconUrl,
+          alt: 'System',
+        });
+
         return (
           <Avatar className="size-9">
-            <AvatarImage asChild src={iconUrl as string}>
-              <Image src={iconUrl as string} alt={'System'} width={28} height={28} />
-            </AvatarImage>
+            <AvatarImage {...systemProps} />
             <AvatarFallback>{'System'.slice(0, 1)}</AvatarFallback>
           </Avatar>
         );
@@ -33,12 +40,12 @@ const NotificationIcon = (props: NotificationIconProps) => {
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { userAvatarUrl, userName } = notifyIcon as INotificationUserIcon;
         return (
-          <Avatar className="size-9">
-            <AvatarImage asChild src={userAvatarUrl as string}>
-              <Image src={userAvatarUrl as string} alt={userName} width={28} height={28} />
-            </AvatarImage>
-            <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            className="size-9"
+            width={36}
+            height={36}
+            user={{ name: userName, avatar: userAvatarUrl }}
+          />
         );
       }
     }
