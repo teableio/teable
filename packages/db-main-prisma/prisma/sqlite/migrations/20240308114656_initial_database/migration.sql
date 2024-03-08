@@ -5,7 +5,8 @@ CREATE TABLE "space" (
     "deleted_time" DATETIME,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL
+    "last_modified_by" TEXT,
+    "last_modified_time" DATETIME
 );
 
 -- CreateTable
@@ -19,7 +20,8 @@ CREATE TABLE "base" (
     "deleted_time" DATETIME,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
+    "last_modified_time" DATETIME,
     CONSTRAINT "base_space_id_fkey" FOREIGN KEY ("space_id") REFERENCES "space" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -34,10 +36,10 @@ CREATE TABLE "table_meta" (
     "version" INTEGER NOT NULL,
     "order" REAL NOT NULL,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" DATETIME NOT NULL,
+    "last_modified_time" DATETIME,
     "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
     CONSTRAINT "table_meta_base_id_fkey" FOREIGN KEY ("base_id") REFERENCES "base" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -64,10 +66,10 @@ CREATE TABLE "field" (
     "table_id" TEXT NOT NULL,
     "version" INTEGER NOT NULL,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" DATETIME NOT NULL,
+    "last_modified_time" DATETIME,
     "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
     CONSTRAINT "field_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "table_meta" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -89,10 +91,10 @@ CREATE TABLE "view" (
     "share_id" TEXT,
     "share_meta" TEXT,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" DATETIME NOT NULL,
+    "last_modified_time" DATETIME,
     "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
     CONSTRAINT "view_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "table_meta" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
@@ -134,13 +136,21 @@ CREATE TABLE "users" (
     "email" TEXT NOT NULL,
     "avatar" TEXT,
     "notify_meta" TEXT,
-    "provider" TEXT,
-    "provider_id" TEXT,
     "last_sign_time" DATETIME,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_time" DATETIME,
-    "updated_at" DATETIME NOT NULL,
-    "last_modified_time" DATETIME NOT NULL
+    "last_modified_time" DATETIME
+);
+
+-- CreateTable
+CREATE TABLE "account" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "user_id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "provider_id" TEXT NOT NULL,
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "account_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -157,7 +167,7 @@ CREATE TABLE "attachments" (
     "deleted_time" DATETIME,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL
+    "last_modified_by" TEXT
 );
 
 -- CreateTable
@@ -169,10 +179,10 @@ CREATE TABLE "attachments_table" (
     "table_id" TEXT NOT NULL,
     "record_id" TEXT NOT NULL,
     "field_id" TEXT NOT NULL,
-    "deleted_time" DATETIME,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL
+    "last_modified_by" TEXT,
+    "last_modified_time" DATETIME
 );
 
 -- CreateTable
@@ -183,10 +193,10 @@ CREATE TABLE "automation_workflow" (
     "description" TEXT,
     "deployment_status" TEXT NOT NULL DEFAULT 'undeployed',
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" DATETIME NOT NULL,
+    "last_modified_time" DATETIME,
     "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL
+    "last_modified_by" TEXT
 );
 
 -- CreateTable
@@ -198,10 +208,10 @@ CREATE TABLE "automation_workflow_trigger" (
     "trigger_type" TEXT,
     "input_expressions" TEXT,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" DATETIME NOT NULL,
+    "last_modified_time" DATETIME,
     "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL
+    "last_modified_by" TEXT
 );
 
 -- CreateTable
@@ -215,10 +225,10 @@ CREATE TABLE "automation_workflow_action" (
     "next_node_id" TEXT,
     "parent_node_id" TEXT,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" DATETIME NOT NULL,
+    "last_modified_time" DATETIME,
     "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL
+    "last_modified_by" TEXT
 );
 
 -- CreateTable
@@ -240,8 +250,8 @@ CREATE TABLE "collaborator" (
     "deleted_time" DATETIME,
     "created_by" TEXT NOT NULL,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_by" TEXT NOT NULL
+    "last_modified_time" DATETIME,
+    "last_modified_by" TEXT
 );
 
 -- CreateTable
@@ -255,6 +265,8 @@ CREATE TABLE "invitation" (
     "expired_time" DATETIME,
     "create_by" TEXT NOT NULL,
     "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME,
+    "last_modified_by" TEXT,
     "deleted_time" DATETIME
 );
 
@@ -297,7 +309,8 @@ CREATE TABLE "access_token" (
     "sign" TEXT NOT NULL,
     "expired_time" DATETIME NOT NULL,
     "last_used_time" DATETIME,
-    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "created_time" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" DATETIME
 );
 
 -- CreateIndex
@@ -337,7 +350,7 @@ CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_provider_provider_id_key" ON "users"("provider", "provider_id");
+CREATE UNIQUE INDEX "account_provider_provider_id_key" ON "account"("provider", "provider_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "attachments_token_key" ON "attachments"("token");

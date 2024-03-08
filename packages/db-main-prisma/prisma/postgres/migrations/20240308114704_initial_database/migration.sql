@@ -5,7 +5,8 @@ CREATE TABLE "space" (
     "deleted_time" TIMESTAMP(3),
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
+    "last_modified_time" TIMESTAMP(3),
 
     CONSTRAINT "space_pkey" PRIMARY KEY ("id")
 );
@@ -21,7 +22,8 @@ CREATE TABLE "base" (
     "deleted_time" TIMESTAMP(3),
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
+    "last_modified_time" TIMESTAMP(3),
 
     CONSTRAINT "base_pkey" PRIMARY KEY ("id")
 );
@@ -37,10 +39,10 @@ CREATE TABLE "table_meta" (
     "version" INTEGER NOT NULL,
     "order" DOUBLE PRECISION NOT NULL,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
     "deleted_time" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
 
     CONSTRAINT "table_meta_pkey" PRIMARY KEY ("id")
 );
@@ -68,10 +70,10 @@ CREATE TABLE "field" (
     "table_id" TEXT NOT NULL,
     "version" INTEGER NOT NULL,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
     "deleted_time" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
 
     CONSTRAINT "field_pkey" PRIMARY KEY ("id")
 );
@@ -94,10 +96,10 @@ CREATE TABLE "view" (
     "share_id" TEXT,
     "share_meta" TEXT,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
     "deleted_time" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
 
     CONSTRAINT "view_pkey" PRIMARY KEY ("id")
 );
@@ -142,15 +144,24 @@ CREATE TABLE "users" (
     "email" TEXT NOT NULL,
     "avatar" TEXT,
     "notify_meta" TEXT,
-    "provider" TEXT,
-    "provider_id" TEXT,
     "last_sign_time" TIMESTAMP(3),
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_time" TIMESTAMP(3),
-    "updated_at" TIMESTAMP(3) NOT NULL,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "account" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "provider_id" TEXT NOT NULL,
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "account_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -167,7 +178,7 @@ CREATE TABLE "attachments" (
     "deleted_time" TIMESTAMP(3),
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
 
     CONSTRAINT "attachments_pkey" PRIMARY KEY ("id")
 );
@@ -181,10 +192,10 @@ CREATE TABLE "attachments_table" (
     "table_id" TEXT NOT NULL,
     "record_id" TEXT NOT NULL,
     "field_id" TEXT NOT NULL,
-    "deleted_time" TIMESTAMP(3),
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
+    "last_modified_time" TIMESTAMP(3),
 
     CONSTRAINT "attachments_table_pkey" PRIMARY KEY ("id")
 );
@@ -197,10 +208,10 @@ CREATE TABLE "automation_workflow" (
     "description" TEXT,
     "deployment_status" TEXT NOT NULL DEFAULT 'undeployed',
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
     "deleted_time" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
 
     CONSTRAINT "automation_workflow_pkey" PRIMARY KEY ("id")
 );
@@ -214,10 +225,10 @@ CREATE TABLE "automation_workflow_trigger" (
     "trigger_type" TEXT,
     "input_expressions" TEXT,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
     "deleted_time" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
 
     CONSTRAINT "automation_workflow_trigger_pkey" PRIMARY KEY ("id")
 );
@@ -233,10 +244,10 @@ CREATE TABLE "automation_workflow_action" (
     "next_node_id" TEXT,
     "parent_node_id" TEXT,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
     "deleted_time" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_by" TEXT,
 
     CONSTRAINT "automation_workflow_action_pkey" PRIMARY KEY ("id")
 );
@@ -262,8 +273,8 @@ CREATE TABLE "collaborator" (
     "deleted_time" TIMESTAMP(3),
     "created_by" TEXT NOT NULL,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "last_modified_by" TEXT NOT NULL,
+    "last_modified_time" TIMESTAMP(3),
+    "last_modified_by" TEXT,
 
     CONSTRAINT "collaborator_pkey" PRIMARY KEY ("id")
 );
@@ -279,6 +290,8 @@ CREATE TABLE "invitation" (
     "expired_time" TIMESTAMP(3),
     "create_by" TEXT NOT NULL,
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" TIMESTAMP(3),
+    "last_modified_by" TEXT,
     "deleted_time" TIMESTAMP(3),
 
     CONSTRAINT "invitation_pkey" PRIMARY KEY ("id")
@@ -328,6 +341,7 @@ CREATE TABLE "access_token" (
     "expired_time" TIMESTAMP(3) NOT NULL,
     "last_used_time" TIMESTAMP(3),
     "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" TIMESTAMP(3),
 
     CONSTRAINT "access_token_pkey" PRIMARY KEY ("id")
 );
@@ -369,7 +383,7 @@ CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_provider_provider_id_key" ON "users"("provider", "provider_id");
+CREATE UNIQUE INDEX "account_provider_provider_id_key" ON "account"("provider", "provider_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "attachments_token_key" ON "attachments"("token");
@@ -406,3 +420,6 @@ ALTER TABLE "field" ADD CONSTRAINT "field_table_id_fkey" FOREIGN KEY ("table_id"
 
 -- AddForeignKey
 ALTER TABLE "view" ADD CONSTRAINT "view_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "table_meta"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "account" ADD CONSTRAINT "account_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

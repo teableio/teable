@@ -30,6 +30,9 @@ const NEXT_BUILD_ENV_SOURCEMAPS = trueEnv.includes(
 );
 
 const NEXT_BUILD_ENV_CSP = trueEnv.includes(process.env?.NEXT_BUILD_ENV_CSP ?? 'true');
+const NEXT_BUILD_ENV_IMAGES_ALL_REMOTE = trueEnv.includes(
+  process.env?.NEXT_BUILD_ENV_IMAGES_ALL_REMOTE ?? 'true'
+);
 
 const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'false'
@@ -85,8 +88,6 @@ const secureHeaders = createSecureHeaders({
             'https://*.teable.io',
             'https://*.teable.cn',
             'https://*.clarity.ms',
-            'http://localhost:9000',
-            'http://127.0.0.1:9000',
           ],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
           workerSrc: ['blob:'],
@@ -146,20 +147,23 @@ const nextConfig = {
     dangerouslyAllowSVG: false,
     disableStaticImages: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.teable.*',
-      },
-      {
-        protocol: 'http',
-        hostname: '127.0.0.1',
-      },
-    ],
+    remotePatterns: NEXT_BUILD_ENV_IMAGES_ALL_REMOTE
+      ? [
+          {
+            protocol: 'http',
+            hostname: '**',
+          },
+          {
+            protocol: 'https',
+            hostname: '**',
+          },
+        ]
+      : [
+          {
+            protocol: 'https',
+            hostname: '*.teable.*',
+          },
+        ],
     unoptimized: false,
   },
 
