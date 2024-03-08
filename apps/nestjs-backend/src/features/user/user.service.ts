@@ -54,7 +54,6 @@ export class UserService {
         id: generateSpaceId(),
         name: uniqName,
         createdBy: userId,
-        lastModifiedBy: userId,
       },
     });
     await this.prismaService.txClient().collaborator.create({
@@ -63,7 +62,6 @@ export class UserService {
         roleName: SpaceRole.Owner,
         userId,
         createdBy: userId,
-        lastModifiedBy: userId,
       },
     });
     return space;
@@ -160,12 +158,8 @@ export class UserService {
       create: {
         ...input,
         createdBy: userId,
-        lastModifiedBy: userId,
       } as Prisma.AttachmentsCreateInput,
-      update: {
-        ...input,
-        lastModifiedBy: userId,
-      } as Prisma.AttachmentsUpdateInput,
+      update: input as Prisma.AttachmentsUpdateInput,
       where: {
         token: userId,
         deletedTime: null,

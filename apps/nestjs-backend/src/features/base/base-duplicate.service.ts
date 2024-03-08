@@ -62,7 +62,6 @@ export class BaseDuplicateService {
         order: (await this.getMaxOrder(spaceId)) + 1,
         spaceId: spaceId,
         createdBy: userId,
-        lastModifiedBy: userId,
       },
       select: {
         id: true,
@@ -217,9 +216,7 @@ export class BaseDuplicateService {
         tableId: old2NewTableIdMap[viewRaw.tableId],
         version: 1,
         createdTime: new Date(),
-        lastModifiedTime: new Date(),
         createdBy: userId,
-        lastModifiedBy: userId,
         options: replaceJsonStringFieldIds(viewRaw.options, old2NewFieldIdMap),
         sort: replaceJsonStringFieldIds(viewRaw.sort, old2NewFieldIdMap),
         filter: replaceJsonStringFieldIds(viewRaw.filter, old2NewFieldIdMap),
@@ -521,7 +518,6 @@ export class BaseDuplicateService {
           tableId: newTableId,
           fieldId: newFieldId,
           createdBy: userId,
-          lastModifiedBy: userId,
           createdTime: new Date(),
         },
       });

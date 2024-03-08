@@ -115,7 +115,6 @@ export class BaseService {
           spaceId,
           order,
           createdBy: userId,
-          lastModifiedBy: userId,
         },
         select: {
           id: true,

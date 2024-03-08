@@ -35,7 +35,6 @@ export class CollaboratorService {
         roleName: role,
         userId,
         createdBy: currentUserId,
-        lastModifiedBy: currentUserId,
       },
     });
   }
@@ -144,7 +143,6 @@ export class CollaboratorService {
       data: {
         roleName: role,
         lastModifiedBy: currentUserId,
-        lastModifiedTime: new Date().toISOString(),
       },
     });
   }

@@ -58,7 +58,6 @@ describe('CollaboratorService', () => {
           roleName: SpaceRole.Owner,
           userId: mockUser.id,
           createdBy: mockUser.id,
-          lastModifiedBy: mockUser.id,
         },
       });
     });

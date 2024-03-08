@@ -101,7 +101,6 @@ export class FieldService implements IAdapterService {
       cellValueType,
       isMultipleCellValue,
       createdBy: userId,
-      lastModifiedBy: userId,
     };
 
     return this.prismaService.txClient().field.create({ data });

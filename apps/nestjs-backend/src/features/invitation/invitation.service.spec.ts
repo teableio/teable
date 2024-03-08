@@ -214,6 +214,8 @@ describe('InvitationService', () => {
         createdTime: new Date('2022-01-02'),
         role: SpaceRole.Owner,
         createdBy: mockUser.id,
+        lastModifiedBy: null,
+        lastModifiedTime: null,
       });
       await clsService.runWith(
         {
@@ -239,6 +241,8 @@ describe('InvitationService', () => {
         createdTime: new Date(),
         role: SpaceRole.Owner,
         createdBy: mockUser.id,
+        lastModifiedBy: null,
+        lastModifiedTime: null,
       });
       prismaService.collaborator.count.mockImplementation(() => Promise.resolve(0) as any);
       await clsService.runWith(
@@ -276,6 +280,8 @@ describe('InvitationService', () => {
         createdTime: new Date('2022-01-02'),
         role: SpaceRole.Owner,
         createdBy: 'createdBy',
+        lastModifiedBy: null,
+        lastModifiedTime: null,
       };
       prismaService.invitation.findFirst.mockResolvedValue(mockInvitation);
       prismaService.collaborator.count.mockResolvedValue(0);
@@ -306,7 +312,6 @@ describe('InvitationService', () => {
           roleName: mockInvitation.role,
           userId: mockUser.id,
           createdBy: mockInvitation.createdBy,
-          lastModifiedBy: mockInvitation.createdBy,
         },
       });
       expect(result.spaceId).toEqual(mockInvitation.spaceId);

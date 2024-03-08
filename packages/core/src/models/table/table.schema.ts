@@ -39,7 +39,7 @@ export const tableFullVoSchema = z
     order: z.number().openapi({
       description: 'The order is a floating number, table will sort by it in the folder.',
     }),
-    lastModifiedTime: z.string().openapi({
+    lastModifiedTime: z.string().optional().openapi({
       description: 'The last modified time of the table.',
     }),
     defaultViewId: z.string().startsWith(IdPrefix.View).optional().openapi({

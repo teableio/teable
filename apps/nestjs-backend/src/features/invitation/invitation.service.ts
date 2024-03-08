@@ -208,7 +208,6 @@ export class InvitationService {
             roleName: role,
             userId: currentUserId,
             createdBy: createdBy,
-            lastModifiedBy: createdBy,
           },
         });
         // save invitation record for audit

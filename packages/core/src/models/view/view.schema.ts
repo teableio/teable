@@ -31,9 +31,9 @@ export const viewVoSchema = z.object({
   enableShare: z.boolean().optional(),
   shareMeta: shareViewMetaSchema.optional(),
   createdBy: z.string(),
-  lastModifiedBy: z.string(),
+  lastModifiedBy: z.string().optional(),
   createdTime: z.string(),
-  lastModifiedTime: z.string(),
+  lastModifiedTime: z.string().optional(),
   columnMeta: columnMetaSchema.openapi({
     description: 'A mapping of view IDs to their corresponding column metadata.',
   }),

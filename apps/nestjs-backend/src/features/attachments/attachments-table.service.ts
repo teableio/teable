@@ -41,7 +41,6 @@ export class AttachmentsTableService {
             token: attachment.token,
             attachmentId: attachment.id,
             createdBy: userId,
-            lastModifiedBy: userId,
           });
         });
       });
@@ -107,7 +106,6 @@ export class AttachmentsTableService {
               token: attachment.token,
               attachmentId: attachment.id,
               createdBy: userId,
-              lastModifiedBy: userId,
             });
           }
         });
