@@ -12,18 +12,21 @@ interface UserAvatarProps {
 
 export const UserAvatar: React.FC<UserAvatarProps> = (props) => {
   const { user, width = 28, height = 28, className, style } = props;
+  const { name, avatar } = user;
 
-  const { props: userAvatarProps } = getImageProps({
-    width,
-    height,
-    src: user.avatar as string,
-    alt: user.name,
-  });
+  const userAvatarProps =
+    avatar &&
+    getImageProps({
+      width,
+      height,
+      src: avatar,
+      alt: name,
+    }).props;
 
   return (
     <Avatar className={cn('size-7', className)} style={style}>
-      <AvatarImage {...userAvatarProps} />
-      <AvatarFallback>{user.name.slice(0, 1)}</AvatarFallback>
+      {userAvatarProps && <AvatarImage {...userAvatarProps} />}
+      <AvatarFallback>{name.slice(0, 1)}</AvatarFallback>
     </Avatar>
   );
 };

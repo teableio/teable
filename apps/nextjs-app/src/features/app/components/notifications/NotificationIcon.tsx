@@ -22,16 +22,18 @@ const NotificationIcon = (props: NotificationIconProps) => {
       case NotificationTypeEnum.System: {
         const { iconUrl } = notifyIcon as INotificationSystemIcon;
 
-        const { props: systemProps } = getImageProps({
-          width: 36,
-          height: 36,
-          src: iconUrl,
-          alt: 'System',
-        });
+        const systemProps =
+          iconUrl &&
+          getImageProps({
+            width: 36,
+            height: 36,
+            src: iconUrl,
+            alt: 'System',
+          }).props;
 
         return (
           <Avatar className="size-9">
-            <AvatarImage {...systemProps} />
+            {systemProps && <AvatarImage {...systemProps} />}
             <AvatarFallback>{'System'.slice(0, 1)}</AvatarFallback>
           </Avatar>
         );
