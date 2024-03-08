@@ -3,9 +3,6 @@ import { ArrowUpRight } from '@teable/icons';
 import { updateUserAvatar, updateUserName } from '@teable/openapi';
 import { useSession } from '@teable/sdk';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Button,
   Input,
   Label,
@@ -15,10 +12,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 
 export const Account: React.FC = () => {
@@ -67,20 +64,7 @@ export const Account: React.FC = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="group relative flex h-fit items-center justify-center">
-                <Avatar className="size-14">
-                  <AvatarImage asChild src={sessionUser.avatar as string}>
-                    <Image
-                      src={sessionUser.avatar as string}
-                      alt={sessionUser.name}
-                      width={28}
-                      height={28}
-                    />
-                  </AvatarImage>
-                  <AvatarFallback className="text-2xl">
-                    {sessionUser.name.slice(0, 1)}
-                  </AvatarFallback>
-                </Avatar>
-
+                <UserAvatar className="size-14" width={80} height={80} user={sessionUser} />
                 <div className="absolute left-0 top-0 size-full rounded-full bg-transparent group-hover:bg-muted-foreground/20">
                   <input
                     type="file"

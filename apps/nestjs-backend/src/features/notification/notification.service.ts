@@ -21,6 +21,7 @@ import type {
 import { keyBy } from 'lodash';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { ShareDbService } from '../../share-db/share-db.service';
+import { getFullStorageUrl } from '../../utils/full-storage-url';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
 
@@ -67,7 +68,7 @@ export class NotificationService {
     const userIcon = userIconSchema.parse({
       userId: fromUser.id,
       userName: fromUser.name,
-      userAvatarUrl: fromUser.avatar,
+      userAvatarUrl: fromUser?.avatar && getFullStorageUrl(fromUser.avatar),
     });
 
     const urlMeta = notificationUrlSchema.parse({
@@ -177,16 +178,16 @@ export class NotificationService {
 
     switch (notifyType) {
       case NotificationTypeEnum.System:
-        return systemIconSchema.parse({ iconUrl: origin });
+        return { iconUrl: origin };
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { id, name, avatar } = fromUserSets[fromUserId];
 
-        return userIconSchema.parse({
+        return {
           userId: id,
           userName: name,
-          userAvatarUrl: avatar,
-        });
+          userAvatarUrl: avatar && getFullStorageUrl(avatar),
+        };
       }
     }
   }

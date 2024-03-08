@@ -2,9 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import type { SpaceRole } from '@teable/core';
 import { getSpaceCollaboratorList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk';
-import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
-import Image from 'next/image';
 import React from 'react';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 
 interface SpaceInnerCollaboratorProps {
   spaceId: string;
@@ -24,12 +23,7 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
       <ul className="space-y-3">
         {collaborators?.map(({ userId, userName, avatar }) => (
           <li key={userId} className="flex items-center space-x-3">
-            <Avatar className="size-7">
-              <AvatarImage asChild src={avatar as string}>
-                <Image src={avatar as string} alt={userName} width={28} height={28} />
-              </AvatarImage>
-              <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
-            </Avatar>
+            <UserAvatar user={{ name: userName, avatar }} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{userName}</p>
             </div>
