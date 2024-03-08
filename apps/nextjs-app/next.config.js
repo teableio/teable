@@ -38,7 +38,7 @@ const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'false'
 );
 const NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN = trueEnv.includes(
-  process.env?.NEXTJS_SENTRY_UPLOAD_DRY_RUN ?? 'false'
+  process.env?.NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN ?? 'false'
 );
 const NEXT_BUILD_ENV_SENTRY_DEBUG = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_DEBUG ?? 'false'
