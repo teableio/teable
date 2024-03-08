@@ -717,18 +717,6 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
       radius: 2,
     });
 
-    // drawAvatar(ctx, {
-    //   x: x + width - avatarSizeXS - avatarOffset + cellOffset * 2,
-    //   y: y + avatarOffset,
-    //   width: avatarSizeXS,
-    //   height: avatarSizeXS,
-    //   fill: avatarBg,
-    //   stroke: borderColor,
-    //   textColor: avatarTextColor,
-    //   fontSize: fontSizeXXS,
-    //   fontFamily,
-    //   user,
-    // });
     ctx.restore();
   }
   ctx.restore();

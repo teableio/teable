@@ -13,7 +13,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
   needsHover: false,
   needsHoverPosition: false,
   draw: (cell: IUserCell, props: ICellRenderProps) => {
-    const { ctx, rect, theme } = props;
+    const { ctx, rect, theme, imageManager, columnIndex, rowIndex } = props;
     const { data: userSets } = cell;
     const { x: _x, y: _y, width, height } = rect;
     const {
@@ -27,6 +27,8 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
       avatarTextColor,
       avatarSizeMD,
     } = theme;
+
+    if (!userSets.length) return;
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,
@@ -42,20 +44,17 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     ctx.save();
     ctx.beginPath();
-
-    if (userSets.length) {
-      ctx.rect(_x, _y, width, height);
-      ctx.clip();
-    }
+    ctx.rect(_x, _y, width, height);
+    ctx.clip();
 
     ctx.font = `${fontSizeXS}px ${fontFamily}`;
 
-    let x = drawArea.x;
     let row = 1;
+    let x = drawArea.x;
     let y = drawArea.y;
 
     for (const user of userSets) {
-      const text = user.name;
+      const { name: text, avatarUrl } = user;
 
       const { width: displayWidth, text: displayText } = drawSingleLineText(ctx, {
         text,
@@ -89,6 +88,10 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         maxWidth: maxTextWidth,
       });
 
+      const img = avatarUrl
+        ? imageManager.loadOrGetImage(avatarUrl, columnIndex, rowIndex)
+        : undefined;
+
       drawAvatar(ctx, {
         x,
         y: y - 2,
@@ -96,14 +99,11 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         height: avatarSizeMD,
         fill: avatarBg,
         stroke: cellOptionBg,
+        defaultText: text,
         textColor: avatarTextColor,
         fontSize: fontSizeSM,
         fontFamily,
-        user: {
-          ...user,
-          avatar: user.avatarUrl,
-          email: '',
-        },
+        img,
       });
 
       x += width + 8;
