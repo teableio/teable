@@ -10,8 +10,12 @@
 </div>
 
 <p align="center">
-  <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=workflow%3ACI">
-    <img alt="build" src="https://img.shields.io/github/workflow/status/teableio/teable/CI-nextjs-app/main?label=CI&logo=github&style=flat-quare&labelColor=000000" />
+  <a href="https://teable.io">Home</a> | <a href="https://help.teable.io">Help</a> | <a href="https://Blog.teable.io">Blog</a> | <a href="https://template.teable.io">Template</a>
+</p>
+
+<p align="center">
+  <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=Build%20and%20Push%20to%20Docker%20Registry">
+    <img alt="build" src="https://img.shields.io/github/actions/workflow/status/teableio/teable/docker-push.yml?label=Build&logo=github&style=flat-quare&labelColor=000000" />
   </a>
   <a aria-label="Codefactor grade" href=https://www.codefactor.io/repository/github/teableio/teable">
     <img alt="Codefactor" src="https://img.shields.io/codefactor/grade/github/teableio/teable?label=Codefactor&logo=codefactor&style=flat-quare&labelColor=000000" />
@@ -24,9 +28,6 @@
   </a>
   <a aria-label="Codacy grade" href="https://www.codacy.com/gh/teableio/teable/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=teableio/teable&amp;utm_campaign=Badge_Grade">
     <img alt="Codacy grade" src="https://img.shields.io/codacy/grade/dff9c944af284a0fad4e165eb1727467?logo=codacy&style=flat-square&labelColor=000&label=Codacy">
-  </a>
-  <a aria-label="LoC">  
-    <img alt="LoC" src="https://img.shields.io/tokei/lines/github/teableio/teable?style=flat-quare&labelColor=000000" />
   </a>
   <a aria-label="Top language" href="https://github.com/teableio/teable/search?l=typescript">
     <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teableio/teable?style=flat-square&labelColor=000&color=blue">
