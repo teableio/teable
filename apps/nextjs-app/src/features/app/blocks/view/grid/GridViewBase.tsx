@@ -134,6 +134,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     getPrefillingCellContent,
   } = useGridPrefillingRow(columns);
 
+  const inPrefilling = prefillingRowIndex != null;
+
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {
       onReset();
@@ -587,11 +589,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   }, [rowHeight, prefillingRowIndex]);
 
   useEffect(() => {
-    if (prefillingRowIndex == null) return;
+    if (!inPrefilling) return;
     const scrollState = gridRef.current?.getScrollState();
     if (scrollState == null) return;
     prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
-  }, [prefillingRowIndex]);
+  }, [inPrefilling]);
 
   useClickAway(containerRef, () => {
     gridRef.current?.resetState();
@@ -606,6 +608,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           <Grid
             ref={gridRef}
             theme={theme}
+            style={{ pointerEvents: inPrefilling ? 'none' : 'auto' }}
             draggable={draggable}
             isTouchDevice={isTouchDevice}
             rowCount={realRowCount}
@@ -643,7 +646,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             onItemClick={onItemClick}
             onItemHovered={onItemHovered}
           />
-          {prefillingRowIndex != null && (
+          {inPrefilling && (
             <PrefillingRowContainer
               style={prefillingRowStyle}
               onClickOutside={() => {
