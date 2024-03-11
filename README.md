@@ -10,14 +10,14 @@
 </div>
 
 <p align="center">
-  <a href="https://teable.io">Home</a> | <a href="https://help.teable.io">Help</a> | <a href="https://Blog.teable.io">Blog</a> | <a href="https://template.teable.io">Template</a>
+  <a href="https://teable.io">Home</a> | <a href="https://help.teable.io">Help</a> | <a href="https://Blog.teable.io">Blog</a> | <a href="https://template.teable.io">Template</a> | <a href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a href="https://discord.gg/n2JQqekG">Discord </a>
 </p>
 
 <p align="center">
   <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=Build%20and%20Push%20to%20Docker%20Registry">
     <img alt="build" src="https://img.shields.io/github/actions/workflow/status/teableio/teable/docker-push.yml?label=Build&logo=github&style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="Codefactor grade" href=https://www.codefactor.io/repository/github/teableio/teable">
+  <a aria-label="Codefactor grade" href="https://www.codefactor.io/repository/github/teableio/teable">
     <img alt="Codefactor" src="https://img.shields.io/codefactor/grade/github/teableio/teable?label=Codefactor&logo=codefactor&style=flat-quare&labelColor=000000" />
   </a>
   <a aria-label="CodeClimate maintainability" href="https://codeclimate.com/github/teableio/teable">
