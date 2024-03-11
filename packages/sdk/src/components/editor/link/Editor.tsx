@@ -114,6 +114,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                 ref={listRef}
                 type={LinkListType.Selected}
                 rowCount={selectedRowCount}
+                readonly={readonly}
                 cellValue={cellValue}
                 isMultiple={isMultiple}
                 recordQuery={recordQuery}
