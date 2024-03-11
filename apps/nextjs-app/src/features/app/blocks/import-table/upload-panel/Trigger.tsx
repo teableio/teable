@@ -1,17 +1,20 @@
+import { importTypeMap } from '@teable/core';
+import type { SUPPORTEDTYPE } from '@teable/core';
 import { useRef } from 'react';
 import { useDropArea } from 'react-use';
 
 interface IUploadProps {
-  accept?: React.InputHTMLAttributes<HTMLInputElement>['accept'];
-  onChange: (file: File[] | null) => void;
+  fileType: SUPPORTEDTYPE;
+  onChange: (file: File | null) => void;
   children: React.ReactElement;
 }
 
-export const Upload = (props: IUploadProps) => {
-  const { onChange, children, accept } = props;
+export const Trigger = (props: IUploadProps) => {
+  const { onChange, children, fileType } = props;
   const uploadRef = useRef<HTMLInputElement>(null);
+
   const [bound] = useDropArea({
-    onFiles: onChange,
+    onFiles: (files: File[]) => onChange(files[0]),
   });
 
   return (
@@ -20,12 +23,13 @@ export const Upload = (props: IUploadProps) => {
         className="hidden"
         ref={uploadRef}
         type="file"
-        accept={accept}
+        accept={importTypeMap[fileType].accept}
         multiple={false}
         autoComplete="off"
         tabIndex={-1}
         onChange={(e) => {
-          e.target.files && onChange(Array.from(e.target.files));
+          const files = (e.target.files && Array.from(e.target.files)) || null;
+          files && onChange(files[0]);
         }}
       ></input>
       <div

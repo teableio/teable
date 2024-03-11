@@ -1,13 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
+import { importTypeMap } from '@teable/core';
 import type {
-  IAnalyzeColumn,
   IImportOptionRo,
   IAnalyzeRo,
-  IImportColumn,
+  IImportSheetItem,
+  SUPPORTEDTYPE,
+  IAnalyzeVo,
   IImportOption,
 } from '@teable/core';
-import { FieldType } from '@teable/core';
-import { SUPPORTEDTYPE } from '@teable/core/src/import/types';
+
 import { analyzeFile, importTableFromFile } from '@teable/openapi';
 import type { INotifyVo } from '@teable/openapi';
 import { useBase } from '@teable/sdk';
@@ -30,21 +31,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Input,
 } from '@teable/ui-lib';
-import { uniqBy } from 'lodash';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useCallback } from 'react';
-import { z } from 'zod';
-import { CollapsePanel } from './CollapsePanel';
-import { FileItem } from './FileItem';
-import { PreviewColumn } from './PreviewColumn';
-import { Upload } from './Upload';
+import { FieldConfigPanel } from './field-config-panel';
+import { UploadPanel } from './upload-panel/UploadPanel';
+import { UrlPanel } from './UrlPanel';
 
 interface ITableImportProps {
   open?: boolean;
   children?: React.ReactElement;
+  fileType: SUPPORTEDTYPE;
   onOpenChange?: (open: boolean) => void;
 }
 
@@ -62,67 +61,16 @@ export const TableImport = (props: ITableImportProps) => {
   const router = useRouter();
   const { t } = useTranslation(['table']);
   const [step, setStep] = useState(Step.UPLOAD);
-  const { children, open, onOpenChange } = props;
+  const { children, open, onOpenChange, fileType } = props;
   const [errorMessage, setErrorMessage] = useState('');
-  const [linkUrl, setLinkUrl] = useState('');
   const [alterDialogVisible, setAlterDialogVisible] = useState(false);
-  const [files, setFiles] = useState<File[] | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [fileInfo, setFileInfo] = useState<IAnalyzeRo>({} as IAnalyzeRo);
-  const initCaculatedColumns = useRef<IAnalyzeColumn[]>([]);
-  const [caculatedColumns, setCalculateColumns] = useState<IImportColumn[]>([]);
-  const [importOptions, setImportOptions] = useState<ITableImportOptions>({
-    autoSelectType: true,
-    useFirstRowAsHeader: true,
-    importData: true,
-  });
+  const primitiveWorkSheets = useRef<IAnalyzeVo['worksheets']>({});
+  const [workSheets, setWorkSheets] = useState<IImportOptionRo['worksheets']>({});
 
   const closeDialog = () => {
     dialogOpenProxy(false);
-  };
-
-  const columnsChangeHandler = (newColumns: IImportColumn[]) => {
-    const uniqueData = uniqBy(newColumns, 'name');
-    if (newColumns.length !== uniqueData.length) {
-      setErrorMessage('field name should be unique');
-    } else {
-      setErrorMessage('');
-    }
-    setCalculateColumns(newColumns);
-  };
-
-  const optionChangeHandler = (options: ITableImportOptions, propertyName: string) => {
-    setImportOptions(options);
-    if (propertyName === 'autoSelectType') {
-      if (!options.autoSelectType) {
-        const newColumns = caculatedColumns?.map((item) => ({
-          ...item,
-          type: FieldType.LongText,
-        }));
-        setCalculateColumns(newColumns);
-      } else {
-        const newColumns = caculatedColumns?.map((item) => ({
-          ...item,
-          type: initCaculatedColumns.current[item.sourceColumnIndex].type,
-        }));
-        setCalculateColumns(newColumns);
-      }
-    }
-
-    if (propertyName === 'useFirstRowAsHeader') {
-      if (!options.useFirstRowAsHeader) {
-        const newColumns = caculatedColumns?.map((item, index) => ({
-          ...item,
-          name: `${t('table:import.form.defaultFieldName')} ${index + 1}`,
-        }));
-        setCalculateColumns(newColumns);
-      } else {
-        const newColumns = caculatedColumns?.map((item) => ({
-          ...item,
-          name: initCaculatedColumns.current[item.sourceColumnIndex].name,
-        }));
-        setCalculateColumns(newColumns);
-      }
-    }
   };
 
   const { mutateAsync, isLoading } = useMutation({
@@ -146,19 +94,23 @@ export const TableImport = (props: ITableImportProps) => {
   });
 
   const importTable = async () => {
+    for (const [, value] of Object.entries(workSheets)) {
+      const { columns } = value;
+
+      if (columns.some((col) => !col.name)) {
+        setErrorMessage(t('table:import.form.error.fieldNameEmpty'));
+        return;
+      }
+      if (new Set(columns.map((col) => col.name)).size !== columns.length) {
+        setErrorMessage(t('table:import.form.error.uniqueFieldName'));
+        return;
+      }
+    }
+
     mutateAsync({
       baseId: base.id,
       importRo: {
-        worksheets: [
-          {
-            name: 'import table',
-            columns: caculatedColumns,
-            options: {
-              importData: importOptions.importData,
-              useFirstRowAsHeader: importOptions.useFirstRowAsHeader,
-            },
-          },
-        ],
+        worksheets: workSheets,
         ...fileInfo,
       },
     });
@@ -176,16 +128,19 @@ export const TableImport = (props: ITableImportProps) => {
         data: { worksheets },
       } = data;
 
-      // TODO support groups
-      const calculatedColumnHeaders = worksheets?.[0].columns || [];
-      const columnHeaderWithIndex = calculatedColumnHeaders.map((col, index) => ({
-        ...col,
-        sourceColumnIndex: index,
-      }));
-      setCalculateColumns(columnHeaderWithIndex);
+      const workSheetsWithIndex: IImportOptionRo['worksheets'] = {};
+      for (const [key, value] of Object.entries(worksheets)) {
+        const item = { ...value, importData: true, useFirstRowAsHeader: true } as IImportSheetItem;
+        item.columns = item.columns.map((col, index) => ({
+          ...col,
+          sourceColumnIndex: index,
+        }));
+
+        workSheetsWithIndex[key] = item;
+      }
+      setWorkSheets(workSheetsWithIndex);
+      primitiveWorkSheets.current = worksheets;
       setStep(Step.CONFIG);
-      initCaculatedColumns.current = calculatedColumnHeaders;
-      setErrorMessage('');
     },
   });
 
@@ -195,10 +150,10 @@ export const TableImport = (props: ITableImportProps) => {
 
       await analyzeByUrl({
         attachmentUrl: presignedUrl,
-        fileType: SUPPORTEDTYPE.CSV,
+        fileType,
       });
     },
-    [analyzeByUrl]
+    [analyzeByUrl, fileType]
   );
 
   const dialogOpenProxy = (open: boolean) => {
@@ -209,129 +164,72 @@ export const TableImport = (props: ITableImportProps) => {
     onOpenChange?.(open);
   };
 
+  const fieldChangeHandler = (value: IImportOptionRo['worksheets']) => {
+    setWorkSheets(value);
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={dialogOpenProxy}>
         {children && <DialogTrigger>{children}</DialogTrigger>}
         {open && (
-          <DialogContent className="flex max-h-[80%] w-[800px] min-w-[800px] max-w-fit flex-col overflow-hidden">
-            <Tabs defaultValue="upload" className="flex-1 overflow-auto">
+          <DialogContent className="flex max-h-[80%] max-w-[800px] flex-col overflow-hidden">
+            <Tabs defaultValue="localFile" className="flex-1 overflow-auto">
               {step === Step.UPLOAD && (
                 <TabsList>
-                  <TabsTrigger value="upload">{t('table:import.title.localFile')}</TabsTrigger>
+                  <TabsTrigger value="localFile">{t('table:import.title.localFile')}</TabsTrigger>
                   <TabsTrigger value="url">{t('table:import.title.linkUrl')}</TabsTrigger>
                 </TabsList>
               )}
 
-              <TabsContent value="upload">
+              <TabsContent value="localFile">
                 {step === Step.UPLOAD && (
-                  <div className="relative flex h-96 items-center justify-center">
-                    {!files?.length && (
-                      <Upload
-                        accept="text/csv"
-                        onChange={(files) => {
-                          setFiles(files);
-                        }}
-                      >
-                        <div className="flex h-full cursor-pointer items-center justify-center rounded-sm border-2 border-dashed hover:border-secondary">
-                          <Button variant="ghost">{t('table:import.tips.importWayTip')}</Button>
-                        </div>
-                      </Upload>
-                    )}
-                    {files?.length &&
-                      Array.from(files).map((file) => (
-                        <FileItem
-                          accept="text/csv"
-                          key={file.name}
-                          file={file}
-                          onClose={() => setFiles(null)}
-                          onFinished={fileFinishedHandler}
-                        />
-                      ))}
-                  </div>
+                  <UploadPanel
+                    fileType={fileType}
+                    file={file}
+                    onChange={(file) => {
+                      const { exceedSize, accept } = importTypeMap[fileType];
+
+                      const acceptGroup = accept.split(',');
+
+                      if (file && !acceptGroup.includes(file.type)) {
+                        toast.error(t('table:import.form.error.errorFileFormat'));
+                        return;
+                      }
+
+                      if (exceedSize && file && file.size > exceedSize * 1024 * 1024) {
+                        toast.error(`${t('table:import.tips.fileExceedSizeTip')} ${exceedSize}MB`);
+                        return;
+                      }
+
+                      setFile(file);
+                    }}
+                    onClose={() => setFile(null)}
+                    onFinished={fileFinishedHandler}
+                  ></UploadPanel>
                 )}
                 {step === Step.CONFIG && (
-                  <div className="flex flex-col">
-                    <div>
-                      <p className="text-base font-bold">{t('table:import.title.importTitle')}</p>
-                    </div>
-
-                    <div className="my-2 h-[400px] overflow-y-auto rounded-sm border border-secondary">
-                      <PreviewColumn
-                        columns={caculatedColumns}
-                        onChange={columnsChangeHandler}
-                      ></PreviewColumn>
-                    </div>
-
-                    {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
-
-                    <CollapsePanel
-                      onChange={optionChangeHandler}
-                      options={importOptions}
-                    ></CollapsePanel>
-                  </div>
+                  <FieldConfigPanel
+                    workSheets={workSheets}
+                    errorMessage={errorMessage}
+                    onChange={fieldChangeHandler}
+                  ></FieldConfigPanel>
                 )}
               </TabsContent>
               <TabsContent value="url">
                 {step === Step.UPLOAD && (
-                  <div className="flex h-32 w-full flex-col items-start px-2">
-                    <h4 className="m-2 text-sm">{t('table:import.title.linkUrlInputTitle')}</h4>
-                    <div className="flex w-full">
-                      <Input
-                        type="url"
-                        placeholder="https://www.example.com/file.csv"
-                        className="mr-2 w-full"
-                        value={linkUrl}
-                        onChange={(e) => {
-                          const { value } = e.target;
-                          setLinkUrl(value);
-                        }}
-                      />
-                      <Button
-                        variant="outline"
-                        disabled={analyzeLoading || !linkUrl}
-                        onClick={() => {
-                          if (!linkUrl) {
-                            setErrorMessage(t('table:import.form.error.urlEmptyTip'));
-                            return;
-                          }
-                          if (!z.string().url().safeParse(linkUrl).success) {
-                            setErrorMessage(t('table:import.form.error.urlValidateTip'));
-                            return;
-                          }
-                          analyzeByUrl({
-                            attachmentUrl: linkUrl,
-                            fileType: SUPPORTEDTYPE.CSV,
-                          });
-                        }}
-                      >
-                        {analyzeLoading && <Spin className="mr-1 size-4" />}
-                        {t('table:import.title.upload')}
-                      </Button>
-                    </div>
-                    {errorMessage && <p className="p-2 text-sm text-red-500">{errorMessage}</p>}
-                  </div>
+                  <UrlPanel
+                    analyzeFn={analyzeByUrl}
+                    isFinished={analyzeLoading}
+                    fileType={fileType}
+                  ></UrlPanel>
                 )}
                 {step === Step.CONFIG && (
-                  <div className="flex flex-col">
-                    <div>
-                      <p className="text-base font-bold">{t('table:import.title.importTitle')}</p>
-                    </div>
-
-                    <div className="my-2 h-[400px] overflow-y-auto rounded-sm border border-secondary">
-                      <PreviewColumn
-                        columns={caculatedColumns}
-                        onChange={columnsChangeHandler}
-                      ></PreviewColumn>
-                    </div>
-
-                    {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
-
-                    <CollapsePanel
-                      onChange={optionChangeHandler}
-                      options={importOptions}
-                    ></CollapsePanel>
-                  </div>
+                  <FieldConfigPanel
+                    workSheets={workSheets}
+                    errorMessage={errorMessage}
+                    onChange={fieldChangeHandler}
+                  ></FieldConfigPanel>
                 )}
               </TabsContent>
             </Tabs>
@@ -345,7 +243,7 @@ export const TableImport = (props: ITableImportProps) => {
                     size="sm"
                     className="ml-1"
                     onClick={() => importTable()}
-                    disabled={!!errorMessage || isLoading}
+                    disabled={isLoading}
                   >
                     {isLoading && <Spin className="mr-1 size-4" />}
                     {t('table:import.title.import')}

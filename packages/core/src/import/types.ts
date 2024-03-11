@@ -17,12 +17,13 @@ export const analyzeColumnSchema = z.object({
 });
 
 export const analyzeVoSchema = z.object({
-  worksheets: z
-    .object({
+  worksheets: z.record(
+    z.string(),
+    z.object({
       name: z.string(),
       columns: analyzeColumnSchema.array(),
     })
-    .array(),
+  ),
 });
 
 export type IAnalyzeRo = z.infer<typeof analyzeRoSchema>;
@@ -42,19 +43,20 @@ export const importColumnSchema = analyzeColumnSchema.extend({
   sourceColumnIndex: z.number(),
 });
 
-export const importOptionSchema = z.object({
+export const importSheetItem = z.object({
+  name: z.string(),
+  columns: importColumnSchema.array(),
   useFirstRowAsHeader: z.boolean(),
   importData: z.boolean(),
 });
 
+export const importOptionSchema = importSheetItem.pick({
+  useFirstRowAsHeader: true,
+  importData: true,
+});
+
 export const importOptionRoSchema = z.object({
-  worksheets: z
-    .object({
-      name: z.string(),
-      columns: importColumnSchema.array(),
-      options: importOptionSchema,
-    })
-    .array(),
+  worksheets: z.record(z.string(), importSheetItem),
   attachmentUrl: z.string().url(),
   fileType: z.nativeEnum(SUPPORTEDTYPE),
 });
@@ -62,5 +64,7 @@ export const importOptionRoSchema = z.object({
 export type IImportColumn = z.infer<typeof importColumnSchema>;
 
 export type IImportOptionRo = z.infer<typeof importOptionRoSchema>;
+
+export type IImportSheetItem = z.infer<typeof importSheetItem>;
 
 export type IImportOption = z.infer<typeof importOptionSchema>;

@@ -122,7 +122,8 @@
     },
     "tips": {
       "importWayTip": "Click or drag file to this area to upload",
-      "leaveTip": "Your data will still be imported."
+      "leaveTip": "Your data will still be imported.",
+      "fileExceedSizeTip": "This type file size exceeds the limit of"
     },
     "options": {
       "autoSelectFieldOptionName": "Auto-select field types",
@@ -134,7 +135,9 @@
       "error": {
         "urlEmptyTip": "URL should not be empty!",
         "urlValidateTip": "Couldn't parse URL. Try a different URL!",
-        "errorFileFormat": "File format is incorrect!"
+        "errorFileFormat": "File format is incorrect!",
+        "uniqueFieldName": "Field name should be unique!",
+        "fieldNameEmpty": "Field name should not be empty!"
       }
     }
   },

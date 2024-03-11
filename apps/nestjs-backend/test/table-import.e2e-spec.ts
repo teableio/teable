@@ -9,6 +9,7 @@ import {
   importTableFromFile as apiImportTableFromFile,
   getTableById as apiGetTableById,
 } from '@teable/openapi';
+import { CsvImporter } from '../src/features/import/open-api/import.class';
 
 import { initApp, deleteTable } from './utils/init-app';
 
@@ -112,7 +113,7 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
-    const calculatedColumnHeaders = worksheets[0].columns;
+    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
     expect(calculatedColumnHeaders).toEqual(assertHeaders);
   });
 
@@ -144,24 +145,22 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
-    const calculatedColumnHeaders = worksheets[0].columns;
+    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
 
     const table = await apiImportTableFromFile(baseId, {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
-      worksheets: [
-        {
+      worksheets: {
+        sheet1: {
           name: 'sheet1',
           columns: calculatedColumnHeaders.map((column, index) => ({
             ...column,
             sourceColumnIndex: index,
           })),
-          options: {
-            useFirstRowAsHeader: true,
-            importData: true,
-          },
+          useFirstRowAsHeader: true,
+          importData: true,
         },
-      ],
+      },
     });
 
     const { fields, id } = table.data[0];
@@ -208,24 +207,22 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
     });
-    const calculatedColumnHeaders = worksheets[0].columns;
+    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
 
     const table = await apiImportTableFromFile(baseId, {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
-      worksheets: [
-        {
+      worksheets: {
+        sheet1: {
           name: 'sheet1',
           columns: calculatedColumnHeaders.map((column, index) => ({
             ...column,
             sourceColumnIndex: index,
           })),
-          options: {
-            useFirstRowAsHeader: true,
-            importData: false,
-          },
+          useFirstRowAsHeader: true,
+          importData: false,
         },
-      ],
+      },
     });
 
     const { fields, id } = table.data[0];
@@ -254,24 +251,22 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       fileType: SUPPORTEDTYPE.CSV,
     });
 
-    const calculatedColumnHeaders = worksheets[0].columns;
+    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
 
     const table = await apiImportTableFromFile(baseId, {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
-      worksheets: [
-        {
+      worksheets: {
+        sheet1: {
           name: 'sheet1',
           columns: calculatedColumnHeaders.map((column, index) => ({
             ...column,
             sourceColumnIndex: index,
           })),
-          options: {
-            useFirstRowAsHeader: false,
-            importData: true,
-          },
+          useFirstRowAsHeader: false,
+          importData: true,
         },
-      ],
+      },
     });
 
     const { fields, id } = table.data[0];
