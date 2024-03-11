@@ -8,7 +8,7 @@
     "cancel": "取消",
     "confirm": "确认",
     "search": {
-      "placeholder": "搜索记录",
+      "placeholder": "搜索",
       "empty": "未找到结果。"
     },
     "selectPlaceHolder": "请选择..."

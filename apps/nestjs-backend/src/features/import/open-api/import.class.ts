@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { IValidateTypes } from '@teable/core';
-import { getUniqName, FieldType, SUPPORTEDTYPE } from '@teable/core';
+import { getUniqName, FieldType, SUPPORTEDTYPE, importTypeMap } from '@teable/core';
 import { axios } from '@teable/openapi';
 import { zip } from 'lodash';
 import Papa from 'papaparse';
@@ -104,24 +104,27 @@ export class CsvImporter extends Importer {
     FieldType.LongText,
     FieldType.SingleLineText,
   ];
-  constructor(public config: { url: string }) {
+  constructor(public config: { url: string; fileType: SUPPORTEDTYPE }) {
     super(config);
   }
   getSupportedFieldTypes() {
     return CsvImporter.SUPPORTEDTYPE;
   }
   async getFile() {
-    const { url } = this.config;
+    const { url, fileType } = this.config;
     const { data: stream } = await axios.get(url, {
       responseType: 'stream',
     });
     const fileFormat = stream?.headers?.['content-type']?.split(';')?.[0];
 
-    if (!CsvImporter.SUPPORTFILETYPE.includes(fileFormat)) {
+    const supportType = importTypeMap[fileType].acceptHeaders;
+
+    if (fileFormat && !supportType.includes(fileFormat)) {
       throw new BadRequestException(
-        `File format is not supported, only ${CsvImporter.SUPPORTFILETYPE.join(', ')} are supported,`
+        `File format is not supported, only ${supportType.join(',')} are supported,`
       );
     }
+
     return stream;
   }
   async parse(): Promise<unknown[]> {
@@ -179,7 +182,10 @@ export class CsvImporter extends Importer {
   }
 }
 
-export const importerFactory = (type: SUPPORTEDTYPE, config: { url: string }) => {
+export const importerFactory = (
+  type: SUPPORTEDTYPE,
+  config: { url: string; fileType: SUPPORTEDTYPE }
+) => {
   switch (type) {
     case SUPPORTEDTYPE.CSV:
       return new CsvImporter(config);
