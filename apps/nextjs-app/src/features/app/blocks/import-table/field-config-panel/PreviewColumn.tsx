@@ -38,22 +38,6 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
     [getFieldStatic]
   );
 
-  // todo narrow primary key
-  // const primaryCandidates = useMemo(
-  //   () =>
-  //     PRIMARY_SUPPORTED_TYPES.map<{ value: FieldType; label: string; icon: JSX.Element }>(
-  //       (type) => {
-  //         const { title, Icon } = getFieldStatic(type, false);
-  //         return {
-  //           value: type,
-  //           label: title,
-  //           icon: <Icon />,
-  //         };
-  //       }
-  //     ),
-  //   [getFieldStatic]
-  // );
-
   const onChangeHandler = (data: IImportColumn[]) => {
     onChange(data);
   };

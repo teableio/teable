@@ -1,9 +1,11 @@
+import type { Readable } from 'stream';
 import { BadRequestException } from '@nestjs/common';
-import type { IValidateTypes } from '@teable/core';
+import type { IValidateTypes, IAnalyzeVo } from '@teable/core';
 import { getUniqName, FieldType, SUPPORTEDTYPE, importTypeMap } from '@teable/core';
 import { axios } from '@teable/openapi';
-import { zip } from 'lodash';
+import { zip, toString } from 'lodash';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
 import z from 'zod';
 
@@ -17,107 +19,37 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.SingleLineText]: z.string(),
 };
 
+interface IImportConstructorParams {
+  url: string;
+  type: SUPPORTEDTYPE;
+}
+
+interface IParseResult {
+  [x: string]: unknown[][];
+}
+
 export abstract class Importer {
   public static CHUNK_SIZE = 1024 * 1024 * 1;
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
-  constructor(public config: { url: string }) {}
+  constructor(public config: IImportConstructorParams) {}
 
-  abstract getFile(): unknown;
-
-  abstract parse(options?: unknown): Promise<unknown>;
-
-  abstract streamParse(
-    options: unknown,
-    fn: (chunk: Papa.ParseResult<unknown>['data']) => Promise<void>
-  ): void;
+  abstract parse(
+    ...args: [options?: unknown, cb?: (chunk: Record<string, unknown[][]>) => Promise<void>]
+  ): Promise<IParseResult>;
 
   abstract getSupportedFieldTypes(): IValidateTypes[];
 
-  async genColumns() {
-    const supportTypes = this.getSupportedFieldTypes();
-    const columnInfo = (await this.parse()) as string[];
-    const zipColumnInfo = zip(...columnInfo);
-    const existNames: string[] = [];
-    const calculatedColumnHeaders = zipColumnInfo.map((column, index) => {
-      let isColumnEmpty = true;
-      let validatingFieldTypes = [...supportTypes];
-      for (let i = 0; i < column.length; i++) {
-        if (validatingFieldTypes.length <= 1) {
-          break;
-        }
-
-        // ignore empty value and first row causing first row as header
-        if (column[i] === '' || column[i] == null || i === 0) {
-          continue;
-        }
-
-        // when the whole columns aren't empty should flag
-        isColumnEmpty = false;
-
-        // when one of column's value validates long text, then break;
-        if (validateZodSchemaMap[FieldType.LongText].safeParse(column[i]).success) {
-          validatingFieldTypes = [FieldType.LongText];
-          break;
-        }
-
-        const matchTypes = validatingFieldTypes.filter((type) => {
-          const schema = validateZodSchemaMap[type];
-          return schema.safeParse(column[i]).success;
-        });
-
-        validatingFieldTypes = matchTypes;
-      }
-
-      // empty columns should be default type
-      validatingFieldTypes = !isColumnEmpty ? validatingFieldTypes : [Importer.DEFAULT_COLUMN_TYPE];
-
-      const name = getUniqName(column?.[0] ?? `Field ${index}`, existNames);
-
-      existNames.push(name);
-
-      return {
-        type: validatingFieldTypes[0] || Importer.DEFAULT_COLUMN_TYPE,
-        name: name.toString(),
-      };
-    });
-    return {
-      worksheets: [
-        {
-          name: 'import table',
-          columns: calculatedColumnHeaders,
-        },
-      ],
-    };
-  }
-}
-
-export class CsvImporter extends Importer {
-  public static readonly SUPPORTFILETYPE = ['text/csv'];
-  public static readonly CHECK_LINES = 5000;
-  // order make sence
-  public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
-    FieldType.Checkbox,
-    FieldType.Number,
-    FieldType.Date,
-    FieldType.LongText,
-    FieldType.SingleLineText,
-  ];
-  constructor(public config: { url: string; fileType: SUPPORTEDTYPE }) {
-    super(config);
-  }
-  getSupportedFieldTypes() {
-    return CsvImporter.SUPPORTEDTYPE;
-  }
   async getFile() {
-    const { url, fileType } = this.config;
+    const { url, type } = this.config;
     const { data: stream } = await axios.get(url, {
       responseType: 'stream',
     });
-    const fileFormat = stream?.headers?.['content-type']?.split(';')?.[0];
 
-    const supportType = importTypeMap[fileType].acceptHeaders;
+    const supportType = importTypeMap[type].acceptHeaders;
+
+    const fileFormat = stream?.headers?.['content-type']?.split(';')?.[0];
 
     if (fileFormat && !supportType.includes(fileFormat)) {
       throw new BadRequestException(
@@ -127,70 +59,215 @@ export class CsvImporter extends Importer {
 
     return stream;
   }
-  async parse(): Promise<unknown[]> {
-    const stream = await this.getFile();
-    const data: Papa.ParseResult<unknown>['data'] = [];
-    return new Promise((resolve, reject) => {
-      Papa.parse(stream, {
-        download: false,
-        dynamicTyping: true,
-        preview: CsvImporter.CHECK_LINES,
-        chunkSize: Importer.CHUNK_SIZE,
-        chunk: (chunk) => {
-          data.push(...chunk.data);
-        },
-        complete: () => {
-          resolve(data);
-        },
-        error: (err) => {
-          reject(err);
-        },
+
+  async genColumns() {
+    const supportTypes = this.getSupportedFieldTypes();
+    const parseResult = await this.parse();
+    const result: IAnalyzeVo['worksheets'] = {};
+
+    for (const [sheetName, cols] of Object.entries(parseResult)) {
+      const zipColumnInfo = zip(...cols);
+      const existNames: string[] = [];
+      const calculatedColumnHeaders = zipColumnInfo.map((column, index) => {
+        let isColumnEmpty = true;
+        let validatingFieldTypes = [...supportTypes];
+        for (let i = 0; i < column.length; i++) {
+          if (validatingFieldTypes.length <= 1) {
+            break;
+          }
+
+          // ignore empty value and first row causing first row as header
+          if (column[i] === '' || column[i] == null || i === 0) {
+            continue;
+          }
+
+          // when the whole columns aren't empty should flag
+          isColumnEmpty = false;
+
+          // when one of column's value validates long text, then break;
+          if (validateZodSchemaMap[FieldType.LongText].safeParse(column[i]).success) {
+            validatingFieldTypes = [FieldType.LongText];
+            break;
+          }
+
+          const matchTypes = validatingFieldTypes.filter((type) => {
+            const schema = validateZodSchemaMap[type];
+            return schema.safeParse(column[i]).success;
+          });
+
+          validatingFieldTypes = matchTypes;
+        }
+
+        // empty columns should be default type
+        validatingFieldTypes = !isColumnEmpty
+          ? validatingFieldTypes
+          : [Importer.DEFAULT_COLUMN_TYPE];
+
+        const name = getUniqName(toString(column?.[0]) ?? `Field ${index}`, existNames);
+
+        existNames.push(name);
+
+        return {
+          type: validatingFieldTypes[0] || Importer.DEFAULT_COLUMN_TYPE,
+          name: name.toString(),
+        };
       });
-    });
-  }
-  async streamParse(
-    options: Papa.ParseConfig & { skipFirstNLines: number },
-    cb: (chunk: unknown[][]) => Promise<void>
-  ) {
-    const stream = await this.getFile();
-    return new Promise((resolve, reject) => {
-      let isFirst = true;
-      Papa.parse(stream, {
-        download: false,
-        dynamicTyping: true,
-        chunkSize: Importer.CHUNK_SIZE,
-        chunk: (chunk, parser) => {
-          (async () => {
-            const newChunk = [...chunk.data] as unknown[][];
-            if (isFirst && options.skipFirstNLines) {
-              newChunk.splice(0, 1);
-              isFirst = false;
-            }
-            parser.pause();
-            await cb(newChunk);
-            parser.resume();
-          })();
-        },
-        complete: () => {
-          resolve({});
-        },
-        error: (err) => {
-          reject(err);
-        },
-      });
-    });
+
+      result[sheetName] = {
+        name: sheetName,
+        columns: calculatedColumnHeaders,
+      };
+    }
+
+    return {
+      worksheets: result,
+    };
   }
 }
 
-export const importerFactory = (
-  type: SUPPORTEDTYPE,
-  config: { url: string; fileType: SUPPORTEDTYPE }
-) => {
+export class CsvImporter extends Importer {
+  public static readonly CHECK_LINES = 5000;
+  public static readonly DEFAULT_SHEETKEY = 'Import Table';
+  // order make sence
+  public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
+    FieldType.Checkbox,
+    FieldType.Number,
+    FieldType.Date,
+    FieldType.LongText,
+    FieldType.SingleLineText,
+  ];
+  getSupportedFieldTypes() {
+    return CsvImporter.SUPPORTEDTYPE;
+  }
+
+  parse(): Promise<IParseResult>;
+  parse(
+    options: Papa.ParseConfig & { skipFirstNLines: number; key: string },
+    cb: (chunk: Record<string, unknown[][]>) => Promise<void>
+  ): Promise<void>;
+  async parse(
+    ...args: [
+      options?: Papa.ParseConfig & { skipFirstNLines: number; key: string },
+      cb?: (chunk: Record<string, unknown[][]>) => Promise<void>,
+    ]
+  ): Promise<unknown> {
+    const [options, cb] = args;
+    const stream = await this.getFile();
+
+    // chunk parse
+    if (options && cb) {
+      return new Promise((resolve, reject) => {
+        let isFirst = true;
+        Papa.parse(stream, {
+          download: false,
+          dynamicTyping: true,
+          chunkSize: Importer.CHUNK_SIZE,
+          chunk: (chunk, parser) => {
+            (async () => {
+              const newChunk = [...chunk.data] as unknown[][];
+              if (isFirst && options.skipFirstNLines) {
+                newChunk.splice(0, 1);
+                isFirst = false;
+              }
+              parser.pause();
+              await cb({ [CsvImporter.DEFAULT_SHEETKEY]: newChunk });
+              parser.resume();
+            })();
+          },
+          complete: () => {
+            resolve({});
+          },
+          error: (err) => {
+            reject(err);
+          },
+        });
+      });
+    } else {
+      return new Promise((resolve, reject) => {
+        Papa.parse(stream, {
+          download: false,
+          dynamicTyping: true,
+          preview: CsvImporter.CHECK_LINES,
+          complete: (result) => {
+            resolve({
+              [CsvImporter.DEFAULT_SHEETKEY]: result.data,
+            });
+          },
+          error: (err) => {
+            reject(err);
+          },
+        });
+      });
+    }
+  }
+}
+
+export class ExcelImporter extends Importer {
+  public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
+    FieldType.Checkbox,
+    FieldType.Number,
+    FieldType.Date,
+    FieldType.SingleLineText,
+    FieldType.LongText,
+  ];
+
+  parse(): Promise<IParseResult>;
+  parse(
+    options: { skipFirstNLines: number; key: string },
+    cb: (chunk: Record<string, unknown[][]>) => Promise<void>
+  ): Promise<void>;
+
+  async parse(
+    options?: { skipFirstNLines: number; key: string },
+    cb?: (chunk: Record<string, unknown[][]>) => Promise<void>
+  ): Promise<unknown> {
+    const fileSteam = await this.getFile();
+
+    const asyncRs = async (stream: Readable): Promise<IParseResult> =>
+      new Promise((res, rej) => {
+        const buffers: Buffer[] = [];
+        stream.on('data', function (data) {
+          buffers.push(data);
+        });
+        stream.on('end', function () {
+          const buf = Buffer.concat(buffers);
+          const workbook = XLSX.read(buf, { dense: true });
+          const result: IParseResult = {};
+          Object.keys(workbook.Sheets).forEach((name) => {
+            result[name] = workbook.Sheets[name]['!data']?.map((item) =>
+              item.map((v) => v.v)
+            ) as unknown[][];
+          });
+          res(result);
+        });
+        stream.on('error', (e) => {
+          rej(e);
+        });
+      });
+
+    const parseResult = await asyncRs(fileSteam);
+
+    if (options && cb) {
+      const { skipFirstNLines, key } = options;
+      if (skipFirstNLines) {
+        parseResult[key].splice(0, 1);
+      }
+      return await cb(parseResult);
+    }
+
+    return parseResult;
+  }
+  getSupportedFieldTypes() {
+    return CsvImporter.SUPPORTEDTYPE;
+  }
+}
+
+export const importerFactory = (type: SUPPORTEDTYPE, config: IImportConstructorParams) => {
   switch (type) {
     case SUPPORTEDTYPE.CSV:
       return new CsvImporter(config);
     case SUPPORTEDTYPE.EXCEL:
-      throw new Error('not support');
+      return new ExcelImporter(config);
     default:
       throw new Error('not support');
   }

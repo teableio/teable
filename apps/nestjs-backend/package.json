@@ -179,6 +179,7 @@
     "transliteration": "2.3.5",
     "ts-pattern": "5.0.8",
     "ws": "8.16.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz",
     "zod": "3.22.4",
     "zod-validation-error": "3.0.3"
   }

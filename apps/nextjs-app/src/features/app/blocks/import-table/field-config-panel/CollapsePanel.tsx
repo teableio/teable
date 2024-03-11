@@ -9,10 +9,10 @@ import {
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import type { ITableImportOptions } from './TableImport';
+import type { ITableImportOptions } from '../TableImport';
 
 interface ICollapsePanel {
-  onChange: (value: ITableImportOptions, propertyName: keyof ITableImportOptions) => void;
+  onChange: (value: boolean, propertyName: keyof ITableImportOptions) => void;
   options: ITableImportOptions;
 }
 
@@ -43,15 +43,7 @@ export const CollapsePanel = (props: ICollapsePanel) => {
           <Switch
             id="autoSelectType"
             checked={options.autoSelectType}
-            onCheckedChange={(value) =>
-              onChange(
-                {
-                  ...options,
-                  autoSelectType: value,
-                },
-                'autoSelectType'
-              )
-            }
+            onCheckedChange={(value) => onChange(value, 'autoSelectType')}
           />
           <span className="pl-2">{t('table:import.options.autoSelectFieldOptionName')}</span>
         </label>
@@ -63,15 +55,7 @@ export const CollapsePanel = (props: ICollapsePanel) => {
           <Switch
             id="useFirstRowAsHeader"
             checked={options.useFirstRowAsHeader}
-            onCheckedChange={(value) =>
-              onChange(
-                {
-                  ...options,
-                  useFirstRowAsHeader: value,
-                },
-                'useFirstRowAsHeader'
-              )
-            }
+            onCheckedChange={(value) => onChange(value, 'useFirstRowAsHeader')}
           />
           <span className="pl-2">{t('table:import.options.useFirstRowAsHeaderOptionName')}</span>
         </label>
@@ -83,15 +67,7 @@ export const CollapsePanel = (props: ICollapsePanel) => {
           <Switch
             id="importData"
             checked={options.importData}
-            onCheckedChange={(value) =>
-              onChange(
-                {
-                  ...options,
-                  importData: value,
-                },
-                'importData'
-              )
-            }
+            onCheckedChange={(value) => onChange(value, 'importData')}
           />
           <span className="pl-2">{t('table:import.options.importDataOptionName')}</span>
         </label>

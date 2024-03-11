@@ -1,3 +1,4 @@
+import { SUPPORTEDTYPE } from '@teable/core';
 import { File, FileCsv, FileExcel } from '@teable/icons';
 import { useConnection, useTablePermission } from '@teable/sdk';
 import {
@@ -24,6 +25,11 @@ export const TableList: React.FC = () => {
   const permission = useTablePermission();
   const { t } = useTranslation(['table']);
   const [dialogVisible, setDialogVisible] = useState(false);
+  const [fileType, setFileType] = useState<SUPPORTEDTYPE>(SUPPORTEDTYPE.CSV);
+  const importFile = (type: SUPPORTEDTYPE) => {
+    setDialogVisible(true);
+    setFileType(type);
+  };
 
   return (
     <div className="flex w-full flex-col gap-2 overflow-auto pt-4">
@@ -48,13 +54,19 @@ export const TableList: React.FC = () => {
           <DropdownMenuLabel className="px-4 text-xs font-normal text-muted-foreground">
             {t('table:import.menu.addFromOtherSource')}
           </DropdownMenuLabel>
-          <DropdownMenuItem className="cursor-pointer" onClick={() => setDialogVisible(true)}>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onClick={() => importFile(SUPPORTEDTYPE.CSV)}
+          >
             <Button variant="ghost" size="xs" className="h-4">
               <FileCsv className="size-4" />
               {t('table:import.menu.csvFile')}
             </Button>
           </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer" onClick={() => setDialogVisible(true)}>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onClick={() => importFile(SUPPORTEDTYPE.EXCEL)}
+          >
             <Button variant="ghost" size="xs" className="h-4">
               <FileExcel className="size-4" />
               {t('table:import.menu.excelFile')}
@@ -65,6 +77,7 @@ export const TableList: React.FC = () => {
 
       {dialogVisible && (
         <TableImport
+          fileType={fileType}
           open={dialogVisible}
           onOpenChange={(open) => setDialogVisible(open)}
         ></TableImport>

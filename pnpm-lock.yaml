@@ -309,6 +309,9 @@ importers:
       ws:
         specifier: 8.16.0
         version: 8.16.0
+      xlsx:
+        specifier: https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz
+        version: '@cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz'
       zod:
         specifier: 3.22.4
         version: 3.22.4
@@ -823,7 +826,7 @@ importers:
         version: 5.4.2
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(typescript@5.4.2)(vite@5.1.5)
+        version: 4.2.0(rollup@2.79.1)(typescript@5.4.2)(vite@5.1.5)
       vite-tsconfig-paths:
         specifier: 4.3.1
         version: 4.3.1(typescript@5.4.2)(vite@5.1.5)
@@ -8076,6 +8079,7 @@ packages:
       estree-walker: 2.0.2
       picomatch: 2.3.1
       rollup: 2.78.0
+    dev: false
 
   /@rollup/pluginutils@5.1.0(rollup@2.79.1):
     resolution: {integrity: sha512-XTIWOPPcpvyKI6L1NHo0lFlCyznUEyPmPY1mc3KpPVDYulHSTvyeLNVW00QTLIAFNhR3kYnJTQHeGqU4M3n09g==}
@@ -23798,6 +23802,7 @@ packages:
     hasBin: true
     optionalDependencies:
       fsevents: 2.3.3
+    dev: false
 
   /rollup@2.79.1:
     resolution: {integrity: sha512-uKxbd0IhMZOhjAiD5oAFp7BqvkA4Dv47qpOCtaNvng4HBwdbWtdOh8f5nZNuk2rp51PMGk3bzfWu5oayNEuYnw==}
@@ -26167,7 +26172,7 @@ packages:
     peerDependencies:
       '@swc/core': ^1.2.108
     dependencies:
-      '@rollup/pluginutils': 5.1.0(rollup@2.78.0)
+      '@rollup/pluginutils': 5.1.0(rollup@2.79.1)
       '@swc/core': 1.4.5
       load-tsconfig: 0.2.5
       unplugin: 1.8.3
@@ -26474,21 +26479,6 @@ packages:
       vite: ^2.6.0 || 3 || 4 || 5
     dependencies:
       '@rollup/pluginutils': 5.1.0(rollup@2.79.1)
-      '@svgr/core': 8.1.0(typescript@5.4.2)
-      '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
-      vite: 5.1.5(@types/node@20.9.0)
-    transitivePeerDependencies:
-      - rollup
-      - supports-color
-      - typescript
-    dev: true
-
-  /vite-plugin-svgr@4.2.0(typescript@5.4.2)(vite@5.1.5):
-    resolution: {integrity: sha512-SC7+FfVtNQk7So0XMjrrtLAbEC8qjFPifyD7+fs/E6aaNdVde6umlVVh0QuwDLdOMu7vp5RiGFsB70nj5yo0XA==}
-    peerDependencies:
-      vite: ^2.6.0 || 3 || 4 || 5
-    dependencies:
-      '@rollup/pluginutils': 5.1.0(rollup@2.78.0)
       '@svgr/core': 8.1.0(typescript@5.4.2)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0)
       vite: 5.1.5(@types/node@20.9.0)
@@ -27371,3 +27361,11 @@ packages:
       which: 3.0.1
       yaml: 2.4.1
     dev: true
+
+  '@cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz':
+    resolution: {tarball: https://cdn.sheetjs.com/xlsx-0.20.1/xlsx-0.20.1.tgz}
+    name: xlsx
+    version: 0.20.1
+    engines: {node: '>=0.8'}
+    hasBin: true
+    dev: false
