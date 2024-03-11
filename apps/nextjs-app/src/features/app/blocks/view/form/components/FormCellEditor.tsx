@@ -1,6 +1,6 @@
-import type { IAttachmentCellValue, ILinkCellValue } from '@teable/core';
+import type { IAttachmentCellValue, ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { AttachmentManager, CellEditor } from '@teable/sdk/components';
+import { AttachmentManager, CellEditor, LinkDisplayType, LinkEditor } from '@teable/sdk/components';
 import { UploadAttachment } from '@teable/sdk/components/editor/attachment/upload-attachment/UploadAttachment';
 import type { Field, LinkField } from '@teable/sdk/model';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -20,7 +20,9 @@ export const FormCellEditor = (props: IFormCellEditor) => {
   const { cellValue, field, className, onChange } = props;
   const router = useRouter();
   const shareId = router.query.shareId;
-  if (shareId && field.type === FieldType.Link) {
+  const { id, type, options } = field;
+
+  if (shareId && type === FieldType.Link) {
     return (
       <ShareFormLinkEditor
         shareId={shareId as string}
@@ -31,7 +33,8 @@ export const FormCellEditor = (props: IFormCellEditor) => {
       />
     );
   }
-  if (shareId && field.type === FieldType.Attachment) {
+
+  if (shareId && type === FieldType.Attachment) {
     attachmentManager.shareId = shareId as string;
     return (
       <UploadAttachment
@@ -42,6 +45,20 @@ export const FormCellEditor = (props: IFormCellEditor) => {
       />
     );
   }
+
+  if (type === FieldType.Link) {
+    return (
+      <LinkEditor
+        className={className}
+        cellValue={cellValue as ILinkCellValue | ILinkCellValue[]}
+        options={options as ILinkFieldOptions}
+        onChange={onChange}
+        fieldId={id}
+        displayType={LinkDisplayType.List}
+      />
+    );
+  }
+
   return (
     <CellEditor cellValue={cellValue} field={field} onChange={onChange} className={className} />
   );

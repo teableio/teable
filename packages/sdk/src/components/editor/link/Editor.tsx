@@ -9,21 +9,37 @@ import { ExpandRecorder } from '../../expand-record';
 import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
 import { LinkListType } from './interface';
+import { LinkCard } from './LinkCard';
 import type { ILinkListRef } from './LinkList';
 import { LinkList } from './LinkList';
 
 interface ILinkEditorProps {
-  fieldId: string;
-  recordId: string | undefined;
   options: ILinkFieldOptions;
-  cellValue?: ILinkCellValue | ILinkCellValue[];
-  onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
+  fieldId: string;
+  recordId?: string;
   readonly?: boolean;
   className?: string;
+  cellValue?: ILinkCellValue | ILinkCellValue[];
+  displayType?: LinkDisplayType;
+  onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
+}
+
+export enum LinkDisplayType {
+  Grid = 'grid',
+  List = 'list',
 }
 
 export const LinkEditor = (props: ILinkEditorProps) => {
-  const { fieldId, recordId, cellValue, options, onChange, readonly, className } = props;
+  const {
+    fieldId,
+    recordId,
+    cellValue,
+    options,
+    onChange,
+    readonly,
+    className,
+    displayType = LinkDisplayType.Grid,
+  } = props;
   const { toast } = useToast();
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
@@ -64,6 +80,12 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     updateExpandRecordId(recordId);
   };
 
+  const onRecordDelete = (recordId: string) => {
+    onChange?.(
+      isMultiple ? (cellValue as ILinkCellValue[])?.filter((cv) => cv.id !== recordId) : undefined
+    );
+  };
+
   const onRecordListChange = useCallback((value?: ILinkCellValue[]) => {
     setValues(value);
   }, []);
@@ -84,22 +106,34 @@ export const LinkEditor = (props: ILinkEditorProps) => {
 
   return (
     <div className="space-y-3">
-      {Boolean(selectedRowCount) && (
-        <div className="relative h-40 w-full overflow-hidden rounded-md border">
-          <AnchorProvider tableId={foreignTableId}>
-            <LinkList
-              ref={listRef}
-              type={LinkListType.Selected}
-              rowCount={selectedRowCount}
-              cellValue={cellValue}
-              isMultiple={isMultiple}
-              recordQuery={recordQuery}
-              onChange={onRecordListChange}
-              onExpand={onRecordExpand}
+      {Boolean(selectedRowCount) &&
+        (displayType === LinkDisplayType.Grid ? (
+          <div className="relative h-40 w-full overflow-hidden rounded-md border">
+            <AnchorProvider tableId={foreignTableId}>
+              <LinkList
+                ref={listRef}
+                type={LinkListType.Selected}
+                rowCount={selectedRowCount}
+                readonly={readonly}
+                cellValue={cellValue}
+                isMultiple={isMultiple}
+                recordQuery={recordQuery}
+                onChange={onRecordListChange}
+                onExpand={onRecordExpand}
+              />
+            </AnchorProvider>
+          </div>
+        ) : (
+          cvArray?.map(({ id, title }) => (
+            <LinkCard
+              key={id}
+              title={title}
+              readonly={readonly}
+              onClick={() => onRecordExpand(id)}
+              onDelete={() => onRecordDelete(id)}
             />
-          </AnchorProvider>
-        </div>
-      )}
+          ))
+        ))}
       {!readonly && (
         <>
           <div className="flex justify-between">
@@ -120,7 +154,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                 />
               </DialogContent>
             </Dialog>
-            {Boolean(selectedRowCount) && (
+            {Boolean(selectedRowCount) && displayType === LinkDisplayType.Grid && (
               <Button size={'sm'} onClick={onConfirm}>
                 {t('common.confirm')}
               </Button>
