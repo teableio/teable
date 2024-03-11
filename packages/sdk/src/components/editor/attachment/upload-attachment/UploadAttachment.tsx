@@ -15,7 +15,7 @@ export interface IUploadAttachment {
   className?: string;
   attachments: IAttachmentCellValue;
   attachmentManager?: AttachmentManager;
-  onChange?: (attachment: IAttachmentCellValue) => void;
+  onChange?: (attachment: IAttachmentCellValue | null) => void;
   readonly?: boolean;
 }
 
@@ -47,7 +47,8 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   }, [newAttachments, onChange, uploadingFiles]);
 
   const onDelete = (id: string) => {
-    onChange?.(attachments.filter((attachment) => attachment.id !== id));
+    const finalAttachments = attachments.filter((attachment) => attachment.id !== id);
+    onChange?.(!finalAttachments.length ? null : finalAttachments);
   };
 
   const downloadFile = ({ presignedUrl, name }: IAttachmentItem) => {
