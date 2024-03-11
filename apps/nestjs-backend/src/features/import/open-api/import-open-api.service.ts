@@ -18,6 +18,7 @@ export class ImportOpenApiService {
     const { attachmentUrl, fileType } = analyzeRo;
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
+      fileType,
     });
 
     return await importer.genColumns();
@@ -35,6 +36,7 @@ export class ImportOpenApiService {
 
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
+      fileType,
     });
     const fieldsRo = columnInfo.map((col, index) => {
       return {
