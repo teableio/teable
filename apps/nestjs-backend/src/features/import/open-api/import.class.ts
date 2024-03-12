@@ -1,9 +1,8 @@
-import type { Readable } from 'stream';
 import { BadRequestException } from '@nestjs/common';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/core';
 import { getUniqName, FieldType, SUPPORTEDTYPE, importTypeMap } from '@teable/core';
-import { axios } from '@teable/openapi';
 import { zip, toString, intersection } from 'lodash';
+import fetch from 'node-fetch';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
@@ -54,13 +53,12 @@ export abstract class Importer {
 
   async getFile() {
     const { url, type } = this.config;
-    const { data: stream } = await axios.get(url, {
-      responseType: 'stream',
-    });
+    const { body: stream, headers } = await fetch(url);
 
     const supportType = importTypeMap[type].acceptHeaders;
 
-    const fileFormat = stream?.headers?.['content-type']
+    const fileFormat = headers
+      .get('content-type')
       ?.split(';')
       ?.map((item: string) => item.trim());
 
@@ -242,7 +240,7 @@ export class ExcelImporter extends Importer {
   ): Promise<unknown> {
     const fileSteam = await this.getFile();
 
-    const asyncRs = async (stream: Readable): Promise<IParseResult> =>
+    const asyncRs = async (stream: NodeJS.ReadableStream): Promise<IParseResult> =>
       new Promise((res, rej) => {
         const buffers: Buffer[] = [];
         stream.on('data', function (data) {
