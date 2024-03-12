@@ -77,11 +77,15 @@ export class ImportOpenApiService {
             if (records.length === 0) {
               return;
             }
-            await this.recordOpenApiService.multipleCreateRecords(table.id, {
-              fieldKeyType: FieldKeyType.Id,
-              typecast: true,
-              records,
-            });
+            try {
+              await this.recordOpenApiService.multipleCreateRecords(table.id, {
+                fieldKeyType: FieldKeyType.Id,
+                typecast: true,
+                records,
+              });
+            } catch (e) {
+              this.logger.error(e, 'Import: Records');
+            }
           }
         );
       }
