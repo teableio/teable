@@ -299,7 +299,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         }}
         onScroll={(e) => onScroll(e, 'vertical')}
       >
-        <div className="flex shrink-0 flex-col">{placeholderElements}</div>
+        <div className="flex w-[1px] shrink-0 flex-col">{placeholderElements}</div>
       </div>
     </>
   );
