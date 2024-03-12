@@ -1,10 +1,12 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { IChangePasswordRo, ISignup, changePasswordRoSchema, signupSchema } from '@teable/openapi';
 import { Response, Request } from 'express';
+import type { IOauth2State } from '../../cache/types';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
+import { GithubGuard } from './guard/github.guard';
 import { LocalAuthGuard } from './guard/local-auth.guard';
 import { pickUserMe } from './utils';
 
@@ -56,5 +58,24 @@ export class AuthController {
     await this.authService.changePassword(changePasswordRo);
     await this.authService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
+  }
+
+  @Get('/github')
+  @Public()
+  @UseGuards(GithubGuard)
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  async githubAuthenticate() {}
+
+  @Get('/github/callback')
+  @Public()
+  @UseGuards(GithubGuard)
+  async githubCallback(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
+    const user = req.user!;
+    // set cookie, passport login
+    await new Promise<void>((resolve, reject) => {
+      req.login(user, (err) => (err ? reject(err) : resolve()));
+    });
+    const redirectUri = (req.authInfo as { state: IOauth2State })?.state?.redirectUri;
+    return res.redirect(redirectUri || '/');
   }
 }

@@ -22,6 +22,10 @@ export const authConfig = registerAs('auth', () => ({
       iv: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf4',
     },
   },
+  github: {
+    clientID: process.env.BACKEND_GITHUB_CLIENT_ID,
+    clientSecret: process.env.BACKEND_GITHUB_CLIENT_SECRET,
+  },
 }));
 
 export const AuthConfig = () => Inject(authConfig.KEY);

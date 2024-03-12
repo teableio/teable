@@ -53,13 +53,15 @@ export class AuthService {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
     }
     const { salt, hashPassword } = await this.encodePassword(password);
-    return await this.userService.createUser({
-      id: generateUserId(),
-      name: email.split('@')[0],
-      email,
-      salt,
-      password: hashPassword,
-      lastSignTime: new Date().toISOString(),
+    return await this.prismaService.$tx(async () => {
+      return await this.userService.createUser({
+        id: generateUserId(),
+        name: email.split('@')[0],
+        email,
+        salt,
+        password: hashPassword,
+        lastSignTime: new Date().toISOString(),
+      });
     });
   }
 

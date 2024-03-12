@@ -57,6 +57,7 @@ export { default as FreezeColumn } from './components/FreezeColumn';
 export { default as Frown } from './components/Frown';
 export { default as Gauge } from './components/Gauge';
 export { default as Github } from './components/Github';
+export { default as GithubLogo } from './components/GithubLogo';
 export { default as Hash } from './components/Hash';
 export { default as Heart } from './components/Heart';
 export { default as HelpCircle } from './components/HelpCircle';
