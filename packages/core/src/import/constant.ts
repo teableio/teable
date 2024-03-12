@@ -4,7 +4,7 @@ export const importTypeMap = {
   [SUPPORTEDTYPE.CSV]: {
     accept: 'text/csv',
     exampleUrl: 'https://www.example.com/file.csv',
-    acceptHeaders: ['text/csv', 'text/plain'],
+    acceptHeaders: ['text/csv'],
     exceedSize: null,
   },
   [SUPPORTEDTYPE.EXCEL]: {

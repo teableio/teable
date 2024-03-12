@@ -7,7 +7,7 @@ export enum SUPPORTEDTYPE {
 }
 
 export const analyzeRoSchema = z.object({
-  attachmentUrl: z.string().url(),
+  attachmentUrl: z.string().url().trim(),
   fileType: z.nativeEnum(SUPPORTEDTYPE),
 });
 

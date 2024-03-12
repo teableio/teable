@@ -3,7 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/core';
 import { getUniqName, FieldType, SUPPORTEDTYPE, importTypeMap } from '@teable/core';
 import { axios } from '@teable/openapi';
-import { zip, toString } from 'lodash';
+import { zip, toString, intersection } from 'lodash';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
@@ -49,9 +49,17 @@ export abstract class Importer {
 
     const supportType = importTypeMap[type].acceptHeaders;
 
-    const fileFormat = stream?.headers?.['content-type']?.split(';')?.[0];
+    const fileFormat = stream?.headers?.['content-type']
+      ?.split(';')
+      ?.map((item: string) => item.trim());
 
-    if (fileFormat && !supportType.includes(fileFormat)) {
+    // if (!fileFormat?.length) {
+    //   throw new BadRequestException(
+    //     `Input url is not a standard document service without right content-type`
+    //   );
+    // }
+
+    if (fileFormat?.length && !intersection(fileFormat, supportType).length) {
       throw new BadRequestException(
         `File format is not supported, only ${supportType.join(',')} are supported,`
       );
