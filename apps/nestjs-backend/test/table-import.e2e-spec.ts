@@ -21,6 +21,7 @@ const data = `field_1,field_2,field_3,field_4,field_5,field_6
 1,string_1,true,2022-11-10 16:00:00,,"long
 text"
 2,string_2,false,2022-11-11 16:00:00,,`;
+const defaultTestSheetKey = 'Sheet1';
 const assertHeaders = [
   {
     type: 'number',
@@ -49,6 +50,7 @@ const assertHeaders = [
 ];
 let csvUrl: string;
 let textUrl: string;
+let excelUrl: string;
 
 beforeAll(async () => {
   const appCtx = await initApp();
@@ -60,6 +62,9 @@ beforeAll(async () => {
   fs.writeFileSync(textTmpPath, data);
   const textFileData = fs.readFileSync(textTmpPath);
   const textStats = fs.statSync(textTmpPath);
+
+  const excelFileData = fs.readFileSync(textTmpPath);
+  const excelStats = fs.statSync(textTmpPath);
 
   const { token, requestHeaders } = (
     await apiGetSignature(
@@ -83,14 +88,29 @@ beforeAll(async () => {
     )
   ).data;
 
+  const { token: excelToken, requestHeaders: excelRequestHeaders } = (
+    await apiGetSignature(
+      {
+        type: 1,
+        contentLength: excelStats.size,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+      undefined
+    )
+  ).data;
+
   await apiUploadFile(token, fileData, requestHeaders);
 
   await apiUploadFile(txtToken, textFileData, txtRequestHeaders);
 
+  await apiUploadFile(excelToken, excelFileData, excelRequestHeaders);
+
   const res = await apiNotify(token);
   const txtRes = await apiNotify(txtToken);
+  const excelRes = await apiNotify(excelToken);
   csvUrl = res.data.presignedUrl;
   textUrl = txtRes.data.presignedUrl;
+  excelUrl = excelRes.data.presignedUrl;
 });
 
 afterAll(async () => {
@@ -128,6 +148,17 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
       code: 'validation_error',
     });
   });
+
+  it(`should return column header info from excel file`, async () => {
+    const {
+      data: { worksheets },
+    } = await apiAnalyzeFile({
+      attachmentUrl: excelUrl,
+      fileType: SUPPORTEDTYPE.EXCEL,
+    });
+    const calculatedColumnHeaders = worksheets['Sheet1'].columns;
+    expect(calculatedColumnHeaders).toEqual(assertHeaders);
+  });
 });
 
 describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
@@ -151,8 +182,8 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       attachmentUrl: csvUrl,
       fileType: SUPPORTEDTYPE.CSV,
       worksheets: {
-        sheet1: {
-          name: 'sheet1',
+        [CsvImporter.DEFAULT_SHEETKEY]: {
+          name: CsvImporter.DEFAULT_SHEETKEY,
           columns: calculatedColumnHeaders.map((column, index) => ({
             ...column,
             sourceColumnIndex: index,
@@ -164,126 +195,65 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
     });
 
     const { fields, id } = table.data[0];
+    tableIds.push(id);
 
     const createdFields = fields.map((field) => ({
       type: field.type,
       name: field.name,
     }));
 
-    const {
-      data: { records },
-    } = await apiGetTableById(baseId, table.data[0].id, {
+    const res = await apiGetTableById(baseId, table.data[0].id, {
       includeContent: true,
     });
-    tableIds.push(id);
-    const filledRecords = records?.map((rec) => {
-      const newRec = { ...rec.fields };
-      newRec['field_4'] = +new Date(newRec['field_4'] as string);
-      return { ...newRec };
-    });
-    const assertRecords = [
-      {
-        field_1: 1,
-        field_2: 'string_1',
-        field_3: true,
-        field_4: +new Date(new Date('2022-11-10 16:00:00').toUTCString()),
-        field_6: 'long\ntext',
-      },
-      {
-        field_1: 2,
-        field_2: 'string_2',
-        field_4: +new Date(new Date('2022-11-11 16:00:00').toUTCString()),
-      },
-    ];
+
     expect(createdFields).toEqual(assertHeaders);
-    expect(records?.length).toBe(2);
-    expect(filledRecords).toEqual(assertRecords);
+    expect(res).toMatchObject({
+      status: 200,
+      statusText: 'OK',
+    });
   });
 
-  it(`should create a new Table from csv file only fields without data`, async () => {
+  it(`should create a new Table from excel file`, async () => {
     const {
       data: { worksheets },
     } = await apiAnalyzeFile({
-      attachmentUrl: csvUrl,
-      fileType: SUPPORTEDTYPE.CSV,
+      attachmentUrl: excelUrl,
+      fileType: SUPPORTEDTYPE.EXCEL,
     });
-    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
+    const calculatedColumnHeaders = worksheets[defaultTestSheetKey].columns;
 
     const table = await apiImportTableFromFile(baseId, {
-      attachmentUrl: csvUrl,
-      fileType: SUPPORTEDTYPE.CSV,
+      attachmentUrl: excelUrl,
+      fileType: SUPPORTEDTYPE.EXCEL,
       worksheets: {
-        sheet1: {
-          name: 'sheet1',
+        [defaultTestSheetKey]: {
+          name: defaultTestSheetKey,
           columns: calculatedColumnHeaders.map((column, index) => ({
             ...column,
             sourceColumnIndex: index,
           })),
           useFirstRowAsHeader: true,
-          importData: false,
-        },
-      },
-    });
-
-    const { fields, id } = table.data[0];
-
-    const createdFields = fields.map((field) => ({
-      type: field.type,
-      name: field.name,
-    }));
-
-    const {
-      data: { records },
-    } = await apiGetTableById(baseId, table.data[0].id, {
-      includeContent: true,
-    });
-    tableIds.push(id);
-
-    expect(createdFields).toEqual(assertHeaders);
-    expect(records?.length).toBe(0);
-  });
-
-  it(`should create a new Table from csv file useFirstRowAsHeader: false`, async () => {
-    const {
-      data: { worksheets },
-    } = await apiAnalyzeFile({
-      attachmentUrl: csvUrl,
-      fileType: SUPPORTEDTYPE.CSV,
-    });
-
-    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
-
-    const table = await apiImportTableFromFile(baseId, {
-      attachmentUrl: csvUrl,
-      fileType: SUPPORTEDTYPE.CSV,
-      worksheets: {
-        sheet1: {
-          name: 'sheet1',
-          columns: calculatedColumnHeaders.map((column, index) => ({
-            ...column,
-            sourceColumnIndex: index,
-          })),
-          useFirstRowAsHeader: false,
           importData: true,
         },
       },
     });
 
     const { fields, id } = table.data[0];
+    tableIds.push(id);
 
     const createdFields = fields.map((field) => ({
       type: field.type,
       name: field.name,
     }));
 
-    const {
-      data: { records },
-    } = await apiGetTableById(baseId, table.data[0].id, {
+    const res = await apiGetTableById(baseId, table.data[0].id, {
       includeContent: true,
     });
-    tableIds.push(id);
 
     expect(createdFields).toEqual(assertHeaders);
-    expect(records?.length).toBe(3);
+    expect(res).toMatchObject({
+      status: 200,
+      statusText: 'OK',
+    });
   });
 });

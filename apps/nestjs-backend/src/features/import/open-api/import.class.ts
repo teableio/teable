@@ -10,9 +10,20 @@ import type { ZodType } from 'zod';
 import z from 'zod';
 
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
-  [FieldType.Checkbox]: z.boolean(),
+  [FieldType.Checkbox]: z.union([z.string(), z.boolean()]).refine((value: unknown) => {
+    if (typeof value === 'boolean') {
+      return true;
+    }
+    if (
+      typeof value === 'string' &&
+      (value.toLowerCase() === 'false' || value.toLowerCase() === 'true')
+    ) {
+      return true;
+    }
+    return false;
+  }),
   [FieldType.Date]: z.coerce.date(),
-  [FieldType.Number]: z.number(),
+  [FieldType.Number]: z.coerce.number(),
   [FieldType.LongText]: z
     .string()
     .refine((value) => z.string().safeParse(value) && /\n/.test(value)),
@@ -243,7 +254,7 @@ export class ExcelImporter extends Importer {
           const result: IParseResult = {};
           Object.keys(workbook.Sheets).forEach((name) => {
             result[name] = workbook.Sheets[name]['!data']?.map((item) =>
-              item.map((v) => v.v)
+              item.map((v) => v.w)
             ) as unknown[][];
           });
           res(result);

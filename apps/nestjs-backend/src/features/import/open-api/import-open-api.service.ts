@@ -86,6 +86,6 @@ export class ImportOpenApiService {
         );
       }
     }
-    return [tableResult[0]];
+    return tableResult;
   }
 }
