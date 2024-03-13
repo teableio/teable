@@ -37,7 +37,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useCallback } from 'react';
 import { FieldConfigPanel } from './field-config-panel';
-import { UploadPanel } from './upload-panel/UploadPanel';
+import { UploadPanel } from './upload-panel';
 import { UrlPanel } from './UrlPanel';
 
 interface ITableImportProps {
