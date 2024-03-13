@@ -101,7 +101,7 @@ export const TableImport = (props: ITableImportProps) => {
         setErrorMessage(t('table:import.form.error.fieldNameEmpty'));
         return;
       }
-      if (new Set(columns.map((col) => col.name)).size !== columns.length) {
+      if (new Set(columns.map((col) => col.name.trim())).size !== columns.length) {
         setErrorMessage(t('table:import.form.error.uniqueFieldName'));
         return;
       }
@@ -205,6 +205,7 @@ export const TableImport = (props: ITableImportProps) => {
                       setFile(file);
                     }}
                     onClose={() => setFile(null)}
+                    analyzeLoading={analyzeLoading}
                     onFinished={fileFinishedHandler}
                   ></UploadPanel>
                 )}

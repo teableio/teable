@@ -37,7 +37,6 @@ const FieldConfigPanel = (props: IFieldConfigPanel) => {
   const columnHandler = (columns: IImportSheetItem['columns']) => {
     const newSheets = { ...workSheets };
     newSheets[selectedSheetKey].columns = columns;
-    lastColumnsMap.current[selectedSheetKey].columns = columns;
     onChange(newSheets);
   };
 

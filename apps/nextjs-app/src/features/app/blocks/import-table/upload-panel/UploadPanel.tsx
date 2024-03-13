@@ -1,6 +1,6 @@
 import type { SUPPORTEDTYPE } from '@teable/core';
 import type { INotifyVo } from '@teable/openapi';
-import { Button } from '@teable/ui-lib';
+import { Button, Spin } from '@teable/ui-lib';
 import { useTranslation } from 'react-i18next';
 import { Process } from './Process';
 import { Trigger } from './Trigger';
@@ -8,13 +8,14 @@ import { Trigger } from './Trigger';
 interface IUploadPanelProps {
   file: File | null;
   fileType: SUPPORTEDTYPE;
+  analyzeLoading: boolean;
   onClose: () => void;
   onFinished: (result: INotifyVo) => void;
   onChange: (file: File | null) => void;
 }
 
 const UploadPanel = (props: IUploadPanelProps) => {
-  const { file, fileType, onChange, onFinished, onClose } = props;
+  const { file, fileType, onChange, onFinished, onClose, analyzeLoading } = props;
   const { t } = useTranslation(['table']);
 
   return (
@@ -26,7 +27,15 @@ const UploadPanel = (props: IUploadPanelProps) => {
           </div>
         </Trigger>
       ) : (
-        <Process file={file} onFinished={onFinished} onClose={onClose}></Process>
+        <>
+          <Process file={file} onFinished={onFinished} onClose={onClose}></Process>
+          {analyzeLoading && (
+            <div className="absolute flex size-full items-center justify-center bg-secondary opacity-90">
+              <Spin className="mr-1 size-4" />
+              <span>{t('table:import.tips.analyzing')}</span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

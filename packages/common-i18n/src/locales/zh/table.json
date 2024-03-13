@@ -124,7 +124,8 @@
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
       "leaveTip": "你的数据仍然会被导入",
-      "fileExceedSizeTip": "该类型文件限制文件大小为"
+      "fileExceedSizeTip": "该类型文件限制文件大小为",
+      "analyzing": "分析中"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",
