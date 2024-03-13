@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type { Readable as ReadableStream } from 'node:stream';
 import { join } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
@@ -101,17 +102,23 @@ export class MinioStorage implements StorageAdapter {
     filePath: string,
     metadata: Record<string, unknown>
   ) {
-    await this.minioClient.fPutObject(bucket, path, filePath, metadata);
-    return `/${bucket}/${path}`;
+    const { etag: hash } = await this.minioClient.fPutObject(bucket, path, filePath, metadata);
+    return {
+      hash,
+      url: `/${bucket}/${path}`,
+    };
   }
 
   async uploadFile(
     bucket: string,
     path: string,
-    stream: Buffer,
+    stream: Buffer | ReadableStream,
     metadata?: Record<string, unknown>
-  ): Promise<string> {
-    await this.minioClient.putObject(bucket, path, stream, metadata);
-    return `/${bucket}/${path}`;
+  ) {
+    const { etag: hash } = await this.minioClient.putObject(bucket, path, stream, metadata);
+    return {
+      hash,
+      url: `/${bucket}/${path}`,
+    };
   }
 }

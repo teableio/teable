@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import Joi from 'joi';
 
 export const envValidationSchema = Joi.object({
@@ -36,5 +37,24 @@ export const envValidationSchema = Joi.object({
     then: Joi.string()
       .pattern(/^(redis:\/\/|rediss:\/\/)/)
       .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`'),
+  }),
+  // github auth
+  BACKEND_GITHUB_CLIENT_ID: Joi.when('SOCIAL_AUTH_PROVIDERS', {
+    is: Joi.string()
+      .regex(/(^|,)(github)(,|$)/)
+      .required(),
+    then: Joi.string().required().messages({
+      'any.required':
+        'The `BACKEND_GITHUB_CLIENT_ID` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
+    }),
+  }),
+  BACKEND_GITHUB_CLIENT_SECRET: Joi.when('SOCIAL_AUTH_PROVIDERS', {
+    is: Joi.string()
+      .regex(/(^|,)(github)(,|$)/)
+      .required(),
+    then: Joi.string().required().messages({
+      'any.required':
+        'The `BACKEND_GITHUB_CLIENT_SECRET` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
+    }),
   }),
 });

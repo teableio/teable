@@ -1,3 +1,4 @@
+import type { Readable as ReadableStream } from 'node:stream';
 import { BadRequestException } from '@nestjs/common';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';
@@ -16,7 +17,7 @@ export default abstract class StorageAdapter {
     }
   };
 
-  static readonly getDir = (type: UploadType) => {
+  static readonly getDir = (type: UploadType): string => {
     switch (type) {
       case UploadType.Table:
         return 'table';
@@ -79,7 +80,7 @@ export default abstract class StorageAdapter {
     path: string,
     filePath: string,
     metadata: Record<string, unknown>
-  ): Promise<string>;
+  ): Promise<{ hash: string; url: string }>;
 
   /**
    * uploadFile with file stream
@@ -91,7 +92,7 @@ export default abstract class StorageAdapter {
   abstract uploadFile(
     bucket: string,
     path: string,
-    stream: Buffer,
+    stream: Buffer | ReadableStream,
     metadata?: Record<string, unknown>
-  ): Promise<string>;
+  ): Promise<{ hash: string; url: string }>;
 }
