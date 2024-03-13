@@ -185,9 +185,6 @@ for more details, see [dockers/examples](dockers/examples)
 #### 1. Initialize
 
 ```sh
-# Use `.nvmrc` file to specify node version（Requires pre `nvm` tools）
-nvm install && nvm use
-
 # Enabling the Help Management Package Manager
 corepack enable
 
