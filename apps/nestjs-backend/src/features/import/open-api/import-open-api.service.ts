@@ -84,7 +84,7 @@ export class ImportOpenApiService {
                 records,
               });
             } catch (e) {
-              this.logger.error(e, 'Import: Records');
+              this.logger.error((e as Error)?.message, 'Import: Records');
             }
           }
         );
