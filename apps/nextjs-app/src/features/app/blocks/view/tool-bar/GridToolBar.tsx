@@ -24,7 +24,7 @@ export const GridToolBar: React.FC = () => {
 
       router.push(
         {
-          pathname: `${router.pathname}/[recordId]`,
+          pathname: router.pathname,
           query: { ...router.query, recordId },
         },
         undefined,
