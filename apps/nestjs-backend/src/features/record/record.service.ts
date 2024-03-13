@@ -42,6 +42,7 @@ import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
@@ -69,8 +70,9 @@ export class RecordService implements IAdapterService {
     private readonly batchService: BatchService,
     private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   private async getRowOrderFieldNames(tableId: string) {
@@ -86,34 +88,6 @@ export class RecordService implements IAdapterService {
     });
 
     return views.map((view) => `${ROW_ORDER_FIELD_PREFIX}_${view.id}`);
-  }
-
-  // get fields create by users
-  private async getUserFields(tableId: string, createRecordsRo: ICreateRecordsRo) {
-    const fieldIdSet = createRecordsRo.records.reduce<Set<string>>((acc, record) => {
-      const fieldIds = Object.keys(record.fields);
-      fieldIds.forEach((fieldId) => acc.add(fieldId));
-      return acc;
-    }, new Set());
-
-    const userFieldIds = Array.from(fieldIdSet);
-
-    const userFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        id: { in: userFieldIds },
-      },
-      select: {
-        id: true,
-        dbFieldName: true,
-      },
-    });
-
-    if (userFields.length !== userFieldIds.length) {
-      throw new BadRequestException('some fields not found');
-    }
-
-    return userFields;
   }
 
   private dbRecord2RecordFields(
@@ -171,51 +145,6 @@ export class RecordService implements IAdapterService {
       dbValueMatrix.push([...recordValues, ...rowIndexValues, ...systemValues]);
     }
     return dbValueMatrix;
-  }
-
-  async multipleCreateRecordTransaction(tableId: string, createRecordsRo: ICreateRecordsRo) {
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        dbTableName: true,
-      },
-    });
-
-    const userFields = await this.getUserFields(tableId, createRecordsRo);
-    const rowOrderFieldNames = await this.getRowOrderFieldNames(tableId);
-
-    const allDbFieldNames = [
-      ...userFields.map((field) => field.dbFieldName),
-      ...rowOrderFieldNames,
-      ...['__id', '__created_time', '__created_by', '__version'],
-    ];
-
-    const dbValueMatrix = await this.getDbValueMatrix(
-      dbTableName,
-      userFields,
-      rowOrderFieldNames,
-      createRecordsRo
-    );
-
-    const dbFieldSQL = allDbFieldNames.join(', ');
-    const dbValuesSQL = dbValueMatrix
-      .map((dbValues) => `(${dbValues.map((value) => JSON.stringify(value)).join(', ')})`)
-      .join(',\n');
-
-    return await this.prismaService.txClient().$executeRawUnsafe(`
-      INSERT INTO ${dbTableName} (${dbFieldSQL})
-      VALUES 
-        ${dbValuesSQL};
-    `);
-  }
-
-  // we have to support multiple action, because users will do it in batch
-  async multipleCreateRecords(tableId: string, createRecordsRo: ICreateRecordsRo) {
-    return await this.prismaService.$tx(async () => {
-      return this.multipleCreateRecordTransaction(tableId, createRecordsRo);
-    });
   }
 
   async getDbTableName(tableId: string) {
@@ -636,8 +565,34 @@ export class RecordService implements IAdapterService {
     await this.createBatch(tableId, [snapshot]);
   }
 
+  async creditCheck(tableId: string) {
+    if (!this.thresholdConfig.maxFreeRowLimit) {
+      return;
+    }
+
+    const table = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true, base: { select: { space: { select: { credit: true } } } } },
+    });
+
+    const rowCount = await this.getAllRecordCount(table.dbTableName);
+
+    const maxRowCount =
+      table.base.space.credit == null
+        ? this.thresholdConfig.maxFreeRowLimit
+        : table.base.space.credit;
+
+    if (rowCount >= maxRowCount) {
+      this.logger.log(`Exceed row count: ${maxRowCount}`, 'creditCheck');
+      throw new BadRequestException(
+        `Exceed max row limit: ${maxRowCount}, please contact us to increase the limit`
+      );
+    }
+  }
+
   private async createBatch(tableId: string, records: IRecord[]) {
     const userId = this.cls.get('user.id');
+    await this.creditCheck(tableId);
     const dbTableName = await this.getDbTableName(tableId);
 
     const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
