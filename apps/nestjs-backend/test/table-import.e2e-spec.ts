@@ -233,7 +233,7 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       statusText: 'OK',
     });
 
-    await delay(0);
+    await delay(1000);
 
     const {
       data: { worksheets: worksheets1 },
