@@ -6,12 +6,11 @@ import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guard/auth.guard';
-import { OauthStoreService } from './oauth/oauth.store';
 import { SessionStoreService } from './session/session-store.service';
 import { SessionModule } from './session/session.module';
 import { SessionSerializer } from './session/session.serializer';
+import { SocialModule } from './social/social.module';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
-import { GithubStrategy } from './strategies/github.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { SessionStrategy } from './strategies/session.strategy';
 
@@ -21,6 +20,7 @@ import { SessionStrategy } from './strategies/session.strategy';
     PassportModule.register({ session: true }),
     SessionModule,
     AccessTokenModule,
+    SocialModule,
   ],
   providers: [
     AuthService,
@@ -34,8 +34,6 @@ import { SessionStrategy } from './strategies/session.strategy';
     SessionSerializer,
     SessionStoreService,
     AccessTokenStrategy,
-    GithubStrategy,
-    OauthStoreService,
   ],
   exports: [AuthService, AuthGuard],
   controllers: [AuthController],
