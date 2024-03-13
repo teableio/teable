@@ -129,9 +129,11 @@ describe('OpenAPI TableController (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, tableId);
-
     await app.close();
+  });
+
+  afterEach(async () => {
+    await deleteTable(baseId, tableId);
   });
 
   it('/api/table/ (POST) with assertData data', async () => {
@@ -228,14 +230,14 @@ describe('OpenAPI TableController (e2e)', () => {
     await updateTableName(baseId, tableId, { name: 'newTableName' });
     await updateTableDescription(baseId, tableId, { description: 'newDescription' });
     await updateTableIcon(baseId, tableId, { icon: '😀' });
-    await updateTableOrder(baseId, tableId, { order: 1.11 });
+    await updateTableOrder(baseId, tableId, { order: 1.5 });
 
     const table = await getTable(baseId, tableId);
 
     expect(table.name).toEqual('newTableName');
     expect(table.description).toEqual('newDescription');
     expect(table.icon).toEqual('😀');
-    expect(table.order).toEqual(1.11);
+    expect(table.order).toEqual(1.5);
   });
 
   it('should delete table and clean up link and lookup fields', async () => {

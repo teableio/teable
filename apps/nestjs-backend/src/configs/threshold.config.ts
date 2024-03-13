@@ -12,6 +12,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
   maxSyncUpdateCells: Number(process.env.MAX_SYNC_UPDATE_CELLS ?? 10_000),
   maxGroupPoints: Number(process.env.MAX_GROUP_POINTS ?? 5_000),
   calcChunkSize: Number(process.env.CALC_CHUNK_SIZE ?? 1_000),
+  maxFreeRowLimit: Number(process.env.MAX_FREE_ROW_LIMIT ?? 0),
   estimateCalcCelPerMs: Number(process.env.ESTIMATE_CALC_CEL_PER_MS ?? 3),
   bigTransactionTimeout: Number(
     process.env.BIG_TRANSACTION_TIMEOUT ?? 10 * 60 * 1000 /* 10 mins */
