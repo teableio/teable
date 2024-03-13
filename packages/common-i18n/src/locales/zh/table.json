@@ -116,13 +116,16 @@
     },
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
+      "excelFile": "Microsoft Excel",
       "csvFile": "csv 文件",
       "cancel": "取消",
       "leave": "取消"
     },
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
-      "leaveTip": "你的数据仍然会被导入"
+      "leaveTip": "你的数据仍然会被导入",
+      "fileExceedSizeTip": "该类型文件限制文件大小为",
+      "analyzing": "分析中"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",
@@ -134,7 +137,9 @@
       "error": {
         "urlEmptyTip": "URL不能为空！",
         "urlValidateTip": "不能解析该URL，请重新输入！",
-        "errorFileFormat": "文件格式错误！"
+        "errorFileFormat": "文件格式错误！",
+        "uniqueFieldName": "字段名不能重复！",
+        "fieldNameEmpty": "字段名不能为空"
       }
     }
   },

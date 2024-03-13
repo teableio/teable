@@ -5,33 +5,23 @@ import { UploadType } from '@teable/openapi';
 import { getFieldIconString } from '@teable/sdk';
 import { AttachmentManager } from '@teable/sdk/components';
 import { Progress } from '@teable/ui-lib';
-import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { filesize } from 'filesize';
-import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
 
 interface IFileItemProps {
   file: File;
-  accept?: string;
   onClose: () => void;
   onFinished: (result: INotifyVo) => void;
 }
+const attchmentManager = new AttachmentManager(1);
 
-export const FileItem = (props: IFileItemProps) => {
-  const { file, onClose, onFinished, accept } = props;
+export const Process = (props: IFileItemProps) => {
+  const { file, onClose, onFinished } = props;
   const { name, size, type } = file;
 
-  const { t } = useTranslation(['table']);
   const [process, setProcess] = useState(0);
 
   useEffect(() => {
-    if (accept && type !== accept) {
-      onClose();
-      toast.error(t('table:import.form.error.errorFileFormat'));
-      return;
-    }
-
-    const attchmentManager = new AttachmentManager(1);
     attchmentManager.upload([{ id: generateAttachmentId(), instance: file }], UploadType.Table, {
       successCallback: (_, result) => {
         onFinished?.(result);
@@ -40,7 +30,7 @@ export const FileItem = (props: IFileItemProps) => {
         setProcess(process);
       },
     });
-  }, [accept, file, onClose, onFinished, t, type]);
+  }, [file, onClose, onFinished]);
 
   return (
     <>
