@@ -30,12 +30,13 @@ export class MailSenderService {
     const { name, email, inviteUrl, spaceName } = info;
     return {
       subject: `${name} (${email}) invited you to their space ${spaceName} - ${this.baseConfig.brandName}`,
-      template: 'invite',
+      template: 'normal',
       context: {
         name,
         email,
         spaceName,
         inviteUrl,
+        partialBody: 'invite',
       },
     };
   }
@@ -56,23 +57,23 @@ export class MailSenderService {
       fromUserName,
       refRecord: { baseId, tableId, fieldName, tableName, recordIds },
     } = info;
-    let subject, template;
+    let subject, partialBody;
     const refLength = recordIds.length;
 
     const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/${tableId}`;
 
     if (refLength <= 1) {
       subject = `${fromUserName} added you to the ${fieldName} field of a record in ${tableName}`;
-      template = 'collaborator-cell-tag';
+      partialBody = 'collaborator-cell-tag';
     } else {
       subject = `${fromUserName} added you to ${refLength} records in ${tableName}`;
-      template = 'collaborator-multi-row-tag';
+      partialBody = 'collaborator-multi-row-tag';
     }
 
     return {
       notifyMessage: subject,
       subject: `${subject} - ${this.baseConfig.brandName}`,
-      template,
+      template: 'normal',
       context: {
         notifyId,
         fromUserName,
@@ -81,6 +82,7 @@ export class MailSenderService {
         fieldName,
         recordIds,
         viewRecordUrlPrefix,
+        partialBody,
       },
     };
   }

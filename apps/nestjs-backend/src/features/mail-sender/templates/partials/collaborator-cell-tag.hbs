@@ -1,0 +1,25 @@
+<tr>
+    <td style="padding: 30px; text-align: center;">
+        <p style="margin: 18px 0;">
+            <strong>{{fromUserName}}</strong> added you to the <strong>{{fieldName}}</strong> field of a
+            record
+            in
+            <strong>{{tableName}}</strong>.
+        </p>
+        <a
+                href="{{viewRecordUrlPrefix}}?recordId={{lookup recordIds 0}}&fromNotify={{notifyId}}"
+        class="button"
+        style="
+        padding: 12px 24px;
+        margin: 20px 0;
+        background-color: rgb(24, 24, 27);
+        color: rgb(250, 250, 250);
+        border-radius: 5px;
+        text-decoration: none;
+        font-weight: bold;
+        display: inline-block;
+        "
+        >View record
+        </a>
+    </td>
+</tr>

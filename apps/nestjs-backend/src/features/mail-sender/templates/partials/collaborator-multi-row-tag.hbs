@@ -1,0 +1,19 @@
+<tr>
+    <td style="padding: 30px; text-align: center;">
+        <p style="margin: 18px 0;">
+            <strong>{{fromUserName}}</strong> added you to {{refLength}} records in
+            <strong>{{tableName}}</strong>:
+        </p>
+        {{#each recordIds}}
+            The <strong>{{../fieldName}}</strong> field of a record:
+            <a
+                    href="{{../viewRecordUrlPrefix}}?recordId={{this}}&fromNotify={{../notifyId}}"
+            target="_blank"
+            style="color:#3276dc"
+            >{{../viewRecordUrlPrefix}}?recordId={{this}}&fromNotify={{../notifyId}}
+            </a>
+            <br>
+            <br>
+        {{/each}}
+    </td>
+</tr>
