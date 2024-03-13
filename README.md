@@ -10,7 +10,7 @@
 </div>
 
 <p align="center">
-  <a href="https://teable.io">Home</a> | <a href="https://help.teable.io">Help</a> | <a href="https://Blog.teable.io">Blog</a> | <a href="https://template.teable.io">Template</a> | <a href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a href="https://discord.gg/n2JQqekG">Discord </a>
+  <a target="_blank" href="https://teable.io">Home</a> | <a target="_blank" href="https://help.teable.io">Help</a> | <a target="_blank" href="https://Blog.teable.io">Blog</a> | <a target="_blank" href="https://template.teable.io">Template</a> | <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a target="_blank" href="https://discord.gg/n2JQqekG">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
 </p>
 
 <p align="center">
@@ -154,9 +154,8 @@ Choose the SQL database you like
 ```
 .
 ├── apps
-│   ├── electron            (desktop, include a electron app )
 │   ├── nextjs-app          (front-end, include a nextjs app)
-│   └── nestjs-backend      (backend, running on server or inside electron app)
+│   └── nestjs-backend      (backend, include a nestjs app)
 └── packages
     ├── common-i18n         (locales)
     ├── core                (share code and interface)

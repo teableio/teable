@@ -35,13 +35,6 @@
     "check-size": "size-limit --highlight-less",
     "clean": "rimraf ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "clean:backend": "rimraf --no-glob ./main",
-    "prebuild:electron": "tsc --project ./electron-src/tsconfig.json",
-    "dev": "yarn prebuild:electron && electron .",
-    "build:electron": "yarn clean && yarn build && yarn run prebuild:electron",
-    "pack-app": "yarn build:electron && electron-builder --dir",
-    "dist": "yarn build:electron && electron-builder",
-    "dist:debug": "lldb ./dist/mac-arm64/nextjs-app.app",
-    "dist:unpack": "npx asar extract ./dist/mac-arm64/nextjs-app.app/Contents/Resources/app.asar ./dist/unpack",
     "test": "run-s test-unit",
     "test-unit": "vitest run",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
@@ -176,13 +169,5 @@
     "zod": "3.22.4",
     "zod-validation-error": "3.0.3",
     "zustand": "4.5.2"
-  },
-  "build": {
-    "electronVersion": "20.3.6",
-    "asar": false,
-    "files": [
-      "**/*",
-      "!.env.development"
-    ]
   }
 }
