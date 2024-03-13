@@ -34,6 +34,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @Req() req: Express.Request
   ) {
+if (process.env.DISABLE_SIGNUP === 'true') {
+    throw new ForbiddenException('Sign-up is disabled.');
+  }  
     const user = pickUserMe(await this.authService.signup(body.email, body.password));
     // set cookie, passport login
     await new Promise<void>((resolve, reject) => {
