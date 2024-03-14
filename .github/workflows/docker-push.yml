@@ -69,8 +69,6 @@ jobs:
         if: ${{ matrix.target == 'db-migrate'}}
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
-              --cache-from=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache \
-              --cache-to=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max \
               --tag="${{ steps.meta.outputs.tags }}" \
               --platforms="linux/amd64,linux/arm64" \
               --push
@@ -78,8 +76,6 @@ jobs:
         if: ${{ matrix.target == 'app'}}
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
-              --cache-from=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache \
-              --cache-to=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max \
               --build-arg="ENABLE_CSP=false" \
               --build-arg="ENABLE_IMAGES_ALL_REMOTE=true" \
               --tag="${{ steps.meta.outputs.tags }}" \
