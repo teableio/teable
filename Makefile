@@ -56,10 +56,6 @@ else ifeq (docker.restart,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
 else ifeq (docker.up,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
-else ifeq (docker.build,$(firstword $(MAKECMDGOALS)))
-    SERVICE_TARGET = true
-else ifeq (build-nocache,$(firstword $(MAKECMDGOALS)))
-    SERVICE_TARGET = true
 else ifeq (docker.await,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
 else ifeq (docker.run,$(firstword $(MAKECMDGOALS)))
@@ -141,8 +137,6 @@ ifneq ($(NETWORK_MODE),host)
 	$(warning ${GREEN}network $(NETWORK_MODE) removed${RESET})
 endif
 
-docker.build:
-	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) build --parallel --progress=plain $(SERVICE)
 
 docker.run: docker.create.network
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm $(SERVICE) $(SERVICE_ARGS)
@@ -192,6 +186,18 @@ docker.status:
 
 docker.images:
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) images
+
+
+build.app:
+	@zx --version || pnpm add -g zx; \
+  	zx scripts/build-image.mjs --file=dockers/teable/Dockerfile \
+		  --tag=teable:develop
+
+build.db-migrate:
+	@zx --version || pnpm add -g zx; \
+  	zx scripts/build-image.mjs --file=dockers/teable/Dockerfile.db-migrate \
+		  --tag=teable-db-migrate:develop
+
 
 sqlite.integration.test:
 	@export PRISMA_DATABASE_URL='file:../../db/main.db'; \
