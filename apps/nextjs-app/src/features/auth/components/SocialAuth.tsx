@@ -29,6 +29,10 @@ export const SocialAuth = () => {
       : authUrl;
   };
 
+  if (!providers.length) {
+    return;
+  }
+
   return (
     <>
       <Separator className="my-5" />
