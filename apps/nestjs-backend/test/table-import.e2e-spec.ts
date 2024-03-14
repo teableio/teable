@@ -1,4 +1,6 @@
 import fs from 'fs';
+import os from 'node:os';
+import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { SUPPORTEDTYPE } from '@teable/core';
 import {
@@ -69,16 +71,17 @@ const genTestFiles = async () => {
     [TestFileFormat.TXT]: 'text/plain',
     [TestFileFormat.XLSX]: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
+  const tmpDir = os.tmpdir();
   for (let i = 0; i < testFileFormats.length; i++) {
     const format = testFileFormats[i];
-    const path = `test.${format}`;
+    const tmpPath = path.resolve(path.join(tmpDir, `test.${format}`));
     const data = fileDataMap[format];
     const contentType = contentTypeMap[format];
 
-    fs.writeFileSync(path, data);
+    fs.writeFileSync(tmpPath, data);
 
-    const file = fs.readFileSync(path);
-    const stats = fs.statSync(path);
+    const file = fs.readFileSync(tmpPath);
+    const stats = fs.statSync(tmpPath);
 
     const { token, requestHeaders } = (
       await apiGetSignature(
@@ -98,7 +101,7 @@ const genTestFiles = async () => {
     } = await apiNotify(token);
 
     result[format] = {
-      path: `test.${format}`,
+      path: tmpPath,
       url: presignedUrl,
     };
   }
