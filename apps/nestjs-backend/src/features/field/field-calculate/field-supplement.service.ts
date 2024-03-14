@@ -269,9 +269,13 @@ export class FieldSupplementService {
   private async prepareUpdateLinkField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     const newOptionsRo = fieldRo.options as ILinkFieldOptionsRo;
     const oldOptions = oldFieldVo.options as ILinkFieldOptions;
+    // isOneWay may be undefined or false, so we should convert it to boolean
+    const oldIsOneWay = Boolean(oldOptions.isOneWay);
+    const newIsOneWay = Boolean(newOptionsRo.isOneWay);
     if (
       oldOptions.foreignTableId === newOptionsRo.foreignTableId &&
-      oldOptions.relationship === newOptionsRo.relationship
+      oldOptions.relationship === newOptionsRo.relationship &&
+      oldIsOneWay !== newIsOneWay
     ) {
       return {
         ...oldFieldVo,

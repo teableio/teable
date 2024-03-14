@@ -223,8 +223,26 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         },
       };
 
-      const { newField } = await expectUpdate(table1, linkFieldRo, linkFieldRo2);
+      const linkField = await createField(table1.id, linkFieldRo);
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+
+      const newField = await convertField(table1.id, linkField.id, linkFieldRo2);
+
       expect(newField.name).toEqual('other name');
+
+      const { name: _, ...newFieldOthers } = newField;
+      const { name: _0, ...oldFieldOthers } = linkField;
+
+      expect(newFieldOthers).toEqual(oldFieldOthers);
+
+      const table2Records = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+      expect(
+        table2Records.records[0].fields[
+          (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+        ]
+      ).toMatchObject([{ id: table1.records[0].id }]);
     });
 
     it('should modify rollup field name', async () => {
