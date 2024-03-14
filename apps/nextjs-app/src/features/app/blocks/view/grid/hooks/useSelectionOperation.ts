@@ -122,10 +122,12 @@ export const useSelectionOperation = (filter?: IFilter) => {
   const handleTextPaste = useCallback(
     async (selection: CombinedSelection, toaster: ReturnType<typeof toast>) => {
       const clipboardContent = await navigator.clipboard.read();
-      const hasHtml = clipboardContent[0].types.includes('text/html');
-      const text = await (await clipboardContent[0].getType('text/plain')).text();
+      const hasHtml = clipboardContent[0].types.includes(ClipboardTypes.html);
+      const text = clipboardContent[0].types.includes(ClipboardTypes.text)
+        ? await (await clipboardContent[0].getType(ClipboardTypes.text)).text()
+        : '';
       const html = hasHtml
-        ? await (await clipboardContent[0].getType('text/html')).text()
+        ? await (await clipboardContent[0].getType(ClipboardTypes.html)).text()
         : undefined;
       const header = extractTableHeader(html);
 
