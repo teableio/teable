@@ -14,16 +14,97 @@ import { CsvImporter } from '../src/features/import/open-api/import.class';
 
 import { initApp, deleteTable } from './utils/init-app';
 
-let app: INestApplication;
-const baseId = globalThis.testConfig.baseId;
-const csvTmpPath = 'test.csv';
-const textTmpPath = 'test.txt';
-const excelTmpPath = 'test.xlsx';
+enum TestFileFormat {
+  'CSV' = 'csv',
+  'TSV' = 'tsv',
+  'TXT' = 'txt',
+  'XLSX' = 'xlsx',
+}
+
+const testFileFormats = [
+  TestFileFormat.CSV,
+  TestFileFormat.TSV,
+  TestFileFormat.TXT,
+  TestFileFormat.XLSX,
+];
+
+interface ITestFile {
+  [key: string]: {
+    path: string;
+    url: string;
+  };
+}
 const data = `field_1,field_2,field_3,field_4,field_5,field_6
 1,string_1,true,2022-11-10 16:00:00,,"long
 text"
 2,string_2,false,2022-11-11 16:00:00,,`;
+const tsvData = `field_1	field_2	field_3	field_4	field_5	field_6
+1	string_1	true	2022-11-10 16:00:00		"long\ntext"
+2	string_2	false	2022-11-11 16:00:00		`;
 const defaultTestSheetKey = 'Sheet1';
+const workbook = XLSX.utils.book_new();
+
+const worksheet = XLSX.utils.aoa_to_sheet([
+  ['field_1', 'field_2', 'field_3', 'field_4', 'field_5', 'field_6'],
+  [1, 'string_1', true, '2022-11-10 16:00:00', '', `long\ntext`],
+  [2, 'string_2', false, '2022-11-11 16:00:00', '', ''],
+]);
+
+XLSX.utils.book_append_sheet(workbook, worksheet, defaultTestSheetKey);
+
+let app: INestApplication;
+let testFiles: ITestFile = {};
+const baseId = globalThis.testConfig.baseId;
+const genTestFiles = async () => {
+  const result: ITestFile = {};
+  const fileDataMap = {
+    [TestFileFormat.CSV]: data,
+    [TestFileFormat.TSV]: tsvData,
+    [TestFileFormat.TXT]: data,
+    [TestFileFormat.XLSX]: await XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
+  };
+  const contentTypeMap = {
+    [TestFileFormat.CSV]: 'text/csv',
+    [TestFileFormat.TSV]: 'text/tab-separated-values',
+    [TestFileFormat.TXT]: 'text/plain',
+    [TestFileFormat.XLSX]: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  };
+  for (let i = 0; i < testFileFormats.length; i++) {
+    const format = testFileFormats[i];
+    const path = `test.${format}`;
+    const data = fileDataMap[format];
+    const contentType = contentTypeMap[format];
+
+    fs.writeFileSync(path, data);
+
+    const file = fs.readFileSync(path);
+    const stats = fs.statSync(path);
+
+    const { token, requestHeaders } = (
+      await apiGetSignature(
+        {
+          type: 1,
+          contentLength: stats.size,
+          contentType: contentType,
+        },
+        undefined
+      )
+    ).data;
+
+    await apiUploadFile(token, file, requestHeaders);
+
+    const {
+      data: { presignedUrl },
+    } = await apiNotify(token);
+
+    result[format] = {
+      path: `test.${format}`,
+      url: presignedUrl,
+    };
+  }
+  return result;
+};
+
 const assertHeaders = [
   {
     type: 'number',
@@ -50,99 +131,20 @@ const assertHeaders = [
     name: 'field_6',
   },
 ];
-let csvUrl: string;
-let textUrl: string;
-let excelUrl: string;
 
 beforeAll(async () => {
   const appCtx = await initApp();
   app = appCtx.app;
-
-  const workbook = XLSX.utils.book_new();
-
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    ['field_1', 'field_2', 'field_3', 'field_4', 'field_5', 'field_6'],
-    [1, 'string_1', true, '2022-11-10 16:00:00', '', `long\ntext`],
-    [2, 'string_2', false, '2022-11-11 16:00:00', '', ''],
-  ]);
-
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
-
-  const excelBuffer = await XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-
-  fs.writeFileSync(excelTmpPath, excelBuffer);
-
-  fs.writeFileSync(csvTmpPath, data);
-  const fileData = fs.readFileSync(csvTmpPath);
-  const fileStats = fs.statSync(csvTmpPath);
-
-  fs.writeFileSync(textTmpPath, data);
-  const textFileData = fs.readFileSync(textTmpPath);
-  const textStats = fs.statSync(textTmpPath);
-
-  const excelFileData = fs.readFileSync(excelTmpPath);
-  const excelStats = fs.statSync(excelTmpPath);
-
-  const { token, requestHeaders } = (
-    await apiGetSignature(
-      {
-        type: 1,
-        contentLength: fileStats.size,
-        contentType: 'text/csv',
-      },
-      undefined
-    )
-  ).data;
-
-  const { token: txtToken, requestHeaders: txtRequestHeaders } = (
-    await apiGetSignature(
-      {
-        type: 1,
-        contentLength: textStats.size,
-        contentType: 'text/plain',
-      },
-      undefined
-    )
-  ).data;
-
-  const { token: excelToken, requestHeaders: excelRequestHeaders } = (
-    await apiGetSignature(
-      {
-        type: 1,
-        contentLength: excelStats.size,
-        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      },
-      undefined
-    )
-  ).data;
-
-  await apiUploadFile(token, fileData, requestHeaders);
-
-  await apiUploadFile(txtToken, textFileData, txtRequestHeaders);
-
-  await apiUploadFile(excelToken, excelFileData, excelRequestHeaders);
-
-  const res = await apiNotify(token);
-  const txtRes = await apiNotify(txtToken);
-  const excelRes = await apiNotify(excelToken);
-  csvUrl = res.data.presignedUrl;
-  textUrl = txtRes.data.presignedUrl;
-  excelUrl = excelRes.data.presignedUrl;
+  testFiles = await genTestFiles();
 });
 
 afterAll(async () => {
   await app.close();
-  fs.unlink(csvTmpPath, (err) => {
-    if (err) throw err;
-    console.log('delete csv tmp file success!');
-  });
-  fs.unlink(textTmpPath, (err) => {
-    if (err) throw err;
-    console.log('delete csv tmp file success!');
-  });
-  fs.unlink(excelTmpPath, (err) => {
-    if (err) throw err;
-    console.log('delete excel tmp file success!');
+  testFileFormats.forEach((type) => {
+    fs.unlink(testFiles[type].path, (err) => {
+      if (err) throw err;
+      console.log(`delete ${type} test file success!`);
+    });
   });
 });
 
@@ -151,7 +153,7 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
     const {
       data: { worksheets },
     } = await apiAnalyzeFile({
-      attachmentUrl: csvUrl,
+      attachmentUrl: testFiles[TestFileFormat.CSV].url,
       fileType: SUPPORTEDTYPE.CSV,
     });
     const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
@@ -161,7 +163,7 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
   it(`should return 400, when url file type is not csv`, async () => {
     await expect(
       apiAnalyzeFile({
-        attachmentUrl: textUrl,
+        attachmentUrl: testFiles[TestFileFormat.TXT].url,
         fileType: SUPPORTEDTYPE.CSV,
       })
     ).rejects.toMatchObject({
@@ -174,7 +176,7 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
     const {
       data: { worksheets },
     } = await apiAnalyzeFile({
-      attachmentUrl: excelUrl,
+      attachmentUrl: testFiles[TestFileFormat.XLSX].url,
       fileType: SUPPORTEDTYPE.EXCEL,
     });
     const calculatedColumnHeaders = worksheets['Sheet1'].columns;
@@ -190,17 +192,18 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
       deleteTable(baseId, tableId);
     });
   });
-  it(`should create a new Table from csv/excel file`, async () => {
+  // TODO fix sqlite error, cancel tmp delay
+  it(`should create a new Table from csv/tsv/excel file`, async () => {
     const {
       data: { worksheets },
     } = await apiAnalyzeFile({
-      attachmentUrl: csvUrl,
+      attachmentUrl: testFiles[TestFileFormat.CSV].url,
       fileType: SUPPORTEDTYPE.CSV,
     });
     const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
 
     const table = await apiImportTableFromFile(baseId, {
-      attachmentUrl: csvUrl,
+      attachmentUrl: testFiles[TestFileFormat.CSV].url,
       fileType: SUPPORTEDTYPE.CSV,
       worksheets: {
         [CsvImporter.DEFAULT_SHEETKEY]: {
@@ -238,13 +241,13 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
     const {
       data: { worksheets: worksheets1 },
     } = await apiAnalyzeFile({
-      attachmentUrl: excelUrl,
+      attachmentUrl: testFiles[TestFileFormat.XLSX].url,
       fileType: SUPPORTEDTYPE.EXCEL,
     });
     const calculatedColumnHeaders1 = worksheets1[defaultTestSheetKey].columns;
 
     const table1 = await apiImportTableFromFile(baseId, {
-      attachmentUrl: excelUrl,
+      attachmentUrl: testFiles[TestFileFormat.XLSX].url,
       fileType: SUPPORTEDTYPE.EXCEL,
       worksheets: {
         [defaultTestSheetKey]: {
@@ -273,6 +276,50 @@ describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
 
     expect(createdFields1).toEqual(assertHeaders);
     expect(res1).toMatchObject({
+      status: 200,
+      statusText: 'OK',
+    });
+
+    await delay(1000);
+
+    const {
+      data: { worksheets: worksheet2 },
+    } = await apiAnalyzeFile({
+      attachmentUrl: testFiles[TestFileFormat.TSV].url,
+      fileType: SUPPORTEDTYPE.CSV,
+    });
+    const calculatedColumnHeaders2 = worksheet2[CsvImporter.DEFAULT_SHEETKEY].columns;
+
+    const table2 = await apiImportTableFromFile(baseId, {
+      attachmentUrl: testFiles[TestFileFormat.TSV].url,
+      fileType: SUPPORTEDTYPE.CSV,
+      worksheets: {
+        [CsvImporter.DEFAULT_SHEETKEY]: {
+          name: defaultTestSheetKey,
+          columns: calculatedColumnHeaders2.map((column, index) => ({
+            ...column,
+            sourceColumnIndex: index,
+          })),
+          useFirstRowAsHeader: true,
+          importData: true,
+        },
+      },
+    });
+
+    const { fields: fields2, id: id2 } = table2.data[0];
+    tableIds.push(id2);
+
+    const createdFields2 = fields2.map((field) => ({
+      type: field.type,
+      name: field.name,
+    }));
+
+    const res2 = await apiGetTableById(baseId, table2.data[0].id, {
+      includeContent: true,
+    });
+
+    expect(createdFields2).toEqual(assertHeaders);
+    expect(res2).toMatchObject({
       status: 200,
       statusText: 'OK',
     });

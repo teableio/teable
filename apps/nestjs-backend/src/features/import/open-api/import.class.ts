@@ -55,7 +55,7 @@ export abstract class Importer {
     const { url, type } = this.config;
     const { body: stream, headers } = await fetch(url);
 
-    const supportType = importTypeMap[type].acceptHeaders;
+    const supportType = importTypeMap[type].accept.split(',');
 
     const fileFormat = headers
       .get('content-type')
