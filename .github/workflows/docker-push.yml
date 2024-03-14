@@ -66,11 +66,13 @@ jobs:
       - name: ⚙️ Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: 📦 Build and push
+        if: ${{ matrix.target == 'db-migrate'}}
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
               --cache-from=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache \
               --cache-to=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max \
               --tag="${{ steps.meta.outputs.tags }}" \
+              --platforms="linux/amd64,linux/arm64" \
               --push
       - name: 📦 Build and push （csp-open）
         if: ${{ matrix.target == 'app'}}
@@ -79,4 +81,5 @@ jobs:
               --cache-from=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache \
               --cache-to=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max \
               --tag-suffix="-csp-open" \
+              --platforms="linux/amd64,linux/arm64" \
               --push
