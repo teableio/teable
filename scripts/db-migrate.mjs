@@ -1,8 +1,11 @@
 #!/usr/bin/env zx
-import { $ } from 'zx';
 import { parseDsn as parse } from '@soluble/dsn-parser';
 
-const databaseUrl = process.env.PRISMA_DATABASE_URL;
+const env = $.env;
+let isCi = ['true', '1'].includes(env?.CI ?? '');
+
+const buildVersion = env.BUILD_VERSION;
+const databaseUrl = env.PRISMA_DATABASE_URL;
 
 const parseDsn = (dsn) => {
   const parsedDsn = parse(dsn);
@@ -26,6 +29,7 @@ const killMe = async () => {
   await $`exit 0`;
 };
 
+console.log(`DB Migrate Version: ${buildVersion}`);
 await $`prisma -v`;
 
 const { driver, host, port } = parseDsn(databaseUrl);

@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - develop
+    tags:
+      - 'v*'
 
 jobs:
   build-push:
@@ -65,7 +67,15 @@ jobs:
       - name: 📦 Build and push
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
-              --cache-from=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache \
-              --cache-to=type=registry,ref=ghcr.io/teableio/${{ matrix.image }}:buildcache,mode=max \
               --tag="${{ steps.meta.outputs.tags }}" \
+              --platforms="linux/amd64,linux/arm64" \
+              --push
+      - name: 📦 Build and push （csp-open）
+        if: ${{ matrix.target == 'app'}}
+        run: |
+          zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
+              --build-arg="ENABLE_CSP=false" \
+              --tag="${{ steps.meta.outputs.tags }}" \
+              --tag-suffix="-csp-open" \
+              --platforms="linux/amd64,linux/arm64" \
               --push
