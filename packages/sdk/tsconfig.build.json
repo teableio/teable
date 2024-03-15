@@ -8,6 +8,6 @@
     "jsx": "react-jsx",
     "paths": {}
   },
-  "exclude": ["dist", "**/__tests__/*", "**/*spec.ts"],
+  "exclude": ["dist", "**/__tests__/*", "**/*spec.ts", "**/*spec.tsx"],
   "include": ["src"]
 }
