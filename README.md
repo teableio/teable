@@ -248,6 +248,15 @@ Giving non-techy people the ability to create their software sounds exciting. Bu
 
 In essence, Teable isn't just another no-code solution, it's a comprehensive answer to the evolving demands of modern software development, ensuring that everyone, regardless of their technical proficiency, has a platform tailored to their needs.
 
+## Star us 🌟
+
+<a href="https://next.ossinsight.io/widgets/official/analyze-repo-stars-map?repo_id=560299175&activity=stars" target="_blank" style="display: block" align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://next.ossinsight.io/widgets/official/analyze-repo-stars-map/thumbnail.png?repo_id=560299175&activity=stars&image_size=auto&color_scheme=dark" width="721" height="auto">
+    <img alt="Star Geographical Distribution of teableio/teable" src="https://next.ossinsight.io/widgets/official/analyze-repo-stars-map/thumbnail.png?repo_id=560299175&activity=stars&image_size=auto&color_scheme=light" width="721" height="auto">
+  </picture>
+</a>
+
 ## Sponsors :heart:
 
 If you are enjoying some this project in your company, I'd really appreciate a [sponsorship](https://github.com/sponsors/teableio), a [coffee](https://ko-fi.com/teable) or a dropped star.
