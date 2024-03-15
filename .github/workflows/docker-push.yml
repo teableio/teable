@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - build/docker-platforms
     tags:
       - 'v*'
 
@@ -66,7 +65,6 @@ jobs:
       - name: ⚙️ Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: 📦 Build and push
-        if: ${{ matrix.target == 'db-migrate'}}
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
               --tag="${{ steps.meta.outputs.tags }}" \
@@ -77,7 +75,6 @@ jobs:
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
               --build-arg="ENABLE_CSP=false" \
-              --build-arg="ENABLE_IMAGES_ALL_REMOTE=true" \
               --tag="${{ steps.meta.outputs.tags }}" \
               --tag-suffix="-csp-open" \
               --platforms="linux/amd64,linux/arm64" \

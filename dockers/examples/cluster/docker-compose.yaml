@@ -8,15 +8,11 @@ services:
     restart: always
     expose:
       - '3000'
-    volumes:
-      - teable-data:/app/.assets:rw
+    env_file:
+      - .env
     environment:
       - TZ=${TIMEZONE}
-      - NODE_OPTIONS=--max-old-space-size=1024
-      - PUBLIC_ORIGIN=http://127.0.0.1
-      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable-db:5432/${POSTGRES_DB}
-      - BACKEND_CACHE_PROVIDER=redis
-      - BACKEND_CACHE_REDIS_URI=redis://:${POSTGRES_PASSWORD}@teable-cache:6379/0
+      - NEXT_ENV_IMAGES_ALL_REMOTE=true
     networks:
       - teable-cluster
     depends_on:
@@ -51,6 +47,17 @@ services:
       timeout: 3s
       retries: 3
 
+  teable-db-migrate:
+    image: ghcr.io/teableio/teable-db-migrate:latest
+    environment:
+      - TZ=${TIMEZONE}
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    networks:
+      - teable-cluster
+    depends_on:
+      teable-db:
+        condition: service_healthy
+
   teable-cache:
     image: redis:7.2.4
     restart: always
@@ -67,16 +74,37 @@ services:
       timeout: 3s
       retries: 3
 
-  teable-db-migrate:
-    image: ghcr.io/teableio/teable-db-migrate:latest
+  teable-storage:
+    image: minio/minio:RELEASE.2024-02-17T01-15-57Z
+    expose:
+      - '9000'
+      - '9001'
     environment:
-      - TZ=${TIMEZONE}
-      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable-db:5432/${POSTGRES_DB}
+      - MINIO_SERVER_URL=${MINIO_SERVER_URL}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+    volumes:
+      - teable-storage:/data:rw
     networks:
       - teable-cluster
+    command: server /data --console-address ":9001"
+
+  createbuckets:
+    image: minio/mc
+    networks:
+      - teable-cluster
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set teable-storage http://teable-storage:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      /usr/bin/mc mb teable-storage/public;
+      /usr/bin/mc anonymous set public teable-storage/public;
+      /usr/bin/mc mb teable-storage/private;
+      exit 0;
+      "
     depends_on:
-      teable-db:
-        condition: service_healthy
+      teable-storage:
+        condition: service_started
 
   teable-gateway:
     image: openresty/openresty:1.25.3.1-2-bookworm-fat
@@ -84,6 +112,7 @@ services:
     ports:
       - '80:80'
       - '443:443'
+      - '9000:9000'
     volumes:
       - './gateway/conf.d:/etc/nginx/conf.d'
     networks:
@@ -103,6 +132,6 @@ networks:
     driver: bridge
 
 volumes:
-  teable-data: {}
   teable-db: {}
   teable-cache: {}
+  teable-storage: {}
