@@ -53,7 +53,7 @@
 
 ## ✨Features
 
-#### 📊 Spreadsheet-like interface
+#### 📊 Spreadsheet-like Interface
 
 All you want is here
 
@@ -106,7 +106,7 @@ You own your data, in spite of the cloud
 
 - Bring your own database (coming soon)
 
-#### ⚡️ Real-time collaboration
+#### ⚡️ Real-time Collaboration
 
 Designed for teams
 
@@ -114,7 +114,7 @@ Designed for teams
 - Seamlessly integrate collaboration member invitation and management
 - Perfect permission management mechanism, from table to column level
 
-#### 🧩 Extensions (coming soon)
+#### 🧩 Extensions (Coming Soon)
 
 Expand infinite possibilities
 
@@ -122,14 +122,14 @@ Expand infinite possibilities
 - Customize your own application with extremely low cost
 - Extremely easy-to-use script extensions mode
 
-#### 🤖 Automation (coming soon)
+#### 🤖 Automation (Coming Soon)
 
 Empower data-driven workflows effortlessly and seamlessly
 
 - Design your workflow with AI or Visual programming
 - Super easy to retrieve data from the table
 
-#### 🧠 Copilot (coming soon)
+#### 🧠 Copilot (Coming Soon)
 
 Native Integrated AI ability
 
@@ -139,7 +139,7 @@ Native Integrated AI ability
 - Chat 2 Action. "After the order is paid and completed, an email notification will be sent to the customer"
 - More actions...
 
-#### 🗄️ Support for multiple databases (coming soon)
+#### 🗄️ Support for Multiple Databases (Coming Soon)
 
 Choose the SQL database you like
 
@@ -167,7 +167,7 @@ Choose the SQL database you like
 
 ## Deploy
 
-### Deploy with docker
+### Deploy With Docker
 
 ```sh
 cd dockers/examples/standalone/
@@ -207,14 +207,14 @@ we currently support `sqlite` and `postgres`, you can switch between them by run
 make switch-db-mode
 ```
 
-#### 3. Custom environment variables（optional）
+#### 3. Custom Environment Variables（Optional）
 
 ```sh
 cd apps/nextjs-app
 copy .env.development .env.development.local
 ```
 
-#### 4. Run dev server
+#### 4. Run Dev Server
 
 you just need to start backend, it will start next server for frontend automatically, file change will be auto reload
 
@@ -236,7 +236,7 @@ Giving non-techy people the ability to create their software sounds exciting. Bu
 - Maintaining systems with complex setups can be hard for developers, especially if these aren't built using common software standards.
 - Systems that don't use these standards might need revamping or replacing, costing more in the long run. It might even mean ditching the no-code route and going back to traditional coding.
 
-#### What we think the future of no-code products look like
+#### What We Think the Future Of No-code Products Look Like
 
 - An interface that anyone can use to build applications easily.
 - Easy access to data, letting users grab, move, and reuse their information as they wish.
