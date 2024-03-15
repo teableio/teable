@@ -40,7 +40,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
       });
       return;
     }
-    refresh?.();
+    refresh();
   }, [currentUser, refresh]);
 
   const value = useMemo(

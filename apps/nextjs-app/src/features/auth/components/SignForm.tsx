@@ -5,10 +5,12 @@ import { signup, signin, signinSchema, signupSchema } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import { Button, Input, Label } from '@teable/ui-lib/shadcn';
 import classNames from 'classnames';
+import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
+import { Error as ErrorCom } from '@/components/Error';
 import { authConfig } from '../../i18n/auth.config';
 
 export interface ISignForm {
@@ -86,31 +88,37 @@ export const SignForm: FC<ISignForm> = (props) => {
             <Label htmlFor="email">{t('auth:label.email')}</Label>
             <Input
               id="email"
-              placeholder="Enter your email address..."
+              placeholder={t('auth:placeholder.email')}
               type="text"
               autoComplete="username"
               disabled={isLoading}
             />
           </div>
           <div className="grid gap-3">
-            <Label htmlFor="password">{t('auth:label.password')}</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">{t('auth:label.password')}</Label>
+              <Link
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                href="/auth/forget-password"
+              >
+                {t('auth:forgetPassword.trigger')}
+              </Link>
+            </div>
             <Input
               id="password"
-              placeholder="Enter your password..."
+              placeholder={t('auth:placeholder.password')}
               type="password"
               autoComplete="password"
               disabled={isLoading}
             />
           </div>
-          <Button disabled={isLoading}>
-            {isLoading && <Spin />}
-            {buttonText}
-          </Button>
-          {error && (
-            <div className="absolute -bottom-1 w-full translate-y-full text-center text-sm text-destructive">
-              {error}
-            </div>
-          )}
+          <div>
+            <Button className="w-full" disabled={isLoading}>
+              {isLoading && <Spin />}
+              {buttonText}
+            </Button>
+            <ErrorCom error={error} />
+          </div>
         </div>
       </form>
     </div>

@@ -4,10 +4,10 @@
  * you can opt out by commenting the following code.
  * @link https://react.i18next.com/latest/typescript
  */
-import 'react-i18next';
+import 'next-i18next';
 import type { I18nNamespaces } from '@teable/common-i18n';
 
-declare module 'react-i18next' {
+declare module 'next-i18next' {
   interface CustomTypeOptions {
     defaultNS: 'common';
     resources: I18nNamespaces;

@@ -86,4 +86,18 @@ export class MailSenderService {
       },
     };
   }
+
+  resetPasswordEmailOptions(info: { name: string; email: string; resetPasswordUrl: string }) {
+    const { name, email, resetPasswordUrl } = info;
+    return {
+      subject: `Reset your password - ${this.baseConfig.brandName}`,
+      template: 'normal',
+      context: {
+        name,
+        email,
+        resetPasswordUrl,
+        partialBody: 'reset-password',
+      },
+    };
+  }
 }
