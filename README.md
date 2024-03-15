@@ -49,7 +49,7 @@
 1. Looking for a quick experience? Select a scenario from the [template center](https://template.teable.io) and click "Use this template".
 2. Seeking high performance? Try the [1 million rows demo](https://app.teable.io/share/shrVgdLiOvNQABtW0yX/view) to feel the speed of Teable.
 3. Want to learn to use it quickly? Click on this [tutorial](https://help.teable.io/quick-start/build-a-simple-base)
-4. Interested in deploying it yourself? Click [Deploy on Railway](https://railway.app/template/wada5e?referralCode=rE4BjB) or [Deploy on Zeabur](https://zeabur.com/templates/QF8695)
+4. Interested in deploying it yourself? Click [Deploy on Railway](https://railway.app/template/wada5e?referralCode=rE4BjB)
 
 ## ✨Features
 
