@@ -22,7 +22,7 @@ interface CollaboratorsProps {
   maxAvatarLen?: number;
 }
 
-type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta'>;
+type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta' | 'hasPassword'>;
 
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
   const router = useRouter();
