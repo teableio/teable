@@ -1,17 +1,11 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '@teable/sdk/context';
-import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
+import type { GetServerSideProps } from 'next';
 import { ForgetPasswordPage } from '@/features/auth/pages/ForgetPasswordPage';
 import { authConfig } from '@/features/i18n/auth.config';
 import { getTranslationsProps } from '@/lib/i18n';
 
-type Props = {
-  /** Add props here */
-};
-
-export default function ForgetPasswordRoute(
-  _props: InferGetServerSidePropsType<typeof getServerSideProps>
-) {
+export default function ForgetPasswordRoute() {
   const queryClient = createQueryClient();
   return (
     <QueryClientProvider client={queryClient}>
@@ -20,7 +14,7 @@ export default function ForgetPasswordRoute(
   );
 }
 
-export const getServerSideProps: GetServerSideProps<Props> = async (context) => {
+export const getServerSideProps: GetServerSideProps = async (context) => {
   const { i18nNamespaces } = authConfig;
   return {
     props: {
