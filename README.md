@@ -176,9 +176,13 @@ docker-compose up -d
 
 for more details, see [dockers/examples](dockers/examples)
 
-### Deploy with Railway
+### One Click Deployment
+
+These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/wada5e?referralCode=rE4BjB)
+
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/QF8695)
 
 ## Development
 
