@@ -14,9 +14,7 @@ import {
   viewGroupRoSchema,
 } from '@teable/core';
 import {
-  IViewOrderRo,
   viewNameRoSchema,
-  viewOrderRoSchema,
   IViewNameRo,
   viewDescriptionRoSchema,
   IViewDescriptionRo,
@@ -26,6 +24,8 @@ import {
   IViewSortRo,
   viewOptionsRoSchema,
   IViewOptionsRo,
+  updateOrderRoSchema,
+  IUpdateOrderRo,
 } from '@teable/openapi';
 import type { EnableShareViewVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
@@ -207,8 +207,8 @@ export class ViewOpenApiController {
   async updateViewOrder(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewOrderRoSchema))
-    updateOrderRo: IViewOrderRo
+    @Body(new ZodValidationPipe(updateOrderRoSchema))
+    updateOrderRo: IUpdateOrderRo
   ): Promise<void> {
     return await this.viewOpenApiService.updateViewOrder(tableId, viewId, updateOrderRo);
   }

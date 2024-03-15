@@ -54,17 +54,17 @@ export class ViewService implements IAdapterService {
     const viewRaws = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { name: true, order: true },
+      orderBy: { order: 'asc' },
     });
 
-    let { name, order } = viewRo;
+    let { name } = viewRo;
 
     const names = viewRaws.map((view) => view.name);
     name = getUniqName(name ?? 'New view', names);
 
-    if (order == null) {
-      const maxOrder = viewRaws[viewRaws.length - 1]?.order;
-      order = maxOrder == null ? 0 : maxOrder + 1;
-    }
+    const maxOrder = viewRaws[viewRaws.length - 1]?.order;
+    const order = maxOrder == null ? 0 : maxOrder + 1;
+
     return { name, order };
   }
 

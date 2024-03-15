@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IColumn, IFieldVo, ITableFullVo, IViewRo } from '@teable/core';
 import { FieldType, ViewType } from '@teable/core';
-import { updateViewDescription, updateViewName } from '@teable/openapi';
+import { updateViewDescription, updateViewName, updateViewOrder } from '@teable/openapi';
 import {
   createField,
   getFields,
@@ -128,5 +128,43 @@ describe('OpenAPI ViewController (e2e)', () => {
     const newFields = await getFields(table.id, newView.id);
 
     expect(newFields.slice(3)).toMatchObject(oldFields);
+  });
+
+  it('re-order view', async () => {
+    const view1 = { id: table.views[0].id };
+
+    const view2 = {
+      id: (
+        await createView(table.id, {
+          name: 'view',
+          type: ViewType.Grid,
+        })
+      ).id,
+    };
+
+    const view3 = {
+      id: (
+        await createView(table.id, {
+          name: 'view',
+          type: ViewType.Grid,
+        })
+      ).id,
+    };
+
+    await updateViewOrder(table.id, view3.id, { anchorId: view2.id, position: 'before' });
+    const views = await getViews(table.id);
+    expect(views).toMatchObject([view1, view3, view2]);
+
+    await updateViewOrder(table.id, view3.id, { anchorId: view1.id, position: 'before' });
+    const views2 = await getViews(table.id);
+    expect(views2).toMatchObject([view3, view1, view2]);
+
+    await updateViewOrder(table.id, view3.id, { anchorId: view1.id, position: 'after' });
+    const views3 = await getViews(table.id);
+    expect(views3).toMatchObject([view1, view3, view2]);
+
+    await updateViewOrder(table.id, view3.id, { anchorId: view2.id, position: 'after' });
+    const views4 = await getViews(table.id);
+    expect(views4).toMatchObject([view1, view2, view3]);
   });
 });
