@@ -8,9 +8,9 @@ export type ISession = {
 };
 
 export type ISessionContext = ISession & {
-  refresh?: () => void;
-  refreshAvatar?: () => void;
+  refresh: () => void;
+  refreshAvatar: () => void;
 };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export const SessionContext = React.createContext<ISessionContext>({});
+export const SessionContext = React.createContext<ISessionContext>(null!);
