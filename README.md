@@ -184,6 +184,8 @@ These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/QF8695)
 
+[![Deploy on Sealos](https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg)](https://cloud.sealos.io/?openapp=system-template%3FtemplateName%3Dteable)
+
 ## Development
 
 #### 1. Initialize
