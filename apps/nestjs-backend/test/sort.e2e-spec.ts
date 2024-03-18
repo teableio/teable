@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IGetRecordsRo, ISortItem, ITableFullVo } from '@teable/core';
-import { FieldType, CellValueType, SortFunc } from '@teable/core';
+import { CellValueType, SortFunc, FieldType } from '@teable/core';
 import { updateViewSort as apiSetViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import type { SingleSelectOptionsDto } from '../src/features/field/model/field-dto/single-select-field.dto';
@@ -201,6 +201,33 @@ describe('OpenAPI Sort (e2e) Base CellValueType', () => {
 
     expect(ascOriginRecords).toEqual(ascManualSortRecords);
     expect(descOriginRecords).toEqual(descManualSortRecords);
+  });
+
+  test('view sort property should be merged after by interface parameter orderBy', async () => {
+    const { id: subTableId, fields: fields2, defaultViewId } = table;
+    const field = fields2.find(
+      (field) => field.type === FieldType.Number
+    ) as ITableFullVo['fields'][number];
+    const { id: fieldId } = field;
+
+    const booleanField = fields2.find((field) => field.type === FieldType.Checkbox);
+    const { id: booleanFieldId } = booleanField!;
+
+    const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
+    const descOrders: IGetRecordsRo['orderBy'] = [
+      { fieldId: booleanFieldId, order: SortFunc.Desc },
+    ];
+    await setRecordsOrder(subTableId, defaultViewId!, ascOrders);
+    const originRecords = await getSortRecords(subTableId, {
+      viewId: defaultViewId,
+      orderBy: descOrders,
+    });
+    const manualSortRecords = getRecordsByOrder(
+      originRecords,
+      [...descOrders, ...ascOrders],
+      fields2
+    );
+    expect(originRecords).toEqual(manualSortRecords);
   });
 });
 
