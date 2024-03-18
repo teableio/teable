@@ -8,11 +8,11 @@ services:
       - '3000:3000'
     volumes:
       - teable_data:/app/.assets:rw
+    env_file:
+      - .env
     environment:
       - TZ=${TIMEZONE}
-      - NODE_OPTIONS=--max-old-space-size=1024
-      - PUBLIC_ORIGIN=http://127.0.0.1:3000
-      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable_db:5432/${POSTGRES_DB}
+      - NEXT_ENV_IMAGES_ALL_REMOTE=true
     networks:
       - teable-standalone
     depends_on:
@@ -22,8 +22,8 @@ services:
   teable_db:
     image: postgres:15.4
     restart: always
-    expose:
-      - '5432'
+    ports:
+      - '42345:5432'
     volumes:
       - teable_db:/var/lib/postgresql/data:rw
     environment:

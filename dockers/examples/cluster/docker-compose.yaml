@@ -34,6 +34,9 @@ services:
       - '42345:5432'
     volumes:
       - teable-db:/var/lib/postgresql/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/db/data:/var/lib/postgresql/data:rw
     environment:
       - TZ=${TIMEZONE}
       - POSTGRES_DB=${POSTGRES_DB}
@@ -65,6 +68,9 @@ services:
       - '6379'
     volumes:
       - teable-cache:/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/cache/data:/data:rw
     networks:
       - teable-cluster
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
@@ -86,6 +92,9 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
     volumes:
       - teable-storage:/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/storage/data:/data:rw
     networks:
       - teable-cluster
     command: server /data --console-address ":9001"
