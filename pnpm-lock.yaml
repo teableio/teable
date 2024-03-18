@@ -273,6 +273,9 @@ importers:
       passport-github2:
         specifier: 0.1.12
         version: 0.1.12
+      passport-google-oauth20:
+        specifier: 2.0.0
+        version: 2.0.0
       passport-jwt:
         specifier: 4.0.1
         version: 4.0.1
@@ -385,6 +388,9 @@ importers:
       '@types/passport-github2':
         specifier: 1.2.9
         version: 1.2.9
+      '@types/passport-google-oauth20':
+        specifier: 2.0.14
+        version: 2.0.14
       '@types/passport-jwt':
         specifier: 4.0.1
         version: 4.0.1
@@ -9807,6 +9813,14 @@ packages:
 
   /@types/passport-github2@1.2.9:
     resolution: {integrity: sha512-/nMfiPK2E6GKttwBzwj0Wjaot8eHrM57hnWxu52o6becr5/kXlH/4yE2v2rh234WGvSgEEzIII02Nc5oC5xEHA==}
+    dependencies:
+      '@types/express': 4.17.21
+      '@types/passport': 1.0.16
+      '@types/passport-oauth2': 1.4.15
+    dev: true
+
+  /@types/passport-google-oauth20@2.0.14:
+    resolution: {integrity: sha512-ZaZpRUAeMl3vy298ulKO1wGLn9SQtj/CyIfZL/Px5xU9pybMiQU3mhXDCBiWSbg0EK9uXT4ZoWC3ktuWY+5fwQ==}
     dependencies:
       '@types/express': 4.17.21
       '@types/passport': 1.0.16
@@ -20597,6 +20611,13 @@ packages:
   /passport-github2@0.1.12:
     resolution: {integrity: sha512-3nPUCc7ttF/3HSP/k9sAXjz3SkGv5Nki84I05kSQPo01Jqq1NzJACgMblCK0fGcv9pKCG/KXU3AJRDGLqHLoIw==}
     engines: {node: '>= 0.8.0'}
+    dependencies:
+      passport-oauth2: 1.8.0
+    dev: false
+
+  /passport-google-oauth20@2.0.0:
+    resolution: {integrity: sha512-KSk6IJ15RoxuGq7D1UKK/8qKhNfzbLeLrG3gkLZ7p4A6DBCcv7xpyQwuXtWdpyR0+E0mwkpjY1VfPOhxQrKzdQ==}
+    engines: {node: '>= 0.4.0'}
     dependencies:
       passport-oauth2: 1.8.0
     dev: false

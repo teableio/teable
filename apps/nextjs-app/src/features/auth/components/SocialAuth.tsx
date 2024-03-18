@@ -1,4 +1,4 @@
-import { GithubLogo } from '@teable/icons';
+import { GithubLogo, GoogleLogo } from '@teable/icons';
 import { Button, Separator } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
@@ -10,6 +10,12 @@ const providersAll = [
     text: 'Github',
     Icon: GithubLogo,
     authUrl: '/api/auth/github',
+  },
+  {
+    id: 'google',
+    text: 'Google',
+    Icon: GoogleLogo,
+    authUrl: '/api/auth/google',
   },
 ];
 
@@ -36,7 +42,7 @@ export const SocialAuth = () => {
   return (
     <>
       <Separator className="my-5" />
-      <div>
+      <div className="space-y-2">
         {providers.map(({ id, text, Icon, authUrl }) => (
           <Button key={id} className="w-full" variant="outline" onClick={() => onClick(authUrl)}>
             <Icon className="size-4" />
