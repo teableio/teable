@@ -8,7 +8,7 @@ import { z } from '../zod';
 export const GET_BASE_LIST = '/space/{spaceId}/base';
 
 export const getBaseListRoSchema = z.object({
-  spaceId: z.string().optional(),
+  spaceId: z.string(),
 });
 
 export type IGetBasesListRo = z.infer<typeof getBaseListRoSchema>;

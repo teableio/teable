@@ -61,12 +61,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
         )}
         onClick={navigateHandler}
       >
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-        <div
-          onMouseDown={(e) => {
-            e.stopPropagation();
-          }}
-        >
+        <div>
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
           <div onClick={(e) => e.stopPropagation()}>
             <EmojiPicker

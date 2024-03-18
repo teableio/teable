@@ -28,6 +28,7 @@ import type { IUpdateOrderRo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';
+import { updateOrder } from '../../../utils/update-order';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
 import { ViewService } from '../view.service';
@@ -285,7 +286,7 @@ export class ViewOpenApiService {
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
-        throw new BadRequestException(`View ${viewId} not found in the table`);
+        throw new NotFoundException(`View ${viewId} not found in the table`);
       });
 
     const anchorView = await this.prismaService.view
@@ -294,54 +295,41 @@ export class ViewOpenApiService {
         where: { tableId, id: anchorId, deletedTime: null },
       })
       .catch(() => {
-        throw new BadRequestException(`View ${viewId} not found in the table`);
+        throw new NotFoundException(`Anchor ${anchorId} not found in the table`);
       });
 
-    /**
-     * if we have [1,2,3,4,5]
-     * --------------------------------
-     * case 1:
-     * anchorId = 3, position = 'before', order = 2
-     * pick the order < 3, we have [1, 2]
-     * orderBy desc, we have [2, 1]
-     * pick the first one, we have 2
-     * --------------------------------
-     * case 2:
-     * anchorId = 3, position = 'after', order = 2
-     * pick the order > 3, we have [4, 5]
-     * orderBy asc, we have [4, 5]
-     * pick the first one, we have 4
-     */
-    const nextView = await this.prismaService.view.findFirst({
-      select: { order: true, id: true },
-      where: {
-        tableId,
-        deletedTime: null,
-        order: { [position === 'before' ? 'lt' : 'gt']: anchorView.order },
+    await updateOrder({
+      parentId: tableId,
+      position,
+      item: view,
+      anchorItem: anchorView,
+      getNextItem: async (whereOrder, align) => {
+        return this.prismaService.view.findFirst({
+          select: { order: true, id: true },
+          where: {
+            tableId,
+            deletedTime: null,
+            order: whereOrder,
+          },
+          orderBy: { order: align },
+        });
       },
-      orderBy: { order: position === 'before' ? 'desc' : 'asc' },
-    });
+      updateSingle: async (
+        parentId: string,
+        id: string,
+        data: { newOrder: number; oldOrder: number }
+      ) => {
+        const ops = ViewOpBuilder.editor.setViewProperty.build({
+          key: 'order',
+          newValue: data.newOrder,
+          oldValue: data.oldOrder,
+        });
 
-    const order = nextView
-      ? (nextView.order + anchorView.order) / 2
-      : anchorView.order + (position === 'before' ? -1 : 1);
-
-    const { order: oldOrder } = view;
-
-    if (Math.abs(order - anchorView.order) < Number.EPSILON * 2) {
-      await this.shuffle(tableId);
-      await this.updateViewOrder(tableId, viewId, orderRo);
-      return;
-    }
-
-    const ops = ViewOpBuilder.editor.setViewProperty.build({
-      key: 'order',
-      newValue: order,
-      oldValue: oldOrder,
-    });
-
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+        await this.prismaService.$tx(async () => {
+          await this.viewService.updateViewByOps(parentId, id, [ops]);
+        });
+      },
+      shuffle: this.shuffle.bind(this),
     });
   }
 

@@ -14,7 +14,6 @@ export const updateBaseVoSchema = z.object({
   spaceId: z.string(),
   name: z.string(),
   icon: z.string().emoji().optional(),
-  order: z.number(),
 });
 
 export type IUpdateBaseVo = z.infer<typeof updateBaseVoSchema>;

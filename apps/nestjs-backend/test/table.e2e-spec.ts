@@ -8,7 +8,6 @@ import {
   updateTableDescription,
   updateTableIcon,
   updateTableName,
-  updateTableOrder,
   deleteTable as apiDeleteTable,
 } from '@teable/openapi';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
@@ -230,14 +229,12 @@ describe('OpenAPI TableController (e2e)', () => {
     await updateTableName(baseId, tableId, { name: 'newTableName' });
     await updateTableDescription(baseId, tableId, { description: 'newDescription' });
     await updateTableIcon(baseId, tableId, { icon: '😀' });
-    await updateTableOrder(baseId, tableId, { order: 1.5 });
 
     const table = await getTable(baseId, tableId);
 
     expect(table.name).toEqual('newTableName');
     expect(table.description).toEqual('newDescription');
     expect(table.icon).toEqual('😀');
-    expect(table.order).toEqual(1.5);
   });
 
   it('should delete table and clean up link and lookup fields', async () => {

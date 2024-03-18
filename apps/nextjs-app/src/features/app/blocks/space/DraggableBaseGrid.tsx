@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IGetBaseVo } from '@teable/openapi';
-import { updateBase } from '@teable/openapi';
-import { swapReorder, useIsHydrated } from '@teable/sdk';
+import { updateBaseOrder } from '@teable/openapi';
+import { useIsHydrated } from '@teable/sdk';
 import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base';
 import type { DragEndEvent } from '@teable/ui-lib/base';
 import { useEffect, useState } from 'react';
@@ -21,12 +21,12 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
     if (!bases?.length) {
       return;
     }
-    const newBases = bases.sort((a, b) => a.order - b.order);
-    setInnerBases(newBases);
+
+    setInnerBases(bases);
   }, [bases]);
 
   const { mutateAsync: updateBaseFn } = useMutation({
-    mutationFn: updateBase,
+    mutationFn: updateBaseOrder,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['base-list'],
@@ -46,17 +46,17 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
     const list = [...innerBases];
     const [base] = list.splice(from, 1);
 
-    const newOrder = swapReorder(1, from, to, innerBases.length, (index: number) => {
-      return innerBases[index].order;
-    })[0];
-
-    if (newOrder === base.order) {
-      return;
-    }
     list.splice(to, 0, base);
 
     setInnerBases(list);
-    updateBaseFn({ baseId: base.id, updateBaseRo: { order: newOrder } });
+
+    const baseIndex = list.findIndex((v) => v.id === base.id);
+
+    if (baseIndex == 0) {
+      await updateBaseFn({ baseId: base.id, anchorId: list[1].id, position: 'before' });
+    } else {
+      await updateBaseFn({ baseId: base.id, anchorId: list[baseIndex - 1].id, position: 'after' });
+    }
   };
 
   return (

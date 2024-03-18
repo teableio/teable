@@ -63,7 +63,8 @@ export const TableOperation = (props: ITableOperationProps) => {
   }
 
   return (
-    <>
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div onMouseDown={(e) => e.stopPropagation()}>
       {menuPermission.deleteTable && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -114,6 +115,6 @@ export const TableOperation = (props: ITableOperationProps) => {
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={deleteTable}
       />
-    </>
+    </div>
   );
 };

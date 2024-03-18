@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import {
   createBaseRoSchema,
   duplicateBaseRoSchema,
@@ -9,6 +9,8 @@ import {
   IDuplicateBaseRo,
   createBaseFromTemplateRoSchema,
   ICreateBaseFromTemplateRo,
+  updateOrderRoSchema,
+  IUpdateOrderRo,
 } from '@teable/openapi';
 import type {
   ICreateBaseVo,
@@ -78,6 +80,15 @@ export class BaseController {
     return await this.baseService.updateBase(baseId, updateBaseRo);
   }
 
+  @Put(':baseId/order')
+  @Permissions('base|update')
+  async updateOrder(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
+  ) {
+    return await this.baseService.updateOrder(baseId, updateOrderRo);
+  }
+
   @Permissions('base|read')
   @Get(':baseId')
   async getBaseById(@Param('baseId') baseId: string): Promise<IGetBaseVo> {
@@ -86,7 +97,7 @@ export class BaseController {
 
   @Get('access/all')
   async getAllBase(): Promise<IGetBaseVo[]> {
-    return await this.baseService.getBaseList();
+    return await this.baseService.getAllBaseList();
   }
 
   @Delete(':baseId')

@@ -22,6 +22,7 @@ export const viewVoSchema = z.object({
   name: z.string(),
   type: z.nativeEnum(ViewType),
   description: z.string().optional(),
+  order: z.number().optional(),
   options: viewOptionsSchema.optional(),
   sort: sortSchema.optional(),
   filter: filterSchema.optional(),
@@ -50,6 +51,7 @@ export const viewRoSchema = viewVoSchema
   })
   .partial({
     name: true,
+    order: true,
     columnMeta: true,
   });
 
