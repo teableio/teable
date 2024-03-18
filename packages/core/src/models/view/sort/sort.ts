@@ -59,14 +59,15 @@ export function mergeWithDefaultSort(
     return [];
   }
 
-  let mergeSort = querySort || [];
-  const sortObjs = viewSort?.sortObjs || [];
+  const mergeSort = viewSort?.sortObjs || [];
 
-  if (sortObjs?.length) {
+  if (querySort?.length) {
     // merge the same fieldId item, query first
-    const map = new Map(mergeSort.map((sortItem) => [sortItem.fieldId, sortItem]));
-    sortObjs.forEach((sortItem) => map.set(sortItem.fieldId, sortItem));
-    mergeSort = Array.from(map.values());
+    const map = new Map(querySort.map((sortItem) => [sortItem.fieldId, sortItem]));
+    mergeSort.forEach((sortItem) => {
+      !map.has(sortItem.fieldId) && map.set(sortItem.fieldId, sortItem);
+    });
+    return Array.from(map.values());
   }
 
   return mergeSort;
