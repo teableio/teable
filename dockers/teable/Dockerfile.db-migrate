@@ -1,7 +1,9 @@
 ARG NODE_VERSION=20.9.0
-ARG PRISMA_VERSION=5.10.2
+ARG PRISMA_VERSION=5.11.0
+ARG BUILD_VERSION="1.0.0-alpha"
 
 FROM node:${NODE_VERSION}-bookworm AS prisma
+ARG PRISMA_VERSION
 
 RUN corepack enable && \
     npm add @prisma/client@${PRISMA_VERSION} \
@@ -21,8 +23,8 @@ RUN cd sqlite_migrate && \
 
 
 FROM node:${NODE_VERSION}-bookworm-slim AS runner
-
-ARG BUILD_VERSION="1.0.0-alpha"
+ARG PRISMA_VERSION
+ARG BUILD_VERSION
 
 ENV TZ=UTC
 ENV NODE_ENV=production

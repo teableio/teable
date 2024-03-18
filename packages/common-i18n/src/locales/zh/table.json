@@ -175,7 +175,7 @@
     "title": "数据库连接",
     "description": "你可以通过数据库连接来直接访问数据库",
     "noPermission": "你没有权限访问数据库连接",
-    "connectionCountTip": "最大数据库连接数为 <b>{max}</b> 当前已建立的连接数为 <b>{current}</b>",
+    "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "helpLink": "https://help.teable.cn/gao-dai-ma-kai-fa/shu-ju-ku-lian-jie"
   },
   "view": {
