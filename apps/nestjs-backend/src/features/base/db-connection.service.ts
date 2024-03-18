@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
-import { parseDsn, DriverClient } from '@teable/core';
+import { DriverClient, parseDsn } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDbConnectionVo } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -122,7 +122,7 @@ export class DbConnectionService {
       throw new NotFoundException('PUBLIC_DATABASE_PROXY is not found in env');
     }
 
-    const { hostname: dbHostProxy, port: dbPortProxy } = new URL(publicDatabaseProxy);
+    const { hostname: dbHostProxy, port: dbPortProxy } = new URL(`https://${publicDatabaseProxy}`);
 
     // Check if the base exists and the user is the owner
     const base = await this.prismaService.base.findFirst({
@@ -190,7 +190,9 @@ export class DbConnectionService {
         throw new NotFoundException('PUBLIC_DATABASE_PROXY is not found in env');
       }
 
-      const { hostname: dbHostProxy, port: dbPortProxy } = new URL(publicDatabaseProxy);
+      const { hostname: dbHostProxy, port: dbPortProxy } = new URL(
+        `https://${publicDatabaseProxy}`
+      );
       const databaseUrl = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
       const { db } = parseDsn(databaseUrl);
 

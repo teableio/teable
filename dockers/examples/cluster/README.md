@@ -23,7 +23,7 @@ placeholder `<MINIO_ENDPOINT>` in the `.env` file with the appropriate endpoint:
 ## Public Database Proxy Configuration
 
 To ensure smooth native database connections, you need to set the `PUBLIC_DATABASE_PROXY` variable in the `.env` file to
-its default value, `http://127.0.0.1:42345`. This port should match the port specified for the `teable-db` container in
+its default value, `127.0.0.1:42345`. This port should match the port specified for the `teable-db` container in
 the `docker-compose.yaml` file's `ports` attribute and can be adjusted to suit your needs.
 
 **Important Note:** When using ports `80` or `443`, it's essential to explicitly specify the port number in the URL.
