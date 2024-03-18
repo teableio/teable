@@ -202,7 +202,7 @@ export class NotificationService {
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { baseId, tableId, recordId } = urlMeta || {};
 
-        return `${origin}/base/${baseId}/${tableId}/${recordId ? `default/${recordId}` : ''}`;
+        return `${origin}/base/${baseId}/${tableId}?recordId=${recordId}`;
       }
     }
   }
