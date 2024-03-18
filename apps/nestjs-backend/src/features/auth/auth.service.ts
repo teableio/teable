@@ -51,11 +51,11 @@ export class AuthService {
 
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);
-    if (user) {
-      const { password, salt, ...result } = user;
-      return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
+    if (!user) {
+      throw new BadRequestException(`${email} not registered`);
     }
-    return null;
+    const { password, salt, ...result } = user;
+    return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
   }
 
   async signup(email: string, password: string) {
