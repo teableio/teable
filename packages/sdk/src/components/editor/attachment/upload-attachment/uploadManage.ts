@@ -89,6 +89,7 @@ export class AttachmentManager {
         return;
       }
       const { url, uploadMethod, token, requestHeaders } = res.data;
+      delete requestHeaders['Content-Length'];
       await axios(url, {
         method: uploadMethod,
         data: fileInstance,
