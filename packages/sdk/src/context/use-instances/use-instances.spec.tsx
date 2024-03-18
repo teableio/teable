@@ -3,8 +3,22 @@ import { act, renderHook } from '@testing-library/react';
 import type { Query } from 'sharedb/lib/client';
 import { vi } from 'vitest';
 import { createAppContext } from '../__tests__/createAppContext';
+import { createSessionContext } from '../__tests__/createSessionContext';
+import type { IAppContext } from '../app';
 import type { IUseInstancesProps } from './useInstances';
 import { useInstances } from './useInstances';
+
+const createUseInstancesWrap = (appContext: Partial<IAppContext>) => {
+  const AppProvider = createAppContext(appContext);
+  const SessionProvider = createSessionContext();
+
+  // eslint-disable-next-line react/display-name
+  return ({ children }: { children: React.ReactNode }) => (
+    <AppProvider>
+      <SessionProvider>{children}</SessionProvider>
+    </AppProvider>
+  );
+};
 
 describe('useInstances hook', () => {
   const mockQueryMethods = {
@@ -75,14 +89,14 @@ describe('useInstances hook', () => {
 
   it('should initialize with initData when connected is false', () => {
     const { result } = renderHook(() => useInstances({ ...mockProps, initData }), {
-      wrapper: createAppContext({ ...mockAppContext, connected: false }),
+      wrapper: createUseInstancesWrap({ ...mockAppContext, connected: false }),
     });
     expect(result.current).toEqual(initData.map((doc) => createTestInstance(doc)));
   });
 
   it('should create a subscribe query with correct parameters', () => {
     renderHook(() => useInstances(mockProps), {
-      wrapper: createAppContext(mockAppContext),
+      wrapper: createUseInstancesWrap(mockAppContext),
     });
     expect(mockAppContext.connection.createSubscribeQuery).toHaveBeenCalledWith(
       'testCollection',
@@ -92,7 +106,7 @@ describe('useInstances hook', () => {
 
   it('should update instances on ready event', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
-      wrapper: createAppContext(mockAppContext),
+      wrapper: createUseInstancesWrap(mockAppContext),
     });
     expect(result.current).toEqual([]);
 
@@ -114,7 +128,7 @@ describe('useInstances hook', () => {
     ];
 
     const { result } = renderHook(() => useInstances(mockProps), {
-      wrapper: createAppContext(mockAppContext),
+      wrapper: createUseInstancesWrap(mockAppContext),
     });
     expect(result.current).toEqual([]);
 
@@ -143,7 +157,7 @@ describe('useInstances hook', () => {
     ];
 
     const { result } = renderHook(() => useInstances(mockProps), {
-      wrapper: createAppContext(mockAppContext),
+      wrapper: createUseInstancesWrap(mockAppContext),
     });
     expect(result.current).toEqual([]);
 
@@ -164,7 +178,7 @@ describe('useInstances hook', () => {
     const moveData = [initData[1], initData[0]];
 
     const { result } = renderHook(() => useInstances(mockProps), {
-      wrapper: createAppContext(mockAppContext),
+      wrapper: createUseInstancesWrap(mockAppContext),
     });
     expect(result.current).toEqual([]);
 
@@ -181,7 +195,7 @@ describe('useInstances hook', () => {
 
   it('doc on op', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
-      wrapper: createAppContext(mockAppContext),
+      wrapper: createUseInstancesWrap(mockAppContext),
     });
     expect(result.current).toEqual([]);
 

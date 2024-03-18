@@ -49,10 +49,23 @@
         "invalidNew": "Your new password is invalid, minimum 8 chars."
       },
       "changePasswordSuccess": {
-        "title": "Change password successfully.",
+        "title": "🎉 Change password successfully.",
         "desc": "You will be redirected to the login page in 2 seconds."
       },
-      "manageToken": "Access Token"
+      "manageToken": "Access Token",
+      "addPassword": {
+        "title": "Add password",
+        "desc": "Set a permanent password to login to your account.",
+        "password": "Enter your password",
+        "confirm": "Confirm your password"
+      },
+      "addPasswordError": {
+        "disMatch": "Your password does not match.",
+        "invalid": "Your password is invalid, minimum 8 chars."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Add password successfully."
+      }
     },
     "notify": {
       "title": "My Notifications",

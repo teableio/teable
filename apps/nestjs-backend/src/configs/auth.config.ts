@@ -27,6 +27,8 @@ export const authConfig = registerAs('auth', () => ({
     clientID: process.env.BACKEND_GITHUB_CLIENT_ID,
     clientSecret: process.env.BACKEND_GITHUB_CLIENT_SECRET,
   },
+
+  resetPasswordEmailExpiresIn: process.env.BACKEND_RESET_PASSWORD_EMAIL_EXPIRES_IN ?? '30m',
 }));
 
 export const AuthConfig = () => Inject(authConfig.KEY);
