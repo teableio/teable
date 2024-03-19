@@ -1,5 +1,5 @@
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 
 const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
 
@@ -27,9 +27,8 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
-      reporter: [['lcov', { projectRoot: './src' }], ['json', { file: 'coverage.json' }], ['text']],
-      extension: ['js', 'ts'],
-      all: true,
+      extension: ['.js', '.ts'],
+      include: ['src/**/*'],
     },
     // To mimic Jest behaviour regarding mocks.
     // @link https://vitest.dev/config/#clearmocks
@@ -37,11 +36,6 @@ export default defineConfig({
     mockReset: true,
     restoreMocks: true,
     include: testFiles,
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.next/**',
-      '**/.{idea,git,cache,output,temp}/**',
-    ],
+    exclude: [...configDefaults.exclude, '**/.next/**'],
   },
 });
