@@ -18,7 +18,7 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
-      reporter: [['lcov', { projectRoot: './src' }], ['json', { file: 'coverage.json' }], ['text']],
+      // reporter: [['lcov'], ['json', { file: 'coverage.json' }], ['text']],
       extension: ['js', 'ts'],
       all: true,
     },
