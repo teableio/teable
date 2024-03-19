@@ -52,7 +52,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           flag-name: node-${{ matrix.node-version }}
           parallel: true
-          files: apps/nestjs-backend/coverage/lcov.info apps/nextjs-app/coverage/lcov.info
 
   finish:
     needs: test
