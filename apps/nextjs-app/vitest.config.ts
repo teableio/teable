@@ -23,7 +23,7 @@ export default defineConfig({
     setupFiles: './config/tests/setupVitest.ts',
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'clover'],
+      reporter: [['lcov', { projectRoot: './src' }], ['json', { file: 'coverage.json' }], ['text']],
       extension: ['js', 'jsx', 'ts', 'tsx'],
     },
     include: testFiles,
