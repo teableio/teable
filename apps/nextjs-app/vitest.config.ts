@@ -15,14 +15,12 @@ export default defineConfig({
       svgrOptions: {},
     }),
   ],
+  cacheDir: '../../.cache/vitest/nextjs-app',
   test: {
     globals: true,
     environment: 'happy-dom',
     passWithNoTests: false,
     setupFiles: './config/tests/setupVitest.ts',
-    cache: {
-      dir: '../../.cache/vitest/nextjs-app',
-    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'clover'],

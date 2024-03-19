@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - develop
+      - feat/ci-coveralls
     paths:
       - 'apps/nestjs-backend/**'
       - 'apps/nextjs-app/**'
@@ -11,7 +12,7 @@ on:
       - 'packages/sdk/**'
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     name: Unit Tests
 
@@ -41,4 +42,20 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          pnpm g:test-unit
+          pnpm g:test-cover
+      - name: Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          flag-name: node-${{ matrix.node-version }}
+          parallel: true
+
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit coverage
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          parallel-finished: true
