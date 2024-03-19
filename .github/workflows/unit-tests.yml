@@ -44,7 +44,7 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          pnpm g:test-cover
+          pnpm g:test-unit-cover
       - name: Coveralls Parallel
         uses: coverallsapp/github-action@v2
         with:

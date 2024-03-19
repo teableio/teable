@@ -37,7 +37,7 @@
     "g:test": "pnpm g:test-e2e && pnpm g:test-unit",
     "g:test-e2e": "pnpm -r test-e2e",
     "g:test-unit": "pnpm -r --parralel test-unit",
-    "g:test-cover": "pnpm -r --parralel test-cover",
+    "g:test-unit-cover": "pnpm -r --parralel test-unit-cover",
     "g:typecheck": "pnpm -r --parralel typecheck",
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",

@@ -29,7 +29,7 @@
     "check-size": "size-limit",
     "test": "run test-unit",
     "test-unit": "vitest run --silent",
-    "test-cover": "pnpm test-unit --coverage",
+    "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {

@@ -15,7 +15,7 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'clover'],
+      reporter: [['lcov'], ['json', { file: 'coverage.json' }], ['text']],
       extension: ['js', 'ts'],
       all: true,
     },

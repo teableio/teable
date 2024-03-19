@@ -40,7 +40,7 @@
     "check-size": "size-limit --highlight-less",
     "test": "run-s test-unit test-e2e",
     "test-unit": "vitest run --silent --bail 1",
-    "test-cover": "pnpm test-unit --coverage",
+    "test-unit-cover": "pnpm test-unit --coverage",
     "pre-test-e2e": "cross-env NODE_ENV=test pnpm -F @teable/db-main-prisma prisma-db-seed -- --e2e",
     "test-e2e": "pnpm pre-test-e2e && vitest run --config ./vitest-e2e.config.ts --silent --bail 1",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
