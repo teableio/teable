@@ -1,3 +1,12 @@
+# build
 build
 dist
-.temporary/*
+
+# testing
+/coverage
+
+# misc
+.DS_Store
+*.pem
+.assets
+.temporary

@@ -15,6 +15,7 @@ export default defineConfig({
       svgrOptions: {},
     }),
   ],
+  cacheDir: '../../.cache/vitest/sdk',
   test: {
     globals: true,
     environment: 'happy-dom',
@@ -23,12 +24,9 @@ export default defineConfig({
     },
     passWithNoTests: false,
     setupFiles: './config/tests/setupVitest.ts',
-    cache: {
-      dir: '../../.cache/vitest/sdk',
-    },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'clover'],
+      reporter: [['lcov', { projectRoot: './src' }], ['json', { file: 'coverage.json' }], ['text']],
       extension: ['js', 'jsx', 'ts', 'tsx'],
     },
     include: testFiles,

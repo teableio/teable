@@ -6,18 +6,16 @@ const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
 
 export default defineConfig({
   plugins: [swc.vite({})],
+  cacheDir: '../../.cache/vitest/nestjs-backend/e2e',
   test: {
     globals: true,
     environment: 'node',
     setupFiles: './vitest-e2e.setup.ts',
     testTimeout: timeout,
     passWithNoTests: true,
-    cache: {
-      dir: '../../.cache/vitest/nestjs-backend/e2e',
-    },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'clover'],
+      reporter: [['lcov'], ['json', { file: 'coverage.json' }], ['text']],
       extension: ['js', 'ts'],
       all: true,
     },

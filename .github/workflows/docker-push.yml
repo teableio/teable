@@ -6,6 +6,11 @@ on:
       - develop
     tags:
       - 'v*'
+    paths:
+      - 'apps/nestjs-backend/**'
+      - 'apps/nextjs-app/**'
+      - 'packages/core/**'
+      - 'packages/sdk/**'
 
 jobs:
   build-push:
@@ -61,10 +66,8 @@ jobs:
             ghcr.io/teableio/${{ matrix.image }}
             docker.io/teableio/${{ matrix.image }}
           tags: |
-            type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha
             # set latest tag for default branch
             type=raw,value=latest,enable={{is_default_branch}}
       - name: ⚙️ Set up QEMU

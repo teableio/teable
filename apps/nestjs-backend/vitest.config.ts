@@ -6,6 +6,7 @@ const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
   plugins: [swc.vite({}), tsconfigPaths()],
+  cacheDir: '../../.cache/vitest/nestjs-backend/unit',
   test: {
     globals: true,
     environment: 'node',
@@ -15,12 +16,9 @@ export default defineConfig({
         singleThread: true,
       },
     },
-    cache: {
-      dir: '../../.cache/vitest/nestjs-backend/unit',
-    },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'clover'],
+      reporter: [['lcov', { projectRoot: './src' }], ['json', { file: 'coverage.json' }], ['text']],
       extension: ['js', 'ts'],
       all: true,
     },

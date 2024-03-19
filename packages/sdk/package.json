@@ -30,6 +30,7 @@
     "typecheck": "tsc --project ./tsconfig.build.json --noEmit",
     "test": "run-s test-unit",
     "test-unit": "vitest run --silent",
+    "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix"
   },
   "dependencies": {
@@ -92,6 +93,7 @@
     "@types/react-hammerjs": "1.0.7",
     "@types/scroller": "0.1.5",
     "@types/sharedb": "3.3.10",
+    "@vitest/coverage-v8": "1.4.0",
     "@vitejs/plugin-react-swc": "3.6.0",
     "cross-env": "7.0.3",
     "eslint": "8.57.0",
