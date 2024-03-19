@@ -779,6 +779,9 @@ importers:
       '@vitejs/plugin-react-swc':
         specifier: 3.6.0
         version: 3.6.0(vite@5.1.6)
+      '@vitest/coverage-v8':
+        specifier: 1.4.0
+        version: 1.4.0(vitest@1.4.0)
       autoprefixer:
         specifier: 10.4.18
         version: 10.4.18(postcss@8.4.36)
