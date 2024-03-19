@@ -1,6 +1,9 @@
 name: Unit Tests
 
 on:
+  push:
+    branches:
+      - feat/ci-coveralls
   pull_request:
     branches:
       - develop
