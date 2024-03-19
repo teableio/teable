@@ -47,19 +47,19 @@ jobs:
         run: |
           pnpm g:test-cover
       - name: Coveralls
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           flag-name: node-${{ matrix.node-version }}
           parallel: true
-          path-to-lcov: apps/nestjs-backend/coverage/lcov.info
+          files: apps/nestjs-backend/coverage/lcov.info apps/nextjs-app/coverage/lcov.info
 
   finish:
     needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Submit coverage
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           parallel-finished: true
