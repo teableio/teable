@@ -22,7 +22,7 @@ export const viewVoSchema = z.object({
   name: z.string(),
   type: z.nativeEnum(ViewType),
   description: z.string().optional(),
-  order: z.number(),
+  order: z.number().optional(),
   options: viewOptionsSchema.optional(),
   sort: sortSchema.optional(),
   filter: filterSchema.optional(),

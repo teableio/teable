@@ -10,7 +10,6 @@ export const getBaseVoSchema = z.object({
   id: z.string(),
   name: z.string(),
   spaceId: z.string(),
-  order: z.number(),
   icon: z.string().nullable(),
   role: spaceRolesSchema,
 });

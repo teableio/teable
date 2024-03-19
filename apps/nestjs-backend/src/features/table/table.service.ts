@@ -403,7 +403,6 @@ export class TableService implements IAdapterService {
             ...table,
             description: table.description ?? undefined,
             icon: table.icon ?? undefined,
-            order: table.order,
             lastModifiedTime: tableTime[i] || table.createdTime.toISOString(),
             defaultViewId: tableDefaultViewIds[i],
           },

@@ -7,17 +7,15 @@ export class Base implements IGetBaseVo {
   id: string;
   name: string;
   spaceId: string;
-  order: number;
   icon: string | null;
   role: SpaceRole;
   knex: Knex;
 
   constructor(base: IGetBaseVo, driver: DriverClient) {
-    const { id, name, order, spaceId, icon, role } = base;
+    const { id, name, spaceId, icon, role } = base;
     this.id = id;
     this.name = name;
     this.spaceId = spaceId;
-    this.order = order;
     this.icon = icon;
     this.role = role;
     this.knex = knex({ client: driver });

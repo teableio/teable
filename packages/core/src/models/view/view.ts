@@ -21,8 +21,6 @@ export abstract class ViewCore implements IViewVo {
 
   group?: IGroup;
 
-  order!: number;
-
   shareId?: string;
 
   enableShare?: boolean;

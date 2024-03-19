@@ -1,20 +1,21 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
-import type { IUpdateOrderRo } from '../view/update-order';
-import { updateOrderRoSchema } from '../view/update-order';
 import { z } from '../zod';
+import type { IUpdateOrderRo } from './update-order';
+import { updateOrderRoSchema } from './update-order';
 
-export const TABLE_ORDER = '/base/{baseId}/table/{tableId}/order';
+export const RECORD_ORDER = '/table/{tableId}/view/{viewId}/{recordId}/order';
 
-export const updateTableOrderRoute: RouteConfig = registerRoute({
+export const updateViewOrderRoute: RouteConfig = registerRoute({
   method: 'put',
-  path: TABLE_ORDER,
-  description: 'Update table order',
+  path: RECORD_ORDER,
+  description: 'Update record order in view',
   request: {
     params: z.object({
-      baseId: z.string(),
       tableId: z.string(),
+      recordId: z.string(),
+      viewId: z.string(),
     }),
     body: {
       content: {
@@ -29,18 +30,20 @@ export const updateTableOrderRoute: RouteConfig = registerRoute({
       description: 'Successfully update.',
     },
   },
-  tags: ['table'],
+  tags: ['view'],
 });
 
-export const updateTableOrder = async (
-  baseId: string,
+export const updateViewOrder = async (
   tableId: string,
+  viewId: string,
+  recordId: string,
   orderRo: IUpdateOrderRo
 ) => {
   return axios.put<void>(
-    urlBuilder(TABLE_ORDER, {
-      baseId,
+    urlBuilder(RECORD_ORDER, {
       tableId,
+      viewId,
+      recordId,
     }),
     orderRo
   );

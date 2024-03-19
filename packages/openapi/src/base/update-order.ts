@@ -5,16 +5,15 @@ import type { IUpdateOrderRo } from '../view/update-order';
 import { updateOrderRoSchema } from '../view/update-order';
 import { z } from '../zod';
 
-export const TABLE_ORDER = '/base/{baseId}/table/{tableId}/order';
+export const BASE_ORDER = '/base/{baseId}/order';
 
-export const updateTableOrderRoute: RouteConfig = registerRoute({
+export const updateBaseOrderRoute: RouteConfig = registerRoute({
   method: 'put',
-  path: TABLE_ORDER,
-  description: 'Update table order',
+  path: BASE_ORDER,
+  description: 'Update base order',
   request: {
     params: z.object({
       baseId: z.string(),
-      tableId: z.string(),
     }),
     body: {
       content: {
@@ -29,18 +28,14 @@ export const updateTableOrderRoute: RouteConfig = registerRoute({
       description: 'Successfully update.',
     },
   },
-  tags: ['table'],
+  tags: ['base'],
 });
 
-export const updateTableOrder = async (
-  baseId: string,
-  tableId: string,
-  orderRo: IUpdateOrderRo
-) => {
+export const updateBaseOrder = async (params: { baseId: string } & IUpdateOrderRo) => {
+  const { baseId, ...orderRo } = params;
   return axios.put<void>(
-    urlBuilder(TABLE_ORDER, {
+    urlBuilder(BASE_ORDER, {
       baseId,
-      tableId,
     }),
     orderRo
   );

@@ -14,9 +14,11 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IUpdateOrderRo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { updateOrder } from '../../../utils/update-order';
 import { LinkService } from '../../calculation/link.service';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
@@ -352,18 +354,70 @@ export class TableOpenApiService {
     });
   }
 
-  async updateOrder(baseId: string, tableId: string, order: number) {
-    const orderExist = await this.prismaService.tableMeta.findFirst({
-      where: { baseId, order, deletedTime: null },
+  async shuffle(baseId: string) {
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { baseId, deletedTime: null },
       select: { id: true },
+      orderBy: { order: 'asc' },
     });
 
-    if (orderExist) {
-      throw new BadRequestException('Table order could not be duplicate');
-    }
+    this.logger.log(`lucky table shuffle! ${baseId}`, 'shuffle');
 
     await this.prismaService.$tx(async () => {
-      await this.tableService.updateTable(baseId, tableId, { order });
+      for (let i = 0; i < tables.length; i++) {
+        const table = tables[i];
+        await this.tableService.updateTable(baseId, table.id, { order: i });
+      }
+    });
+  }
+
+  async updateOrder(baseId: string, tableId: string, orderRo: IUpdateOrderRo) {
+    const { anchorId, position } = orderRo;
+
+    const table = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { baseId, id: tableId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Table ${tableId} not found`);
+      });
+
+    const anchorTable = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { baseId, id: anchorId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Anchor ${anchorId} not found`);
+      });
+
+    await updateOrder({
+      parentId: baseId,
+      position,
+      item: table,
+      anchorItem: anchorTable,
+      getNextItem: async (whereOrder, align) => {
+        return this.prismaService.tableMeta.findFirst({
+          select: { order: true, id: true },
+          where: {
+            baseId,
+            deletedTime: null,
+            order: whereOrder,
+          },
+          orderBy: { order: align },
+        });
+      },
+      updateSingle: async (
+        parentId: string,
+        id: string,
+        data: { newOrder: number; oldOrder: number }
+      ) => {
+        await this.prismaService.$tx(async () => {
+          await this.tableService.updateTable(parentId, id, { order: data.newOrder });
+        });
+      },
+      shuffle: this.shuffle.bind(this),
     });
   }
 }
