@@ -1,5 +1,5 @@
 import swc from 'unplugin-swc';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 const timeout = process.env.CI ? 30000 : 10000;
 const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
@@ -15,17 +15,11 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: 'v8',
-      extension: ['js', 'ts'],
-      all: true,
+      extension: ['.js', '.ts'],
     },
     logHeapUsage: true,
     reporters: ['verbose'],
     include: testFiles,
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.next/**',
-      '**/.{idea,git,cache,output,temp}/**',
-    ],
+    exclude: [...configDefaults.exclude, '**/.next/**'],
   },
 });

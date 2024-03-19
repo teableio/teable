@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react-swc';
 import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 const testFiles = ['./src/**/*.{test,spec}.{js,jsx,ts,tsx}'];
 export default defineConfig({
@@ -23,15 +23,12 @@ export default defineConfig({
     setupFiles: './config/tests/setupVitest.ts',
     coverage: {
       provider: 'v8',
-      reporter: [['lcov', { projectRoot: './src' }], ['json', { file: 'coverage.json' }], ['text']],
-      extension: ['js', 'jsx', 'ts', 'tsx'],
+      extension: ['.js', '.jsx', '.ts', '.tsx'],
+      include: ['src/**/*', 'config/**/*'],
     },
     include: testFiles,
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/.next/**',
-      '**/.{idea,git,cache,output,temp}/**',
-    ],
+    exclude: [...configDefaults.exclude, '**/.next/**'],
   },
 });
+//
+// next-i18next.config.js
