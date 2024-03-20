@@ -7,7 +7,7 @@ create_network() {
 export_env_vars() {
   if [ -f .env ]; then
     # see https://github.com/moby/moby/issues/29133
-    export $(cat .env | xargs)
+    export $(grep -v '^#' .env | xargs)
   else
     echo ".env file not found, skipping export."
   fi
