@@ -74,10 +74,11 @@ export class ViewService implements IReadonlyAdapterService {
 
   async existIndex(dbTableName: string, viewId: string) {
     const columnName = this.getRowIndexFieldName(viewId);
-    const exitSql = this.dbProvider.checkColumnExist(dbTableName, columnName);
-    const exists = await this.prismaService
-      .$queryRawUnsafe<{ exists: boolean }[]>(exitSql)
-      .then((res) => res[0].exists);
+    const exists = await this.dbProvider.checkColumnExist(
+      dbTableName,
+      columnName,
+      this.prismaService.txClient()
+    );
 
     if (exists) {
       return columnName;

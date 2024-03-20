@@ -46,7 +46,7 @@ describe('order update', () => {
       await deleteTable(baseId, table.id);
     });
 
-    it('should update view order', async () => {
+    it('should update record order', async () => {
       const viewId = table.views[0].id;
       const record1 = { id: table.records[0].id };
       const record2 = { id: table.records[1].id };

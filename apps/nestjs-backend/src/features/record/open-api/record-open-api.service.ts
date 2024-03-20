@@ -47,7 +47,6 @@ export class RecordOpenApiService {
   ) {
     const dbTableName = await this.recordService.getDbTableName(tableId);
 
-    console.log('orderRo', orderRo);
     const indexField = await this.viewService.getOrCreateViewIndexField(
       dbTableName,
       orderRo.viewId

@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import type { IAggregationField, IFilter, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
+import type { PrismaClient } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -45,14 +46,20 @@ export class PostgresProvider implements IDbProvider {
     return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
   }
 
-  checkColumnExist(tableName: string, columnName: string): string {
+  async checkColumnExist(
+    tableName: string,
+    columnName: string,
+    prisma: PrismaClient
+  ): Promise<boolean> {
     const [schemaName, dbTableName] = this.splitTableName(tableName);
-    return this.knex
+    const sql = this.knex
       .raw(
         'SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?) AS exists',
         [schemaName, dbTableName, columnName]
       )
       .toQuery();
+    const res = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(sql);
+    return res[0].exists;
   }
 
   renameColumn(tableName: string, oldName: string, newName: string): string[] {

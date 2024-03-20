@@ -2,6 +2,7 @@
 import { Logger } from '@nestjs/common';
 import type { IAggregationField, IFilter, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
+import type { PrismaClient } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -41,13 +42,14 @@ export class SqliteProvider implements IDbProvider {
     return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
   }
 
-  checkColumnExist(tableName: string, columnName: string): string {
-    return this.knex
-      .raw('SELECT EXISTS (SELECT 1 FROM pragma_table_info(??) WHERE name = ??) AS exists;', [
-        tableName,
-        columnName,
-      ])
-      .toQuery();
+  async checkColumnExist(
+    tableName: string,
+    columnName: string,
+    prisma: PrismaClient
+  ): Promise<boolean> {
+    const sql = this.columnInfo(tableName);
+    const columns = await prisma.$queryRawUnsafe<{ name: string }[]>(sql);
+    return columns.some((column) => column.name === columnName);
   }
 
   renameColumn(tableName: string, oldName: string, newName: string): string[] {

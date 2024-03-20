@@ -440,7 +440,7 @@ export class ViewOpenApiService {
           newValue: new Date().toISOString(),
         });
 
-        await this.prismaService.$tx(async () => {
+        await this.prismaService.$tx(async (prisma) => {
           await this.viewService.updateViewByOps(tableId, viewId, [ops]);
           for (let i = 0; i < recordIds.length; i++) {
             const recordId = recordIds[i];
@@ -450,7 +450,7 @@ export class ViewOpenApiService {
               })
               .where('__id', recordId)
               .toQuery();
-            await this.prismaService.$executeRawUnsafe(updateRecordSql);
+            await prisma.$executeRawUnsafe(updateRecordSql);
           }
         });
       },

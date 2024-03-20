@@ -334,10 +334,11 @@ export class RecordService implements IAdapterService {
 
   async getBasicOrderIndexField(dbTableName: string, viewId: string | undefined) {
     const columnName = `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
-    const exitSql = this.dbProvider.checkColumnExist(dbTableName, columnName);
-    const exists = await this.prismaService
-      .$queryRawUnsafe<{ exists: boolean }[]>(exitSql)
-      .then((res) => res[0].exists);
+    const exists = await this.dbProvider.checkColumnExist(
+      dbTableName,
+      columnName,
+      this.prismaService.txClient()
+    );
 
     if (exists) {
       return columnName;
