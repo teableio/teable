@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/release-packages]
 
 env:
   CI: true
@@ -11,7 +11,7 @@ env:
 jobs:
   release:
     # Basic security: the release job can only be executed from this repo and from the main branch (not a remote thing)
-    if: ${{ github.repository == 'teableio/teable' && contains('refs/heads/main',github.ref)}}
+    # if: ${{ github.repository == 'teableio/teable' && contains('refs/heads/main',github.ref)}}
     name: Create a PR for release workflow
     runs-on: ubuntu-latest
     strategy:
