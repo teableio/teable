@@ -39,6 +39,7 @@
     "g:test-unit": "pnpm -r --parralel test-unit",
     "g:test-unit-cover": "pnpm -r --parralel test-unit-cover",
     "g:typecheck": "pnpm -r --parralel typecheck",
+    "ci:publish": "pnpm publish -r",
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
     "install:husky": "node .husky/install.mjs",
