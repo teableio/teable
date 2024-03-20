@@ -675,7 +675,6 @@ describe('DateTime', () => {
       id: 'recTest',
       fields: {},
       createdTime: date,
-      recordOrder: { viwTest: 1 },
     };
     const context = {
       record,
@@ -697,7 +696,6 @@ describe('DateTime', () => {
       fields: {},
       createdTime: date,
       lastModifiedTime: date,
-      recordOrder: { viwTest: 1 },
     };
     const context = {
       record,

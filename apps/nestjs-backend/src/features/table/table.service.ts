@@ -2,7 +2,6 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import type {
   ICreateTableRo,
   IOtOperation,
-  ISetTablePropertyOpContext,
   ISnapshotBase,
   ITableFullVo,
   ITableVo,
@@ -14,17 +13,15 @@ import {
   getUniqName,
   IdPrefix,
   nullsToUndefined,
-  tablePropertyKeySchema,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { fromZodError } from 'zod-validation-error';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IAdapterService } from '../../share-db/interface';
+import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
@@ -35,7 +32,7 @@ import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
 
 @Injectable()
-export class TableService implements IAdapterService {
+export class TableService implements IReadonlyAdapterService {
   private logger = new Logger(TableService.name);
 
   constructor(
@@ -355,34 +352,6 @@ export class TableService implements IAdapterService {
       where: { id: tableId, baseId },
       data: { version, deletedTime: new Date(), lastModifiedBy: userId },
     });
-  }
-
-  async update(
-    version: number,
-    baseId: string,
-    tableId: string,
-    opContexts: ISetTablePropertyOpContext[]
-  ) {
-    const userId = this.cls.get('user.id');
-
-    for (const opContext of opContexts) {
-      const { key, newValue } = opContext;
-      const result = tablePropertyKeySchema.safeParse({ [key]: newValue });
-      if (!result.success) {
-        throw new BadRequestException(fromZodError(result.error).message);
-      }
-
-      // skip undefined value
-      const parsedValue = result.data[key];
-      if (parsedValue === undefined) {
-        continue;
-      }
-
-      await this.prismaService.txClient().tableMeta.update({
-        where: { id: tableId, baseId },
-        data: { [key]: parsedValue, version, lastModifiedBy: userId },
-      });
-    }
   }
 
   async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {

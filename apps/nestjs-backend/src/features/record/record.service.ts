@@ -17,7 +17,6 @@ import type {
   IRecord,
   IRecordsVo,
   ISetRecordOpContext,
-  ISetRecordOrderOpContext,
   IShareViewMeta,
   ISnapshotBase,
   ISortItem,
@@ -48,7 +47,6 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import { getViewOrderFieldName } from '../../utils';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -75,21 +73,6 @@ export class RecordService implements IAdapterService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
-  private async getRowOrderFieldNames(tableId: string) {
-    // get rowIndexFieldName by select all views, combine field prefix and ids;
-    const views = await this.prismaService.txClient().view.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    return views.map((view) => `${ROW_ORDER_FIELD_PREFIX}_${view.id}`);
-  }
-
   private dbRecord2RecordFields(
     record: IRecord['fields'],
     fields: IFieldInstance[],
@@ -108,7 +91,7 @@ export class RecordService implements IAdapterService {
     }, {});
   }
 
-  private async getAllRecordCount(dbTableName: string) {
+  async getAllRecordCount(dbTableName: string) {
     const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
 
     const queryResult = await this.prismaService
@@ -341,11 +324,26 @@ export class RecordService implements IAdapterService {
 
     return {
       queryBuilder,
+      dbTableName,
       filter,
       orderBy,
       groupBy,
       fieldMap,
     };
+  }
+
+  async getBasicOrderIndexField(dbTableName: string, viewId: string | undefined) {
+    const columnName = `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
+    const exists = await this.dbProvider.checkColumnExist(
+      dbTableName,
+      columnName,
+      this.prismaService.txClient()
+    );
+
+    if (exists) {
+      return columnName;
+    }
+    return '__auto_number';
   }
 
   /**
@@ -367,10 +365,8 @@ export class RecordService implements IAdapterService {
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const { queryBuilder, filter, orderBy, groupBy, fieldMap } = await this.prepareQuery(
-      tableId,
-      query
-    );
+    const { dbTableName, queryBuilder, filter, orderBy, groupBy, fieldMap } =
+      await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -389,28 +385,15 @@ export class RecordService implements IAdapterService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
+    const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
+
     // view sorting added by default
-    queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
+    queryBuilder.orderBy(basicSortIndex, 'asc');
 
     this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder };
-  }
-
-  async setRecordOrder(
-    version: number,
-    recordId: string,
-    dbTableName: string,
-    viewId: string,
-    order: number
-  ) {
-    const sqlNative = this.knex(dbTableName)
-      .update({ [getViewOrderFieldName(viewId)]: order, __version: version })
-      .where({ __id: recordId })
-      .toSQL()
-      .toNative();
-    return this.prismaService.txClient().$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
   }
 
   async setRecord(
@@ -550,8 +533,12 @@ export class RecordService implements IAdapterService {
   }
 
   @Timing()
-  async batchCreateRecords(tableId: string, records: IRecord[]) {
-    const snapshots = await this.createBatch(tableId, records);
+  async batchCreateRecords(
+    tableId: string,
+    records: IRecord[],
+    orderIndex?: { viewId: string; indexes: number[] }
+  ) {
+    const snapshots = await this.createBatch(tableId, records, orderIndex);
 
     const dataList = snapshots.map((snapshot) => ({
       docId: snapshot.__id,
@@ -590,7 +577,24 @@ export class RecordService implements IAdapterService {
     }
   }
 
-  private async createBatch(tableId: string, records: IRecord[]) {
+  private async getAllViewIndexesField(dbTableName: string) {
+    const query = this.dbProvider.columnInfo(dbTableName);
+    const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
+    return columns
+      .filter((column) => column.name.startsWith(ROW_ORDER_FIELD_PREFIX))
+      .map((column) => column.name)
+      .reduce<{ [viewId: string]: string }>((acc, cur) => {
+        const viewId = cur.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
+        acc[viewId] = cur;
+        return acc;
+      }, {});
+  }
+
+  private async createBatch(
+    tableId: string,
+    records: IRecord[],
+    orderIndex?: { viewId: string; indexes: number[] }
+  ) {
     const userId = this.cls.get('user.id');
     await this.creditCheck(tableId);
     const dbTableName = await this.getDbTableName(tableId);
@@ -602,14 +606,16 @@ export class RecordService implements IAdapterService {
       select: { id: true },
     });
 
+    const allViewIndexes = await this.getAllViewIndexesField(dbTableName);
+
     const snapshots = records
-      .map((snapshot, i) =>
-        views.reduce<{ [viewId: string]: number }>((pre, cur) => {
-          const viewOrderFieldName = getViewOrderFieldName(cur.id);
-          if (snapshot.recordOrder[cur.id] !== undefined) {
-            pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
-          } else {
-            pre[viewOrderFieldName] = maxRecordOrder + i;
+      .map((_, i) =>
+        views.reduce<{ [viewIndexFieldName: string]: number }>((pre, cur) => {
+          const viewIndexFieldName = allViewIndexes[cur.id];
+          if (cur.id === orderIndex?.viewId) {
+            pre[viewIndexFieldName] = orderIndex.indexes[i];
+          } else if (viewIndexFieldName) {
+            pre[viewIndexFieldName] = maxRecordOrder + i;
           }
           return pre;
         }, {})
@@ -647,7 +653,7 @@ export class RecordService implements IAdapterService {
     version: number,
     tableId: string,
     recordId: string,
-    opContexts: (ISetRecordOrderOpContext | ISetRecordOpContext)[]
+    opContexts: ISetRecordOpContext[]
   ) {
     const dbTableName = await this.getDbTableName(tableId);
     if (opContexts[0].name === OpName.SetRecord) {
@@ -658,14 +664,6 @@ export class RecordService implements IAdapterService {
         recordId,
         opContexts as ISetRecordOpContext[]
       );
-      return;
-    }
-
-    if (opContexts[0].name === OpName.SetRecordOrder) {
-      for (const opContext of opContexts as ISetRecordOrderOpContext[]) {
-        const { viewId, newOrder } = opContext;
-        await this.setRecordOrder(version, recordId, dbTableName, viewId, newOrder);
-      }
     }
   }
 
@@ -784,16 +782,8 @@ export class RecordService implements IAdapterService {
     const projectionInner = await this.projectionFormPermission(tableId, fieldKeyType, projection);
     const dbTableName = await this.getDbTableName(tableId);
 
-    const allViews = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true },
-    });
-    const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
-
     const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
-    const fieldNames = fields
-      .map((f) => f.dbFieldName)
-      .concat([...preservedDbFieldNames, ...fieldNameOfViewOrder]);
+    const fieldNames = fields.map((f) => f.dbFieldName).concat(Array.from(preservedDbFieldNames));
 
     const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
@@ -831,13 +821,6 @@ export class RecordService implements IAdapterService {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
       })
       .map((record) => {
-        const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
-          (acc, vFieldName, index) => {
-            acc[allViews[index].id] = record[vFieldName] as number;
-            return acc;
-          },
-          {}
-        );
         const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
         const name = recordFields[primaryField[fieldKeyType]];
         return {
@@ -856,7 +839,6 @@ export class RecordService implements IAdapterService {
             lastModifiedTime: record.__last_modified_time?.toISOString(),
             createdBy: record.__created_by,
             lastModifiedBy: record.__last_modified_by || undefined,
-            recordOrder,
           },
         };
       });

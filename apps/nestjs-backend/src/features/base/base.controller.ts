@@ -58,7 +58,7 @@ export class BaseController {
     return await this.baseService.duplicateBase(duplicateBaseRo);
   }
 
-  @Post('createFromTemplate')
+  @Post('create-from-template')
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
   @EmitControllerEvent(Events.BASE_CREATE)

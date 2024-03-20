@@ -180,7 +180,9 @@
   },
   "view": {
     "addRecord": "添加记录",
-    "searchView": "搜索视图..."
+    "searchView": "搜索视图...",
+    "dragToolTip": "自动排序已经打开，无法进行手动拖拽排序",
+    "insertToolTip": "自动排序已经打开，无法指定插入位置"
   },
   "lastModifiedTime": "最近修改时间"
 }

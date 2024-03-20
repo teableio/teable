@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ITinyRecord, IConvertFieldRo } from '@teable/core';
+import type { IFieldRo, ILinkFieldOptions, IRecord, IConvertFieldRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -109,7 +109,7 @@ export class GraphService {
     fieldMap: IFieldMap,
     tableMap: { [dbTableName: string]: { dbTableName: string; name: string } },
     selectedCell: { recordId: string; fieldId: string },
-    dbTableName2recordMap: { [dbTableName: string]: Record<string, ITinyRecord> }
+    dbTableName2recordMap: { [dbTableName: string]: Record<string, IRecord> }
   ) {
     const nodes: IGraphNode[] = [];
     const combos: IGraphCombo[] = [];

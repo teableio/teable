@@ -71,7 +71,7 @@ export class TableOpenApiService {
   }
 
   private async createRecords(tableId: string, data: ICreateRecordsRo) {
-    return this.recordOpenApiService.createRecords(tableId, data.records, data.fieldKeyType);
+    return this.recordOpenApiService.createRecords(tableId, data);
   }
 
   private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
@@ -408,7 +408,7 @@ export class TableOpenApiService {
           orderBy: { order: align },
         });
       },
-      updateSingle: async (
+      update: async (
         parentId: string,
         id: string,
         data: { newOrder: number; oldOrder: number }
