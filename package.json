@@ -40,7 +40,7 @@
     "g:test-unit-cover": "pnpm -r --parralel test-unit-cover",
     "g:typecheck": "pnpm -r --parralel typecheck",
     "ci:publish": "pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma && pnpm -F './packages/**' run build && pnpm publish -r",
-    "ci:version": "changeset version && pnpm install --lockfile-only",
+    "ci:version": "changeset version",
     "generate-openapi-types": "node scripts/generate-openapi-types.mjs",
     "install:playwright": "playwright install",
     "install:husky": "node .husky/install.mjs",

@@ -4,7 +4,7 @@
   "commit": true,
   "linked": [],
   "access": "public",
-  "baseBranch": "main",
+  "baseBranch": "feat/release-packages",
   "updateInternalDependencies": "patch",
   "ignore": ["@teable/app", "@teable/backend"]
 }
