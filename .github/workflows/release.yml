@@ -4,10 +4,6 @@ on:
   push:
     branches: [main, feat/release-packages]
 
-env:
-  CI: true
-  PNPM_CACHE_FOLDER: .pnpm-store
-
 jobs:
   release:
     # Basic security: the release job can only be executed from this repo and from the main branch (not a remote thing)
@@ -28,12 +24,6 @@ jobs:
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
 
-      - name: Setup npmrc
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
-
-      - name: setup pnpm config
-        run: pnpm config set store-dir $PNPM_CACHE_FOLDER
-
       - name: 🦋 Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1
@@ -44,3 +34,4 @@ jobs:
           publish: pnpm ci:publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
