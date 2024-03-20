@@ -129,7 +129,10 @@ export class ShareService {
     const { tableId } = shareInfo;
     const { fields } = shareViewFormSubmitRo;
     const { records } = await this.prismaService.$tx(async () => {
-      return await this.recordOpenApiService.createRecords(tableId, [{ fields }], FieldKeyType.Id);
+      return await this.recordOpenApiService.createRecords(tableId, {
+        records: [{ fields }],
+        fieldKeyType: FieldKeyType.Id,
+      });
     });
     if (records.length === 0) {
       throw new InternalServerErrorException('The number of successful submit records is 0');

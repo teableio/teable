@@ -24,11 +24,11 @@ import {
   validateOptionsType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IUpdateOrderRo } from '@teable/openapi';
+import type { IUpdateOrderRo, IUpdateRecordOrdersRo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';
-import { updateOrder } from '../../../utils/update-order';
+import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
 import { ViewService } from '../view.service';
@@ -65,12 +65,31 @@ export class ViewOpenApiService {
     await this.viewService.deleteView(tableId, viewId);
   }
 
+  private updateRecordOrderSql(orderRawSql: string, dbTableName: string, indexField: string) {
+    return this.knex
+      .raw(
+        `
+        UPDATE :dbTableName:
+        SET :indexField: = temp_order.new_order
+        FROM (
+          SELECT __id, ROW_NUMBER() OVER (ORDER BY ${orderRawSql}) AS new_order FROM :dbTableName:
+        ) AS temp_order
+        WHERE :dbTableName:.__id = temp_order.__id AND :dbTableName:.:indexField: != temp_order.new_order;
+      `,
+        {
+          dbTableName,
+          indexField,
+        }
+      )
+      .toQuery();
+  }
+
   @Timing()
   async manualSort(tableId: string, viewId: string, viewOrderRo: IManualSortRo) {
     const { sortObjs } = viewOrderRo;
     const dbTableName = await this.recordService.getDbTableName(tableId);
     const fields = await this.fieldService.getFieldsByQuery(tableId, { viewId });
-    const fieldIndexId = this.viewService.getRowIndexFieldName(viewId);
+    const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
 
     const fieldMap = fields.reduce(
       (map, field) => {
@@ -103,23 +122,6 @@ export class ViewOpenApiService {
     // ensure order stable
     orderRawSql += this.knex.raw(`, ?? ASC`, ['__auto_number']).toQuery();
 
-    const updateRecordsOrderSql = this.knex
-      .raw(
-        `
-          UPDATE :dbTableName:
-          SET :fieldIndexId: = temp_order.new_order
-          FROM (
-            SELECT __id, ROW_NUMBER() OVER (ORDER BY ${orderRawSql}) AS new_order FROM :dbTableName:
-          ) AS temp_order
-          WHERE :dbTableName:.__id = temp_order.__id AND :dbTableName:.:fieldIndexId: != temp_order.new_order;
-        `,
-        {
-          dbTableName: dbTableName,
-          fieldIndexId: fieldIndexId,
-        }
-      )
-      .toQuery();
-
     // build ops
     const newSort = {
       sortObjs: sortObjs,
@@ -127,7 +129,9 @@ export class ViewOpenApiService {
     };
 
     await this.prismaService.$tx(async (prisma) => {
-      await prisma.$executeRawUnsafe(updateRecordsOrderSql);
+      await prisma.$executeRawUnsafe(
+        this.updateRecordOrderSql(orderRawSql, dbTableName, indexField)
+      );
       await this.viewService.updateViewSort(tableId, viewId, newSort);
     });
   }
@@ -314,7 +318,7 @@ export class ViewOpenApiService {
           orderBy: { order: align },
         });
       },
-      updateSingle: async (
+      update: async (
         parentId: string,
         id: string,
         data: { newOrder: number; oldOrder: number }
@@ -330,6 +334,126 @@ export class ViewOpenApiService {
         });
       },
       shuffle: this.shuffle.bind(this),
+    });
+  }
+
+  /**
+   * shuffle record order
+   */
+  async shuffleRecords(dbTableName: string, indexField: string) {
+    const recordCount = await this.recordService.getAllRecordCount(dbTableName);
+    if (recordCount > 100_000) {
+      throw new BadRequestException('Not enough gap to move the row here');
+    }
+
+    const sql = this.updateRecordOrderSql(
+      this.knex.raw(`?? ASC`, [indexField]).toQuery(),
+      dbTableName,
+      indexField
+    );
+
+    await this.prismaService.$executeRawUnsafe(sql);
+  }
+
+  async updateRecordOrdersInner(props: {
+    tableId: string;
+    dbTableName: string;
+    itemLength: number;
+    indexField: string;
+    orderRo: {
+      anchorId: string;
+      position: 'before' | 'after';
+    };
+    update: (indexes: number[]) => Promise<void>;
+  }) {
+    const { tableId, itemLength, dbTableName, indexField, orderRo, update } = props;
+    const { anchorId, position } = orderRo;
+
+    const anchorRecordSql = this.knex(dbTableName)
+      .select({
+        id: '__id',
+        order: indexField,
+      })
+      .where('__id', anchorId)
+      .toQuery();
+
+    const anchorRecord = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; order: number }[]>(anchorRecordSql)
+      .then((res) => {
+        return res[0];
+      });
+
+    if (!anchorRecord) {
+      throw new NotFoundException(`Anchor ${anchorId} not found in the table`);
+    }
+
+    await updateMultipleOrders({
+      parentId: tableId,
+      position,
+      itemLength,
+      anchorItem: anchorRecord,
+      getNextItem: async (whereOrder, align) => {
+        const nextRecordSql = this.knex(dbTableName)
+          .select({
+            id: '__id',
+            order: indexField,
+          })
+          .where(
+            indexField,
+            whereOrder.lt != null ? '<' : '>',
+            (whereOrder.lt != null ? whereOrder.lt : whereOrder.gt) as number
+          )
+          .orderBy(indexField, align)
+          .limit(1)
+          .toQuery();
+        return this.prismaService
+          .txClient()
+          .$queryRawUnsafe<{ id: string; order: number }[]>(nextRecordSql)
+          .then((res) => {
+            return res[0];
+          });
+      },
+      update,
+      shuffle: async () => {
+        await this.shuffleRecords(dbTableName, indexField);
+      },
+    });
+  }
+
+  async updateRecordOrders(tableId: string, viewId: string, orderRo: IUpdateRecordOrdersRo) {
+    const dbTableName = await this.recordService.getDbTableName(tableId);
+
+    const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
+    const recordIds = orderRo.recordIds;
+
+    await this.updateRecordOrdersInner({
+      tableId,
+      dbTableName,
+      itemLength: recordIds.length,
+      indexField,
+      orderRo,
+      update: async (indexes) => {
+        // for notify view update only
+        const ops = ViewOpBuilder.editor.setViewProperty.build({
+          key: 'lastModifiedTime',
+          newValue: new Date().toISOString(),
+        });
+
+        await this.prismaService.$tx(async () => {
+          await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+          for (let i = 0; i < recordIds.length; i++) {
+            const recordId = recordIds[i];
+            const updateRecordSql = this.knex(dbTableName)
+              .update({
+                [indexField]: indexes[i],
+              })
+              .where('__id', recordId)
+              .toQuery();
+            await this.prismaService.$executeRawUnsafe(updateRecordSql);
+          }
+        });
+      },
     });
   }
 

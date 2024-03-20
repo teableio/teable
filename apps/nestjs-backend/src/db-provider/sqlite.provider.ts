@@ -41,7 +41,16 @@ export class SqliteProvider implements IDbProvider {
     return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
   }
 
-  renameColumnName(tableName: string, oldName: string, newName: string): string[] {
+  checkColumnExist(tableName: string, columnName: string): string {
+    return this.knex
+      .raw('SELECT EXISTS (SELECT 1 FROM pragma_table_info(??) WHERE name = ??) AS exists;', [
+        tableName,
+        columnName,
+      ])
+      .toQuery();
+  }
+
+  renameColumn(tableName: string, oldName: string, newName: string): string[] {
     return [
       this.knex
         .raw('ALTER TABLE ?? RENAME COLUMN ?? TO ??', [tableName, oldName, newName])

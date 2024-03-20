@@ -285,7 +285,7 @@ export class SelectionService {
       return [];
     }
     const records = Array.from({ length: numRowsToExpand }, () => ({ fields: {} }));
-    const createdRecords = await this.recordOpenApiService.createRecords(tableId, records);
+    const createdRecords = await this.recordOpenApiService.createRecords(tableId, { records });
     return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
   }
 

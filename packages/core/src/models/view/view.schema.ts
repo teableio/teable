@@ -56,5 +56,5 @@ export const viewRoSchema = viewVoSchema
   });
 
 export type IViewRo = z.infer<typeof viewRoSchema>;
-export type IViewPropertyKeys = keyof IViewRo;
+export type IViewPropertyKeys = keyof IViewVo;
 export const VIEW_JSON_KEYS = ['options', 'sort', 'filter', 'group', 'shareMeta', 'columnMeta'];

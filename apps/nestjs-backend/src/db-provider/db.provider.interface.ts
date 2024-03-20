@@ -29,7 +29,9 @@ export interface IDbProvider {
 
   dropTable(tableName: string): string;
 
-  renameColumnName(tableName: string, oldName: string, newName: string): string[];
+  checkColumnExist(tableName: string, columnName: string): string;
+
+  renameColumn(tableName: string, oldName: string, newName: string): string[];
 
   dropColumn(tableName: string, columnName: string): string[];
 

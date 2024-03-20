@@ -180,7 +180,9 @@
   },
   "view": {
     "addRecord": "Add record",
-    "searchView": "Search view..."
+    "searchView": "Search view...",
+    "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
+    "insertToolTip": "Automatic sorting is turned on, insert with order is not available"
   },
   "lastModifiedTime": "Last modified time"
 }

@@ -29,15 +29,9 @@ export const recordSchema = z.object({
   lastModifiedBy: z.string().optional().openapi({
     description: 'Last modified by, user name',
   }),
-  recordOrder: z.record(z.number()).openapi({
-    description:
-      'The object key is view id, and record is sorted by this order in each view by default',
-  }),
 });
 
 export type IRecord = z.infer<typeof recordSchema>;
-
-export type ITinyRecord = Omit<IRecord, 'recordOrder'>;
 
 export const fieldKeyTypeRoSchema = z
   .nativeEnum(FieldKeyType, {
@@ -225,7 +219,6 @@ export const recordsSchema = recordSchema.array().openapi({
       fields: {
         'single line text': 'text value',
       },
-      recordOrder: {},
     },
   ],
   description: 'Array of record objects ',
@@ -239,7 +232,6 @@ export const recordsVoSchema = z.object({
         fields: {
           'single line text': 'text value',
         },
-        recordOrder: {},
       },
     ],
     description: 'Array of record objects ',
@@ -252,14 +244,31 @@ export const recordsVoSchema = z.object({
 
 export type IRecordsVo = z.infer<typeof recordsVoSchema>;
 
+export const recordInsertOrderRoSchema = z
+  .object({
+    viewId: z.string().openapi({
+      description:
+        'You can only specify order in one view when create record, other views appear last by default',
+    }),
+    anchorId: z.string().openapi({
+      description: 'The record id to anchor to',
+    }),
+    position: z.enum(['before', 'after']),
+  })
+  .openapi({
+    description: 'Where this record to insert to',
+  });
+
+export type IRecordInsertOrderRo = z.infer<typeof recordInsertOrderRoSchema>;
+
 export const createRecordsRoSchema = z
   .object({
     fieldKeyType: fieldKeyTypeRoSchema,
     typecast: typecastSchema,
+    order: recordInsertOrderRoSchema.optional(),
     records: z
       .object({
         fields: recordSchema.shape.fields,
-        recordOrder: z.record(z.number()).optional(),
       })
       .array()
       .openapi({

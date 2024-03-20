@@ -8,7 +8,6 @@ import {
   generateBaseId,
   generateRecordId,
   generateTableId,
-  generateViewId,
   generateWorkflowActionId,
 } from '@teable/core';
 import { vi } from 'vitest';
@@ -100,7 +99,6 @@ describe('Create-Record Action Test', () => {
               fields: {
                 fldHrMYez5yIwBdKEiK: 'name: mockName',
               },
-              recordOrder: { [generateViewId()]: 1 },
             },
           ],
           total: 1,

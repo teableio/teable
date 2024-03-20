@@ -17,7 +17,6 @@ describe('EvalVisitor', () => {
       fldMultipleLink: [{ id: 'recxxxxxxx' }, { id: 'recyyyyyyy', title: 'A2' }],
     },
     createdTime: new Date().toISOString(),
-    recordOrder: { viwTest: 1 },
   };
 
   beforeAll(() => {

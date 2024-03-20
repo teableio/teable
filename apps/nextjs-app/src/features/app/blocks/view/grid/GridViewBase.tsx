@@ -54,10 +54,12 @@ import {
 import { Skeleton, useToast } from '@teable/ui-lib';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrevious, useMount, useClickAway } from 'react-use';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
+import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { PrefillingRowContainer } from './components';
@@ -74,6 +76,7 @@ const { scrollBuffer, columnAppendBtnWidth } = GRID_DEFAULT;
 
 export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) => {
   const { onRowExpand } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const router = useRouter();
   const gridRef = useRef<IGridRef>(null);
   const prefillingGridRef = useRef<IGridRef>(null);
@@ -505,7 +508,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     if (type === RegionType.RowHeaderDragHandler && isAutoSort) {
       openTooltip({
         id: componentId,
-        text: 'Automatic sorting is turned on, manual sorting is not available',
+        text: t('table:view.dragToolTip'),
         position: bounds,
       });
     }

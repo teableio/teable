@@ -42,11 +42,20 @@ export class PostgresProvider implements IDbProvider {
   }
 
   dropTable(tableName: string): string {
-    const [schemaName, dbTableName] = this.splitTableName(tableName);
-    return this.knex.raw('DROP TABLE ??.??', [schemaName, dbTableName]).toQuery();
+    return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
   }
 
-  renameColumnName(tableName: string, oldName: string, newName: string): string[] {
+  checkColumnExist(tableName: string, columnName: string): string {
+    const [schemaName, dbTableName] = this.splitTableName(tableName);
+    return this.knex
+      .raw(
+        'SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?) AS exists',
+        [schemaName, dbTableName, columnName]
+      )
+      .toQuery();
+  }
+
+  renameColumn(tableName: string, oldName: string, newName: string): string[] {
     return this.knex.schema
       .alterTable(tableName, (table) => {
         table.renameColumn(oldName, newName);

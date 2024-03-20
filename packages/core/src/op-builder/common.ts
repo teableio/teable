@@ -3,7 +3,6 @@ export enum OpName {
   SetTableProperty = 'setTableProperty',
 
   SetRecord = 'setRecord',
-  SetRecordOrder = 'setRecordOrder',
   AddRecord = 'addRecord',
 
   AddField = 'addField',

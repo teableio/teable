@@ -3,7 +3,7 @@
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import { CellValueType } from '../models/field/constant';
 import type { FieldCore } from '../models/field/field';
-import type { ITinyRecord } from '../models/record/record.schema';
+import type { IRecord } from '../models/record/record.schema';
 import { FunctionName } from './functions/common';
 import type { FormulaFunc } from './functions/common';
 import { FUNCTIONS } from './functions/factory';
@@ -34,7 +34,7 @@ export class EvalVisitor
   private readonly converter = new TypedValueConverter();
   constructor(
     private dependencies: { [fieldId: string]: FieldCore },
-    private record?: ITinyRecord
+    private record?: IRecord
   ) {
     super();
   }

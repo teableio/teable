@@ -1,5 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IRecord, ITableVo, IUpdateFieldRo, IViewRo } from '@teable/core';
+import type {
+  IFieldRo,
+  IRecord,
+  IRecordInsertOrderRo,
+  ITableVo,
+  IUpdateFieldRo,
+  IViewRo,
+} from '@teable/core';
 import { FieldKeyType, TableCore } from '@teable/core';
 import type { IUpdateOrderRo } from '@teable/openapi';
 import {
@@ -70,15 +77,15 @@ export class Table extends TableCore {
     return View.deleteView(this.id, viewId);
   }
 
-  async createRecord(recordFields: IRecord['fields'], recordOrder?: { [viewId: string]: number }) {
+  async createRecord(recordFields: IRecord['fields'], recordOrder?: IRecordInsertOrderRo) {
     return Record.createRecords(this.id, {
       fieldKeyType: FieldKeyType.Id,
       records: [
         {
           fields: recordFields,
-          recordOrder,
         },
       ],
+      order: recordOrder,
     });
   }
 

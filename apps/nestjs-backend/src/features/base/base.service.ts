@@ -212,7 +212,7 @@ export class BaseService {
           orderBy: { order: align },
         });
       },
-      updateSingle: async (_, id, data) => {
+      update: async (_, id, data) => {
         await this.prismaService.base.update({
           data: { order: data.newOrder },
           where: { id },
