@@ -2,7 +2,6 @@
   "name": "@teable/icons",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
@@ -14,6 +13,9 @@
   "exports": {
     ".": "./dist"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",

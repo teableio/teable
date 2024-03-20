@@ -1,10 +1,9 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@2.2.0/schema.json",
   "changelog": ["@changesets/changelog-github", { "repo": "teableio/teable" }],
-  "privatePackages": { "version": true, "tag": true },
   "commit": true,
   "linked": [],
-  "access": "restricted",
+  "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": []

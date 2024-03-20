@@ -2,7 +2,6 @@
   "name": "@teable/sdk",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
@@ -21,6 +20,9 @@
   "exports": {
     ".": "./dist"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "cross-env NODE_ENV=production tsc --build tsconfig.build.json",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",

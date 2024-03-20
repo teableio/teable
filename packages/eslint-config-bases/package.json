@@ -2,7 +2,6 @@
   "name": "@teable/eslint-config-bases",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
@@ -15,6 +14,9 @@
   },
   "type": "commonjs",
   "main": "./src/index.js",
+  "files": [
+    "src"
+  ],
   "exports": {
     ".": {
       "require": "./src/index.js"

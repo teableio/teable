@@ -2,7 +2,6 @@
   "name": "@teable/ui-lib",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
@@ -19,6 +18,22 @@
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
   "type": "commonjs",
+  "files": [
+    "dist",
+    "tailwind.config.js",
+    "tailwind.shadcnui.config.js",
+    "ui.config.js"
+  ],
+  "export": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js"
+    },
+    "./config": {
+      "import": "./ui.config.js",
+      "require": "./ui.config.js"
+    }
+  },
   "scripts": {
     "build": "cross-env NODE_ENV=production tsc --build tsconfig.build.json",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",

@@ -2,7 +2,6 @@
   "name": "@teable/common-i18n",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
@@ -15,6 +14,10 @@
   },
   "sideEffects": false,
   "type": "module",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
   "exports": {
     "./locales/*.json": {
       "require": "./src/locales/*.json",
@@ -27,6 +30,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
+    "build": "tsc",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/common-i18n.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit"

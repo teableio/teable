@@ -2,7 +2,6 @@
   "name": "@teable/db-main-prisma",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
   "repository": {
     "type": "git",
@@ -16,6 +15,10 @@
   "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
