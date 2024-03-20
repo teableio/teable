@@ -6,7 +6,8 @@
     "target": "esnext",
     "module": "esnext",
     "jsx": "react-jsx",
-    "paths": {}
+    "paths": {},
+    "sourceMap": false
   },
   "exclude": ["dist", "**/__tests__/*", "**/*spec.ts", "**/*spec.tsx"],
   "include": ["src"]
