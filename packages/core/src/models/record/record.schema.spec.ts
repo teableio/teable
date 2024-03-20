@@ -86,7 +86,6 @@ describe('recordSchema', () => {
     lastModifiedTime: '2023-01-02T00:00:00.000Z',
     createdBy: 'user',
     lastModifiedBy: 'user',
-    recordOrder: { viwXXXXXXX: 1 },
   };
 
   it('validates successfully for valid data', () => {
@@ -121,15 +120,6 @@ describe('recordSchema', () => {
     const result = recordSchema.safeParse(data);
     expect(result.success).toBe(true);
   });
-
-  it('fails for invalid recordOrder (non-number values)', () => {
-    const data = { ...validData, recordOrder: { viwXXXXXXX: 'invalidValue' } };
-    const result = recordSchema.safeParse(data);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.errors[0].message).toEqual('Expected number, received string');
-    }
-  });
 });
 
 describe('recordsVoSchema', () => {
@@ -140,7 +130,6 @@ describe('recordsVoSchema', () => {
         fields: {
           fldXXXXXXXXXXXXXXX: 'text value',
         },
-        recordOrder: {},
       },
     ],
     offset: 'offset',

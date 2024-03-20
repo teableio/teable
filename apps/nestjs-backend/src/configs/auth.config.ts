@@ -22,6 +22,17 @@ export const authConfig = registerAs('auth', () => ({
       iv: process.env.BACKEND_ACCESS_TOKEN_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf4',
     },
   },
+  resetPasswordEmailExpiresIn: process.env.BACKEND_RESET_PASSWORD_EMAIL_EXPIRES_IN ?? '30m',
+  socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [],
+  github: {
+    clientID: process.env.BACKEND_GITHUB_CLIENT_ID,
+    clientSecret: process.env.BACKEND_GITHUB_CLIENT_SECRET,
+  },
+  google: {
+    clientID: process.env.BACKEND_GOOGLE_CLIENT_ID,
+    clientSecret: process.env.BACKEND_GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.BACKEND_GOOGLE_CALLBACK_URL,
+  },
 }));
 
 export const AuthConfig = () => Inject(authConfig.KEY);

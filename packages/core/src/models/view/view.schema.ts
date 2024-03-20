@@ -22,7 +22,7 @@ export const viewVoSchema = z.object({
   name: z.string(),
   type: z.nativeEnum(ViewType),
   description: z.string().optional(),
-  order: z.number(),
+  order: z.number().optional(),
   options: viewOptionsSchema.optional(),
   sort: sortSchema.optional(),
   filter: filterSchema.optional(),
@@ -56,5 +56,5 @@ export const viewRoSchema = viewVoSchema
   });
 
 export type IViewRo = z.infer<typeof viewRoSchema>;
-export type IViewPropertyKeys = keyof IViewRo;
+export type IViewPropertyKeys = keyof IViewVo;
 export const VIEW_JSON_KEYS = ['options', 'sort', 'filter', 'group', 'shareMeta', 'columnMeta'];

@@ -3,8 +3,8 @@ version: '3.9'
 services:
   teable-db:
     image: postgres:15.4
-    expose:
-      - '5432'
+    ports:
+      - '42345:5432'
     volumes:
       - teable-db:/var/lib/postgresql/data:rw
     environment:
@@ -52,6 +52,8 @@ services:
       - '9000'
       - '9001'
     environment:
+      - MINIO_SERVER_URL=${MINIO_SERVER_URL}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL}
       - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
     volumes:

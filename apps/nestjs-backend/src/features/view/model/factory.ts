@@ -38,7 +38,6 @@ export function createViewVoByRaw(viewRaw: View): IViewVo {
     shareId: viewRaw.shareId || undefined,
     shareMeta: JSON.parse(viewRaw.shareMeta as string) || undefined,
     enableShare: viewRaw.enableShare || undefined,
-    order: viewRaw.order,
     createdBy: viewRaw.createdBy,
     lastModifiedBy: viewRaw.lastModifiedBy || undefined,
     createdTime: viewRaw.createdTime.toISOString(),

@@ -16,12 +16,12 @@ import {
   ITableDescriptionRo,
   ITableIconRo,
   ITableNameRo,
-  ITableOrderRo,
+  IUpdateOrderRo,
   sqlQuerySchema,
   tableDescriptionRoSchema,
   tableIconRoSchema,
   tableNameRoSchema,
-  tableOrderRoSchema,
+  updateOrderRoSchema,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -111,9 +111,9 @@ export class TableController {
   async updateOrder(
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(tableOrderRoSchema)) tableOrderRo: ITableOrderRo
+    @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
   ) {
-    return await this.tableOpenApiService.updateOrder(baseId, tableId, tableOrderRo.order);
+    return await this.tableOpenApiService.updateOrder(baseId, tableId, updateOrderRo);
   }
 
   @Post()

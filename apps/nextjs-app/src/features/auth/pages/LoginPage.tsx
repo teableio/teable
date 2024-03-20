@@ -9,6 +9,7 @@ import { useState, type FC, useCallback } from 'react';
 import { authConfig } from '@/features/i18n/auth.config';
 import type { ISignForm } from '../components/SignForm';
 import { SignForm } from '../components/SignForm';
+import { SocialAuth } from '../components/SocialAuth';
 
 const queryClient = createQueryClient();
 
@@ -36,11 +37,10 @@ export const LoginPage: FC = () => {
             </TabsList>
           </Tabs>
         </div>
-        <SignForm
-          className="mx-auto h-full w-80 items-center py-[5em] lg:py-24"
-          type={signType}
-          onSuccess={onSuccess}
-        />
+        <div className="relative top-1/2 mx-auto w-80 -translate-y-1/2 py-[5em] lg:py-24">
+          <SignForm type={signType} onSuccess={onSuccess} />
+          <SocialAuth />
+        </div>
       </div>
     </QueryClientProvider>
   );

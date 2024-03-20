@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createReadStream, createWriteStream } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { type Readable as ReadableStream } from 'node:stream';
+import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
 import type { Request } from 'express';
@@ -8,6 +9,7 @@ import * as fse from 'fs-extra';
 import sharp from 'sharp';
 import { CacheService } from '../../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
 import { getFullStorageUrl } from '../../../utils/full-storage-url';
 import { second } from '../../../utils/second';
@@ -229,22 +231,46 @@ export class LocalStorage implements StorageAdapter {
     filePath: string,
     _metadata: Record<string, unknown>
   ) {
-    this.save(filePath, join(bucket, path));
-    return join(this.readPath, bucket, path);
+    const hash = await FileUtils.getHash(filePath);
+    await this.save(filePath, join(bucket, path));
+    return {
+      hash,
+      url: join(this.readPath, bucket, path),
+    };
   }
 
   async uploadFile(
     bucket: string,
     path: string,
-    stream: Buffer,
+    stream: Buffer | ReadableStream,
     _metadata?: Record<string, unknown>
-  ): Promise<string> {
-    const distPath = resolve(this.storageDir);
-    const newFilePath = resolve(distPath, join(bucket, path));
-
-    await fse.ensureDir(dirname(newFilePath));
-
-    await fse.writeFile(newFilePath, stream);
-    return join(this.readPath, bucket, path);
+  ) {
+    const name = getRandomString(12);
+    const temPath = resolve(this.temporaryDir, name);
+    if (stream instanceof Buffer) {
+      await fse.writeFile(temPath, stream);
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const writer = createWriteStream(temPath);
+        stream.pipe(writer);
+        stream.on('end', function () {
+          writer.end();
+          writer.close();
+          resolve();
+        });
+        stream.on('error', (err) => {
+          writer.end();
+          writer.close();
+          this.deleteFile(path);
+          reject(err);
+        });
+      });
+    }
+    const hash = await FileUtils.getHash(temPath);
+    await this.save(temPath, join(bucket, path));
+    return {
+      hash,
+      url: join(this.readPath, bucket, path),
+    };
   }
 }

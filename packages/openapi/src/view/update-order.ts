@@ -5,13 +5,12 @@ import { z } from '../zod';
 
 export const VIEW_ORDER = '/table/{tableId}/view/{viewId}/order';
 
-export interface IViewOrderRo {
-  order: number;
-}
-
-export const viewOrderRoSchema = z.object({
-  order: z.number(),
+export const updateOrderRoSchema = z.object({
+  anchorId: z.string(),
+  position: z.enum(['before', 'after']),
 });
+
+export type IUpdateOrderRo = z.infer<typeof updateOrderRoSchema>;
 
 export const updateViewOrderRoute: RouteConfig = registerRoute({
   method: 'put',
@@ -25,7 +24,7 @@ export const updateViewOrderRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: viewOrderRoSchema,
+          schema: updateOrderRoSchema,
         },
       },
     },
@@ -38,7 +37,7 @@ export const updateViewOrderRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const updateViewOrder = async (tableId: string, viewId: string, orderRo: IViewOrderRo) => {
+export const updateViewOrder = async (tableId: string, viewId: string, orderRo: IUpdateOrderRo) => {
   return axios.put<void>(
     urlBuilder(VIEW_ORDER, {
       tableId,

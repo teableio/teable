@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IFieldVo, IUpdateFieldRo } from '@teable/core';
+import type { IUpdateFieldRo } from '@teable/core';
 import { updateFieldRoSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -35,7 +35,7 @@ export const UpdateFieldRoute: RouteConfig = registerRoute({
 });
 
 export const updateField = async (tableId: string, fieldId: string, fieldRo: IUpdateFieldRo) => {
-  return axios.patch<IFieldVo>(
+  return axios.patch(
     urlBuilder(UPDATE_FIELD, {
       tableId,
       fieldId,

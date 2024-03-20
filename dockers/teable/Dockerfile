@@ -1,4 +1,5 @@
 ARG NODE_VERSION=20.9.0
+ARG BUILD_VERSION="1.0.0-alpha"
 
 ###################################################################
 # Stage 1: Install all workspaces (dev)dependencies               #
@@ -31,23 +32,24 @@ RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/sc
 FROM deps AS builder
 
 ARG INTEGRATION_TEST
-ARG BUILD_VERSION="1.0.0-alpha"
+ARG BUILD_VERSION
+ARG ENABLE_CSP=true
 ARG SENTRY_ENABLED=true
 ARG SENTRY_TRACING=true
 
-ENV NODE_ENV=production
-ENV NEXT_BUILD_ENV_TYPECHECK=false
-ENV NEXT_BUILD_ENV_LINT=false
-ENV NEXT_BUILD_ENV_OUTPUT=classic
-ENV NEXT_BUILD_ENV_SENTRY_ENABLED=$SENTRY_ENABLED
-ENV NEXT_BUILD_ENV_SENTRY_TRACING=$SENTRY_TRACING
+ENV NODE_ENV=production \
+    NEXT_BUILD_ENV_CSP=${ENABLE_CSP} \
+    NEXT_BUILD_ENV_TYPECHECK=false \
+    NEXT_BUILD_ENV_LINT=false \
+    NEXT_BUILD_ENV_SENTRY_ENABLED=${SENTRY_ENABLED} \
+    NEXT_BUILD_ENV_SENTRY_TRACING=${SENTRY_TRACING}
 
 WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
 
 RUN set -eux; \
-    sed -i~ '$a\NEXT_PUBLIC_BUILD_VERSION=$BUILD_VERSION' apps/nextjs-app/.env
+    echo "NEXT_PUBLIC_BUILD_VERSION=\"${BUILD_VERSION}\"" >> apps/nextjs-app/.env
 
 # Distinguish whether it is an integration test operation
 RUN if [ -n "$INTEGRATION_TEST" ]; then \
@@ -80,9 +82,9 @@ RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/sc
 
 FROM node:${NODE_VERSION}-bookworm-slim AS runner
 
-ENV NODE_ENV=production
-ENV TZ=UTC
-ENV PORT=${NEXTJS_APP_PORT:-3000}
+ENV TZ=UTC \
+    NODE_ENV=production \
+    PORT=${NEXTJS_APP_PORT:-3000}
 
 RUN npm install zx -g && \
       apt-get update && apt-get install -y curl openssl && \

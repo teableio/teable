@@ -94,12 +94,11 @@ describe('Update-Record Action Test', () => {
       ])
     );
 
-    vi.spyOn(recordOpenApiService, 'updateRecordById').mockImplementation(
+    vi.spyOn(recordOpenApiService, 'updateRecord').mockImplementation(
       (tableId, recordId, _updateRecordRo) =>
         Promise.resolve({
           id: recordId,
           fields: { [fieldId]: 'update: mockName' },
-          recordOrder: { tableId: 1 },
         })
     );
 

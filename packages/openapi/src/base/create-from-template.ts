@@ -5,7 +5,7 @@ import { z } from '../zod';
 import type { ICreateBaseVo } from './create';
 import { createBaseVoSchema } from './create';
 
-export const CREATE_BASE_FROM_TEMPLATE = '/base/createFromTemplate';
+export const CREATE_BASE_FROM_TEMPLATE = '/base/create-from-template';
 
 export const createBaseFromTemplateRoSchema = z.object({
   spaceId: z.string(),

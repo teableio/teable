@@ -30,8 +30,8 @@ const NEXT_BUILD_ENV_SOURCEMAPS = trueEnv.includes(
 );
 
 const NEXT_BUILD_ENV_CSP = trueEnv.includes(process.env?.NEXT_BUILD_ENV_CSP ?? 'true');
-const NEXT_BUILD_ENV_IMAGES_ALL_REMOTE = trueEnv.includes(
-  process.env?.NEXT_BUILD_ENV_IMAGES_ALL_REMOTE ?? 'true'
+const NEXT_ENV_IMAGES_ALL_REMOTE = trueEnv.includes(
+  process.env?.NEXT_ENV_IMAGES_ALL_REMOTE ?? 'true'
 );
 
 const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
@@ -147,7 +147,7 @@ const nextConfig = {
     dangerouslyAllowSVG: false,
     disableStaticImages: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    remotePatterns: NEXT_BUILD_ENV_IMAGES_ALL_REMOTE
+    remotePatterns: NEXT_ENV_IMAGES_ALL_REMOTE
       ? [
           {
             protocol: 'http',
@@ -210,7 +210,7 @@ const nextConfig = {
     return isProd ? [] : [socketProxy];
   },
 
-  // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
+  // @link https://nextjs.org/docs/api-reference/next.config.js/headers
   async headers() {
     return [
       {

@@ -1,6 +1,9 @@
 name: Unit Tests
 
 on:
+  push:
+    branches:
+      - develop
   pull_request:
     branches:
       - develop
@@ -11,13 +14,13 @@ on:
       - 'packages/sdk/**'
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     name: Unit Tests
 
     strategy:
       matrix:
-        node-version: [20.x]
+        node-version: [20.9.0]
 
     steps:
       - uses: actions/checkout@v4
@@ -41,4 +44,18 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          pnpm g:test-unit
+          pnpm g:test-unit-cover
+      - name: Coveralls Parallel
+        uses: coverallsapp/github-action@v2
+        with:
+          flag-name: run-${{ join(matrix.*, '-') }}
+          parallel: true
+
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

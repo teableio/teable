@@ -276,6 +276,7 @@ export async function createRecords(
 ): Promise<ICreateRecordsVo> {
   try {
     const res = await apiCreateRecords(tableId, {
+      ...recordsRo,
       fieldKeyType: recordsRo.fieldKeyType ?? FieldKeyType.Id,
       records: recordsRo.records,
       typecast: recordsRo.typecast ?? false,

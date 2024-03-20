@@ -6,10 +6,7 @@ import { Events } from '../event.enum';
 import type { IChangeValue } from '../op-event';
 import { OpEvent } from '../op-event';
 
-export type IChangeRecord = Record<
-  keyof Pick<IRecord, 'fields' | 'recordOrder'>,
-  Record<string, IChangeValue>
-> & {
+export type IChangeRecord = Record<keyof Pick<IRecord, 'fields'>, Record<string, IChangeValue>> & {
   id: string;
 };
 

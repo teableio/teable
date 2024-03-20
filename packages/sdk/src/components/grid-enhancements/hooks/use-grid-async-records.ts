@@ -2,11 +2,10 @@ import type { IRecord, IGetRecordsRo } from '@teable/core';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
+import { useTableId } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
-import { useRowCount } from '../../../hooks/use-row-count';
 import { useViewId } from '../../../hooks/use-view-id';
-import type { Record } from '../../../model';
-import { reorder } from '../../../utils';
+import { Record } from '../../../model';
 
 // eslint-disable-next-line
 export const LOAD_PAGE_SIZE = 300;
@@ -33,8 +32,8 @@ export const useGridAsyncRecords = (
     ...initQuery,
   });
   const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
+  const tableId = useTableId();
   const viewId = useViewId();
-  const rowCount = useRowCount();
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(recordsQuery, initRecords);
@@ -124,34 +123,39 @@ export const useGridAsyncRecords = (
 
   const onRowOrdered = useCallback(
     (rowIndexCollection: number[], newRowIndex: number) => {
-      const operationRecords: Record[] = [];
+      const operationRecordIds: string[] = [];
 
       for (const rowIndex of rowIndexCollection) {
         const record = loadedRecordMap[rowIndex];
         if (!record) {
           throw new Error('Can not find record by index: ' + rowIndex);
         }
-        operationRecords.push(record);
+        operationRecordIds.push(record.id);
       }
 
       if (!viewId) {
         throw new Error('Can not find view id');
       }
 
-      const newOrders = reorder(
-        rowIndexCollection.length,
-        newRowIndex,
-        rowCount ?? initRecords?.length ?? 0,
-        (index) => {
-          return loadedRecordMap[index].recordOrder[viewId];
-        }
-      );
-
-      operationRecords.forEach((record, index) => {
-        record.updateRecordOrder(viewId, newOrders[index]);
+      if (newRowIndex === -1) {
+        Record.updateRecordOrders(tableId as string, viewId, {
+          anchorId: operationRecordIds[0],
+          position: 'before',
+          recordIds: operationRecordIds,
+        });
+        return;
+      }
+      const record = loadedRecordMap[newRowIndex];
+      if (!record) {
+        throw new Error("Can't find target record by index: " + newRowIndex);
+      }
+      Record.updateRecordOrders(tableId as string, viewId, {
+        anchorId: record.id,
+        position: 'after',
+        recordIds: operationRecordIds,
       });
     },
-    [loadedRecordMap, viewId, rowCount, initRecords?.length]
+    [viewId, loadedRecordMap, tableId]
   );
 
   return {

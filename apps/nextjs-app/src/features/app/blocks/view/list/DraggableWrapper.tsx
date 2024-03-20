@@ -1,6 +1,5 @@
 import type { IViewInstance } from '@teable/sdk';
 import { useViews } from '@teable/sdk';
-import { swapReorder } from '@teable/sdk/utils';
 import { DndKitContext, Draggable, Droppable } from '@teable/ui-lib/base/dnd-kit';
 import type { SortingStrategy, DragEndEvent, useSortable } from '@teable/ui-lib/base/dnd-kit';
 import type { ReactElement } from 'react';
@@ -38,15 +37,18 @@ export const DraggableWrapper = ({
       return;
     }
 
-    const newOrder = swapReorder(1, from, to, views?.length, (index) => views?.[index].order)[0];
-
     const view = views[from];
 
     newViews.splice(to, 0, moveView);
 
     setInnerViews(newViews);
+    const viewIndex = newViews.findIndex((v) => v.id === view.id);
 
-    await view?.updateOrder(newOrder);
+    if (viewIndex == 0) {
+      await view?.updateOrder({ anchorId: newViews[1].id, position: 'before' });
+    } else {
+      await view?.updateOrder({ anchorId: newViews[viewIndex - 1].id, position: 'after' });
+    }
   };
 
   return (

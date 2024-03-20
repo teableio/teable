@@ -94,12 +94,10 @@ describe('AttachmentsService', () => {
       const records: IRecord[] = [
         {
           id: 'record1',
-          recordOrder: {},
           fields: {},
         },
         {
           id: 'record2',
-          recordOrder: {},
           fields: {
             field1: mockAttachmentCellValue,
           },
@@ -129,7 +127,6 @@ describe('AttachmentsService', () => {
               oldValue: null,
             },
           },
-          recordOrder: {},
         },
       ];
 
@@ -176,7 +173,6 @@ describe('AttachmentsService', () => {
               oldValue: mockOldAttachmentCellValue.slice(0, 1),
             },
           },
-          recordOrder: {},
         },
         {
           id: 'record2',
@@ -186,7 +182,6 @@ describe('AttachmentsService', () => {
               oldValue: mockOldAttachmentCellValue.slice(1),
             },
           },
-          recordOrder: {},
         },
       ];
 

@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
+import { AddPassword } from './account/AddPassword';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 
 export const Account: React.FC = () => {
@@ -87,7 +88,10 @@ export const Account: React.FC = () => {
         </div>
       </div>
       <div>
-        <h3 className="text-base font-medium">{t('settings.account.securityTitle')}</h3>
+        <h3 className="text-base font-medium">
+          {t('settings.account.securityTitle')}
+          {!sessionUser.hasPassword && <AddPassword />}
+        </h3>
         <Separator className="my-2" />
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -96,22 +100,23 @@ export const Account: React.FC = () => {
               <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>{t('settings.account.password')}</Label>
-              <div className="text-xs text-muted-foreground">
-                {t('settings.account.passwordDesc')}
+          {sessionUser.hasPassword && (
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>{t('settings.account.password')}</Label>
+                <div className="text-xs text-muted-foreground">
+                  {t('settings.account.passwordDesc')}
+                </div>
               </div>
+              <ChangePasswordDialog>
+                <Button className="float-right" size={'sm'} variant={'outline'}>
+                  {t('settings.account.changePassword.title')}
+                </Button>
+              </ChangePasswordDialog>
             </div>
-            <ChangePasswordDialog>
-              <Button className="float-right" size={'sm'} variant={'outline'}>
-                {t('settings.account.changePassword.title')}
-              </Button>
-            </ChangePasswordDialog>
-          </div>
+          )}
         </div>
       </div>
-      <Separator className="my-2" />
     </div>
   );
 };
