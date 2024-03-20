@@ -18,7 +18,7 @@
   "sideEffects": false,
   "source": "src/index.ts",
   "main": "dist/index.js",
-  "module": "dist/index.esm.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "commonjs",
   "files": [
@@ -29,7 +29,7 @@
   ],
   "export": {
     ".": {
-      "import": "./dist/index.esm.js",
+      "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
     "./config": {
