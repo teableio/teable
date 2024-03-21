@@ -45,12 +45,12 @@ export class RecordOpenApiController {
 
   @Permissions('record|update')
   @Patch(':recordId')
-  async updateRecordById(
+  async updateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
-    return await this.recordOpenApiService.updateRecordById(tableId, recordId, updateRecordRo);
+    return await this.recordOpenApiService.updateRecord(tableId, recordId, updateRecordRo);
   }
 
   @Permissions('record|create')

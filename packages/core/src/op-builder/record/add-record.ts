@@ -10,7 +10,6 @@ export class AddRecordBuilder implements ICreateOpBuilder {
     return {
       id: record.id,
       fields: {},
-      recordOrder: record.recordOrder ?? {},
     };
   }
 }

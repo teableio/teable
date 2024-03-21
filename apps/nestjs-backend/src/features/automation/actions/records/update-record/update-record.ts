@@ -49,7 +49,7 @@ export class UpdateRecord extends ActionCore {
     let outPut: IActionResponse<unknown>;
 
     await this.recordOpenApiService
-      .updateRecordById(tableId, recordId, updateData)
+      .updateRecord(tableId, recordId, updateData)
       .then((record) => {
         outPut = { data: record, status: ActionResponseStatus.OK };
       })

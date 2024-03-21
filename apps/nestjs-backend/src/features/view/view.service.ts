@@ -8,6 +8,7 @@ import type {
   IUpdateViewColumnMetaOpContext,
   ISetViewPropertyOpContext,
   IColumnMeta,
+  IViewPropertyKeys,
 } from '@teable/core';
 import {
   getUniqName,
@@ -15,7 +16,7 @@ import {
   generateViewId,
   OpName,
   ViewOpBuilder,
-  viewRoSchema,
+  viewVoSchema,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -24,7 +25,9 @@ import { isEmpty, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
-import type { IAdapterService } from '../../share-db/interface';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { BatchService } from '../calculation/batch.service';
@@ -34,12 +37,13 @@ import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
 @Injectable()
-export class ViewService implements IAdapterService {
+export class ViewService implements IReadonlyAdapterService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   getRowIndexFieldName(viewId: string) {
@@ -66,6 +70,61 @@ export class ViewService implements IAdapterService {
     const order = maxOrder == null ? 0 : maxOrder + 1;
 
     return { name, order };
+  }
+
+  async existIndex(dbTableName: string, viewId: string) {
+    const columnName = this.getRowIndexFieldName(viewId);
+    const exists = await this.dbProvider.checkColumnExist(
+      dbTableName,
+      columnName,
+      this.prismaService.txClient()
+    );
+
+    if (exists) {
+      return columnName;
+    }
+  }
+
+  async createViewIndexField(dbTableName: string, viewId: string) {
+    const prisma = this.prismaService.txClient();
+
+    const rowIndexFieldName = this.getRowIndexFieldName(viewId);
+
+    // add a field for maintain row order number
+    const addRowIndexColumnSql = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        table.double(rowIndexFieldName);
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(addRowIndexColumnSql);
+
+    // fill initial order for every record, with auto increment integer
+    const updateRowIndexSql = this.knex(dbTableName)
+      .update({
+        [rowIndexFieldName]: this.knex.ref('__auto_number'),
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(updateRowIndexSql);
+
+    // create index
+    const createRowIndexSQL = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(createRowIndexSQL);
+    console.log('addRowIndexColumnSql', addRowIndexColumnSql);
+    console.log('createViewIndexField', createRowIndexSQL);
+    return rowIndexFieldName;
+  }
+
+  async getOrCreateViewIndexField(dbTableName: string, viewId: string) {
+    const indexFieldName = await this.existIndex(dbTableName, viewId);
+    console.log('exits', indexFieldName);
+    if (indexFieldName) {
+      return indexFieldName;
+    }
+    return this.createViewIndexField(dbTableName, viewId);
   }
 
   async createDbView(tableId: string, viewRo: IViewRo) {
@@ -101,46 +160,7 @@ export class ViewService implements IAdapterService {
       columnMeta: mergedColumnMeta ? JSON.stringify(mergedColumnMeta) : JSON.stringify({}),
     };
 
-    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        dbTableName: true,
-      },
-    });
-
-    const rowIndexFieldName = this.getRowIndexFieldName(viewId);
-
-    // 1. create a new view in view model
-    const viewData = await prisma.view.create({ data });
-    // const columnMeta = await this.updateViewColumnMetaOrderByViewId(tableId, viewId);
-
-    // 2. add a field for maintain row order number
-    const addRowIndexColumnSql = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.double(rowIndexFieldName);
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(addRowIndexColumnSql);
-
-    // 3. fill initial order for every record, with auto increment integer
-    const updateRowIndexSql = this.knex(dbTableName)
-      .update({
-        [rowIndexFieldName]: this.knex.ref('__auto_number'),
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(updateRowIndexSql);
-
-    // 4. create index
-    const createRowIndexSQL = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(createRowIndexSQL);
-
-    return viewData;
+    return await prisma.view.create({ data });
   }
 
   async getViewById(viewId: string): Promise<IViewVo> {
@@ -326,11 +346,11 @@ export class ViewService implements IAdapterService {
         continue;
       }
       const { key, newValue } = opContext;
-      const result = viewRoSchema.partial().safeParse({ [key]: newValue });
+      const result = viewVoSchema.partial().safeParse({ [key]: newValue });
       if (!result.success) {
         throw new BadRequestException(fromZodError(result.error).message);
       }
-      const parsedValue = result.data[key];
+      const parsedValue = result.data[key] as IViewPropertyKeys;
       await this.prismaService.txClient().view.update({
         where: { id: viewId },
         data: {

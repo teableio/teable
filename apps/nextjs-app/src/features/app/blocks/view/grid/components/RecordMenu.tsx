@@ -2,16 +2,20 @@ import { FieldKeyType } from '@teable/core';
 import { Trash, Copy, ArrowUp, ArrowDown } from '@teable/icons';
 import { deleteRecords } from '@teable/openapi';
 import { SelectionRegionType } from '@teable/sdk/components';
-import { useTableId, useTablePermission, useViewId } from '@teable/sdk/hooks';
+import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Record } from '@teable/sdk/model';
 import {
+  cn,
   Command,
   CommandGroup,
   CommandItem,
   CommandList,
   CommandSeparator,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
@@ -42,7 +46,8 @@ export const RecordMenu = () => {
   const { recordMenu, closeRecordMenu, selection } = useGridViewStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const tableId = useTableId();
-  const viewId = useViewId();
+  const view = useView();
+  const viewId = view?.id;
   const permission = useTablePermission();
   const { copy } = useSelectionOperation();
   const recordMenuRef = useRef<HTMLDivElement>(null);
@@ -53,12 +58,12 @@ export const RecordMenu = () => {
 
   if (recordMenu == null) return null;
 
-  const { records, neighborRecords, onAfterInsertCallback } = recordMenu;
-
+  const { records, onAfterInsertCallback } = recordMenu;
   if (!records?.length) return null;
 
   const visible = Boolean(recordMenu);
   const position = recordMenu?.position;
+  const isAutoSort = Boolean(view?.sort && !view.sort?.manualSort);
   const style = position
     ? {
         left: position.x,
@@ -66,7 +71,7 @@ export const RecordMenu = () => {
       }
     : {};
 
-  const onInsertRecord = async (sort: number) => {
+  const onInsertRecord = async (anchorId: string, position: 'before' | 'after') => {
     if (!tableId || !viewId) return;
 
     const res = await Record.createRecords(tableId, {
@@ -74,9 +79,13 @@ export const RecordMenu = () => {
       records: [
         {
           fields: {},
-          recordOrder: { [viewId]: sort },
         },
       ],
+      order: {
+        viewId,
+        anchorId,
+        position,
+      },
     });
     const record = res.data.records[0];
 
@@ -99,19 +108,10 @@ export const RecordMenu = () => {
         name: t('table:menu.insertRecordAbove'),
         icon: <ArrowUp className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
+        disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId) return;
-          let finalSort;
-          const [aboveRecord] = neighborRecords;
-          const sort = records[0].recordOrder[viewId];
-
-          if (aboveRecord == null) {
-            finalSort = sort - 1;
-          } else {
-            const aboveSort = aboveRecord.recordOrder[viewId];
-            finalSort = (sort + aboveSort) / 2;
-          }
-          await onInsertRecord(finalSort);
+          await onInsertRecord(records[0].id, 'before');
         },
       },
       {
@@ -119,19 +119,10 @@ export const RecordMenu = () => {
         name: t('table:menu.insertRecordBelow'),
         icon: <ArrowDown className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
+        disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId) return;
-          let finalSort;
-          const [, blewRecord] = neighborRecords;
-          const sort = records[0].recordOrder[viewId];
-
-          if (blewRecord == null) {
-            finalSort = sort + 1;
-          } else {
-            const aboveSort = blewRecord.recordOrder[viewId];
-            finalSort = (sort + aboveSort) / 2;
-          }
-          await onInsertRecord(finalSort);
+          await onInsertRecord(records[0].id, 'after');
         },
       },
     ],
@@ -164,7 +155,7 @@ export const RecordMenu = () => {
   return (
     <Command
       ref={recordMenuRef}
-      className={classNames('absolute rounded-sm shadow-sm w-60 h-auto border', {
+      className={cn('absolute rounded-sm shadow-sm w-60 h-auto border', {
         hidden: !visible,
       })}
       style={style}
@@ -177,18 +168,41 @@ export const RecordMenu = () => {
           return (
             <Fragment key={index}>
               <CommandGroup aria-valuetext="name">
-                {items.map(({ type, name, icon, className, onClick }) => (
+                {items.map(({ type, name, icon, className, disabled, onClick }) => (
                   <CommandItem
-                    className={classNames('px-4 py-2', className)}
+                    className={cn('px-4 py-2', className)}
                     key={type}
                     value={name}
                     onSelect={async () => {
+                      if (disabled) {
+                        return;
+                      }
                       await onClick();
                       closeRecordMenu();
                     }}
                   >
-                    {icon}
-                    {name}
+                    {disabled ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger
+                            className={cn('flex items-center gap-2', {
+                              'opacity-50': disabled,
+                            })}
+                          >
+                            {icon}
+                            {name}
+                          </TooltipTrigger>
+                          <TooltipContent hideWhenDetached={true}>
+                            {t('table:view.insertToolTip')}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <>
+                        {icon}
+                        {name}
+                      </>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -9,6 +9,7 @@ export * from './update-sort';
 export * from './update-group';
 export * from './update-options';
 export * from './update-order';
+export * from './update-record-order';
 export * from './update-name';
 export * from './update-description';
 export * from './update-share-meta';

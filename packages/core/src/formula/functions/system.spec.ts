@@ -42,7 +42,6 @@ describe('SystemFunc', () => {
       id: 'recTest',
       fields: {},
       createdTime: new Date().toISOString(),
-      recordOrder: { viwTest: 1 },
     };
     const context = {
       record,

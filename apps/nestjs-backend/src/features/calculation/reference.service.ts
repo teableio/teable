@@ -5,7 +5,6 @@ import type {
   ILinkFieldOptions,
   IOtOperation,
   IRecord,
-  ITinyRecord,
 } from '@teable/core';
 import { evaluate, FieldType, isMultiValueLink, RecordOpBuilder, Relationship } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -42,12 +41,12 @@ export interface IGraphItem {
 }
 
 export interface IRecordMap {
-  [recordId: string]: ITinyRecord;
+  [recordId: string]: IRecord;
 }
 
 export interface IRecordItem {
-  record: ITinyRecord;
-  dependencies?: ITinyRecord[];
+  record: IRecord;
+  dependencies?: IRecord[];
 }
 
 export interface IRecordData {
@@ -510,7 +509,7 @@ export class ReferenceService {
     field: IFieldInstance,
     relationship: Relationship,
     lookupField: IFieldInstance,
-    record: ITinyRecord,
+    record: IRecord,
     lookupValues: unknown
   ): unknown {
     if (field.type !== FieldType.Link && field.type !== FieldType.Rollup) {
@@ -674,7 +673,6 @@ export class ReferenceService {
       lastModifiedTime: (raw.__last_modified_time as Date)?.toISOString(),
       createdBy: raw.__created_by as string,
       lastModifiedBy: raw.__last_modified_by as string,
-      recordOrder: {},
     };
   }
 
@@ -846,7 +844,7 @@ export class ReferenceService {
         recordItemMap:
           recordMap &&
           Object.values(recordMap).reduce<Record<string, IRecordItem>>((pre, record) => {
-            let dependencies: ITinyRecord[] | undefined;
+            let dependencies: IRecord[] | undefined;
             if (relatedItems) {
               const options = field.lookupOptions
                 ? field.lookupOptions

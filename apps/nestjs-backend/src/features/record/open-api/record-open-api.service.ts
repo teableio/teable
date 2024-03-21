@@ -3,6 +3,7 @@ import type {
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecord,
+  IRecordInsertOrderRo,
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable/core';
@@ -12,6 +13,8 @@ import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { ViewService } from '../../view/view.service';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
 import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
@@ -23,7 +26,9 @@ export class RecordOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly fieldConvertingService: FieldConvertingService,
-    private readonly attachmentsStorageService: AttachmentsStorageService
+    private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly viewService: ViewService,
+    private readonly viewOpenApiService: ViewOpenApiService
   ) {}
 
   async multipleCreateRecords(
@@ -31,29 +36,57 @@ export class RecordOpenApiService {
     createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
     return await this.prismaService.$tx(async () => {
-      return await this.createRecords(
-        tableId,
-        createRecordsRo.records,
-        createRecordsRo.fieldKeyType,
-        createRecordsRo.typecast
-      );
+      return await this.createRecords(tableId, createRecordsRo);
     });
+  }
+
+  private async getRecordOrderIndexes(
+    tableId: string,
+    orderRo: IRecordInsertOrderRo,
+    recordCount: number
+  ) {
+    const dbTableName = await this.recordService.getDbTableName(tableId);
+
+    const indexField = await this.viewService.getOrCreateViewIndexField(
+      dbTableName,
+      orderRo.viewId
+    );
+    let indexes: number[] = [];
+    await this.viewOpenApiService.updateRecordOrdersInner({
+      tableId,
+      dbTableName,
+      itemLength: recordCount,
+      indexField,
+      orderRo,
+      update: async (result) => {
+        indexes = result;
+      },
+    });
+
+    return indexes;
   }
 
   async createRecords(
     tableId: string,
-    recordsRo: { id?: string; fields: Record<string, unknown> }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    typecast?: boolean
+    createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
+    const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
     const typecastRecords = await this.validateFieldsAndTypecast(
       tableId,
-      recordsRo,
+      records,
       fieldKeyType,
       typecast
     );
 
-    return await this.recordCalculateService.createRecords(tableId, typecastRecords, fieldKeyType);
+    const indexes = order && (await this.getRecordOrderIndexes(tableId, order, records.length));
+    const orderIndex = indexes ? { viewId: order.viewId, indexes } : undefined;
+
+    return await this.recordCalculateService.createRecords(
+      tableId,
+      typecastRecords,
+      fieldKeyType,
+      orderIndex
+    );
   }
 
   async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
@@ -150,7 +183,7 @@ export class RecordOpenApiService {
     }));
   }
 
-  async updateRecordById(
+  async updateRecord(
     tableId: string,
     recordId: string,
     updateRecordRo: IUpdateRecordRo
