@@ -13,7 +13,7 @@ import {
 import classNames from 'classnames';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { IOption, IBaseMultipleSelect } from './types';
 
@@ -56,25 +56,6 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     return options.filter((option) => values.includes(option.value));
   }, [values, options]);
 
-  const optionMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    options.forEach((option) => {
-      const key = option.value.toLowerCase();
-      const value = option.label.toLowerCase();
-      map[key] = value;
-    });
-    return map;
-  }, [options]);
-
-  const commandFilter = useCallback(
-    (id: string, searchValue: string) => {
-      const name = optionMap[id] || t('common.untitled');
-      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
-      return Number(containWord);
-    },
-    [optionMap, t]
-  );
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -102,7 +83,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
         </Button>
       </PopoverTrigger>
       <PopoverContent className={classNames('p-1', popoverClassName)}>
-        <Command className="rounded-sm" filter={commandFilter}>
+        <Command className="rounded-sm">
           <CommandList>
             <CommandInput
               placeholder={t('common.search.placeholder')}

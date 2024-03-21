@@ -2,7 +2,6 @@ import {
   Button,
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
   Popover,
@@ -12,7 +11,7 @@ import {
 } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { IOption, IBaseSelect } from './types';
 
@@ -31,6 +30,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     notFoundText = t('common.search.empty'),
     displayRender,
     search = true,
+    placeholder = t('common.search.placeholder'),
   } = props;
   const [open, setOpen] = useState(false);
 
@@ -43,7 +43,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     const isNull = value === null;
     const isSameType = typeof value === 'string';
     const isInOption = options.findIndex((option) => option.value === value) > -1;
-    if ((!isNull && !isSameType) || (!isInOption && options.length)) {
+    if ((!isNull && !isSameType) || (!isInOption && options.length && !isNull)) {
       onSelect?.(null);
     }
   }, [onSelect, value, options]);
@@ -51,25 +51,6 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   const selectedValue = useMemo(() => {
     return options.find((option) => option.value === value);
   }, [options, value]);
-
-  const optionMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    options.forEach((option) => {
-      const key = option.value.toLowerCase();
-      const value = option.label.toLowerCase();
-      map[key] = value;
-    });
-    return map;
-  }, [options]);
-
-  const commandFilter = useCallback(
-    (id: string, searchValue: string) => {
-      const name = optionMap[id] || t('common.untitled');
-      const containWord = name.indexOf(searchValue) > -1;
-      return Number(containWord);
-    },
-    [optionMap, t]
-  );
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={true}>
@@ -91,12 +72,9 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
         </Button>
       </PopoverTrigger>
       <PopoverContent className={classNames('p-1', popoverClassName)}>
-        <Command filter={commandFilter}>
+        <Command>
           {search ? (
-            <CommandInput
-              placeholder={t('common.search.placeholder')}
-              className="placeholder:text-[13px]"
-            />
+            <CommandInput placeholder={placeholder} className="placeholder:text-[13px]" />
           ) : null}
           <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandList>
