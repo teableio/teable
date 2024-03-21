@@ -16,6 +16,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       extension: ['.js', '.ts'],
+      include: ['src/**/*'],
     },
     logHeapUsage: true,
     reporters: ['verbose'],

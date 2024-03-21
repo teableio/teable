@@ -48,6 +48,6 @@
     "fs-extra": "11.2.0",
     "lodash": "4.17.21",
     "rimraf": "5.0.5",
-    "typescript": "5.4.2"
+    "typescript": "5.4.3"
   }
 }

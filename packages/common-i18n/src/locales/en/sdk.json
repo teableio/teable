@@ -27,7 +27,8 @@
       "uploadDragDefault": "Paste or drag and drop to upload here"
     },
     "date": {
-      "placeholder": "Pick a date"
+      "placeholder": "Pick a date",
+      "today": "Today"
     },
     "formula": {
       "title": "Formula Editor",

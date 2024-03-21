@@ -1,6 +1,9 @@
 name: Integration Tests
 
 on:
+  push:
+    branches:
+      - develop
   pull_request:
     branches:
       - develop
@@ -8,7 +11,7 @@ on:
       - 'apps/nestjs-backend/**'
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     name: Integration Tests
 
@@ -38,3 +41,18 @@ jobs:
           VITEST_MIN_THREADS: 1
         run: |
           make ${{ matrix.database-type }}.integration.test
+
+      - name: Coveralls Parallel
+        uses: coverallsapp/github-action@v2
+        with:
+          flag-name: run-${{ join(matrix.*, '-') }}
+          parallel: true
+
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

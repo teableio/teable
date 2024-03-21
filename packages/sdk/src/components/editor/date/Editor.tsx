@@ -2,7 +2,8 @@ import { TimeFormatting } from '@teable/core';
 import { Calendar } from '@teable/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import classNames from 'classnames';
-import dayjs from 'dayjs';
+import dayjs, { extend } from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
@@ -10,12 +11,18 @@ import type { IEditorRef } from '../type';
 import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
 
+extend(timezone);
+
 const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMain> = (
   props,
   ref
 ) => {
-  const { value, onChange, className, readonly, options } = props;
-  const { date, time } = options?.formatting || {};
+  const { value, onChange, className, readonly, options, disableTimePicker = false } = props;
+  const {
+    date,
+    time,
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+  } = options?.formatting || {};
   const editorRef = useRef<IEditorRef<string>>(null);
   const { t } = useTranslation();
 
@@ -32,8 +39,8 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
     if (date && time) {
       format = time === TimeFormatting.None ? date : `${date} ${time}`;
     }
-    return dayjs(value).format(format);
-  }, [value, t, date, time]);
+    return dayjs(value).tz(timeZone).format(format);
+  }, [value, t, date, time, timeZone]);
 
   return (
     <Popover>
@@ -51,7 +58,13 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <DateEditorMain ref={editorRef} value={value} options={options} onChange={onChange} />
+        <DateEditorMain
+          ref={editorRef}
+          value={value}
+          options={options}
+          disableTimePicker={disableTimePicker}
+          onChange={onChange}
+        />
       </PopoverContent>
     </Popover>
   );
