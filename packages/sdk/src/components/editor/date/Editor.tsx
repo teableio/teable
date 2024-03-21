@@ -17,7 +17,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   props,
   ref
 ) => {
-  const { value, onChange, className, readonly, options, disableTimePicker } = props;
+  const { value, onChange, className, readonly, options, disableTimePicker = false } = props;
   const {
     date,
     time,
@@ -35,12 +35,12 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const valueComponent = useMemo(() => {
     if (!value) return <span>{t('editor.date.placeholder')}</span>;
 
-    let format = disableTimePicker ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD';
-    if (date && time && disableTimePicker === undefined) {
+    let format = 'YYYY-MM-DD HH:mm';
+    if (date && time) {
       format = time === TimeFormatting.None ? date : `${date} ${time}`;
     }
     return dayjs(value).tz(timeZone).format(format);
-  }, [value, t, disableTimePicker, date, time, timeZone]);
+  }, [value, t, date, time, timeZone]);
 
   return (
     <Popover>
