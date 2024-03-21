@@ -2,13 +2,16 @@ import { TimeFormatting } from '@teable/core';
 import { Calendar } from '@teable/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import classNames from 'classnames';
-import dayjs from 'dayjs';
+import dayjs, { extend } from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import type { IEditorRef } from '../type';
 import type { IDateEditorMain } from './EditorMain';
 import { DateEditorMain } from './EditorMain';
+
+extend(timezone);
 
 const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMain> = (
   props,

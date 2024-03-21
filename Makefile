@@ -23,7 +23,7 @@ else
 	RESET        := ""
 endif
 
-ENV_PATH ?= apps/nextjs-app
+ENV_PATH ?= ./apps/nextjs-app
 
 DOCKER_COMPOSE ?= docker compose
 
@@ -45,7 +45,7 @@ UNAME_S := $(shell uname -s)
 # prisma database url defaults
 SQLITE_PRISMA_DATABASE_URL ?= file:../../db/main.db
 # set param statement_cache_size=1 to avoid query error `ERROR: cached plan must not change result type` after alter column type (modify field type)
-POSTGES_PRISMA_DATABASE_URL ?= postgresql://teable:teable@127.0.0.1:5432/teable?schema=public\&statement_cache_size=1
+POSTGES_PRISMA_DATABASE_URL ?= postgresql://teable:teable\@127.0.0.1:5432/teable?schema=public\&statement_cache_size=1
 
 # If the first make argument is "start", "stop"...
 ifeq (docker.start,$(firstword $(MAKECMDGOALS)))
@@ -281,11 +281,13 @@ FILE_ENV_PATHS = $(ENV_PATH)/.env.development* $(ENV_PATH)/.env.test*
 switch.prisma.env:
 ifeq ($(CI)-$(RUN_DB_MODE),0-sqlite)
 	@for file in $(FILE_ENV_PATHS); do \
-		sed -i '' 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(SQLITE_PRISMA_DATABASE_URL)~' $$file; \
+		echo $$file; \
+		perl -i -pe 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(SQLITE_PRISMA_DATABASE_URL)~' $$file; \
 	done
 else ifeq ($(CI)-$(RUN_DB_MODE),0-postges)
 	@for file in $(FILE_ENV_PATHS); do \
-		sed -i '' 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(POSTGES_PRISMA_DATABASE_URL)~' $$file; \
+		echo $$file; \
+		perl -i -pe 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(POSTGES_PRISMA_DATABASE_URL)~' $$file; \
 	done
 endif
 
