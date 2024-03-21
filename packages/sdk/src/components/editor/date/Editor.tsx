@@ -14,8 +14,12 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   props,
   ref
 ) => {
-  const { value, onChange, className, readonly, options } = props;
-  const { date, time } = options?.formatting || {};
+  const { value, onChange, className, readonly, options, enableTimePicker } = props;
+  const {
+    date,
+    time,
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+  } = options?.formatting || {};
   const editorRef = useRef<IEditorRef<string>>(null);
   const { t } = useTranslation();
 
@@ -28,12 +32,12 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const valueComponent = useMemo(() => {
     if (!value) return <span>{t('editor.date.placeholder')}</span>;
 
-    let format = 'YYYY-MM-DD HH:mm';
-    if (date && time) {
+    let format = enableTimePicker ? 'YYYY-MM-DD HH:mm' : 'YYYY-MM-DD';
+    if (date && time && enableTimePicker === undefined) {
       format = time === TimeFormatting.None ? date : `${date} ${time}`;
     }
-    return dayjs(value).format(format);
-  }, [value, t, date, time]);
+    return dayjs(value).tz(timeZone).format(format);
+  }, [value, t, enableTimePicker, date, time, timeZone]);
 
   return (
     <Popover>
@@ -51,7 +55,13 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <DateEditorMain ref={editorRef} value={value} options={options} onChange={onChange} />
+        <DateEditorMain
+          ref={editorRef}
+          value={value}
+          options={options}
+          enableTimePicker={enableTimePicker}
+          onChange={onChange}
+        />
       </PopoverContent>
     </Popover>
   );

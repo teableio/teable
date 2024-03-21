@@ -203,7 +203,7 @@ sqlite.integration.test:
 	@export PRISMA_DATABASE_URL='file:../../db/main.db'; \
 	make sqlite.mode; \
 	pnpm -F "./packages/**" run build; \
-	pnpm g:test-e2e
+	pnpm g:test-e2e-cover
 
 postgres.integration.test: docker.create.network
 	@TEST_PG_CONTAINER_NAME=teable-postgres-$(CI_JOB_ID); \
@@ -214,7 +214,7 @@ postgres.integration.test: docker.create.network
 		export PRISMA_DATABASE_URL=postgresql://teable:teable@127.0.0.1:25432/e2e_test_teable?schema=public\&statement_cache_size=1 && \
 		make postgres.mode && \
 		pnpm -F "./packages/**" run build && \
-		pnpm g:test-e2e && \
+		pnpm g:test-e2e-cover && \
 		docker rm -fv $$TEST_PG_CONTAINER_NAME
 
 gen-sqlite-prisma-schema:

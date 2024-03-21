@@ -19,7 +19,8 @@
       "uploadDragDefault": "粘贴或拖放文件到此处上传"
     },
     "date": {
-      "placeholder": "选择日期"
+      "placeholder": "选择日期",
+      "today": "今天"
     },
     "formula": {
       "title": "公式编辑器",

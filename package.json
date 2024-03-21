@@ -36,6 +36,7 @@
     "g:release": "pnpm g:build && changeset publish",
     "g:test": "pnpm g:test-e2e && pnpm g:test-unit",
     "g:test-e2e": "pnpm -r test-e2e",
+    "g:test-e2e-cover": "pnpm -r test-e2e-cover",
     "g:test-unit": "pnpm -r --parralel test-unit",
     "g:test-unit-cover": "pnpm -r --parralel test-unit-cover",
     "g:typecheck": "pnpm -r --parralel typecheck",
@@ -63,7 +64,7 @@
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "shell-quote": "1.8.1",
-    "typescript": "5.4.2",
+    "typescript": "5.4.3",
     "zx": "7.2.3"
   },
   "engines": {
