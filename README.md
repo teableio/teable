@@ -196,9 +196,6 @@ corepack enable
 
 # Install project dependencies
 pnpm install
-
-# Build packages
-pnpm g:build
 ```
 
 #### 2. Select Database
@@ -216,7 +213,13 @@ cd apps/nextjs-app
 copy .env.development .env.development.local
 ```
 
-#### 4. Run Dev Server
+#### 4. Build packages
+
+```sh
+pnpm g:build
+```
+
+#### 5. Run Dev Server
 
 you just need to start backend, it will start next server for frontend automatically, file change will be auto reload
 

@@ -11,7 +11,7 @@ import type { ICellEditor, IEditorRef } from '../type';
 export interface IDateEditorMain extends ICellEditor<string | null> {
   style?: React.CSSProperties;
   options?: IDateFieldOptions;
-  enableTimePicker?: boolean;
+  disableTimePicker?: boolean;
 }
 
 const LOCAL_MAP = {
@@ -23,13 +23,12 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   props,
   ref
 ) => {
-  const { value, style, className, onChange, readonly, options, enableTimePicker } = props;
+  const { value, style, className, onChange, readonly, options, disableTimePicker = false } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { time, timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone } =
     options?.formatting || {};
   const [date, setDate] = useState<string | null>(value || null);
-  const hasTimePicker =
-    enableTimePicker !== undefined ? enableTimePicker : time !== TimeFormatting.None;
+  const notHaveTimePicker = disableTimePicker || time === TimeFormatting.None;
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const { lang = 'en' } = useContext(AppContext);
   const { t } = useTranslation();
@@ -41,9 +40,9 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
   }));
 
   const onSelect = (value?: Date) => {
-    if (!value) onChange?.(null);
+    if (!value) return onChange?.(null);
 
-    const curDatetime = zonedTimeToUtc(value!, timeZone);
+    const curDatetime = zonedTimeToUtc(value, timeZone);
 
     if (date) {
       const prevDatetime = toDate(date, { timeZone });
@@ -118,7 +117,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
         captionLayout="dropdown-buttons"
         footer={
           <div className="flex items-center justify-center p-1">
-            {hasTimePicker && date ? (
+            {!notHaveTimePicker && date ? (
               <Input
                 className="mr-3 w-7/12"
                 ref={inputRef}
@@ -140,7 +139,7 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
           </div>
         }
       />
-      <input className="size-0 opacity-0" ref={defaultFocusRef} />
+      <input className="invisible size-0 opacity-0" ref={defaultFocusRef} />
     </>
   );
 };
