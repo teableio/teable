@@ -70,7 +70,6 @@ export class RecordOpenApiService {
     tableId: string,
     createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
-    console.log('createRecordsRo', createRecordsRo);
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
     const typecastRecords = await this.validateFieldsAndTypecast(
       tableId,

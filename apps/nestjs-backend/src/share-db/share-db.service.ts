@@ -108,7 +108,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   private shouldPublishAction(rawOp: EditOp | CreateOp | DeleteOp) {
-    const viewKeys = ['filter', 'sort', 'group'];
+    const viewKeys = ['filter', 'sort', 'group', 'lastModifiedTime'];
     const fieldKeys = ['options'];
     return rawOp.op?.some(
       (op) =>
