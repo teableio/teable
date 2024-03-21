@@ -111,8 +111,12 @@
       "linkUrl": "Link(URL)",
       "linkUrlInputTitle": "从URl下载文件",
       "importTitle": "创建一个新表格",
+      "incrementImportTitle": "导入到 — ",
       "optionsTitle": "导入选项",
-      "leaveTitle": "确定离开此页面?"
+      "leaveTitle": "确定离开此页面?",
+      "primitiveFields": "原表字段",
+      "importFields": "导入的字段",
+      "primaryField": "主键"
     },
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
@@ -120,18 +124,23 @@
       "csvFile": "Csv 文件",
       "cancel": "取消",
       "leave": "取消",
-      "downAsCsv": "下载 CSV"
+      "downAsCsv": "下载 CSV",
+      "importData": "导入数据"
     },
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
       "leaveTip": "你的数据仍然会被导入",
       "fileExceedSizeTip": "该类型文件限制文件大小为",
-      "analyzing": "分析中"
+      "analyzing": "分析中",
+      "notSupportFieldType": "字段类型不支持",
+      "resultEmpty": "未查询到结果"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",
       "useFirstRowAsHeaderOptionName": "使用第一行作为行头",
-      "importDataOptionName": "导入数据"
+      "importDataOptionName": "导入数据",
+      "sheetKey": "表名：",
+      "excludeFirstRow": "忽略首行"
     },
     "form": {
       "defaultFieldName": "字段",
@@ -141,7 +150,15 @@
         "errorFileFormat": "文件格式错误！",
         "uniqueFieldName": "字段名不能重复！",
         "fieldNameEmpty": "字段名不能为空"
+      },
+      "option": {
+        "doNotImport": "无需导入"
       }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "下载 Csv文件"
     }
   },
   "grid": {
