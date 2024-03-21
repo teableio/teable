@@ -5,6 +5,7 @@ import { SelectionRegionType } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Record } from '@teable/sdk/model';
 import {
+  cn,
   Command,
   CommandGroup,
   CommandItem,
@@ -15,7 +16,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
@@ -63,7 +63,7 @@ export const RecordMenu = () => {
 
   const visible = Boolean(recordMenu);
   const position = recordMenu?.position;
-  const isAutoSort = view?.sort && !view.sort?.manualSort;
+  const isAutoSort = Boolean(view?.sort && !view.sort?.manualSort);
   const style = position
     ? {
         left: position.x,
@@ -155,7 +155,7 @@ export const RecordMenu = () => {
   return (
     <Command
       ref={recordMenuRef}
-      className={classNames('absolute rounded-sm shadow-sm w-60 h-auto border', {
+      className={cn('absolute rounded-sm shadow-sm w-60 h-auto border', {
         hidden: !visible,
       })}
       style={style}
@@ -170,26 +170,39 @@ export const RecordMenu = () => {
               <CommandGroup aria-valuetext="name">
                 {items.map(({ type, name, icon, className, disabled, onClick }) => (
                   <CommandItem
-                    className={classNames('px-4 py-2', className)}
+                    className={cn('px-4 py-2', className)}
                     key={type}
                     value={name}
-                    disabled={disabled}
                     onSelect={async () => {
+                      if (disabled) {
+                        return;
+                      }
                       await onClick();
                       closeRecordMenu();
                     }}
                   >
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger disabled={!disabled}>
-                          {icon}
-                          {name}
-                        </TooltipTrigger>
-                        <TooltipContent hideWhenDetached={true}>
-                          {t('table:view.insertToolTip')}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    {disabled ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger
+                            className={cn('flex items-center gap-2', {
+                              'opacity-50': disabled,
+                            })}
+                          >
+                            {icon}
+                            {name}
+                          </TooltipTrigger>
+                          <TooltipContent hideWhenDetached={true}>
+                            {t('table:view.insertToolTip')}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <>
+                        {icon}
+                        {name}
+                      </>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>

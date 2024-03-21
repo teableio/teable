@@ -137,15 +137,15 @@ export const useGridAsyncRecords = (
         throw new Error('Can not find view id');
       }
 
-      if (newRowIndex === -1) {
+      if (newRowIndex === 0) {
         Record.updateRecordOrders(tableId as string, viewId, {
-          anchorId: operationRecordIds[0],
+          anchorId: loadedRecordMap[0].id,
           position: 'before',
           recordIds: operationRecordIds,
         });
         return;
       }
-      const record = loadedRecordMap[newRowIndex];
+      const record = loadedRecordMap[newRowIndex - 1];
       if (!record) {
         throw new Error("Can't find target record by index: " + newRowIndex);
       }
