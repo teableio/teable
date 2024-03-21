@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - fix/date-time-zone
   pull_request:
     branches:
       - develop
