@@ -54,7 +54,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
       <TableBody>
         {columns.map((column, index) => (
           <TableRow key={index}>
-            <TableCell className="relative font-medium">
+            <TableCell className="relative min-w-56 font-medium">
               <Input
                 placeholder="fieldName"
                 className="h-8"
@@ -66,15 +66,24 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
                 }}
               />
             </TableCell>
-            <TableCell>
+            <TableCell className="w-full max-w-md">
               <BaseSingleSelect
                 className="w-full"
                 options={candidates}
+                popoverClassName="w-96 truncate"
                 value={column.type}
                 onSelect={(value) => {
                   const newColumns = [...columns];
                   newColumns[index].type = value as FieldType;
                   onChangeHandler(newColumns);
+                }}
+                optionRender={(option) => {
+                  return (
+                    <div className="flex items-center truncate">
+                      <span className="mr-1 shrink-0">{option.icon}</span>
+                      <span>{option.label}</span>
+                    </div>
+                  );
                 }}
               ></BaseSingleSelect>
             </TableCell>

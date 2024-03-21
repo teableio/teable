@@ -1,6 +1,13 @@
-import { Controller, Get, UseGuards, Query, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, Post, Body, Param, Patch } from '@nestjs/common';
 import type { IAnalyzeVo } from '@teable/core';
-import { analyzeRoSchema, IAnalyzeRo, IImportOptionRo, importOptionRoSchema } from '@teable/core';
+import {
+  analyzeRoSchema,
+  IAnalyzeRo,
+  IImportOptionRo,
+  importOptionRoSchema,
+  IInplaceImportOptionRo,
+  inplaceImportOptionRoSchema,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -25,5 +32,14 @@ export class ImportController {
     @Body(new ZodValidationPipe(importOptionRoSchema)) importRo: IImportOptionRo
   ): Promise<ITableFullVo[]> {
     return await this.importOpenService.createTableFromImport(baseId, importRo);
+  }
+
+  @Patch(':tableId')
+  async inplaceImportTable(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(inplaceImportOptionRoSchema))
+    inplaceImportRo: IInplaceImportOptionRo
+  ): Promise<void> {
+    return await this.importOpenService.inplaceImportTable(tableId, inplaceImportRo);
   }
 }

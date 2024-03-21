@@ -7,9 +7,9 @@ import type {
   SUPPORTEDTYPE,
   IAnalyzeVo,
   IImportOption,
+  IInplaceImportOptionRo,
 } from '@teable/core';
-
-import { analyzeFile, importTableFromFile } from '@teable/openapi';
+import { analyzeFile, importTableFromFile, inplaceImportTableFromUpload } from '@teable/openapi';
 import type { INotifyVo } from '@teable/openapi';
 import { useBase } from '@teable/sdk';
 import {
@@ -36,12 +36,13 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useCallback } from 'react';
-import { FieldConfigPanel } from './field-config-panel';
+import { FieldConfigPanel, InplaceFieldConfigPanel } from './field-config-panel';
 import { UploadPanel } from './upload-panel';
 import { UrlPanel } from './UrlPanel';
 
 interface ITableImportProps {
   open?: boolean;
+  tableId?: string;
   children?: React.ReactElement;
   fileType: SUPPORTEDTYPE;
   onOpenChange?: (open: boolean) => void;
@@ -61,19 +62,24 @@ export const TableImport = (props: ITableImportProps) => {
   const router = useRouter();
   const { t } = useTranslation(['table']);
   const [step, setStep] = useState(Step.UPLOAD);
-  const { children, open, onOpenChange, fileType } = props;
+  const { children, open, onOpenChange, fileType, tableId } = props;
   const [errorMessage, setErrorMessage] = useState('');
   const [alterDialogVisible, setAlterDialogVisible] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileInfo, setFileInfo] = useState<IAnalyzeRo>({} as IAnalyzeRo);
   const primitiveWorkSheets = useRef<IAnalyzeVo['worksheets']>({});
   const [workSheets, setWorkSheets] = useState<IImportOptionRo['worksheets']>({});
+  const [insertConfig, setInsertConfig] = useState<IInplaceImportOptionRo['insertConfig']>({
+    excludeFirstRow: true,
+    sourceWorkSheetKey: '',
+    sourceColumnMap: {},
+  });
 
   const closeDialog = () => {
     dialogOpenProxy(false);
   };
 
-  const { mutateAsync, isLoading } = useMutation({
+  const { mutateAsync: importNewTableFn, isLoading } = useMutation({
     mutationFn: async ({ baseId, importRo }: { baseId: string; importRo: IImportOptionRo }) => {
       return (await importTableFromFile(baseId, importRo)).data;
     },
@@ -93,27 +99,62 @@ export const TableImport = (props: ITableImportProps) => {
     },
   });
 
+  const { mutateAsync: inplaceImportFn, isLoading: inplaceLoading } = useMutation({
+    mutationFn: (args: Parameters<typeof inplaceImportTableFromUpload>) => {
+      return inplaceImportTableFromUpload(...args);
+    },
+    onSuccess: () => {
+      onOpenChange?.(false);
+      const { tableId: routerTableId } = router.query;
+      routerTableId !== tableId &&
+        router.push(
+          {
+            pathname: '/base/[baseId]/[tableId]',
+            query: { baseId: base.id, tableId },
+          },
+          undefined,
+          {
+            shallow: true,
+          }
+        );
+    },
+  });
+
   const importTable = async () => {
-    for (const [, value] of Object.entries(workSheets)) {
-      const { columns } = value;
+    const importNewTable = () => {
+      for (const [, value] of Object.entries(workSheets)) {
+        const { columns } = value;
 
-      if (columns.some((col) => !col.name)) {
-        setErrorMessage(t('table:import.form.error.fieldNameEmpty'));
-        return;
+        if (columns.some((col) => !col.name)) {
+          setErrorMessage(t('table:import.form.error.fieldNameEmpty'));
+          return;
+        }
+        if (new Set(columns.map((col) => col.name.trim())).size !== columns.length) {
+          setErrorMessage(t('table:import.form.error.uniqueFieldName'));
+          return;
+        }
       }
-      if (new Set(columns.map((col) => col.name.trim())).size !== columns.length) {
-        setErrorMessage(t('table:import.form.error.uniqueFieldName'));
-        return;
-      }
-    }
 
-    mutateAsync({
-      baseId: base.id,
-      importRo: {
-        worksheets: workSheets,
-        ...fileInfo,
-      },
-    });
+      importNewTableFn({
+        baseId: base.id,
+        importRo: {
+          worksheets: workSheets,
+          ...fileInfo,
+        },
+      });
+    };
+
+    const inplaceImportTable = () => {
+      inplaceImportFn([
+        tableId as string,
+        {
+          ...fileInfo,
+          insertConfig,
+        },
+      ]);
+    };
+
+    tableId ? inplaceImportTable() : importNewTable();
   };
 
   const { mutateAsync: analyzeByUrl, isLoading: analyzeLoading } = useMutation({
@@ -138,6 +179,7 @@ export const TableImport = (props: ITableImportProps) => {
 
         workSheetsWithIndex[key] = item;
       }
+      setInsertConfig({ ...insertConfig, ['sourceWorkSheetKey']: Object.keys(worksheets)[0] });
       setWorkSheets(workSheetsWithIndex);
       primitiveWorkSheets.current = worksheets;
       setStep(Step.CONFIG);
@@ -156,16 +198,48 @@ export const TableImport = (props: ITableImportProps) => {
     [analyzeByUrl, fileType]
   );
 
-  const dialogOpenProxy = (open: boolean) => {
-    if (!open && Step.CONFIG && isLoading) {
-      setAlterDialogVisible(true);
-      return;
-    }
-    onOpenChange?.(open);
-  };
+  const fileCloseHandler = useCallback(() => {
+    setFile(null);
+  }, []);
+
+  const fileChangeHandler = useCallback(
+    (file: File | null) => {
+      const { exceedSize, accept } = importTypeMap[fileType];
+
+      const acceptGroup = accept.split(',');
+
+      if (file && !acceptGroup.includes(file.type)) {
+        toast.error(t('table:import.form.error.errorFileFormat'));
+        return;
+      }
+
+      if (exceedSize && file && file.size > exceedSize * 1024 * 1024) {
+        toast.error(`${t('table:import.tips.fileExceedSizeTip')} ${exceedSize}MB`);
+        return;
+      }
+
+      setFile(file);
+    },
+    [fileType, t]
+  );
+
+  const dialogOpenProxy = useCallback(
+    (open: boolean) => {
+      if (!open && Step.CONFIG && isLoading) {
+        setAlterDialogVisible(true);
+        return;
+      }
+      onOpenChange?.(open);
+    },
+    [isLoading, onOpenChange]
+  );
 
   const fieldChangeHandler = (value: IImportOptionRo['worksheets']) => {
     setWorkSheets(value);
+  };
+
+  const inplaceFieldChangeHandler = (value: IInplaceImportOptionRo['insertConfig']) => {
+    setInsertConfig(value);
   };
 
   return (
@@ -173,7 +247,15 @@ export const TableImport = (props: ITableImportProps) => {
       <Dialog open={open} onOpenChange={dialogOpenProxy}>
         {children && <DialogTrigger>{children}</DialogTrigger>}
         {open && (
-          <DialogContent className="flex max-h-[80%] max-w-[800px] flex-col overflow-hidden">
+          <DialogContent
+            className="z-50 flex max-h-[80%] max-w-[800px] flex-col overflow-hidden"
+            overlayStyle={{
+              pointerEvents: 'none',
+            }}
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <Tabs defaultValue="localFile" className="flex-1 overflow-auto">
               {step === Step.UPLOAD && (
                 <TabsList>
@@ -187,35 +269,28 @@ export const TableImport = (props: ITableImportProps) => {
                   <UploadPanel
                     fileType={fileType}
                     file={file}
-                    onChange={(file) => {
-                      const { exceedSize, accept } = importTypeMap[fileType];
-
-                      const acceptGroup = accept.split(',');
-
-                      if (file && !acceptGroup.includes(file.type)) {
-                        toast.error(t('table:import.form.error.errorFileFormat'));
-                        return;
-                      }
-
-                      if (exceedSize && file && file.size > exceedSize * 1024 * 1024) {
-                        toast.error(`${t('table:import.tips.fileExceedSizeTip')} ${exceedSize}MB`);
-                        return;
-                      }
-
-                      setFile(file);
-                    }}
-                    onClose={() => setFile(null)}
+                    onChange={fileChangeHandler}
+                    onClose={fileCloseHandler}
                     analyzeLoading={analyzeLoading}
                     onFinished={fileFinishedHandler}
-                  ></UploadPanel>
+                  />
                 )}
-                {step === Step.CONFIG && (
-                  <FieldConfigPanel
-                    workSheets={workSheets}
-                    errorMessage={errorMessage}
-                    onChange={fieldChangeHandler}
-                  ></FieldConfigPanel>
-                )}
+                {step === Step.CONFIG &&
+                  (tableId ? (
+                    <InplaceFieldConfigPanel
+                      tableId={tableId}
+                      workSheets={workSheets}
+                      insertConfig={insertConfig}
+                      onChange={inplaceFieldChangeHandler}
+                    ></InplaceFieldConfigPanel>
+                  ) : (
+                    <FieldConfigPanel
+                      tableId={tableId}
+                      workSheets={workSheets}
+                      errorMessage={errorMessage}
+                      onChange={fieldChangeHandler}
+                    ></FieldConfigPanel>
+                  ))}
               </TabsContent>
               <TabsContent value="url">
                 {step === Step.UPLOAD && (
@@ -227,6 +302,7 @@ export const TableImport = (props: ITableImportProps) => {
                 )}
                 {step === Step.CONFIG && (
                   <FieldConfigPanel
+                    tableId={tableId}
                     workSheets={workSheets}
                     errorMessage={errorMessage}
                     onChange={fieldChangeHandler}
@@ -244,9 +320,9 @@ export const TableImport = (props: ITableImportProps) => {
                     size="sm"
                     className="ml-1"
                     onClick={() => importTable()}
-                    disabled={isLoading}
+                    disabled={tableId ? inplaceLoading : isLoading}
                   >
-                    {isLoading && <Spin className="mr-1 size-4" />}
+                    {(tableId ? inplaceLoading : isLoading) && <Spin className="mr-1 size-4" />}
                     {t('table:import.title.import')}
                   </Button>
                 </footer>

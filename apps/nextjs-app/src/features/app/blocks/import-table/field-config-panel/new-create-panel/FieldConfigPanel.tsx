@@ -4,7 +4,7 @@ import { Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CollapsePanel } from './CollapsePanel';
+import { ImportOptionPanel } from '../CollapsePanel';
 import { PreviewColumn } from './PreviewColumn';
 
 export type ITableImportOptions = IImportOption & {
@@ -12,6 +12,7 @@ export type ITableImportOptions = IImportOption & {
 };
 
 interface IFieldConfigPanel {
+  tableId?: string;
   workSheets: IImportOptionRo['worksheets'];
   errorMessage: string;
   onChange: (sheets: IImportOptionRo['worksheets']) => void;
@@ -119,7 +120,7 @@ const FieldConfigPanel = (props: IFieldConfigPanel) => {
 
       {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
 
-      <CollapsePanel onChange={optionHandler} options={options}></CollapsePanel>
+      <ImportOptionPanel onChange={optionHandler} options={options} />
     </div>
   );
 };

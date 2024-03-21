@@ -111,8 +111,12 @@
       "linkUrl": "Link(URL)",
       "linkUrlInputTitle": "Add file from URL",
       "importTitle": "Create a new table",
+      "incrementImportTitle": "Import Into — ",
       "optionsTitle": "Import option",
-      "leaveTitle": "Are you sure to leave this page?"
+      "leaveTitle": "Are you sure to leave this page?",
+      "primitiveFields": "Primitive Fields",
+      "importFields": "Import Field",
+      "primaryField": "Primary Field"
     },
     "menu": {
       "addFromOtherSource": "Add from other sources",
@@ -120,18 +124,24 @@
       "csvFile": "Csv file",
       "cancel": "Cancel",
       "leave": "Leave",
-      "downAsCsv": "Download CSV"
+      "downAsCsv": "Download CSV",
+      "importData": "Import Data"
     },
     "tips": {
       "importWayTip": "Click or drag file to this area to upload",
       "leaveTip": "Your data will still be imported.",
       "fileExceedSizeTip": "This type file size exceeds the limit of",
-      "analyzing": "analyzing"
+      "analyzing": "analyzing",
+      "notSupportFieldType": "Field type is not supported",
+      "resultEmpty": "No results found.",
+      "searchPlaceholder": "Search import field"
     },
     "options": {
       "autoSelectFieldOptionName": "Auto-select field types",
       "useFirstRowAsHeaderOptionName": "Use first row as header",
-      "importDataOptionName": "Import Data"
+      "importDataOptionName": "Import Data",
+      "sheetKey": "SheetName: ",
+      "excludeFirstRow": "Exclude first row in import"
     },
     "form": {
       "defaultFieldName": "Field",
@@ -141,7 +151,15 @@
         "errorFileFormat": "File format is incorrect!",
         "uniqueFieldName": "Field name should be unique!",
         "fieldNameEmpty": "Field name should not be empty!"
+      },
+      "option": {
+        "doNotImport": "Do not import"
       }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "Download Csv"
     }
   },
   "grid": {

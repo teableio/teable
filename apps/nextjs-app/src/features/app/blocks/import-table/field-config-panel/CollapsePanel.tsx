@@ -1,4 +1,6 @@
+import type { IImportOptionRo } from '@teable/core';
 import { ChevronRight } from '@teable/icons';
+import { BaseSingleSelect } from '@teable/sdk/components/filter/component';
 import {
   Button,
   Collapsible,
@@ -8,18 +10,25 @@ import {
 } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { ITableImportOptions } from '../TableImport';
+import type { IInplaceOption } from './inplace-panel/InplaceFieldConfigPanel';
 
 interface ICollapsePanel {
   onChange: (value: boolean, propertyName: keyof ITableImportOptions) => void;
   options: ITableImportOptions;
 }
 
-export const CollapsePanel = (props: ICollapsePanel) => {
+interface IInplaceCollapsePanel {
+  onChange: (value: IInplaceOption) => void;
+  options: IInplaceOption;
+  workSheets: IImportOptionRo['worksheets'];
+}
+
+const CollapseWraper = (props: { children: React.ReactElement }) => {
   const [open, setOpen] = useState(false);
-  const { options, onChange } = props;
   const { t } = useTranslation(['table']);
+  const { children } = props;
 
   return (
     <Collapsible
@@ -35,7 +44,18 @@ export const CollapsePanel = (props: ICollapsePanel) => {
           {t('table:import.title.optionsTitle')}
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="flex flex-col items-start">
+      <CollapsibleContent className="flex flex-col items-start">{children}</CollapsibleContent>
+    </Collapsible>
+  );
+};
+
+export const ImportOptionPanel = (props: ICollapsePanel) => {
+  const { options, onChange } = props;
+  const { t } = useTranslation(['table']);
+
+  return (
+    <CollapseWraper>
+      <div>
         <label
           htmlFor="autoSelectType"
           className="flex w-56 cursor-pointer items-center rounded p-2 text-sm hover:bg-accent"
@@ -71,7 +91,59 @@ export const CollapsePanel = (props: ICollapsePanel) => {
           />
           <span className="pl-2">{t('table:import.options.importDataOptionName')}</span>
         </label>
-      </CollapsibleContent>
-    </Collapsible>
+      </div>
+    </CollapseWraper>
+  );
+};
+
+export const InplaceImportOptionPanel = (props: IInplaceCollapsePanel) => {
+  const { options, workSheets, onChange } = props;
+  const { t } = useTranslation(['table']);
+
+  const sheetKeyOptions = Object.keys(workSheets).map((key) => ({
+    label: key,
+    value: key,
+    icon: null,
+  }));
+
+  const onChangeHandler = (
+    key: keyof IInplaceOption,
+    value: IInplaceOption[keyof IInplaceOption]
+  ) => {
+    const newOptions = { ...options, [key]: value };
+    onChange(newOptions);
+  };
+
+  return (
+    <CollapseWraper>
+      <div>
+        {sheetKeyOptions?.length > 1 ? (
+          <div className="pl-4">
+            <span className="text-xs">{t('table:import.options.sheetKey')}</span>
+            <BaseSingleSelect
+              value={options.sourceWorkSheetKey}
+              options={sheetKeyOptions}
+              onSelect={(value) => {
+                onChangeHandler('sourceWorkSheetKey', value || '');
+              }}
+              className="w-56 truncate"
+              popoverClassName="w-56"
+            ></BaseSingleSelect>
+          </div>
+        ) : null}
+
+        <label
+          htmlFor="excludeFirstRow"
+          className="ml-4 flex w-56 cursor-pointer items-center rounded py-2 text-sm hover:bg-accent"
+        >
+          <Switch
+            id="excludeFirstRow"
+            checked={options.excludeFirstRow}
+            onCheckedChange={(value) => onChangeHandler('excludeFirstRow', value)}
+          />
+          <span className="pl-2">{t('table:import.options.excludeFirstRow')}</span>
+        </label>
+      </div>
+    </CollapseWraper>
   );
 };

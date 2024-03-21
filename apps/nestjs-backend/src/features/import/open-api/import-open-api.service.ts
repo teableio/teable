@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
-import type { IAnalyzeRo, IImportOptionRo } from '@teable/core';
+import type { IAnalyzeRo, IImportOptionRo, IInplaceImportOptionRo } from '@teable/core';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
@@ -91,5 +91,50 @@ export class ImportOpenApiService {
       }
     }
     return tableResult;
+  }
+
+  async inplaceImportTable(tableId: string, inplaceImportRo: IInplaceImportOptionRo) {
+    const { attachmentUrl, fileType, insertConfig } = inplaceImportRo;
+
+    const { sourceColumnMap, sourceWorkSheetKey, excludeFirstRow } = insertConfig;
+
+    const importer = importerFactory(fileType, {
+      url: attachmentUrl,
+      type: fileType,
+    });
+
+    importer.parse(
+      {
+        skipFirstNLines: excludeFirstRow ? 1 : 0,
+        key: sourceWorkSheetKey,
+      },
+      async (result) => {
+        const currentResult = result[sourceWorkSheetKey];
+        if (currentResult.length === 0) {
+          return;
+        }
+        // fill data
+        const records = currentResult.map((row) => {
+          const res: { fields: Record<string, unknown> } = {
+            fields: {},
+          };
+          for (const [key, value] of Object.entries(sourceColumnMap)) {
+            if (value !== null) {
+              res.fields[key] = row[value];
+            }
+          }
+          return res;
+        });
+        try {
+          await this.recordOpenApiService.multipleCreateRecords(tableId, {
+            fieldKeyType: FieldKeyType.Id,
+            typecast: true,
+            records,
+          });
+        } catch (e) {
+          this.logger.error((e as Error)?.message, 'Import: Records');
+        }
+      }
+    );
   }
 }

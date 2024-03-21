@@ -120,7 +120,7 @@ export abstract class Importer {
           ? validatingFieldTypes
           : [Importer.DEFAULT_COLUMN_TYPE];
 
-        const name = getUniqName(toString(column?.[0]) ?? `Field ${index}`, existNames);
+        const name = getUniqName(toString(column?.[0]) || `Field ${index}`, existNames);
 
         existNames.push(name);
 

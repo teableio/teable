@@ -61,6 +61,16 @@ export const importOptionRoSchema = z.object({
   fileType: z.nativeEnum(SUPPORTEDTYPE),
 });
 
+export const inplaceImportOptionRoSchema = z.object({
+  attachmentUrl: z.string().url(),
+  fileType: z.nativeEnum(SUPPORTEDTYPE),
+  insertConfig: z.object({
+    sourceWorkSheetKey: z.string(),
+    excludeFirstRow: z.boolean(),
+    sourceColumnMap: z.record(z.number().nullable()),
+  }),
+});
+
 export type IImportColumn = z.infer<typeof importColumnSchema>;
 
 export type IImportOptionRo = z.infer<typeof importOptionRoSchema>;
@@ -68,3 +78,5 @@ export type IImportOptionRo = z.infer<typeof importOptionRoSchema>;
 export type IImportSheetItem = z.infer<typeof importSheetItem>;
 
 export type IImportOption = z.infer<typeof importOptionSchema>;
+
+export type IInplaceImportOptionRo = z.infer<typeof inplaceImportOptionRoSchema>;
