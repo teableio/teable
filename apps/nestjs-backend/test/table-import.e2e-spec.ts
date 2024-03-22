@@ -2,7 +2,8 @@ import fs from 'fs';
 import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import { SUPPORTEDTYPE } from '@teable/core';
+import type { IInplaceImportOptionRo } from '@teable/core';
+import { FieldType, SUPPORTEDTYPE } from '@teable/core';
 import {
   getSignature as apiGetSignature,
   uploadFile as apiUploadFile,
@@ -10,6 +11,11 @@ import {
   analyzeFile as apiAnalyzeFile,
   importTableFromFile as apiImportTableFromFile,
   getTableById as apiGetTableById,
+  createBase as apiCreateBase,
+  createSpace as apiCreateSpace,
+  deleteBase as apiDeleteBase,
+  createTable as apiCreateTable,
+  inplaceImportTableFromUpload as apiInplaceImportTableFromUpload,
 } from '@teable/openapi';
 import * as XLSX from 'xlsx';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
@@ -22,6 +28,27 @@ enum TestFileFormat {
   'TXT' = 'txt',
   'XLSX' = 'xlsx',
 }
+
+const defaultTestSheetKey = 'Sheet1';
+
+const testSupportTypeMap = {
+  [TestFileFormat.CSV]: {
+    fileType: SUPPORTEDTYPE.CSV,
+    defaultSheetKey: CsvImporter.DEFAULT_SHEETKEY,
+  },
+  [TestFileFormat.TSV]: {
+    fileType: SUPPORTEDTYPE.CSV,
+    defaultSheetKey: CsvImporter.DEFAULT_SHEETKEY,
+  },
+  [TestFileFormat.TXT]: {
+    fileType: SUPPORTEDTYPE.CSV,
+    defaultSheetKey: CsvImporter.DEFAULT_SHEETKEY,
+  },
+  [TestFileFormat.XLSX]: {
+    fileType: SUPPORTEDTYPE.EXCEL,
+    defaultSheetKey: defaultTestSheetKey,
+  },
+};
 
 const testFileFormats = [
   TestFileFormat.CSV,
@@ -43,7 +70,6 @@ text"
 const tsvData = `field_1	field_2	field_3	field_4	field_5	field_6
 1	string_1	true	2022-11-10 16:00:00		"long\ntext"
 2	string_2	false	2022-11-11 16:00:00		`;
-const defaultTestSheetKey = 'Sheet1';
 const workbook = XLSX.utils.book_new();
 
 const worksheet = XLSX.utils.aoa_to_sheet([
@@ -56,7 +82,6 @@ XLSX.utils.book_append_sheet(workbook, worksheet, defaultTestSheetKey);
 
 let app: INestApplication;
 let testFiles: ITestFile = {};
-const baseId = globalThis.testConfig.baseId;
 const genTestFiles = async () => {
   const result: ITestFile = {};
   const fileDataMap = {
@@ -135,6 +160,8 @@ const assertHeaders = [
   },
 ];
 
+const bases: [string, string][] = [];
+
 beforeAll(async () => {
   const appCtx = await initApp();
   app = appCtx.app;
@@ -142,13 +169,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await app.close();
   testFileFormats.forEach((type) => {
     fs.unlink(testFiles[type].path, (err) => {
       if (err) throw err;
       console.log(`delete ${type} test file success!`);
     });
   });
+  for (let i = 0; i < bases.length; i++) {
+    const [baseId, id] = bases[i];
+    await deleteTable(baseId, id);
+    await apiDeleteBase(baseId);
+  }
+  await app.close();
 });
 
 describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from analyze sheet (Get) ', () => {
@@ -188,143 +220,134 @@ describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from 
 });
 
 describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
-  const tableIds: string[] = [];
+  it.each(testFileFormats.filter((format) => format !== TestFileFormat.TXT))(
+    'should create a new Table from %s file',
+    async (format) => {
+      const spaceRes = await apiCreateSpace({ name: `test${format}` });
+      const spaceId = spaceRes?.data?.id;
+      const baseRes = await apiCreateBase({ spaceId });
+      const baseId = baseRes.data.id;
+
+      const fileType = testSupportTypeMap[format].fileType;
+      const attachmentUrl = testFiles[format].url;
+      const defaultSheetKey = testSupportTypeMap[format].defaultSheetKey;
+
+      const {
+        data: { worksheets },
+      } = await apiAnalyzeFile({
+        attachmentUrl,
+        fileType,
+      });
+      const calculatedColumnHeaders = worksheets[defaultSheetKey].columns;
+
+      const table = await apiImportTableFromFile(baseId, {
+        attachmentUrl,
+        fileType,
+        worksheets: {
+          [defaultSheetKey]: {
+            name: defaultSheetKey,
+            columns: calculatedColumnHeaders.map((column, index) => ({
+              ...column,
+              sourceColumnIndex: index,
+            })),
+            useFirstRowAsHeader: true,
+            importData: true,
+          },
+        },
+      });
+
+      const { fields, id } = table.data[0];
+
+      const createdFields = fields.map((field) => ({
+        type: field.type,
+        name: field.name,
+      }));
+
+      const res = await apiGetTableById(baseId, table.data[0].id, {
+        includeContent: true,
+      });
+
+      bases.push([baseId, id]);
+
+      expect(createdFields).toEqual(assertHeaders);
+      expect(res).toMatchObject({
+        status: 200,
+        statusText: 'OK',
+      });
+    }
+  );
+});
+
+describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-  afterAll(async () => {
-    tableIds.forEach((tableId) => {
-      deleteTable(baseId, tableId);
-    });
-  });
-  // TODO fix sqlite error, cancel tmp delay
-  it(`should create a new Table from csv/tsv/excel file`, async () => {
-    const {
-      data: { worksheets },
-    } = await apiAnalyzeFile({
-      attachmentUrl: testFiles[TestFileFormat.CSV].url,
-      fileType: SUPPORTEDTYPE.CSV,
-    });
-    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
 
-    const table = await apiImportTableFromFile(baseId, {
-      attachmentUrl: testFiles[TestFileFormat.CSV].url,
-      fileType: SUPPORTEDTYPE.CSV,
-      worksheets: {
-        [CsvImporter.DEFAULT_SHEETKEY]: {
-          name: CsvImporter.DEFAULT_SHEETKEY,
-          columns: calculatedColumnHeaders.map((column, index) => ({
-            ...column,
-            sourceColumnIndex: index,
-          })),
-          useFirstRowAsHeader: true,
-          importData: true,
+  it('should import data into Table from file', async () => {
+    const spaceRes = await apiCreateSpace({ name: 'test1' });
+    const spaceId = spaceRes?.data?.id;
+    const baseRes = await apiCreateBase({ spaceId });
+    const baseId = baseRes.data.id;
+
+    const format = SUPPORTEDTYPE.CSV;
+    const attachmentUrl = testFiles[format].url;
+    const fileType = testSupportTypeMap[format].fileType;
+
+    // create a table
+    const tableRes = await apiCreateTable(baseId, {
+      fields: [
+        {
+          type: FieldType.Number,
+          name: 'field_1',
         },
+        {
+          type: FieldType.SingleLineText,
+          name: 'field_2',
+        },
+        {
+          type: FieldType.Checkbox,
+          name: 'field_3',
+        },
+        {
+          type: FieldType.Date,
+          name: 'field_4',
+        },
+        {
+          type: FieldType.SingleLineText,
+          name: 'field_5',
+        },
+        {
+          type: FieldType.LongText,
+          name: 'field_6',
+        },
+      ],
+    });
+    const tableId = tableRes.data.id;
+    const fields = tableRes?.data?.fields;
+    const sourceColumnMap: IInplaceImportOptionRo['insertConfig']['sourceColumnMap'] = {};
+    fields.forEach((field, index) => {
+      sourceColumnMap[field.id] = index;
+    });
+
+    // import data into table
+    await apiInplaceImportTableFromUpload(tableId, {
+      attachmentUrl,
+      fileType,
+      insertConfig: {
+        sourceWorkSheetKey: CsvImporter.DEFAULT_SHEETKEY,
+        excludeFirstRow: true,
+        sourceColumnMap,
       },
-    });
-
-    const { fields, id } = table.data[0];
-    tableIds.push(id);
-
-    const createdFields = fields.map((field) => ({
-      type: field.type,
-      name: field.name,
-    }));
-
-    const res = await apiGetTableById(baseId, table.data[0].id, {
-      includeContent: true,
-    });
-
-    expect(createdFields).toEqual(assertHeaders);
-    expect(res).toMatchObject({
-      status: 200,
-      statusText: 'OK',
     });
 
     await delay(1000);
 
     const {
-      data: { worksheets: worksheets1 },
-    } = await apiAnalyzeFile({
-      attachmentUrl: testFiles[TestFileFormat.XLSX].url,
-      fileType: SUPPORTEDTYPE.EXCEL,
-    });
-    const calculatedColumnHeaders1 = worksheets1[defaultTestSheetKey].columns;
-
-    const table1 = await apiImportTableFromFile(baseId, {
-      attachmentUrl: testFiles[TestFileFormat.XLSX].url,
-      fileType: SUPPORTEDTYPE.EXCEL,
-      worksheets: {
-        [defaultTestSheetKey]: {
-          name: defaultTestSheetKey,
-          columns: calculatedColumnHeaders1.map((column, index) => ({
-            ...column,
-            sourceColumnIndex: index,
-          })),
-          useFirstRowAsHeader: true,
-          importData: true,
-        },
-      },
-    });
-
-    const { fields: fields1, id: id1 } = table1.data[0];
-    tableIds.push(id1);
-
-    const createdFields1 = fields1.map((field) => ({
-      type: field.type,
-      name: field.name,
-    }));
-
-    const res1 = await apiGetTableById(baseId, table1.data[0].id, {
+      data: { records },
+    } = await apiGetTableById(baseId, tableId, {
       includeContent: true,
     });
 
-    expect(createdFields1).toEqual(assertHeaders);
-    expect(res1).toMatchObject({
-      status: 200,
-      statusText: 'OK',
-    });
+    bases.push([baseId, tableId]);
 
-    await delay(1000);
-
-    const {
-      data: { worksheets: worksheet2 },
-    } = await apiAnalyzeFile({
-      attachmentUrl: testFiles[TestFileFormat.TSV].url,
-      fileType: SUPPORTEDTYPE.CSV,
-    });
-    const calculatedColumnHeaders2 = worksheet2[CsvImporter.DEFAULT_SHEETKEY].columns;
-
-    const table2 = await apiImportTableFromFile(baseId, {
-      attachmentUrl: testFiles[TestFileFormat.TSV].url,
-      fileType: SUPPORTEDTYPE.CSV,
-      worksheets: {
-        [CsvImporter.DEFAULT_SHEETKEY]: {
-          name: defaultTestSheetKey,
-          columns: calculatedColumnHeaders2.map((column, index) => ({
-            ...column,
-            sourceColumnIndex: index,
-          })),
-          useFirstRowAsHeader: true,
-          importData: true,
-        },
-      },
-    });
-
-    const { fields: fields2, id: id2 } = table2.data[0];
-    tableIds.push(id2);
-
-    const createdFields2 = fields2.map((field) => ({
-      type: field.type,
-      name: field.name,
-    }));
-
-    const res2 = await apiGetTableById(baseId, table2.data[0].id, {
-      includeContent: true,
-    });
-
-    expect(createdFields2).toEqual(assertHeaders);
-    expect(res2).toMatchObject({
-      status: 200,
-      statusText: 'OK',
-    });
+    expect(records?.length).toBe(5);
   });
 });
