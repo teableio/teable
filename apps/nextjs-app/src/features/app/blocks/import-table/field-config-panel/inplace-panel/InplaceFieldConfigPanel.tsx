@@ -12,6 +12,7 @@ import { InplacePreviewColumn } from './InplacePreviewColumn';
 interface IInplaceFieldConfigPanel {
   tableId: string;
   workSheets: IImportOptionRo['worksheets'];
+  errorMessage: string;
   insertConfig: IInplaceImportOptionRo['insertConfig'];
   onChange: (value: IInplaceImportOptionRo['insertConfig']) => void;
 }
@@ -24,7 +25,7 @@ export type IInplaceOption = Pick<
 const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
   const base = useBase();
   const { t } = useTranslation(['table']);
-  const { tableId, workSheets, insertConfig, onChange } = props;
+  const { tableId, workSheets, insertConfig, onChange, errorMessage } = props;
 
   const options: IInplaceOption = useMemo(
     () => ({
@@ -87,6 +88,8 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
           ></InplacePreviewColumn>
         </div>
       )}
+
+      {errorMessage && <p className="pl-2 text-sm text-red-500">{errorMessage}</p>}
 
       <InplaceImportOptionPanel
         options={options}

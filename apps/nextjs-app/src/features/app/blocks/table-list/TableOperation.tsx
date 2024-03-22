@@ -134,8 +134,8 @@ export const TableOperation = (props: ITableOperationProps) => {
                       setImportType(SUPPORTEDTYPE.CSV);
                     }}
                   >
-                    <FileCsv />
-                    <span className="pl-1">{t('table:import.menu.csvFile')}</span>
+                    <FileCsv className="mr-2 size-4" />
+                    <span>{t('table:import.menu.csvFile')}</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
@@ -143,8 +143,8 @@ export const TableOperation = (props: ITableOperationProps) => {
                       setImportType(SUPPORTEDTYPE.EXCEL);
                     }}
                   >
-                    <FileExcel />
-                    <span className="pl-1">{t('table:import.menu.excelFile')}</span>
+                    <FileExcel className="mr-2 size-4" />
+                    <span>{t('table:import.menu.excelFile')}</span>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
