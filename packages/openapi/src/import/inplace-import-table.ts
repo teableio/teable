@@ -1,9 +1,10 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IInplaceImportOptionRo } from '@teable/core';
-import { tableVoSchema, inplaceImportOptionRoSchema } from '@teable/core';
+import { tableVoSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { inplaceImportOptionRoSchema } from './types';
+import type { IInplaceImportOptionRo } from './types';
 
 export const INPLACE_IMPORT_TABLE = '/import/{tableId}';
 

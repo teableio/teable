@@ -1,5 +1,5 @@
+import { FieldType } from '@teable/core';
 import z from 'zod';
-import { FieldType } from '../models';
 
 export enum SUPPORTEDTYPE {
   CSV = 'csv',

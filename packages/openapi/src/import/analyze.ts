@@ -1,8 +1,8 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IAnalyzeRo, IAnalyzeVo } from '@teable/core';
-import { analyzeRoSchema, analyzeVoSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
+import type { IAnalyzeRo, IAnalyzeVo } from './types';
+import { analyzeRoSchema, analyzeVoSchema } from './types';
 
 export const ANALYZE_FILE = '/import/analyze';
 

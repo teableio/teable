@@ -1,10 +1,6 @@
-import {
-  type IFieldVo,
-  type IInplaceImportOptionRo,
-  type IImportOptionRo,
-  FieldType,
-} from '@teable/core';
+import { type IFieldVo, FieldType } from '@teable/core';
 import { ArrowLeft } from '@teable/icons';
+import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk';
 import {
   Table,

@@ -1,5 +1,4 @@
 import { Controller, Get, UseGuards, Query, Post, Body, Param, Patch } from '@nestjs/common';
-import type { IAnalyzeVo } from '@teable/core';
 import {
   analyzeRoSchema,
   IAnalyzeRo,
@@ -7,8 +6,8 @@ import {
   importOptionRoSchema,
   IInplaceImportOptionRo,
   inplaceImportOptionRoSchema,
-} from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+} from '@teable/openapi';
+import type { ITableFullVo, IAnalyzeVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';

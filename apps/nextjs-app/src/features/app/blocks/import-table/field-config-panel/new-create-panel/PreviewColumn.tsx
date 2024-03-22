@@ -1,6 +1,7 @@
 import { IMPORT_SUPPORTED_TYPES } from '@teable/core';
-import type { FieldType, IImportColumn } from '@teable/core';
+import type { FieldType } from '@teable/core';
 import { Trash, Lock } from '@teable/icons';
+import type { IImportColumn } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk';
 import { BaseSingleSelect } from '@teable/sdk/components/filter/component';
 import {

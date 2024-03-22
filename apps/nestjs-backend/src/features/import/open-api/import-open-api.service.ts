@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
-import type { IAnalyzeRo, IImportOptionRo, IInplaceImportOptionRo } from '@teable/core';
+import type { IAnalyzeRo, IImportOptionRo, IInplaceImportOptionRo } from '@teable/openapi';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
