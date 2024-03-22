@@ -146,10 +146,11 @@
       "defaultFieldName": "字段",
       "error": {
         "urlEmptyTip": "URL不能为空！",
-        "urlValidateTip": "不能解析该URL，请重新输入！",
+        "fieldNameEmpty": "字段名不能为空",
         "errorFileFormat": "文件格式错误！",
         "uniqueFieldName": "字段名不能重复！",
-        "fieldNameEmpty": "字段名不能为空"
+        "urlValidateTip": "不能解析该URL，请重新输入！",
+        "atLeastAImportField": "请至少设置一个导入字段！"
       },
       "option": {
         "doNotImport": "无需导入"

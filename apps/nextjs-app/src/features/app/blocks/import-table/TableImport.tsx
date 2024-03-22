@@ -145,11 +145,22 @@ export const TableImport = (props: ITableImportProps) => {
     };
 
     const inplaceImportTable = () => {
+      const { sourceColumnMap } = insertConfig;
+      if (Object.values(sourceColumnMap).every((col) => col === null)) {
+        setErrorMessage(t('table:import.form.error.atLeastAImportField'));
+        return;
+      }
+      const preInsertConfig = {
+        ...insertConfig,
+        sourceColumnMap: Object.fromEntries(
+          Object.entries(sourceColumnMap).filter(([, value]) => value !== null)
+        ),
+      };
       inplaceImportFn([
         tableId as string,
         {
           ...fileInfo,
-          insertConfig,
+          insertConfig: preInsertConfig,
         },
       ]);
     };
@@ -281,6 +292,7 @@ export const TableImport = (props: ITableImportProps) => {
                       tableId={tableId}
                       workSheets={workSheets}
                       insertConfig={insertConfig}
+                      errorMessage={errorMessage}
                       onChange={inplaceFieldChangeHandler}
                     ></InplaceFieldConfigPanel>
                   ) : (
@@ -300,14 +312,23 @@ export const TableImport = (props: ITableImportProps) => {
                     fileType={fileType}
                   ></UrlPanel>
                 )}
-                {step === Step.CONFIG && (
-                  <FieldConfigPanel
-                    tableId={tableId}
-                    workSheets={workSheets}
-                    errorMessage={errorMessage}
-                    onChange={fieldChangeHandler}
-                  ></FieldConfigPanel>
-                )}
+                {step === Step.CONFIG &&
+                  (tableId ? (
+                    <InplaceFieldConfigPanel
+                      tableId={tableId}
+                      workSheets={workSheets}
+                      insertConfig={insertConfig}
+                      errorMessage={errorMessage}
+                      onChange={inplaceFieldChangeHandler}
+                    ></InplaceFieldConfigPanel>
+                  ) : (
+                    <FieldConfigPanel
+                      tableId={tableId}
+                      workSheets={workSheets}
+                      errorMessage={errorMessage}
+                      onChange={fieldChangeHandler}
+                    ></FieldConfigPanel>
+                  ))}
               </TabsContent>
             </Tabs>
             {step === Step.CONFIG && (

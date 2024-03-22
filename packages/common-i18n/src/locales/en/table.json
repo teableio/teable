@@ -147,10 +147,11 @@
       "defaultFieldName": "Field",
       "error": {
         "urlEmptyTip": "URL should not be empty!",
-        "urlValidateTip": "Couldn't parse URL. Try a different URL!",
         "errorFileFormat": "File format is incorrect!",
         "uniqueFieldName": "Field name should be unique!",
-        "fieldNameEmpty": "Field name should not be empty!"
+        "fieldNameEmpty": "Field name should not be empty!",
+        "atLeastAImportField": "Please set a import field at least",
+        "urlValidateTip": "Couldn't parse URL. Try a different URL!"
       },
       "option": {
         "doNotImport": "Do not import"
