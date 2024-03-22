@@ -1,5 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
-import { importTypeMap } from '@teable/core';
+import {
+  importTypeMap,
+  analyzeFile,
+  importTableFromFile,
+  inplaceImportTableFromFile,
+} from '@teable/openapi';
 import type {
   IImportOptionRo,
   IAnalyzeRo,
@@ -8,9 +13,8 @@ import type {
   IAnalyzeVo,
   IImportOption,
   IInplaceImportOptionRo,
-} from '@teable/core';
-import { analyzeFile, importTableFromFile, inplaceImportTableFromFile } from '@teable/openapi';
-import type { INotifyVo } from '@teable/openapi';
+  INotifyVo,
+} from '@teable/openapi';
 import { useBase } from '@teable/sdk';
 import {
   Dialog,

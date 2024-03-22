@@ -1,4 +1,3 @@
-import { SUPPORTEDTYPE } from '@teable/core';
 import {
   MoreHorizontal,
   Pencil,
@@ -9,6 +8,7 @@ import {
   FileCsv,
   FileExcel,
 } from '@teable/icons';
+import { SUPPORTEDTYPE } from '@teable/openapi';
 import { useBase, useTablePermission, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { ConfirmDialog } from '@teable/ui-lib/base';

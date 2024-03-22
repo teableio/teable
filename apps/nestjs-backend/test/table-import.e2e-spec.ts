@@ -2,8 +2,8 @@ import fs from 'fs';
 import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import type { IInplaceImportOptionRo } from '@teable/core';
-import { FieldType, SUPPORTEDTYPE } from '@teable/core';
+import { FieldType } from '@teable/core';
+import type { IInplaceImportOptionRo } from '@teable/openapi';
 import {
   getSignature as apiGetSignature,
   uploadFile as apiUploadFile,
@@ -16,6 +16,7 @@ import {
   deleteBase as apiDeleteBase,
   createTable as apiCreateTable,
   inplaceImportTableFromFile as apiInplaceImportTableFromFile,
+  SUPPORTEDTYPE,
 } from '@teable/openapi';
 import * as XLSX from 'xlsx';
 import { CsvImporter } from '../src/features/import/open-api/import.class';

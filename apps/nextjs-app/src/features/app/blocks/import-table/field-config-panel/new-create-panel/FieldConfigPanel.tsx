@@ -1,5 +1,5 @@
 import { FieldType } from '@teable/core';
-import type { IImportOption, IImportOptionRo, IImportSheetItem } from '@teable/core';
+import type { IImportOption, IImportOptionRo, IImportSheetItem } from '@teable/openapi';
 import { Button } from '@teable/ui-lib';
 import classNames from 'classnames';
 import { useState, useRef } from 'react';

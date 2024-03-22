@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
-import type { IValidateTypes, IAnalyzeVo } from '@teable/core';
-import { getUniqName, FieldType, SUPPORTEDTYPE, importTypeMap } from '@teable/core';
+import { getUniqName, FieldType } from '@teable/core';
+import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
+import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { zip, toString, intersection } from 'lodash';
 import fetch from 'node-fetch';
 import Papa from 'papaparse';

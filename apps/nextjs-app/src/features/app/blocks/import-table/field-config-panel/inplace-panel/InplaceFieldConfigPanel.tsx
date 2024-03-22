@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/core';
+import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/openapi';
 import { getTableById as apiGetTableById, getFields as apiGetFields } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
