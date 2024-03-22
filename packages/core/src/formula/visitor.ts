@@ -3,7 +3,7 @@
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import { CellValueType } from '../models/field/constant';
 import type { FieldCore } from '../models/field/field';
-import type { IRecord } from '../models/record/record.schema';
+import type { IRecord } from '../models/record';
 import { FunctionName } from './functions/common';
 import type { FormulaFunc } from './functions/common';
 import { FUNCTIONS } from './functions/factory';

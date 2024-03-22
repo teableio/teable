@@ -1,11 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type {
-  ICreateTableRo,
-  IOtOperation,
-  ISnapshotBase,
-  ITableFullVo,
-  ITableVo,
-} from '@teable/core';
+import type { IOtOperation, ISnapshotBase } from '@teable/core';
 import {
   FieldKeyType,
   generateTableId,
@@ -16,6 +10,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateTableRo, ITableFullVo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';

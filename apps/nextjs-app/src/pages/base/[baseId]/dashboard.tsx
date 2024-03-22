@@ -1,5 +1,4 @@
-import type { ITableVo } from '@teable/core';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { IGetBaseVo, ITableVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { DashboardPage } from '@/features/app/dashboard/Pages';

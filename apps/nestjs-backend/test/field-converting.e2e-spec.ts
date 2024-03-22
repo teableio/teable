@@ -7,7 +7,6 @@ import type {
   ILookupOptionsRo,
   IRollupFieldOptions,
   ISelectFieldOptions,
-  ITableFullVo,
 } from '@teable/core';
 import {
   Relationship,
@@ -24,6 +23,7 @@ import {
   DateFormattingPreset,
   generateFieldId,
 } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   getRecords,
   createField,

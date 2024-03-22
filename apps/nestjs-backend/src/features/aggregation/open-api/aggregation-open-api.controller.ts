@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable/core';
+import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable/openapi';
 import {
   aggregationRoSchema,
   groupPointsRoSchema,
@@ -8,7 +8,7 @@ import {
   IGroupPointsRo,
   IQueryBaseRo,
   queryBaseSchema,
-} from '@teable/core';
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TqlPipe } from '../../record/open-api/tql.pipe';

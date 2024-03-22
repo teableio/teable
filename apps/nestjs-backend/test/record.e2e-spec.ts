@@ -1,7 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ISelectFieldOptions, ITableFullVo } from '@teable/core';
+import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, Relationship } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createRecords,

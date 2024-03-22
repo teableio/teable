@@ -1,4 +1,4 @@
-import type { IFieldVo, IRecord, ITableFullVo, ITableListVo } from '@teable/core';
+import type { IFieldVo, IRecord } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
 import type {
   AcceptInvitationLinkRo,
@@ -9,6 +9,8 @@ import type {
   IUpdateNotifyStatusRo,
   ListSpaceCollaboratorVo,
   ShareViewGetVo,
+  ITableFullVo,
+  ITableListVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,

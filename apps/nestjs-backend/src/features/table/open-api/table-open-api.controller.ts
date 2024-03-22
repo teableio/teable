@@ -1,13 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
-import type { ITableFullVo, ITableListVo, ITableVo } from '@teable/core';
+import type { ITableFullVo, ITableListVo, ITableVo } from '@teable/openapi';
 import {
   getTableQuerySchema,
   IGetTableQuery,
   tableRoSchema,
   ICreateTableWithDefault,
-} from '@teable/core';
-import {
   dbTableNameRoSchema,
   getGraphRoSchema,
   IDbTableNameRo,

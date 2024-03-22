@@ -1,12 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import {
-  FieldType,
-  Relationship,
-  type IFieldRo,
-  type ITableFullVo,
-  FieldKeyType,
-} from '@teable/core';
+import { FieldType, Relationship, type IFieldRo, FieldKeyType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { planField, planFieldCreate, planFieldConvert, updateRecord } from '@teable/openapi';
 import { createField, createTable, deleteTable, initApp } from './utils/init-app';
 

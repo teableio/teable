@@ -1,7 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import type { ITableFullVo } from '@teable/core';
 import { ViewType } from '@teable/core';
-import type { ICreateBaseVo, ICreateSpaceVo } from '@teable/openapi';
+import type { ITableFullVo, ICreateBaseVo, ICreateSpaceVo } from '@teable/openapi';
 import {
   createBase,
   createSpace,

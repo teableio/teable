@@ -1,4 +1,5 @@
-import type { IGetRecordsRo, ILinkCellValue } from '@teable/core';
+import type { ILinkCellValue } from '@teable/core';
+import type { IGetRecordsRo } from '@teable/openapi';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';

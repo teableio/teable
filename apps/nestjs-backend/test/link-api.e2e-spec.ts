@@ -4,13 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type {
-  IFieldRo,
-  ILinkFieldOptions,
-  ILookupOptionsVo,
-  IRecord,
-  ITableFullVo,
-} from '@teable/core';
+import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo, IRecord } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -19,6 +13,7 @@ import {
   RecordOpBuilder,
   Relationship,
 } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { updateDbTableName } from '@teable/openapi';
 import type { Connection, Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';

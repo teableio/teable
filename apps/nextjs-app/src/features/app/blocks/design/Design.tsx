@@ -1,6 +1,6 @@
-import type { IFieldVo, ITableVo } from '@teable/core';
+import type { IFieldVo } from '@teable/core';
 import { ArrowLeft, Table2 } from '@teable/icons';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { IGetBaseVo, ITableVo } from '@teable/openapi';
 import type { Table } from '@teable/sdk';
 import { FieldProvider, useTable, useTablePermission } from '@teable/sdk';
 import { Button } from '@teable/ui-lib/shadcn';

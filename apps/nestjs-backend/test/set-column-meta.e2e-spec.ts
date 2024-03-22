@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, IFormColumnMeta, IGridColumnMeta, ITableFullVo } from '@teable/core';
+import type { IFieldVo, IFormColumnMeta, IGridColumnMeta } from '@teable/core';
 import { StatisticsFunc, ViewType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { sortBy } from 'lodash';
 import {
   initApp,

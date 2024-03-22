@@ -1,4 +1,4 @@
-import type { IAggregationVo } from '@teable/core';
+import type { IAggregationVo } from '@teable/openapi';
 import { Table } from '@teable/sdk/model';
 import { useEffect, useState } from 'react';
 

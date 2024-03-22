@@ -1,8 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IGetRecordsRo, ISortItem, ITableFullVo } from '@teable/core';
+import type { IFieldRo, ISortItem } from '@teable/core';
 import { CellValueType, SortFunc, FieldType } from '@teable/core';
+import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import { updateViewSort as apiSetViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import type { SingleSelectOptionsDto } from '../src/features/field/model/field-dto/single-select-field.dto';

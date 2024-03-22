@@ -4,18 +4,13 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import type {
-  IViewVo,
-  IShareViewMeta,
-  IRowCountVo,
-  ILinkFieldOptions,
-  IAggregationVo,
-  IGroupPointsVo,
-  StatisticsFunc,
-} from '@teable/core';
+import type { IViewVo, IShareViewMeta, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IRowCountVo,
+  IAggregationVo,
+  IGroupPointsVo,
   IShareViewLinkRecordsRo,
   ShareViewFormSubmitRo,
   ShareViewGetVo,

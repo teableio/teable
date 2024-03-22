@@ -6,7 +6,6 @@ import type {
   ILinkFieldOptions,
   ILinkFieldOptionsRo,
   ILookupOptionsRo,
-  ITableFullVo,
 } from '@teable/core';
 import {
   DateFormattingPreset,
@@ -17,6 +16,7 @@ import {
   TimeFormatting,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ITableFullVo } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { FieldCreateEvent } from '../src/event-emitter/events';
 import { Events } from '../src/event-emitter/events';

@@ -1,5 +1,6 @@
-import type { IGetRecordsRo, IRecord } from '@teable/core';
+import type { IRecord } from '@teable/core';
 import { IdPrefix } from '@teable/core';
+import type { IGetRecordsRo } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
 import { useInstances } from '../context/use-instances';
