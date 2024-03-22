@@ -1,5 +1,5 @@
-import { CellFormat, FieldKeyType } from './record';
-import { getRecordsRoSchema, recordSchema, recordsVoSchema } from './record.schema';
+import { CellFormat, FieldKeyType, recordSchema } from '@teable/core';
+import { getRecordsRoSchema, recordsVoSchema } from './get-list';
 
 describe('recordsRoSchema', () => {
   const validData = {

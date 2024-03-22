@@ -4,7 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import { CellValueType, DbFieldType, FieldType } from '../models/field/constant';
 import { LinkFieldCore, FormulaFieldCore, NumberFieldCore } from '../models/field/derivate';
 import type { FieldCore } from '../models/field/field';
-import type { IRecord } from '../models/record/record.schema';
+import type { IRecord } from '../models/record';
 import { evaluate } from './evaluate';
 
 describe('EvalVisitor', () => {

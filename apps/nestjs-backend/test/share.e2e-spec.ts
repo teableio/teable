@@ -1,5 +1,5 @@
 import { type INestApplication } from '@nestjs/common';
-import type { IFieldRo, IRecord, ITableFullVo, IViewRo } from '@teable/core';
+import type { IFieldRo, IRecord, IViewRo } from '@teable/core';
 import { ANONYMOUS_USER_ID, FieldType, Relationship, ViewType } from '@teable/core';
 import {
   enableShareView as apiEnableShareView,
@@ -7,9 +7,9 @@ import {
   updateViewFilter as apiUpdateViewFilter,
   SHARE_VIEW_FORM_SUBMIT,
   SHARE_VIEW_GET,
-  type ShareViewGetVo,
   urlBuilder,
 } from '@teable/openapi';
+import type { ITableFullVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
 import {

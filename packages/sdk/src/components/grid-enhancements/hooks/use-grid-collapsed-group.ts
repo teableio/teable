@@ -1,14 +1,7 @@
-import { is, or, and, isNot, hasNoneOf, isNotEmpty, FieldType, GroupPointType } from '@teable/core';
-import type {
-  IFilter,
-  IFilterSet,
-  IGetRecordsRo,
-  IGroupHeaderPoint,
-  IGroupPointsVo,
-  ILinkCellValue,
-  IOperator,
-  IUserCellValue,
-} from '@teable/core';
+import { is, or, and, isNot, hasNoneOf, isNotEmpty, FieldType } from '@teable/core';
+import type { IFilter, IFilterSet, ILinkCellValue, IOperator, IUserCellValue } from '@teable/core';
+import { GroupPointType } from '@teable/openapi';
+import type { IGetRecordsRo, IGroupHeaderPoint, IGroupPointsVo } from '@teable/openapi';
 import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
 import type { GridView, IFieldInstance } from '../../../model';

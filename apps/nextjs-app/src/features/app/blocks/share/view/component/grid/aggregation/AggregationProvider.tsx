@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IAggregationRo, IGridColumnMeta } from '@teable/core';
-import type { IShareViewAggregationsRo } from '@teable/openapi';
+import type { IGridColumnMeta } from '@teable/core';
+import type { IAggregationRo, IShareViewAggregationsRo } from '@teable/openapi';
 import { getShareViewAggregations } from '@teable/openapi';
 import type { PropKeys } from '@teable/sdk';
 import { useView, ReactQueryKeys, AggregationContext, useActionTrigger } from '@teable/sdk';

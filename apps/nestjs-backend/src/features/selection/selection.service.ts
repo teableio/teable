@@ -8,7 +8,6 @@ import type {
   INumberFieldOptionsRo,
   IRecord,
   ISingleLineTextFieldOptions,
-  IUpdateRecordsRo,
   IUserFieldOptions,
 } from '@teable/core';
 import {
@@ -28,6 +27,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IUpdateRecordsRo,
   IRangesToIdQuery,
   IRangesToIdVo,
   IPasteRo,

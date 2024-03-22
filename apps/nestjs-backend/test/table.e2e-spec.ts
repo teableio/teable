@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { ICreateTableRo } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship, RowHeightLevel, ViewType } from '@teable/core';
+import type { ICreateTableRo } from '@teable/openapi';
 import {
   updateTableDescription,
   updateTableIcon,

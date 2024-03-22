@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { FieldKeyType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   ICreateRecordsVo,
@@ -6,9 +8,7 @@ import type {
   IRecordInsertOrderRo,
   IUpdateRecordRo,
   IUpdateRecordsRo,
-} from '@teable/core';
-import { FieldKeyType } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+} from '@teable/openapi';
 import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';

@@ -1,6 +1,7 @@
-import type { IGetRecordsRo, ILinkCellValue, ILinkFieldOptions } from '@teable/core';
+import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
+import type { IGetRecordsRo } from '@teable/openapi';
 import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib';
 import {
   forwardRef,

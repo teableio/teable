@@ -1,7 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Get, UseGuards, Query, Post, Body, Param } from '@nestjs/common';
-import type { IAnalyzeVo, ITableFullVo } from '@teable/core';
+import type { IAnalyzeVo } from '@teable/core';
 import { analyzeRoSchema, IAnalyzeRo, IImportOptionRo, importOptionRoSchema } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { ImportOpenApiService } from './import-open-api.service';

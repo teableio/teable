@@ -1,19 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import type {
-  IAggregationField,
-  IGridColumnMeta,
-  IFilter,
-  IGetRecordsRo,
-  IQueryBaseRo,
-  IRawAggregations,
-  IRawAggregationValue,
-  IRawRowCountValue,
-  IGroupPoint,
-  IGroupPointsRo,
-} from '@teable/core';
+import type { IGridColumnMeta, IFilter } from '@teable/core';
 import {
   DbFieldType,
-  GroupPointType,
   mergeWithDefaultFilter,
   nullsToUndefined,
   parseGroup,
@@ -22,6 +10,17 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { GroupPointType } from '@teable/openapi';
+import type {
+  IAggregationField,
+  IGetRecordsRo,
+  IQueryBaseRo,
+  IRawAggregations,
+  IRawAggregationValue,
+  IRawRowCountValue,
+  IGroupPoint,
+  IGroupPointsRo,
+} from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty, isObject } from 'lodash';

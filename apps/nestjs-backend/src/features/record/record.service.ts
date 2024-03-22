@@ -7,15 +7,11 @@ import {
 } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
-  ICreateRecordsRo,
   IExtraResult,
   IFilter,
-  IGetRecordQuery,
-  IGetRecordsRo,
   IGroup,
   ILinkCellValue,
   IRecord,
-  IRecordsVo,
   ISetRecordOpContext,
   IShareViewMeta,
   ISnapshotBase,
@@ -36,6 +32,7 @@ import {
 } from '@teable/core';
 import type { Field, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateRecordsRo, IGetRecordQuery, IGetRecordsRo, IRecordsVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';

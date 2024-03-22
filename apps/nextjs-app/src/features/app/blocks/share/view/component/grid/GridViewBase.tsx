@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IGridViewOptions, IFilter, IGetRecordsRo } from '@teable/core';
+import type { IGridViewOptions, IFilter } from '@teable/core';
 import { RowHeightLevel, mergeFilter } from '@teable/core';
-import type { IRangesRo } from '@teable/openapi';
+import type { IGetRecordsRo, IRangesRo } from '@teable/openapi';
 import { shareViewCopy } from '@teable/openapi';
 import type {
   CombinedSelection,

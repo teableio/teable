@@ -1,7 +1,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { SpaceRole, type ITableFullVo } from '@teable/core';
-import type { CreateAccessTokenVo, ICreateSpaceVo, UpdateAccessTokenRo } from '@teable/openapi';
+import { SpaceRole } from '@teable/core';
+import type {
+  CreateAccessTokenVo,
+  ICreateSpaceVo,
+  ITableFullVo,
+  UpdateAccessTokenRo,
+} from '@teable/openapi';
 import {
   createAccessToken,
   deleteAccessToken,

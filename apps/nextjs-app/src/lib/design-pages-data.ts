@@ -1,5 +1,5 @@
-import type { IFieldVo, ITableVo } from '@teable/core';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { IFieldVo } from '@teable/core';
+import type { IGetBaseVo, ITableVo } from '@teable/openapi';
 import type { SsrApi } from '@/backend/api/rest/table.ssr';
 
 export interface IDesignPageProps {

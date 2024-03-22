@@ -1,14 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type {
-  IFieldRo,
-  IRecord,
-  IRecordInsertOrderRo,
-  ITableVo,
-  IUpdateFieldRo,
-  IViewRo,
-} from '@teable/core';
+import type { IFieldRo, IRecord, IUpdateFieldRo, IViewRo } from '@teable/core';
 import { FieldKeyType, TableCore } from '@teable/core';
-import type { IUpdateOrderRo } from '@teable/openapi';
+import type { IUpdateOrderRo, IRecordInsertOrderRo, ITableVo } from '@teable/openapi';
 import {
   createTable,
   deleteTable,

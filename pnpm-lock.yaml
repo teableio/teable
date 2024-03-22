@@ -1231,6 +1231,9 @@ importers:
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
+      '@vitest/coverage-v8':
+        specifier: 1.4.0
+        version: 1.4.0(vitest@1.4.0)
       eslint:
         specifier: 8.57.0
         version: 8.57.0
@@ -1240,6 +1243,12 @@ importers:
       typescript:
         specifier: 5.4.3
         version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@5.2.2)
+      vitest:
+        specifier: 1.4.0
+        version: 1.4.0(@types/node@20.9.0)(happy-dom@14.2.0)
 
   packages/sdk:
     dependencies:
@@ -14839,6 +14848,7 @@ packages:
 
   /filelist@1.0.4:
     resolution: {integrity: sha512-w1cEuf3S+DrLCQL7ET6kz+gmlJdbq9J7yXCSjK/OZCPA+qEN1WyF4ZAf0YYJa4/shHJra2t/d/r8SV4Ji+x+8Q==}
+    requiresBuild: true
     dependencies:
       minimatch: 5.1.6
 

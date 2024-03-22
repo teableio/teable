@@ -6,7 +6,7 @@ import type { RootContext } from '../../../../formula/parser/Formula';
 import { Formula } from '../../../../formula/parser/Formula';
 import { FormulaLexer } from '../../../../formula/parser/FormulaLexer';
 import { EvalVisitor } from '../../../../formula/visitor';
-import type { IRecord } from '../../../record/record.schema';
+import type { IRecord } from '../../../record';
 import { CellValueType } from '../../constant';
 import { FieldCore } from '../../field';
 import type { INumberFormatting, IDatetimeFormatting, IUnionFormatting } from '../../formatting';

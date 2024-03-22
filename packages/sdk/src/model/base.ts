@@ -1,5 +1,5 @@
-import type { DriverClient, ICreateTableRo, SpaceRole } from '@teable/core';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { DriverClient, SpaceRole } from '@teable/core';
+import type { IGetBaseVo, ICreateTableRo } from '@teable/openapi';
 import { knex, type Knex } from 'knex';
 import { Table } from './table/table';
 

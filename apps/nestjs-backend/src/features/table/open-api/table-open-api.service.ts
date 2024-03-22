@@ -1,20 +1,22 @@
 import { BadRequestException, NotFoundException, Injectable, Logger } from '@nestjs/common';
 import type {
-  ICreateRecordsRo,
-  ICreateTableRo,
-  ICreateTableWithDefault,
   IFieldRo,
   IFieldVo,
-  IGetTableQuery,
   ILinkFieldOptions,
   ILookupOptionsVo,
-  ITableFullVo,
-  ITableVo,
   IViewRo,
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IUpdateOrderRo } from '@teable/openapi';
+import type {
+  ICreateRecordsRo,
+  ICreateTableRo,
+  ICreateTableWithDefault,
+  IGetTableQuery,
+  ITableFullVo,
+  ITableVo,
+  IUpdateOrderRo,
+} from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';

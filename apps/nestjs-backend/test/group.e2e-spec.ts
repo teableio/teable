@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IGetRecordsRo, IGroupItem, ITableFullVo } from '@teable/core';
+import type { IFieldRo, IGroupItem } from '@teable/core';
 import { CellValueType, SortFunc } from '@teable/core';
+import type { ITableFullVo, IGetRecordsRo } from '@teable/openapi';
 import { updateViewGroup, updateViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import { x_20 } from './data-helpers/20x';
