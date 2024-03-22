@@ -37,7 +37,7 @@ export const inplaceImportTableFromFileRoute: RouteConfig = registerRoute({
   tags: ['import'],
 });
 
-export const inplaceImportTableFromUpload = async (
+export const inplaceImportTableFromFile = async (
   tableId: string,
   inplaceImportRo: IInplaceImportOptionRo
 ) => {
