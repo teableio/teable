@@ -45,11 +45,15 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
     queryFn: () => apiGetFields(tableId),
   });
 
-  const optionHandler = (value: IInplaceOption) => {
-    onChange({
+  const optionHandler = (value: IInplaceOption, propertyName: keyof IInplaceOption) => {
+    const newInsertConfig = {
       ...insertConfig,
       ...value,
-    });
+    };
+    if (propertyName === 'sourceWorkSheetKey') {
+      newInsertConfig.sourceColumnMap = {};
+    }
+    onChange(newInsertConfig);
   };
 
   const columnHandler = (value: IInplaceImportOptionRo['insertConfig']['sourceColumnMap']) => {

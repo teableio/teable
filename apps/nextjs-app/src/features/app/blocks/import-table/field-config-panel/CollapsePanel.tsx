@@ -20,7 +20,7 @@ interface ICollapsePanel {
 }
 
 interface IInplaceCollapsePanel {
-  onChange: (value: IInplaceOption) => void;
+  onChange: (value: IInplaceOption, propertyName: keyof IInplaceOption) => void;
   options: IInplaceOption;
   workSheets: IImportOptionRo['worksheets'];
 }
@@ -107,11 +107,11 @@ export const InplaceImportOptionPanel = (props: IInplaceCollapsePanel) => {
   }));
 
   const onChangeHandler = (
-    key: keyof IInplaceOption,
+    propertyName: keyof IInplaceOption,
     value: IInplaceOption[keyof IInplaceOption]
   ) => {
-    const newOptions = { ...options, [key]: value };
-    onChange(newOptions);
+    const newOptions = { ...options, [propertyName]: value };
+    onChange(newOptions, propertyName);
   };
 
   return (
