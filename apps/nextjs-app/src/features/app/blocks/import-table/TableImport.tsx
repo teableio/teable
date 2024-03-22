@@ -9,7 +9,7 @@ import type {
   IImportOption,
   IInplaceImportOptionRo,
 } from '@teable/core';
-import { analyzeFile, importTableFromFile, inplaceImportTableFromUpload } from '@teable/openapi';
+import { analyzeFile, importTableFromFile, inplaceImportTableFromFile } from '@teable/openapi';
 import type { INotifyVo } from '@teable/openapi';
 import { useBase } from '@teable/sdk';
 import {
@@ -100,8 +100,8 @@ export const TableImport = (props: ITableImportProps) => {
   });
 
   const { mutateAsync: inplaceImportFn, isLoading: inplaceLoading } = useMutation({
-    mutationFn: (args: Parameters<typeof inplaceImportTableFromUpload>) => {
-      return inplaceImportTableFromUpload(...args);
+    mutationFn: (args: Parameters<typeof inplaceImportTableFromFile>) => {
+      return inplaceImportTableFromFile(...args);
     },
     onSuccess: () => {
       onOpenChange?.(false);

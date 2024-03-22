@@ -15,7 +15,7 @@ import {
   createSpace as apiCreateSpace,
   deleteBase as apiDeleteBase,
   createTable as apiCreateTable,
-  inplaceImportTableFromUpload as apiInplaceImportTableFromUpload,
+  inplaceImportTableFromFile as apiInplaceImportTableFromFile,
 } from '@teable/openapi';
 import * as XLSX from 'xlsx';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
@@ -328,7 +328,7 @@ describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
     });
 
     // import data into table
-    await apiInplaceImportTableFromUpload(tableId, {
+    await apiInplaceImportTableFromFile(tableId, {
       attachmentUrl,
       fileType,
       insertConfig: {
