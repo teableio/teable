@@ -14,7 +14,6 @@ export const inplaceImportTableFromFileRoute: RouteConfig = registerRoute({
   description: 'import table inplace',
   request: {
     params: z.object({
-      baseId: z.string(),
       tableId: z.string(),
     }),
     body: {
@@ -27,12 +26,7 @@ export const inplaceImportTableFromFileRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Returns data about a table without records',
-      content: {
-        'application/json': {
-          schema: tableVoSchema,
-        },
-      },
+      description: 'Successfully import table inplace',
     },
   },
   tags: ['import'],
