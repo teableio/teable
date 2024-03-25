@@ -22,7 +22,7 @@ export const baseActionsSchema = defaultActionsSchema.or(z.enum(['invite_email',
 
 export type BaseActions = `${ActionPrefix.Base}|${z.infer<typeof baseActionsSchema>}`;
 
-export const tableActionsSchema = defaultActionsSchema.or(z.enum(['import']));
+export const tableActionsSchema = defaultActionsSchema.or(z.enum(['import', 'export']));
 
 export type TableActions = `${ActionPrefix.Table}|${z.infer<typeof tableActionsSchema>}`;
 

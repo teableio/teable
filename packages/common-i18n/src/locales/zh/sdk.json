@@ -117,6 +117,7 @@
       "tableDelete": "删除表格",
       "tableUpdate": "更新表格",
       "tableImport": "导入数据到表格",
+      "tableExport": "导出表格数据",
       "viewCreate": "创建视图",
       "viewDelete": "删除视图",
       "viewRead": "查看视图",

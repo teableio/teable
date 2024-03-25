@@ -65,6 +65,9 @@ const actionsI18nMap: Record<
   'table|import': {
     description: 'permission.actionDescription.tableImport',
   },
+  'table|export': {
+    description: 'permission.actionDescription.tableExport',
+  },
   'view|create': {
     description: 'permission.actionDescription.viewCreate',
   },

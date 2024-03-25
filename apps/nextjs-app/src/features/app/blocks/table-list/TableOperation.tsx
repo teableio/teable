@@ -1,4 +1,4 @@
-import { MoreHorizontal, Pencil, Settings, Trash2 } from '@teable/icons';
+import { MoreHorizontal, Pencil, Settings, Trash2, Export } from '@teable/icons';
 import { useBase, useTablePermission, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { ConfirmDialog } from '@teable/ui-lib/base';
@@ -11,9 +11,8 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useMemo } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
-
 interface ITableOperationProps {
   className?: string;
   table: Table;
@@ -29,6 +28,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const router = useRouter();
   const { baseId, tableId: routerTableId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const menuPermission = useMemo(() => {
     return {
@@ -93,6 +93,16 @@ export const TableOperation = (props: ITableOperationProps) => {
                 {t('table:table.design')}
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                if (iframeRef.current) {
+                  iframeRef.current.src = `/api/export/${table.id}`;
+                }
+              }}
+            >
+              <Export className="mr-2" />
+              {t('table:import.menu.downAsCsv')}
+            </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
               <Trash2 className="mr-2" />
               {t('common:actions.delete')}
@@ -115,6 +125,7 @@ export const TableOperation = (props: ITableOperationProps) => {
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={deleteTable}
       />
+      <iframe ref={iframeRef} title="This for export csv download" style={{ display: 'none' }} />
     </div>
   );
 };

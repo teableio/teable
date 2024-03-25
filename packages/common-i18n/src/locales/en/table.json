@@ -119,7 +119,8 @@
       "excelFile": "Microsoft Excel",
       "csvFile": "Csv file",
       "cancel": "Cancel",
-      "leave": "Leave"
+      "leave": "Leave",
+      "downAsCsv": "Download CSV"
     },
     "tips": {
       "importWayTip": "Click or drag file to this area to upload",

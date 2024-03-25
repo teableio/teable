@@ -125,6 +125,7 @@
       "tableDelete": "Delete table",
       "tableUpdate": "Update table",
       "tableImport": "Import data into table",
+      "tableExport": "export table data",
       "viewCreate": "Create view",
       "viewDelete": "Delete view",
       "viewRead": "Read view",

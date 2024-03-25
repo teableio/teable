@@ -119,7 +119,8 @@
       "excelFile": "Microsoft Excel",
       "csvFile": "Csv 文件",
       "cancel": "取消",
-      "leave": "取消"
+      "leave": "取消",
+      "downAsCsv": "下载 CSV"
     },
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
