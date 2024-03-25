@@ -1,5 +1,6 @@
 import { Readable } from 'stream';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
 import Papa from 'papaparse';
 import { FieldService } from '../../field/field.service';
@@ -10,7 +11,8 @@ export class ExportOpenApiService {
   private logger = new Logger(ExportOpenApiService.name);
   constructor(
     private readonly recordService: RecordService,
-    private readonly fieldService: FieldService
+    private readonly fieldService: FieldService,
+    private readonly prismaService: PrismaService
   ) {}
   async exportCsvFromTable(tableId: string, response: Response) {
     let count = 0;
@@ -20,8 +22,20 @@ export class ExportOpenApiService {
       read() {},
     });
 
+    const tableRaw = await this.prismaService.tableMeta
+      .findUnique({
+        where: { id: tableId },
+        select: { name: true },
+      })
+      .catch(() => {
+        throw new BadRequestException('table is not found');
+      });
+
     response.setHeader('Content-Type', 'text/csv');
-    response.setHeader('Content-Disposition', 'attachment; filename=export.csv');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename=${tableRaw?.name || 'export'}.csv`
+    );
 
     csvStream.pipe(response);
 
