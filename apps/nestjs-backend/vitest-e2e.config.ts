@@ -15,6 +15,7 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: 'v8',
+      reportsDirectory: './coverage/e2e',
       extension: ['.js', '.ts'],
       include: ['src/**/*'],
     },

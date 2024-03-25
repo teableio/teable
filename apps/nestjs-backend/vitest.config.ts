@@ -18,6 +18,7 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
+      reportsDirectory: './coverage/unit',
       extension: ['.js', '.ts'],
       include: ['src/**/*'],
     },
