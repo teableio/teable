@@ -25,6 +25,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { ICellContext } from '../../calculation/link.service';
@@ -922,27 +923,12 @@ export class FieldConvertingService {
     }
   }
 
-  majorKeysChanged(oldField: IFieldInstance, newField: IFieldInstance) {
-    const keys = this.getOriginFieldKeys(newField, oldField);
-
-    // filter property
-    const majorKeys = difference(keys, ['name', 'description', 'dbFieldName']);
-
-    if (!majorKeys.length) {
+  needCalculate(newField: IFieldInstance, oldField: IFieldInstance) {
+    if (!newField.isComputed) {
       return false;
     }
 
-    // expression not change
-    if (
-      majorKeys.length === 1 &&
-      majorKeys[0] === 'options' &&
-      (oldField.options as { expression: string }).expression ===
-        (newField.options as { expression: string }).expression
-    ) {
-      return false;
-    }
-
-    return true;
+    return majorFieldKeysChanged(oldField, newField);
   }
 
   private async calculateField(
@@ -954,7 +940,7 @@ export class FieldConvertingService {
       return;
     }
 
-    if (!this.majorKeysChanged(oldField, newField)) {
+    if (!majorFieldKeysChanged(oldField, newField)) {
       return;
     }
 
@@ -1032,6 +1018,16 @@ export class FieldConvertingService {
     modifiedOps?: IModifiedOps
   ) {
     const ops = this.getOriginFieldOps(newField, oldField);
+
+    if (this.needCalculate(newField, oldField)) {
+      ops.push(
+        FieldOpBuilder.editor.setFieldProperty.build({
+          key: 'isPending',
+          newValue: true,
+          oldValue: undefined,
+        })
+      );
+    }
 
     // apply current field changes
     await this.fieldService.batchUpdateFields(tableId, [
