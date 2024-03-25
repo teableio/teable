@@ -30,5 +30,3 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, '**/.next/**'],
   },
 });
-//
-// next-i18next.config.js
