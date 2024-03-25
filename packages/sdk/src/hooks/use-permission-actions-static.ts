@@ -50,6 +50,12 @@ const actionsI18nMap: Record<
   'base|invite_link': {
     description: 'permission.actionDescription.baseInviteLink',
   },
+  'base|table_import': {
+    description: 'permission.actionDescription.tableImport',
+  },
+  'base|table_export': {
+    description: 'permission.actionDescription.tableExport',
+  },
   'table|create': {
     description: 'permission.actionDescription.tableCreate',
   },

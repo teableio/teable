@@ -12,7 +12,7 @@ import { ImportOpenApiService } from './import-open-api.service';
 export class ImportController {
   constructor(private readonly importOpenService: ImportOpenApiService) {}
   @Get('/analyze')
-  @Permissions('table|import')
+  @Permissions('base|table_import')
   async analyzeSheetFromFile(
     @Query(new ZodValidationPipe(analyzeRoSchema)) analyzeRo: IAnalyzeRo
   ): Promise<IAnalyzeVo> {
@@ -20,7 +20,7 @@ export class ImportController {
   }
 
   @Post(':baseId')
-  @Permissions('table|import')
+  @Permissions('base|table_import')
   async createTableFromImport(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(importOptionRoSchema)) importRo: IImportOptionRo
