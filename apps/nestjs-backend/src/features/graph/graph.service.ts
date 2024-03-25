@@ -14,12 +14,12 @@ import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { majorFieldKeysChanged } from '../../utils/major-field-keys-changed';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
 import type { IGraphItem, IRecordItem } from '../calculation/reference.service';
 import { ReferenceService } from '../calculation/reference.service';
 import { pruneGraph, topoOrderWithStart } from '../calculation/utils/dfs';
-import { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
 import {
@@ -55,7 +55,6 @@ export class GraphService {
     private readonly referenceService: ReferenceService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
-    private readonly fieldConvertingService: FieldConvertingService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -394,8 +393,8 @@ export class GraphService {
     fieldRo: IConvertFieldRo
   ): Promise<IPlanFieldConvertVo> {
     const { oldField, newField } = await this.getField(tableId, fieldId, fieldRo);
+    const majorChange = majorFieldKeysChanged(oldField, fieldRo);
 
-    const majorChange = this.fieldConvertingService.majorKeysChanged(oldField, newField);
     if (!majorChange) {
       return { skip: true };
     }
