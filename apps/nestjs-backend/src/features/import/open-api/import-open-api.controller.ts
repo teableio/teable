@@ -12,7 +12,6 @@ import { ImportOpenApiService } from './import-open-api.service';
 export class ImportController {
   constructor(private readonly importOpenService: ImportOpenApiService) {}
   @Get('/analyze')
-  @Permissions('base|table_import')
   async analyzeSheetFromFile(
     @Query(new ZodValidationPipe(analyzeRoSchema)) analyzeRo: IAnalyzeRo
   ): Promise<IAnalyzeVo> {
