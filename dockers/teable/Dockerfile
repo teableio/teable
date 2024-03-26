@@ -48,15 +48,14 @@ WORKDIR /app
 
 COPY --from=deps --link /workspace-install ./
 
-RUN set -eux; \
-    echo "NEXT_PUBLIC_BUILD_VERSION=\"${BUILD_VERSION}\"" >> apps/nextjs-app/.env
-
+RUN set -ex; \
+        echo "NEXT_PUBLIC_BUILD_VERSION=\"${BUILD_VERSION}\"" >> apps/nextjs-app/.env; \
 # Distinguish whether it is an integration test operation
-RUN if [ -n "$INTEGRATION_TEST" ]; then \
-        pnpm -F "./packages/**" run build; \
-    else \
-        NODE_OPTIONS=--max-old-space-size=8192 pnpm g:build; \
-    fi
+        if [ -n "$INTEGRATION_TEST" ]; then \
+              pnpm -F "./packages/**" run build; \
+        else \
+              NODE_OPTIONS=--max-old-space-size=8192 pnpm g:build; \
+        fi
 
 
 ##################################################################
@@ -69,11 +68,13 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
-RUN rm -fr node_modules && pnpm nuke:node_modules && \
-      chmod +x ./scripts/post-build-cleanup.mjs && zx ./scripts/post-build-cleanup.mjs
-
-RUN pnpm install --prod --prefer-offline --frozen-lockfile
-RUN pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+RUN set -ex; \
+        rm -fr node_modules; \
+        pnpm nuke:node_modules; \
+        chmod +x ./scripts/post-build-cleanup.mjs; \
+        zx ./scripts/post-build-cleanup.mjs; \
+        pnpm install --prod --prefer-offline --frozen-lockfile; \
+        pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
 
 ##################################################################
@@ -86,20 +87,46 @@ ENV TZ=UTC \
     NODE_ENV=production \
     PORT=${NEXTJS_APP_PORT:-3000}
 
-RUN npm install zx -g && \
-      apt-get update && apt-get install -y curl openssl && \
-      rm -rf /var/lib/apt/lists/*
+RUN set -ex; \
+        npm install zx -g; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+                curl \
+                openssl \
+                ca-certificates \
+                gnupg \
+                wget \
+    	; \
+    	rm -rf /var/lib/apt/lists/*
+
+# install gosu for a better su+exec command
+ENV GOSU_VERSION 1.17
+RUN set -eux; \
+        savedAptMark="$(apt-mark showmanual)"; \
+        dpkgArch="$(dpkg --print-architecture | awk -F- '{ print $NF }')"; \
+        wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch"; \
+        wget -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$dpkgArch.asc"; \
+        export GNUPGHOME="$(mktemp -d)"; \
+        gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys B42F6819007F00F88E364FD4036A9C25BF357DD4; \
+        gpg --batch --verify /usr/local/bin/gosu.asc /usr/local/bin/gosu; \
+        gpgconf --kill all; \
+        rm -rf "$GNUPGHOME" /usr/local/bin/gosu.asc; \
+        apt-mark auto '.*' > /dev/null; \
+        [ -z "$savedAptMark" ] || apt-mark manual $savedAptMark > /dev/null; \
+        apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false; \
+        chmod +x /usr/local/bin/gosu; \
+        gosu --version; \
+        gosu nobody true
 
 WORKDIR /app
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
-
+RUN set -ex; \
+        addgroup --system --gid 1001 nodejs; \
+        adduser --system --uid 1001 nodejs; \
 # Set the correct permission for local cache
-RUN mkdir .assets && chown nodejs:nodejs .assets && \
-    mkdir .temporary && chown nodejs:nodejs .temporary
-
-USER nodejs
+        mkdir .assets; \
+        mkdir .temporary; \
+        chown -R nodejs:nodejs /app
 
 COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/next.config.js \
                     /app/apps/nextjs-app/next-i18next.config.js \
@@ -124,5 +151,8 @@ COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
 COPY --chown=nodejs:nodejs scripts/start.mjs ./scripts/start.mjs
 
 EXPOSE ${PORT}
+
+COPY scripts/entrypoint/docker-entrypoint.sh /
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
 CMD ["scripts/start.mjs"]

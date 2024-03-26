@@ -8,10 +8,10 @@ on:
     branches:
       - develop
     paths:
-      - 'apps/nestjs-backend/**'
       - 'apps/nextjs-app/**'
       - 'packages/core/**'
       - 'packages/sdk/**'
+      - 'packages/openapi/**'
 
 jobs:
   test:
@@ -44,7 +44,7 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          pnpm g:test-unit-cover
+          pnpm -F "\!@teable/backend" -r --parralel test-unit-cover
 
       - name: Coveralls Parallel
         uses: coverallsapp/github-action@v2
