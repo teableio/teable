@@ -92,12 +92,12 @@ export class ExportOpenApiService {
             return recordsArr;
           })
         );
-        csvStream.push('\n');
+        csvStream.push('\r\n');
         csvStream.push(csvData);
         count += records.length;
       }
     } catch (e) {
-      csvStream.push('\n');
+      csvStream.push('\r\n');
       csvStream.push(`Export fail reason:, ${(e as Error)?.message}`);
       this.logger.error((e as Error)?.message, `ExportCsv: ${tableId}`);
     }
