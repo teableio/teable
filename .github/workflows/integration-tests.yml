@@ -41,11 +41,15 @@ jobs:
           VITEST_MIN_THREADS: 1
         run: |
           make ${{ matrix.database-type }}.integration.test
+          pnpm -F "@teable/backend" test-unit-cover
+          pnpm -F "@teable/backend" merge-cover
+          pnpm -F "@teable/backend" generate-cover
 
       - name: Coveralls Parallel
         uses: coverallsapp/github-action@v2
         with:
           flag-name: run-${{ join(matrix.*, '-') }}
+          file: apps/nestjs-backend/coverage/nestjs-backend/clover.xml
           parallel: true
 
   finish:

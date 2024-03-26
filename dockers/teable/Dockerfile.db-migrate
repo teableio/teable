@@ -15,11 +15,8 @@ COPY --link packages/db-main-prisma/prisma/postgres ./postgres_migrate
 
 COPY --link packages/db-main-prisma/prisma/sqlite ./sqlite_migrate
 
-RUN cd postgres_migrate && \
-      prisma generate
-
-RUN cd sqlite_migrate && \
-      prisma generate
+RUN cd postgres_migrate && prisma generate
+RUN cd sqlite_migrate && prisma generate
 
 
 FROM node:${NODE_VERSION}-bookworm-slim AS runner
@@ -30,13 +27,20 @@ ENV TZ=UTC
 ENV NODE_ENV=production
 ENV BUILD_VERSION=$BUILD_VERSION
 
-RUN npm install zx @soluble/dsn-parser @prisma/client@${PRISMA_VERSION} prisma@${PRISMA_VERSION} -g && \
-      apt-get update && apt-get install -y openssl netcat-traditional wget && \
-      rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+        npm install zx @soluble/dsn-parser \
+                       @prisma/client@${PRISMA_VERSION} \
+                       prisma@${PRISMA_VERSION} -g; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+                openssl \
+                netcat-traditional \
+                wget \
+    	; \
+    	rm -rf /var/lib/apt/lists/*; \
+        ln -s /usr/local/lib/node_modules node_modules
 
 WORKDIR /prisma
-
-RUN ln -s /usr/local/lib/node_modules node_modules
 
 COPY --from=prisma /prisma/postgres_migrate ./postgres_migrate
 COPY --from=prisma /prisma/sqlite_migrate ./sqlite_migrate
