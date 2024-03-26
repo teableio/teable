@@ -4,13 +4,23 @@ import { z } from '../zod';
 
 export const CREATE_ACCESS_TOKEN = '/access-token';
 
+const isValidDateString = (dateString: string) => {
+  const date = new Date(dateString);
+  return !isNaN(date.getTime());
+};
+
 export const createAccessTokenRoSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   scopes: z.array(z.string()).min(1),
   spaceIds: z.array(z.string()).min(1).nullable().optional(),
   baseIds: z.array(z.string()).min(1).nullable().optional(),
-  expiredTime: z.string(),
+  expiredTime: z
+    .string()
+    .refine(isValidDateString, {
+      message: 'expiredTime: Invalid Date ',
+    })
+    .openapi({ example: '2024-03-25' }),
 });
 
 export type CreateAccessTokenRo = z.infer<typeof createAccessTokenRoSchema>;

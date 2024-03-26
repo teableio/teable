@@ -58,12 +58,12 @@ export const ExpirationSelect = (props: IExpirationSelect) => {
       setIsCustom(true);
       return;
     }
-    onChange?.(dayjs().add(Number(value), 'day').toDate().toLocaleDateString());
+    onChange?.(dayjs().add(Number(value), 'day').format('YYYY-MM-DD'));
   };
 
   const onDateChange = (date: Date | undefined) => {
     setDate(date);
-    onChange?.(date?.toLocaleDateString() || undefined);
+    onChange?.(date ? dayjs(date).format('YYYY-MM-DD') : undefined);
   };
 
   return (
