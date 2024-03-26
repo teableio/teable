@@ -1,5 +1,6 @@
 import { Readable } from 'stream';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
 import Papa from 'papaparse';
@@ -42,12 +43,33 @@ export class ExportOpenApiService {
     // set headers as first row
     const headers = await this.fieldService.getFieldsByQuery(tableId);
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
+    const headersInfoMap = new Map(
+      headers.map((h, index) => [
+        h.name,
+        {
+          index,
+          type: h.type,
+        },
+      ])
+    );
+
     csvStream.push(headerData);
+
+    const transformTableToCsvValue = (value: unknown, type: FieldType) => {
+      let csvValue = value;
+      if (Array.isArray(value)) {
+        csvValue =
+          type === FieldType.Attachment
+            ? value.map((v) => `${v.name} ${v.presignedUrl}`).join(',')
+            : value.map((v) => v.title ?? v).join(',');
+      }
+      return csvValue;
+    };
 
     try {
       while (!isOver) {
         const { records } = await this.recordService.getRecords(tableId, {
-          take: 10,
+          take: 1000,
           skip: count,
         });
         if (records.length === 0) {
@@ -56,21 +78,27 @@ export class ExportOpenApiService {
           csvStream.push(null);
           break;
         }
+
         const csvData = Papa.unparse(
-          records.map((r) =>
-            Object.values(r.fields).map((value) => {
-              if (typeof value === 'object') {
-                return '';
+          records.map((r) => {
+            const { fields } = r;
+            const recordsArr = Array.from({ length: headers.length });
+            for (const [key, value] of Object.entries(fields)) {
+              const { index: hIndex, type } = headersInfoMap.get(key) ?? {};
+              if (hIndex !== undefined && type !== undefined) {
+                recordsArr[hIndex] = transformTableToCsvValue(value, type);
               }
-              return value;
-            })
-          )
+            }
+            return recordsArr;
+          })
         );
         csvStream.push('\n');
         csvStream.push(csvData);
         count += records.length;
       }
     } catch (e) {
+      csvStream.push('\n');
+      csvStream.push(`Export fail reason:, ${(e as Error)?.message}`);
       this.logger.error((e as Error)?.message, `ExportCsv: ${tableId}`);
     }
   }
