@@ -65,6 +65,16 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
     await app.close();
   });
 
+  it('create access token invalid expiredTime', async () => {
+    const ro = {
+      ...defaultCreateRo,
+      expiredTime: '25/02/2023',
+    };
+    const error = await getError(() => createAccessToken(ro));
+    expect(error?.status).toEqual(400);
+    expect(error?.message).contain('expiredTime');
+  });
+
   it('/api/access-token (GET)', async () => {
     const { data } = await listAccessToken();
     expect(listAccessTokenVoSchema.safeParse(data).success).toEqual(true);
