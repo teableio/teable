@@ -7,6 +7,8 @@ import StorageAdapter from '../../../attachments/plugins/adapter';
 import type { IFieldBase } from '../field-base';
 
 export class UserFieldDto extends UserFieldCore implements IFieldBase {
+  isStructuredCellValue = true;
+
   convertCellValue2DBValue(value: unknown): unknown {
     if (!value) {
       return null;

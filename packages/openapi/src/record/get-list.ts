@@ -47,6 +47,13 @@ export const queryBaseSchema = z.object({
       type: 'string',
       description: FILTER_DESCRIPTION,
     }),
+  search: z
+    .tuple([z.string(), z.string()])
+    .optional()
+    .openapi({
+      default: ['fieldIdOrName', 'searchValue'],
+      description: 'Search for records that match the specified field and value.',
+    }),
   filterLinkCellCandidate: z
     .tuple([z.string().startsWith(IdPrefix.Field), z.string().startsWith(IdPrefix.Record)])
     .or(z.string().startsWith(IdPrefix.Field))

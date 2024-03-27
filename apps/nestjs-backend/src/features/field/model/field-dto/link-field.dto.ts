@@ -3,6 +3,8 @@ import type { ILinkCellValue } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
+  isStructuredCellValue = true;
+
   convertCellValue2DBValue(value: unknown): unknown {
     return value && JSON.stringify(value);
   }

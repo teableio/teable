@@ -2,6 +2,8 @@ import { LongTextFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class LongTextFieldDto extends LongTextFieldCore implements IFieldBase {
+  isStructuredCellValue = false;
+
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return value == null ? value : JSON.stringify(value);

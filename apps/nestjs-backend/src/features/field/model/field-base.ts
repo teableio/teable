@@ -1,5 +1,7 @@
-export interface IFieldBase {
-  convertDBValue2CellValue(value: unknown): unknown;
+export abstract class IFieldBase {
+  isStructuredCellValue: boolean = false;
 
-  convertCellValue2DBValue(value: unknown): unknown;
+  abstract convertDBValue2CellValue(value: unknown): unknown;
+
+  abstract convertCellValue2DBValue(value: unknown): unknown;
 }

@@ -270,9 +270,10 @@ export class RecordService implements IAdapterService {
     tableId: string,
     filter?: IFilter,
     orderBy?: ISortItem[],
-    groupBy?: IGroup
+    groupBy?: IGroup,
+    search?: string[]
   ) {
-    if (filter || orderBy?.length || groupBy?.length) {
+    if (filter || orderBy?.length || groupBy?.length || search) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(tableId);
       return fields.reduce(
@@ -302,11 +303,29 @@ export class RecordService implements IAdapterService {
       });
   }
 
+  private privateParseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
+    const [fieldIdOrName, searchValue] = search;
+    if (!fieldMap) {
+      throw new Error('fieldMap is required when search is set');
+    }
+    const field = fieldMap[fieldIdOrName];
+    if (!field) {
+      throw new NotFoundException(`Field ${fieldIdOrName} not found`);
+    }
+    return [field.id, searchValue];
+  }
+
   async prepareQuery(
     tableId: string,
-    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'groupBy' | 'filter'>
+    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'search'>
   ) {
-    const { viewId, orderBy: extraOrderBy, groupBy: extraGroupBy, filter: extraFilter } = query;
+    const {
+      viewId,
+      orderBy: extraOrderBy,
+      groupBy: extraGroupBy,
+      filter: extraFilter,
+      search: originSearch,
+    } = query;
 
     const dbTableName = await this.getDbTableName(tableId);
 
@@ -317,12 +336,20 @@ export class RecordService implements IAdapterService {
     const filter = mergeWithDefaultFilter(view?.filter, extraFilter);
     const orderBy = mergeWithDefaultSort(view?.sort, extraOrderBy);
     const groupBy = parseGroup(extraGroupBy);
-    const fieldMap = await this.getNecessaryFieldMap(tableId, filter, orderBy, groupBy);
+    const fieldMap = await this.getNecessaryFieldMap(
+      tableId,
+      filter,
+      orderBy,
+      groupBy,
+      originSearch
+    );
+    const search = originSearch ? this.privateParseSearch(originSearch, fieldMap) : undefined;
 
     return {
       queryBuilder,
       dbTableName,
       filter,
+      search,
       orderBy,
       groupBy,
       fieldMap,
@@ -358,11 +385,11 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: Pick<
       IGetRecordsRo,
-      'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'filterLinkCellCandidate'
+      'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'search' | 'filterLinkCellCandidate'
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const { dbTableName, queryBuilder, filter, orderBy, groupBy, fieldMap } =
+    const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
       await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
@@ -381,6 +408,9 @@ export class RecordService implements IAdapterService {
     this.dbProvider
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
+
+    // add search rules to the query builder
+    this.dbProvider.searchQuery(queryBuilder, fieldMap, search);
 
     const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
 
@@ -450,6 +480,7 @@ export class RecordService implements IAdapterService {
       take: query.take,
       filter: query.filter,
       orderBy: query.orderBy,
+      search: query.search,
       groupBy: query.groupBy,
       filterLinkCellCandidate: query.filterLinkCellCandidate,
       filterLinkCellSelected: query.filterLinkCellSelected,
@@ -917,6 +948,7 @@ export class RecordService implements IAdapterService {
       take,
       filter,
       orderBy,
+      search,
       groupBy,
       fieldKeyType,
       cellFormat,
@@ -937,6 +969,7 @@ export class RecordService implements IAdapterService {
       filterLinkCellCandidate,
       filter,
       orderBy,
+      search,
       groupBy,
     });
     queryBuilder.select(fieldNames.concat('__id'));

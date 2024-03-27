@@ -92,4 +92,10 @@ export interface IDbProvider {
     sortObjs?: ISortItem[],
     extra?: ISortQueryExtra
   ): ISortQueryInterface;
+
+  searchQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    search?: string[]
+  ): Knex.QueryBuilder;
 }
