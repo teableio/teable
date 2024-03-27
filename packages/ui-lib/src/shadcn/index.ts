@@ -31,3 +31,5 @@ export * from './ui/resizable';
 export * from './ui/badge';
 export * from './ui/collapsible';
 export * from './ui/table';
+export * from './ui/context-menu';
+export * from './ui/carousel';
