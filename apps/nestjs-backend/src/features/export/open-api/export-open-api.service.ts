@@ -61,7 +61,7 @@ export class ExportOpenApiService {
         csvValue =
           type === FieldType.Attachment
             ? value.map((v) => `${v.name} ${v.presignedUrl}`).join(',')
-            : value.map((v) => v.title ?? v).join(',');
+            : value.map((v) => (typeof v !== 'object' ? v : v.title)).join(',');
       }
       return csvValue;
     };
