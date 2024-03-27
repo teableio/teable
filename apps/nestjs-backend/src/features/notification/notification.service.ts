@@ -7,7 +7,6 @@ import {
   NotificationStatesEnum,
   NotificationTypeEnum,
   notificationUrlSchema,
-  systemIconSchema,
   userIconSchema,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
@@ -202,7 +201,7 @@ export class NotificationService {
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { baseId, tableId, recordId } = urlMeta || {};
 
-        return `${origin}/base/${baseId}/${tableId}?recordId=${recordId}`;
+        return `${origin}/base/${baseId}/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
       }
     }
   }
