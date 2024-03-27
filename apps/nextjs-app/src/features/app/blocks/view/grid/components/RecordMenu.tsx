@@ -1,5 +1,5 @@
 import { FieldKeyType } from '@teable/core';
-import { Trash, Copy, ArrowUp, ArrowDown } from '@teable/icons';
+import { Trash, ArrowUp, ArrowDown } from '@teable/icons';
 import { deleteRecords } from '@teable/openapi';
 import { SelectionRegionType } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
@@ -20,7 +20,6 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
-import { useSelectionOperation } from '../hooks/useSelectionOperation';
 import { useGridViewStore } from '../store/gridView';
 
 export interface IMenuItemProps<T> {
@@ -49,7 +48,6 @@ export const RecordMenu = () => {
   const view = useView();
   const viewId = view?.id;
   const permission = useTablePermission();
-  const { copy } = useSelectionOperation();
   const recordMenuRef = useRef<HTMLDivElement>(null);
 
   useClickAway(recordMenuRef, () => {
@@ -127,14 +125,6 @@ export const RecordMenu = () => {
       },
     ],
     [
-      {
-        type: MenuItemType.Copy,
-        name: t('table:menu.copyCells'),
-        icon: <Copy className={iconClassName} />,
-        onClick: async () => {
-          selection && (await copy(selection));
-        },
-      },
       {
         type: MenuItemType.Delete,
         name:
