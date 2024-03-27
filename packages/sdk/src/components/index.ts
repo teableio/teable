@@ -5,6 +5,7 @@ export * from './sort';
 export * from './group';
 export * from './hide-fields';
 export * from './row-height';
+export * from './cell-value';
 export * from './cell-value-editor';
 export * from './expand-record';
 export * from './grid-enhancements';
