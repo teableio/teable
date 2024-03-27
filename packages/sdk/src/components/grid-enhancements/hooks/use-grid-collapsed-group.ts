@@ -1,4 +1,4 @@
-import { is, or, and, isNot, hasNoneOf, isNotEmpty, FieldType } from '@teable/core';
+import { is, or, and, isNot, hasNoneOf, isNotEmpty, FieldType, exactDate } from '@teable/core';
 import type { IFilter, IFilterSet, ILinkCellValue, IOperator, IUserCellValue } from '@teable/core';
 import { GroupPointType } from '@teable/openapi';
 import type { IGetRecordsRo, IGroupHeaderPoint, IGroupPointsVo } from '@teable/openapi';
@@ -33,6 +33,12 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
     value = !value || null;
   } else if (value == null) {
     operator = isNotEmpty.value;
+  } else if (type === FieldType.Date) {
+    value = {
+      exactDate: value,
+      mode: exactDate.value,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
   } else if (FILTER_RELATED_FILED_TYPE_SET.has(type) && isMultipleCellValue) {
     operator = hasNoneOf.value;
   }

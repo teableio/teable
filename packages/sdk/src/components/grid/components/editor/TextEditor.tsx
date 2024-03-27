@@ -51,9 +51,10 @@ const TextEditorBase: ForwardRefRenderFunction<
   const attachStyle = useMemo(() => {
     const style: React.CSSProperties = {
       width: width + 4,
+      minHeight: height + 4,
       height: needWrap ? 'auto' : height + 4,
       marginLeft: -2,
-      marginTop: -2.5,
+      marginTop: -2,
       textAlign: type === CellType.Number ? 'right' : 'left',
     };
     if (height > defaultRowHeight) {
