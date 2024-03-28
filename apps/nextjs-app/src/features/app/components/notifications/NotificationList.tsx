@@ -7,6 +7,7 @@ import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button } from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import Link from 'next/link';
 import React from 'react';
 import { NotificationActionBar } from './NotificationActionBar';
 import { NotificationIcon } from './NotificationIcon';
@@ -68,15 +69,16 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
               }
             >
               <div className="max-h-[80px]">
-                <a
+                <Link
                   className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
                   href={url}
-                  onClick={() =>
-                    updateStatusMutator({
-                      notificationId: id,
-                      updateNotifyStatusRo: { isRead: true },
-                    })
-                  }
+                  onClick={async () => {
+                    !isRead &&
+                      updateStatusMutator({
+                        notificationId: id,
+                        updateNotifyStatusRo: { isRead: true },
+                      });
+                  }}
                 >
                   <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
                   <div className="mr-3 w-[calc(100%_-_100px)]  items-center whitespace-pre-wrap break-words text-sm font-normal">
@@ -85,7 +87,7 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
                       {fromNow}
                     </div>
                   </div>
-                </a>
+                </Link>
               </div>
             </NotificationActionBar>
           );
