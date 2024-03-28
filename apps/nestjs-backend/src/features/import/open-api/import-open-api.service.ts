@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
 import type { IAnalyzeRo, IImportOptionRo, IInplaceImportOptionRo } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../../types/cls';
+import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
@@ -11,7 +14,9 @@ export class ImportOpenApiService {
   private logger = new Logger(ImportOpenApiService.name);
   constructor(
     private readonly tableOpenApiService: TableOpenApiService,
-    private readonly recordOpenApiService: RecordOpenApiService
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly notificationService: NotificationService
   ) {}
 
   async analyze(analyzeRo: IAnalyzeRo) {
@@ -26,6 +31,7 @@ export class ImportOpenApiService {
   }
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo) {
+    const userId = this.cls.get('user.id');
     const { attachmentUrl, fileType, worksheets } = importRo;
 
     const importer = importerFactory(fileType, {
@@ -86,6 +92,22 @@ export class ImportOpenApiService {
             } catch (e) {
               this.logger.error((e as Error)?.message, 'Import: Records');
             }
+          },
+          () => {
+            this.notificationService.sendImportResultNotify({
+              baseId,
+              tableId: table.id,
+              toUserId: userId,
+              message: `${table.name}, import successfully🎉`,
+            });
+          },
+          (error) => {
+            this.notificationService.sendImportResultNotify({
+              baseId,
+              tableId: table.id,
+              toUserId: userId,
+              message: `${table.name}, import failed reason: ${error}`,
+            });
           }
         );
       }
