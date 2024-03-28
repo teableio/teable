@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib/shadcn';
 import React, { useState } from 'react';
 
 interface IHoverWraperProps {
@@ -30,13 +30,13 @@ export const HoverWraper = (props: IHoverWraperProps) => {
       </div>
       {
         <div
-          className={classNames(
+          className={cn(
             'fixed flex h-full top-0 transition-[z-index] will-change-auto',
             hover ? 'z-50 w-full' : 'w-auto z-0'
           )}
         >
           <div
-            className={classNames(
+            className={cn(
               'transition-[width] overflow-hidden drop-shadow-2xl border-r will-change-auto'
             )}
             style={{
@@ -47,7 +47,7 @@ export const HoverWraper = (props: IHoverWraperProps) => {
           </div>
           <div
             onMouseEnter={() => mouseOutHandler()}
-            className={classNames('flex-1', { hidden: !hover })}
+            className={cn('flex-1', { hidden: !hover })}
           ></div>
         </div>
       }

@@ -1,7 +1,7 @@
 import { AutoNumberFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class AutoNumberFieldDto extends AutoNumberFieldCore implements IFieldBase {
+export class AutoNumberFieldDto extends AutoNumberFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

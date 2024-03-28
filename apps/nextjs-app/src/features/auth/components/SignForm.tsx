@@ -3,8 +3,7 @@ import type { HttpError } from '@teable/core';
 import type { ISignin } from '@teable/openapi';
 import { signup, signin, signinSchema, signupSchema } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
-import { Button, Input, Label } from '@teable/ui-lib/shadcn';
-import classNames from 'classnames';
+import { Button, Input, Label, cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
@@ -81,7 +80,7 @@ export const SignForm: FC<ISignForm> = (props) => {
   );
 
   return (
-    <div className={classNames('grid gap-3', className)}>
+    <div className={cn('grid gap-3', className)}>
       <form className="relative" onSubmit={onSubmit} onChange={() => setError(undefined)}>
         <div className="grid gap-3">
           <div className="grid gap-3">

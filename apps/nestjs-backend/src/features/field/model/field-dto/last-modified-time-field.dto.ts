@@ -1,7 +1,7 @@
 import { LastModifiedTimeFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class LastModifiedTimeFieldDto extends LastModifiedTimeFieldCore implements IFieldBase {
+export class LastModifiedTimeFieldDto extends LastModifiedTimeFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

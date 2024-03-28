@@ -89,11 +89,11 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       </DialogHeader>
       <div className="flex flex-col items-center gap-4 py-4">
         {base.icon ? (
-          <div className="size-14 min-w-[3.5rem] text-[3.5rem] leading-none">
+          <div className="size-14 min-w-14 text-[3.5rem] leading-none">
             <Emoji emoji={base.icon} size={56} />
           </div>
         ) : (
-          <Database className="size-14 min-w-[3.5rem]" />
+          <Database className="size-14 min-w-14" />
         )}
         <div>
           <Input value={baseName} onChange={(e) => setBaseName(e.target.value)} />

@@ -23,8 +23,9 @@ import { FieldOperator } from '@/features/app/components/field-setting';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { FORM_EDITOR_DROPPABLE_ID } from '../constant';
-import { DroppableContainer, SortableItem } from './Drag';
+import { DroppableContainer } from './Drag';
 import { FormFieldEditor } from './FormFieldEditor';
+import { SortableItem } from './SortableItem';
 
 const attachmentManager = new AttachmentManager(2);
 
@@ -114,7 +115,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
 
   return (
     <div className="w-full overflow-y-auto sm:py-8">
-      <div className="relative mx-auto flex w-full max-w-[640px] flex-col items-center overflow-hidden border pb-12 shadow-md sm:rounded-lg">
+      <div className="relative mx-auto flex w-full max-w-screen-sm flex-col items-center overflow-hidden border pb-12 shadow-md sm:rounded-lg">
         <div
           className={cn(
             'relative h-36 w-full',

@@ -1,9 +1,9 @@
 import type { IAttachmentCellValue, IAttachmentItem } from '@teable/core';
 import { AttachmentFieldCore, generateAttachmentId } from '@teable/core';
 import { omit } from 'lodash';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBase {
+export class AttachmentFieldDto extends AttachmentFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

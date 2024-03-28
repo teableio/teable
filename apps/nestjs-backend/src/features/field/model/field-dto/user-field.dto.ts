@@ -4,9 +4,9 @@ import { UploadType } from '@teable/openapi';
 import { omit } from 'lodash';
 import { getFullStorageUrl } from '../../../../utils/full-storage-url';
 import StorageAdapter from '../../../attachments/plugins/adapter';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class UserFieldDto extends UserFieldCore implements IFieldBase {
+export class UserFieldDto extends UserFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return true;
   }

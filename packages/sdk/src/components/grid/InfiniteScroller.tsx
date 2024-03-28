@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -269,7 +269,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     <>
       <div
         ref={horizontalScrollRef}
-        className={classNames(
+        className={cn(
           'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-h-[10px] absolute bottom-[2px] left-0 h-4 cursor-pointer overflow-y-hidden overflow-x-scroll will-change-transform',
           !scrollBarVisible && 'opacity-0 pointer-events-none'
         )}
@@ -289,7 +289,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       </div>
       <div
         ref={verticalScrollRef}
-        className={classNames(
+        className={cn(
           'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[10px] scrollbar-min-thumb absolute right-[2px] w-4 cursor-pointer overflow-x-hidden overflow-y-scroll will-change-transform',
           !scrollBarVisible && 'opacity-0 pointer-events-none'
         )}
@@ -299,7 +299,7 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
         }}
         onScroll={(e) => onScroll(e, 'vertical')}
       >
-        <div className="flex w-[1px] shrink-0 flex-col">{placeholderElements}</div>
+        <div className="flex w-px shrink-0 flex-col">{placeholderElements}</div>
       </div>
     </>
   );

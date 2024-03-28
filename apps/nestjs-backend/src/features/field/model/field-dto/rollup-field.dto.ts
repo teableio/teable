@@ -1,7 +1,7 @@
 import { RollupFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class RollupFieldDto extends RollupFieldCore implements IFieldBase {
+export class RollupFieldDto extends RollupFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib';
 import {
   type FC,
   type PropsWithChildren,
@@ -69,7 +69,7 @@ export const Panel: FC<
 
   return (
     <div
-      className={classNames(
+      className={cn(
         'absolute h-full top-0 right-0 bg-background z-20',
         'before:absolute before:w-[1px] before:h-full before:top-0 before:bg-[var(--separator-border)]',
         className
@@ -78,7 +78,7 @@ export const Panel: FC<
     >
       <div
         ref={sashRef}
-        className={classNames(
+        className={cn(
           'absolute w-[var(--sash-size)] h-full top-0 cursor-col-resize',
           'before:absolute before:w-[var(--sash-hover-size)] before:h-full before:left-[calc(50%-(var(--sash-hover-size)/2))] before:transition-colors before:duration-100 before:ease-out before:hover:bg-[var(--focus-border)]'
         )}

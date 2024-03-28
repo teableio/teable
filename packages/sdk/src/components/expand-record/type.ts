@@ -1,4 +1,4 @@
-export enum IExpandRecordModel {
+export enum ExpandRecordModel {
   Modal = 'modal',
-  Panel = 'panel',
+  Drawer = 'drawer',
 }

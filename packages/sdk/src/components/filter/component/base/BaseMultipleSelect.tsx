@@ -9,8 +9,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  cn,
 } from '@teable/ui-lib';
-import classNames from 'classnames';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
@@ -85,14 +85,14 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           size="sm"
           aria-expanded={open}
           disabled={disabled}
-          className={classNames('w-32 justify-between m-1 overflow-hidden', className)}
+          className={cn('w-32 justify-between m-1 overflow-hidden', className)}
         >
           <div className="flex shrink overflow-hidden whitespace-nowrap">
             {selectedValues?.length
               ? selectedValues?.map(
                   (value, index) =>
                     displayRender?.(value) || (
-                      <div key={index} className={classNames('px-2 rounded-lg m-1')}>
+                      <div key={index} className={cn('px-2 rounded-lg m-1')}>
                         {value.label}
                       </div>
                     )
@@ -102,7 +102,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={classNames('p-1', popoverClassName)}>
+      <PopoverContent className={cn('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
           <CommandList>
             <CommandInput
@@ -120,7 +120,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
                     className="truncate p-1 text-[13px]"
                   >
                     <Check
-                      className={classNames(
+                      className={cn(
                         'mr-2 h-4 w-4 shrink-0',
                         values?.includes(option.value) ? 'opacity-100' : 'opacity-0'
                       )}

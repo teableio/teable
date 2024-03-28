@@ -8,8 +8,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  cn,
 } from '@teable/ui-lib';
-import classNames from 'classnames';
 import React, { useRef, useState } from 'react';
 import { convertNextImageUrl } from '../../grid-enhancements';
 import type { IUserEditorMainProps } from './EditorMain';
@@ -41,7 +41,7 @@ export const UserEditor = (props: IUserEditorMainProps) => {
       variant="outline"
       role="combobox"
       aria-expanded={open}
-      className={classNames(
+      className={cn(
         'w-full h-auto min-h-[40px] sm:min-h-[40px] flex flex-wrap justify-start hover:bg-transparent gap-2',
         className
       )}

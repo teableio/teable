@@ -303,8 +303,8 @@ export class RecordService implements IAdapterService {
       });
   }
 
-  private privateParseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
-    const [fieldIdOrName, searchValue] = search;
+  private parseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
+    const [searchValue, fieldIdOrName] = search;
     if (!fieldMap) {
       throw new Error('fieldMap is required when search is set');
     }
@@ -312,7 +312,7 @@ export class RecordService implements IAdapterService {
     if (!field) {
       throw new NotFoundException(`Field ${fieldIdOrName} not found`);
     }
-    return [field.id, searchValue];
+    return [searchValue, field.id];
   }
 
   async prepareQuery(
@@ -343,7 +343,7 @@ export class RecordService implements IAdapterService {
       groupBy,
       originSearch
     );
-    const search = originSearch ? this.privateParseSearch(originSearch, fieldMap) : undefined;
+    const search = originSearch ? this.parseSearch(originSearch, fieldMap) : undefined;
 
     return {
       queryBuilder,

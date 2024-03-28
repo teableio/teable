@@ -9,9 +9,9 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  cn,
 } from '@teable/ui-lib';
 
-import classNames from 'classnames';
 import { useContext } from 'react';
 
 import { useTranslation } from '../../../context/app/i18n';
@@ -41,7 +41,7 @@ function ConditionGroup(props: IConditionGroupProps) {
           }}
         ></Conjunction>
         <div
-          className={classNames(
+          className={cn(
             'm-h-20 w-full rounded-sm border ml-2'
             // level > 0 ? 'bg-secondary' : 'bg-secondary/2'
           )}

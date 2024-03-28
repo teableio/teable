@@ -1,7 +1,7 @@
 import { DateFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class DateFieldDto extends DateFieldCore implements IFieldBase {
+export class DateFieldDto extends DateFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

@@ -1,5 +1,5 @@
 import { ColorUtils } from '@teable/core';
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib';
 import { useMemo, useEffect } from 'react';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';
 import type { IColorOption } from './base';
@@ -42,7 +42,7 @@ const FilterMultipleSelect = (props: IMutipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={classNames('px-2 rounded-lg m-1')}
+        className={cn('px-2 rounded-lg m-1')}
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',

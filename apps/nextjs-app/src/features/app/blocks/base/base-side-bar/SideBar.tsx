@@ -1,4 +1,3 @@
-import classNames from 'classnames';
 import { SideBarFooter } from '@/features/app/components/SideBarFooter';
 import { BaseSideBar } from './BaseSideBar';
 import { SideBarHeader } from './SideBarHeader';
@@ -10,7 +9,7 @@ export interface ISideBarInteractionProps {
 export const SideBar = (props: ISideBarInteractionProps) => {
   return (
     <div className="relative size-full bg-popover">
-      <div className={classNames('flex h-full flex-col w-full')}>
+      <div className="flex size-full flex-col">
         <SideBarHeader {...props} />
         <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
           <BaseSideBar />
