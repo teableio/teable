@@ -1,7 +1,9 @@
 import { SingleLineTextFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 export class SingleLineTextFieldDto extends SingleLineTextFieldCore implements IFieldBase {
-  isStructuredCellValue = false;
+  get isStructuredCellValue() {
+    return false;
+  }
 
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {

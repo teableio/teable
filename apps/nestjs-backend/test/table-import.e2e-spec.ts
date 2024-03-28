@@ -161,219 +161,221 @@ const assertHeaders = [
   },
 ];
 
-const bases: [string, string][] = [];
+describe('OpenAPI ImportController (e2e)', () => {
+  const bases: [string, string][] = [];
 
-beforeAll(async () => {
-  const appCtx = await initApp();
-  app = appCtx.app;
-  testFiles = await genTestFiles();
-});
-
-afterAll(async () => {
-  testFileFormats.forEach((type) => {
-    fs.unlink(testFiles[type].path, (err) => {
-      if (err) throw err;
-      console.log(`delete ${type} test file success!`);
-    });
-  });
-  for (let i = 0; i < bases.length; i++) {
-    const [baseId, id] = bases[i];
-    await deleteTable(baseId, id);
-    await apiDeleteBase(baseId);
-  }
-  await app.close();
-});
-
-describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from analyze sheet (Get) ', () => {
-  it(`should return column header info from csv file`, async () => {
-    const {
-      data: { worksheets },
-    } = await apiAnalyzeFile({
-      attachmentUrl: testFiles[TestFileFormat.CSV].url,
-      fileType: SUPPORTEDTYPE.CSV,
-    });
-    const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
-    expect(calculatedColumnHeaders).toEqual(assertHeaders);
+  beforeAll(async () => {
+    const appCtx = await initApp();
+    app = appCtx.app;
+    testFiles = await genTestFiles();
   });
 
-  it(`should return 400, when url file type is not csv`, async () => {
-    await expect(
-      apiAnalyzeFile({
-        attachmentUrl: testFiles[TestFileFormat.TXT].url,
+  afterAll(async () => {
+    testFileFormats.forEach((type) => {
+      fs.unlink(testFiles[type].path, (err) => {
+        if (err) throw err;
+        console.log(`delete ${type} test file success!`);
+      });
+    });
+    for (let i = 0; i < bases.length; i++) {
+      const [baseId, id] = bases[i];
+      await deleteTable(baseId, id);
+      await apiDeleteBase(baseId);
+    }
+    await app.close();
+  });
+
+  describe('/import/analyze OpenAPI ImportController (e2e) Get a column info from analyze sheet (Get) ', () => {
+    it(`should return column header info from csv file`, async () => {
+      const {
+        data: { worksheets },
+      } = await apiAnalyzeFile({
+        attachmentUrl: testFiles[TestFileFormat.CSV].url,
         fileType: SUPPORTEDTYPE.CSV,
-      })
-    ).rejects.toMatchObject({
-      status: 400,
-      code: 'validation_error',
+      });
+      const calculatedColumnHeaders = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns;
+      expect(calculatedColumnHeaders).toEqual(assertHeaders);
+    });
+
+    it(`should return 400, when url file type is not csv`, async () => {
+      await expect(
+        apiAnalyzeFile({
+          attachmentUrl: testFiles[TestFileFormat.TXT].url,
+          fileType: SUPPORTEDTYPE.CSV,
+        })
+      ).rejects.toMatchObject({
+        status: 400,
+        code: 'validation_error',
+      });
+    });
+
+    it(`should return column header info from excel file`, async () => {
+      const {
+        data: { worksheets },
+      } = await apiAnalyzeFile({
+        attachmentUrl: testFiles[TestFileFormat.XLSX].url,
+        fileType: SUPPORTEDTYPE.EXCEL,
+      });
+      const calculatedColumnHeaders = worksheets['Sheet1'].columns;
+      expect(calculatedColumnHeaders).toEqual(assertHeaders);
     });
   });
 
-  it(`should return column header info from excel file`, async () => {
-    const {
-      data: { worksheets },
-    } = await apiAnalyzeFile({
-      attachmentUrl: testFiles[TestFileFormat.XLSX].url,
-      fileType: SUPPORTEDTYPE.EXCEL,
-    });
-    const calculatedColumnHeaders = worksheets['Sheet1'].columns;
-    expect(calculatedColumnHeaders).toEqual(assertHeaders);
-  });
-});
+  describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
+    it.each(testFileFormats.filter((format) => format !== TestFileFormat.TXT))(
+      'should create a new Table from %s file',
+      async (format) => {
+        const spaceRes = await apiCreateSpace({ name: `test${format}` });
+        const spaceId = spaceRes?.data?.id;
+        const baseRes = await apiCreateBase({ spaceId });
+        const baseId = baseRes.data.id;
 
-describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
-  it.each(testFileFormats.filter((format) => format !== TestFileFormat.TXT))(
-    'should create a new Table from %s file',
-    async (format) => {
-      const spaceRes = await apiCreateSpace({ name: `test${format}` });
+        const fileType = testSupportTypeMap[format].fileType;
+        const attachmentUrl = testFiles[format].url;
+        const defaultSheetKey = testSupportTypeMap[format].defaultSheetKey;
+
+        const {
+          data: { worksheets },
+        } = await apiAnalyzeFile({
+          attachmentUrl,
+          fileType,
+        });
+        const calculatedColumnHeaders = worksheets[defaultSheetKey].columns;
+
+        const table = await apiImportTableFromFile(baseId, {
+          attachmentUrl,
+          fileType,
+          worksheets: {
+            [defaultSheetKey]: {
+              name: defaultSheetKey,
+              columns: calculatedColumnHeaders.map((column, index) => ({
+                ...column,
+                sourceColumnIndex: index,
+              })),
+              useFirstRowAsHeader: true,
+              importData: true,
+            },
+          },
+        });
+
+        const { fields, id } = table.data[0];
+
+        const createdFields = fields.map((field) => ({
+          type: field.type,
+          name: field.name,
+        }));
+
+        const res = await apiGetTableById(baseId, table.data[0].id, {
+          includeContent: true,
+        });
+
+        bases.push([baseId, id]);
+
+        expect(createdFields).toEqual(assertHeaders);
+        expect(res).toMatchObject({
+          status: 200,
+          statusText: 'OK',
+        });
+      }
+    );
+  });
+
+  describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    it('should import data into Table from file', async () => {
+      const spaceRes = await apiCreateSpace({ name: 'test1' });
       const spaceId = spaceRes?.data?.id;
       const baseRes = await apiCreateBase({ spaceId });
       const baseId = baseRes.data.id;
 
-      const fileType = testSupportTypeMap[format].fileType;
+      const format = SUPPORTEDTYPE.CSV;
       const attachmentUrl = testFiles[format].url;
-      const defaultSheetKey = testSupportTypeMap[format].defaultSheetKey;
+      const fileType = testSupportTypeMap[format].fileType;
 
-      const {
-        data: { worksheets },
-      } = await apiAnalyzeFile({
-        attachmentUrl,
-        fileType,
-      });
-      const calculatedColumnHeaders = worksheets[defaultSheetKey].columns;
-
-      const table = await apiImportTableFromFile(baseId, {
-        attachmentUrl,
-        fileType,
-        worksheets: {
-          [defaultSheetKey]: {
-            name: defaultSheetKey,
-            columns: calculatedColumnHeaders.map((column, index) => ({
-              ...column,
-              sourceColumnIndex: index,
-            })),
-            useFirstRowAsHeader: true,
-            importData: true,
+      // create a table
+      const tableRes = await apiCreateTable(baseId, {
+        fields: [
+          {
+            type: FieldType.Number,
+            name: 'field_1',
           },
+          {
+            type: FieldType.SingleLineText,
+            name: 'field_2',
+          },
+          {
+            type: FieldType.Checkbox,
+            name: 'field_3',
+          },
+          {
+            type: FieldType.Date,
+            name: 'field_4',
+          },
+          {
+            type: FieldType.SingleLineText,
+            name: 'field_5',
+          },
+          {
+            type: FieldType.LongText,
+            name: 'field_6',
+          },
+        ],
+        records: [],
+      });
+      const tableId = tableRes.data.id;
+      const fields = tableRes?.data?.fields;
+      const sourceColumnMap: IInplaceImportOptionRo['insertConfig']['sourceColumnMap'] = {};
+      fields.forEach((field, index) => {
+        sourceColumnMap[field.id] = index;
+      });
+
+      // import data into table
+      await apiInplaceImportTableFromFile(tableId, {
+        attachmentUrl,
+        fileType,
+        insertConfig: {
+          sourceWorkSheetKey: CsvImporter.DEFAULT_SHEETKEY,
+          excludeFirstRow: true,
+          sourceColumnMap,
         },
       });
 
-      const { fields, id } = table.data[0];
+      await delay(1000);
 
-      const createdFields = fields.map((field) => ({
-        type: field.type,
-        name: field.name,
-      }));
-
-      const res = await apiGetTableById(baseId, table.data[0].id, {
+      const {
+        data: { records },
+      } = await apiGetTableById(baseId, tableId, {
         includeContent: true,
       });
 
-      bases.push([baseId, id]);
+      bases.push([baseId, tableId]);
 
-      expect(createdFields).toEqual(assertHeaders);
-      expect(res).toMatchObject({
-        status: 200,
-        statusText: 'OK',
+      const tableRecords = records?.map((r) => {
+        const newFields = { ...r.fields };
+        if (newFields['field_4']) {
+          newFields['field_4'] = +new Date(newFields['field_4'] as string);
+        }
+        return newFields;
       });
-    }
-  );
-});
 
-describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
-  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+      const assertRecords = [
+        {
+          field_1: 1,
+          field_2: 'string_1',
+          field_3: true,
+          field_4: +new Date(new Date('2022-11-10 16:00:00').toUTCString()),
+          field_6: 'long\ntext',
+        },
+        {
+          field_1: 2,
+          field_2: 'string_2',
+          field_4: +new Date(new Date('2022-11-11 16:00:00').toUTCString()),
+        },
+      ];
 
-  it('should import data into Table from file', async () => {
-    const spaceRes = await apiCreateSpace({ name: 'test1' });
-    const spaceId = spaceRes?.data?.id;
-    const baseRes = await apiCreateBase({ spaceId });
-    const baseId = baseRes.data.id;
-
-    const format = SUPPORTEDTYPE.CSV;
-    const attachmentUrl = testFiles[format].url;
-    const fileType = testSupportTypeMap[format].fileType;
-
-    // create a table
-    const tableRes = await apiCreateTable(baseId, {
-      fields: [
-        {
-          type: FieldType.Number,
-          name: 'field_1',
-        },
-        {
-          type: FieldType.SingleLineText,
-          name: 'field_2',
-        },
-        {
-          type: FieldType.Checkbox,
-          name: 'field_3',
-        },
-        {
-          type: FieldType.Date,
-          name: 'field_4',
-        },
-        {
-          type: FieldType.SingleLineText,
-          name: 'field_5',
-        },
-        {
-          type: FieldType.LongText,
-          name: 'field_6',
-        },
-      ],
-      records: [],
+      expect(records?.length).toBe(2);
+      expect(tableRecords).toEqual(assertRecords);
     });
-    const tableId = tableRes.data.id;
-    const fields = tableRes?.data?.fields;
-    const sourceColumnMap: IInplaceImportOptionRo['insertConfig']['sourceColumnMap'] = {};
-    fields.forEach((field, index) => {
-      sourceColumnMap[field.id] = index;
-    });
-
-    // import data into table
-    await apiInplaceImportTableFromFile(tableId, {
-      attachmentUrl,
-      fileType,
-      insertConfig: {
-        sourceWorkSheetKey: CsvImporter.DEFAULT_SHEETKEY,
-        excludeFirstRow: true,
-        sourceColumnMap,
-      },
-    });
-
-    await delay(1000);
-
-    const {
-      data: { records },
-    } = await apiGetTableById(baseId, tableId, {
-      includeContent: true,
-    });
-
-    bases.push([baseId, tableId]);
-
-    const tableRecords = records?.map((r) => {
-      const newFields = { ...r.fields };
-      if (newFields['field_4']) {
-        newFields['field_4'] = +new Date(newFields['field_4'] as string);
-      }
-      return newFields;
-    });
-
-    const assertRecords = [
-      {
-        field_1: 1,
-        field_2: 'string_1',
-        field_3: true,
-        field_4: +new Date(new Date('2022-11-10 16:00:00').toUTCString()),
-        field_6: 'long\ntext',
-      },
-      {
-        field_1: 2,
-        field_2: 'string_2',
-        field_4: +new Date(new Date('2022-11-11 16:00:00').toUTCString()),
-      },
-    ];
-
-    expect(records?.length).toBe(2);
-    expect(tableRecords).toEqual(assertRecords);
   });
 });

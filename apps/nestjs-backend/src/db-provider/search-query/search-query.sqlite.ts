@@ -14,11 +14,14 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return this.originQueryBuilder.whereRaw(
       `
       EXISTS (
-        SELECT 1 FROM json_each(??) as je
-        WHERE ROUND(je.value, ?) LIKE ?
+        SELECT 1 FROM (
+          SELECT group_concat(ROUND(je.value, ?), ', ') as aggregated
+          FROM json_each(??) as je
+        )
+        WHERE aggregated LIKE ?
       )
-    `,
-      [this.field.dbFieldName, precision, `%${this.searchValue}%`]
+      `,
+      [precision, this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }
 
@@ -27,11 +30,14 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return this.originQueryBuilder.whereRaw(
       `
       EXISTS (
-        SELECT 1 FROM json_each(??) as je
-        WHERE DATETIME(je.value, ?) LIKE ?
+        SELECT 1 FROM (
+          SELECT group_concat(DATETIME(je.value, ?), ', ') as aggregated
+          FROM json_each(??) as je
+        )
+        WHERE aggregated LIKE ?
       )
-    `,
-      [this.field.dbFieldName, `${getOffset(timeZone)} hour`, `%${this.searchValue}%`]
+      `,
+      [`${getOffset(timeZone)} hour`, this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }
 
@@ -39,10 +45,14 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return this.originQueryBuilder.whereRaw(
       `
       EXISTS (
-        SELECT 1 FROM json_each(??) as je
-        WHERE je.value LIKE ? AND je.key != 'title'
+        SELECT 1 FROM (
+          SELECT group_concat(je.value, ', ') as aggregated
+          FROM json_each(??) as je
+          WHERE je.key != 'title'
+        )
+        WHERE aggregated LIKE ?
       )
-    `,
+      `,
       [this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }
@@ -51,10 +61,13 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
     return this.originQueryBuilder.whereRaw(
       `
       EXISTS (
-        SELECT 1 FROM json_each(??) as je
-        WHERE json_extract(je.value, '$.title') LIKE ?
+        SELECT 1 FROM (
+          SELECT group_concat(json_extract(je.value, '$.title'), ', ') as aggregated
+          FROM json_each(??) as je
+        )
+        WHERE aggregated LIKE ?
       )
-    `,
+      `,
       [this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }
