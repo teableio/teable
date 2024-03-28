@@ -8,6 +8,7 @@ import {
   NotificationTypeEnum,
   notificationUrlSchema,
   userIconSchema,
+  SYSTEM_USER_ID,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -113,6 +114,57 @@ export class NotificationService {
     }
   }
 
+  async sendImportResultNotify(params: {
+    tableId: string;
+    baseId: string;
+    toUserId: string;
+    message: string;
+  }) {
+    const { toUserId, tableId, message, baseId } = params;
+    const notifyId = generateNotificationId();
+    const [toUser] = await Promise.all([this.userService.getUserById(toUserId)]);
+    if (!toUser) {
+      return;
+    }
+    const urlMeta = notificationUrlSchema.parse({
+      baseId: baseId,
+      tableId: tableId,
+    });
+
+    const data: Prisma.NotificationCreateInput = {
+      id: notifyId,
+      fromUserId: SYSTEM_USER_ID,
+      toUserId: toUserId,
+      type: NotificationTypeEnum.System,
+      urlMeta: JSON.stringify(urlMeta),
+      createdBy: NotificationTypeEnum.System,
+      message,
+    };
+    const notifyData = await this.createNotify(data);
+
+    const unreadCount = (await this.unreadCount(toUser.id)).unreadCount;
+
+    const notifyUrl = this.generateNotifyUrl(notifyData.type as NotificationTypeEnum, urlMeta);
+
+    const socketNotification = {
+      notification: {
+        id: notifyData.id,
+        message: notifyData.message,
+        notifyType: notifyData.type as NotificationTypeEnum,
+        url: notifyUrl,
+        notifyIcon: {
+          userId: SYSTEM_USER_ID,
+          userName: SYSTEM_USER_ID,
+        },
+        isRead: false,
+        createdTime: notifyData.createdTime.toISOString(),
+      },
+      unreadCount: unreadCount,
+    };
+
+    this.sendNotifyBySocket(toUser.id, socketNotification);
+  }
+
   async getNotifyList(userId: string, query: IGetNotifyListQuery): Promise<INotificationVo> {
     const { notifyStates, cursor } = query;
     const limit = 10;
@@ -195,8 +247,10 @@ export class NotificationService {
     const origin = this.mailConfig.origin;
 
     switch (notifyType) {
-      case NotificationTypeEnum.System:
-        return origin;
+      case NotificationTypeEnum.System: {
+        const { baseId, tableId } = urlMeta || {};
+        return `${origin}/base/${baseId}/${tableId}`;
+      }
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { baseId, tableId, recordId } = urlMeta || {};
