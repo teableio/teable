@@ -1,5 +1,5 @@
-import { importTypeMap } from '@teable/core';
-import type { SUPPORTEDTYPE } from '@teable/core';
+import type { SUPPORTEDTYPE } from '@teable/openapi';
+import { importTypeMap } from '@teable/openapi';
 import { useRef } from 'react';
 import { useDropArea } from 'react-use';
 

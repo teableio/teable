@@ -59,8 +59,8 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
   const optionMap = useMemo(() => {
     const map: Record<string, string> = {};
     options.forEach((option) => {
-      const key = option.value.toLowerCase();
-      const value = option.label.toLowerCase();
+      const key = option.value;
+      const value = option.label;
       map[key] = value;
     });
     return map;
@@ -68,8 +68,9 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap[id] || t('common.untitled');
-      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
+      console.log('optionMap[id]', optionMap[id]);
+      const name = optionMap[id]?.toLowerCase() || t('common.untitled');
+      const containWord = name.indexOf(searchValue?.toLowerCase()) > -1;
       return Number(containWord);
     },
     [optionMap, t]

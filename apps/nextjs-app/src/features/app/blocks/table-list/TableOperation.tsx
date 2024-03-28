@@ -1,4 +1,14 @@
-import { MoreHorizontal, Pencil, Settings, Trash2, Export } from '@teable/icons';
+import {
+  MoreHorizontal,
+  Pencil,
+  Settings,
+  Trash2,
+  Export,
+  Import,
+  FileCsv,
+  FileExcel,
+} from '@teable/icons';
+import { SUPPORTEDTYPE } from '@teable/openapi';
 import { useBase, useTablePermission, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { ConfirmDialog } from '@teable/ui-lib/base';
@@ -7,12 +17,18 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuPortal,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useRef, useMemo } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { TableImport } from '../import-table';
+
 interface ITableOperationProps {
   className?: string;
   table: Table;
@@ -21,7 +37,9 @@ interface ITableOperationProps {
 
 export const TableOperation = (props: ITableOperationProps) => {
   const { table, className, onRename } = props;
-  const [deleteConfirm, setDeleteConfirm] = React.useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [importVisible, setImportVisible] = useState(false);
+  const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
   const permission = useTablePermission();
   const base = useBase();
   const tables = useTables();
@@ -103,6 +121,34 @@ export const TableOperation = (props: ITableOperationProps) => {
               <Export className="mr-2" />
               {t('table:import.menu.downAsCsv')}
             </DropdownMenuItem>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Import className="mr-2" />
+                <span>{t('table:import.menu.importData')}</span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setImportVisible(true);
+                      setImportType(SUPPORTEDTYPE.CSV);
+                    }}
+                  >
+                    <FileCsv className="mr-2 size-4" />
+                    <span>{t('table:import.menu.csvFile')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setImportVisible(true);
+                      setImportType(SUPPORTEDTYPE.EXCEL);
+                    }}
+                  >
+                    <FileExcel className="mr-2 size-4" />
+                    <span>{t('table:import.menu.excelFile')}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
               <Trash2 className="mr-2" />
               {t('common:actions.delete')}
@@ -110,6 +156,16 @@ export const TableOperation = (props: ITableOperationProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      {importVisible && (
+        <TableImport
+          open={importVisible}
+          tableId={table.id}
+          fileType={importType}
+          onOpenChange={(open: boolean) => setImportVisible(open)}
+        ></TableImport>
+      )}
+
       <ConfirmDialog
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
