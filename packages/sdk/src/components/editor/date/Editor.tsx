@@ -33,7 +33,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   }));
 
   const valueComponent = useMemo(() => {
-    if (!value) return <span>{t('editor.date.placeholder')}</span>;
+    if (!value) return <span className="text-xs">{t('editor.date.placeholder')}</span>;
 
     let format = 'YYYY-MM-DD HH:mm';
     if (date && time) {

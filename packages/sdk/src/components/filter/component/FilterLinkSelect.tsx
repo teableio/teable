@@ -86,6 +86,7 @@ const FilterLinkSelectBase = (props: IFilterLinkProps) => {
           placeholder={t('filter.linkInputPlaceholder')}
           value={values as string}
           onChange={onSelect}
+          className="w-40"
         />
       )}
     </>

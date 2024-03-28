@@ -72,7 +72,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={true}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
