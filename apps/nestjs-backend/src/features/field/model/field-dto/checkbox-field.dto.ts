@@ -2,7 +2,9 @@ import { CheckboxFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class CheckboxFieldDto extends CheckboxFieldCore implements IFieldBase {
-  isStructuredCellValue = false;
+  get isStructuredCellValue() {
+    return false;
+  }
 
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {

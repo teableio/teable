@@ -2,7 +2,9 @@ import { AutoNumberFieldCore } from '@teable/core';
 import type { IFieldBase } from '../field-base';
 
 export class AutoNumberFieldDto extends AutoNumberFieldCore implements IFieldBase {
-  isStructuredCellValue = false;
+  get isStructuredCellValue() {
+    return false;
+  }
 
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {

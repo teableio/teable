@@ -4,7 +4,9 @@ import { omit } from 'lodash';
 import type { IFieldBase } from '../field-base';
 
 export class AttachmentFieldDto extends AttachmentFieldCore implements IFieldBase {
-  isStructuredCellValue = true;
+  get isStructuredCellValue() {
+    return false;
+  }
 
   static getTokenAndNameByString(value: string): { token: string; name: string } | undefined {
     const openParenIndex = value.lastIndexOf('(');

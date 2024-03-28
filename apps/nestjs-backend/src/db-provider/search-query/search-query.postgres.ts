@@ -13,11 +13,14 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     return this.originQueryBuilder.whereRaw(
       `
       EXISTS (
-        SELECT 1 FROM jsonb_array_elements_text(??::jsonb) as elem
-        WHERE ROUND(elem::numeric, ?) ILIKE ?
+        SELECT 1 FROM (
+          SELECT string_agg(ROUND(elem::numeric, ?)::text, ', ') as aggregated
+          FROM jsonb_array_elements_text(??::jsonb) as elem
+        ) as sub
+        WHERE sub.aggregated ILIKE ?
       )
-    `,
-      [this.field.dbFieldName, precision, `%${this.searchValue}%`]
+      `,
+      [precision, this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }
 
@@ -26,11 +29,14 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     return this.originQueryBuilder.whereRaw(
       `
       EXISTS (
-        SELECT 1 FROM jsonb_array_elements_text(??::jsonb) as elem
-        WHERE TO_CHAR(TIMEZONE(?, elem::timestamp), 'YYYY-MM-DD HH24:MI:SS') ILIKE ?
+        SELECT 1 FROM (
+          SELECT string_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), 'YYYY-MM-DD HH24:MI'), ', ') as aggregated
+          FROM jsonb_array_elements_text(??::jsonb) as elem
+        ) as sub
+        WHERE sub.aggregated ILIKE ?
       )
-    `,
-      [this.field.dbFieldName, timeZone, `%${this.searchValue}%`]
+      `,
+      [timeZone, this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }
 
@@ -39,8 +45,11 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
       `
       EXISTS (
         SELECT 1
-        FROM jsonb_array_elements_text(??::jsonb) as elem
-        WHERE elem ~* ?
+        FROM (
+          SELECT string_agg(elem::text, ', ') as aggregated
+          FROM jsonb_array_elements_text(??::jsonb) as elem
+        ) as sub
+        WHERE sub.aggregated ~* ?
       )
     `,
       [this.field.dbFieldName, this.searchValue]
@@ -51,11 +60,13 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     return this.originQueryBuilder.whereRaw(
       `
       EXISTS (
-        SELECT 1
-        FROM jsonb_array_elements(??::jsonb) as elem
-        WHERE elem->>'title' ~* ?
+        SELECT 1 FROM (
+          SELECT string_agg(elem->>'title', ', ') as aggregated
+          FROM jsonb_array_elements(??::jsonb) as elem
+        ) as sub
+        WHERE sub.aggregated ~* ?
       )
-    `,
+      `,
       [this.field.dbFieldName, this.searchValue]
     );
   }
@@ -74,7 +85,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   date() {
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
     return this.originQueryBuilder.whereRaw(
-      "TO_CHAR(TIMEZONE(?, ??), 'YYYY-MM-DD HH24:MI:SS') ILIKE ?",
+      "TO_CHAR(TIMEZONE(?, ??), 'YYYY-MM-DD HH24:MI') ILIKE ?",
       [timeZone, this.field.dbFieldName, `%${this.searchValue}%`]
     );
   }

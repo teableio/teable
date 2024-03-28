@@ -1,5 +1,5 @@
 export abstract class IFieldBase {
-  isStructuredCellValue: boolean = false;
+  abstract get isStructuredCellValue(): boolean;
 
   abstract convertDBValue2CellValue(value: unknown): unknown;
 
