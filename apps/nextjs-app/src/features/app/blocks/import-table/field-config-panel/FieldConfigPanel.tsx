@@ -1,7 +1,6 @@
 import { FieldType } from '@teable/core';
 import type { IImportOption, IImportOptionRo, IImportSheetItem } from '@teable/core';
-import { Button } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Button, cn } from '@teable/ui-lib';
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CollapsePanel } from './CollapsePanel';
@@ -104,7 +103,7 @@ const FieldConfigPanel = (props: IFieldConfigPanel) => {
             key={sheetKey}
             size="xs"
             onClick={() => setSelectedSheetKey(sheetKey)}
-            className={classNames('w-20 shrink-0 cursor-pointer truncate rounded-sm', {
+            className={cn('w-20 shrink-0 cursor-pointer truncate rounded-sm', {
               'bg-secondary': sheetKey === selectedSheetKey,
             })}
           >

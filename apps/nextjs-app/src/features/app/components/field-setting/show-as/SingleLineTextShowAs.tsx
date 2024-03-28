@@ -1,8 +1,7 @@
 import { SingleLineTextDisplayType } from '@teable/core';
 import type { ISingleLineTextShowAs } from '@teable/core';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
@@ -59,7 +58,7 @@ export const SingleTextLineShowAs: React.FC<ISingleNumberShowAsProps> = (props) 
               key={type}
               variant="outline"
               size="sm"
-              className={classNames(
+              className={cn(
                 'font-normal',
                 type === selectedType &&
                   'bg-foreground text-accent hover:bg-foreground hover:text-accent'

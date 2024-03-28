@@ -7,7 +7,6 @@ import {
   NotificationStatesEnum,
   NotificationTypeEnum,
   notificationUrlSchema,
-  systemIconSchema,
   userIconSchema,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';

@@ -8,7 +8,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "search": {
-      "placeholder": "Search",
+      "placeholder": "Search...",
       "empty": "No results found."
     },
     "selectPlaceHolder": "Select..."

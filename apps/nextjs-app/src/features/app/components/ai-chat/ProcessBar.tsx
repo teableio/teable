@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
-import clx from 'classnames';
+import { cn } from '@teable/ui-lib/shadcn';
 import React, { useEffect, useMemo } from 'react';
 import Confetti from 'react-confetti';
 import { useMeasure } from 'react-use';
@@ -43,7 +43,7 @@ export const ProcessBar: React.FC<{
   return (
     <div
       ref={ref}
-      className={clx('relative max-w-full bg-base-300 p-1 rounded-lg prose prose-slate text-sm', {
+      className={cn('relative max-w-full bg-base-300 p-1 rounded-lg prose prose-slate text-sm', {
         'w-full': parsedResult && isGenerateChart,
       })}
       onClick={onClick}

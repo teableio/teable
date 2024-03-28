@@ -1,13 +1,13 @@
 import { ChevronsLeft } from '@teable/icons';
 import { useIsHydrated, useIsMobile } from '@teable/sdk';
 import { Button } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib/shadcn';
 import React, { useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SideBar } from '../../blocks/base/base-side-bar/SideBar';
 import { SIDEBARWIDTH } from './constant';
 import { HoverWraper } from './HoverWraper';
-import { SheetWraper } from './SheetWraper';
+import { SheetWrapper } from './SheetWrapper';
 
 export const Pane: React.FC<{
   children: React.ReactNode[];
@@ -37,9 +37,7 @@ export const Pane: React.FC<{
         <HoverWraper size={SIDEBARWIDTH}>
           <HoverWraper.Trigger>
             <Button
-              className={classNames(
-                'absolute top-7 z-[51] p-1 rounded-none -left-0 rounded-r-full'
-              )}
+              className={cn('absolute top-7 z-[51] p-1 rounded-none -left-0 rounded-r-full')}
               variant={'outline'}
               size="xs"
               onClick={() => {
@@ -57,10 +55,10 @@ export const Pane: React.FC<{
 
       <div className="flex h-screen w-full">
         {isMobile ? (
-          <SheetWraper>{left}</SheetWraper>
+          <SheetWrapper>{left}</SheetWrapper>
         ) : (
           <div
-            className={classNames('transition-all flex w-0 border-r will-change-auto', {
+            className={cn('transition-all flex w-0 border-r will-change-auto', {
               'overflow-hidden': !leftVisible,
             })}
             style={{

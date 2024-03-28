@@ -126,7 +126,7 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
           const { records } = (
             await apiGetRecords(tableId, {
               viewId,
-              search: [fieldId, queryValue],
+              search: [queryValue, fieldId],
             })
           ).data;
 
@@ -198,7 +198,7 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
           const { records } = (
             await apiGetRecords(curTable.id, {
               viewId,
-              search: [field.id, queryValue],
+              search: [queryValue, field.id],
             })
           ).data;
 

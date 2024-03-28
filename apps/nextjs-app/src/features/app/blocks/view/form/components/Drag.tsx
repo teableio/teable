@@ -4,7 +4,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IFieldInstance } from '@teable/sdk/model';
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib/shadcn';
 import React from 'react';
 
 export const DraggableItem = (props: {
@@ -28,53 +28,11 @@ export const DraggableItem = (props: {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={classNames(
+      className={cn(
         'group relative overflow-y-auto',
         className,
         isDragging ? draggingClassName : null
       )}
-    >
-      {children}
-    </div>
-  );
-};
-
-export const SortableItem = (props: {
-  id: string;
-  index: number;
-  field: IFieldInstance;
-  children: React.ReactElement;
-  className?: string;
-  draggingClassName?: string;
-  onClick?: () => void;
-}) => {
-  const { id, index, field, children, className, draggingClassName, onClick } = props;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id,
-    data: {
-      id,
-      index,
-      field,
-    },
-  });
-
-  const itemStyle = {
-    transition,
-    transform: CSS.Transform.toString(transform),
-  };
-
-  return (
-    <div
-      style={itemStyle}
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      className={classNames(
-        'group relative overflow-y-auto',
-        className,
-        isDragging ? draggingClassName : null
-      )}
-      onClick={onClick}
     >
       {children}
     </div>

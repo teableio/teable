@@ -1,6 +1,5 @@
 import type { IFilterItem } from '@teable/core';
-import { Input } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Input, cn } from '@teable/ui-lib';
 import { debounce } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -37,7 +36,7 @@ const FilterInput = (props: InputProps) => {
         setInput(e.target.value);
       }}
       onBlur={() => onChange(input ?? null)}
-      className={classNames('m-1 h-8 placeholder:text-[13px]', className)}
+      className={cn('m-1 h-8 placeholder:text-[13px]', className)}
     />
   );
 };

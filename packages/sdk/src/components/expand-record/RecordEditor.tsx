@@ -35,11 +35,11 @@ export const RecordEditor = (props: {
         ))}
         {hiddenFields.length !== 0 && (
           <div className="flex items-center gap-2">
-            <div className="border-top-width h-[1px] flex-1 bg-border" />
+            <div className="border-top-width h-px flex-1 bg-border" />
             <Button variant={'outline'} size={'xs'} onClick={toggle}>
               {showHiddenFields ? 'Hide' : 'Show'} {hiddenFields.length} hidden field
             </Button>
-            <div className="border-top-width h-[1px] flex-1 bg-border" />
+            <div className="border-top-width h-px flex-1 bg-border" />
           </div>
         )}
         {showHiddenFields &&

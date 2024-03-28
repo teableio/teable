@@ -1,7 +1,7 @@
 import { CreatedTimeFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class CreatedTimeFieldDto extends CreatedTimeFieldCore implements IFieldBase {
+export class CreatedTimeFieldDto extends CreatedTimeFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

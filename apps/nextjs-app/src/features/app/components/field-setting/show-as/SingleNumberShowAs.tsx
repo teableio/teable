@@ -7,9 +7,9 @@ import {
   PopoverContent,
   PopoverTrigger,
   Switch,
+  cn,
 } from '@teable/ui-lib/shadcn';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { ColorPicker } from '../options/SelectOptions';
@@ -97,7 +97,7 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
               key={type}
               variant="outline"
               size="sm"
-              className={classNames(
+              className={cn(
                 'font-normal w-20',
                 type === selectedType &&
                   'bg-foreground text-accent hover:bg-foreground hover:text-accent'

@@ -1,7 +1,7 @@
 import { NumberFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class NumberFieldDto extends NumberFieldCore implements IFieldBase {
+export class NumberFieldDto extends NumberFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

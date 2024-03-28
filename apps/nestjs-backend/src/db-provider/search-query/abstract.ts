@@ -17,8 +17,8 @@ export abstract class SearchQueryAbstract {
     if (!search || !search[1] || !fieldMap) {
       return originQueryBuilder;
     }
-    const field = fieldMap?.[search[0]];
-    const searchValue = search[1];
+    const field = fieldMap?.[search[1]];
+    const searchValue = search[0];
     if (field.cellValueType === CellValueType.Boolean) {
       return originQueryBuilder;
     }

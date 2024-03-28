@@ -29,7 +29,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   useHotkeys(
-    `meta+k`,
+    `mod+k`,
     () => {
       setOpen(!open);
     },
@@ -48,7 +48,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
       >
         {children}
         <kbd className="flex h-5 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
-          <span className="text-base">⌘</span>
+          <span className="text-sm">⌘</span>
           <span>K</span>
         </kbd>
       </Button>

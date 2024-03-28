@@ -1,7 +1,7 @@
 import { FormulaFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class FormulaFieldDto extends FormulaFieldCore implements IFieldBase {
+export class FormulaFieldDto extends FormulaFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

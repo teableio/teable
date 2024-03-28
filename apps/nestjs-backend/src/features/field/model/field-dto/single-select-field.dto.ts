@@ -1,7 +1,7 @@
 import { SingleSelectFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class SingleSelectFieldDto extends SingleSelectFieldCore implements IFieldBase {
+export class SingleSelectFieldDto extends SingleSelectFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return false;
   }

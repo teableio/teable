@@ -3,8 +3,7 @@ import { SpaceRole, hasPermission } from '@teable/core';
 import { X } from '@teable/icons';
 import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable/openapi';
 import { ReactQueryKeys, useSpaceRoleStatic } from '@teable/sdk';
-import { Button } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Button, cn } from '@teable/ui-lib';
 import { map } from 'lodash';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
@@ -101,7 +100,7 @@ export const Invite: React.FC<IInvite> = (props) => {
   const EmailInvite = (
     <div>
       <div className="flex gap-2">
-        <div className="flex max-h-64 min-h-[2rem] flex-1 flex-wrap gap-1 overflow-y-auto rounded-md border border-input bg-background p-1 text-sm shadow-sm transition-colors">
+        <div className="flex max-h-64 min-h-8 flex-1 flex-wrap gap-1 overflow-y-auto rounded-md border border-input bg-background p-1 text-sm shadow-sm transition-colors">
           {inviteEmails.map((email) => (
             <div
               key={email}
@@ -162,11 +161,11 @@ export const Invite: React.FC<IInvite> = (props) => {
   const showLink = hasPermission(role, 'space|invite_link');
 
   if (!showLink) {
-    return <div className={classNames(className, 'rounded bg-muted px-4 py-2')}>{EmailInvite}</div>;
+    return <div className={cn(className, 'rounded bg-muted px-4 py-2')}>{EmailInvite}</div>;
   }
 
   return (
-    <div className={classNames(className, 'rounded bg-muted px-4 py-2')}>
+    <div className={cn(className, 'rounded bg-muted px-4 py-2')}>
       <div className="pb-2">
         <Button
           className="mr-6 p-0 data-[state=active]:underline"

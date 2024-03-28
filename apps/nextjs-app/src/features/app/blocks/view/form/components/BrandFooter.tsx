@@ -8,7 +8,7 @@ export const BrandFooter = () => {
 
   return (
     <div className="flex w-full items-center justify-center">
-      <span className="h-[1px] w-16 bg-slate-200 dark:bg-slate-600" />
+      <span className="h-px w-16 bg-slate-200 dark:bg-slate-600" />
       <div className="mx-4 flex items-center gap-2 text-xs text-muted-foreground">
         <Trans
           ns="common"
@@ -25,7 +25,7 @@ export const BrandFooter = () => {
           ]}
         />
       </div>
-      <span className="h-[1px] w-16 bg-slate-200 dark:bg-slate-600" />
+      <span className="h-px w-16 bg-slate-200 dark:bg-slate-600" />
     </div>
   );
 };

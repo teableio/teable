@@ -1,12 +1,12 @@
 import { ChevronRight } from '@teable/icons';
 import {
   Button,
+  cn,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
   Switch,
 } from '@teable/ui-lib';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import type { ITableImportOptions } from '../TableImport';
@@ -22,16 +22,10 @@ export const CollapsePanel = (props: ICollapsePanel) => {
   const { t } = useTranslation(['table']);
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={(open) => setOpen(open)}
-      className={classNames('w-full rounded-sm')}
-    >
+    <Collapsible open={open} onOpenChange={(open) => setOpen(open)} className="w-full rounded-sm">
       <CollapsibleTrigger className="w-full" asChild>
         <Button variant="ghost" className="flex w-full justify-start">
-          <ChevronRight
-            className={classNames('h-4 w-4 transition', open ? 'rotate-90' : 'rotate-0')}
-          />
+          <ChevronRight className={cn('h-4 w-4 transition', open ? 'rotate-90' : 'rotate-0')} />
           {t('table:import.title.optionsTitle')}
         </Button>
       </CollapsibleTrigger>

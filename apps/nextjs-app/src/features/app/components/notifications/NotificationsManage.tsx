@@ -9,7 +9,7 @@ import {
 import { useNotification } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib/shadcn';
 import React, { useEffect, useState } from 'react';
 import { NotificationList } from './NotificationList';
 
@@ -146,7 +146,7 @@ export const NotificationsManage: React.FC = () => {
               <Button
                 variant="ghost"
                 size="xs"
-                className={classNames('ml-2', {
+                className={cn('ml-2', {
                   'bg-secondary': notifyStatus === NotificationStatesEnum.Unread,
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
@@ -156,7 +156,7 @@ export const NotificationsManage: React.FC = () => {
               <Button
                 variant="ghost"
                 size="xs"
-                className={classNames('ml-2', {
+                className={cn('ml-2', {
                   'bg-secondary': notifyStatus === NotificationStatesEnum.Read,
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
