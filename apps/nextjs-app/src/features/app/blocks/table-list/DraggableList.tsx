@@ -5,7 +5,7 @@ import {
   Draggable,
   type DragEndEvent,
 } from '@teable/ui-lib/base/dnd-kit';
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useState, useEffect } from 'react';
 import { TableListItem } from './TableListItem';
 
@@ -56,7 +56,7 @@ export const DraggableList = () => {
                 {...attributes}
                 {...listeners}
                 style={style}
-                className={classNames('group relative overflow-y-auto cursor-pointer', {
+                className={cn('group relative overflow-y-auto cursor-pointer', {
                   'opacity-60': isDragging,
                 })}
               >

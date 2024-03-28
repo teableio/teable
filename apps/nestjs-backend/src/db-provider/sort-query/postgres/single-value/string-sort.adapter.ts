@@ -1,6 +1,6 @@
+import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
-import type { SingleSelectOptionsDto } from '../../../../features/field/model/field-dto/single-select-field.dto';
 import { SortFunctionPostgres } from '../sort-query.function';
 
 export class StringSortAdapter extends SortFunctionPostgres {
@@ -11,7 +11,7 @@ export class StringSortAdapter extends SortFunctionPostgres {
       return super.asc(builderClient);
     }
 
-    const { choices } = options as SingleSelectOptionsDto;
+    const { choices } = options as ISelectFieldOptions;
 
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(
@@ -28,7 +28,7 @@ export class StringSortAdapter extends SortFunctionPostgres {
       return super.desc(builderClient);
     }
 
-    const { choices } = options as SingleSelectOptionsDto;
+    const { choices } = options as ISelectFieldOptions;
 
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(

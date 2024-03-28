@@ -568,9 +568,6 @@ importers:
       class-variance-authority:
         specifier: 0.7.0
         version: 0.7.0
-      classnames:
-        specifier: 2.5.1
-        version: 2.5.1
       dayjs:
         specifier: 1.11.10
         version: 1.11.10
@@ -1321,9 +1318,6 @@ importers:
       class-transformer:
         specifier: 0.5.1
         version: 0.5.1
-      classnames:
-        specifier: 2.5.1
-        version: 2.5.1
       date-fns:
         specifier: 2.30.0
         version: 2.30.0

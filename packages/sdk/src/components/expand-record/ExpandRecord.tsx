@@ -1,6 +1,5 @@
 import type { IRecord } from '@teable/core';
-import { Separator, Skeleton } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Separator, Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useMemo } from 'react';
 import { useMeasure } from 'react-use';
@@ -17,7 +16,7 @@ import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordRight } from './ExpandRecordRight';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
 import { RecordEditor } from './RecordEditor';
-import { IExpandRecordModel } from './type';
+import { ExpandRecordModel } from './type';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const MIN_SHOW_ACTIVITY_WIDTH = 700;
@@ -26,7 +25,7 @@ interface IExpandRecordProps {
   recordId: string;
   recordIds?: string[];
   visible?: boolean;
-  model?: IExpandRecordModel;
+  model?: ExpandRecordModel;
   serverData?: IRecord;
   showActivity?: boolean;
   onClose?: () => void;
@@ -104,7 +103,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
 
   return (
     <ExpandRecordWrap
-      model={isTouchDevice ? IExpandRecordModel.Panel : model ?? IExpandRecordModel.Modal}
+      model={isTouchDevice ? ExpandRecordModel.Drawer : model ?? ExpandRecordModel.Modal}
       visible={visible}
       showActivity={showActivity}
       onClose={onClose}
@@ -138,7 +137,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
 
           {showActivity && (
             <div
-              className={classNames('flex', {
+              className={cn('flex', {
                 'absolute top-0 right-0 h-full bg-background w-80':
                   containerWidth <= MIN_SHOW_ACTIVITY_WIDTH,
               })}

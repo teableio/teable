@@ -86,6 +86,16 @@ const multipleUserField = {
   },
 };
 
+const formulaField = {
+  name: 'formula user field',
+  description: 'the formula user field',
+  type: FieldType.Formula,
+  options: {
+    expression: '1 + 1.1',
+    formatting: { type: NumberFormattingType.Decimal, precision: 1 },
+  },
+};
+
 export const x_20 = {
   // textField                => 0
   // numberField              => 1
@@ -95,6 +105,7 @@ export const x_20 = {
   // userField                => 5
   // multipleSelectField      => 6
   // multipleUserField        => 7
+  // formulaField             => 8
   fields: [
     textField,
     numberField,
@@ -104,6 +115,7 @@ export const x_20 = {
     userField,
     multipleSelectField,
     multipleUserField,
+    formulaField,
   ],
 
   // actual number of items: 23

@@ -13,8 +13,8 @@ import {
   CommandItem,
   CommandList,
   Skeleton,
+  cn,
 } from '@teable/ui-lib';
-import classNames from 'classnames';
 import type { ForwardRefRenderFunction } from 'react';
 import React, { useCallback, useImperativeHandle, useRef, forwardRef } from 'react';
 import { ReactQueryKeys } from '../../../config';
@@ -109,10 +109,7 @@ const UserEditorMainBase: ForwardRefRenderFunction<
                   </div>
                 </div>
                 <Check
-                  className={classNames(
-                    'ml-2 h-4 w-4',
-                    activeStatus(userId) ? 'opacity-100' : 'opacity-0'
-                  )}
+                  className={cn('ml-2 h-4 w-4', activeStatus(userId) ? 'opacity-100' : 'opacity-0')}
                 />
               </CommandItem>
             ))

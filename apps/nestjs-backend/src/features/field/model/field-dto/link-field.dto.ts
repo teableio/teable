@@ -1,8 +1,12 @@
 import { LinkFieldCore } from '@teable/core';
 import type { ILinkCellValue } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class LinkFieldDto extends LinkFieldCore implements IFieldBase {
+export class LinkFieldDto extends LinkFieldCore implements FieldBase {
+  get isStructuredCellValue() {
+    return true;
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
     return value && JSON.stringify(value);
   }

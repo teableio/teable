@@ -1,7 +1,6 @@
 import { TimeFormatting } from '@teable/core';
 import { Calendar } from '@teable/icons';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import type { ForwardRefRenderFunction } from 'react';
@@ -47,7 +46,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
       <PopoverTrigger asChild disabled={readonly}>
         <Button
           variant={'outline'}
-          className={classNames(
+          className={cn(
             'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9',
             !value && 'text-muted-foreground',
             className

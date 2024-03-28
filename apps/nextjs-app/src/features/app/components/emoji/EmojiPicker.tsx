@@ -1,8 +1,7 @@
 import emojiData from '@emoji-mart/data';
 import EmojiPickerCom from '@emoji-mart/react';
 import { useTheme } from '@teable/sdk';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import type { FC, PropsWithChildren } from 'react';
 
 interface IEmojiPicker {
@@ -17,7 +16,7 @@ export const EmojiPicker: FC<PropsWithChildren<IEmojiPicker>> = (props) => {
 
   if (disabled) {
     return (
-      <div className={classNames('rounded transition-colors hover:bg-secondary', className)}>
+      <div className={cn('rounded transition-colors hover:bg-secondary', className)}>
         {children}
       </div>
     );
@@ -30,7 +29,7 @@ export const EmojiPicker: FC<PropsWithChildren<IEmojiPicker>> = (props) => {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div className={classNames('rounded transition-colors hover:bg-secondary', className)}>
+        <div className={cn('rounded transition-colors hover:bg-secondary', className)}>
           {children}
         </div>
       </PopoverTrigger>

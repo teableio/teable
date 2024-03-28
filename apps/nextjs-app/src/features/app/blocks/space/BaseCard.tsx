@@ -3,8 +3,7 @@ import { hasPermission } from '@teable/core';
 import { Database, MoreHorizontal } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { deleteBase, updateBase } from '@teable/openapi';
-import { Button, Card, CardContent, Input } from '@teable/ui-lib/shadcn';
-import classNames from 'classnames';
+import { Button, Card, CardContent, cn, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
@@ -85,20 +84,17 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
   return (
-    <Card
-      className={classNames('group cursor-pointer hover:shadow-md', className)}
-      onClick={intoBase}
-    >
+    <Card className={cn('group cursor-pointer hover:shadow-md', className)} onClick={intoBase}>
       <CardContent className="flex size-full items-center px-4 py-6">
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
           <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
             {base.icon ? (
-              <div className="size-14 min-w-[3.5rem] text-[3.5rem] leading-none">
+              <div className="size-14 min-w-14 text-[3.5rem] leading-none">
                 <Emoji emoji={base.icon} size={56} />
               </div>
             ) : (
-              <Database className="size-14 min-w-[3.5rem]" />
+              <Database className="size-14 min-w-14" />
             )}
           </EmojiPicker>
         </div>
