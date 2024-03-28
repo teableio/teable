@@ -6,6 +6,7 @@ import type { Response } from 'express';
 import Papa from 'papaparse';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
+import { isObject } from 'lodash';
 
 @Injectable()
 export class ExportOpenApiService {
@@ -62,6 +63,9 @@ export class ExportOpenApiService {
           type === FieldType.Attachment
             ? value.map((v) => `${v.name} ${v.presignedUrl}`).join(',')
             : value.map((v) => (typeof v !== 'object' ? v : v.title)).join(',');
+      }
+      if (isObject(csvValue) && 'title' in csvValue) {
+        csvValue = csvValue?.title;
       }
       return csvValue;
     };

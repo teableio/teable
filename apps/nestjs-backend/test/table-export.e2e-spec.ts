@@ -19,6 +19,7 @@ import { initApp } from './utils/init-app';
 
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
+const userId = globalThis.testConfig.userId;
 let txtFileData: INotifyVo;
 
 const subFields = [
@@ -122,6 +123,14 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
           type: FieldType.Attachment,
           name: 'Attachment field',
         },
+        {
+          type: FieldType.User,
+          name: 'User Field',
+          options: {
+            isMultiple: false,
+            shouldNotify: false,
+          },
+        },
       ],
       records: [],
     });
@@ -203,6 +212,10 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
             ['Date field']: '2022-11-28T16:00:00.000Z',
             ['Text field']: 'txt2',
             ['Select field']: 'y',
+            ['User Field']: {
+              title: 'test',
+              id: userId,
+            },
           },
         },
         {
@@ -225,7 +238,7 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
     expect(disposition).toBe(`attachment; filename=${mainTable.data.name}.csv`);
     expect(contentType).toBe('text/csv');
     expect(csvData).toBe(
-      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1,true,x,2022-11-28T16:00:00.000Z,test.txt ${txtFileData.presignedUrl},Name1,Name1,1,true,sub_y\r\ntxt2,,,y,2022-11-28T16:00:00.000Z,,,,,,\r\n,,true,z,,,,,,,`
+      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1,true,x,2022-11-28T16:00:00.000Z,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1,true,sub_y\r\ntxt2,,,y,2022-11-28T16:00:00.000Z,,test,,,,,\r\n,,true,z,,,,,,,,`
     );
   });
 });
