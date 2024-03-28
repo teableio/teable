@@ -25,7 +25,7 @@ export class ExportOpenApiService {
 
     const tableRaw = await this.prismaService.tableMeta
       .findUnique({
-        where: { id: tableId },
+        where: { id: tableId, deletedTime: null },
         select: { name: true },
       })
       .catch(() => {
