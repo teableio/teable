@@ -3,10 +3,10 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
+import { isObject } from 'lodash';
 import Papa from 'papaparse';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
-import { isObject } from 'lodash';
 
 @Injectable()
 export class ExportOpenApiService {
