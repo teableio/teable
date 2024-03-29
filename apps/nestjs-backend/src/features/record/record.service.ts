@@ -912,7 +912,6 @@ export class RecordService implements IAdapterService {
 
     const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
     const fieldNames = fields.map((f) => f.dbFieldName).concat(Array.from(preservedDbFieldNames));
-
     const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
       .whereIn('__id', recordIds)
@@ -943,7 +942,6 @@ export class RecordService implements IAdapterService {
     });
 
     const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
-
     const snapshots = result
       .sort((a, b) => {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];

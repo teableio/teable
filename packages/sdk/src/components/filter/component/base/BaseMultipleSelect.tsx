@@ -29,7 +29,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     popoverClassName,
     disabled = false,
     optionRender,
-    notFoundText = t('common.search.empty'),
+    notFoundText = t('common.noRecords'),
     displayRender,
   } = props;
   const [open, setOpen] = useState(false);
@@ -111,26 +111,22 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
             />
             <CommandEmpty>{notFoundText}</CommandEmpty>
             <CommandGroup aria-valuetext="name">
-              {options.length ? (
-                options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={() => selectHandler(option.value)}
-                    className="truncate p-1 text-[13px]"
-                  >
-                    <Check
-                      className={cn(
-                        'mr-2 h-4 w-4 shrink-0',
-                        values?.includes(option.value) ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
-                    {optionRender?.(option) ?? option.label}
-                  </CommandItem>
-                ))
-              ) : (
-                <span className="text-[13px] text-gray-600">{t('common.noRecords')}</span>
-              )}
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.value}
+                  onSelect={() => selectHandler(option.value)}
+                  className="truncate p-1 text-[13px]"
+                >
+                  <Check
+                    className={cn(
+                      'mr-2 h-4 w-4 shrink-0',
+                      values?.includes(option.value) ? 'opacity-100' : 'opacity-0'
+                    )}
+                  />
+                  {optionRender?.(option) ?? option.label}
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>

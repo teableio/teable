@@ -1,6 +1,7 @@
 import { X } from '@teable/icons';
 import { Button, cn } from '@teable/ui-lib';
 import { noop } from 'lodash';
+import { useTranslation } from '../../../context/app/i18n';
 
 interface ILinkCardProps {
   title?: string;
@@ -13,6 +14,7 @@ interface ILinkCardProps {
 
 export const LinkCard = (props: ILinkCardProps) => {
   const { title, readonly, className, wrapClassName, onClick, onDelete } = props;
+  const { t } = useTranslation();
   return (
     <div
       tabIndex={-1}
@@ -24,8 +26,11 @@ export const LinkCard = (props: ILinkCardProps) => {
       onClick={readonly ? undefined : onClick}
       onKeyDown={noop}
     >
-      <div className={cn('w-full font-mono text-sm', className)} title={title || 'Unnamed record'}>
-        {title || 'Unnamed record'}
+      <div
+        className={cn('w-full font-mono text-sm', className)}
+        title={title || t('common.unnamedRecord')}
+      >
+        {title || t('common.unnamedRecord')}
       </div>
       {!readonly && (
         <Button

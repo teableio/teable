@@ -10,3 +10,4 @@ export * from './cell-value-editor';
 export * from './expand-record';
 export * from './grid-enhancements';
 export * from './search';
+export * from './record-list';

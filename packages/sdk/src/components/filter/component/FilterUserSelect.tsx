@@ -2,13 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { isMeTag, Me } from '@teable/core';
 import { User as UserIcon } from '@teable/icons';
 import { getBaseCollaboratorList } from '@teable/openapi';
-import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBase, useSession } from '../../../hooks';
 import type { UserField } from '../../../model';
-import { convertNextImageUrl } from '../../grid-enhancements';
+import { UserOption, UserTag } from '../../editor';
 import { BaseMultipleSelect, BaseSingleSelect } from './base';
 
 interface IFilterUserProps {
@@ -27,10 +26,11 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
   const { value, onSelect, operator } = props;
   const values = useMemo<string | string[] | null>(() => value, [value]);
 
-  const { data: collaborators } = useQuery({
+  const { data: collaboratorsData } = useQuery({
     queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then(({ data }) => data),
+    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
   });
+  const collaborators = collaboratorsData?.data;
 
   const options = useMemo(() => {
     if (!collaborators?.length) return [];
@@ -53,31 +53,21 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
 
   const displayRender = useCallback((option: (typeof options)[number]) => {
     return (
-      <div
-        className="mx-1 rounded-lg bg-secondary px-2 text-secondary-foreground"
-        key={option.value}
-      >
+      <div className="rounded-lg pr-2 text-secondary-foreground" key={option.value}>
         <div className="flex items-center space-x-2">
-          <Avatar className="size-6 border">
-            {isMeTag(option.value) ? (
-              <span className="flex size-full items-center justify-center">
-                <UserIcon className="size-4" />
-              </span>
-            ) : (
-              <>
-                <AvatarImage
-                  src={convertNextImageUrl({
-                    url: option.avatar as string,
-                    w: 64,
-                    q: 75,
-                  })}
-                  alt={option.label}
-                />
-                <AvatarFallback className="text-sm">{option.label.slice(0, 1)}</AvatarFallback>
-              </>
-            )}
-          </Avatar>
-          <p>{option.label}</p>
+          <UserTag
+            avatar={
+              isMeTag(option.value) ? (
+                <span className="flex size-full items-center justify-center bg-background">
+                  <UserIcon className="size-4" />
+                </span>
+              ) : (
+                option.avatar
+              )
+            }
+            name={option.label}
+            readonly
+          />
         </div>
       </div>
     );
@@ -89,28 +79,19 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
         key={option.value}
         className="truncate rounded-lg bg-secondary px-2 text-secondary-foreground"
       >
-        <div className="flex items-center space-x-2">
-          <Avatar className="size-7 border">
-            {isMeTag(option.value) ? (
+        <UserOption
+          className="gap-2"
+          avatar={
+            isMeTag(option.value) ? (
               <span className="flex size-full items-center justify-center">
                 <UserIcon className="size-4" />
               </span>
             ) : (
-              <>
-                <AvatarImage
-                  src={convertNextImageUrl({
-                    url: option.avatar as string,
-                    w: 64,
-                    q: 75,
-                  })}
-                  alt={option.label}
-                />
-                <AvatarFallback className="text-sm">{option.label.slice(0, 1)}</AvatarFallback>
-              </>
-            )}
-          </Avatar>
-          <p>{option.label}</p>
-        </div>
+              option.avatar
+            )
+          }
+          name={option.label}
+        />
       </div>
     );
   }, []);

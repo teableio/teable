@@ -16,14 +16,16 @@ import {
   shareViewFormSubmitRoSchema,
   shareViewRowCountRoSchema,
   shareViewAggregationsRoSchema,
-  shareViewLinkRecordsRoSchema,
   shareViewGroupPointsRoSchema,
-  IShareViewLinkRecordsRo,
   IShareViewRowCountRo,
   IShareViewGroupPointsRo,
   IShareViewAggregationsRo,
   rangesQuerySchema,
   IRangesRo,
+  shareViewLinkRecordsRoSchema,
+  IShareViewLinkRecordsRo,
+  shareViewCollaboratorsRoSchema,
+  IShareViewCollaboratorsRo,
 } from '@teable/openapi';
 import type {
   IRecord,
@@ -31,8 +33,9 @@ import type {
   IRowCountVo,
   IGroupPointsVo,
   ICopyVo,
-  IShareViewLinkRecordsVo,
   ShareViewGetVo,
+  IShareViewLinkRecordsVo,
+  IShareViewCollaboratorsVo,
 } from '@teable/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -116,17 +119,6 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/:shareId/view/link-records')
-  async linkRecords(
-    @Request() req: any,
-    @Query(new ZodValidationPipe(shareViewLinkRecordsRoSchema), TqlPipe)
-    shareViewLinkRecordsRo: IShareViewLinkRecordsRo
-  ): Promise<IShareViewLinkRecordsVo> {
-    const shareInfo = req.shareInfo as IShareViewInfo;
-    return this.shareService.getLinkRecords(shareInfo, shareViewLinkRecordsRo);
-  }
-
-  @UseGuards(AuthGuard)
   @Get('/:shareId/view/group-points')
   async getViewGroupPoints(
     @Request() req: any,
@@ -135,5 +127,26 @@ export class ShareController {
   ): Promise<IGroupPointsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return await this.shareService.getViewGroupPoints(shareInfo, query);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/view/link-records')
+  async viewLinkRecords(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(shareViewLinkRecordsRoSchema))
+    shareViewLinkRecordsRo: IShareViewLinkRecordsRo
+  ): Promise<IShareViewLinkRecordsVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareService.getViewLinkRecords(shareInfo, shareViewLinkRecordsRo);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/view/collaborators')
+  async getViewCollaborators(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(shareViewCollaboratorsRoSchema)) query: IShareViewCollaboratorsRo
+  ): Promise<IShareViewCollaboratorsVo> {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareService.getViewCollaborators(shareInfo, query);
   }
 }

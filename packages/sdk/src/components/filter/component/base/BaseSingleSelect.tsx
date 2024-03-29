@@ -27,7 +27,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     popoverClassName,
     disabled = false,
     optionRender,
-    notFoundText = t('common.search.empty'),
+    notFoundText = t('common.noRecords'),
     displayRender,
     search = true,
     placeholder = t('common.search.placeholder'),

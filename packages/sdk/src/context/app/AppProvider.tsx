@@ -1,9 +1,9 @@
 import { Hydrate, QueryClientProvider } from '@tanstack/react-query';
 import type { DriverClient } from '@teable/core';
-import { isObject } from 'lodash';
+import { isObject, merge } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import { AppContext } from '../app/AppContext';
-import type { ILocale, ILocalePartial } from './i18n';
+import type { ILocalePartial } from './i18n';
 import { defaultLocale } from './i18n';
 import { createQueryClient } from './queryClient';
 import { useConnection } from './useConnection';
@@ -38,7 +38,7 @@ export const AppProvider = (props: IAppProviderProps) => {
       connected,
       driver,
       lang,
-      locale: isObject(locale) ? ({ ...defaultLocale, ...locale } as ILocale) : defaultLocale,
+      locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
       ...themeProps,
     };
   }, [connection, connected, driver, lang, locale, themeProps]);
