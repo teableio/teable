@@ -44,7 +44,7 @@ function OperatorSelect(props: IOperatorSelectProps) {
       value={value}
       options={operatorOption}
       popoverClassName="w-48"
-      className="m-1 w-32 justify-between flex-shrink-0"
+      className="m-1 w-32 shrink-0 justify-between"
       onSelect={onSelect}
       disabled={shouldDisabled}
     />

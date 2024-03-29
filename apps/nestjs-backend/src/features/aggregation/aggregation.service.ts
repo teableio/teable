@@ -70,8 +70,9 @@ export class AggregationService {
     tableId: string;
     withFieldIds?: string[];
     withView?: IWithView;
+    search?: [string, string];
   }): Promise<IRawAggregationValue> {
-    const { tableId, withFieldIds, withView } = params;
+    const { tableId, withFieldIds, withView, search } = params;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -89,6 +90,7 @@ export class AggregationService {
       dbTableName,
       fieldInstanceMap,
       filter,
+      search,
       statisticFields,
       withUserId: currentUserId,
     });
@@ -142,8 +144,10 @@ export class AggregationService {
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      search: queryRo.search,
       withUserId: currentUserId,
     });
+
     return {
       rowCount: Number(rawRowCountData[0]?.count ?? 0),
     };
@@ -293,10 +297,11 @@ export class AggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
+    search?: [string, string];
     statisticFields?: IAggregationField[];
     withUserId?: string;
   }) {
-    const { dbTableName, fieldInstanceMap, filter, statisticFields, withUserId } = params;
+    const { dbTableName, fieldInstanceMap, filter, search, statisticFields, withUserId } = params;
     if (!statisticFields?.length) {
       return;
     }
@@ -309,6 +314,9 @@ export class AggregationService {
           this.dbProvider
             .filterQuery(qb, fieldInstanceMap, filter, { withUserId })
             .appendQueryBuilder();
+        }
+        if (search) {
+          this.dbProvider.searchQuery(qb, fieldInstanceMap, search);
         }
       })
       .from(tableAlias);
@@ -325,10 +333,18 @@ export class AggregationService {
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
+    search?: [string, string];
     withUserId?: string;
   }) {
-    const { tableId, dbTableName, fieldInstanceMap, filter, filterLinkCellCandidate, withUserId } =
-      params;
+    const {
+      tableId,
+      dbTableName,
+      fieldInstanceMap,
+      filter,
+      filterLinkCellCandidate,
+      search,
+      withUserId,
+    } = params;
 
     const queryBuilder = this.knex(dbTableName);
 
@@ -336,6 +352,10 @@ export class AggregationService {
       this.dbProvider
         .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
         .appendQueryBuilder();
+    }
+
+    if (search) {
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
     }
 
     if (filterLinkCellCandidate) {

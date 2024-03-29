@@ -1,10 +1,11 @@
 import { Search, X } from '@teable/icons';
 import { FieldSelector } from '@teable/sdk/components';
-import { useFields } from '@teable/sdk/hooks';
-import { useEffect, useState } from 'react';
+import { useFields, useSearch } from '@teable/sdk/hooks';
+import { cn } from '@teable/ui-lib/shadcn';
+import { useCallback, useEffect, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { useDebounce } from 'react-use';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
-import { useSearchStore } from './useSearchStore';
 
 export function SearchInput({
   className,
@@ -15,9 +16,12 @@ export function SearchInput({
 }) {
   const [active, setActive] = useState(false);
   const fields = useFields();
-  const { fieldId, value, setFieldId, setValue, reset } = useSearchStore();
+  const { fieldId, value, setFieldId, setValue } = useSearch();
+  const [inputValue, setInputValue] = useState(value);
+  const [isFocused, setIsFocused] = useState(false);
+
   useHotkeys(
-    `mod+f`,
+    [`mod+f`],
     (e) => {
       setActive(true);
       ref.current?.focus();
@@ -29,10 +33,24 @@ export function SearchInput({
     }
   );
 
+  const [, cancel] = useDebounce(
+    () => {
+      setValue(inputValue);
+    },
+    500,
+    [inputValue]
+  );
+
+  const resetSearch = useCallback(() => {
+    cancel();
+    setValue();
+    setInputValue('');
+  }, [cancel, setValue]);
+
   const ref = useHotkeys<HTMLInputElement>(
     `esc`,
     () => {
-      reset();
+      resetSearch();
       setActive(false);
     },
     {
@@ -50,7 +68,14 @@ export function SearchInput({
   }, [active, fieldId, fields, ref, setFieldId]);
 
   return active ? (
-    <div className="left-6 top-60 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background p-0 pr-2 text-xs outline outline-muted-foreground">
+    <div
+      className={cn(
+        'left-6 top-60 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background p-0 pr-[7px] text-xs border outline-muted-foreground',
+        {
+          outline: isFocused,
+        }
+      )}
+    >
       <FieldSelector
         className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-xs font-normal"
         value={fieldId}
@@ -66,15 +91,21 @@ export function SearchInput({
         autoCorrect="off"
         spellCheck="false"
         type="text"
-        value={value || ''}
+        value={inputValue || ''}
         onChange={(e) => {
-          setValue(e.target.value);
+          setInputValue(e.target.value);
+        }}
+        onBlur={() => {
+          setIsFocused(false);
+        }}
+        onFocus={() => {
+          setIsFocused(true);
         }}
       />
       <X
         className="hover:text-primary-foregrounds size-4 cursor-pointer font-light"
         onClick={() => {
-          reset();
+          resetSearch();
           setActive(false);
         }}
       />

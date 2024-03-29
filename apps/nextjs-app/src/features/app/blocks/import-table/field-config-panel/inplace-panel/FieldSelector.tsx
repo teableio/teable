@@ -10,8 +10,8 @@ import {
   PopoverTrigger,
   Button,
   CommandList,
+  cn,
 } from '@teable/ui-lib';
-import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -78,7 +78,7 @@ export function FieldSelector(props: IFieldSelector) {
                   className="flex hover:bg-accent"
                 >
                   <Check
-                    className={classNames(
+                    className={cn(
                       'mr-2 h-4 w-4 shrink-0',
                       value === o.value ? 'opacity-100' : 'opacity-0'
                     )}

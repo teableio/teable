@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ActionTriggerProvider } from '../action-trigger';
 import { RowCountContext, RowCountProvider } from '../aggregation';
 import { FieldContext, FieldProvider } from '../field';
+import { SearchProvider } from '../query';
 import { RecordContext, RecordProvider } from '../record';
 import { ViewContext, ViewProvider } from '../view';
 import { AnchorContext } from './AnchorContext';
@@ -28,15 +29,17 @@ export const AnchorProvider: React.FC<IAnchorProvider> = ({
   return (
     <AnchorContext.Provider value={value}>
       {tableId ? (
-        <ActionTriggerProvider>
-          <FieldProvider fallback={fallback}>
-            <ViewProvider>
-              <RecordProvider>
-                <RowCountProvider>{children}</RowCountProvider>
-              </RecordProvider>
-            </ViewProvider>
-          </FieldProvider>
-        </ActionTriggerProvider>
+        <SearchProvider>
+          <ActionTriggerProvider>
+            <FieldProvider fallback={fallback}>
+              <ViewProvider>
+                <RecordProvider>
+                  <RowCountProvider>{children}</RowCountProvider>
+                </RecordProvider>
+              </ViewProvider>
+            </FieldProvider>
+          </ActionTriggerProvider>
+        </SearchProvider>
       ) : (
         <FieldContext.Provider value={{ fields: [] }}>
           <ViewContext.Provider value={{ views: [] }}>
