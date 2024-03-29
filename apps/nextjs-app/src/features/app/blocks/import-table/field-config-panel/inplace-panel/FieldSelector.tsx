@@ -47,7 +47,7 @@ export function FieldSelector(props: IFieldSelector) {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={true}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className="w-full" asChild>
         <Button
           variant="outline"

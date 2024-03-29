@@ -34,6 +34,7 @@ export class ImportController {
   }
 
   @Patch(':tableId')
+  @Permissions('table|import')
   async inplaceImportTable(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(inplaceImportOptionRoSchema))

@@ -320,6 +320,7 @@ describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
           name: 'field_6',
         },
       ],
+      records: [],
     });
     const tableId = tableRes.data.id;
     const fields = tableRes?.data?.fields;
@@ -349,6 +350,24 @@ describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
 
     bases.push([baseId, tableId]);
 
-    expect(records?.length).toBe(5);
+    const tableRecords = records?.map((r) => r.fields);
+
+    const assertRecords = [
+      {
+        field_1: 1,
+        field_2: 'string_1',
+        field_3: true,
+        field_4: '2022-11-10T08:00:00.000Z',
+        field_6: 'long\ntext',
+      },
+      {
+        field_1: 2,
+        field_2: 'string_2',
+        field_4: '2022-11-11T08:00:00.000Z',
+      },
+    ];
+
+    expect(records?.length).toBe(2);
+    expect(tableRecords).toEqual(assertRecords);
   });
 });
