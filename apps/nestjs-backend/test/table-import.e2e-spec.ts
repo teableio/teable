@@ -350,20 +350,26 @@ describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
 
     bases.push([baseId, tableId]);
 
-    const tableRecords = records?.map((r) => r.fields);
+    const tableRecords = records?.map((r) => {
+      const newFields = { ...r.fields };
+      if (newFields['field_4']) {
+        newFields['field_4'] = +new Date(newFields['field_4'] as string);
+      }
+      return newFields;
+    });
 
     const assertRecords = [
       {
         field_1: 1,
         field_2: 'string_1',
         field_3: true,
-        field_4: '2022-11-10T08:00:00.000Z',
+        field_4: +new Date(new Date('2022-11-10 16:00:00').toUTCString()),
         field_6: 'long\ntext',
       },
       {
         field_1: 2,
         field_2: 'string_2',
-        field_4: '2022-11-11T08:00:00.000Z',
+        field_4: +new Date(new Date('2022-11-11 16:00:00').toUTCString()),
       },
     ];
 
