@@ -45,4 +45,8 @@ export const ReactQueryKeys = {
   personAccessTokenList: () => ['person-access-token-list'],
 
   personAccessToken: (id: string) => ['person-access-token-list', id],
+
+  tableInfo: (baseId: string, tableId: string) => ['table-info', baseId, tableId],
+
+  field: (tableId: string) => ['field-info', tableId],
 };

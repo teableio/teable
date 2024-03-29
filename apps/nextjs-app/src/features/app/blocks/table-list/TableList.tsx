@@ -1,5 +1,5 @@
-import { SUPPORTEDTYPE } from '@teable/core';
 import { File, FileCsv, FileExcel } from '@teable/icons';
+import { SUPPORTEDTYPE } from '@teable/openapi';
 import { useConnection, useTablePermission } from '@teable/sdk';
 import {
   DropdownMenu,

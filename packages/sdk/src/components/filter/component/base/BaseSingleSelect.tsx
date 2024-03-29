@@ -2,7 +2,6 @@ import {
   Button,
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
   Popover,
@@ -31,6 +30,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     notFoundText = t('common.search.empty'),
     displayRender,
     search = true,
+    placeholder = t('common.search.placeholder'),
   } = props;
   const [open, setOpen] = useState(false);
 
@@ -43,7 +43,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     const isNull = value === null;
     const isSameType = typeof value === 'string';
     const isInOption = options.findIndex((option) => option.value === value) > -1;
-    if ((!isNull && !isSameType) || (!isInOption && options.length)) {
+    if ((!isNull && !isSameType) || (!isInOption && options.length && !isNull)) {
       onSelect?.(null);
     }
   }, [onSelect, value, options]);
@@ -55,8 +55,8 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   const optionMap = useMemo(() => {
     const map: Record<string, string> = {};
     options.forEach((option) => {
-      const key = option.value.toLowerCase();
-      const value = option.label.toLowerCase();
+      const key = option.value;
+      const value = option.label;
       map[key] = value;
     });
     return map;
@@ -64,8 +64,9 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap[id] || t('common.untitled');
-      const containWord = name.indexOf(searchValue) > -1;
+      console.log('optionMap[id]', optionMap[id]);
+      const name = optionMap[id]?.toLowerCase() || t('common.untitled');
+      const containWord = name.indexOf(searchValue?.toLowerCase()) > -1;
       return Number(containWord);
     },
     [optionMap, t]
@@ -93,10 +94,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
       <PopoverContent className={classNames('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
           {search ? (
-            <CommandInput
-              placeholder={t('common.search.placeholder')}
-              className="placeholder:text-[13px]"
-            />
+            <CommandInput placeholder={placeholder} className="placeholder:text-[13px]" />
           ) : null}
           <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandList>

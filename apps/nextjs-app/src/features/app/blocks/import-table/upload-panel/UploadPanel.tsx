@@ -1,6 +1,5 @@
-import type { SUPPORTEDTYPE } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
-import type { INotifyVo } from '@teable/openapi';
+import type { SUPPORTEDTYPE, INotifyVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
 import { Button, Spin } from '@teable/ui-lib';

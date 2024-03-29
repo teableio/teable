@@ -20,6 +20,7 @@ interface IBaseSelect<V, O = IOption<V>> {
   onSelect: (value: V | null) => void;
   optionRender?: (option: O) => React.ReactElement;
   displayRender?: (option: O) => React.ReactElement;
+  placeholder?: string;
 }
 
 interface IBaseMultipleSelect<V, O = IOption<V>>
