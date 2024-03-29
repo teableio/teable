@@ -1,6 +1,6 @@
+import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
-import type { SingleSelectOptionsDto } from '../../../../features/field/model/field-dto/single-select-field.dto';
 import { SortFunctionSqlite } from '../sort-query.function';
 
 export class StringSortAdapter extends SortFunctionSqlite {
@@ -11,7 +11,7 @@ export class StringSortAdapter extends SortFunctionSqlite {
       return super.asc(builderClient);
     }
 
-    const { choices } = options as SingleSelectOptionsDto;
+    const { choices } = options as ISelectFieldOptions;
 
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(`${this.generateOrderByCase(optionSets)} ASC NULLS FIRST`, [
@@ -27,7 +27,7 @@ export class StringSortAdapter extends SortFunctionSqlite {
       return super.desc(builderClient);
     }
 
-    const { choices } = options as SingleSelectOptionsDto;
+    const { choices } = options as ISelectFieldOptions;
 
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(`${this.generateOrderByCase(optionSets)} DESC NULLS LAST`, [

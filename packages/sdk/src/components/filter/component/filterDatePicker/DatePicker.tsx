@@ -1,6 +1,5 @@
 import { CalendarIcon } from '@radix-ui/react-icons';
-import { Button, Calendar, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Button, Calendar, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 
 import * as React from 'react';
 import type { SelectSingleEventHandler } from 'react-day-picker';
@@ -35,7 +34,7 @@ function DatePicker(props: IFilerDatePickerProps) {
         <Button
           size="sm"
           variant={'outline'}
-          className={classNames(
+          className={cn(
             'w-max justify-start text-left font-normal m-1',
             !date && 'text-muted-foreground'
           )}

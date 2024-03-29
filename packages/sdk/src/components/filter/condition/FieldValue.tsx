@@ -52,7 +52,7 @@ function FieldValue(props: IFieldValue) {
             value={filter.value as number}
             options={field.options}
             onChange={onSelect as (value?: number | null) => void}
-            className="w-40 m-1"
+            className="m-1 w-40"
           />
         );
       case FieldType.SingleSelect:

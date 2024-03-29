@@ -41,6 +41,7 @@ export class AggregationOpenApiService {
     const result = await this.aggregationService.performAggregation({
       tableId: tableId,
       withView,
+      search: query?.search,
     });
     return { aggregations: result?.aggregations };
   }

@@ -60,7 +60,6 @@
     "antlr4ts": "0.5.0-alpha.4",
     "axios": "1.6.8",
     "class-transformer": "0.5.1",
-    "classnames": "2.5.1",
     "date-fns": "2.30.0",
     "date-fns-tz": "2.0.1",
     "dayjs": "1.11.10",

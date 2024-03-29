@@ -3,6 +3,7 @@ export * from './editor';
 export * from './filter';
 export * from './sort';
 export * from './group';
+export * from './field';
 export * from './hide-fields';
 export * from './row-height';
 export * from './cell-value-editor';

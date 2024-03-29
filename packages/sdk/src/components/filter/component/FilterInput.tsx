@@ -1,6 +1,5 @@
 import type { IFilterItem } from '@teable/core';
-import { Input } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Input, cn } from '@teable/ui-lib';
 import { useEffect, useState } from 'react';
 
 interface InputProps {
@@ -28,7 +27,7 @@ const FilterInput = (props: InputProps) => {
         setInput(e.target.value);
         onChange(e.target.value ?? null);
       }}
-      className={classNames('m-1 h-8 placeholder:text-[13px]', className)}
+      className={cn('m-1 h-8 placeholder:text-[13px]', className)}
     />
   );
 };

@@ -4,10 +4,9 @@ import { DraggableHandle, Plus, Trash } from '@teable/icons';
 import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base/dnd-kit';
 import type { DragEndEvent } from '@teable/ui-lib/base/dnd-kit';
 
-import { Input } from '@teable/ui-lib/shadcn';
+import { Input, cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn/ui/popover';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -109,10 +108,7 @@ export const SelectOptions = (props: {
                     ref={setNodeRef}
                     style={style}
                     {...attributes}
-                    className={classNames(
-                      isDragging ? 'opacity-60' : null,
-                      isLookup && 'cursor-default'
-                    )}
+                    className={cn(isDragging ? 'opacity-60' : null, isLookup && 'cursor-default')}
                   >
                     <div className="flex items-center">
                       {!isLookup && (
@@ -242,7 +238,7 @@ export const ColorPicker = ({
                 <Button
                   key={c}
                   variant={'ghost'}
-                  className={classNames('p-1 my-1 rounded-full h-auto', {
+                  className={cn('p-1 my-1 rounded-full h-auto', {
                     'border-2 p-[2px]': color === c,
                   })}
                   style={{ borderColor: bg }}

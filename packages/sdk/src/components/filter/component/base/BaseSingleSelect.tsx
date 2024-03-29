@@ -8,8 +8,8 @@ import {
   PopoverContent,
   PopoverTrigger,
   CommandList,
+  cn,
 } from '@teable/ui-lib';
-import classNames from 'classnames';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
@@ -81,7 +81,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           aria-expanded={open}
           disabled={disabled}
           size="sm"
-          className={classNames('justify-between m-1 truncate overflow-hidden', className)}
+          className={cn('justify-between m-1 truncate overflow-hidden', className)}
         >
           {value
             ? (selectedValue && displayRender?.(selectedValue)) ?? (
@@ -91,7 +91,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={classNames('p-1', popoverClassName)}>
+      <PopoverContent className={cn('p-1', popoverClassName)}>
         <Command filter={commandFilter}>
           {search ? (
             <CommandInput placeholder={placeholder} className="placeholder:text-[13px]" />
@@ -109,7 +109,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
                 className="truncate text-[13px]"
               >
                 <Check
-                  className={classNames(
+                  className={cn(
                     'mr-2 h-4 w-4 shrink-0',
                     value === option.value ? 'opacity-100' : 'opacity-0'
                   )}

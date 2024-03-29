@@ -17,6 +17,8 @@ import type {
 } from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
+import { SearchQueryAbstract } from './search-query/abstract';
+import { SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
@@ -191,5 +193,13 @@ export class SqliteProvider implements IDbProvider {
     extra?: ISortQueryExtra
   ): ISortQueryInterface {
     return new SortQuerySqlite(this.knex, originQueryBuilder, fields, sortObjs, extra);
+  }
+
+  searchQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    search?: string[]
+  ) {
+    return SearchQueryAbstract.factory(SearchQuerySqlite, originQueryBuilder, fieldMap, search);
   }
 }

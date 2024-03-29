@@ -1,4 +1,5 @@
 import { ThemeKey, useTheme } from '@teable/sdk';
+import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
   DropdownMenu,
@@ -7,14 +8,13 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn/ui/dropdown-menu';
-import classNames from 'classnames';
 export const ThemePicker: React.FC<{ className?: string }> = ({ className }) => {
   const { theme, isAutoTheme, setTheme } = useTheme();
   const value = isAutoTheme ? '' : theme;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className={classNames('capitalize', className)} size={'xs'} variant="ghost">
+        <Button className={cn('capitalize', className)} size={'xs'} variant="ghost">
           {value || 'system'}
         </Button>
       </DropdownMenuTrigger>

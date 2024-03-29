@@ -39,7 +39,7 @@ function FieldSelect(props: IFieldSelectProps) {
       options={options}
       onSelect={onSelect}
       value={value}
-      className="w-40 flex-shrink-0"
+      className="w-40 shrink-0"
       popoverClassName="w-fit"
       optionRender={optionRender}
     />

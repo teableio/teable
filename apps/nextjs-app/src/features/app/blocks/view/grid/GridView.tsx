@@ -5,6 +5,7 @@ import {
   ActionTriggerProvider,
   GroupPointProvider,
 } from '@teable/sdk/context';
+import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { DynamicCellGraph } from '../../graph/DynamicCellGraph';
 import { useCellGraphStore } from '../../graph/useCellGraphStore';
@@ -18,20 +19,22 @@ export const GridView = (props: IViewBaseProps) => {
   const isHydrated = useIsHydrated();
 
   return (
-    <ActionTriggerProvider>
-      <GridToolBar />
-      <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
-        <AggregationProvider>
-          <RowCountProvider>
-            <GroupPointProvider>
-              <div className="w-full grow overflow-hidden sm:pl-2">
-                {isHydrated && <GridViewBase />}
-                {graphOpen && <DynamicCellGraph />}
-              </div>
-            </GroupPointProvider>
-          </RowCountProvider>
-        </AggregationProvider>
-      </RecordProvider>
-    </ActionTriggerProvider>
+    <SearchProvider>
+      <ActionTriggerProvider>
+        <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
+          <AggregationProvider>
+            <RowCountProvider>
+              <GroupPointProvider>
+                <GridToolBar />
+                <div className="w-full grow overflow-hidden sm:pl-2">
+                  {isHydrated && <GridViewBase />}
+                  {graphOpen && <DynamicCellGraph />}
+                </div>
+              </GroupPointProvider>
+            </RowCountProvider>
+          </AggregationProvider>
+        </RecordProvider>
+      </ActionTriggerProvider>
+    </SearchProvider>
   );
 };

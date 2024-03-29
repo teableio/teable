@@ -6,18 +6,20 @@ import {
   CommandItem,
   CommandList,
 } from '@teable/ui-lib';
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFields, useFieldStaticGetter } from '../../hooks';
 
-interface ISortFieldCommand {
+interface IFieldCommand {
   onSelect?: (fieldId: string) => void;
   className?: string;
-  selectedFields?: string[];
+  selectedIds?: string[];
+  placeholder?: string;
+  emptyHolder?: React.ReactNode;
 }
 
-function SortFieldCommand(props: ISortFieldCommand) {
-  const { onSelect, selectedFields } = props;
+export function FieldCommand(props: IFieldCommand) {
+  const { placeholder, emptyHolder, onSelect, selectedIds } = props;
   const { t } = useTranslation();
 
   const fields = useFields({ withHidden: true });
@@ -25,20 +27,18 @@ function SortFieldCommand(props: ISortFieldCommand) {
   const fieldStaticGetter = useFieldStaticGetter();
 
   const mergeFields = useMemo(() => {
-    return fields.filter((field) =>
-      selectedFields?.length ? !selectedFields.includes(field.id) : true
-    );
-  }, [fields, selectedFields]);
+    return fields.filter((field) => (selectedIds?.length ? !selectedIds.includes(field.id) : true));
+  }, [fields, selectedIds]);
 
   return (
     <Command className="max-w-md rounded-lg p-0 shadow-md">
       <CommandInput
-        placeholder={t('common.search.placeholder')}
+        placeholder={placeholder || t('common.search.placeholder')}
         className="text-xs"
         containerClassName="border-none"
       />
       <CommandList>
-        <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
+        <CommandEmpty>{emptyHolder || t('common.search.empty')}</CommandEmpty>
         <CommandGroup>
           {mergeFields?.map((field) => {
             const { Icon } = fieldStaticGetter(field.type, field.isLookup);
@@ -54,5 +54,3 @@ function SortFieldCommand(props: ISortFieldCommand) {
     </Command>
   );
 }
-
-export { SortFieldCommand };

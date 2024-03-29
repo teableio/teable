@@ -1,8 +1,7 @@
 import { ColorUtils, Colors, MultiNumberDisplayType } from '@teable/core';
 import type { IMultiNumberShowAs } from '@teable/core';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib/shadcn';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { ColorPicker } from '../options/SelectOptions';
@@ -69,7 +68,7 @@ export const MultiNumberShowAs: React.FC<IMultiNumberShowAsProps> = (props) => {
               key={type}
               variant="outline"
               size="sm"
-              className={classNames(
+              className={cn(
                 'font-normal',
                 type === selectedType &&
                   'bg-foreground text-accent hover:bg-foreground hover:text-accent'
