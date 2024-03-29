@@ -22,7 +22,12 @@ const OthersList = ({
     <div className={className}>
       <SharePopover>
         {(text, isActive) => (
-          <ToolBarButton isActive={isActive} text={text} textClassName={classNames?.textClassName}>
+          <ToolBarButton
+            isActive={isActive}
+            text={text}
+            textClassName={classNames?.textClassName}
+            className={classNames?.buttonClassName}
+          >
             <ArrowUpRight className="size-4" />
           </ToolBarButton>
         )}
@@ -99,7 +104,7 @@ const OthersMenu = ({ className }: { className?: string }) => {
       <PopoverContent side="bottom" align="start" className="w-40 p-0">
         <OthersList
           className="flex flex-col"
-          classNames={{ textClassName: 'inline', buttonClassName: 'justify-start' }}
+          classNames={{ textClassName: 'inline', buttonClassName: 'justify-start rounded-none' }}
         />
       </PopoverContent>
     </Popover>
@@ -108,7 +113,7 @@ const OthersMenu = ({ className }: { className?: string }) => {
 
 export const Others: React.FC = () => {
   return (
-    <div className="flex flex-1 justify-end @container/toolbar-others">
+    <div className="flex flex-1 justify-end gap-1 @container/toolbar-others">
       <SearchInput />
       <OthersList
         className="hidden @sm/toolbar:flex"

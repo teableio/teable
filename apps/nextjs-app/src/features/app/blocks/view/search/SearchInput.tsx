@@ -2,7 +2,7 @@ import { Search, X } from '@teable/icons';
 import { FieldSelector } from '@teable/sdk/components';
 import { useFields, useSearch } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce } from 'react-use';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
@@ -20,8 +20,10 @@ export function SearchInput({
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
 
+  const ref = useRef<HTMLInputElement>(null);
+
   useHotkeys(
-    [`mod+f`],
+    `mod+f`,
     (e) => {
       setActive(true);
       ref.current?.focus();
@@ -47,11 +49,13 @@ export function SearchInput({
     setInputValue('');
   }, [cancel, setValue]);
 
-  const ref = useHotkeys<HTMLInputElement>(
+  useHotkeys<HTMLInputElement>(
     `esc`,
     () => {
-      resetSearch();
-      setActive(false);
+      if (isFocused) {
+        resetSearch();
+        setActive(false);
+      }
     },
     {
       enableOnFormTags: ['input'],
