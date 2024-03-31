@@ -132,18 +132,13 @@ export class AggregationService {
 
     const { filter } = statisticsData;
 
-    if (filterLinkCellSelected) {
-      // TODO: use a new method to retrieve only count
-      const { ids } = await this.recordService.getLinkSelectedRecordIds(filterLinkCellSelected);
-      return { rowCount: ids.length };
-    }
-
     const rawRowCountData = await this.handleRowCount({
       tableId,
       dbTableName,
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
       search: queryRo.search,
       withUserId: currentUserId,
     });
@@ -333,6 +328,7 @@ export class AggregationService {
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
+    filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
     search?: [string, string];
     withUserId?: string;
   }) {
@@ -342,6 +338,7 @@ export class AggregationService {
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
       search,
       withUserId,
     } = params;
@@ -362,7 +359,17 @@ export class AggregationService {
       await this.recordService.buildLinkCandidateQuery(
         queryBuilder,
         tableId,
+        dbTableName,
         filterLinkCellCandidate
+      );
+    }
+
+    if (filterLinkCellSelected) {
+      await this.recordService.buildLinkSelectedQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        filterLinkCellSelected
       );
     }
 

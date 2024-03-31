@@ -30,7 +30,7 @@ import {
   parseGroup,
   Relationship,
 } from '@teable/core';
-import type { Field, Prisma } from '@teable/db-main-prisma';
+import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, IGetRecordQuery, IGetRecordsRo, IRecordsVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
@@ -140,20 +140,20 @@ export class RecordService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
-  private async getLinkCellIds(fieldRaw: Field, recordId: string) {
+  private async getLinkCellIds(tableId: string, field: IFieldInstance, recordId: string) {
     const prisma = this.prismaService.txClient();
     const dbTableName = await prisma.tableMeta.findFirstOrThrow({
-      where: { id: fieldRaw.tableId },
+      where: { id: tableId },
       select: { dbTableName: true },
     });
     const linkCellQuery = this.knex(dbTableName)
       .select({
         id: '__id',
-        linkField: fieldRaw.dbFieldName,
+        linkField: field.dbFieldName,
       })
       .where('__id', recordId)
       .toQuery();
-    const field = createFieldInstanceByRaw(fieldRaw);
+
     const result = await prisma.$queryRawUnsafe<
       {
         id: string;
@@ -170,21 +170,52 @@ export class RecordService implements IAdapterService {
       .map((item) => item.id);
   }
 
-  async getLinkSelectedRecordIds(
+  private async buildLinkSelectedSort(
+    queryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    filterLinkCellSelected: [string, string]
+  ) {
+    const prisma = this.prismaService.txClient();
+    const [fieldId, recordId] = filterLinkCellSelected;
+    const fieldRaw = await prisma.field
+      .findFirstOrThrow({
+        where: { id: fieldId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Field ${fieldId} not found`);
+      });
+    const field = createFieldInstanceByRaw(fieldRaw);
+    if (!field.isMultipleCellValue) {
+      return;
+    }
+
+    const ids = await this.getLinkCellIds(fieldRaw.tableId, field, recordId);
+    if (!ids.length) {
+      return;
+    }
+
+    const valuesQuery = ids.map((id, index) => `(${index + 1}, '${id}')`).join(', ');
+
+    queryBuilder
+      .joinRaw(
+        `LEFT JOIN (VALUES ${valuesQuery}) AS temp_table(sort_order, id) ON ${this.knex.ref(`${dbTableName}.__id`)} = temp_table.id`
+      )
+      .orderBy('temp_table.sort_order');
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async buildLinkSelectedQuery(
+    queryBuilder: Knex.QueryBuilder,
+    tableId: string,
+    dbTableName: string,
     filterLinkCellSelected: [string, string] | string
-  ): Promise<{ ids: string[] }> {
+  ) {
+    const prisma = this.prismaService.txClient();
     const fieldId = Array.isArray(filterLinkCellSelected)
       ? filterLinkCellSelected[0]
       : filterLinkCellSelected;
     const recordId = Array.isArray(filterLinkCellSelected) ? filterLinkCellSelected[1] : undefined;
 
-    if (!fieldId) {
-      throw new BadRequestException(
-        'filterByLinkFieldId is required when filterByLinkRecordId is set'
-      );
-    }
-
-    const prisma = this.prismaService.txClient();
     const fieldRaw = await prisma.field
       .findFirstOrThrow({
         where: { id: fieldId, deletedTime: null },
@@ -193,25 +224,42 @@ export class RecordService implements IAdapterService {
         throw new NotFoundException(`Field ${fieldId} not found`);
       });
 
-    if (fieldRaw.type !== FieldType.Link) {
+    const field = createFieldInstanceByRaw(fieldRaw);
+
+    if (field.type !== FieldType.Link) {
       throw new BadRequestException('You can only filter by link field');
     }
-
-    return {
-      ids: recordId ? await this.getLinkCellIds(fieldRaw, recordId) : [],
-    };
-  }
-
-  private isJunctionTable(dbTableName: string) {
-    if (dbTableName.includes('.')) {
-      return dbTableName.split('.')[1].startsWith('junction');
+    const { foreignTableId, fkHostTableName, selfKeyName, foreignKeyName } = field.options;
+    if (foreignTableId !== tableId) {
+      throw new BadRequestException('Field is not linked to current table');
     }
-    return dbTableName.split('_')[1].startsWith('junction');
+
+    if (fkHostTableName !== dbTableName) {
+      queryBuilder.leftJoin(
+        `${fkHostTableName}`,
+        `${dbTableName}.__id`,
+        '=',
+        `${fkHostTableName}.${foreignKeyName}`
+      );
+      if (recordId) {
+        queryBuilder.where(`${fkHostTableName}.${selfKeyName}`, recordId);
+        return;
+      }
+      queryBuilder.whereNotNull(`${fkHostTableName}.${foreignKeyName}`);
+      return;
+    }
+
+    if (recordId) {
+      queryBuilder.where(`${dbTableName}.${selfKeyName}`, recordId);
+      return;
+    }
+    queryBuilder.whereNotNull(`${dbTableName}.${selfKeyName}`);
   }
 
   async buildLinkCandidateQuery(
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
+    dbTableName: string,
     filterLinkCellCandidate: [string, string] | string
   ) {
     const prisma = this.prismaService.txClient();
@@ -240,29 +288,43 @@ export class RecordService implements IAdapterService {
     if (foreignTableId !== tableId) {
       throw new BadRequestException('Field is not linked to current table');
     }
-    if (relationship === Relationship.OneMany) {
-      if (this.isJunctionTable(fkHostTableName)) {
-        queryBuilder.whereNotIn('__id', function () {
-          this.select(foreignKeyName).from(fkHostTableName);
-        });
-      } else {
-        queryBuilder.where(selfKeyName, null);
-      }
-    }
+
     if (relationship === Relationship.OneOne) {
       if (selfKeyName === '__id') {
         queryBuilder.whereNotIn('__id', function () {
           this.select(foreignKeyName).from(fkHostTableName).whereNotNull(foreignKeyName);
         });
-      } else {
-        queryBuilder.where(selfKeyName, null);
+        return;
       }
+      queryBuilder.where(selfKeyName, null);
+      return;
     }
+
+    if (fkHostTableName !== dbTableName) {
+      queryBuilder.leftJoin(
+        `${fkHostTableName}`,
+        `${dbTableName}.__id`,
+        '=',
+        `${fkHostTableName}.${foreignKeyName}`
+      );
+    }
+
+    if (fkHostTableName !== dbTableName && recordId) {
+      queryBuilder
+        .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
+        .orWhereNull(`${fkHostTableName}.${foreignKeyName}`);
+      return;
+    }
+
     if (recordId) {
-      const linkIds = await this.getLinkCellIds(fieldRaw, recordId);
-      if (linkIds.length) {
-        queryBuilder.whereNotIn('__id', linkIds);
-      }
+      queryBuilder
+        .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
+        .orWhereNull(`${fkHostTableName}.${selfKeyName}`);
+      return;
+    }
+
+    if (relationship === Relationship.OneMany) {
+      queryBuilder.whereNull(`${fkHostTableName}.${selfKeyName}`);
     }
   }
 
@@ -385,7 +447,13 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: Pick<
       IGetRecordsRo,
-      'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'search' | 'filterLinkCellCandidate'
+      | 'viewId'
+      | 'orderBy'
+      | 'groupBy'
+      | 'filter'
+      | 'search'
+      | 'filterLinkCellCandidate'
+      | 'filterLinkCellSelected'
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
@@ -395,8 +463,28 @@ export class RecordService implements IAdapterService {
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
+    if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
+      throw new BadRequestException(
+        'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time'
+      );
+    }
+
     if (query.filterLinkCellCandidate) {
-      await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
+      await this.buildLinkCandidateQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        query.filterLinkCellCandidate
+      );
+    }
+
+    if (query.filterLinkCellSelected) {
+      await this.buildLinkSelectedQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        query.filterLinkCellSelected
+      );
     }
 
     // Add filtering conditions to the query builder
@@ -412,15 +500,19 @@ export class RecordService implements IAdapterService {
     // add search rules to the query builder
     this.dbProvider.searchQuery(queryBuilder, fieldMap, search);
 
-    const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
-
-    // view sorting added by default
-    queryBuilder.orderBy(basicSortIndex, 'asc');
+    // ignore sorting when filterLinkCellSelected is set
+    if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
+      await this.buildLinkSelectedSort(queryBuilder, dbTableName, query.filterLinkCellSelected);
+    } else {
+      const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
+      // view sorting added by default
+      queryBuilder.orderBy(`${dbTableName}.${basicSortIndex}`, 'asc');
+    }
 
     this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
-    return { queryBuilder };
+    return { queryBuilder, dbTableName };
   }
 
   async setRecord(
@@ -912,16 +1004,12 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    if (query.filterLinkCellSelected) {
-      return this.getLinkSelectedRecordIds(query.filterLinkCellSelected);
-    }
-
-    const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
       ...query,
       viewId,
     });
 
-    queryBuilder.select('__id');
+    queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
 
     queryBuilder.offset(skip);
     if (take !== -1) {
@@ -955,6 +1043,7 @@ export class RecordService implements IAdapterService {
       projection,
       viewId,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
     } = query;
 
     const fields = await this.getFieldsByProjection(
@@ -966,11 +1055,12 @@ export class RecordService implements IAdapterService {
 
     const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
       viewId,
-      filterLinkCellCandidate,
       filter,
       orderBy,
       search,
       groupBy,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
     });
     queryBuilder.select(fieldNames.concat('__id'));
     queryBuilder.offset(skip);
