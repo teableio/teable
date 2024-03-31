@@ -73,7 +73,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
             }}
           />
         )}
-        <div className="hidden text-xs leading-none text-slate-400 sm:block">
+        <div className="hidden text-xs leading-none text-slate-400 @xl/view-header:block">
           last modified: {dayjs(table?.lastModifiedTime).fromNow()}
         </div>
       </div>
