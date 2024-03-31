@@ -9,3 +9,4 @@ export * from './row-height';
 export * from './cell-value-editor';
 export * from './expand-record';
 export * from './grid-enhancements';
+export * from './search';

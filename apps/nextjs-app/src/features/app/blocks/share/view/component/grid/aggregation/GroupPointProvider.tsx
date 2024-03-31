@@ -1,7 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getShareViewGroupPoints } from '@teable/openapi';
 import type { PropKeys } from '@teable/sdk';
-import { ReactQueryKeys, useActionTrigger, GroupPointContext, useView } from '@teable/sdk';
+import {
+  ReactQueryKeys,
+  useActionTrigger,
+  GroupPointContext,
+  useView,
+  useSearch,
+} from '@teable/sdk';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
@@ -13,13 +19,14 @@ interface GroupPointProviderProps {
 const useGroupPointsQuery = () => {
   const view = useView();
   const { filter, group } = view || {};
-
+  const { searchQuery } = useSearch();
   return useMemo(
     () => ({
       filter,
       groupBy: group,
+      search: searchQuery,
     }),
-    [filter, group]
+    [filter, group, searchQuery]
   );
 };
 

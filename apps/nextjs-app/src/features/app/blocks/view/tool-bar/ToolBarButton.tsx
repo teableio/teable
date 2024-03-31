@@ -23,9 +23,7 @@ const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(
         {...restProps}
       >
         {children}
-        {text && (
-          <span className={cn('hidden truncate @2xl/toolbar:inline', textClassName)}>{text}</span>
-        )}
+        {text && <span className={cn('hidden truncate', textClassName)}>{text}</span>}
       </Button>
     );
   }

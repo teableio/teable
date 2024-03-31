@@ -6,7 +6,14 @@ import { AttachmentFieldCore } from '@teable/core';
 import type { ICopyVo, IPasteRo, IRangesRo } from '@teable/openapi';
 import { clear, copy, paste, RangeType } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
-import { SelectionRegionType, useFields, useTableId, useView, useViewId } from '@teable/sdk';
+import {
+  SelectionRegionType,
+  useFields,
+  useSearch,
+  useTableId,
+  useView,
+  useViewId,
+} from '@teable/sdk';
 import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
@@ -61,18 +68,22 @@ export const useSelectionOperation = (filter?: IFilter) => {
   const viewId = useViewId();
   const fields = useFields();
   const view = useView();
+  const { searchQuery: search } = useSearch();
   const groupBy = view?.group;
 
   const { mutateAsync: copyReq } = useMutation({
-    mutationFn: (copyRo: IRangesRo) => copy(tableId!, { ...copyRo, viewId, groupBy, filter }),
+    mutationFn: (copyRo: IRangesRo) =>
+      copy(tableId!, { ...copyRo, viewId, groupBy, filter, search }),
   });
 
   const { mutateAsync: pasteReq } = useMutation({
-    mutationFn: (pasteRo: IPasteRo) => paste(tableId!, { ...pasteRo, viewId, groupBy, filter }),
+    mutationFn: (pasteRo: IPasteRo) =>
+      paste(tableId!, { ...pasteRo, viewId, groupBy, filter, search }),
   });
 
   const { mutateAsync: clearReq } = useMutation({
-    mutationFn: (clearRo: IRangesRo) => clear(tableId!, { ...clearRo, viewId, groupBy, filter }),
+    mutationFn: (clearRo: IRangesRo) =>
+      clear(tableId!, { ...clearRo, viewId, groupBy, filter, search }),
   });
 
   const { toast } = useToast();
