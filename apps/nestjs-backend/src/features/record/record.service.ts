@@ -194,13 +194,17 @@ export class RecordService implements IAdapterService {
       return;
     }
 
-    const valuesQuery = ids.map((id, index) => `(${index + 1}, '${id}')`).join(', ');
+    // sql capable for sqlite
+    const valuesQuery = ids
+      .map((id, index) => `SELECT ${index + 1} AS sort_order, '${id}' AS id`)
+      .join(' UNION ALL ');
 
     queryBuilder
-      .joinRaw(
-        `LEFT JOIN (VALUES ${valuesQuery}) AS temp_table(sort_order, id) ON ${this.knex.ref(`${dbTableName}.__id`)} = temp_table.id`
-      )
-      .orderBy('temp_table.sort_order');
+      .with('ordered_ids', this.knex.raw(`${valuesQuery}`))
+      .leftJoin('ordered_ids', function () {
+        this.on(`${dbTableName}.__id`, '=', 'ordered_ids.id');
+      })
+      .orderBy('ordered_ids.sort_order');
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -509,7 +513,7 @@ export class RecordService implements IAdapterService {
       queryBuilder.orderBy(`${dbTableName}.${basicSortIndex}`, 'asc');
     }
 
-    this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
+    this.logger.log('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder, dbTableName };
@@ -1016,6 +1020,7 @@ export class RecordService implements IAdapterService {
       queryBuilder.limit(take);
     }
 
+    this.logger.log('getRecordsQuery: %s', queryBuilder.toQuery());
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
