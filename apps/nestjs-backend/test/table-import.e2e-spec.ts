@@ -106,14 +106,8 @@ const genTestFiles = async () => {
 
     fs.writeFileSync(tmpPath, data);
 
-    const file = fs.createReadStream(tmpPath);
+    const file = fs.readFileSync(tmpPath);
     const stats = fs.statSync(tmpPath);
-
-    try {
-      console.log(fs.readFileSync(tmpPath));
-    } catch (err) {
-      console.log('e2e', err);
-    }
 
     const { token, requestHeaders } = (
       await apiGetSignature(
