@@ -122,7 +122,7 @@ export class NotificationService {
   }) {
     const { toUserId, tableId, message, baseId } = params;
     const notifyId = generateNotificationId();
-    const [toUser] = await Promise.all([this.userService.getUserById(toUserId)]);
+    const toUser = await this.userService.getUserById(toUserId);
     if (!toUser) {
       return;
     }
@@ -146,16 +146,25 @@ export class NotificationService {
 
     const notifyUrl = this.generateNotifyUrl(notifyData.type as NotificationTypeEnum, urlMeta);
 
+    const systemNotifyIcon = this.generateNotifyIcon(
+      notifyData.type as NotificationTypeEnum,
+      SYSTEM_USER_ID,
+      {
+        [SYSTEM_USER_ID]: {
+          id: SYSTEM_USER_ID,
+          name: SYSTEM_USER_ID,
+          avatar: null,
+        },
+      }
+    );
+
     const socketNotification = {
       notification: {
         id: notifyData.id,
         message: notifyData.message,
         notifyType: notifyData.type as NotificationTypeEnum,
         url: notifyUrl,
-        notifyIcon: {
-          userId: SYSTEM_USER_ID,
-          userName: SYSTEM_USER_ID,
-        },
+        notifyIcon: systemNotifyIcon,
         isRead: false,
         createdTime: notifyData.createdTime.toISOString(),
       },
@@ -229,7 +238,7 @@ export class NotificationService {
 
     switch (notifyType) {
       case NotificationTypeEnum.System:
-        return { iconUrl: origin };
+        return { iconUrl: `${origin}/images/favicon/favicon.svg` };
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { id, name, avatar } = fromUserSets[fromUserId];
