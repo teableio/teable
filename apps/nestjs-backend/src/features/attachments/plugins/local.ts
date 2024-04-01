@@ -133,11 +133,11 @@ export class LocalStorage implements StorageAdapter {
         });
         req.on('error', (err) => {
           this.deleteFile(path);
-          reject(err.message);
+          reject(err);
         });
         fileStream.on('error', (err) => {
           this.deleteFile(path);
-          reject(err.message);
+          reject(err);
         });
       } catch (error) {
         this.deleteFile(path);
