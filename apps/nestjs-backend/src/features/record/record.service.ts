@@ -314,16 +314,20 @@ export class RecordService implements IAdapterService {
     }
 
     if (fkHostTableName !== dbTableName && recordId) {
-      queryBuilder
-        .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
-        .orWhereNull(`${fkHostTableName}.${foreignKeyName}`);
+      queryBuilder.where((builder) => {
+        builder
+          .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
+          .orWhereNull(`${fkHostTableName}.${foreignKeyName}`);
+      });
       return;
     }
 
     if (recordId) {
-      queryBuilder
-        .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
-        .orWhereNull(`${fkHostTableName}.${selfKeyName}`);
+      queryBuilder.where((builder) => {
+        builder
+          .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
+          .orWhereNull(`${fkHostTableName}.${selfKeyName}`);
+      });
       return;
     }
 
