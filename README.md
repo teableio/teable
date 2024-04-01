@@ -10,7 +10,7 @@
 </div>
 
 <p align="center">
-  <a target="_blank" href="https://teable.io">Home</a> | <a target="_blank" href="https://help.teable.io">Help</a> | <a target="_blank" href="https://Blog.teable.io">Blog</a> | <a target="_blank" href="https://template.teable.io">Template</a> | <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a target="_blank" href="https://discord.gg/58QdnrKu">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
+  <a target="_blank" href="https://teable.io">Home</a> | <a target="_blank" href="https://help.teable.io">Help</a> | <a target="_blank" href="https://Blog.teable.io">Blog</a> | <a target="_blank" href="https://template.teable.io">Template</a> | <a target="_blank" href="https://app.teable.io/share/shr04TEw1u9EOQojPmG/view">Roadmap</a> | <a target="_blank" href="https://discord.gg/uZwp7tDE5W">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
 </p>
 
 <p align="center">
