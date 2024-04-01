@@ -48,6 +48,44 @@ const subFields = [
   },
 ];
 
+const mainFields = [
+  {
+    type: FieldType.Number,
+    name: 'Number field',
+  },
+  {
+    type: FieldType.Checkbox,
+    name: 'Checkbox field',
+  },
+  {
+    type: FieldType.SingleSelect,
+    name: 'Select field',
+    options: {
+      choices: [
+        { id: 'choX', name: 'x', color: Colors.Cyan },
+        { id: 'choY', name: 'y', color: Colors.Blue },
+        { id: 'choZ', name: 'z', color: Colors.Gray },
+      ],
+    },
+  },
+  {
+    type: FieldType.Date,
+    name: 'Date field',
+  },
+  {
+    type: FieldType.Attachment,
+    name: 'Attachment field',
+  },
+  {
+    type: FieldType.User,
+    name: 'User Field',
+    options: {
+      isMultiple: false,
+      shouldNotify: false,
+    },
+  },
+];
+
 beforeAll(async () => {
   const appCtx = await initApp();
   app = appCtx.app;
@@ -96,44 +134,13 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
           type: FieldType.SingleLineText,
           name: 'Text field',
         },
-        {
-          type: FieldType.Number,
-          name: 'Number field',
-        },
-        {
-          type: FieldType.Checkbox,
-          name: 'Checkbox field',
-        },
-        {
-          type: FieldType.SingleSelect,
-          name: 'Select field',
-          options: {
-            choices: [
-              { id: 'choX', name: 'x', color: Colors.Cyan },
-              { id: 'choY', name: 'y', color: Colors.Blue },
-              { id: 'choZ', name: 'z', color: Colors.Gray },
-            ],
-          },
-        },
-        {
-          type: FieldType.Date,
-          name: 'Date field',
-        },
-        {
-          type: FieldType.Attachment,
-          name: 'Attachment field',
-        },
-        {
-          type: FieldType.User,
-          name: 'User Field',
-          options: {
-            isMultiple: false,
-            shouldNotify: false,
-          },
-        },
       ],
       records: [],
     });
+
+    for (let i = 0; i < mainFields.length; i++) {
+      await apiCreateField(mainTable.data.id, mainFields[i]);
+    }
 
     const subTable = await apiCreateTable(baseId, {
       name: 'subTable',
