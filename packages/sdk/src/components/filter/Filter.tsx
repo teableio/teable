@@ -4,12 +4,18 @@ import type { IFilterProps } from './types';
 import { useFilterNode } from './useFilterNode';
 
 function Filter(props: IFilterProps) {
-  const { onChange, filters, children, contentHeader } = props;
+  const { onChange, filters, children, contentHeader, components } = props;
   const fields = useFields();
   const { text, isActive } = useFilterNode(filters);
 
   return (
-    <FilterBase filters={filters} fields={fields} onChange={onChange} contentHeader={contentHeader}>
+    <FilterBase
+      fields={fields}
+      filters={filters}
+      components={components}
+      contentHeader={contentHeader}
+      onChange={onChange}
+    >
       {children?.(text, isActive)}
     </FilterBase>
   );

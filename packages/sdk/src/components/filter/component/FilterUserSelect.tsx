@@ -13,29 +13,30 @@ import { BaseMultipleSelect, BaseSingleSelect } from './base';
 interface IFilterUserProps {
   field: UserField;
   operator: string;
-  value: string[] | null;
+  value: string[] | string | null;
   onSelect: (value: string[] | string | null) => void;
+}
+
+interface IFilterUserBaseProps extends IFilterUserProps {
+  data?: {
+    userId: string;
+    userName: string;
+    avatar?: string | null;
+  }[];
 }
 
 const SINGLE_SELECT_OPERATORS = ['is', 'isNot'];
 
-const FilterUserSelectBase = (props: IFilterUserProps) => {
+const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
   const { user: currentUser } = useSession();
-  const { id: baseId } = useBase();
   const { t } = useTranslation();
-  const { value, onSelect, operator } = props;
+  const { value, onSelect, operator, data } = props;
   const values = useMemo<string | string[] | null>(() => value, [value]);
 
-  const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
-  });
-  const collaborators = collaboratorsData?.data;
-
   const options = useMemo(() => {
-    if (!collaborators?.length) return [];
+    if (!data?.length) return [];
 
-    const map = collaborators.map(({ userId, userName, avatar }) => ({
+    const map = data.map(({ userId, userName, avatar }) => ({
       value: userId,
       label: userName,
       avatar: avatar,
@@ -49,7 +50,7 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
       });
     }
     return map;
-  }, [collaborators, currentUser, t]);
+  }, [data, currentUser, t]);
 
   const displayRender = useCallback((option: (typeof options)[number]) => {
     return (
@@ -124,7 +125,12 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
 };
 
 const FilterUserSelect = (props: IFilterUserProps) => {
-  return <FilterUserSelectBase {...props} />;
+  const { id: baseId } = useBase();
+  const { data: collaboratorsData } = useQuery({
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
+    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
+  });
+  return <FilterUserSelectBase {...props} data={collaboratorsData?.data} />;
 };
 
-export { FilterUserSelect };
+export { FilterUserSelect, FilterUserSelectBase };

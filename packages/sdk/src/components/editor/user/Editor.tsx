@@ -19,7 +19,7 @@ export const UserEditor = (props: IUserEditorProps) => {
 
   const onDelete = (id: string) => {
     const newValue = arrayValue?.filter((v) => v.id !== id);
-    onChange?.(newValue);
+    onChange?.(isMultiple ? newValue : newValue?.[0]);
   };
 
   const onChangeInner = (val?: IUserCellValue | IUserCellValue[]) => {

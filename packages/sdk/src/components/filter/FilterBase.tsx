@@ -28,7 +28,7 @@ const defaultGroupFilter: NonNullable<IFilter> = {
 };
 
 function FilterBase(props: IFilterBaseProps) {
-  const { onChange, filters: initFilter, fields, children, contentHeader } = props;
+  const { onChange, filters: initFilter, fields, children, contentHeader, components } = props;
   const { t } = useTranslation();
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
 
@@ -159,6 +159,7 @@ function FilterBase(props: IFilterBaseProps) {
   return (
     <FilterContext.Provider
       value={{
+        components,
         setFilters: setFilterHandler,
         onChange: onChange,
         addCondition: addCondition,

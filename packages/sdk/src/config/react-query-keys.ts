@@ -49,4 +49,7 @@ export const ReactQueryKeys = {
   tableInfo: (baseId: string, tableId: string) => ['table-info', baseId, tableId],
 
   field: (tableId: string) => ['field-info', tableId],
+
+  shareViewCollaborators: (shareId: string, fieldId: string) =>
+    ['share-view-collaborators', shareId, fieldId] as const,
 };

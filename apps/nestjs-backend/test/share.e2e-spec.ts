@@ -145,6 +145,10 @@ describe('OpenAPI ShareController (e2e)', () => {
           },
           linkFieldRo,
         ],
+        records: [
+          { fields: { primary: '1', [linkFieldRo.name!]: { id: tableRes.records[0].id } } },
+          { fields: { primary: '2', [linkFieldRo.name!]: { id: tableRes.records[1].id } } },
+        ],
       });
       linkFieldId = linkTableRes.fields[1].id;
     });
@@ -178,7 +182,27 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
 
     describe('grid view', () => {
-      // TODO
+      let gridViewId: string;
+      let gridViewShareId: string;
+      beforeAll(async () => {
+        const result = await createView(linkTableRes.id, gridViewRo);
+        gridViewId = result.id;
+        const shareResult = await apiEnableShareView({
+          tableId: linkTableRes.id,
+          viewId: gridViewId,
+        });
+        gridViewShareId = shareResult.data.shareId;
+      });
+
+      it('should return link records', async () => {
+        const result = await apiGetShareViewLinkRecords(gridViewShareId, {
+          fieldId: linkFieldId,
+        });
+        const linkRecords = result.data;
+        expect(linkRecords.map((record) => record.title)).toEqual(
+          tableRecords.slice(0, 2).map((record) => record.fields[primaryFieldName])
+        );
+      });
     });
   });
 

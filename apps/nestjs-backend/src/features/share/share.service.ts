@@ -12,7 +12,7 @@ import type {
   ILinkFieldOptions,
   StatisticsFunc,
 } from '@teable/core';
-import { FieldKeyType, FieldType, ViewType, contains } from '@teable/core';
+import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ShareViewFormSubmitRo,
@@ -195,26 +195,11 @@ export class ShareService {
     const { lookupFieldId, foreignTableId } = field.options as ILinkFieldOptions;
     const { take, skip, search } = query;
 
-    const linkField = await this.fieldService.getField(foreignTableId, lookupFieldId);
-
-    let filter: IFilter | undefined;
-    if (search) {
-      filter = {
-        filterSet: [
-          {
-            fieldId: lookupFieldId,
-            value: search,
-            operator: contains.value,
-          },
-        ],
-        conjunction: 'and',
-      };
-    }
     return this.recordService.getRecords(foreignTableId, {
       take,
       skip,
-      filter,
-      projection: [linkField.id],
+      search: search ? [search, lookupFieldId] : undefined,
+      projection: [lookupFieldId],
       fieldKeyType: FieldKeyType.Id,
       filterLinkCellCandidate: field.id,
     });
@@ -224,26 +209,14 @@ export class ShareService {
     const { fieldId, skip, take, search } = query;
 
     const { foreignTableId, lookupFieldId } = field.options as ILinkFieldOptions;
-    let filter: IFilter | undefined;
-    if (search) {
-      filter = {
-        filterSet: [
-          {
-            fieldId: lookupFieldId,
-            value: search,
-            operator: contains.value,
-          },
-        ],
-        conjunction: 'and',
-      };
-    }
+
     return this.recordService.getRecords(foreignTableId, {
       skip,
       take,
-      filter,
+      search: search ? [search, lookupFieldId] : undefined,
       fieldKeyType: FieldKeyType.Id,
       projection: [lookupFieldId],
-      filterLinkCellCandidate: fieldId,
+      filterLinkCellSelected: fieldId,
     });
   }
 
@@ -318,8 +291,6 @@ export class ShareService {
         {} as Record<string, IFieldInstance>
       )
     );
-
-    console.log('sql query ===', nativeQuery);
 
     const users = await this.prismaService
       .txClient()
