@@ -90,7 +90,7 @@ export class ImportOpenApiService {
                 records,
               });
             } catch (e) {
-              this.logger.error((e as Error)?.message, 'Import: Records');
+              this.logger.error((e as Error)?.message, (e as Error)?.stack);
             }
           },
           () => {
@@ -98,7 +98,7 @@ export class ImportOpenApiService {
               baseId,
               tableId: table.id,
               toUserId: userId,
-              message: `${table.name}, import successfully🎉`,
+              message: `<em>${table.name}</em> import successfully🎉`,
             });
           },
           (error) => {
@@ -106,7 +106,7 @@ export class ImportOpenApiService {
               baseId,
               tableId: table.id,
               toUserId: userId,
-              message: `${table.name}, import failed reason: ${error}`,
+              message: `<em>${table.name}</em> import failed reason: ${error}`,
             });
           }
         );
@@ -154,7 +154,7 @@ export class ImportOpenApiService {
             records,
           });
         } catch (e) {
-          this.logger.error((e as Error)?.message, 'Import: Records');
+          this.logger.error((e as Error)?.message, (e as Error)?.stack);
         }
       }
     );

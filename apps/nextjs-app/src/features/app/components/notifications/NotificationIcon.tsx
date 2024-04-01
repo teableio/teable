@@ -32,7 +32,7 @@ const NotificationIcon = (props: NotificationIconProps) => {
           }).props;
 
         return (
-          <Avatar className="size-9">
+          <Avatar className="size-9 overflow-visible">
             {systemProps && <AvatarImage {...systemProps} />}
             <AvatarFallback>{'System'.slice(0, 1)}</AvatarFallback>
           </Avatar>
