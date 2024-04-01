@@ -26,6 +26,7 @@ export interface ILinkEditorMainProps {
   fieldId: string;
   recordId?: string;
   options: ILinkFieldOptions;
+  container?: HTMLElement;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   isEditing?: boolean;
   setEditing?: (isEditing: boolean) => void;
@@ -135,7 +136,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     <>
       <div className="text-lg">{t('editor.link.placeholder')}</div>
       <div className="flex items-center justify-between">
-        <SearchInput />
+        <SearchInput container={props.container} />
         <div className="ml-4">
           <Tabs defaultValue="unselected" orientation="horizontal" className="flex gap-4">
             <TabsList className="">

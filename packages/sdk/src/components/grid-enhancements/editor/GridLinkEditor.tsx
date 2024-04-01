@@ -52,6 +52,7 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
         >
           <LinkEditorMain
             ref={linkEditorMainRef}
+            container={containerRef.current || undefined}
             recordId={record.id}
             fieldId={fieldId}
             cellValue={cellValue}

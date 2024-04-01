@@ -9,6 +9,7 @@ interface IFieldSelector {
   value?: string;
   className?: string;
   excludedIds?: string[];
+  container?: HTMLElement;
   onSelect?: (value: string) => void;
   withHidden?: boolean;
   placeholder?: string;
@@ -40,7 +41,7 @@ export function FieldSelector(props: IFieldSelector) {
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         {children ? (
           children
@@ -48,6 +49,7 @@ export function FieldSelector(props: IFieldSelector) {
           <Button
             variant="outline"
             role="combobox"
+            tabIndex={-1}
             aria-expanded={open}
             className={cn('h-8 w-[200px] flex items-center', className)}
           >
@@ -58,7 +60,7 @@ export function FieldSelector(props: IFieldSelector) {
         )}
       </PopoverTrigger>
 
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-[200px] p-0" container={props.container}>
         <FieldCommand
           selectedIds={selectedIds}
           placeholder={placeholder}

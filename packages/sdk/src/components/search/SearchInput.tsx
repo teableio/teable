@@ -7,7 +7,13 @@ import { useFields } from '../../hooks/use-fields';
 import { useSearch } from '../../hooks/use-search';
 import { FieldSelector } from '../field/FieldSelector';
 
-export function SearchInput({ className }: { className?: string }) {
+export function SearchInput({
+  className,
+  container,
+}: {
+  className?: string;
+  container?: HTMLElement;
+}) {
   const fields = useFields();
   const { fieldId, value, setFieldId, setValue, reset } = useSearch();
   const [inputValue, setInputValue] = useState(value);
@@ -54,6 +60,7 @@ export function SearchInput({ className }: { className?: string }) {
       <FieldSelector
         className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-sm font-normal"
         value={fieldId}
+        container={container}
         onSelect={(value) => {
           setFieldId(value);
         }}
