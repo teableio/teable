@@ -33,13 +33,14 @@ export class ImportController {
     return await this.importOpenService.createTableFromImport(baseId, importRo);
   }
 
-  @Patch(':tableId')
+  @Patch(':baseId/:tableId')
   @Permissions('table|import')
   async inplaceImportTable(
+    @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(inplaceImportOptionRoSchema))
     inplaceImportRo: IInplaceImportOptionRo
   ): Promise<void> {
-    return await this.importOpenService.inplaceImportTable(tableId, inplaceImportRo);
+    return await this.importOpenService.inplaceImportTable(baseId, tableId, inplaceImportRo);
   }
 }

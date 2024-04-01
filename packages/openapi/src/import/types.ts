@@ -59,6 +59,7 @@ export const importOptionRoSchema = z.object({
   worksheets: z.record(z.string(), importSheetItem),
   attachmentUrl: z.string().url(),
   fileType: z.nativeEnum(SUPPORTEDTYPE),
+  notification: z.boolean().optional(),
 });
 
 export const inplaceImportOptionRoSchema = z.object({
@@ -69,6 +70,7 @@ export const inplaceImportOptionRoSchema = z.object({
     excludeFirstRow: z.boolean(),
     sourceColumnMap: z.record(z.number().nullable()),
   }),
+  notification: z.boolean().optional(),
 });
 
 export type IImportColumn = z.infer<typeof importColumnSchema>;
