@@ -9,6 +9,7 @@ import type {
   IGroup,
 } from '@teable/core';
 import { ViewCore } from '@teable/core';
+import type { IUpdateOrderRo } from '@teable/openapi';
 import {
   createView,
   deleteView,
@@ -73,8 +74,8 @@ export abstract class View extends ViewCore {
     return await requestWrap(updateViewGroup)(this.tableId, this.id, { group });
   }
 
-  async updateOrder(order: number) {
-    return await requestWrap(updateViewOrder)(this.tableId, this.id, { order });
+  async updateOrder(orderRo: IUpdateOrderRo) {
+    return await requestWrap(updateViewOrder)(this.tableId, this.id, orderRo);
   }
 
   async updateName(name: string) {

@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type { IFieldRo, IConvertFieldRo, NotificationStatesEnum } from '@teable/core';
 import type {
+  IShareViewRowCountRo,
+  IShareViewAggregationsRo,
   IAggregationRo,
   IGroupPointsRo,
-  IFieldRo,
   IQueryBaseRo,
-  IConvertFieldRo,
-  NotificationStatesEnum,
-} from '@teable/core';
-import type { IShareViewRowCountRo, IShareViewAggregationsRo } from '@teable/openapi';
+} from '@teable/openapi';
 
 export const ReactQueryKeys = {
   base: (baseId: string) => ['base', baseId] as const,
@@ -46,4 +45,8 @@ export const ReactQueryKeys = {
   personAccessTokenList: () => ['person-access-token-list'],
 
   personAccessToken: (id: string) => ['person-access-token-list', id],
+
+  tableInfo: (baseId: string, tableId: string) => ['table-info', baseId, tableId],
+
+  field: (tableId: string) => ['field-info', tableId],
 };

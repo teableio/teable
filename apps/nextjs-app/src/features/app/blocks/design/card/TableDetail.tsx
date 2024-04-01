@@ -1,4 +1,4 @@
-import type { ITableVo } from '@teable/core';
+import type { ITableVo } from '@teable/openapi';
 import { useDriver, useTable } from '@teable/sdk/hooks';
 import {
   Card,

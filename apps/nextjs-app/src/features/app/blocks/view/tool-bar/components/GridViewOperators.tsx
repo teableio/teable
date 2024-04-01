@@ -37,7 +37,12 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     <div className="flex gap-1">
       <HideFields>
         {(text, isActive) => (
-          <ToolBarButton disabled={disabled} isActive={isActive} text={text}>
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            textClassName="@2xl/toolbar:inline"
+          >
             <EyeOff className="size-4 text-sm" />
           </ToolBarButton>
         )}
@@ -65,6 +70,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'
             )}
+            textClassName="@2xl/toolbar:inline"
           >
             <FilterIcon className="size-4 text-sm" />
           </ToolBarButton>
@@ -82,6 +88,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
               isActive &&
                 'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
             )}
+            textClassName="@2xl/toolbar:inline"
           >
             <ArrowUpDown className="size-4 text-sm" />
           </ToolBarButton>
@@ -99,6 +106,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
               isActive &&
                 'bg-green-100 dark:bg-green-600/30 hover:bg-green-200 dark:hover:bg-green-500/30'
             )}
+            textClassName="@2xl/toolbar:inline"
           >
             <LayoutList className="size-4 text-sm" />
           </ToolBarButton>
@@ -107,7 +115,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <ToolBarButton className="opacity-30" text="Color">
+            <ToolBarButton className="opacity-30" text="Color" textClassName="@2xl/toolbar:inline">
               <PaintBucket className="size-4 text-sm" />
             </ToolBarButton>
           </TooltipTrigger>

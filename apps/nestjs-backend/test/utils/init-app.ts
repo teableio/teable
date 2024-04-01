@@ -5,8 +5,6 @@ import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type {
-  ICreateRecordsRo,
-  ICreateRecordsVo,
   IFieldRo,
   IFieldVo,
   IRecord,
@@ -14,17 +12,21 @@ import type {
   HttpError,
   IColumnMetaRo,
   IViewVo,
-  ICreateTableRo,
   IFilterRo,
   IViewRo,
+} from '@teable/core';
+import { FieldKeyType } from '@teable/core';
+import type {
+  ICreateRecordsRo,
+  ICreateRecordsVo,
+  ICreateTableRo,
   IGetRecordsRo,
   IRecordsVo,
   IUpdateRecordRo,
   ITableFullVo,
   IGetTableQuery,
   ITableVo,
-} from '@teable/core';
-import { FieldKeyType } from '@teable/core';
+} from '@teable/openapi';
 import {
   axios,
   signin as apiSignin,
@@ -276,6 +278,7 @@ export async function createRecords(
 ): Promise<ICreateRecordsVo> {
   try {
     const res = await apiCreateRecords(tableId, {
+      ...recordsRo,
       fieldKeyType: recordsRo.fieldKeyType ?? FieldKeyType.Id,
       records: recordsRo.records,
       typecast: recordsRo.typecast ?? false,

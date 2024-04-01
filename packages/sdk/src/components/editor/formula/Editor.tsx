@@ -325,7 +325,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
 
   return (
     <div className="w-[620px]">
-      <div className="flex h-12 w-full items-center justify-between border-b-[1px] pl-4 pr-2">
+      <div className="flex h-12 w-full items-center justify-between border-b-DEFAULT pl-4 pr-2">
         <h1 className="text-base">{t('editor.formula.title')}</h1>
       </div>
       <div className={cn('flex flex-col w-full border-b-[1px] caret-foreground', codeBg)}>
@@ -338,7 +338,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         />
         <div className="h-5 w-full truncate px-2 text-xs text-destructive">{errMsg}</div>
       </div>
-      <div className="flex h-[52px] w-full items-center justify-between border-b-[1px] px-2">
+      <div className="flex h-[52px] w-full items-center justify-between border-b-DEFAULT px-2">
         <div className="mr-2 flex flex-1 flex-col justify-center overflow-hidden">
           <FunctionHelper funcHelpData={funcHelpData} />
         </div>
@@ -349,7 +349,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         </div>
       </div>
       <div className="flex h-[360px] w-full">
-        <div ref={listRef} className="w-[200px] shrink-0 overflow-y-auto border-r-[1px]">
+        <div ref={listRef} className="w-[200px] shrink-0 overflow-y-auto border-r-DEFAULT">
           {formatFunctionList.length || filteredFields.length ? (
             <>
               {filteredFields.length > 0 && (

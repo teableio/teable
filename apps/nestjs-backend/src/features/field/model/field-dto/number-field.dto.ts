@@ -1,7 +1,11 @@
 import { NumberFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class NumberFieldDto extends NumberFieldCore implements IFieldBase {
+export class NumberFieldDto extends NumberFieldCore implements FieldBase {
+  get isStructuredCellValue() {
+    return false;
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return value == null ? value : JSON.stringify(value);

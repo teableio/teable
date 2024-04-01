@@ -5,7 +5,7 @@ import { getGroupPoints } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useActionTrigger, useIsHydrated, useView } from '../../hooks';
+import { useActionTrigger, useIsHydrated, useSearch, useView } from '../../hooks';
 import type { PropKeys } from '../action-trigger';
 import { AnchorContext } from '../anchor';
 import { GroupPointContext } from './GroupPointContext';
@@ -20,6 +20,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
   const view = useView(viewId);
+  const { searchQuery } = useSearch();
   const { type, group, options } = view || {};
 
   const groupBy = useMemo(() => {
@@ -35,9 +36,10 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
     return {
       viewId,
       groupBy,
+      search: searchQuery,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewId, JSON.stringify(groupBy)]);
+  }, [viewId, JSON.stringify(groupBy), searchQuery]);
 
   const { data: resGroupPoints } = useQuery({
     queryKey: ReactQueryKeys.groupPoints(tableId as string, query),

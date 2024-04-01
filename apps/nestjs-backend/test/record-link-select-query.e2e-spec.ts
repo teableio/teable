@@ -1,8 +1,9 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo, IGetRecordsRo, ITableFullVo } from '@teable/core';
+import type { IFieldRo, IFieldVo } from '@teable/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
+import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import { getRowCount as apiGetRowCount } from '@teable/openapi';
 import {
   createField,
@@ -81,7 +82,7 @@ describe('OpenAPI link Select (e2e)', () => {
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
-          { left: { c: 3, s: 0 }, right: { c: 2, s: 0 } },
+          { left: { c: 3, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'two way',
         isOneWay: undefined,
@@ -92,7 +93,7 @@ describe('OpenAPI link Select (e2e)', () => {
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
-          { left: { c: 3, s: 0 }, right: { c: 2, s: 0 } },
+          { left: { c: 3, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'one Way',
         isOneWay: true,
@@ -103,7 +104,7 @@ describe('OpenAPI link Select (e2e)', () => {
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
-          { left: { c: 2, s: 0 }, right: { c: 2, s: 0 } },
+          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'two way',
         isOneWay: undefined,
@@ -114,7 +115,7 @@ describe('OpenAPI link Select (e2e)', () => {
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
-          { left: { c: 2, s: 0 }, right: { c: 2, s: 0 } },
+          { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
         ],
         direction: 'one Way',
         isOneWay: true,
@@ -126,7 +127,7 @@ describe('OpenAPI link Select (e2e)', () => {
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
-          { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
         ],
         direction: 'two way',
       },
@@ -136,7 +137,7 @@ describe('OpenAPI link Select (e2e)', () => {
         result: [
           { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
           { left: { c: 2, s: 1 }, right: { c: 2, s: 1 } },
-          { left: { c: 3, s: 0 }, right: { c: 3, s: 0 } },
+          { left: { c: 3, s: 1 }, right: { c: 3, s: 1 } },
         ],
         isOneWay: true,
       },
@@ -272,7 +273,7 @@ describe('OpenAPI link Select (e2e)', () => {
           expect(table2SResult.records.length).toBe(result[1].right.s);
         });
 
-        it('should fetch candidate and selected  records after link without recordId', async () => {
+        it('should fetch candidate and selected records after link without recordId', async () => {
           const value =
             relationship === Relationship.ManyMany
               ? [{ id: table1.records[0].id }]
@@ -322,5 +323,49 @@ describe('OpenAPI link Select (e2e)', () => {
         });
       }
     );
+
+    describe('fetch selected records with sort', () => {
+      let linkField2: IFieldVo;
+      beforeEach(async () => {
+        // create link field
+        const Link1FieldRo: IFieldRo = {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        };
+
+        await createField(table1.id, Link1FieldRo);
+
+        const table2Fields = await getFields(table2.id);
+        linkField2 = table2Fields[2];
+      });
+
+      it('should sort selected records', async () => {
+        // table2 link field first record link to table1 first record
+        const updateValue1 = [
+          { id: table1.records[2].id },
+          { id: table1.records[0].id },
+          { id: table1.records[1].id },
+        ];
+        await updateRecordByApi(table2.id, table2.records[0].id, linkField2.id, updateValue1);
+        const table1Selected: IGetRecordsRo = {
+          fieldKeyType: FieldKeyType.Id,
+          filterLinkCellSelected: [linkField2.id, table2.records[0].id],
+        };
+        const result = await getRecords(table1.id, table1Selected);
+        expect(result.records).toMatchObject(updateValue1);
+
+        const updateValue2 = [
+          { id: table1.records[2].id },
+          { id: table1.records[1].id },
+          { id: table1.records[0].id },
+        ];
+        await updateRecordByApi(table2.id, table2.records[0].id, linkField2.id, updateValue2);
+        const result2 = await getRecords(table1.id, table1Selected);
+        expect(result2.records).toMatchObject(updateValue2);
+      });
+    });
   });
 });

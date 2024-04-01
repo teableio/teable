@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { generateBaseId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -6,18 +6,22 @@ import type {
   ICreateBaseRo,
   IDuplicateBaseRo,
   IUpdateBaseRo,
+  IUpdateOrderRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { updateOrder } from '../../utils/update-order';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 
 @Injectable()
 export class BaseService {
+  private logger = new Logger(BaseService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
@@ -37,7 +41,6 @@ export class BaseService {
       select: {
         id: true,
         name: true,
-        order: true,
         icon: true,
         spaceId: true,
       },
@@ -58,7 +61,7 @@ export class BaseService {
     };
   }
 
-  async getBaseList() {
+  async getAllBaseList() {
     const userId = this.cls.get('user.id');
     const { spaceIds, baseIds, roleMap } =
       await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
@@ -85,9 +88,7 @@ export class BaseService {
           },
         ],
       },
-      orderBy: {
-        createdTime: 'asc',
-      },
+      orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
     });
     return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
   }
@@ -105,8 +106,7 @@ export class BaseService {
     const { name, spaceId } = createBaseRo;
 
     return this.prismaService.$transaction(async (prisma) => {
-      const order =
-        createBaseRo.order == null ? (await this.getMaxOrder(spaceId)) + 1 : createBaseRo.order;
+      const order = (await this.getMaxOrder(spaceId)) + 1;
 
       const base = await prisma.base.create({
         data: {
@@ -121,7 +121,6 @@ export class BaseService {
           name: true,
           icon: true,
           spaceId: true,
-          order: true,
         },
       });
 
@@ -148,12 +147,78 @@ export class BaseService {
         id: true,
         name: true,
         spaceId: true,
-        order: true,
       },
       where: {
         id: baseId,
         deletedTime: null,
       },
+    });
+  }
+
+  async shuffle(spaceId: string) {
+    const bases = await this.prismaService.base.findMany({
+      where: { spaceId, deletedTime: null },
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+
+    this.logger.log(`lucky base shuffle! ${spaceId}`, 'shuffle');
+
+    await this.prismaService.$tx(async (prisma) => {
+      for (let i = 0; i < bases.length; i++) {
+        const base = bases[i];
+        await prisma.base.update({
+          data: { order: i },
+          where: { id: base.id },
+        });
+      }
+    });
+  }
+
+  async updateOrder(baseId: string, orderRo: IUpdateOrderRo) {
+    const { anchorId, position } = orderRo;
+
+    const base = await this.prismaService.base
+      .findFirstOrThrow({
+        select: { spaceId: true, order: true, id: true },
+        where: { id: baseId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Base ${baseId} not found`);
+      });
+
+    const anchorBase = await this.prismaService.base
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { spaceId: base.spaceId, id: anchorId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Anchor ${anchorId} not found`);
+      });
+
+    await updateOrder({
+      parentId: base.spaceId,
+      position,
+      item: base,
+      anchorItem: anchorBase,
+      getNextItem: async (whereOrder, align) => {
+        return this.prismaService.base.findFirst({
+          select: { order: true, id: true },
+          where: {
+            spaceId: base.spaceId,
+            deletedTime: null,
+            order: whereOrder,
+          },
+          orderBy: { order: align },
+        });
+      },
+      update: async (_, id, data) => {
+        await this.prismaService.base.update({
+          data: { order: data.newOrder },
+          where: { id },
+        });
+      },
+      shuffle: this.shuffle.bind(this),
     });
   }
 

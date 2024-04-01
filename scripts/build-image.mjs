@@ -19,6 +19,7 @@
  */
 
 const env = $.env;
+let isCi = ['true', '1'].includes(env?.CI ?? '');
 
 const getSemver = async () => {
   // console.log('all environment variables: ', env);
@@ -29,6 +30,7 @@ const getSemver = async () => {
 
   if (env.GITHUB_ACTIONS) {
     // github action
+    isCi = true;
     const refType = env.GITHUB_REF_TYPE;
     const runNumber = env.GITHUB_RUN_NUMBER;
     const sha = env.GITHUB_SHA.substring(0, 7);
@@ -47,20 +49,20 @@ const getSemver = async () => {
 };
 
 const toArray = (input, commaSplit = false, newlineSplit = false) => {
-  if (input === undefined) {
-    return [];
-  }
-  if (typeof input === 'string') {
-    if (commaSplit) {
-      return input.split(',').map((item) => item.trim());
-    } else if (newlineSplit) {
-      return input.split('\n').map((item) => item.trim());
+  if (input === undefined) return [];
+
+  const delimiter = commaSplit ? ',' : newlineSplit ? '\n' : null;
+
+  const items = Array.isArray(input) ? input : [input];
+
+  return items.flatMap((item) => {
+    if (typeof item === 'string' && delimiter) {
+      return item.split(delimiter).map((part) => part.trim());
+    } else if (typeof item === 'string') {
+      return item.trim();
     }
-  }
-  if (Array.isArray(input)) {
-    return input.map((item) => (typeof item === 'string' ? item.trim() : item));
-  }
-  return [input];
+    return item;
+  });
 };
 const toBoolean = (input) => Boolean(input);
 const asyncForEach = async (array, callback) => {
@@ -75,6 +77,7 @@ const {
   'cache-from': cacheFromArg,
   'cache-to': cacheToArg,
   tag,
+  'tag-suffix': tagSuffix,
   platforms: platformsArg,
   push: pushArg,
 } = argv;
@@ -107,7 +110,7 @@ if (platforms.length > 0) {
   command.push('--platform', platforms.join(','));
 }
 await asyncForEach(tags, async (tag) => {
-  command.push('--tag', tag);
+  command.push('--tag', `${tag}${tagSuffix ?? ''}`);
 });
 
 if (push) {
@@ -115,6 +118,6 @@ if (push) {
 }
 
 command.push('.');
+command.push('--progress=plain');
 
-console.log(command.join(' '));
 await $`${command}`;

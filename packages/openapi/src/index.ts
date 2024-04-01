@@ -18,4 +18,5 @@ export * from './notification';
 export * from './user';
 export * from './access-token';
 export * from './import';
+export * from './export';
 export { urlBuilder } from './utils';

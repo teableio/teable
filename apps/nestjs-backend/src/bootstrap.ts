@@ -7,6 +7,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
+import type { OpenAPIObject } from '@nestjs/swagger';
 import { SwaggerModule } from '@nestjs/swagger';
 import { getOpenApiDocumentation } from '@teable/openapi';
 import { json, urlencoded } from 'express';
@@ -47,8 +48,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
 
     const jsonString = JSON.stringify(openApiDocumentation);
     fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    SwaggerModule.setup('/docs', app, openApiDocumentation as any);
+    SwaggerModule.setup('/docs', app, openApiDocumentation as OpenAPIObject);
 
     // Instead of using SwaggerModule.setup() you call this module
     const redocOptions: RedocOptions = {
@@ -57,8 +57,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
         altText: 'Teable logo',
       },
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await RedocModule.setup('/redocs', app, openApiDocumentation as any, redocOptions);
+    await RedocModule.setup('/redocs', app, openApiDocumentation as OpenAPIObject, redocOptions);
   }
 
   if (securityWebConfig?.cors.enabled) {

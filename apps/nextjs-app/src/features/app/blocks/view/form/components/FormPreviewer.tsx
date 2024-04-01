@@ -133,7 +133,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
       )}
       ref={containerRef}
     >
-      <div className="relative mx-auto mb-12 flex w-full max-w-[640px] flex-col items-center overflow-hidden sm:min-h-full sm:rounded-lg sm:border sm:pb-12 sm:shadow-md">
+      <div className="relative mx-auto mb-12 flex w-full max-w-screen-sm flex-col items-center overflow-hidden sm:min-h-full sm:rounded-lg sm:border sm:pb-12 sm:shadow-md">
         <div
           className={cn(
             'relative h-36 w-full',

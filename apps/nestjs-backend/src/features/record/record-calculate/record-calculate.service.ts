@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/core';
 import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/openapi';
 import { isEmpty, keyBy } from 'lodash';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -235,9 +235,9 @@ export class RecordCalculateService {
     recordsRo: {
       id?: string;
       fields: Record<string, unknown>;
-      recordOrder?: Record<string, number>;
     }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
+    fieldKeyType: FieldKeyType = FieldKeyType.Name,
+    orderIndex?: { viewId: string; indexes: number[] }
   ): Promise<ICreateRecordsVo> {
     if (recordsRo.length === 0) {
       throw new BadRequestException('Create records is empty');
@@ -248,11 +248,10 @@ export class RecordCalculateService {
       return RecordOpBuilder.creator.build({
         id: recordId,
         fields: {},
-        recordOrder: record.recordOrder ?? {},
       });
     });
 
-    await this.recordService.batchCreateRecords(tableId, emptyRecords);
+    await this.recordService.batchCreateRecords(tableId, emptyRecords, orderIndex);
 
     // submit auto fill changes
     const plainRecords = await this.appendDefaultValue(

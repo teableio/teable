@@ -1,6 +1,12 @@
-import type { DriverClient } from '@teable/core';
+import { ANONYMOUS_USER_ID, type DriverClient } from '@teable/core';
 import type { ShareViewGetVo } from '@teable/openapi';
-import { AnchorContext, AppProvider, FieldProvider, ViewProvider } from '@teable/sdk/context';
+import {
+  AnchorContext,
+  AppProvider,
+  FieldProvider,
+  SessionProvider,
+  ViewProvider,
+} from '@teable/sdk/context';
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
 import Head from 'next/head';
 import { useMemo } from 'react';
@@ -36,20 +42,30 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
       </Head>
       <AppLayout>
         <AppProvider lang={i18n.language} wsPath={wsPath} locale={sdkLocale} driver={props.driver}>
-          <AnchorContext.Provider
-            value={{
-              tableId,
-              viewId,
+          <SessionProvider
+            user={{
+              id: ANONYMOUS_USER_ID,
+              name: ANONYMOUS_USER_ID,
+              email: '',
+              notifyMeta: {},
+              hasPassword: false,
             }}
           >
-            <ViewProvider serverData={[view]}>
-              <ViewProxy serverData={[view]}>
-                <FieldProvider serverSideData={fields}>
-                  <ShareView />
-                </FieldProvider>
-              </ViewProxy>
-            </ViewProvider>
-          </AnchorContext.Provider>
+            <AnchorContext.Provider
+              value={{
+                tableId,
+                viewId,
+              }}
+            >
+              <ViewProvider serverData={[view]}>
+                <ViewProxy serverData={[view]}>
+                  <FieldProvider serverSideData={fields}>
+                    <ShareView />
+                  </FieldProvider>
+                </ViewProxy>
+              </ViewProvider>
+            </AnchorContext.Provider>
+          </SessionProvider>
         </AppProvider>
       </AppLayout>
     </ShareViewPageContext.Provider>

@@ -8,7 +8,8 @@ import {
   Relationship,
   defaultNumberFormatting,
 } from '@teable/core';
-import type { IFieldRo, ITableFullVo } from '@teable/core';
+import type { IFieldRo } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   RangeType,
   IdReturnType,

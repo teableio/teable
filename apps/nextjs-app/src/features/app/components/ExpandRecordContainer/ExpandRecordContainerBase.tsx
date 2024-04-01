@@ -1,5 +1,5 @@
 import type { IRecord } from '@teable/core';
-import { ExpandRecorder, IExpandRecordModel } from '@teable/sdk';
+import { ExpandRecorder, ExpandRecordModel } from '@teable/sdk';
 import { useRouter } from 'next/router';
 import { forwardRef, useImperativeHandle, useState } from 'react';
 import type { IExpandRecordContainerRef } from './types';
@@ -28,7 +28,7 @@ export const ExpandRecordContainerBase = forwardRef<
       recordId={recordId}
       recordIds={recordIds}
       serverData={recordServerData}
-      model={IExpandRecordModel.Modal}
+      model={ExpandRecordModel.Modal}
       onClose={onClose}
       onUpdateRecordIdCallback={onUpdateRecordIdCallback}
     />

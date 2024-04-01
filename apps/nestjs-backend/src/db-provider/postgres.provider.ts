@@ -1,6 +1,8 @@
 import { Logger } from '@nestjs/common';
-import type { IAggregationField, IFilter, ISortItem } from '@teable/core';
+import type { IFilter, ISortItem } from '@teable/core';
 import { DriverClient } from '@teable/core';
+import type { PrismaClient } from '@teable/db-main-prisma';
+import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -14,6 +16,8 @@ import type {
 } from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
+import { SearchQueryAbstract } from './search-query/abstract';
+import { SearchQueryPostgres } from './search-query/search-query.postgres';
 import { SortQueryPostgres } from './sort-query/postgres/sort-query.postgres';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
@@ -42,11 +46,26 @@ export class PostgresProvider implements IDbProvider {
   }
 
   dropTable(tableName: string): string {
-    const [schemaName, dbTableName] = this.splitTableName(tableName);
-    return this.knex.raw('DROP TABLE ??.??', [schemaName, dbTableName]).toQuery();
+    return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
   }
 
-  renameColumnName(tableName: string, oldName: string, newName: string): string[] {
+  async checkColumnExist(
+    tableName: string,
+    columnName: string,
+    prisma: PrismaClient
+  ): Promise<boolean> {
+    const [schemaName, dbTableName] = this.splitTableName(tableName);
+    const sql = this.knex
+      .raw(
+        'SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?) AS exists',
+        [schemaName, dbTableName, columnName]
+      )
+      .toQuery();
+    const res = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(sql);
+    return res[0].exists;
+  }
+
+  renameColumn(tableName: string, oldName: string, newName: string): string[] {
     return this.knex.schema
       .alterTable(tableName, (table) => {
         table.renameColumn(oldName, newName);
@@ -216,5 +235,13 @@ export class PostgresProvider implements IDbProvider {
     extra?: ISortQueryExtra
   ): ISortQueryInterface {
     return new SortQueryPostgres(this.knex, originQueryBuilder, fields, sortObjs, extra);
+  }
+
+  searchQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    search?: [string, string]
+  ) {
+    return SearchQueryAbstract.factory(SearchQueryPostgres, originQueryBuilder, fieldMap, search);
   }
 }

@@ -7,7 +7,7 @@ export const KanbanToolBar: React.FC = () => {
 
   return (
     <div className="flex items-center gap-2 border-y px-4 py-2 @container/toolbar">
-      <div className="flex flex-1 justify-between overflow-x-auto scrollbar-none">
+      <div className="flex flex-1 justify-between">
         <KanbanViewOperators disabled={!permission['view|update']} />
         <Others />
       </div>

@@ -1,8 +1,7 @@
 import { Table2 } from '@teable/icons';
 import { useConnection, useTable, useTablePermission } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
-import { Input } from '@teable/ui-lib/shadcn';
-import classNames from 'classnames';
+import { cn, Input } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useState } from 'react';
@@ -23,10 +22,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   );
   return (
     <div
-      className={classNames(
-        'flex justify-center items-center relative overflow-hidden gap-2',
-        className
-      )}
+      className={cn('flex justify-center items-center relative overflow-hidden gap-2', className)}
     >
       {connected ? (
         <EmojiPicker
@@ -77,7 +73,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
             }}
           />
         )}
-        <div className="hidden text-xs leading-none text-slate-400 sm:block">
+        <div className="hidden text-xs leading-none text-slate-400 @xl/view-header:block">
           last modified: {dayjs(table?.lastModifiedTime).fromNow()}
         </div>
       </div>

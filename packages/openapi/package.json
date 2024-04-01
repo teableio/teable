@@ -2,8 +2,10 @@
   "name": "@teable/openapi",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/teableio/teable",
@@ -12,18 +14,24 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "tsc --watch",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/openapi.eslintcache",
+    "test": "run test-unit",
+    "test-unit": "vitest run --silent",
+    "test-unit-cover": "pnpm test-unit --coverage",
     "typecheck": "tsc --project ./tsconfig.build.json --noEmit"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "6.4.0",
     "@teable/core": "workspace:^",
     "@types/node": "20.9.0",
-    "axios": "1.6.7",
+    "axios": "1.6.8",
     "httpsnippet-lite": "3.0.5",
     "openapi-sampler": "1.4.0",
     "openapi3-ts": "4.2.2",
@@ -31,8 +39,11 @@
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
+    "@vitest/coverage-v8": "1.4.0",
     "eslint": "8.57.0",
     "rimraf": "5.0.5",
-    "typescript": "5.4.2"
+    "typescript": "5.4.3",
+    "vite-tsconfig-paths": "4.3.2",
+    "vitest": "1.4.0"
   }
 }

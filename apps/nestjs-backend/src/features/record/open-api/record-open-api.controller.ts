@@ -1,5 +1,6 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/core';
+import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/openapi';
 import {
   createRecordsRoSchema,
   getRecordQuerySchema,
@@ -9,8 +10,9 @@ import {
   IGetRecordQuery,
   IUpdateRecordRo,
   updateRecordRoSchema,
-} from '@teable/core';
-import { deleteRecordsQuerySchema, IDeleteRecordsQuery } from '@teable/openapi';
+  deleteRecordsQuerySchema,
+  IDeleteRecordsQuery,
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { RecordService } from '../record.service';
@@ -45,12 +47,12 @@ export class RecordOpenApiController {
 
   @Permissions('record|update')
   @Patch(':recordId')
-  async updateRecordById(
+  async updateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
-    return await this.recordOpenApiService.updateRecordById(tableId, recordId, updateRecordRo);
+    return await this.recordOpenApiService.updateRecord(tableId, recordId, updateRecordRo);
   }
 
   @Permissions('record|create')

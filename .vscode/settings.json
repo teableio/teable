@@ -5,6 +5,7 @@
     "COUNTALL",
     "DATETIME",
     "gantt",
+    "ILIKE",
     "Localstorage",
     "minio",
     "nextjs",

@@ -22,7 +22,7 @@ describe.skip('OpenAPI Db Connection (e2e)', () => {
   });
 
   it('should manage a db connection', async () => {
-    console.log('PUBLIC_DATABASE_ADDRESS', process.env.PUBLIC_DATABASE_ADDRESS);
+    console.log('PUBLIC_DATABASE_PROXY', process.env.PUBLIC_DATABASE_PROXY);
 
     if (globalThis.testConfig.driver !== DriverClient.Pg) {
       expect(true).toBeTruthy();

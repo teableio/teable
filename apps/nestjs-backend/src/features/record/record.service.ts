@@ -7,17 +7,12 @@ import {
 } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
-  ICreateRecordsRo,
   IExtraResult,
   IFilter,
-  IGetRecordQuery,
-  IGetRecordsRo,
   IGroup,
   ILinkCellValue,
   IRecord,
-  IRecordsVo,
   ISetRecordOpContext,
-  ISetRecordOrderOpContext,
   IShareViewMeta,
   ISnapshotBase,
   ISortItem,
@@ -35,19 +30,20 @@ import {
   parseGroup,
   Relationship,
 } from '@teable/core';
-import type { Field, Prisma } from '@teable/db-main-prisma';
+import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateRecordsRo, IGetRecordQuery, IGetRecordsRo, IRecordsVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import { getViewOrderFieldName } from '../../utils';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -69,52 +65,10 @@ export class RecordService implements IAdapterService {
     private readonly batchService: BatchService,
     private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
-
-  private async getRowOrderFieldNames(tableId: string) {
-    // get rowIndexFieldName by select all views, combine field prefix and ids;
-    const views = await this.prismaService.txClient().view.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    return views.map((view) => `${ROW_ORDER_FIELD_PREFIX}_${view.id}`);
-  }
-
-  // get fields create by users
-  private async getUserFields(tableId: string, createRecordsRo: ICreateRecordsRo) {
-    const fieldIdSet = createRecordsRo.records.reduce<Set<string>>((acc, record) => {
-      const fieldIds = Object.keys(record.fields);
-      fieldIds.forEach((fieldId) => acc.add(fieldId));
-      return acc;
-    }, new Set());
-
-    const userFieldIds = Array.from(fieldIdSet);
-
-    const userFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        id: { in: userFieldIds },
-      },
-      select: {
-        id: true,
-        dbFieldName: true,
-      },
-    });
-
-    if (userFields.length !== userFieldIds.length) {
-      throw new BadRequestException('some fields not found');
-    }
-
-    return userFields;
-  }
 
   private dbRecord2RecordFields(
     record: IRecord['fields'],
@@ -134,7 +88,7 @@ export class RecordService implements IAdapterService {
     }, {});
   }
 
-  private async getAllRecordCount(dbTableName: string) {
+  async getAllRecordCount(dbTableName: string) {
     const sqlNative = this.knex(dbTableName).count({ count: '*' }).toSQL().toNative();
 
     const queryResult = await this.prismaService
@@ -173,51 +127,6 @@ export class RecordService implements IAdapterService {
     return dbValueMatrix;
   }
 
-  async multipleCreateRecordTransaction(tableId: string, createRecordsRo: ICreateRecordsRo) {
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        dbTableName: true,
-      },
-    });
-
-    const userFields = await this.getUserFields(tableId, createRecordsRo);
-    const rowOrderFieldNames = await this.getRowOrderFieldNames(tableId);
-
-    const allDbFieldNames = [
-      ...userFields.map((field) => field.dbFieldName),
-      ...rowOrderFieldNames,
-      ...['__id', '__created_time', '__created_by', '__version'],
-    ];
-
-    const dbValueMatrix = await this.getDbValueMatrix(
-      dbTableName,
-      userFields,
-      rowOrderFieldNames,
-      createRecordsRo
-    );
-
-    const dbFieldSQL = allDbFieldNames.join(', ');
-    const dbValuesSQL = dbValueMatrix
-      .map((dbValues) => `(${dbValues.map((value) => JSON.stringify(value)).join(', ')})`)
-      .join(',\n');
-
-    return await this.prismaService.txClient().$executeRawUnsafe(`
-      INSERT INTO ${dbTableName} (${dbFieldSQL})
-      VALUES 
-        ${dbValuesSQL};
-    `);
-  }
-
-  // we have to support multiple action, because users will do it in batch
-  async multipleCreateRecords(tableId: string, createRecordsRo: ICreateRecordsRo) {
-    return await this.prismaService.$tx(async () => {
-      return this.multipleCreateRecordTransaction(tableId, createRecordsRo);
-    });
-  }
-
   async getDbTableName(tableId: string) {
     const tableMeta = await this.prismaService
       .txClient()
@@ -231,20 +140,20 @@ export class RecordService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
-  private async getLinkCellIds(fieldRaw: Field, recordId: string) {
+  private async getLinkCellIds(tableId: string, field: IFieldInstance, recordId: string) {
     const prisma = this.prismaService.txClient();
     const dbTableName = await prisma.tableMeta.findFirstOrThrow({
-      where: { id: fieldRaw.tableId },
+      where: { id: tableId },
       select: { dbTableName: true },
     });
     const linkCellQuery = this.knex(dbTableName)
       .select({
         id: '__id',
-        linkField: fieldRaw.dbFieldName,
+        linkField: field.dbFieldName,
       })
       .where('__id', recordId)
       .toQuery();
-    const field = createFieldInstanceByRaw(fieldRaw);
+
     const result = await prisma.$queryRawUnsafe<
       {
         id: string;
@@ -261,21 +170,56 @@ export class RecordService implements IAdapterService {
       .map((item) => item.id);
   }
 
-  async getLinkSelectedRecordIds(
+  private async buildLinkSelectedSort(
+    queryBuilder: Knex.QueryBuilder,
+    dbTableName: string,
+    filterLinkCellSelected: [string, string]
+  ) {
+    const prisma = this.prismaService.txClient();
+    const [fieldId, recordId] = filterLinkCellSelected;
+    const fieldRaw = await prisma.field
+      .findFirstOrThrow({
+        where: { id: fieldId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Field ${fieldId} not found`);
+      });
+    const field = createFieldInstanceByRaw(fieldRaw);
+    if (!field.isMultipleCellValue) {
+      return;
+    }
+
+    const ids = await this.getLinkCellIds(fieldRaw.tableId, field, recordId);
+    if (!ids.length) {
+      return;
+    }
+
+    // sql capable for sqlite
+    const valuesQuery = ids
+      .map((id, index) => `SELECT ${index + 1} AS sort_order, '${id}' AS id`)
+      .join(' UNION ALL ');
+
+    queryBuilder
+      .with('ordered_ids', this.knex.raw(`${valuesQuery}`))
+      .leftJoin('ordered_ids', function () {
+        this.on(`${dbTableName}.__id`, '=', 'ordered_ids.id');
+      })
+      .orderBy('ordered_ids.sort_order');
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async buildLinkSelectedQuery(
+    queryBuilder: Knex.QueryBuilder,
+    tableId: string,
+    dbTableName: string,
     filterLinkCellSelected: [string, string] | string
-  ): Promise<{ ids: string[] }> {
+  ) {
+    const prisma = this.prismaService.txClient();
     const fieldId = Array.isArray(filterLinkCellSelected)
       ? filterLinkCellSelected[0]
       : filterLinkCellSelected;
     const recordId = Array.isArray(filterLinkCellSelected) ? filterLinkCellSelected[1] : undefined;
 
-    if (!fieldId) {
-      throw new BadRequestException(
-        'filterByLinkFieldId is required when filterByLinkRecordId is set'
-      );
-    }
-
-    const prisma = this.prismaService.txClient();
     const fieldRaw = await prisma.field
       .findFirstOrThrow({
         where: { id: fieldId, deletedTime: null },
@@ -284,25 +228,42 @@ export class RecordService implements IAdapterService {
         throw new NotFoundException(`Field ${fieldId} not found`);
       });
 
-    if (fieldRaw.type !== FieldType.Link) {
+    const field = createFieldInstanceByRaw(fieldRaw);
+
+    if (field.type !== FieldType.Link) {
       throw new BadRequestException('You can only filter by link field');
     }
-
-    return {
-      ids: recordId ? await this.getLinkCellIds(fieldRaw, recordId) : [],
-    };
-  }
-
-  private isJunctionTable(dbTableName: string) {
-    if (dbTableName.includes('.')) {
-      return dbTableName.split('.')[1].startsWith('junction');
+    const { foreignTableId, fkHostTableName, selfKeyName, foreignKeyName } = field.options;
+    if (foreignTableId !== tableId) {
+      throw new BadRequestException('Field is not linked to current table');
     }
-    return dbTableName.split('_')[1].startsWith('junction');
+
+    if (fkHostTableName !== dbTableName) {
+      queryBuilder.leftJoin(
+        `${fkHostTableName}`,
+        `${dbTableName}.__id`,
+        '=',
+        `${fkHostTableName}.${foreignKeyName}`
+      );
+      if (recordId) {
+        queryBuilder.where(`${fkHostTableName}.${selfKeyName}`, recordId);
+        return;
+      }
+      queryBuilder.whereNotNull(`${fkHostTableName}.${foreignKeyName}`);
+      return;
+    }
+
+    if (recordId) {
+      queryBuilder.where(`${dbTableName}.${selfKeyName}`, recordId);
+      return;
+    }
+    queryBuilder.whereNotNull(`${dbTableName}.${selfKeyName}`);
   }
 
   async buildLinkCandidateQuery(
     queryBuilder: Knex.QueryBuilder,
     tableId: string,
+    dbTableName: string,
     filterLinkCellCandidate: [string, string] | string
   ) {
     const prisma = this.prismaService.txClient();
@@ -331,29 +292,47 @@ export class RecordService implements IAdapterService {
     if (foreignTableId !== tableId) {
       throw new BadRequestException('Field is not linked to current table');
     }
-    if (relationship === Relationship.OneMany) {
-      if (this.isJunctionTable(fkHostTableName)) {
-        queryBuilder.whereNotIn('__id', function () {
-          this.select(foreignKeyName).from(fkHostTableName);
-        });
-      } else {
-        queryBuilder.where(selfKeyName, null);
-      }
-    }
+
     if (relationship === Relationship.OneOne) {
       if (selfKeyName === '__id') {
         queryBuilder.whereNotIn('__id', function () {
           this.select(foreignKeyName).from(fkHostTableName).whereNotNull(foreignKeyName);
         });
-      } else {
-        queryBuilder.where(selfKeyName, null);
+        return;
       }
+      queryBuilder.where(selfKeyName, null);
+      return;
     }
+
+    if (fkHostTableName !== dbTableName) {
+      queryBuilder.leftJoin(
+        `${fkHostTableName}`,
+        `${dbTableName}.__id`,
+        '=',
+        `${fkHostTableName}.${foreignKeyName}`
+      );
+    }
+
+    if (fkHostTableName !== dbTableName && recordId) {
+      queryBuilder.where((builder) => {
+        builder
+          .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
+          .orWhereNull(`${fkHostTableName}.${foreignKeyName}`);
+      });
+      return;
+    }
+
     if (recordId) {
-      const linkIds = await this.getLinkCellIds(fieldRaw, recordId);
-      if (linkIds.length) {
-        queryBuilder.whereNotIn('__id', linkIds);
-      }
+      queryBuilder.where((builder) => {
+        builder
+          .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
+          .orWhereNull(`${fkHostTableName}.${selfKeyName}`);
+      });
+      return;
+    }
+
+    if (relationship === Relationship.OneMany) {
+      queryBuilder.whereNull(`${fkHostTableName}.${selfKeyName}`);
     }
   }
 
@@ -361,9 +340,10 @@ export class RecordService implements IAdapterService {
     tableId: string,
     filter?: IFilter,
     orderBy?: ISortItem[],
-    groupBy?: IGroup
+    groupBy?: IGroup,
+    search?: string[]
   ) {
-    if (filter || orderBy?.length || groupBy?.length) {
+    if (filter || orderBy?.length || groupBy?.length || search) {
       // The field Meta is needed to construct the filter if it exists
       const fields = await this.getFieldsByProjection(tableId);
       return fields.reduce(
@@ -393,11 +373,29 @@ export class RecordService implements IAdapterService {
       });
   }
 
+  private parseSearch(search: string[], fieldMap?: Record<string, IFieldInstance>) {
+    const [searchValue, fieldIdOrName] = search;
+    if (!fieldMap) {
+      throw new Error('fieldMap is required when search is set');
+    }
+    const field = fieldMap[fieldIdOrName];
+    if (!field) {
+      throw new NotFoundException(`Field ${fieldIdOrName} not found`);
+    }
+    return [searchValue, field.id];
+  }
+
   async prepareQuery(
     tableId: string,
-    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'groupBy' | 'filter'>
+    query: Pick<IGetRecordsRo, 'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'search'>
   ) {
-    const { viewId, orderBy: extraOrderBy, groupBy: extraGroupBy, filter: extraFilter } = query;
+    const {
+      viewId,
+      orderBy: extraOrderBy,
+      groupBy: extraGroupBy,
+      filter: extraFilter,
+      search: originSearch,
+    } = query;
 
     const dbTableName = await this.getDbTableName(tableId);
 
@@ -408,15 +406,38 @@ export class RecordService implements IAdapterService {
     const filter = mergeWithDefaultFilter(view?.filter, extraFilter);
     const orderBy = mergeWithDefaultSort(view?.sort, extraOrderBy);
     const groupBy = parseGroup(extraGroupBy);
-    const fieldMap = await this.getNecessaryFieldMap(tableId, filter, orderBy, groupBy);
+    const fieldMap = await this.getNecessaryFieldMap(
+      tableId,
+      filter,
+      orderBy,
+      groupBy,
+      originSearch
+    );
+    const search = originSearch ? this.parseSearch(originSearch, fieldMap) : undefined;
 
     return {
       queryBuilder,
+      dbTableName,
       filter,
+      search,
       orderBy,
       groupBy,
       fieldMap,
     };
+  }
+
+  async getBasicOrderIndexField(dbTableName: string, viewId: string | undefined) {
+    const columnName = `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
+    const exists = await this.dbProvider.checkColumnExist(
+      dbTableName,
+      columnName,
+      this.prismaService.txClient()
+    );
+
+    if (exists) {
+      return columnName;
+    }
+    return '__auto_number';
   }
 
   /**
@@ -434,20 +455,44 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: Pick<
       IGetRecordsRo,
-      'viewId' | 'orderBy' | 'groupBy' | 'filter' | 'filterLinkCellCandidate'
+      | 'viewId'
+      | 'orderBy'
+      | 'groupBy'
+      | 'filter'
+      | 'search'
+      | 'filterLinkCellCandidate'
+      | 'filterLinkCellSelected'
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const { queryBuilder, filter, orderBy, groupBy, fieldMap } = await this.prepareQuery(
-      tableId,
-      query
-    );
+    const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
+      await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
+    if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
+      throw new BadRequestException(
+        'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time'
+      );
+    }
+
     if (query.filterLinkCellCandidate) {
-      await this.buildLinkCandidateQuery(queryBuilder, tableId, query.filterLinkCellCandidate);
+      await this.buildLinkCandidateQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        query.filterLinkCellCandidate
+      );
+    }
+
+    if (query.filterLinkCellSelected) {
+      await this.buildLinkSelectedQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        query.filterLinkCellSelected
+      );
     }
 
     // Add filtering conditions to the query builder
@@ -460,28 +505,22 @@ export class RecordService implements IAdapterService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
-    // view sorting added by default
-    queryBuilder.orderBy(getViewOrderFieldName(query.viewId), 'asc');
+    // add search rules to the query builder
+    this.dbProvider.searchQuery(queryBuilder, fieldMap, search);
 
-    this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
+    // ignore sorting when filterLinkCellSelected is set
+    if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
+      await this.buildLinkSelectedSort(queryBuilder, dbTableName, query.filterLinkCellSelected);
+    } else {
+      const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
+      // view sorting added by default
+      queryBuilder.orderBy(`${dbTableName}.${basicSortIndex}`, 'asc');
+    }
+
+    this.logger.log('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
-    return { queryBuilder };
-  }
-
-  async setRecordOrder(
-    version: number,
-    recordId: string,
-    dbTableName: string,
-    viewId: string,
-    order: number
-  ) {
-    const sqlNative = this.knex(dbTableName)
-      .update({ [getViewOrderFieldName(viewId)]: order, __version: version })
-      .where({ __id: recordId })
-      .toSQL()
-      .toNative();
-    return this.prismaService.txClient().$executeRawUnsafe(sqlNative.sql, ...sqlNative.bindings);
+    return { queryBuilder, dbTableName };
   }
 
   async setRecord(
@@ -541,6 +580,7 @@ export class RecordService implements IAdapterService {
       take: query.take,
       filter: query.filter,
       orderBy: query.orderBy,
+      search: query.search,
       groupBy: query.groupBy,
       filterLinkCellCandidate: query.filterLinkCellCandidate,
       filterLinkCellSelected: query.filterLinkCellSelected,
@@ -621,8 +661,12 @@ export class RecordService implements IAdapterService {
   }
 
   @Timing()
-  async batchCreateRecords(tableId: string, records: IRecord[]) {
-    const snapshots = await this.createBatch(tableId, records);
+  async batchCreateRecords(
+    tableId: string,
+    records: IRecord[],
+    orderIndex?: { viewId: string; indexes: number[] }
+  ) {
+    const snapshots = await this.createBatch(tableId, records, orderIndex);
 
     const dataList = snapshots.map((snapshot) => ({
       docId: snapshot.__id,
@@ -636,8 +680,51 @@ export class RecordService implements IAdapterService {
     await this.createBatch(tableId, [snapshot]);
   }
 
-  private async createBatch(tableId: string, records: IRecord[]) {
+  async creditCheck(tableId: string) {
+    if (!this.thresholdConfig.maxFreeRowLimit) {
+      return;
+    }
+
+    const table = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true, base: { select: { space: { select: { credit: true } } } } },
+    });
+
+    const rowCount = await this.getAllRecordCount(table.dbTableName);
+
+    const maxRowCount =
+      table.base.space.credit == null
+        ? this.thresholdConfig.maxFreeRowLimit
+        : table.base.space.credit;
+
+    if (rowCount >= maxRowCount) {
+      this.logger.log(`Exceed row count: ${maxRowCount}`, 'creditCheck');
+      throw new BadRequestException(
+        `Exceed max row limit: ${maxRowCount}, please contact us to increase the limit`
+      );
+    }
+  }
+
+  private async getAllViewIndexesField(dbTableName: string) {
+    const query = this.dbProvider.columnInfo(dbTableName);
+    const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
+    return columns
+      .filter((column) => column.name.startsWith(ROW_ORDER_FIELD_PREFIX))
+      .map((column) => column.name)
+      .reduce<{ [viewId: string]: string }>((acc, cur) => {
+        const viewId = cur.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
+        acc[viewId] = cur;
+        return acc;
+      }, {});
+  }
+
+  private async createBatch(
+    tableId: string,
+    records: IRecord[],
+    orderIndex?: { viewId: string; indexes: number[] }
+  ) {
     const userId = this.cls.get('user.id');
+    await this.creditCheck(tableId);
     const dbTableName = await this.getDbTableName(tableId);
 
     const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
@@ -647,14 +734,16 @@ export class RecordService implements IAdapterService {
       select: { id: true },
     });
 
+    const allViewIndexes = await this.getAllViewIndexesField(dbTableName);
+
     const snapshots = records
-      .map((snapshot, i) =>
-        views.reduce<{ [viewId: string]: number }>((pre, cur) => {
-          const viewOrderFieldName = getViewOrderFieldName(cur.id);
-          if (snapshot.recordOrder[cur.id] !== undefined) {
-            pre[viewOrderFieldName] = snapshot.recordOrder[cur.id];
-          } else {
-            pre[viewOrderFieldName] = maxRecordOrder + i;
+      .map((_, i) =>
+        views.reduce<{ [viewIndexFieldName: string]: number }>((pre, cur) => {
+          const viewIndexFieldName = allViewIndexes[cur.id];
+          if (cur.id === orderIndex?.viewId) {
+            pre[viewIndexFieldName] = orderIndex.indexes[i];
+          } else if (viewIndexFieldName) {
+            pre[viewIndexFieldName] = maxRecordOrder + i;
           }
           return pre;
         }, {})
@@ -692,7 +781,7 @@ export class RecordService implements IAdapterService {
     version: number,
     tableId: string,
     recordId: string,
-    opContexts: (ISetRecordOrderOpContext | ISetRecordOpContext)[]
+    opContexts: ISetRecordOpContext[]
   ) {
     const dbTableName = await this.getDbTableName(tableId);
     if (opContexts[0].name === OpName.SetRecord) {
@@ -703,14 +792,6 @@ export class RecordService implements IAdapterService {
         recordId,
         opContexts as ISetRecordOpContext[]
       );
-      return;
-    }
-
-    if (opContexts[0].name === OpName.SetRecordOrder) {
-      for (const opContext of opContexts as ISetRecordOrderOpContext[]) {
-        const { viewId, newOrder } = opContext;
-        await this.setRecordOrder(version, recordId, dbTableName, viewId, newOrder);
-      }
     }
   }
 
@@ -829,16 +910,8 @@ export class RecordService implements IAdapterService {
     const projectionInner = await this.projectionFormPermission(tableId, fieldKeyType, projection);
     const dbTableName = await this.getDbTableName(tableId);
 
-    const allViews = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true },
-    });
-    const fieldNameOfViewOrder = allViews.map((view) => getViewOrderFieldName(view.id));
-
     const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
-    const fieldNames = fields
-      .map((f) => f.dbFieldName)
-      .concat([...preservedDbFieldNames, ...fieldNameOfViewOrder]);
+    const fieldNames = fields.map((f) => f.dbFieldName).concat(Array.from(preservedDbFieldNames));
 
     const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
@@ -876,13 +949,6 @@ export class RecordService implements IAdapterService {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
       })
       .map((record) => {
-        const recordOrder = fieldNameOfViewOrder.reduce<{ [viewId: string]: number }>(
-          (acc, vFieldName, index) => {
-            acc[allViews[index].id] = record[vFieldName] as number;
-            return acc;
-          },
-          {}
-        );
         const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
         const name = recordFields[primaryField[fieldKeyType]];
         return {
@@ -901,7 +967,6 @@ export class RecordService implements IAdapterService {
             lastModifiedTime: record.__last_modified_time?.toISOString(),
             createdBy: record.__created_by,
             lastModifiedBy: record.__last_modified_by || undefined,
-            recordOrder,
           },
         };
       });
@@ -947,22 +1012,19 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    if (query.filterLinkCellSelected) {
-      return this.getLinkSelectedRecordIds(query.filterLinkCellSelected);
-    }
-
-    const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
       ...query,
       viewId,
     });
 
-    queryBuilder.select('__id');
+    queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
 
     queryBuilder.offset(skip);
     if (take !== -1) {
       queryBuilder.limit(take);
     }
 
+    this.logger.log('getRecordsQuery: %s', queryBuilder.toQuery());
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
@@ -983,12 +1045,14 @@ export class RecordService implements IAdapterService {
       take,
       filter,
       orderBy,
+      search,
       groupBy,
       fieldKeyType,
       cellFormat,
       projection,
       viewId,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
     } = query;
 
     const fields = await this.getFieldsByProjection(
@@ -1000,10 +1064,12 @@ export class RecordService implements IAdapterService {
 
     const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
       viewId,
-      filterLinkCellCandidate,
       filter,
       orderBy,
+      search,
       groupBy,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
     });
     queryBuilder.select(fieldNames.concat('__id'));
     queryBuilder.offset(skip);

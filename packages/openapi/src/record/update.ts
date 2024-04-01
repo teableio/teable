@@ -1,9 +1,41 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IRecord, IUpdateRecordRo } from '@teable/core';
-import { recordSchema, updateRecordRoSchema } from '@teable/core';
+import type { IRecord } from '@teable/core';
+import { recordSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { fieldKeyTypeRoSchema, typecastSchema } from './get';
+
+export const updateRecordRoSchema = z
+  .object({
+    fieldKeyType: fieldKeyTypeRoSchema,
+    typecast: typecastSchema,
+    record: z.object({
+      fields: recordSchema.shape.fields,
+    }),
+  })
+  .openapi({
+    description: 'Update record by id',
+  });
+
+export type IUpdateRecordRo = z.infer<typeof updateRecordRoSchema>;
+
+export const updateRecordsRoSchema = z
+  .object({
+    fieldKeyType: fieldKeyTypeRoSchema,
+    typecast: typecastSchema,
+    records: z.array(
+      z.object({
+        id: z.string(),
+        fields: recordSchema.shape.fields,
+      })
+    ),
+  })
+  .openapi({
+    description: 'Multiple Update records',
+  });
+
+export type IUpdateRecordsRo = z.infer<typeof updateRecordsRoSchema>;
 
 export const UPDATE_RECORD = '/table/{tableId}/record/{recordId}';
 

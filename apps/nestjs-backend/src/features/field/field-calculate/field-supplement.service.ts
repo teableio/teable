@@ -50,6 +50,7 @@ import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
@@ -269,9 +270,13 @@ export class FieldSupplementService {
   private async prepareUpdateLinkField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     const newOptionsRo = fieldRo.options as ILinkFieldOptionsRo;
     const oldOptions = oldFieldVo.options as ILinkFieldOptions;
+    // isOneWay may be undefined or false, so we should convert it to boolean
+    const oldIsOneWay = Boolean(oldOptions.isOneWay);
+    const newIsOneWay = Boolean(newOptionsRo.isOneWay);
     if (
       oldOptions.foreignTableId === newOptionsRo.foreignTableId &&
-      oldOptions.relationship === newOptionsRo.relationship
+      oldOptions.relationship === newOptionsRo.relationship &&
+      oldIsOneWay !== newIsOneWay
     ) {
       return {
         ...oldFieldVo,
@@ -942,26 +947,30 @@ export class FieldSupplementService {
   async prepareUpdateField(
     tableId: string,
     fieldRo: IConvertFieldRo,
-    oldField: IFieldInstance
+    oldFieldVo: IFieldVo
   ): Promise<IFieldVo> {
-    const fieldVo = (await this.prepareUpdateFieldInner(
-      tableId,
-      {
-        ...fieldRo,
-        name: fieldRo.name ?? oldField.name,
-        dbFieldName: fieldRo.dbFieldName ?? oldField.dbFieldName,
-        description: fieldRo.description === undefined ? oldField.description : fieldRo.description,
-      }, // for convenience, we fallback name adn dbFieldName when it be undefined
-      oldField
-    )) as IFieldVo;
+    const fieldVo = (
+      majorFieldKeysChanged(oldFieldVo, fieldRo)
+        ? await this.prepareUpdateFieldInner(
+            tableId,
+            {
+              ...fieldRo,
+              name: fieldRo.name ?? oldFieldVo.name,
+              dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
+              description:
+                fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
+            }, // for convenience, we fallback name adn dbFieldName when it be undefined
+            oldFieldVo
+          )
+        : merge({}, oldFieldVo, fieldRo)
+    ) as IFieldVo;
 
     this.validateFormattingShowAs(fieldVo);
 
     return {
       ...fieldVo,
-      id: oldField.id,
-      isPrimary: oldField.isPrimary,
-      isPending: fieldVo.isComputed ? true : undefined,
+      id: oldFieldVo.id,
+      isPrimary: oldFieldVo.isPrimary,
     };
   }
 

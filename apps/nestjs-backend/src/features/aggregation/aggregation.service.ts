@@ -1,19 +1,7 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import type {
-  IAggregationField,
-  IGridColumnMeta,
-  IFilter,
-  IGetRecordsRo,
-  IQueryBaseRo,
-  IRawAggregations,
-  IRawAggregationValue,
-  IRawRowCountValue,
-  IGroupPoint,
-  IGroupPointsRo,
-} from '@teable/core';
+import { Injectable, Logger, PayloadTooLargeException } from '@nestjs/common';
+import type { IGridColumnMeta, IFilter } from '@teable/core';
 import {
   DbFieldType,
-  GroupPointType,
   mergeWithDefaultFilter,
   nullsToUndefined,
   parseGroup,
@@ -22,9 +10,20 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { GroupPointType } from '@teable/openapi';
+import type {
+  IAggregationField,
+  IGetRecordsRo,
+  IQueryBaseRo,
+  IRawAggregations,
+  IRawAggregationValue,
+  IRawRowCountValue,
+  IGroupPoint,
+  IGroupPointsRo,
+} from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { groupBy, isDate, isEmpty, isObject } from 'lodash';
+import { groupBy, isDate, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -71,8 +70,9 @@ export class AggregationService {
     tableId: string;
     withFieldIds?: string[];
     withView?: IWithView;
+    search?: [string, string];
   }): Promise<IRawAggregationValue> {
-    const { tableId, withFieldIds, withView } = params;
+    const { tableId, withFieldIds, withView, search } = params;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -90,6 +90,7 @@ export class AggregationService {
       dbTableName,
       fieldInstanceMap,
       filter,
+      search,
       statisticFields,
       withUserId: currentUserId,
     });
@@ -131,20 +132,17 @@ export class AggregationService {
 
     const { filter } = statisticsData;
 
-    if (filterLinkCellSelected) {
-      // TODO: use a new method to retrieve only count
-      const { ids } = await this.recordService.getLinkSelectedRecordIds(filterLinkCellSelected);
-      return { rowCount: ids.length };
-    }
-
     const rawRowCountData = await this.handleRowCount({
       tableId,
       dbTableName,
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
+      search: queryRo.search,
       withUserId: currentUserId,
     });
+
     return {
       rowCount: Number(rawRowCountData[0]?.count ?? 0),
     };
@@ -294,10 +292,11 @@ export class AggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
+    search?: [string, string];
     statisticFields?: IAggregationField[];
     withUserId?: string;
   }) {
-    const { dbTableName, fieldInstanceMap, filter, statisticFields, withUserId } = params;
+    const { dbTableName, fieldInstanceMap, filter, search, statisticFields, withUserId } = params;
     if (!statisticFields?.length) {
       return;
     }
@@ -310,6 +309,9 @@ export class AggregationService {
           this.dbProvider
             .filterQuery(qb, fieldInstanceMap, filter, { withUserId })
             .appendQueryBuilder();
+        }
+        if (search) {
+          this.dbProvider.searchQuery(qb, fieldInstanceMap, search);
         }
       })
       .from(tableAlias);
@@ -326,10 +328,20 @@ export class AggregationService {
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
+    filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
+    search?: [string, string];
     withUserId?: string;
   }) {
-    const { tableId, dbTableName, fieldInstanceMap, filter, filterLinkCellCandidate, withUserId } =
-      params;
+    const {
+      tableId,
+      dbTableName,
+      fieldInstanceMap,
+      filter,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      search,
+      withUserId,
+    } = params;
 
     const queryBuilder = this.knex(dbTableName);
 
@@ -339,11 +351,25 @@ export class AggregationService {
         .appendQueryBuilder();
     }
 
+    if (search) {
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+    }
+
     if (filterLinkCellCandidate) {
       await this.recordService.buildLinkCandidateQuery(
         queryBuilder,
         tableId,
+        dbTableName,
         filterLinkCellCandidate
+      );
+    }
+
+    if (filterLinkCellSelected) {
+      await this.recordService.buildLinkSelectedQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        filterLinkCellSelected
       );
     }
 
@@ -425,9 +451,7 @@ export class AggregationService {
 
       groupFields.forEach((field, index) => {
         const { id, dbFieldName } = field;
-        const fieldValue = isObject(item[dbFieldName])
-          ? String(item[dbFieldName])
-          : item[dbFieldName];
+        const fieldValue = this.convertValueToNumberOrString(item[dbFieldName]);
 
         if (fieldValues[index] === fieldValue) return;
 
@@ -461,7 +485,7 @@ export class AggregationService {
   }
 
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
-    const { viewId, groupBy: extraGroupBy, filter } = query || {};
+    const { viewId, groupBy: extraGroupBy, filter, search } = query || {};
 
     if (!viewId) return null;
 
@@ -490,16 +514,21 @@ export class AggregationService {
         .appendQueryBuilder();
     }
 
+    if (search) {
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+      this.dbProvider.searchQuery(distinctQueryBuilder, fieldInstanceMap, search);
+    }
+
     const dbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
 
     const isGroupingOverLimit = await this.checkGroupingOverLimit(
       dbFieldNames,
       distinctQueryBuilder
     );
+
     if (isGroupingOverLimit) {
-      throw new HttpException(
-        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.',
-        HttpStatus.PAYLOAD_TOO_LARGE
+      throw new PayloadTooLargeException(
+        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.'
       );
     }
 

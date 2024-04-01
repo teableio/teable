@@ -1,6 +1,7 @@
 import { SpaceRole } from '@teable/core';
 import { useSpaceRoleStatic } from '@teable/sdk/hooks';
 import {
+  cn,
   Select,
   SelectContent,
   SelectItem,
@@ -8,7 +9,6 @@ import {
   SelectValue,
   Separator,
 } from '@teable/ui-lib';
-import classNames from 'classnames';
 import { find } from 'lodash';
 import React, { useMemo } from 'react';
 interface IRoleSelect {
@@ -40,7 +40,7 @@ export const RoleSelect: React.FC<IRoleSelect> = (props) => {
       onValueChange={(value) => onChange?.(value as SpaceRole)}
       disabled={disabled}
     >
-      <SelectTrigger className={classNames('h-8 w-32 bg-background', className)}>
+      <SelectTrigger className={cn('h-8 w-32 bg-background', className)}>
         <SelectValue>{showSelectedRoleValue}</SelectValue>
       </SelectTrigger>
       <SelectContent className=" w-72">

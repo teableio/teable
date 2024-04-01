@@ -4,6 +4,7 @@ import type { GridView } from '@teable/sdk';
 import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable/sdk';
 import { insertSingle } from '@teable/sdk/utils';
 import {
+  cn,
   Command,
   CommandGroup,
   CommandItem,
@@ -13,7 +14,6 @@ import {
   SheetContent,
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
@@ -181,7 +181,7 @@ export const FieldMenu = () => {
             {menuGroups.flat().map(({ type, name, icon, disabled, className, onClick }) => {
               return (
                 <div
-                  className={classNames('flex w-full items-center border-b py-3', className, {
+                  className={cn('flex w-full items-center border-b py-3', className, {
                     'cursor-not-allowed': disabled,
                     'opacity-50': disabled,
                   })}
@@ -204,7 +204,7 @@ export const FieldMenu = () => {
       ) : (
         <Command
           ref={fieldSettingRef}
-          className={classNames('absolute rounded-lg shadow-sm w-60 h-auto border', {
+          className={cn('absolute rounded-lg shadow-sm w-60 h-auto border', {
             hidden: !visible,
           })}
           style={style}
@@ -219,7 +219,7 @@ export const FieldMenu = () => {
                   <CommandGroup aria-valuetext="name">
                     {items.map(({ type, name, icon, disabled, className, onClick }) => (
                       <CommandItem
-                        className={classNames('px-4 py-2', className, {
+                        className={cn('px-4 py-2', className, {
                           'cursor-not-allowed': disabled,
                           'opacity-50': disabled,
                         })}

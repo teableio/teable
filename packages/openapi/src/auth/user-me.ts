@@ -13,6 +13,7 @@ export const userMeVoSchema = z.object({
   email: z.string().email(),
   phone: z.string().nullable().optional(),
   notifyMeta: userNotifyMetaSchema,
+  hasPassword: z.boolean(),
 });
 
 export type IUserMeVo = z.infer<typeof userMeVoSchema>;

@@ -117,11 +117,12 @@ export class DbConnectionService {
     }
 
     const readOnlyRole = `read_only_role_${baseId}`;
-    if (!this.baseConfig.publicDatabaseAddress) {
-      throw new NotFoundException('PUBLIC_DATABASE_ADDRESS is not found in env');
+    const publicDatabaseProxy = this.baseConfig.publicDatabaseProxy;
+    if (!publicDatabaseProxy) {
+      throw new NotFoundException('PUBLIC_DATABASE_PROXY is not found in env');
     }
 
-    const originDsn = parseDsn(this.baseConfig.publicDatabaseAddress); // Assuming parseDsn is already defined to parse the DSN
+    const { hostname: dbHostProxy, port: dbPortProxy } = new URL(`https://${publicDatabaseProxy}`);
 
     // Check if the base exists and the user is the owner
     const base = await this.prismaService.base.findFirst({
@@ -140,12 +141,15 @@ export class DbConnectionService {
 
     const currentConnections = await this.getConnectionCount(readOnlyRole);
 
+    const databaseUrl = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
+    const { db } = parseDsn(databaseUrl);
+
     // Construct the DSN for the read-only role
     const dsn: IDbConnectionVo['dsn'] = {
       driver: DriverClient.Pg,
-      host: originDsn.host,
-      port: originDsn.port,
-      db: originDsn.db,
+      host: dbHostProxy,
+      port: Number(dbPortProxy),
+      db: db,
       user: readOnlyRole,
       pass: base.schemaPass,
       params: {
@@ -181,12 +185,16 @@ export class DbConnectionService {
       const readOnlyRole = `read_only_role_${baseId}`;
       const schemaName = baseId;
       const password = nanoid();
-      const databaseUrl = this.baseConfig.publicDatabaseAddress;
-      if (!databaseUrl) {
-        throw new NotFoundException('PUBLIC_DATABASE_ADDRESS is not found in env');
+      const publicDatabaseProxy = this.baseConfig.publicDatabaseProxy;
+      if (!publicDatabaseProxy) {
+        throw new NotFoundException('PUBLIC_DATABASE_PROXY is not found in env');
       }
 
-      const originDsn = parseDsn(databaseUrl);
+      const { hostname: dbHostProxy, port: dbPortProxy } = new URL(
+        `https://${publicDatabaseProxy}`
+      );
+      const databaseUrl = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
+      const { db } = parseDsn(databaseUrl);
 
       return this.prismaService.$tx(async (prisma) => {
         await prisma.base
@@ -233,9 +241,9 @@ export class DbConnectionService {
 
         const dsn: IDbConnectionVo['dsn'] = {
           driver: DriverClient.Pg,
-          host: originDsn.host,
-          port: originDsn.port,
-          db: originDsn.db,
+          host: dbHostProxy,
+          port: Number(dbPortProxy),
+          db: db,
           user: readOnlyRole,
           pass: password,
           params: {

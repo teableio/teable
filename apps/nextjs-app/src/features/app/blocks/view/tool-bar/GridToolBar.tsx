@@ -24,7 +24,7 @@ export const GridToolBar: React.FC = () => {
 
       router.push(
         {
-          pathname: `${router.pathname}/[recordId]`,
+          pathname: router.pathname,
           query: { ...router.query, recordId },
         },
         undefined,
@@ -47,7 +47,7 @@ export const GridToolBar: React.FC = () => {
         <Plus className="size-4" />
       </Button>
       <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
-      <div className="flex flex-1 justify-between overflow-x-auto scrollbar-none">
+      <div className="flex flex-1 justify-between">
         <GridViewOperators disabled={!permission['view|update']} />
         <Others />
       </div>

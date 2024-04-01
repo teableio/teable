@@ -16,14 +16,11 @@ The base branch is **`main`**.
 If applicable:
 
 - [x] **tests** should be included part of your PR (`pnpm g:test`).
-- [x] a **changeset** should be provided (`pnpm g:changeset`) to request a version bump.
-- [x] **documentation** should be updated (`pnpm g:build-doc` to rebuild the api doc).
 
 ## Local scripts
 
 | Name                         | Description                                                                                                                        |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm g:changeset`           | Add a changeset to declare a new version                                                                                           |
 | `pnpm g:typecheck`           | Run typechecks in all workspaces                                                                                                   |
 | `pnpm g:test`                | Run unit and e2e tests in all workspaces                                                                                           |
 | `pnpm g:lint`                | Display linter issues in all workspaces                                                                                            |

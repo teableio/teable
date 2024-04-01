@@ -23,7 +23,7 @@ else
 	RESET        := ""
 endif
 
-ENV_PATH ?= apps/nextjs-app
+ENV_PATH ?= ./apps/nextjs-app
 
 DOCKER_COMPOSE ?= docker compose
 
@@ -45,7 +45,7 @@ UNAME_S := $(shell uname -s)
 # prisma database url defaults
 SQLITE_PRISMA_DATABASE_URL ?= file:../../db/main.db
 # set param statement_cache_size=1 to avoid query error `ERROR: cached plan must not change result type` after alter column type (modify field type)
-POSTGES_PRISMA_DATABASE_URL ?= postgresql://teable:teable@127.0.0.1:5432/teable?schema=public\&statement_cache_size=1
+POSTGES_PRISMA_DATABASE_URL ?= postgresql://teable:teable\@127.0.0.1:5432/teable?schema=public\&statement_cache_size=1
 
 # If the first make argument is "start", "stop"...
 ifeq (docker.start,$(firstword $(MAKECMDGOALS)))
@@ -55,10 +55,6 @@ else ifeq (docker.stop,$(firstword $(MAKECMDGOALS)))
 else ifeq (docker.restart,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
 else ifeq (docker.up,$(firstword $(MAKECMDGOALS)))
-    SERVICE_TARGET = true
-else ifeq (docker.build,$(firstword $(MAKECMDGOALS)))
-    SERVICE_TARGET = true
-else ifeq (build-nocache,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
 else ifeq (docker.await,$(firstword $(MAKECMDGOALS)))
     SERVICE_TARGET = true
@@ -141,8 +137,6 @@ ifneq ($(NETWORK_MODE),host)
 	$(warning ${GREEN}network $(NETWORK_MODE) removed${RESET})
 endif
 
-docker.build:
-	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) build --parallel --progress=plain $(SERVICE)
 
 docker.run: docker.create.network
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -T --no-deps --rm $(SERVICE) $(SERVICE_ARGS)
@@ -193,11 +187,23 @@ docker.status:
 docker.images:
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) images
 
+
+build.app:
+	@zx --version || pnpm add -g zx; \
+  	zx scripts/build-image.mjs --file=dockers/teable/Dockerfile \
+		  --tag=teable:develop
+
+build.db-migrate:
+	@zx --version || pnpm add -g zx; \
+  	zx scripts/build-image.mjs --file=dockers/teable/Dockerfile.db-migrate \
+		  --tag=teable-db-migrate:develop
+
+
 sqlite.integration.test:
 	@export PRISMA_DATABASE_URL='file:../../db/main.db'; \
 	make sqlite.mode; \
 	pnpm -F "./packages/**" run build; \
-	pnpm g:test-e2e
+	pnpm g:test-e2e-cover
 
 postgres.integration.test: docker.create.network
 	@TEST_PG_CONTAINER_NAME=teable-postgres-$(CI_JOB_ID); \
@@ -208,7 +214,7 @@ postgres.integration.test: docker.create.network
 		export PRISMA_DATABASE_URL=postgresql://teable:teable@127.0.0.1:25432/e2e_test_teable?schema=public\&statement_cache_size=1 && \
 		make postgres.mode && \
 		pnpm -F "./packages/**" run build && \
-		pnpm g:test-e2e && \
+		pnpm g:test-e2e-cover && \
 		docker rm -fv $$TEST_PG_CONTAINER_NAME
 
 gen-sqlite-prisma-schema:
@@ -275,11 +281,13 @@ FILE_ENV_PATHS = $(ENV_PATH)/.env.development* $(ENV_PATH)/.env.test*
 switch.prisma.env:
 ifeq ($(CI)-$(RUN_DB_MODE),0-sqlite)
 	@for file in $(FILE_ENV_PATHS); do \
-		sed -i '' 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(SQLITE_PRISMA_DATABASE_URL)~' $$file; \
+		echo $$file; \
+		perl -i -pe 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(SQLITE_PRISMA_DATABASE_URL)~' $$file; \
 	done
 else ifeq ($(CI)-$(RUN_DB_MODE),0-postges)
 	@for file in $(FILE_ENV_PATHS); do \
-		sed -i '' 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(POSTGES_PRISMA_DATABASE_URL)~' $$file; \
+		echo $$file; \
+		perl -i -pe 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(POSTGES_PRISMA_DATABASE_URL)~' $$file; \
 	done
 endif
 

@@ -1,7 +1,11 @@
 import { DateFieldCore } from '@teable/core';
-import type { IFieldBase } from '../field-base';
+import type { FieldBase } from '../field-base';
 
-export class DateFieldDto extends DateFieldCore implements IFieldBase {
+export class DateFieldDto extends DateFieldCore implements FieldBase {
+  get isStructuredCellValue() {
+    return false;
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return value == null ? value : JSON.stringify(value);

@@ -6,7 +6,7 @@ import type { RootContext } from '../../../../formula/parser/Formula';
 import { Formula } from '../../../../formula/parser/Formula';
 import { FormulaLexer } from '../../../../formula/parser/FormulaLexer';
 import { EvalVisitor } from '../../../../formula/visitor';
-import type { ITinyRecord } from '../../../record/record.schema';
+import type { IRecord } from '../../../record';
 import { CellValueType } from '../../constant';
 import { FieldCore } from '../../field';
 import type { INumberFormatting, IDatetimeFormatting, IUnionFormatting } from '../../formatting';
@@ -52,7 +52,7 @@ export abstract class FormulaAbstractCore extends FieldCore {
     return this._tree;
   }
 
-  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record: ITinyRecord) {
+  evaluate(dependFieldMap: { [fieldId: string]: FieldCore }, record: IRecord) {
     const visitor = new EvalVisitor(dependFieldMap, record);
     return visitor.visit(this.tree);
   }

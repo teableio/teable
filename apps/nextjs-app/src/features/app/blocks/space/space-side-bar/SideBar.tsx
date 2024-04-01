@@ -1,14 +1,13 @@
 import { ChevronsLeft } from '@teable/icons';
 import { useIsMobile } from '@teable/sdk';
-import { Button } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Button, cn } from '@teable/ui-lib';
 import { useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SideBarFooter } from '@/features/app/components/SideBarFooter';
 import type { ISideBarInteractionProps } from '../../../blocks/base/base-side-bar/SideBar';
 import { SIDEBARWIDTH } from '../../../components/toggle-side-bar/constant';
 import { HoverWraper } from '../../../components/toggle-side-bar/HoverWraper';
-import { SheetWraper } from '../../../components/toggle-side-bar/SheetWraper';
+import { SheetWrapper } from '../../../components/toggle-side-bar/SheetWrapper';
 import { SideBarHeader } from './SideBarHeader';
 import { SpaceSideBar } from './SpaceSideBar';
 
@@ -36,17 +35,14 @@ export const SideBar = () => {
   return (
     <>
       {isMobile ? (
-        <SheetWraper>
+        <SheetWrapper>
           <SiderContent />
-        </SheetWraper>
+        </SheetWrapper>
       ) : (
         <div
-          className={classNames(
-            'transition-all flex w-0 border-r will-change-auto flex-shrink-0 h-full',
-            {
-              'overflow-hidden': !leftVisible,
-            }
-          )}
+          className={cn('transition-all flex w-0 border-r will-change-auto flex-shrink-0 h-full', {
+            'overflow-hidden': !leftVisible,
+          })}
           style={{
             width: leftVisible ? `${SIDEBARWIDTH}px` : '',
           }}
@@ -59,9 +55,7 @@ export const SideBar = () => {
         <HoverWraper size={SIDEBARWIDTH}>
           <HoverWraper.Trigger>
             <Button
-              className={classNames(
-                'absolute top-7 p-1 rounded-none -left-0 rounded-r-full z-[51]'
-              )}
+              className={cn('absolute top-7 p-1 rounded-none -left-0 rounded-r-full z-[51]')}
               variant={'outline'}
               size="xs"
               onClick={() => {

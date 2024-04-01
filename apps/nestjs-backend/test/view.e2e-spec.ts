@@ -1,7 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IColumn, IFieldVo, ITableFullVo, IViewRo } from '@teable/core';
+import type { IColumn, IFieldVo, IViewRo } from '@teable/core';
 import { FieldType, ViewType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { updateViewDescription, updateViewName } from '@teable/openapi';
 import {
   createField,

@@ -48,12 +48,9 @@ describe('Sort mergeWithDefaultSort function test', () => {
   it('should return merged sort, when sort query exists and no same field items', async () => {
     const mergedSort = mergeWithDefaultSort(defaultViewSortString, querySort);
     const presetSort = [
+      ...querySort,
       { fieldId: 'fld1xxx', order: 'asc' },
       { fieldId: 'fld2xxx', order: 'desc' },
-      {
-        fieldId: 'fld3xxx',
-        order: 'asc',
-      },
     ];
     expect(mergedSort).toEqual(presetSort);
   });

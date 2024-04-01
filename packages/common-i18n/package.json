@@ -2,8 +2,10 @@
   "name": "@teable/common-i18n",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/teableio/teable",
@@ -15,6 +17,10 @@
   },
   "sideEffects": false,
   "type": "module",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
   "exports": {
     "./locales/*.json": {
       "require": "./src/locales/*.json",
@@ -38,6 +44,6 @@
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
-    "typescript": "5.4.2"
+    "typescript": "5.4.3"
   }
 }

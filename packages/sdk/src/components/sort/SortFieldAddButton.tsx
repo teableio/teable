@@ -1,18 +1,17 @@
 import { Plus } from '@teable/icons';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
-import classNames from 'classnames';
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
-import { SortFieldCommand } from './SortFieldCommand';
+import { FieldCommand } from '../field/FieldCommand';
 
 interface ISortFieldSelectProps {
-  selectedFields?: string[];
+  selectedFieldIds?: string[];
   addBtnText?: string;
   onSelect: (colum: string) => void;
 }
 
 function SortFieldAddButton(props: ISortFieldSelectProps) {
-  const { selectedFields = [], addBtnText, onSelect } = props;
+  const { selectedFieldIds = [], addBtnText, onSelect } = props;
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -31,9 +30,9 @@ function SortFieldAddButton(props: ISortFieldSelectProps) {
       </PopoverTrigger>
 
       <PopoverContent
-        className={classNames('p-0', selectedFields.length > 1 ? 'min-w-[434px]' : 'min-w-[410px]')}
+        className={cn('p-0', selectedFieldIds.length > 1 ? 'min-w-[434px]' : 'min-w-[410px]')}
       >
-        <SortFieldCommand onSelect={selectHandler} selectedFields={selectedFields} />
+        <FieldCommand onSelect={selectHandler} selectedIds={selectedFieldIds} />
       </PopoverContent>
     </Popover>
   );

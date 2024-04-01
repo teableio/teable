@@ -1,6 +1,7 @@
 import type { Table } from '@teable/sdk/model';
 import ArrowDownIcon from '@teable/ui-lib/icons/app/arrow-down.svg';
 import SelectIcon from '@teable/ui-lib/icons/app/select.svg';
+import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
   Command,
@@ -10,7 +11,6 @@ import {
   CommandItem,
 } from '@teable/ui-lib/shadcn/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn/ui/popover';
-import classNames from 'classnames';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -56,7 +56,7 @@ export const SelectTable = (props: {
                 }}
               >
                 <SelectIcon
-                  className={classNames('mr-2 h-4 w-4', value === id ? 'opacity-100' : 'opacity-0')}
+                  className={cn('mr-2 h-4 w-4', value === id ? 'opacity-100' : 'opacity-0')}
                 />
                 {name}
               </CommandItem>

@@ -7,7 +7,6 @@ import type {
   ILookupOptionsRo,
   IRollupFieldOptions,
   ISelectFieldOptions,
-  ITableFullVo,
 } from '@teable/core';
 import {
   Relationship,
@@ -24,6 +23,7 @@ import {
   DateFormattingPreset,
   generateFieldId,
 } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   getRecords,
   createField,
@@ -204,28 +204,121 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.name).toEqual('new FormulaField');
     });
 
-    it('should modify link field name', async () => {
-      const linkFieldRo: IFieldRo = {
-        name: 'linkField',
-        type: FieldType.Link,
-        options: {
-          relationship: Relationship.ManyOne,
-          foreignTableId: table2.id,
-        },
-      };
+    it.each([{ relationship: Relationship.OneOne }])(
+      'should modify $relationship link field name',
+      async ({ relationship }) => {
+        const linkFieldRo: IFieldRo = {
+          name: 'linkField',
+          type: FieldType.Link,
+          options: {
+            relationship,
+            foreignTableId: table2.id,
+          },
+        };
 
-      const linkFieldRo2: IFieldRo = {
-        name: 'other name',
-        type: FieldType.Link,
-        options: {
-          relationship: Relationship.ManyOne,
-          foreignTableId: table2.id,
-        },
-      };
+        const linkFieldRo2: IFieldRo = {
+          name: 'other name',
+          type: FieldType.Link,
+          options: {
+            relationship,
+            foreignTableId: table2.id,
+          },
+        };
 
-      const { newField } = await expectUpdate(table1, linkFieldRo, linkFieldRo2);
-      expect(newField.name).toEqual('other name');
-    });
+        const linkField = await createField(table1.id, linkFieldRo);
+        await updateRecordByApi(
+          table1.id,
+          table1.records[0].id,
+          linkField.id,
+          linkField.isMultipleCellValue
+            ? [
+                {
+                  id: table2.records[0].id,
+                },
+              ]
+            : {
+                id: table2.records[0].id,
+              }
+        );
+        const symField = await getField(
+          table2.id,
+          (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+        );
+        const newField = await convertField(table1.id, linkField.id, linkFieldRo2);
+
+        expect(newField.name).toEqual('other name');
+
+        const { name: _, ...newFieldOthers } = newField;
+        const { name: _0, ...oldFieldOthers } = linkField;
+
+        expect(newFieldOthers).toEqual(oldFieldOthers);
+
+        const table2Records = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+        const newSymField = await getField(
+          table2.id,
+          (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+        );
+        expect(symField).toEqual(newSymField);
+        expect(table2Records.records[0].fields[newSymField.id]).toMatchObject(
+          newSymField.isMultipleCellValue
+            ? [{ id: table1.records[0].id }]
+            : { id: table1.records[0].id }
+        );
+      }
+    );
+
+    it.each([{ relationship: Relationship.ManyMany }])(
+      'should modify $relationship symmetric link field name',
+      async ({ relationship }) => {
+        const linkFieldRo: IFieldRo = {
+          name: 'linkField',
+          type: FieldType.Link,
+          options: {
+            relationship,
+            foreignTableId: table2.id,
+          },
+        };
+
+        const linkField = await createField(table1.id, linkFieldRo);
+        const symField = await getField(
+          table2.id,
+          (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+        );
+        await updateRecordByApi(
+          table1.id,
+          table1.records[0].id,
+          linkField.id,
+          linkField.isMultipleCellValue
+            ? [
+                {
+                  id: table2.records[0].id,
+                },
+              ]
+            : {
+                id: table2.records[0].id,
+              }
+        );
+        const newSymField = await convertField(table2.id, symField.id, {
+          ...symField,
+          name: 'other name',
+        });
+
+        expect(newSymField.name).toEqual('other name');
+
+        const { name: _, ...newFieldOthers } = newSymField;
+        const { name: _0, ...oldFieldOthers } = symField;
+
+        expect(newFieldOthers).toEqual(oldFieldOthers);
+
+        const table2Records = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+
+        expect(table2Records.records[0].fields[newSymField.id]).toMatchObject(
+          newSymField.isMultipleCellValue
+            ? [{ id: table1.records[0].id }]
+            : { id: table1.records[0].id }
+        );
+      }
+    );
 
     it('should modify rollup field name', async () => {
       const linkFieldRo: IFieldRo = {

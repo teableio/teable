@@ -1,9 +1,8 @@
 import { Table2 } from '@teable/icons';
 import { useTablePermission } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
-import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
@@ -52,7 +51,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
         variant={'ghost'}
         size={'xs'}
         asChild
-        className={classNames(
+        className={cn(
           'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group bg-popover',
           className,
           {
@@ -61,12 +60,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
         )}
         onClick={navigateHandler}
       >
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-        <div
-          onMouseDown={(e) => {
-            e.stopPropagation();
-          }}
-        >
+        <div>
           {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
           <div onClick={(e) => e.stopPropagation()}>
             <EmojiPicker

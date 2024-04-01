@@ -9,6 +9,7 @@ import { AuthGuard } from './guard/auth.guard';
 import { SessionStoreService } from './session/session-store.service';
 import { SessionModule } from './session/session.module';
 import { SessionSerializer } from './session/session.serializer';
+import { SocialModule } from './social/social.module';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { SessionStrategy } from './strategies/session.strategy';
@@ -19,6 +20,7 @@ import { SessionStrategy } from './strategies/session.strategy';
     PassportModule.register({ session: true }),
     SessionModule,
     AccessTokenModule,
+    SocialModule,
   ],
   providers: [
     AuthService,

@@ -9,6 +9,8 @@ export interface ICacheStore {
   [key: `auth:session-store:${string}`]: ISessionData;
   [key: `auth:session-user:${string}`]: Record<string, number>;
   [key: `auth:session-expire:${string}`]: boolean;
+  [key: `oauth2:${string}`]: IOauth2State;
+  [key: `reset-password-email:${string}`]: IResetPasswordEmailCache;
 }
 
 export interface IAttachmentSignatureCache {
@@ -32,4 +34,12 @@ export interface IAttachmentLocalTokenCache {
 export interface IAttachmentPreviewCache {
   url: string;
   expiresIn: number;
+}
+
+export interface IOauth2State {
+  redirectUri?: string;
+}
+
+export interface IResetPasswordEmailCache {
+  userId: string;
 }

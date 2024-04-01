@@ -1,6 +1,4 @@
-import type { ITableVo } from './table.schema';
-
-export class TableCore implements ITableVo {
+export class TableCore {
   id!: string;
 
   name!: string;
@@ -10,8 +8,6 @@ export class TableCore implements ITableVo {
   icon?: string;
 
   description?: string;
-
-  order!: number;
 
   lastModifiedTime!: string;
 

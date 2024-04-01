@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib';
 import React from 'react';
 
 export interface ISelectTag {
@@ -12,7 +12,7 @@ export const SelectTag: React.FC<React.PropsWithChildren<ISelectTag>> = (props) 
   const { label, color, backgroundColor, className, children } = props;
   return (
     <div
-      className={classNames(
+      className={cn(
         'text-[13px] px-2 h-6 leading-6 rounded-md bg-secondary text-secondary-foreground overflow-hidden shrink-0',
         className
       )}

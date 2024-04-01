@@ -19,9 +19,10 @@
     "rootDir": "src",
     "outDir": "dist",
     "paths": {
-      "@teable/core": ["../core/src"],
+      "@teable/core": ["../core/src"]
     },
+    "types": ["vitest/globals"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src"],
+  "include": ["src"]
 }

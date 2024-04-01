@@ -105,7 +105,8 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
             value={innerValue?.exactDate}
             onChange={datePickerSelect}
             options={field.options}
-            className="w-max"
+            disableTimePicker={true}
+            className="m-1 h-8 w-40 text-xs sm:h-8"
           />
         );
       case isInput:

@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IAggregationVo } from '@teable/core';
-import { aggregationRoSchema, viewVoSchema } from '@teable/core';
+import { viewVoSchema } from '@teable/core';
+import type { IAggregationVo } from '../aggregation';
+import { aggregationRoSchema } from '../aggregation';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';

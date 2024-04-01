@@ -2,8 +2,10 @@
   "name": "@teable/db-main-prisma",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
   "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/teableio/teable",
@@ -16,6 +18,11 @@
   "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "prisma"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
@@ -39,8 +46,8 @@
     "nestjs-cls": "^4.0.0"
   },
   "dependencies": {
-    "@prisma/client": "5.10.2",
-    "prisma": "5.10.2",
+    "@prisma/client": "5.11.0",
+    "prisma": "5.11.0",
     "nanoid": "3.3.7"
   },
   "devDependencies": {
@@ -61,7 +68,7 @@
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsx": "4.7.1",
-    "typescript": "5.4.2",
+    "typescript": "5.4.3",
     "bcrypt": "5.1.1"
   },
   "prisma": {

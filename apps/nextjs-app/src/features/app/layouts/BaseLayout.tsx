@@ -1,5 +1,5 @@
-import type { DriverClient, ITableVo } from '@teable/core';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { DriverClient } from '@teable/core';
+import type { IGetBaseVo, ITableVo } from '@teable/openapi';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import type { IUser } from '@teable/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';

@@ -1,5 +1,4 @@
-import type { ITableVo } from '@teable/core';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { ITableVo, IGetBaseVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { AutomationPage } from '@/features/app/automation/Pages';

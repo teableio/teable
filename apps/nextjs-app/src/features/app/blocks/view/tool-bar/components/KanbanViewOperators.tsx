@@ -120,6 +120,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
                 {stackFieldName}
               </Trans>
             }
+            textClassName="@2xl/toolbar:inline"
           >
             <Layers className="size-4 text-sm" />
           </ToolBarButton>
@@ -155,6 +156,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             disabled={disabled}
             isActive={false}
             text={t('table:kanban.toolbar.customizeCards')}
+            textClassName="@2xl/toolbar:inline"
           >
             <Settings className="size-4 text-sm" />
           </ToolBarButton>
@@ -183,6 +185,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30'
             )}
+            textClassName="@2xl/toolbar:inline"
           >
             <FilterIcon className="size-4 text-sm" />
           </ToolBarButton>
@@ -200,6 +203,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
               isActive &&
                 'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
             )}
+            textClassName="@2xl/toolbar:inline"
           >
             <ArrowUpDown className="size-4 text-sm" />
           </ToolBarButton>
@@ -208,7 +212,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <ToolBarButton className="opacity-30" text="Color">
+            <ToolBarButton className="opacity-30" text="Color" textClassName="@2xl/toolbar:inline">
               <PaintBucket className="size-4 text-sm" />
             </ToolBarButton>
           </TooltipTrigger>

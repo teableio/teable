@@ -1,5 +1,16 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
-import { IChangePasswordRo, ISignup, changePasswordRoSchema, signupSchema } from '@teable/openapi';
+import {
+  IAddPasswordRo,
+  IChangePasswordRo,
+  IResetPasswordRo,
+  ISendResetPasswordEmailRo,
+  ISignup,
+  addPasswordRoSchema,
+  changePasswordRoSchema,
+  resetPasswordRoSchema,
+  sendResetPasswordEmailRoSchema,
+  signupSchema,
+} from '@teable/openapi';
 import { Response, Request } from 'express';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -56,5 +67,24 @@ export class AuthController {
     await this.authService.changePassword(changePasswordRo);
     await this.authService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
+  }
+
+  @Post('/send-reset-password-email')
+  @Public()
+  async sendResetPasswordEmail(
+    @Body(new ZodValidationPipe(sendResetPasswordEmailRoSchema)) body: ISendResetPasswordEmailRo
+  ) {
+    return this.authService.sendResetPasswordEmail(body.email);
+  }
+
+  @Post('/reset-password')
+  @Public()
+  async resetPassword(@Body(new ZodValidationPipe(resetPasswordRoSchema)) body: IResetPasswordRo) {
+    return this.authService.resetPassword(body.code, body.password);
+  }
+
+  @Post('/add-password')
+  async addPassword(@Body(new ZodValidationPipe(addPasswordRoSchema)) body: IAddPasswordRo) {
+    return this.authService.addPassword(body.password);
   }
 }

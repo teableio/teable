@@ -4,18 +4,13 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import type {
-  IViewVo,
-  IShareViewMeta,
-  IRowCountVo,
-  ILinkFieldOptions,
-  IAggregationVo,
-  IGroupPointsVo,
-  StatisticsFunc,
-} from '@teable/core';
+import type { IViewVo, IShareViewMeta, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IRowCountVo,
+  IAggregationVo,
+  IGroupPointsVo,
   IShareViewLinkRecordsRo,
   ShareViewFormSubmitRo,
   ShareViewGetVo,
@@ -129,7 +124,10 @@ export class ShareService {
     const { tableId } = shareInfo;
     const { fields } = shareViewFormSubmitRo;
     const { records } = await this.prismaService.$tx(async () => {
-      return await this.recordOpenApiService.createRecords(tableId, [{ fields }], FieldKeyType.Id);
+      return await this.recordOpenApiService.createRecords(tableId, {
+        records: [{ fields }],
+        fieldKeyType: FieldKeyType.Id,
+      });
     });
     if (records.length === 0) {
       throw new InternalServerErrorException('The number of successful submit records is 0');

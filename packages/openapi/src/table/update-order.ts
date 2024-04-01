@@ -1,15 +1,11 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
+import type { IUpdateOrderRo } from '../view/update-order';
+import { updateOrderRoSchema } from '../view/update-order';
 import { z } from '../zod';
 
 export const TABLE_ORDER = '/base/{baseId}/table/{tableId}/order';
-
-export const tableOrderRoSchema = z.object({
-  order: z.number(),
-});
-
-export type ITableOrderRo = z.infer<typeof tableOrderRoSchema>;
 
 export const updateTableOrderRoute: RouteConfig = registerRoute({
   method: 'put',
@@ -23,7 +19,7 @@ export const updateTableOrderRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: tableOrderRoSchema,
+          schema: updateOrderRoSchema,
         },
       },
     },
@@ -36,12 +32,16 @@ export const updateTableOrderRoute: RouteConfig = registerRoute({
   tags: ['table'],
 });
 
-export const updateTableOrder = async (baseId: string, tableId: string, data: ITableOrderRo) => {
+export const updateTableOrder = async (
+  baseId: string,
+  tableId: string,
+  orderRo: IUpdateOrderRo
+) => {
   return axios.put<void>(
     urlBuilder(TABLE_ORDER, {
       baseId,
       tableId,
     }),
-    data
+    orderRo
   );
 };

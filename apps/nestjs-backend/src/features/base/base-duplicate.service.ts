@@ -270,7 +270,7 @@ export class BaseDuplicateService {
       const oldViewId = name.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
       const newViewId = old2NewViewIdMap[oldViewId];
       if (newViewId) {
-        const query = this.dbProvider.renameColumnName(
+        const query = this.dbProvider.renameColumn(
           dbTableName,
           name,
           `${ROW_ORDER_FIELD_PREFIX}_${newViewId}`

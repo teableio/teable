@@ -20,7 +20,7 @@ import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import type { IClsStore } from '../types/cls';
-import type { IAdapterService } from './interface';
+import type { IAdapterService, IReadonlyAdapterService } from './interface';
 import { WsAuthService } from './ws-auth.service';
 
 export interface ICollectionSnapshot {
@@ -52,6 +52,13 @@ export class ShareDbAdapter extends ShareDb.DB {
   }
 
   getService(type: IdPrefix): IAdapterService {
+    if (IdPrefix.Record === type) {
+      return this.recordService;
+    }
+    throw new Error(`QueryType: ${type} has no adapter service implementation`);
+  }
+
+  getReadonlyService(type: IdPrefix): IReadonlyAdapterService {
     switch (type) {
       case IdPrefix.View:
         return this.viewService;
@@ -62,7 +69,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       case IdPrefix.Table:
         return this.tableService;
     }
-    throw new Error(`QueryType: ${type} has no service implementation`);
+    throw new Error(`QueryType: ${type} has no readonly adapter service implementation`);
   }
 
   query = async (
@@ -118,7 +125,7 @@ export class ShareDbAdapter extends ShareDb.DB {
 
         const [docType, collectionId] = collection.split('_');
 
-        const queryResult = await this.getService(docType as IdPrefix).getDocIdsByQuery(
+        const queryResult = await this.getReadonlyService(docType as IdPrefix).getDocIdsByQuery(
           collectionId,
           query
         );
@@ -289,7 +296,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     try {
       const [docType, collectionId] = collection.split('_');
 
-      const snapshotData = await this.getService(docType as IdPrefix).getSnapshotBulk(
+      const snapshotData = await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
         collectionId,
         ids,
         projection && projection['$submit'] ? undefined : projection

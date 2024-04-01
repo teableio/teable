@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ISelectFieldChoice, ISelectFieldOptions, IUserCellValue } from '@teable/core';
-import { FieldType, GroupPointType } from '@teable/core';
-import { getBaseCollaboratorList } from '@teable/openapi';
+import { FieldType } from '@teable/core';
+import { GroupPointType, getBaseCollaboratorList } from '@teable/openapi';
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase, useFields, useGroupPoint, useTableId, useView } from '@teable/sdk/hooks';

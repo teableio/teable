@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, type ITableFullVo } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { deleteTableArbitrary, getRecords } from '@teable/openapi';
 import { initApp, createTable, createField, deleteField, convertField } from './utils/init-app';
 import { seeding } from './utils/record-mock';

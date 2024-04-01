@@ -170,9 +170,10 @@ export class SpaceService {
         deletedTime: null,
       },
       orderBy: {
-        createdTime: 'asc',
+        order: 'asc',
       },
     });
+
     return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
   }
 }

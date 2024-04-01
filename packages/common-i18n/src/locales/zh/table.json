@@ -112,31 +112,55 @@
       "linkUrl": "Link(URL)",
       "linkUrlInputTitle": "从URl下载文件",
       "importTitle": "创建一个新表格",
+      "incrementImportTitle": "导入到 — ",
       "optionsTitle": "导入选项",
-      "leaveTitle": "确定离开此页面?"
+      "leaveTitle": "确定离开此页面?",
+      "primitiveFields": "原表字段",
+      "importFields": "导入的字段",
+      "primaryField": "主键"
     },
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
-      "csvFile": "csv 文件",
+      "excelFile": "Microsoft Excel",
+      "csvFile": "Csv 文件",
       "cancel": "取消",
-      "leave": "取消"
+      "leave": "取消",
+      "downAsCsv": "下载 CSV",
+      "importData": "导入数据"
     },
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
-      "leaveTip": "你的数据仍然会被导入"
+      "leaveTip": "你的数据仍然会被导入",
+      "fileExceedSizeTip": "该类型文件限制文件大小为",
+      "analyzing": "分析中",
+      "notSupportFieldType": "字段类型不支持",
+      "resultEmpty": "未查询到结果"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",
       "useFirstRowAsHeaderOptionName": "使用第一行作为行头",
-      "importDataOptionName": "导入数据"
+      "importDataOptionName": "导入数据",
+      "sheetKey": "表名：",
+      "excludeFirstRow": "忽略首行"
     },
     "form": {
       "defaultFieldName": "字段",
       "error": {
         "urlEmptyTip": "URL不能为空！",
+        "fieldNameEmpty": "字段名不能为空",
+        "errorFileFormat": "文件格式错误！",
+        "uniqueFieldName": "字段名不能重复！",
         "urlValidateTip": "不能解析该URL，请重新输入！",
-        "errorFileFormat": "文件格式错误！"
+        "atLeastAImportField": "请至少设置一个导入字段！"
+      },
+      "option": {
+        "doNotImport": "无需导入"
       }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "下载 Csv文件"
     }
   },
   "grid": {
@@ -201,12 +225,14 @@
     "title": "数据库连接",
     "description": "你可以通过数据库连接来直接访问数据库",
     "noPermission": "你没有权限访问数据库连接",
-    "connectionCountTip": "最大数据库连接数为 <b>{max}</b> 当前已建立的连接数为 <b>{current}</b>",
+    "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "helpLink": "https://help.teable.cn/gao-dai-ma-kai-fa/shu-ju-ku-lian-jie"
   },
   "view": {
     "addRecord": "添加记录",
-    "searchView": "搜索视图..."
+    "searchView": "搜索视图...",
+    "dragToolTip": "自动排序已经打开，无法进行手动拖拽排序",
+    "insertToolTip": "自动排序已经打开，无法指定插入位置"
   },
   "lastModifiedTime": "最近修改时间"
 }

@@ -1,6 +1,6 @@
 import { BadRequestException, Logger } from '@nestjs/common';
-import type { IAggregationField } from '@teable/core';
 import { CellValueType, DbFieldType, getValidStatisticFunc } from '@teable/core';
+import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IAggregationQueryExtra } from '../db.provider.interface';

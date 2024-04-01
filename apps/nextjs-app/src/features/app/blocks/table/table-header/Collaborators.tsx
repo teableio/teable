@@ -3,6 +3,7 @@ import type { IUser } from '@teable/sdk';
 import { useSession, useTheme } from '@teable/sdk';
 import { useConnection } from '@teable/sdk/hooks';
 import {
+  cn,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -10,7 +11,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
-import classNames from 'classnames';
 import { chunk, isEmpty } from 'lodash';
 import { useRouter } from 'next/router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -22,7 +22,7 @@ interface CollaboratorsProps {
   maxAvatarLen?: number;
 }
 
-type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta'>;
+type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta' | 'hasPassword'>;
 
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
   const router = useRouter();
@@ -105,7 +105,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   };
 
   return (
-    <div className={classNames('gap-1 items-center hidden sm:flex', className)}>
+    <div className={cn('gap-1 items-center flex', className)}>
       {boardUsers?.map(({ id, name, avatar, email }, index) => {
         return (
           <HoverCard key={`${id}_${index}`}>

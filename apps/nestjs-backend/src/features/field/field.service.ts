@@ -18,7 +18,7 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IAdapterService } from '../../share-db/interface';
+import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
@@ -31,7 +31,7 @@ import { dbType2knexFormat } from './util';
 type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
-export class FieldService implements IAdapterService {
+export class FieldService implements IReadonlyAdapterService {
   private logger = new Logger(FieldService.name);
 
   constructor(
@@ -160,7 +160,7 @@ export class FieldService implements IAdapterService {
       throw new BadRequestException(`Db Field name ${newDbFieldName} already exists in this table`);
     }
 
-    const alterTableSql = this.dbProvider.renameColumnName(
+    const alterTableSql = this.dbProvider.renameColumn(
       table.dbTableName,
       dbFieldName,
       newDbFieldName

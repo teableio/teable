@@ -17,6 +17,7 @@ export enum IdPrefix {
   WorkflowDecision = 'wde',
 
   User = 'usr',
+  Account = 'aco',
 
   Invitation = 'inv',
 
@@ -111,4 +112,8 @@ export function generateNotificationId() {
 
 export function generateAccessTokenId() {
   return IdPrefix.AccessToken + getRandomString(16);
+}
+
+export function generateAccountId() {
+  return IdPrefix.Account + getRandomString(16);
 }

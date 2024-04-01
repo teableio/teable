@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import type { StatisticsFunc } from '@teable/core';
+import { getValidStatisticFunc } from '@teable/core';
 import type {
   IAggregationRo,
   IAggregationVo,
@@ -6,9 +8,7 @@ import type {
   IGroupPointsVo,
   IQueryBaseRo,
   IRowCountVo,
-  StatisticsFunc,
-} from '@teable/core';
-import { getValidStatisticFunc } from '@teable/core';
+} from '@teable/openapi';
 import { forIn, isEmpty, map } from 'lodash';
 import type { IWithView } from '../aggregation.service';
 import { AggregationService } from '../aggregation.service';
@@ -41,6 +41,7 @@ export class AggregationOpenApiService {
     const result = await this.aggregationService.performAggregation({
       tableId: tableId,
       withView,
+      search: query?.search,
     });
     return { aggregations: result?.aggregations };
   }

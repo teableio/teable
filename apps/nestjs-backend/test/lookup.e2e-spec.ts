@@ -7,7 +7,6 @@ import type {
   IFieldVo,
   ILookupOptionsRo,
   INumberFieldOptions,
-  ITableFullVo,
   LinkFieldCore,
 } from '@teable/core';
 import {
@@ -17,6 +16,7 @@ import {
   Relationship,
   TimeFormatting,
 } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { getGraph as apiGetGraph } from '@teable/openapi';
 import {
   createField,

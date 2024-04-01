@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IGridViewOptions, IFilter, IGetRecordsRo } from '@teable/core';
+import type { IGridViewOptions, IFilter } from '@teable/core';
 import { RowHeightLevel, mergeFilter } from '@teable/core';
-import type { IRangesRo } from '@teable/openapi';
+import type { IGetRecordsRo, IRangesRo } from '@teable/openapi';
 import { shareViewCopy } from '@teable/openapi';
 import type {
   CombinedSelection,
@@ -33,6 +33,7 @@ import {
   useIsHydrated,
   useIsTouchDevice,
   useRowCount,
+  useSearch,
   useSSRRecord,
   useSSRRecords,
   useTableId,
@@ -65,7 +66,7 @@ export const GridViewBase = () => {
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const isTouchDevice = useIsTouchDevice();
-  const { setSelection, openStatisticMenu } = useGridViewStore();
+  const { selection, setSelection, openStatisticMenu } = useGridViewStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -77,6 +78,7 @@ export const GridViewBase = () => {
   });
   const copyMethod = useCopy({ copyReq: copy });
   const { filter, sort, group } = view ?? {};
+  const { searchQuery } = useSearch();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
   const groupCollection = useGridGroupCollection();
@@ -89,11 +91,12 @@ export const GridViewBase = () => {
   const viewQuery = useMemo(() => {
     const mergedFilter = mergeFilter(filter, viewGroupQuery?.filter);
     return {
+      search: searchQuery,
       filter: mergedFilter as IFilter,
       orderBy: sort?.sortObjs as IGetRecordsRo['orderBy'],
       groupBy: group as IGetRecordsRo['groupBy'],
     };
-  }, [filter, sort?.sortObjs, group, viewGroupQuery]);
+  }, [filter, viewGroupQuery?.filter, searchQuery, sort?.sortObjs, group]);
 
   const { onVisibleRegionChanged, recordMap } = useGridAsyncRecords(
     ssrRecords,
@@ -194,6 +197,22 @@ export const GridViewBase = () => {
     },
     [columns, openStatisticMenu]
   );
+
+  useEffect(() => {
+    if (!selection) {
+      return;
+    }
+    const handleFocus = (event: FocusEvent) => {
+      const target = event.target as Node;
+      if (container.current && !container.current.contains(target)) {
+        gridRef.current?.resetState();
+      }
+    };
+    document.addEventListener('focus', handleFocus, true);
+    return () => {
+      document.removeEventListener('focus', handleFocus, true);
+    };
+  }, [selection]);
 
   return (
     <div ref={container} className="relative size-full overflow-hidden">
