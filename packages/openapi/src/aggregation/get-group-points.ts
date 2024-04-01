@@ -7,6 +7,7 @@ import { z } from '../zod';
 export const groupPointsRoSchema = contentQueryBaseSchema.pick({
   viewId: true,
   filter: true,
+  search: true,
   groupBy: true,
 });
 

@@ -105,7 +105,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   };
 
   return (
-    <div className={cn('gap-1 items-center hidden sm:flex', className)}>
+    <div className={cn('gap-1 items-center flex', className)}>
       {boardUsers?.map(({ id, name, avatar, email }, index) => {
         return (
           <HoverCard key={`${id}_${index}`}>

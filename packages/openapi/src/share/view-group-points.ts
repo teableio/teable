@@ -39,6 +39,7 @@ export const ShareViewGroupPointsRoute: RouteConfig = registerRoute({
 export const getShareViewGroupPoints = async (shareId: string, query?: IShareViewGroupPointsRo) => {
   return axios.get<IGroupPointsVo>(urlBuilder(SHARE_VIEW_GROUP_POINTS, { shareId }), {
     params: {
+      ...query,
       filter: JSON.stringify(query?.filter),
       groupBy: JSON.stringify(query?.groupBy),
     },

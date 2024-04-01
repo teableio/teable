@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
 import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
 import { useCellGraphStore } from '../../graph/useCellGraphStore';
-import { SearchInput } from '../search/SearchInput';
+import { SearchButton } from '../search/SearchButton';
 import { SharePopover } from './SharePopover';
 import { ToolBarButton } from './ToolBarButton';
 
@@ -114,10 +114,10 @@ const OthersMenu = ({ className }: { className?: string }) => {
 export const Others: React.FC = () => {
   return (
     <div className="flex flex-1 justify-end gap-1 @container/toolbar-others">
-      <SearchInput />
+      <SearchButton />
       <OthersList
         className="hidden @sm/toolbar:flex"
-        classNames={{ textClassName: '@[264px]/toolbar-others:inline' }}
+        classNames={{ textClassName: '@[300px]/toolbar-others:inline' }}
       />
       <OthersMenu className="@sm/toolbar:hidden" />
     </div>

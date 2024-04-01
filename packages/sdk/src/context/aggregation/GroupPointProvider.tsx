@@ -3,7 +3,7 @@ import { getGroupPoints } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useActionTrigger, useIsHydrated, useView } from '../../hooks';
+import { useActionTrigger, useIsHydrated, useSearch, useView } from '../../hooks';
 import type { PropKeys } from '../action-trigger';
 import { AnchorContext } from '../anchor';
 import { GroupPointContext } from './GroupPointContext';
@@ -14,14 +14,13 @@ interface GroupPointProviderProps {
 
 const useGroupPointsQuery = () => {
   const view = useView();
+  const { searchQuery } = useSearch();
+
   const { id: viewId, group } = view || {};
 
   return useMemo(
-    () => ({
-      viewId,
-      groupBy: group,
-    }),
-    [viewId, group]
+    () => ({ viewId, groupBy: group, search: searchQuery }),
+    [searchQuery, group, viewId]
   );
 };
 

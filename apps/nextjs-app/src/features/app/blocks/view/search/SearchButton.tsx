@@ -7,7 +7,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce } from 'react-use';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
 
-export function SearchInput({
+export function SearchButton({
   className,
   textClassName,
 }: {

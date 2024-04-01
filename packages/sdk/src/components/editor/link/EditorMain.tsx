@@ -2,7 +2,7 @@ import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { Button, Input, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib';
+import { Button, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib';
 import {
   forwardRef,
   useCallback,
@@ -15,8 +15,9 @@ import {
 import type { ForwardRefRenderFunction } from 'react';
 import { AnchorProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
-import { useBase, useTable } from '../../../hooks';
+import { useBase, useSearch, useTable } from '../../../hooks';
 import { Table } from '../../../model';
+import { SearchInput } from '../../search';
 import { LinkListType } from './interface';
 import type { ILinkListRef } from './LinkList';
 import { LinkList } from './LinkList';
@@ -43,6 +44,8 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange, onExpandRecord } =
     props;
 
+  const { searchQuery } = useSearch();
+
   useImperativeHandle(forwardRef, () => ({
     onReset,
   }));
@@ -63,13 +66,15 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const recordQuery = useMemo((): IGetRecordsRo => {
     if (listType === LinkListType.Selected) {
       return {
+        search: searchQuery,
         filterLinkCellSelected: recordId ? [fieldId, recordId] : fieldId,
       };
     }
     return {
+      search: searchQuery,
       filterLinkCellCandidate: recordId ? [fieldId, recordId] : fieldId,
     };
-  }, [fieldId, recordId, listType]);
+  }, [listType, searchQuery, recordId, fieldId]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -129,8 +134,8 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   return (
     <>
       <div className="text-lg">{t('editor.link.placeholder')}</div>
-      <div className="flex justify-between">
-        <Input className="flex-1" placeholder={t('editor.link.searchPlaceholder')} disabled />
+      <div className="flex items-center justify-between">
+        <SearchInput />
         <div className="ml-4">
           <Tabs defaultValue="unselected" orientation="horizontal" className="flex gap-4">
             <TabsList className="">

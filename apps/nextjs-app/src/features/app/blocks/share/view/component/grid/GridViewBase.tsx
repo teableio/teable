@@ -33,6 +33,7 @@ import {
   useIsHydrated,
   useIsTouchDevice,
   useRowCount,
+  useSearch,
   useSSRRecord,
   useSSRRecords,
   useTableId,
@@ -77,6 +78,7 @@ export const GridViewBase = () => {
   });
   const copyMethod = useCopy({ copyReq: copy });
   const { filter, sort, group } = view ?? {};
+  const { searchQuery } = useSearch();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
   const groupCollection = useGridGroupCollection();
@@ -89,11 +91,12 @@ export const GridViewBase = () => {
   const viewQuery = useMemo(() => {
     const mergedFilter = mergeFilter(filter, viewGroupQuery?.filter);
     return {
+      search: searchQuery,
       filter: mergedFilter as IFilter,
       orderBy: sort?.sortObjs as IGetRecordsRo['orderBy'],
       groupBy: group as IGetRecordsRo['groupBy'],
     };
-  }, [filter, sort?.sortObjs, group, viewGroupQuery]);
+  }, [filter, viewGroupQuery?.filter, searchQuery, sort?.sortObjs, group]);
 
   const { onVisibleRegionChanged, recordMap } = useGridAsyncRecords(
     ssrRecords,

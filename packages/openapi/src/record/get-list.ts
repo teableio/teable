@@ -70,7 +70,7 @@ export const queryBaseSchema = z.object({
     .openapi({
       example: ['fldXXXXXXX', 'recXXXXXXX'],
       description:
-        'Filter out selected records based on this link cell from the relational table. Note that viewId, filter, and orderBy will not take effect in this case because selected records has it own order.',
+        'Filter out selected records based on this link cell from the relational table. Note that viewId, filter, and orderBy will not take effect in this case because selected records has it own order. Ignoring recordId gets all the selected records for the field',
     }),
 });
 

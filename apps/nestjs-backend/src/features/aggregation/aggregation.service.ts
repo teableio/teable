@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, PayloadTooLargeException } from '@nestjs/common';
 import type { IGridColumnMeta, IFilter } from '@teable/core';
 import {
   DbFieldType,
@@ -132,18 +132,13 @@ export class AggregationService {
 
     const { filter } = statisticsData;
 
-    if (filterLinkCellSelected) {
-      // TODO: use a new method to retrieve only count
-      const { ids } = await this.recordService.getLinkSelectedRecordIds(filterLinkCellSelected);
-      return { rowCount: ids.length };
-    }
-
     const rawRowCountData = await this.handleRowCount({
       tableId,
       dbTableName,
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
       search: queryRo.search,
       withUserId: currentUserId,
     });
@@ -333,6 +328,7 @@ export class AggregationService {
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
+    filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
     search?: [string, string];
     withUserId?: string;
   }) {
@@ -342,6 +338,7 @@ export class AggregationService {
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
       search,
       withUserId,
     } = params;
@@ -362,7 +359,17 @@ export class AggregationService {
       await this.recordService.buildLinkCandidateQuery(
         queryBuilder,
         tableId,
+        dbTableName,
         filterLinkCellCandidate
+      );
+    }
+
+    if (filterLinkCellSelected) {
+      await this.recordService.buildLinkSelectedQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        filterLinkCellSelected
       );
     }
 
@@ -478,7 +485,7 @@ export class AggregationService {
   }
 
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
-    const { viewId, groupBy: extraGroupBy, filter } = query || {};
+    const { viewId, groupBy: extraGroupBy, filter, search } = query || {};
 
     if (!viewId) return null;
 
@@ -507,16 +514,21 @@ export class AggregationService {
         .appendQueryBuilder();
     }
 
+    if (search) {
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+      this.dbProvider.searchQuery(distinctQueryBuilder, fieldInstanceMap, search);
+    }
+
     const dbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
 
     const isGroupingOverLimit = await this.checkGroupingOverLimit(
       dbFieldNames,
       distinctQueryBuilder
     );
+
     if (isGroupingOverLimit) {
-      throw new HttpException(
-        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.',
-        HttpStatus.PAYLOAD_TOO_LARGE
+      throw new PayloadTooLargeException(
+        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.'
       );
     }
 
