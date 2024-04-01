@@ -106,8 +106,14 @@ const genTestFiles = async () => {
 
     fs.writeFileSync(tmpPath, data);
 
-    const file = fs.readFileSync(tmpPath);
+    const file = fs.createReadStream(tmpPath);
     const stats = fs.statSync(tmpPath);
+
+    try {
+      console.log(fs.readFileSync(tmpPath));
+    } catch (err) {
+      console.log('e2e', err);
+    }
 
     const { token, requestHeaders } = (
       await apiGetSignature(
@@ -120,7 +126,7 @@ const genTestFiles = async () => {
       )
     ).data;
 
-    await apiUploadFile(token, file, requestHeaders);
+    await apiUploadFile(token, file as unknown as string, requestHeaders);
 
     const {
       data: { presignedUrl },
