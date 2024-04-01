@@ -37,8 +37,8 @@ export class LocalStorage implements StorageAdapter {
     this.path = this.config.local.path;
     this.storageDir = resolve(process.cwd(), this.path);
 
-    fse.ensureDir(this.temporaryDir);
-    fse.ensureDir(this.storageDir);
+    fse.ensureDirSync(this.temporaryDir);
+    fse.ensureDirSync(this.storageDir);
   }
 
   private getUploadUrl(token: string) {
