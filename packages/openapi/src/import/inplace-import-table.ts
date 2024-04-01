@@ -5,7 +5,7 @@ import { z } from '../zod';
 import { inplaceImportOptionRoSchema } from './types';
 import type { IInplaceImportOptionRo } from './types';
 
-export const INPLACE_IMPORT_TABLE = '/import/{tableId}';
+export const INPLACE_IMPORT_TABLE = '/import/{baseId}/{tableId}';
 
 export const inplaceImportTableFromFileRoute: RouteConfig = registerRoute({
   method: 'patch',
@@ -13,6 +13,7 @@ export const inplaceImportTableFromFileRoute: RouteConfig = registerRoute({
   description: 'import table inplace',
   request: {
     params: z.object({
+      baseId: z.string(),
       tableId: z.string(),
     }),
     body: {
@@ -32,8 +33,9 @@ export const inplaceImportTableFromFileRoute: RouteConfig = registerRoute({
 });
 
 export const inplaceImportTableFromFile = async (
+  baseId: string,
   tableId: string,
   inplaceImportRo: IInplaceImportOptionRo
 ) => {
-  return axios.patch<void>(urlBuilder(INPLACE_IMPORT_TABLE, { tableId }), inplaceImportRo);
+  return axios.patch<void>(urlBuilder(INPLACE_IMPORT_TABLE, { baseId, tableId }), inplaceImportRo);
 };
