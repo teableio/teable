@@ -49,7 +49,7 @@ const assertData: ICreateTableRo = {
     {
       name: 'Project Status',
       description: 'The current status of the project',
-      type: FieldType.SingleLineText,
+      type: FieldType.SingleSelect,
       options: {
         choices: [
           {
@@ -92,7 +92,9 @@ const assertData: ICreateTableRo = {
       description: 'A kanban view of all projects',
       type: ViewType.Kanban,
       options: {
-        groupingFieldId: 'Project Status',
+        stackFieldId: 'Project Status',
+        isFieldNameHidden: true,
+        isEmptyStackHidden: true,
       },
     },
   ],

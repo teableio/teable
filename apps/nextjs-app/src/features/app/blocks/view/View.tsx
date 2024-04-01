@@ -2,6 +2,7 @@ import { ViewType } from '@teable/core';
 import { useView } from '@teable/sdk';
 import { FormView } from './form/FormView';
 import { GridView } from './grid/GridView';
+import { KanbanView } from './kanban/KanbanView';
 import type { IViewBaseProps } from './types';
 
 export const View = (props: IViewBaseProps) => {
@@ -14,6 +15,8 @@ export const View = (props: IViewBaseProps) => {
         return <GridView {...props} />;
       case ViewType.Form:
         return <FormView />;
+      case ViewType.Kanban:
+        return <KanbanView />;
       default:
         return null;
     }

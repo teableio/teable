@@ -3,8 +3,8 @@ import { useTable, useTablePermission } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
+import { GridViewOperators } from './components';
 import { Others } from './Others';
-import { ViewOperators } from './ViewOperators';
 
 export const GridToolBar: React.FC = () => {
   const table = useTable();
@@ -48,7 +48,7 @@ export const GridToolBar: React.FC = () => {
       </Button>
       <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
       <div className="flex flex-1 justify-between overflow-x-auto scrollbar-none">
-        <ViewOperators disabled={!permission['view|update']} />
+        <GridViewOperators disabled={!permission['view|update']} />
         <Others />
       </div>
     </div>

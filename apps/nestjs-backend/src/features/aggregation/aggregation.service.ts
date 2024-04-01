@@ -184,7 +184,7 @@ export class AggregationService {
         where: {
           tableId,
           ...(withView?.viewId ? { id: withView.viewId } : {}),
-          type: { in: [ViewType.Grid, ViewType.Gantt] },
+          type: { in: [ViewType.Grid, ViewType.Gantt, ViewType.Kanban] },
           deletedTime: null,
         },
       })

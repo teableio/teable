@@ -3,7 +3,7 @@ import classNames from 'classnames';
 import React, { forwardRef } from 'react';
 
 interface IToolBarButton {
-  text?: string;
+  text?: string | React.ReactNode;
   isActive?: boolean;
   className?: string;
   textClassName?: string;

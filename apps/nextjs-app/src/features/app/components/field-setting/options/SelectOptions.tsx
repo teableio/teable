@@ -14,12 +14,10 @@ import { tableConfig } from '@/features/i18n/table.config';
 
 interface IOptionItemProps {
   choice: ISelectFieldChoice;
-  index: number;
   readonly?: boolean;
-  onChange: (index: number, key: keyof ISelectFieldChoice, value: string) => void;
-  onDelete: (index: number) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  onInputRef: (el: HTMLInputElement | null, index: number) => void;
+  onChange: (key: keyof ISelectFieldChoice, value: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onInputRef?: (el: HTMLInputElement | null) => void;
 }
 
 const getChoiceId = (choice: ISelectFieldChoice, index: number) => {
@@ -120,13 +118,20 @@ export const SelectOptions = (props: {
                       )}
                       <ChoiceItem
                         choice={choice}
-                        index={i}
                         readonly={isLookup}
-                        onChange={updateOptionChange}
-                        onDelete={deleteChoice}
+                        onChange={(key, value) => updateOptionChange(i, key, value)}
                         onKeyDown={onKeyDown}
-                        onInputRef={(el, index) => (inputRefs.current[index] = el)}
+                        onInputRef={(el) => (inputRefs.current[i] = el)}
                       />
+                      {!isLookup && (
+                        <Button
+                          variant={'ghost'}
+                          className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                          onClick={() => deleteChoice(i)}
+                        >
+                          <Trash className="size-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -152,8 +157,8 @@ export const SelectOptions = (props: {
   );
 };
 
-const ChoiceItem = (props: IOptionItemProps) => {
-  const { choice, index, readonly, onChange, onDelete, onKeyDown, onInputRef } = props;
+export const ChoiceItem = (props: IOptionItemProps) => {
+  const { choice, readonly, onChange, onKeyDown, onInputRef } = props;
   const { color, name } = choice;
   const bgColor = ColorUtils.getHexForColor(color);
 
@@ -175,33 +180,24 @@ const ChoiceItem = (props: IOptionItemProps) => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2">
-            <ColorPicker color={color} onSelect={(color) => onChange(index, 'color', color)} />
+            <ColorPicker color={color} onSelect={(color) => onChange('color', color)} />
           </PopoverContent>
         </Popover>
       )}
       <div className="flex-1 px-2">
         <ChoiceInput
-          reRef={(el) => onInputRef(el, index)}
+          reRef={(el) => onInputRef?.(el)}
           name={name}
           readOnly={readonly}
-          onKeyDown={onKeyDown}
-          onChange={(value) => onChange(index, 'name', value)}
+          onKeyDown={(e) => onKeyDown?.(e)}
+          onChange={(value) => onChange('name', value)}
         />
       </div>
-      {!readonly && (
-        <Button
-          variant={'ghost'}
-          className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-          onClick={() => onDelete(index)}
-        >
-          <Trash className="size-4" />
-        </Button>
-      )}
     </li>
   );
 };
 
-const ChoiceInput: React.FC<{
+export const ChoiceInput: React.FC<{
   reRef: React.Ref<HTMLInputElement>;
   readOnly?: boolean;
   name: string;
@@ -209,6 +205,12 @@ const ChoiceInput: React.FC<{
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }> = ({ name, readOnly, onChange, onKeyDown, reRef }) => {
   const [value, setValue] = useState<string>(name);
+  const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const curValue = e.target.value;
+    if (curValue === name) return;
+    setValue(curValue);
+  };
+
   return (
     <Input
       ref={reRef}
@@ -216,9 +218,9 @@ const ChoiceInput: React.FC<{
       type="text"
       value={value}
       readOnly={readOnly}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => onChange(value)}
+      onChange={onChangeInner}
       onKeyDown={onKeyDown}
+      onBlur={() => onChange(value)}
     />
   );
 };
@@ -246,7 +248,10 @@ export const ColorPicker = ({
                     'border-2 p-[2px]': color === c,
                   })}
                   style={{ borderColor: bg }}
-                  onClick={() => onSelect(c)}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    onSelect(c);
+                  }}
                 >
                   <div
                     style={{

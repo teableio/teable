@@ -303,7 +303,7 @@ components:
     KanbanViewOptionsDto:
       type: object
       properties:
-        groupingFieldId:
+        stackFieldId:
           type: string
           example: fldXXXXXXX
           description: The field id of the board group.

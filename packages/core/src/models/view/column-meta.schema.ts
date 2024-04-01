@@ -54,8 +54,8 @@ export const gridColumnSchema = columnSchemaBase.merge(
 
 export const kanbanColumnSchema = columnSchemaBase.merge(
   z.object({
-    hidden: z.boolean().optional().openapi({
-      description: 'If column hidden in the view.',
+    visible: z.boolean().optional().openapi({
+      description: 'If column visible in the view.',
     }),
   })
 );

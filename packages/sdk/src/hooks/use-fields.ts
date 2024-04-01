@@ -2,7 +2,7 @@ import { ViewType } from '@teable/core';
 import { sortBy } from 'lodash';
 import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
-import type { FormView, GridView } from '../model';
+import type { FormView, GridView, KanbanView } from '../model';
 import { useView } from './use-view';
 
 export function useFields(options: { withHidden?: boolean } = {}) {
@@ -22,6 +22,11 @@ export function useFields(options: { withHidden?: boolean } = {}) {
 
     if (view.type === ViewType.Form) {
       return fields.filter(({ id }) => (view as FormView).columnMeta?.[id]?.visible);
+    }
+    if (view.type === ViewType.Kanban) {
+      return fields.filter(({ id, isPrimary }) => {
+        return isPrimary || (view as KanbanView).columnMeta?.[id]?.visible;
+      });
     }
     return fields.filter(({ id }) => !(view as GridView).columnMeta?.[id]?.hidden);
   }, [view, fields, withHidden]);

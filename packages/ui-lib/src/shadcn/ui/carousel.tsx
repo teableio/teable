@@ -177,8 +177,13 @@ const CarouselItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
 CarouselItem.displayName = 'CarouselItem';
 
 const CarouselPrevious = React.forwardRef<HTMLButtonElement, React.ComponentProps<typeof Button>>(
-  ({ className, variant = 'outline', size = 'icon', ...props }, ref) => {
+  ({ className, variant = 'outline', size = 'icon', onClick, ...props }, ref) => {
     const { orientation, scrollPrev, canScrollPrev } = useCarousel();
+
+    const onClickInner = (e: React.MouseEvent<HTMLButtonElement>) => {
+      scrollPrev();
+      onClick?.(e);
+    };
 
     return (
       <Button
@@ -193,7 +198,7 @@ const CarouselPrevious = React.forwardRef<HTMLButtonElement, React.ComponentProp
           className
         )}
         disabled={!canScrollPrev}
-        onClick={scrollPrev}
+        onClick={onClickInner}
         {...props}
       >
         <ArrowLeftIcon className="h-4 w-4" />
@@ -205,8 +210,13 @@ const CarouselPrevious = React.forwardRef<HTMLButtonElement, React.ComponentProp
 CarouselPrevious.displayName = 'CarouselPrevious';
 
 const CarouselNext = React.forwardRef<HTMLButtonElement, React.ComponentProps<typeof Button>>(
-  ({ className, variant = 'outline', size = 'icon', ...props }, ref) => {
+  ({ className, variant = 'outline', size = 'icon', onClick, ...props }, ref) => {
     const { orientation, scrollNext, canScrollNext } = useCarousel();
+
+    const onClickInner = (e: React.MouseEvent<HTMLButtonElement>) => {
+      scrollNext();
+      onClick?.(e);
+    };
 
     return (
       <Button
@@ -221,7 +231,7 @@ const CarouselNext = React.forwardRef<HTMLButtonElement, React.ComponentProps<ty
           className
         )}
         disabled={!canScrollNext}
-        onClick={scrollNext}
+        onClick={onClickInner}
         {...props}
       >
         <ArrowRightIcon className="h-4 w-4" />

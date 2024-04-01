@@ -19,10 +19,10 @@ import {
 import { useTranslation } from 'next-i18next';
 import { GUIDE_VIEW_FILTERING, GUIDE_VIEW_SORTING, GUIDE_VIEW_GROUPING } from '@/components/Guide';
 import { tableConfig } from '@/features/i18n/table.config';
-import { useToolbarChange } from '../hooks/useToolbarChange';
-import { ToolBarButton } from './ToolBarButton';
+import { useToolbarChange } from '../../hooks/useToolbarChange';
+import { ToolBarButton } from '../ToolBarButton';
 
-export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
+export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView();
   const fields = useFields();
@@ -112,7 +112,7 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             </ToolBarButton>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Coming soon</p>
+            <p>{t('table:toolbar.comingSoon')}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
