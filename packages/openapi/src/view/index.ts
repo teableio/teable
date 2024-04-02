@@ -16,3 +16,4 @@ export * from './update-share-meta';
 export * from './refresh-share-id';
 export * from './share-disable';
 export * from './share-enable';
+export * from './filter-link-records';

@@ -29,7 +29,7 @@ import {
   updateRecordOrdersRoSchema,
   IUpdateRecordOrdersRo,
 } from '@teable/openapi';
-import type { EnableShareViewVo } from '@teable/openapi';
+import type { EnableShareViewVo, IGetViewFilterLinkRecordsVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { ViewService } from '../view.service';
@@ -251,5 +251,14 @@ export class ViewOpenApiController {
     @Param('viewId') viewId: string
   ): Promise<void> {
     return await this.viewOpenApiService.disableShare(tableId, viewId);
+  }
+
+  @Permissions('view|read')
+  @Get('/:viewId/filter-link-records')
+  async getFilterLinkRecords(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string
+  ): Promise<IGetViewFilterLinkRecordsVo> {
+    return this.viewOpenApiService.getFilterLinkRecords(tableId, viewId);
   }
 }

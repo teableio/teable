@@ -1,9 +1,14 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IColumn, IFieldVo, IViewRo } from '@teable/core';
-import { FieldType, ViewType } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
-import { updateViewDescription, updateViewName } from '@teable/openapi';
+import type { IColumn, IFieldRo, IFieldVo, IViewRo } from '@teable/core';
+import { FieldType, Relationship, ViewType } from '@teable/core';
+import type { ICreateTableRo, ITableFullVo, ITableVo } from '@teable/openapi';
+import {
+  updateViewDescription,
+  updateViewName,
+  getViewFilterLinkRecords,
+  getTableById,
+} from '@teable/openapi';
 import {
   createField,
   getFields,
@@ -129,5 +134,176 @@ describe('OpenAPI ViewController (e2e)', () => {
     const newFields = await getFields(table.id, newView.id);
 
     expect(newFields.slice(3)).toMatchObject(oldFields);
+  });
+
+  describe.only('/api/table/{tableId}/view/:viewId/filter-link-records (GET)', () => {
+    let table: ITableVo;
+    let linkTable1: ITableFullVo;
+    let linkTable2: ITableFullVo;
+
+    const linkTable1FieldRo: IFieldRo[] = [
+      {
+        name: 'single_line_text_field',
+        type: FieldType.SingleLineText,
+      },
+    ];
+
+    const linkTable2FieldRo: IFieldRo[] = [
+      {
+        name: 'single_line_text_field',
+        type: FieldType.SingleLineText,
+      },
+    ];
+
+    const linkTable1RecordRo: ICreateTableRo['records'] = [
+      {
+        fields: {
+          single_line_text_field: 'link_table1_record1',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table1_record2',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table1_record3',
+        },
+      },
+    ];
+    const linkTable2RecordRo: ICreateTableRo['records'] = [
+      {
+        fields: {
+          single_line_text_field: 'link_table2_record1',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table2_record2',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table2_record3',
+        },
+      },
+    ];
+
+    beforeAll(async () => {
+      const fullTable = await createTable(baseId, {
+        name: 'filter_link_records',
+        fields: [
+          {
+            name: 'link_field1',
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [],
+      });
+
+      linkTable1 = await createTable(baseId, {
+        name: 'link_table1',
+        fields: [
+          ...linkTable1FieldRo,
+          {
+            type: FieldType.Link,
+            options: {
+              foreignTableId: fullTable.id,
+              relationship: Relationship.OneMany,
+            },
+          },
+        ],
+        records: linkTable1RecordRo,
+      });
+
+      linkTable2 = await createTable(baseId, {
+        name: 'link_table2',
+        fields: [
+          ...linkTable2FieldRo,
+          {
+            type: FieldType.Link,
+            options: {
+              foreignTableId: fullTable.id,
+              relationship: Relationship.OneMany,
+            },
+          },
+        ],
+        records: linkTable2RecordRo,
+      });
+
+      const tableData = await getTableById(baseId, fullTable.id, { includeContent: true });
+      table = tableData.data;
+    });
+
+    afterAll(async () => {
+      await deleteTable(baseId, table.id);
+      await deleteTable(baseId, linkTable1.id);
+      await deleteTable(baseId, linkTable2.id);
+    });
+
+    it('should return filter link records', async () => {
+      const viewRo: IViewRo = {
+        name: 'New view',
+        description: 'the new view',
+        type: ViewType.Grid,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields![1].id,
+              value: linkTable1.records[0].id,
+              operator: 'is',
+            },
+            {
+              filterSet: [
+                {
+                  fieldId: table.fields![1].id,
+                  value: [linkTable1.records[1].id, linkTable1.records[2].id],
+                  operator: 'isAnyOf',
+                },
+              ],
+              conjunction: 'and',
+            },
+            {
+              fieldId: table.fields![2].id,
+              value: linkTable2.records[0].id,
+              operator: 'is',
+            },
+            {
+              filterSet: [
+                {
+                  fieldId: table.fields![2].id,
+                  value: [linkTable2.records[2].id],
+                  operator: 'isAnyOf',
+                },
+              ],
+              conjunction: 'and',
+            },
+          ],
+          conjunction: 'and',
+        },
+      };
+
+      const view = await createView(table.id, viewRo);
+
+      const { data: records } = await getViewFilterLinkRecords(table.id, view.id);
+
+      expect(records).toMatchObject([
+        {
+          tableId: linkTable1.id,
+          records: linkTable1.records.map(({ id, name }) => ({ id, title: name })),
+        },
+        {
+          tableId: linkTable2.id,
+          records: [
+            { id: linkTable2.records[0].id, title: linkTable2.records[0].name },
+            {
+              id: linkTable2.records[2].id,
+              title: linkTable2.records[2].name,
+            },
+          ],
+        },
+      ]);
+    });
   });
 });

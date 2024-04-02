@@ -14,6 +14,9 @@ import type {
   IViewPropertyKeys,
   IViewOptions,
   IGridColumnMeta,
+  IFilter,
+  IFilterItem,
+  ILinkFieldOptions,
 } from '@teable/core';
 import {
   ViewType,
@@ -22,14 +25,21 @@ import {
   generateShareId,
   VIEW_JSON_KEYS,
   validateOptionsType,
+  FieldType,
+  IdPrefix,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IUpdateOrderRo, IUpdateRecordOrdersRo } from '@teable/openapi';
+import type {
+  IGetViewFilterLinkRecordsVo,
+  IUpdateOrderRo,
+  IUpdateRecordOrdersRo,
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
 import { FieldService } from '../../field/field.service';
+import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
 import { ViewService } from '../view.service';
 
@@ -531,5 +541,108 @@ export class ViewOpenApiService {
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp]);
     });
+  }
+
+  /**
+   * @param linkFields {fieldId: foreignTableId}
+   * @returns {foreignTableId: Set<recordId>}
+   */
+  private async collectFilterLinkFieldRecords(
+    linkFields: Record<string, string>,
+    filter?: IFilter
+  ) {
+    if (!filter || !filter.filterSet) {
+      return undefined;
+    }
+
+    const tableRecordMap: Record<string, Set<string>> = {};
+
+    const mergeRecordMap = (source: Record<string, Set<string>> = {}) => {
+      for (const [fieldId, recordSet] of Object.entries(source)) {
+        tableRecordMap[fieldId] = tableRecordMap[fieldId] || new Set();
+        recordSet.forEach((item) => tableRecordMap[fieldId].add(item));
+      }
+    };
+
+    for (const filterItem of filter.filterSet) {
+      if ('filterSet' in filterItem) {
+        const groupTableRecordMap = await this.collectFilterLinkFieldRecords(
+          linkFields,
+          filterItem as IFilter
+        );
+        if (groupTableRecordMap) {
+          mergeRecordMap(groupTableRecordMap);
+        }
+        continue;
+      }
+
+      const { value, fieldId } = filterItem as IFilterItem;
+
+      const foreignTableId = linkFields[fieldId];
+      if (!foreignTableId) {
+        continue;
+      }
+
+      if (Array.isArray(value)) {
+        mergeRecordMap({ [foreignTableId]: new Set(value as string[]) });
+      } else if (typeof value === 'string' && value.startsWith(IdPrefix.Record)) {
+        mergeRecordMap({ [foreignTableId]: new Set([value]) });
+      }
+    }
+
+    return tableRecordMap;
+  }
+
+  async getFilterLinkRecords(tableId: string, viewId: string) {
+    const view = await this.viewService.getViewById(viewId);
+    const linkFields = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null, type: FieldType.Link, options: { not: null } },
+    });
+    const linkFieldTableMap = linkFields.reduce(
+      (map, field) => {
+        const { foreignTableId } = JSON.parse(field.options as string) as ILinkFieldOptions;
+        map[field.id] = foreignTableId;
+        return map;
+      },
+      {} as Record<string, string>
+    );
+    const tableRecordMap = await this.collectFilterLinkFieldRecords(linkFieldTableMap, view.filter);
+
+    if (!tableRecordMap) {
+      return [];
+    }
+    const res: IGetViewFilterLinkRecordsVo = [];
+    for (const [foreignTableId, recordSet] of Object.entries(tableRecordMap)) {
+      const dbTableName = await this.recordService.getDbTableName(foreignTableId);
+      const primaryField = await this.prismaService.field.findFirst({
+        where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
+      });
+      if (!primaryField) {
+        continue;
+      }
+
+      const dbFieldName = primaryField.dbFieldName;
+
+      const nativeQuery = this.knex(dbTableName)
+        .select('__id as id', `${dbFieldName} as title`)
+        .orderBy('__auto_number')
+        .whereIn('__id', Array.from(recordSet))
+        .toQuery();
+
+      const list = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ id: string; title: string | null }[]>(nativeQuery);
+      const fieldInstances = createFieldInstanceByRaw(primaryField);
+      res.push({
+        tableId: foreignTableId,
+        records: list.map(({ id, title }) => ({
+          id,
+          title:
+            fieldInstances.cellValue2String(fieldInstances.convertDBValue2CellValue(title)) ||
+            undefined,
+        })),
+      });
+    }
+    return res;
   }
 }
