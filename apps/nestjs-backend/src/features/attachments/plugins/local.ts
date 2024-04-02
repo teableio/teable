@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createReadStream, createWriteStream, access, constants } from 'fs';
+import { createReadStream, createWriteStream, access, constants, existsSync } from 'fs';
 import os from 'node:os';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
@@ -250,8 +250,8 @@ export class LocalStorage implements StorageAdapter {
     const temPath = resolve(this.temporaryDir, name);
     if (stream instanceof Buffer) {
       access(temPath, constants.F_OK | constants.W_OK, async (err) => {
-        if (err) {
-          fse.ensureDir(temPath);
+        if (err && !existsSync(temPath)) {
+          fse.ensureDirSync(temPath);
         }
         await fse.writeFile(temPath, stream);
       });
