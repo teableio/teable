@@ -1,6 +1,6 @@
-import type { ISortItem } from '@teable-group/core';
+import type { ISortItem } from '@teable/core';
+import { FieldSelector } from '../field/FieldSelector';
 import { OrderSelect } from './OrderSelect';
-import { SortFieldSelect } from './SortFieldSelect';
 
 export interface ISortItemProps {
   index: number;
@@ -10,8 +10,8 @@ export interface ISortItemProps {
 }
 
 enum ISortKey {
-  FIELDID = 'fieldId',
-  ASCENDING = 'order',
+  FieldId = 'fieldId',
+  Ascending = 'order',
 }
 
 function SortItem(props: ISortItemProps) {
@@ -25,15 +25,15 @@ function SortItem(props: ISortItemProps) {
 
   return (
     <div className="flex">
-      <SortFieldSelect
+      <FieldSelector
         value={fieldId}
-        onSelect={(value) => selectHandler(ISortKey.FIELDID, value)}
+        onSelect={(value) => selectHandler(ISortKey.FieldId, value)}
         {...restProps}
       />
 
       <OrderSelect
         value={order}
-        onSelect={(value) => selectHandler(ISortKey.ASCENDING, value)}
+        onSelect={(value) => selectHandler(ISortKey.Ascending, value)}
         fieldId={fieldId}
       />
     </div>

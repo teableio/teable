@@ -9,16 +9,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../shadcn';
+import { Spin } from '../spin/Spin';
 
 interface IConfirmDialogProps {
   open?: boolean;
   contentClassName?: string;
   title?: string | React.ReactNode;
   description?: string | React.ReactNode;
+  closeable?: boolean;
   children?: React.ReactNode;
   content?: React.ReactNode;
   cancelText?: string;
   confirmText?: string;
+  confirmLoading?: boolean;
   onConfirm?: () => void;
   onCancel?: () => void;
   onOpenChange?: (open: boolean) => void;
@@ -29,11 +32,13 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
     contentClassName,
     title,
     description,
+    closeable,
     onOpenChange,
     children,
     content,
     cancelText,
     confirmText,
+    confirmLoading,
     onConfirm,
     onCancel,
   } = props;
@@ -43,7 +48,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent
         className={contentClassName}
-        closeable={false}
+        closeable={closeable}
         overlayStyle={{
           pointerEvents: 'none',
         }}
@@ -66,6 +71,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
           )}
           {confirmText && (
             <Button size={'sm'} onClick={onConfirm}>
+              {confirmLoading && <Spin />}
               {confirmText}
             </Button>
           )}

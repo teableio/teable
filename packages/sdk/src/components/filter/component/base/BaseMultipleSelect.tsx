@@ -9,8 +9,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib';
-import classNames from 'classnames';
+  cn,
+} from '@teable/ui-lib';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
@@ -59,8 +59,8 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
   const optionMap = useMemo(() => {
     const map: Record<string, string> = {};
     options.forEach((option) => {
-      const key = option.value.toLowerCase();
-      const value = option.label.toLowerCase();
+      const key = option.value;
+      const value = option.label;
       map[key] = value;
     });
     return map;
@@ -68,8 +68,9 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      const name = optionMap[id] || t('common.untitled');
-      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
+      console.log('optionMap[id]', optionMap[id]);
+      const name = optionMap[id]?.toLowerCase() || t('common.untitled');
+      const containWord = name.indexOf(searchValue?.toLowerCase()) > -1;
       return Number(containWord);
     },
     [optionMap, t]
@@ -84,24 +85,24 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           size="sm"
           aria-expanded={open}
           disabled={disabled}
-          className={classNames('w-32 justify-between m-1 overflow-hidden', className)}
+          className={cn('w-32 justify-between m-1 overflow-hidden', className)}
         >
           <div className="flex shrink overflow-hidden whitespace-nowrap">
             {selectedValues?.length
               ? selectedValues?.map(
                   (value, index) =>
                     displayRender?.(value) || (
-                      <div key={index} className={classNames('px-2 rounded-lg m-1')}>
+                      <div key={index} className={cn('px-2 rounded-lg m-1')}>
                         {value.label}
                       </div>
                     )
                 )
               : 'Select'}
           </div>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className={classNames('p-1', popoverClassName)}>
+      <PopoverContent className={cn('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
           <CommandList>
             <CommandInput
@@ -119,7 +120,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
                     className="truncate p-1 text-[13px]"
                   >
                     <Check
-                      className={classNames(
+                      className={cn(
                         'mr-2 h-4 w-4 shrink-0',
                         values?.includes(option.value) ? 'opacity-100' : 'opacity-0'
                       )}

@@ -1,13 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IOtOperation, IRecord } from '@teable-group/core';
+import type { IOtOperation, IRecord } from '@teable/core';
 import {
   FieldOpBuilder,
+  IdPrefix,
   RecordOpBuilder,
   TableOpBuilder,
   ViewOpBuilder,
-  IdPrefix,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -20,7 +20,8 @@ import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import type { IClsStore } from '../types/cls';
-import type { IAdapterService } from './interface';
+import type { IAdapterService, IReadonlyAdapterService } from './interface';
+import { WsAuthService } from './ws-auth.service';
 
 export interface ICollectionSnapshot {
   type: string;
@@ -43,13 +44,21 @@ export class ShareDbAdapter extends ShareDb.DB {
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly wsAuthService: WsAuthService
   ) {
     super();
     this.closed = false;
   }
 
   getService(type: IdPrefix): IAdapterService {
+    if (IdPrefix.Record === type) {
+      return this.recordService;
+    }
+    throw new Error(`QueryType: ${type} has no adapter service implementation`);
+  }
+
+  getReadonlyService(type: IdPrefix): IReadonlyAdapterService {
     switch (type) {
       case IdPrefix.View:
         return this.viewService;
@@ -60,7 +69,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       case IdPrefix.Table:
         return this.tableService;
     }
-    throw new Error(`QueryType: ${type} has no service implementation`);
+    throw new Error(`QueryType: ${type} has no readonly adapter service implementation`);
   }
 
   query = async (
@@ -104,13 +113,24 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: ShareDb.Error | null, ids: string[], extra?: any) => void
   ) {
     try {
-      const [docType, collectionId] = collection.split('_');
+      let currentUser = this.cls.get('user');
+      const { sessionTicket } = (query ?? {}) as { sessionTicket?: string };
 
-      const queryResult = await this.getService(docType as IdPrefix).getDocIdsByQuery(
-        collectionId,
-        query
-      );
-      callback(null, queryResult.ids, queryResult.extra);
+      if (!currentUser && sessionTicket) {
+        currentUser = await this.wsAuthService.checkSession(sessionTicket);
+      }
+
+      await this.cls.runWith(this.cls.get(), async () => {
+        this.cls.set('user', currentUser);
+
+        const [docType, collectionId] = collection.split('_');
+
+        const queryResult = await this.getReadonlyService(docType as IdPrefix).getDocIdsByQuery(
+          collectionId,
+          query
+        );
+        callback(null, queryResult.ids, queryResult.extra);
+      });
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       callback(e as any, []);
@@ -161,7 +181,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         opBuilder = TableOpBuilder;
         break;
       default:
-        throw new Error(`QueryType: ${docType} has no service implementation`);
+        throw new Error(`UpdateSnapshot: ${docType} has no service implementation`);
     }
 
     const ops2Contexts = opBuilder.ops2Contexts(ops);
@@ -214,11 +234,13 @@ export class ShareDbAdapter extends ShareDb.DB {
           where: { collection: collectionId, docId: id },
         });
 
-        const maxVersion = opsResult._max.version == null ? 0 : opsResult._max.version + 1;
+        if (opsResult._max.version != null) {
+          const maxVersion = opsResult._max.version + 1;
 
-        if (rawOp.v !== maxVersion) {
-          this.logger.log({ message: 'op crashed', crashed: rawOp.op });
-          throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
+          if (rawOp.v !== maxVersion) {
+            this.logger.log({ message: 'op crashed', crashed: rawOp.op });
+            throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
+          }
         }
 
         // 1. save op in db;
@@ -274,7 +296,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     try {
       const [docType, collectionId] = collection.split('_');
 
-      const snapshotData = await this.getService(docType as IdPrefix).getSnapshotBulk(
+      const snapshotData = await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
         collectionId,
         ids,
         projection && projection['$submit'] ? undefined : projection

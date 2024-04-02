@@ -1,4 +1,4 @@
-import type { IFilterOperator, IFilterValue } from '@teable-group/core';
+import type { IFilterOperator, IFilterValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterSqlite } from '../cell-value-filter.sqlite';
 import { BooleanCellValueFilterAdapter } from '../single-value/boolean-cell-value-filter.adapter';

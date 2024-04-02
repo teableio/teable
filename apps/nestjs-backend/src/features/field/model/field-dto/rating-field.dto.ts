@@ -1,10 +1,14 @@
-import { RatingFieldCore } from '@teable-group/core';
-import type { IFieldBase } from '../field-base';
+import { RatingFieldCore } from '@teable/core';
+import type { FieldBase } from '../field-base';
 
-export class RatingFieldDto extends RatingFieldCore implements IFieldBase {
+export class RatingFieldDto extends RatingFieldCore implements FieldBase {
+  get isStructuredCellValue() {
+    return false;
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return JSON.stringify(value);
+      return value == null ? value : JSON.stringify(value);
     }
     return value;
   }

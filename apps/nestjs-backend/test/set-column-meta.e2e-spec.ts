@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, ITableFullVo } from '@teable-group/core';
-import { StatisticsFunc } from '@teable-group/core';
+import type { IFieldVo, IFormColumnMeta, IGridColumnMeta } from '@teable/core';
+import { StatisticsFunc, ViewType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import { sortBy } from 'lodash';
 import {
   initApp,
@@ -41,9 +42,9 @@ describe('OpenAPI ViewController (e2e) columnMeta (PUT) update order', () => {
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update order and field should return by order`, async () => {
     const { views } = tableMeta;
     const { columnMeta } = views[0];
-    const fieldColumnMetas = Object.entries(columnMeta!).map(([fieldId, columnMetameta]) => ({
+    const fieldColumnMetas = Object.entries(columnMeta!).map(([fieldId, columnMeta]) => ({
       fieldId,
-      columnMetameta,
+      columnMeta,
     }));
     await updateViewColumnMeta(tableId, viewId, [
       {
@@ -97,7 +98,8 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update hidden', () => {
       },
     ]);
     const updatedView = await getView(tableId, viewId);
-    const fieldVisible = updatedView.columnMeta[fieldColumnMetas[1].fieldId].hidden;
+    const fieldVisible = (updatedView.columnMeta as IGridColumnMeta)[fieldColumnMetas[1].fieldId]
+      .hidden;
 
     expect(fieldVisible).toBe(true);
   });
@@ -149,7 +151,8 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update width', () => {
       },
     ]);
     const updatedView = await getView(tableId, viewId);
-    const fieldVisible = updatedView.columnMeta[fieldColumnMetas[0].fieldId].width;
+    const fieldVisible = (updatedView.columnMeta as IGridColumnMeta)[fieldColumnMetas[0].fieldId]
+      .width;
     expect(fieldVisible).toBe(200);
   });
 });
@@ -184,17 +187,28 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update statisticFunc', ()
       },
     ]);
     const updatedView = await getView(tableId, viewId);
-    const fieldStatisticFunc = updatedView.columnMeta[fieldColumnMetas[0].fieldId].statisticFunc;
+    const fieldStatisticFunc = (updatedView.columnMeta as IGridColumnMeta)[
+      fieldColumnMetas[0].fieldId
+    ].statisticFunc;
     expect(fieldStatisticFunc).toBe(StatisticsFunc.Empty);
   });
 });
 
-describe('OpenAPI ViewController (e2e) columnMeta(PUT) update required', () => {
+describe('OpenAPI ViewController (e2e) columnMeta(PUT) update required for the form view', () => {
   let tableId: string;
   let viewId: string;
   let tableMeta: ITableFullVo;
   beforeEach(async () => {
-    const result = await createTable(baseId, { name: 'table5' });
+    const result = await createTable(baseId, {
+      name: 'table5',
+      views: [
+        {
+          name: 'Form view',
+          type: ViewType.Form,
+          columnMeta: {},
+        },
+      ],
+    });
     tableId = result.id;
     viewId = result.defaultViewId!;
     tableMeta = result;
@@ -219,8 +233,54 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update required', () => {
       },
     ]);
     const updatedView = await getView(tableId, viewId);
-    const fieldRequired = updatedView.columnMeta[fieldColumnMetas[0].fieldId].required;
+    const fieldRequired = (updatedView.columnMeta as IFormColumnMeta)[fieldColumnMetas[0].fieldId]
+      .required;
     expect(fieldRequired).toBe(true);
+  });
+});
+
+describe('OpenAPI ViewController (e2e) columnMeta(PUT) update visible for the form view', () => {
+  let tableId: string;
+  let viewId: string;
+  let tableMeta: ITableFullVo;
+  beforeEach(async () => {
+    const result = await createTable(baseId, {
+      name: 'Test table for form',
+      views: [
+        {
+          name: 'Form view',
+          type: ViewType.Form,
+          columnMeta: {},
+        },
+      ],
+    });
+    tableId = result.id;
+    viewId = result.defaultViewId!;
+    tableMeta = result;
+  });
+  afterEach(async () => {
+    await deleteTable(baseId, tableId);
+  });
+
+  test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test visible`, async () => {
+    const { views } = tableMeta;
+    const { columnMeta } = views[0];
+    const fieldColumnMetas = Object.entries(columnMeta!).map(([fieldId, meta]) => ({
+      fieldId: fieldId,
+      meta: meta,
+    }));
+    await updateViewColumnMeta(tableId, viewId, [
+      {
+        fieldId: fieldColumnMetas[0].fieldId,
+        columnMeta: {
+          visible: true,
+        },
+      },
+    ]);
+    const updatedView = await getView(tableId, viewId);
+    const fieldVisible = (updatedView.columnMeta as IFormColumnMeta)[fieldColumnMetas[0].fieldId]
+      .visible;
+    expect(fieldVisible).toBe(true);
   });
 });
 
@@ -311,7 +371,6 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) multiple update', () => {
       statisticFunc: StatisticsFunc.Empty,
       hidden: true,
       order: 100,
-      required: true,
     };
     await updateViewColumnMeta(tableId, viewId, [
       {

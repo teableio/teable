@@ -1,12 +1,12 @@
-import type { IRecord, IGetRecordsRo } from '@teable-group/core';
+import type { IRecord } from '@teable/core';
+import type { IGetRecordsRo } from '@teable/openapi';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
+import { useTableId } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
-import { useRowCount } from '../../../hooks/use-row-count';
 import { useViewId } from '../../../hooks/use-view-id';
-import type { Record } from '../../../model';
-import { reorder } from '../../../utils';
+import { Record } from '../../../model';
 
 // eslint-disable-next-line
 export const LOAD_PAGE_SIZE = 300;
@@ -33,8 +33,8 @@ export const useGridAsyncRecords = (
     ...initQuery,
   });
   const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
+  const tableId = useTableId();
   const viewId = useViewId();
-  const rowCount = useRowCount();
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(recordsQuery, initRecords);
@@ -51,17 +51,16 @@ export const useGridAsyncRecords = (
   const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
     const take = queryRef.current.take ?? LOAD_PAGE_SIZE;
-    const data = records;
     setLoadedRecordMap((preLoadedRecords) => {
       const cacheLen = take * 2;
       const [cacheStartIndex, cacheEndIndex] = [
         Math.max(startIndex - cacheLen / 2, 0),
-        startIndex + data.length + cacheLen / 2,
+        startIndex + records.length + cacheLen / 2,
       ];
       const newRecordsState: IRecordIndexMap = {};
       for (let i = cacheStartIndex; i < cacheEndIndex; i++) {
-        if (startIndex <= i && i < startIndex + data.length) {
-          newRecordsState[i] = data[i - startIndex];
+        if (startIndex <= i && i < startIndex + records.length) {
+          newRecordsState[i] = records[i - startIndex];
           continue;
         }
         newRecordsState[i] = preLoadedRecords[i];
@@ -125,39 +124,39 @@ export const useGridAsyncRecords = (
 
   const onRowOrdered = useCallback(
     (rowIndexCollection: number[], newRowIndex: number) => {
-      const operationRecords: Record[] = [];
+      const operationRecordIds: string[] = [];
 
       for (const rowIndex of rowIndexCollection) {
         const record = loadedRecordMap[rowIndex];
         if (!record) {
           throw new Error('Can not find record by index: ' + rowIndex);
         }
-        operationRecords.push(record);
-      }
-      const targetRecord = loadedRecordMap[newRowIndex];
-
-      if (!targetRecord) {
-        throw new Error('Can not find target record by index: ' + newRowIndex);
+        operationRecordIds.push(record.id);
       }
 
       if (!viewId) {
         throw new Error('Can not find view id');
       }
 
-      const newOrders = reorder(
-        rowIndexCollection.length,
-        newRowIndex,
-        rowCount ?? initRecords?.length ?? 0,
-        (index) => {
-          return loadedRecordMap[index].recordOrder[viewId];
-        }
-      );
-
-      operationRecords.forEach((record, index) => {
-        record.updateRecordOrder(viewId, newOrders[index]);
+      if (newRowIndex === 0) {
+        Record.updateRecordOrders(tableId as string, viewId, {
+          anchorId: loadedRecordMap[0].id,
+          position: 'before',
+          recordIds: operationRecordIds,
+        });
+        return;
+      }
+      const record = loadedRecordMap[newRowIndex - 1];
+      if (!record) {
+        throw new Error("Can't find target record by index: " + newRowIndex);
+      }
+      Record.updateRecordOrders(tableId as string, viewId, {
+        anchorId: record.id,
+        position: 'after',
+        recordIds: operationRecordIds,
       });
     },
-    [loadedRecordMap, viewId, rowCount, initRecords?.length]
+    [viewId, loadedRecordMap, tableId]
   );
 
   return {

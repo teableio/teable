@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
-import type { IViewVo } from '@teable-group/core';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import type { IViewVo } from '@teable/core';
 import {
   viewRoSchema,
   manualSortRoSchema,
@@ -9,24 +9,33 @@ import {
   IColumnMetaRo,
   columnMetaRoSchema,
   IFilterRo,
-  IViewSortRo,
   IViewGroupRo,
-  viewOptionRoSchema,
-  IViewOptionRo,
   filterRoSchema,
-  viewSortRoSchema,
   viewGroupRoSchema,
-} from '@teable-group/core';
-import { IViewOrderRo, viewOrderRoSchema } from '@teable-group/openapi';
-import type { EnableShareViewVo } from '@teable-group/openapi';
+} from '@teable/core';
+import {
+  viewNameRoSchema,
+  IViewNameRo,
+  viewDescriptionRoSchema,
+  IViewDescriptionRo,
+  viewShareMetaRoSchema,
+  IViewShareMetaRo,
+  viewSortRoSchema,
+  IViewSortRo,
+  viewOptionsRoSchema,
+  IViewOptionsRo,
+  updateOrderRoSchema,
+  IUpdateOrderRo,
+  updateRecordOrdersRoSchema,
+  IUpdateRecordOrdersRo,
+} from '@teable/openapi';
+import type { EnableShareViewVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { ViewService } from '../view.service';
 import { ViewOpenApiService } from './view-open-api.service';
 
 @Controller('api/table/:tableId/view')
-@UseGuards(PermissionGuard)
 export class ViewOpenApiController {
   constructor(
     private readonly viewService: ViewService,
@@ -64,7 +73,50 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/sort')
+  @Put('/:viewId/name')
+  async updateName(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(viewNameRoSchema))
+    viewNameRo: IViewNameRo
+  ): Promise<void> {
+    return await this.viewOpenApiService.setViewProperty(tableId, viewId, 'name', viewNameRo.name);
+  }
+
+  @Permissions('view|update')
+  @Put('/:viewId/description')
+  async updateDescription(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(viewDescriptionRoSchema))
+    viewDescriptionRo: IViewDescriptionRo
+  ): Promise<void> {
+    return await this.viewOpenApiService.setViewProperty(
+      tableId,
+      viewId,
+      'description',
+      viewDescriptionRo.description
+    );
+  }
+
+  @Permissions('view|update')
+  @Put('/:viewId/share-meta')
+  async updateShareMeta(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(viewShareMetaRoSchema))
+    viewShareMetaRo: IViewShareMetaRo
+  ): Promise<void> {
+    return await this.viewOpenApiService.setViewProperty(
+      tableId,
+      viewId,
+      'shareMeta',
+      viewShareMetaRo
+    );
+  }
+
+  @Permissions('view|update')
+  @Put('/:viewId/manual-sort')
   async manualSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
@@ -75,14 +127,18 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/columnMeta')
+  @Put('/:viewId/column-meta')
   async updateFieldsVisible(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(columnMetaRoSchema))
     updateViewColumnMetaRo: IColumnMetaRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewColumnMeta(tableId, viewId, updateViewColumnMetaRo);
+    return await this.viewOpenApiService.updateViewColumnMeta(
+      tableId,
+      viewId,
+      updateViewColumnMetaRo
+    );
   }
 
   @Permissions('view|update')
@@ -93,55 +149,94 @@ export class ViewOpenApiController {
     @Body(new ZodValidationPipe(filterRoSchema))
     updateViewFilterRo: IFilterRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewFilter(tableId, viewId, updateViewFilterRo);
+    return await this.viewOpenApiService.setViewProperty(
+      tableId,
+      viewId,
+      'filter',
+      updateViewFilterRo.filter
+    );
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/viewSort')
+  @Put('/:viewId/sort')
   async updateViewSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(viewSortRoSchema))
     updateViewSortRo: IViewSortRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewSort(tableId, viewId, updateViewSortRo);
+    return await this.viewOpenApiService.setViewProperty(
+      tableId,
+      viewId,
+      'sort',
+      updateViewSortRo.sort
+    );
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/viewGroup')
+  @Put('/:viewId/group')
   async updateViewGroup(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(viewGroupRoSchema))
     updateViewGroupRo: IViewGroupRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewGroup(tableId, viewId, updateViewGroupRo);
+    return await this.viewOpenApiService.setViewProperty(
+      tableId,
+      viewId,
+      'group',
+      updateViewGroupRo.group
+    );
   }
 
   @Permissions('view|update')
-  @Put('/:viewId/option')
-  async updateViewOption(
+  @Patch('/:viewId/options')
+  async updateViewOptions(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewOptionRoSchema))
-    updateViewOptionRo: IViewOptionRo
+    @Body(new ZodValidationPipe(viewOptionsRoSchema))
+    updateViewOptionRo: IViewOptionsRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewOption(tableId, viewId, updateViewOptionRo);
+    return await this.viewOpenApiService.patchViewOptions(
+      tableId,
+      viewId,
+      updateViewOptionRo.options
+    );
   }
 
   @Permissions('view|update')
-  @Patch('/:viewId/order')
+  @Put('/:viewId/order')
   async updateViewOrder(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewOrderRoSchema))
-    updateOrderRo: IViewOrderRo
+    @Body(new ZodValidationPipe(updateOrderRoSchema))
+    updateOrderRo: IUpdateOrderRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewOrder(tableId, viewId, updateOrderRo);
+    return await this.viewOpenApiService.updateViewOrder(tableId, viewId, updateOrderRo);
   }
 
   @Permissions('view|update')
-  @Patch('/:viewId/enableShare')
+  @Put('/:viewId/record-order')
+  async updateRecordOrders(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(updateRecordOrdersRoSchema))
+    updateRecordOrdersRo: IUpdateRecordOrdersRo
+  ): Promise<void> {
+    return await this.viewOpenApiService.updateRecordOrders(tableId, viewId, updateRecordOrdersRo);
+  }
+
+  @Permissions('view|update')
+  @Post('/:viewId/refresh-share-id')
+  async refreshShareId(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string
+  ): Promise<EnableShareViewVo> {
+    return await this.viewOpenApiService.refreshShareId(tableId, viewId);
+  }
+
+  @Permissions('view|update')
+  @Post('/:viewId/enable-share')
   async enableShare(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string
@@ -150,7 +245,7 @@ export class ViewOpenApiController {
   }
 
   @Permissions('view|update')
-  @Patch('/:viewId/disableShare')
+  @Post('/:viewId/disable-share')
   async disableShare(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string

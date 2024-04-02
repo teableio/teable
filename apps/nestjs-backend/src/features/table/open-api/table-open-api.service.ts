@@ -1,22 +1,31 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, NotFoundException, Injectable, Logger } from '@nestjs/common';
+import type {
+  IFieldRo,
+  IFieldVo,
+  ILinkFieldOptions,
+  ILookupOptionsVo,
+  IViewRo,
+} from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
   ICreateTableWithDefault,
-  IFieldRo,
-  IFieldVo,
   IGetTableQuery,
   ITableFullVo,
   ITableVo,
-  IViewRo,
-} from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
+  IUpdateOrderRo,
+} from '@teable/openapi';
+import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { updateOrder } from '../../../utils/update-order';
+import { LinkService } from '../../calculation/link.service';
 import { FieldCreatingService } from '../../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../../field/field-calculate/field-supplement.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
+import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { GraphService } from '../../graph/graph.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
@@ -33,9 +42,12 @@ export class TableOpenApiService {
     private readonly graphService: GraphService,
     private readonly recordService: RecordService,
     private readonly tableService: TableService,
+    private readonly linkService: LinkService,
+    private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -61,7 +73,7 @@ export class TableOpenApiService {
   }
 
   private async createRecords(tableId: string, data: ICreateRecordsRo) {
-    return this.recordOpenApiService.createRecords(tableId, data.records, data.fieldKeyType);
+    return this.recordOpenApiService.createRecords(tableId, data);
   }
 
   private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
@@ -98,6 +110,8 @@ export class TableOpenApiService {
       const tableVo = await this.createTableMeta(baseId, tableRo);
       const tableId = tableVo.id;
       const preparedFields = await this.prepareFields(tableId, tableRo.fields);
+      // create teable should not set computed field isPending, because noting need to calculate when create
+      preparedFields.forEach((field) => delete field.isPending);
       const fieldVos = await this.createField(tableId, preparedFields);
       const viewVos = await this.createView(tableId, tableRo.views);
 
@@ -157,20 +171,30 @@ export class TableOpenApiService {
         ...tableMeta,
         description: tableMeta.description ?? undefined,
         icon: tableMeta.icon ?? undefined,
-        lastModifiedTime: time || tableMeta.lastModifiedTime.toISOString(),
+        lastModifiedTime: time || tableMeta.lastModifiedTime?.toISOString(),
         defaultViewId,
       };
     });
   }
 
+  async detachLink(tableId: string) {
+    const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
+
+    for (const field of relatedLinkFieldRaws) {
+      await this.fieldOpenApiService.convertField(field.tableId, field.id, {
+        type: FieldType.SingleLineText,
+      });
+    }
+  }
+
   async deleteTable(baseId: string, tableId: string, arbitrary = false) {
+    if (!arbitrary) {
+      await this.detachLink(tableId);
+    }
+
     return await this.prismaService.$tx(
       async (prisma) => {
-        const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
-          where: { id: tableId, deletedTime: null },
-          select: { dbTableName: true },
-        });
-
+        console.log('detachLink', tableId);
         await this.tableService.deleteTable(baseId, tableId);
 
         // delete field for table
@@ -190,14 +214,19 @@ export class TableOpenApiService {
 
         // clean ops for table
         await prisma.ops.deleteMany({
-          where: { docId: tableId },
+          where: { collection: baseId, docId: tableId },
         });
+
         if (arbitrary) {
-          await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS ${dbTableName}`);
+          const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
+            where: { id: tableId, deletedTime: null },
+            select: { dbTableName: true },
+          });
+          await prisma.$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
         }
       },
       {
-        timeout: 100_000,
+        timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
   }
@@ -225,5 +254,172 @@ export class TableOpenApiService {
 
   async getGraph(tableId: string, cell: [string, string]) {
     return this.graphService.getGraph(tableId, cell);
+  }
+
+  async updateName(baseId: string, tableId: string, name: string) {
+    await this.prismaService.$tx(async () => {
+      await this.tableService.updateTable(baseId, tableId, { name });
+    });
+  }
+
+  async updateIcon(baseId: string, tableId: string, icon: string) {
+    await this.prismaService.$tx(async () => {
+      await this.tableService.updateTable(baseId, tableId, { icon });
+    });
+  }
+
+  async updateDescription(baseId: string, tableId: string, description: string | null) {
+    await this.prismaService.$tx(async () => {
+      await this.tableService.updateTable(baseId, tableId, { description });
+    });
+  }
+
+  async updateDbTableName(baseId: string, tableId: string, dbTableNameRo: string) {
+    const dbTableName = this.dbProvider.joinDbTableName(baseId, dbTableNameRo);
+    const existDbTableName = await this.prismaService.tableMeta
+      .findFirst({
+        where: { baseId, dbTableName, deletedTime: null },
+        select: { id: true },
+      })
+      .catch(() => {
+        throw new NotFoundException(`table ${tableId} not found`);
+      });
+
+    if (existDbTableName) {
+      throw new BadRequestException(`dbTableName ${dbTableNameRo} already exists`);
+    }
+
+    const { dbTableName: oldDbTableName } = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        where: { id: tableId, baseId, deletedTime: null },
+        select: { dbTableName: true },
+      })
+      .catch(() => {
+        throw new NotFoundException(`table ${tableId} not found`);
+      });
+
+    const linkFieldsRaw = await this.prismaService.field.findMany({
+      where: { table: { baseId }, type: FieldType.Link },
+      select: { id: true, options: true },
+    });
+
+    const relationalFieldsRaw = await this.prismaService.field.findMany({
+      where: { table: { baseId }, lookupOptions: { not: null } },
+      select: { id: true, lookupOptions: true },
+    });
+
+    await this.prismaService.$tx(async (prisma) => {
+      await Promise.all(
+        linkFieldsRaw
+          .map((field) => ({
+            ...field,
+            options: JSON.parse(field.options as string) as ILinkFieldOptions,
+          }))
+          .filter((field) => {
+            return field.options.fkHostTableName === oldDbTableName;
+          })
+          .map((field) => {
+            return prisma.field.update({
+              where: { id: field.id },
+              data: { options: JSON.stringify({ ...field.options, fkHostTableName: dbTableName }) },
+            });
+          })
+      );
+
+      await Promise.all(
+        relationalFieldsRaw
+          .map((field) => ({
+            ...field,
+            lookupOptions: JSON.parse(field.lookupOptions as string) as ILookupOptionsVo,
+          }))
+          .filter((field) => {
+            return field.lookupOptions.fkHostTableName === oldDbTableName;
+          })
+          .map((field) => {
+            return prisma.field.update({
+              where: { id: field.id },
+              data: {
+                lookupOptions: JSON.stringify({
+                  ...field.lookupOptions,
+                  fkHostTableName: dbTableName,
+                }),
+              },
+            });
+          })
+      );
+
+      await this.tableService.updateTable(baseId, tableId, { dbTableName });
+      const renameSql = this.dbProvider.renameTableName(oldDbTableName, dbTableName);
+      for (const sql of renameSql) {
+        await prisma.$executeRawUnsafe(sql);
+      }
+    });
+  }
+
+  async shuffle(baseId: string) {
+    const tables = await this.prismaService.tableMeta.findMany({
+      where: { baseId, deletedTime: null },
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+
+    this.logger.log(`lucky table shuffle! ${baseId}`, 'shuffle');
+
+    await this.prismaService.$tx(async () => {
+      for (let i = 0; i < tables.length; i++) {
+        const table = tables[i];
+        await this.tableService.updateTable(baseId, table.id, { order: i });
+      }
+    });
+  }
+
+  async updateOrder(baseId: string, tableId: string, orderRo: IUpdateOrderRo) {
+    const { anchorId, position } = orderRo;
+
+    const table = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { baseId, id: tableId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Table ${tableId} not found`);
+      });
+
+    const anchorTable = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { baseId, id: anchorId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Anchor ${anchorId} not found`);
+      });
+
+    await updateOrder({
+      parentId: baseId,
+      position,
+      item: table,
+      anchorItem: anchorTable,
+      getNextItem: async (whereOrder, align) => {
+        return this.prismaService.tableMeta.findFirst({
+          select: { order: true, id: true },
+          where: {
+            baseId,
+            deletedTime: null,
+            order: whereOrder,
+          },
+          orderBy: { order: align },
+        });
+      },
+      update: async (
+        parentId: string,
+        id: string,
+        data: { newOrder: number; oldOrder: number }
+      ) => {
+        await this.prismaService.$tx(async () => {
+          await this.tableService.updateTable(parentId, id, { order: data.newOrder });
+        });
+      },
+      shuffle: this.shuffle.bind(this),
+    });
   }
 }

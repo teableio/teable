@@ -1,4 +1,6 @@
-import type { DriverClient, IAggregationField, IFilter, ISortItem } from '@teable-group/core';
+import type { DriverClient, IFilter, ISortItem } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -27,18 +29,39 @@ export interface IDbProvider {
 
   renameTableName(oldTableName: string, newTableName: string): string[];
 
-  renameColumnName(tableName: string, oldName: string, newName: string): string[];
+  dropTable(tableName: string): string;
+
+  renameColumn(tableName: string, oldName: string, newName: string): string[];
 
   dropColumn(tableName: string, columnName: string): string[];
 
   // sql response format: { name: string }[], name for columnName.
-  columnInfo(tableName: string, columnName: string): string;
+  columnInfo(tableName: string): string;
+
+  checkColumnExist(
+    tableName: string,
+    columnName: string,
+    prisma: Prisma.TransactionClient
+  ): Promise<boolean>;
 
   dropColumnAndIndex(tableName: string, columnName: string, indexName: string): string[];
 
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[];
 
+  duplicateTable(
+    fromSchema: string,
+    toSchema: string,
+    tableName: string,
+    withData?: boolean
+  ): string;
+
+  alterAutoNumber(tableName: string): string[];
+
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string;
+
+  splitTableName(tableName: string): string[];
+
+  joinDbTableName(schemaName: string, dbTableName: string): string;
 
   executeUpdateRecordsSqlList(params: {
     dbTableName: string;
@@ -69,4 +92,10 @@ export interface IDbProvider {
     sortObjs?: ISortItem[],
     extra?: ISortQueryExtra
   ): ISortQueryInterface;
+
+  searchQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    search?: string[]
+  ): Knex.QueryBuilder;
 }

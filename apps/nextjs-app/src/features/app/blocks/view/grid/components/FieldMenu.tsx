@@ -1,9 +1,10 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable-group/icons';
-import type { GridView } from '@teable-group/sdk';
-import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable-group/sdk';
-import { insertSingle } from '@teable-group/sdk/utils';
+import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable/icons';
+import type { GridView } from '@teable/sdk';
+import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable/sdk';
+import { insertSingle } from '@teable/sdk/utils';
 import {
+  cn,
   Command,
   CommandGroup,
   CommandItem,
@@ -12,11 +13,13 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
-} from '@teable-group/ui-lib/shadcn';
-import classNames from 'classnames';
-import { useRef } from 'react';
+} from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
+import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
+import { tableConfig } from '@/features/i18n/table.config';
+import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { useGridViewStore } from '../store/gridView';
 import type { IMenuItemProps } from './RecordMenu';
 
@@ -34,8 +37,10 @@ const iconClassName = 'mr-2 h-4 w-4';
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
   const view = useView() as GridView | undefined;
-  const { headerMenu, closeHeaderMenu, openSetting } = useGridViewStore();
+  const { headerMenu, closeHeaderMenu } = useGridViewStore();
+  const { openSetting } = useFieldSettingStore();
   const permission = useTablePermission();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const fields = headerMenu?.fields;
@@ -91,7 +96,7 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.Edit,
-        name: 'Edit field',
+        name: t('table:menu.editField'),
         icon: <Edit className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['field|update'],
         onClick: async () => {
@@ -105,14 +110,14 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.InsertLeft,
-        name: 'Insert left',
+        name: t('table:menu.insertFieldLeft'),
         icon: <ArrowLeft className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['field|create'],
         onClick: async () => await insertField(false),
       },
       {
         type: MenuItemType.InsertRight,
-        name: 'Insert right',
+        name: t('table:menu.insertFieldRight'),
         icon: <ArrowRight className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['field|create'],
         onClick: async () => await insertField(),
@@ -121,7 +126,7 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.Freeze,
-        name: 'Freeze up to this field',
+        name: t('table:menu.freezeUpField'),
         icon: <FreezeColumn className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['view|update'],
         onClick: async () => await freezeField(),
@@ -130,7 +135,7 @@ export const FieldMenu = () => {
     [
       {
         type: MenuItemType.Hidden,
-        name: 'Hide field',
+        name: t('table:menu.hideField'),
         icon: <EyeOff className={iconClassName} />,
         hidden: !permission['view|update'],
         disabled: fields.some((f) => f.isPrimary),
@@ -138,14 +143,17 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          view.setViewColumnMeta(
+          await view.updateColumnMeta(
             filteredFields.map((field) => ({ fieldId: field.id, columnMeta: { hidden: true } }))
           );
         },
       },
       {
         type: MenuItemType.Delete,
-        name: fieldIds.length > 1 ? 'Delete all selected fields' : 'Delete field',
+        name:
+          fieldIds.length > 1
+            ? t('table:menu.deleteAllSelectedFields')
+            : t('table:menu.deleteField'),
         icon: <Trash className={iconClassName} />,
         hidden: !permission['field|delete'],
         disabled: fields.some((f) => f.isPrimary),
@@ -154,7 +162,9 @@ export const FieldMenu = () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          filteredFields.forEach((field) => field.delete());
+          for (const field of filteredFields) {
+            await field.delete();
+          }
         },
       },
     ],
@@ -171,7 +181,7 @@ export const FieldMenu = () => {
             {menuGroups.flat().map(({ type, name, icon, disabled, className, onClick }) => {
               return (
                 <div
-                  className={classNames('flex w-full items-center border-b py-3', className, {
+                  className={cn('flex w-full items-center border-b py-3', className, {
                     'cursor-not-allowed': disabled,
                     'opacity-50': disabled,
                   })}
@@ -194,7 +204,7 @@ export const FieldMenu = () => {
       ) : (
         <Command
           ref={fieldSettingRef}
-          className={classNames('absolute rounded-lg shadow-sm w-60 h-auto border', {
+          className={cn('absolute rounded-lg shadow-sm w-60 h-auto border', {
             hidden: !visible,
           })}
           style={style}
@@ -205,11 +215,11 @@ export const FieldMenu = () => {
               if (!items.length) return null;
 
               return (
-                <>
-                  <CommandGroup key={`fm-group-${index}`} aria-valuetext="name">
+                <Fragment key={index}>
+                  <CommandGroup aria-valuetext="name">
                     {items.map(({ type, name, icon, disabled, className, onClick }) => (
                       <CommandItem
-                        className={classNames('px-4 py-2', className, {
+                        className={cn('px-4 py-2', className, {
                           'cursor-not-allowed': disabled,
                           'opacity-50': disabled,
                         })}
@@ -228,8 +238,8 @@ export const FieldMenu = () => {
                       </CommandItem>
                     ))}
                   </CommandGroup>
-                  {nextItems.length > 0 && <CommandSeparator key={`fm-separator-${index}`} />}
-                </>
+                  {nextItems.length > 0 && <CommandSeparator />}
+                </Fragment>
               );
             })}
           </CommandList>

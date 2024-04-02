@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IFieldRo } from '@teable-group/core';
-import { planField, planFieldCreate, planFieldUpdate } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config';
+import type { IFieldRo } from '@teable/core';
+import { planField, planFieldCreate, planFieldConvert } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useEffect } from 'react';
 
 export function usePlan({
@@ -14,8 +14,8 @@ export function usePlan({
   fieldRo?: IFieldRo;
 }) {
   const { data: updatePlan, refetch: planUpdate } = useQuery({
-    queryKey: ReactQueryKeys.planFieldUpdate(tableId, fieldId as string, fieldRo as IFieldRo),
-    queryFn: ({ queryKey }) => planFieldUpdate(queryKey[1], queryKey[2], queryKey[3]),
+    queryKey: ReactQueryKeys.planFieldConvert(tableId, fieldId as string, fieldRo as IFieldRo),
+    queryFn: ({ queryKey }) => planFieldConvert(queryKey[1], queryKey[2], queryKey[3]),
     refetchOnWindowFocus: false,
     enabled: false,
   });

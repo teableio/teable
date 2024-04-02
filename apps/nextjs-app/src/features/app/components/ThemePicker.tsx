@@ -1,20 +1,20 @@
-import { ThemeKey, useTheme } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
+import { ThemeKey, useTheme } from '@teable/sdk';
+import { cn } from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn/ui/dropdown-menu';
-import classNames from 'classnames';
+} from '@teable/ui-lib/shadcn/ui/dropdown-menu';
 export const ThemePicker: React.FC<{ className?: string }> = ({ className }) => {
   const { theme, isAutoTheme, setTheme } = useTheme();
   const value = isAutoTheme ? '' : theme;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className={classNames('capitalize', className)} size={'xs'} variant="ghost">
+        <Button className={cn('capitalize', className)} size={'xs'} variant="ghost">
           {value || 'system'}
         </Button>
       </DropdownMenuTrigger>

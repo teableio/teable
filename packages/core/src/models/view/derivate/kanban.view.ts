@@ -1,25 +1,26 @@
 import z from 'zod';
+import type { IKanbanColumnMeta } from '../column-meta.schema';
 import type { ViewType } from '../constant';
 import { ViewCore } from '../view';
 import type { IViewVo } from '../view.schema';
 
 export interface IKanbanView extends IViewVo {
   type: ViewType.Kanban;
-  options: KanbanViewOptions;
+  options: IKanbanViewOptions;
 }
 
-export class KanbanViewOptions {
-  groupingFieldId!: string;
-}
+export type IKanbanViewOptions = z.infer<typeof kanbanViewOptionSchema>;
 
 export const kanbanViewOptionSchema = z
   .object({
-    groupingFieldId: z.string(),
+    groupingFieldId: z.string().openapi({ description: 'The field id of the board group.' }),
   })
   .strict();
 
 export class KanbanViewCore extends ViewCore {
   type!: ViewType.Kanban;
 
-  options!: KanbanViewOptions;
+  options!: IKanbanViewOptions;
+
+  columnMeta!: IKanbanColumnMeta;
 }

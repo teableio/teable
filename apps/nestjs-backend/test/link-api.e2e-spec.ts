@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, IRecord, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo, IRecord } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -12,7 +12,9 @@ import {
   NumberFormattingType,
   RecordOpBuilder,
   Relationship,
-} from '@teable-group/core';
+} from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { updateDbTableName } from '@teable/openapi';
 import type { Connection, Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import {
@@ -26,6 +28,7 @@ import {
   getFields,
   getRecord,
   getRecords,
+  getTable,
   initApp,
   updateRecord,
   updateRecordByApi,
@@ -35,19 +38,18 @@ describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
   const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';
-  let cookie: string;
   let connection: Connection;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    cookie = appCtx.cookie;
 
     const shareDbService = app.get(ShareDbService);
     connection = shareDbService.connect(undefined, {
       headers: {
-        cookie: cookie,
+        cookie: appCtx.cookie,
       },
+      sessionID: appCtx.sessionID,
     });
   });
 
@@ -2296,6 +2298,18 @@ describe('OpenAPI link (e2e)', () => {
         id: table2.records[0].id,
       });
 
+      const table2RecordPre = await getRecord(table2.id, table2.records[0].id);
+      expect(table2RecordPre.fields[symManyOneField.id]).toEqual([
+        {
+          title: 'x1',
+          id: table1.records[0].id,
+        },
+        {
+          title: 'x2',
+          id: table1.records[1].id,
+        },
+      ]);
+
       await deleteRecord(table1.id, table1.records[0].id);
 
       const table2Record = await getRecord(table2.id, table2.records[0].id);
@@ -2354,6 +2368,47 @@ describe('OpenAPI link (e2e)', () => {
       expect(table2Record.fields[symManyOneField.id]).toBeUndefined();
       expect(table2Record.fields[symOneManyField.id]).toBeUndefined();
     });
+
+    it.each([
+      { relationship: Relationship.OneOne },
+      { relationship: Relationship.ManyMany },
+      { relationship: Relationship.ManyOne },
+      { relationship: Relationship.OneMany },
+    ])(
+      'should clean one-way $relationship link record when delete a record',
+      async ({ relationship }) => {
+        const manyOneFieldRo: IFieldRo = {
+          type: FieldType.Link,
+          options: {
+            relationship,
+            foreignTableId: table2.id,
+            isOneWay: true,
+          },
+        };
+
+        // set primary key 'x' in table2
+        await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+        // get get a oneManyField involved
+        const manyOneField = await createField(table1.id, manyOneFieldRo);
+
+        if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
+          await updateRecordByApi(table1.id, table1.records[0].id, manyOneField.id, {
+            id: table2.records[0].id,
+          });
+        } else {
+          await updateRecordByApi(table1.id, table1.records[0].id, manyOneField.id, [
+            {
+              id: table2.records[0].id,
+            },
+          ]);
+        }
+
+        await deleteRecord(table2.id, table2.records[0].id);
+
+        const table1Record = await getRecord(table1.id, table1.records[0].id);
+        expect(table1Record.fields[manyOneField.id]).toBeUndefined();
+      }
+    );
   });
 
   describe('Create two bi-link for two tables', () => {
@@ -2599,6 +2654,99 @@ describe('OpenAPI link (e2e)', () => {
         const table1Fields = await getFields(table1.id);
         expect(table1Fields.length).toEqual(2);
       });
+    });
+  });
+
+  describe('change db table name', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      // create tables
+      const textFieldRo: IFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
+      const numberFieldRo: IFieldRo = {
+        name: 'Number field',
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
+        },
+      };
+
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo, numberFieldRo],
+        records: [],
+      });
+
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, numberFieldRo],
+        records: [],
+      });
+
+      // create link field
+      const table2LinkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      await createField(table2.id, table2LinkFieldRo);
+
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
+    });
+
+    it('should correct update db table name', async () => {
+      const table1LinkField = table1.fields[2];
+      const table2LinkField = table2.fields[2];
+      expect((table1LinkField.options as ILinkFieldOptions).fkHostTableName).toEqual(
+        table1.dbTableName
+      );
+      expect((table2LinkField.options as ILinkFieldOptions).fkHostTableName).toEqual(
+        table1.dbTableName
+      );
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+          linkFieldId: table2LinkField.id,
+        },
+      };
+
+      const lookupField = await createField(table2.id, lookupFieldRo);
+
+      await updateDbTableName(baseId, table1.id, { dbTableName: 'newAwesomeName' });
+      const newTable1 = await getTable(baseId, table1.id);
+      const updatedLink1 = await getField(table1.id, table1LinkField.id);
+      const updatedLink2 = await getField(table2.id, table2LinkField.id);
+      const updatedLookupField = await getField(table2.id, lookupField.id);
+
+      expect(newTable1.dbTableName.split(/[._]/)).toEqual(['bseTestBaseId', 'newAwesomeName']);
+      expect((updatedLink1.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
+      expect((updatedLink2.options as ILinkFieldOptions).fkHostTableName.split(/[._]/)).toEqual([
+        'bseTestBaseId',
+        'newAwesomeName',
+      ]);
+      expect(
+        (updatedLookupField.lookupOptions as ILookupOptionsVo).fkHostTableName.split(/[._]/)
+      ).toEqual(['bseTestBaseId', 'newAwesomeName']);
     });
   });
 });

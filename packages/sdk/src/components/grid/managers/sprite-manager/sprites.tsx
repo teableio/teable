@@ -6,7 +6,8 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-} from '@teable-group/icons';
+  Lock,
+} from '@teable/icons';
 import { renderToString } from 'react-dom/server';
 
 export interface ISpriteProps {
@@ -49,6 +50,11 @@ const collapse = (props: ISpriteProps) => {
   return renderToString(<ChevronRight style={{ color: fgColor }} />);
 };
 
+const lock = (props: ISpriteProps) => {
+  const { fgColor } = props;
+  return renderToString(<Lock style={{ color: fgColor }} />);
+};
+
 export const sprites = {
   add,
   drag,
@@ -57,6 +63,7 @@ export const sprites = {
   close,
   expand,
   collapse,
+  lock,
 };
 
 export enum GridInnerIcon {
@@ -67,4 +74,5 @@ export enum GridInnerIcon {
   Close = 'close',
   Expand = 'expand',
   Collapse = 'collapse',
+  Lock = 'lock',
 }

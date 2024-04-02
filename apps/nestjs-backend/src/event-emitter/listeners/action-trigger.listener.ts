@@ -1,11 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { IActionTriggerBuffer, IColumn } from '@teable-group/core';
-import { getActionTriggerChannel } from '@teable-group/core';
+import type { IActionTriggerBuffer, IGridColumn } from '@teable/core';
+import { getActionTriggerChannel, OpName } from '@teable/core';
 import { isEmpty } from 'lodash';
+import { match } from 'ts-pattern';
 import { ShareDbService } from '../../share-db/share-db.service';
-import type { RecordDeleteEvent, ViewUpdateEvent } from '../model';
-import { Events, RecordCreateEvent, RecordUpdateEvent } from '../model';
+import type {
+  RecordCreateEvent,
+  RecordDeleteEvent,
+  RecordUpdateEvent,
+  ViewUpdateEvent,
+} from '../events';
+import { Events } from '../events';
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
@@ -31,62 +37,64 @@ export class ActionTriggerListener {
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async handleTableViewUpdate(event: ViewUpdateEvent): Promise<void> {
     if (!this.isValidViewUpdateOperation(event)) {
       return;
     }
 
-    const { tableId, view } = event;
+    const { tableId, view } = event.payload;
     const { id: viewId, filter, columnMeta, group } = view;
 
-    let buffer: IActionTriggerBuffer = {};
-    if (filter) {
-      buffer = {
-        ...buffer,
-        applyViewFilter: [tableId, viewId],
-      };
-    }
+    const buffer: IActionTriggerBuffer = {
+      applyViewFilter: filter ? [tableId, viewId] : undefined,
+      applyViewGroup: group ? [tableId, viewId] : undefined,
+      applyViewStatisticFunc: columnMeta ? [tableId, viewId] : undefined,
+      showViewField: columnMeta ? [tableId, viewId] : undefined,
+    };
 
-    if (group) {
-      buffer = {
-        ...buffer,
-        applyViewGroup: [tableId, viewId],
-      };
-    }
+    if (columnMeta != null) {
+      Object.entries(columnMeta)?.forEach(([fieldId, { oldValue, newValue }]) => {
+        const oldColumn = oldValue as IGridColumn;
+        const newColumn = newValue as IGridColumn;
 
-    if (columnMeta) {
-      const fieldIds = Object.entries(columnMeta)
-        .filter(([_, v]) => !(v.newValue as IColumn).hidden)
-        .map(([fieldId, _]) => fieldId);
+        const shouldShow = !newColumn?.hidden && oldColumn?.hidden !== newColumn?.hidden;
+        const shouldApplyStatFunc = oldColumn?.statisticFunc !== newColumn?.statisticFunc;
 
-      if (fieldIds.length) {
-        buffer = {
-          ...buffer,
-          showViewField: [tableId, viewId, ...fieldIds],
-        };
+        if (shouldShow) {
+          buffer.showViewField!.push(fieldId);
+        }
+        if (shouldApplyStatFunc) {
+          buffer.applyViewStatisticFunc!.push(fieldId);
+        }
+      });
+
+      if (buffer.showViewField!.length <= 2) {
+        delete buffer.showViewField;
+      }
+      if (buffer.applyViewStatisticFunc!.length <= 2) {
+        delete buffer.applyViewStatisticFunc;
       }
     }
 
-    !isEmpty(buffer) && this.emitActionTrigger(tableId, buffer);
+    if (!isEmpty(buffer)) {
+      this.emitActionTrigger(tableId, buffer);
+    }
   }
 
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
-    const { tableId } = event;
-    const buffer: IActionTriggerBuffer = {};
+    const { tableId } = event.payload;
 
-    switch (event.constructor) {
-      case RecordCreateEvent:
-        buffer.tableAdd = [tableId];
-        break;
-      case RecordUpdateEvent:
-        buffer.tableUpdate = [tableId];
-        break;
-      default:
-        buffer.tableDelete = [tableId];
-        break;
+    const buffer = match(event)
+      .returnType<IActionTriggerBuffer>()
+      .with({ name: Events.TABLE_RECORD_CREATE }, () => ({ addRecord: [tableId] }))
+      .with({ name: Events.TABLE_RECORD_UPDATE }, () => ({ setRecord: [tableId] }))
+      .with({ name: Events.TABLE_RECORD_DELETE }, () => ({ deleteRecord: [tableId] }))
+      .otherwise(() => ({}));
+
+    if (!isEmpty(buffer)) {
+      this.emitActionTrigger(tableId, buffer);
     }
-
-    !isEmpty(buffer) && this.emitActionTrigger(tableId, buffer);
   }
 
   private isTableViewUpdateEvent(event: IListenerEvent): boolean {
@@ -94,9 +102,9 @@ export class ActionTriggerListener {
   }
 
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
-    const operationNames = ['setViewFilter', 'setViewGroup', 'setViewColumnMeta'];
-    const { name } = event.context.opMeta || {};
-    return name && operationNames.includes(name);
+    const propertyKeys = ['filter', 'group'];
+    const { name, propertyKey } = event.context.opMeta || {};
+    return name === OpName.UpdateViewColumnMeta || propertyKeys.includes(propertyKey as string);
   }
 
   private isTableRecordEvent(event: IListenerEvent): boolean {

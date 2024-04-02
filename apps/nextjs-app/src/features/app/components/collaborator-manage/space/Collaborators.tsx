@@ -1,29 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable-group/core';
-import { hasPermission } from '@teable-group/core';
-import { X } from '@teable-group/icons';
-import type { ListSpaceCollaboratorVo } from '@teable-group/openapi';
+import type { SpaceRole } from '@teable/core';
+import { hasPermission } from '@teable/core';
+import { X } from '@teable/icons';
+import type { ListSpaceCollaboratorVo } from '@teable/openapi';
 import {
   deleteSpaceCollaborator,
   getSpaceCollaboratorList,
   updateSpaceCollaborator,
-} from '@teable-group/openapi';
-import { ReactQueryKeys, useSession } from '@teable-group/sdk';
+} from '@teable/openapi';
+import { ReactQueryKeys, useSession } from '@teable/sdk';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Button,
   Input,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { throttle } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import React, { useMemo, useState } from 'react';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { RoleSelect } from './RoleSelect';
 
 extend(relativeTime);
@@ -47,6 +46,7 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
   const [search, setSearch] = useState<string>('');
   const queryClient = useQueryClient();
   const { user } = useSession();
+  const { t } = useTranslation('common');
 
   const { data: collaborators } = useQuery({
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
@@ -75,11 +75,11 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
 
   return (
     <div>
-      <div className="text-sm text-muted-foreground">Space collaborators</div>
+      <div className="text-sm text-muted-foreground">{t('invite.dialog.spaceTitle')}</div>
       <Input
         className="mb-5 mt-3 h-8"
         type="search"
-        placeholder="Find a space collaborator by name or email"
+        placeholder={t('invite.dialog.collaboratorSearchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
@@ -87,17 +87,16 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
         {collaboratorsFiltered?.map(({ userId, userName, email, role, avatar, createdTime }) => (
           <div key={userId} className="relative flex items-center gap-3 pr-7">
             <div className="flex flex-1">
-              <Avatar className="h-7 w-7">
-                <AvatarImage src={avatar as string} alt="avatar-name" />
-                <AvatarFallback>{userName.slice(0, 1)}</AvatarFallback>
-              </Avatar>
+              <UserAvatar user={{ name: userName, avatar }} />
               <div className="ml-2 flex flex-1 flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{userName}</p>
                 <p className="text-xs leading-none text-muted-foreground">{email}</p>
               </div>
             </div>
             <div className="text-xs text-muted-foreground">
-              joined {dayjs(createdTime).fromNow()}
+              {t('invite.dialog.collaboratorJoin', {
+                joinTime: dayjs(createdTime).fromNow(),
+              })}
             </div>
             <RoleSelect
               value={role}
@@ -117,11 +116,11 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
                       disabled={deleteCollaboratorLoading}
                       onClick={() => deleteCollaborator({ spaceId, userId })}
                     >
-                      <X className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
+                      <X className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Remove collaborator</p>
+                    <p>{t('invite.dialog.collaboratorRemove')}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

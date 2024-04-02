@@ -1,6 +1,6 @@
-import { getRandomString } from '@teable-group/core';
-import SendIcon from '@teable-group/ui-lib/icons/app/send.svg';
-import { useToast } from '@teable-group/ui-lib/shadcn/ui/use-toast';
+import { getRandomString } from '@teable/core';
+import SendIcon from '@teable/ui-lib/icons/app/send.svg';
+import { useToast } from '@teable/ui-lib/shadcn/ui/use-toast';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { CreatorRole, MessageStatus, useMessageStore } from 'store/message';
@@ -63,7 +63,7 @@ export const MessageInput: React.FC<Props> = ({ disabled, sendMessage, chat }) =
     <div className="bg-base-100 relative mb-2 flex h-auto w-full flex-row items-end justify-between rounded-lg border p-1 shadow">
       <TextareaAutosize
         ref={textareaRef}
-        className="hide-scrollbar textarea mr-1 h-full min-h-0 w-full resize-none bg-transparent p-1 text-sm leading-6"
+        className="hide-scrollbar textarea mr-1 size-full min-h-0 resize-none bg-transparent p-1 text-sm leading-6"
         placeholder="Type a message..."
         rows={1}
         minRows={1}

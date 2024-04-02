@@ -1,8 +1,18 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, PayloadTooLargeException } from '@nestjs/common';
+import type { IGridColumnMeta, IFilter } from '@teable/core';
+import {
+  DbFieldType,
+  mergeWithDefaultFilter,
+  nullsToUndefined,
+  parseGroup,
+  StatisticsFunc,
+  ViewType,
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import { GroupPointType } from '@teable/openapi';
 import type {
   IAggregationField,
-  IColumnMeta,
-  IFilter,
   IGetRecordsRo,
   IQueryBaseRo,
   IRawAggregations,
@@ -10,21 +20,10 @@ import type {
   IRawRowCountValue,
   IGroupPoint,
   IGroupPointsRo,
-} from '@teable-group/core';
-import {
-  DbFieldType,
-  GroupPointType,
-  mergeWithDefaultFilter,
-  nullsToUndefined,
-  parseGroup,
-  StatisticsFunc,
-  ViewType,
-} from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { groupBy, isDate, isEmpty, isObject } from 'lodash';
+import { groupBy, isDate, isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -71,8 +70,9 @@ export class AggregationService {
     tableId: string;
     withFieldIds?: string[];
     withView?: IWithView;
+    search?: [string, string];
   }): Promise<IRawAggregationValue> {
-    const { tableId, withFieldIds, withView } = params;
+    const { tableId, withFieldIds, withView, search } = params;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -90,6 +90,7 @@ export class AggregationService {
       dbTableName,
       fieldInstanceMap,
       filter,
+      search,
       statisticFields,
       withUserId: currentUserId,
     });
@@ -131,20 +132,17 @@ export class AggregationService {
 
     const { filter } = statisticsData;
 
-    if (filterLinkCellSelected) {
-      // TODO: use a new method to retrieve only count
-      const { ids } = await this.recordService.getLinkSelectedRecordIds(filterLinkCellSelected);
-      return { rowCount: ids.length };
-    }
-
     const rawRowCountData = await this.handleRowCount({
       tableId,
       dbTableName,
       fieldInstanceMap,
       filter,
       filterLinkCellCandidate,
+      filterLinkCellSelected,
+      search: queryRo.search,
       withUserId: currentUserId,
     });
+
     return {
       rowCount: Number(rawRowCountData[0]?.count ?? 0),
     };
@@ -255,7 +253,7 @@ export class AggregationService {
 
   private getStatisticFields(
     fieldInstances: IFieldInstance[],
-    columnMeta?: IColumnMeta,
+    columnMeta?: IGridColumnMeta,
     customFieldStats?: ICustomFieldStats[]
   ) {
     let calculatedStatisticFields: IAggregationField[] | undefined;
@@ -294,10 +292,11 @@ export class AggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
+    search?: [string, string];
     statisticFields?: IAggregationField[];
     withUserId?: string;
   }) {
-    const { dbTableName, fieldInstanceMap, filter, statisticFields, withUserId } = params;
+    const { dbTableName, fieldInstanceMap, filter, search, statisticFields, withUserId } = params;
     if (!statisticFields?.length) {
       return;
     }
@@ -310,6 +309,9 @@ export class AggregationService {
           this.dbProvider
             .filterQuery(qb, fieldInstanceMap, filter, { withUserId })
             .appendQueryBuilder();
+        }
+        if (search) {
+          this.dbProvider.searchQuery(qb, fieldInstanceMap, search);
         }
       })
       .from(tableAlias);
@@ -326,10 +328,20 @@ export class AggregationService {
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
+    filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
+    search?: [string, string];
     withUserId?: string;
   }) {
-    const { tableId, dbTableName, fieldInstanceMap, filter, filterLinkCellCandidate, withUserId } =
-      params;
+    const {
+      tableId,
+      dbTableName,
+      fieldInstanceMap,
+      filter,
+      filterLinkCellCandidate,
+      filterLinkCellSelected,
+      search,
+      withUserId,
+    } = params;
 
     const queryBuilder = this.knex(dbTableName);
 
@@ -339,11 +351,25 @@ export class AggregationService {
         .appendQueryBuilder();
     }
 
+    if (search) {
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+    }
+
     if (filterLinkCellCandidate) {
       await this.recordService.buildLinkCandidateQuery(
         queryBuilder,
         tableId,
+        dbTableName,
         filterLinkCellCandidate
+      );
+    }
+
+    if (filterLinkCellSelected) {
+      await this.recordService.buildLinkSelectedQuery(
+        queryBuilder,
+        tableId,
+        dbTableName,
+        filterLinkCellSelected
       );
     }
 
@@ -418,29 +444,24 @@ export class AggregationService {
     groupFields: IFieldInstance[]
   ) {
     const groupPoints: IGroupPoint[] = [];
-
-    let firstDbFieldValue: unknown = Symbol();
-    let secondDbFieldValue: unknown = Symbol();
+    let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
 
     groupResult.forEach((item) => {
       const { __c: count } = item;
 
       groupFields.forEach((field, index) => {
         const { id, dbFieldName } = field;
-        const fieldValue = isObject(item[dbFieldName])
-          ? String(item[dbFieldName])
-          : item[dbFieldName];
-        if (index === 0) {
-          if (firstDbFieldValue === fieldValue) return;
-          firstDbFieldValue = fieldValue;
-          secondDbFieldValue = Symbol();
-        }
-        if (index === 1) {
-          if (secondDbFieldValue === fieldValue) return;
-          secondDbFieldValue = fieldValue;
-        }
+        const fieldValue = this.convertValueToNumberOrString(item[dbFieldName]);
+
+        if (fieldValues[index] === fieldValue) return;
+
+        fieldValues[index] = fieldValue;
+        fieldValues = fieldValues.map((value, idx) => (idx > index ? Symbol() : value));
+
+        const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
+
         groupPoints.push({
-          id: String(string2Hash(`${id}_${fieldValue}`)),
+          id: String(string2Hash(flagString)),
           type: GroupPointType.Header,
           depth: index,
           value: field.convertDBValue2CellValue(fieldValue),
@@ -452,24 +473,8 @@ export class AggregationService {
     return groupPoints;
   }
 
-  private async checkGroupingOverLimit(
-    fieldIds: string[],
-    fieldInstanceMap: Record<string, IFieldInstance>,
-    queryBuilder: Knex.QueryBuilder
-  ) {
-    fieldIds.forEach((fieldId) => {
-      const field = fieldInstanceMap[fieldId];
-
-      if (!field) return;
-
-      const { dbFieldType, dbFieldName } = field;
-      const column =
-        dbFieldType === DbFieldType.Json
-          ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
-          : this.knex.ref(dbFieldName).toQuery();
-
-      queryBuilder.countDistinct(this.knex.raw(`${column}`));
-    });
+  private async checkGroupingOverLimit(dbFieldNames: string[], queryBuilder: Knex.QueryBuilder) {
+    queryBuilder.countDistinct(dbFieldNames);
 
     const distinctResult = await this.prisma.$queryRawUnsafe<{ count: number }[]>(
       queryBuilder.toQuery()
@@ -480,7 +485,7 @@ export class AggregationService {
   }
 
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
-    const { viewId, groupBy: extraGroupBy, filter } = query || {};
+    const { viewId, groupBy: extraGroupBy, filter, search } = query || {};
 
     if (!viewId) return null;
 
@@ -500,23 +505,30 @@ export class AggregationService {
     const distinctQueryBuilder = this.knex(dbTableName);
 
     if (mergedFilter) {
+      const withUserId = this.cls.get('user.id');
       this.dbProvider
-        .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter)
+        .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
         .appendQueryBuilder();
       this.dbProvider
-        .filterQuery(distinctQueryBuilder, fieldInstanceMap, mergedFilter)
+        .filterQuery(distinctQueryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
         .appendQueryBuilder();
     }
 
+    if (search) {
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+      this.dbProvider.searchQuery(distinctQueryBuilder, fieldInstanceMap, search);
+    }
+
+    const dbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
+
     const isGroupingOverLimit = await this.checkGroupingOverLimit(
-      groupFieldIds,
-      fieldInstanceMap,
+      dbFieldNames,
       distinctQueryBuilder
     );
+
     if (isGroupingOverLimit) {
-      throw new HttpException(
-        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.',
-        HttpStatus.PAYLOAD_TOO_LARGE
+      throw new PayloadTooLargeException(
+        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.'
       );
     }
 
@@ -535,9 +547,7 @@ export class AggregationService {
           ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
           : this.knex.ref(dbFieldName).toQuery();
 
-      queryBuilder
-        .select(this.knex.raw(`${column}`))
-        .groupByRaw(this.knex.raw(`${column}`).toQuery());
+      queryBuilder.select(this.knex.raw(`${column}`)).groupBy(dbFieldName);
     });
 
     const groupSql = queryBuilder.toQuery();

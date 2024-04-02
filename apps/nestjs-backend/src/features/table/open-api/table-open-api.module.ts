@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { DbProvider } from '../../../db-provider/db.provider';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
+import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { GraphModule } from '../../graph/graph.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
@@ -16,12 +18,14 @@ import { TableOpenApiService } from './table-open-api.service';
     RecordModule,
     RecordOpenApiModule,
     ViewOpenApiModule,
+    FieldOpenApiModule,
     TableModule,
     ShareDbModule,
     CalculationModule,
     GraphModule,
   ],
   controllers: [TableController],
-  providers: [TableOpenApiService],
+  providers: [DbProvider, TableOpenApiService],
+  exports: [TableOpenApiService],
 })
 export class TableOpenApiModule {}

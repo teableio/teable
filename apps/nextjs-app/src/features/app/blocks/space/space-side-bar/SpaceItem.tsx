@@ -1,7 +1,6 @@
-import { Component } from '@teable-group/icons';
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import { Button } from '@teable-group/ui-lib/shadcn';
-import classNames from 'classnames';
+import { Component } from '@teable/icons';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { useMount } from 'react-use';
@@ -25,7 +24,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
       variant={'ghost'}
       size={'xs'}
       asChild
-      className={classNames('my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group', {
+      className={cn('my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group', {
         'bg-secondary': isActive,
       })}
     >
@@ -38,7 +37,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
         }}
         title={name}
       >
-        <Component className="h-4 w-4 shrink-0" />
+        <Component className="size-4 shrink-0" />
         <p className="grow truncate">{' ' + name}</p>
       </Link>
     </Button>

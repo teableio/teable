@@ -9,8 +9,8 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ISelectFieldChoice,
-  IUpdateFieldRo,
-} from '@teable-group/core';
+  IConvertFieldRo,
+} from '@teable/core';
 import {
   ColorUtils,
   DbFieldType,
@@ -20,11 +20,12 @@ import {
   generateChoiceId,
   isMultiValueLink,
   RecordOpBuilder,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { ICellContext } from '../../calculation/link.service';
@@ -54,7 +55,7 @@ interface IModifiedOps {
 
 @Injectable()
 export class FieldConvertingService {
-  private logger = new Logger(FieldConvertingService.name);
+  private readonly logger = new Logger(FieldConvertingService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -346,10 +347,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
@@ -401,10 +401,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
@@ -481,10 +480,9 @@ export class FieldConvertingService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { __id: string; [dbFieldName: string]: string }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as number;
@@ -576,7 +574,7 @@ export class FieldConvertingService {
 
     switch (newField.type) {
       case FieldType.Link:
-        return this.fieldConvertingLinkService.convertLink(
+        return this.fieldConvertingLinkService.modifyLinkOptions(
           tableId,
           newField as LinkFieldDto,
           oldField as LinkFieldDto
@@ -631,7 +629,12 @@ export class FieldConvertingService {
         if (!context) {
           throw new Error('Invalid operation');
         }
-        changes.push({ ...context, oldValue: null, recordId }); // old value by no means when converting
+        changes.push({
+          recordId,
+          fieldId: context.fieldId,
+          oldValue: null, // old value by no means when converting
+          newValue: context.newCellValue,
+        });
       }
     }
 
@@ -677,7 +680,7 @@ export class FieldConvertingService {
     await this.batchService.updateRecords(composedOpsMap, fieldMap, tableId2DbTableName);
   }
 
-  private async getRecordMap(tableId: string, newField: IFieldInstance) {
+  private async getExistRecords(tableId: string, newField: IFieldInstance) {
     const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
@@ -703,13 +706,13 @@ export class FieldConvertingService {
     oldField: IFieldInstance
   ) {
     const fieldId = newField.id;
-    const recordMap = await this.getRecordMap(tableId, oldField);
+    const records = await this.getExistRecords(tableId, oldField);
     const choices = newField.options.choices;
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const fieldOps: IOtOperation[] = [];
     const choicesMap = keyBy(choices, 'name');
     const newChoicesSet = new Set<string>();
-    Object.values(recordMap).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -766,11 +769,11 @@ export class FieldConvertingService {
 
   private async convert2User(tableId: string, newField: UserFieldDto, oldField: IFieldInstance) {
     const fieldId = newField.id;
-    const recordMap = await this.getRecordMap(tableId, oldField);
+    const records = await this.getExistRecords(tableId, oldField);
     const baseCollabs = await this.collaboratorService.getBaseCollabsWithPrimary(tableId);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
 
-    Object.values(recordMap).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -813,9 +816,9 @@ export class FieldConvertingService {
     }
 
     const fieldId = newField.id;
-    const records = await this.getRecordMap(tableId, oldField);
+    const records = await this.getExistRecords(tableId, oldField);
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
-    Object.values(records).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;
@@ -920,27 +923,12 @@ export class FieldConvertingService {
     }
   }
 
-  majorKeysChanged(oldField: IFieldInstance, newField: IFieldInstance) {
-    const keys = this.getOriginFieldKeys(newField, oldField);
-
-    // filter property
-    const majorKeys = difference(keys, ['name', 'description', 'dbFieldName']);
-
-    if (!majorKeys.length) {
+  needCalculate(newField: IFieldInstance, oldField: IFieldInstance) {
+    if (!newField.isComputed) {
       return false;
     }
 
-    // expression not change
-    if (
-      majorKeys.length === 1 &&
-      majorKeys[0] === 'options' &&
-      (oldField.options as { expression: string }).expression ===
-        (newField.options as { expression: string }).expression
-    ) {
-      return false;
-    }
-
-    return true;
+    return majorFieldKeysChanged(oldField, newField);
   }
 
   private async calculateField(
@@ -952,17 +940,18 @@ export class FieldConvertingService {
       return;
     }
 
-    if (!this.majorKeysChanged(oldField, newField)) {
+    if (!majorFieldKeysChanged(oldField, newField)) {
       return;
     }
 
-    console.log('calculating field:', newField.name);
+    this.logger.log(`calculating field: ${newField.name}`);
 
     if (newField.lookupOptions) {
       await this.fieldCalculationService.resetAndCalculateFields(tableId, [newField.id]);
     } else {
       await this.fieldCalculationService.calculateFields(tableId, [newField.id]);
     }
+    await this.fieldService.resolvePending(tableId, [newField.id]);
   }
 
   private async submitFieldOpsMap(fieldOpsMap: IOpsMap | undefined) {
@@ -995,7 +984,7 @@ export class FieldConvertingService {
     }
   }
 
-  async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
+  async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
     if (!oldFieldVo) {
       throw new BadRequestException(`Not found fieldId(${fieldId})`);
@@ -1029,6 +1018,16 @@ export class FieldConvertingService {
     modifiedOps?: IModifiedOps
   ) {
     const ops = this.getOriginFieldOps(newField, oldField);
+
+    if (this.needCalculate(newField, oldField)) {
+      ops.push(
+        FieldOpBuilder.editor.setFieldProperty.build({
+          key: 'isPending',
+          newValue: true,
+          oldValue: undefined,
+        })
+      );
+    }
 
     // apply current field changes
     await this.fieldService.batchUpdateFields(tableId, [

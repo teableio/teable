@@ -2,7 +2,7 @@
 import { plainToInstance } from 'class-transformer';
 import { CellValueType, DbFieldType, FieldType } from '../constant';
 import { FieldCore } from '../field';
-import { updateFieldRoSchema } from '../field.schema';
+import { convertFieldRoSchema } from '../field.schema';
 import type { IUserCellValue } from './user.field';
 import { UserFieldCore } from './user.field';
 
@@ -149,7 +149,7 @@ describe('UserFieldCore', () => {
 
   describe('validateOptions', () => {
     it('should return success if options are valid', () => {
-      expect(updateFieldRoSchema.safeParse(json).success).toBeTruthy();
+      expect(convertFieldRoSchema.safeParse(json).success).toBeTruthy();
     });
 
     it('should return failure if options are invalid', () => {

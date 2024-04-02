@@ -1,4 +1,4 @@
-import { Trash2, Plus } from '@teable-group/icons';
+import { Trash2, Plus } from '@teable/icons';
 import {
   Button,
   DropdownMenu,
@@ -9,9 +9,9 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+  cn,
+} from '@teable/ui-lib';
 
-import classNames from 'classnames';
 import { useContext } from 'react';
 
 import { useTranslation } from '../../../context/app/i18n';
@@ -41,7 +41,7 @@ function ConditionGroup(props: IConditionGroupProps) {
           }}
         ></Conjunction>
         <div
-          className={classNames(
+          className={cn(
             'm-h-20 w-full rounded-sm border ml-2'
             // level > 0 ? 'bg-secondary' : 'bg-secondary/2'
           )}
@@ -55,7 +55,7 @@ function ConditionGroup(props: IConditionGroupProps) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">
-                    <Plus className="h-4 w-4"></Plus>
+                    <Plus className="size-4"></Plus>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -91,7 +91,7 @@ function ConditionGroup(props: IConditionGroupProps) {
               </DropdownMenu>
 
               <Button variant="ghost" onClick={() => deleteCondition(path, index)} size="sm">
-                <Trash2 className="h-4 w-4"></Trash2>
+                <Trash2 className="size-4"></Trash2>
               </Button>
             </div>
           </div>

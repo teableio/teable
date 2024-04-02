@@ -14,7 +14,7 @@
     "incremental": true,
     "composite": true,
     "paths": {
-      "@teable-group/icons": ["../../icons/src"]
+      "@teable/icons": ["../../icons/src"]
     }
   },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],

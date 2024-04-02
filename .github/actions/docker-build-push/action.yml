@@ -1,0 +1,72 @@
+name: 'Docker build push (app)'
+description: 'Build and push Docker images with Buildx'
+inputs:
+  context:
+    description: "Build's context is the set of files located in the specified PATH or URL"
+    required: false
+    default: '.'
+  dockerfile:
+    description: 'Path to the Dockerfile'
+    required: false
+    default: 'Dockerfile'
+  push:
+    description: 'Push is a shorthand for --output=type=registry'
+    required: false
+    default: 'true'
+  push-images:
+    description: 'List of Docker images to use as base name for tags'
+    required: true
+  push-tags:
+    description: 'List of tags as key-value pair attributes'
+    required: false
+    default: |
+      type=ref,event=branch
+      type=semver,pattern={{version}}
+      type=semver,pattern={{major}}.{{minor}}
+      type=sha
+      # set latest tag for default branch
+      type=raw,value=latest,enable={{is_default_branch}}
+  platforms:
+    description: 'List of target platforms for build'
+    required: false
+  cache-from:
+    description: 'List of external cache sources for buildx (e.g., user/app:cache, type=local,src=path/to/dir)'
+    required: false
+  cache-to:
+    description: 'List of cache export destinations for buildx (e.g., user/app:cache, type=local,dest=path/to/dir)'
+    required: false
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: ⚙️ Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        # list of Docker images to use as base name for tags
+        images: ${{ inputs.push-images }}
+        # generate Docker tags based on the following events/attributes
+        tags: ${{ inputs.push-tags }}
+
+    - name: ⚙️ Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: ⚙️ Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 📦 Build and push（Dockerfile）
+      uses: docker/build-push-action@v5
+      env:
+        GITHUB_ACTIONS: $env:GITHUB_ACTIONS
+        GITHUB_REF_TYPE: $GITHUB_REF_TYPE
+        GITHUB_RUN_NUMBER: GITHUB_RUN_NUMBER
+        GITHUB_SHA: GITHUB_SHA
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        push: ${{ inputs.push }}
+        tags: ${{ steps.meta.outputs.tags }}
+        # platforms: linux/amd64,linux/arm64
+        platforms: ${{ inputs.platforms }}
+        cache-from: ${{ inputs.cache-from }}
+        cache-to: ${{ inputs.cache-to }}

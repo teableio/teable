@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IActionTriggerBuffer } from '@teable-group/core';
+import type { IActionTriggerBuffer } from '@teable/core';
 import React from 'react';
 
 export type PropKeys = keyof IActionTriggerBuffer;

@@ -2,10 +2,153 @@
   "brand": "Teable",
   "actions": {
     "save": "Save",
+    "doNotSave": "Don't Save",
+    "submit": "Submit",
+    "confirm": "Confirm",
+    "close": "Close",
+    "edit": "Edit",
+    "fill": "Fill",
     "update": "Update",
+    "create": "Create",
     "delete": "Delete",
     "cancel": "Cancel",
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out"
+    "zoomOut": "Zoom out",
+    "back": "Back",
+    "saveSucceed": "Save Succeed!",
+    "submitSucceed": "Submit Succeed!",
+    "editSucceed": "Edit Succeed!",
+    "updateSucceed": "Update Succeed!",
+    "deleteSucceed": "Delete Succeed!",
+    "loading": "Loading...",
+    "loadMore": "Load more"
+  },
+  "settings": {
+    "title": "Settings",
+    "back": "Back to home",
+    "account": {
+      "title": "My profile",
+      "tab": "My Account",
+      "updatePhoto": "Update photo",
+      "updateNameDesc": "Your name will be displayed on contributions and mentions. You can change it anytime.",
+      "securityTitle": "Account security",
+      "email": "Email",
+      "password": "Password",
+      "passwordDesc": "Set a permanent password to login to your account.",
+      "changePassword": {
+        "title": "Change password",
+        "desc": "Please enter your current password and your new password.",
+        "current": "Enter your current password",
+        "new": "Enter your new password",
+        "confirm": "Confirm your new password"
+      },
+      "changePasswordError": {
+        "disMatch": "Your new password does not match.",
+        "equal": "Your new password must be different from your current password.",
+        "invalid": "Your current password is invalid.",
+        "invalidNew": "Your new password is invalid, minimum 8 chars."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Change password successfully.",
+        "desc": "You will be redirected to the login page in 2 seconds."
+      },
+      "manageToken": "Access Token",
+      "addPassword": {
+        "title": "Add password",
+        "desc": "Set a permanent password to login to your account.",
+        "password": "Enter your password",
+        "confirm": "Confirm your password"
+      },
+      "addPasswordError": {
+        "disMatch": "Your password does not match.",
+        "invalid": "Your password is invalid, minimum 8 chars."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Add password successfully."
+      }
+    },
+    "notify": {
+      "title": "My Notifications",
+      "label": "Activity in your space",
+      "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
+    },
+    "setting": {
+      "title": "My Settings",
+      "theme": "Theme",
+      "themeDesc": "Select the theme for the dashboard.",
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System"
+    },
+    "nav": {
+      "settings": "Settings",
+      "logout": "Log out"
+    }
+  },
+  "noun": {
+    "table": "Table",
+    "view": "View",
+    "space": "Space",
+    "base": "Base",
+    "field": "Field",
+    "record": "Record",
+    "dashboard": "Dashboard",
+    "automation": "Automation"
+  },
+  "noResult": "No Result.",
+  "untitled": "Untitled",
+  "name": "Name",
+  "description": "Description",
+  "required": "Required",
+  "guide": {
+    "prev": "Prev",
+    "next": "Next",
+    "done": "Done",
+    "skip": "Skip",
+    "createSpaceTooltipTitle": "Create a space",
+    "createSpaceTooltipContent": "Teable is organized into spaces, where each space invites users to collaborate. <br></br>Spaces in Teable serve as a primary navigation element within the menu bar, offering a foundational platform for users to add and manage databases as needed.",
+    "createBaseTooltipTitle": "Create a base",
+    "createBaseTooltipContent": "A base (short for \"database\") is a place to store important data, and the workflows that depend on it.",
+    "createTableTooltipTitle": "Create a table",
+    "createTableTooltipContent": "Tables are designed to efficiently handle diverse datasets, offering a versatile display of information through various data types.",
+    "createViewTooltipTitle": "Create a view",
+    "createViewTooltipContent": "Currently, users can create Grid and Form views, with Gallery, Kanban, and Calendar views planned for future releases. <br></br>This variety equips users with a comprehensive toolkit for various data management tasks.",
+    "viewFilteringTooltipTitle": "Filtering records",
+    "viewFilteringTooltipContent": "One of the core features of views is the ability to filter out records from a view according to the conditions you set. <br></br>When a record is filtered out based on a condition, it is not deleted—it's just hidden from the particular view you're using to look at your table.",
+    "viewSortingTooltipTitle": "Sorting records",
+    "viewSortingTooltipContent": "While in a view, you can sort your records so that they appear in a particular order according to the values in specific fields. <br></br>Sorting your records in one view doesn't affect the order of records in other views—it just applies to the view you're currently using to look at your table.",
+    "viewGroupingTooltipTitle": "Grouping records",
+    "viewGroupingTooltipContent": "Grouping records allows creators to build a set of one or more conditions that will help to categorize the dataset that is being presented within a particular view.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable offers a powerful API that supports nearly all product features, allowing developers to make calls using an <a>Token</a>."
+  },
+  "token": "Token",
+  "poweredBy": "Powered by <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}} space sharing",
+      "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all bases within this space.",
+      "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all bases within this space.",
+      "tabEmail": "Invite by email",
+      "emailPlaceholder": "Invite more space collaborators via email",
+      "tabLink": "Invite by link",
+      "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
+      "emailSend": "Send invite",
+      "linkSend": "Create link",
+      "spaceTitle": "Space collaborators",
+      "collaboratorSearchPlaceholder": "Find a space collaborator by name or email",
+      "collaboratorJoin": "joined {{joinTime}}",
+      "collaboratorRemove": "Remove collaborator",
+      "linkTitle": "Invite links",
+      "linkCreatedTime": "created {{createdTime}}",
+      "linkCopySuccess": "Link copied",
+      "linkRemove": "Remove link"
+    }
+  },
+  "help": {
+    "title": "Help",
+    "devDocs": "Developer Docs",
+    "mainLink": "https://help.teable.io",
+    "apiLink": "https://help.teable.io/developer/api"
   }
 }

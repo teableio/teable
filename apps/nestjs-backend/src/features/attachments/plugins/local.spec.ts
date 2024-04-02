@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
-import * as crypto from 'crypto';
 import * as fs from 'fs';
 import { join, resolve } from 'path';
 import { BadRequestException } from '@nestjs/common';
@@ -19,7 +18,6 @@ import type { ILocalFileUpload } from './types';
 vi.mock('fs-extra');
 vi.mock('../../../utils/full-storage-url');
 vi.mock('fs');
-vi.mock('crypto');
 
 describe('LocalStorage', () => {
   let storage: LocalStorage;
@@ -41,8 +39,8 @@ describe('LocalStorage', () => {
       key: '73b00476e456323e',
       iv: '8c9183e4c175f63c',
     },
-    tokenExpireIn: 3600,
-    urlExpireIn: 3600,
+    tokenExpireIn: '7d',
+    urlExpireIn: '7d',
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -233,28 +231,6 @@ describe('LocalStorage', () => {
     });
   });
 
-  describe('getHash', () => {
-    it('should get file hash', async () => {
-      const mockPath = '/mock/file/path';
-
-      const mockHash = 'mock-hash';
-
-      vi.spyOn(crypto, 'createHash').mockReturnValueOnce({
-        update: vi.fn(),
-        digest: vi.fn().mockReturnValueOnce(mockHash),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any);
-      vi.spyOn(fs, 'createReadStream').mockReturnValue({
-        on: (_event: string, callback: () => void) => {
-          callback();
-        },
-      } as any);
-      const result = await storage.getHash(mockPath);
-
-      expect(result).toBe(mockHash);
-    });
-  });
-
   describe('getObject', () => {
     it('should get object metadata', async () => {
       const mockBucket = 'mock-bucket';
@@ -274,13 +250,13 @@ describe('LocalStorage', () => {
       });
       vi.spyOn(storage as any, 'getUrl').mockReturnValue(mockUrl);
 
-      const result = await storage.getObject(mockBucket, mockPath, mockToken);
+      const result = await storage.getObjectMeta(mockBucket, mockPath, mockToken);
 
       expect(mockCacheService.get).toHaveBeenCalledWith(`attachment:upload:${mockToken}`);
       expect(storage.getFileMate).toHaveBeenCalledWith(
         resolve(storage.storageDir, mockBucket, mockPath)
       );
-      expect(storage['getUrl']).toHaveBeenCalledWith(mockPath, {
+      expect(storage['getUrl']).toHaveBeenCalledWith(mockBucket, mockPath, {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         respHeaders: mockRespHeaders,
         expiresDate: -1,
@@ -295,11 +271,41 @@ describe('LocalStorage', () => {
       });
     });
 
+    it('should get object metadata not image', async () => {
+      const mockBucket = 'mock-bucket';
+      const mockPath = 'mock/file/path';
+      const mockToken = 'mock-token';
+      const mockCacheValue = {
+        mimetype: 'text/plain',
+        hash: 'mock-hash',
+        size: 1024,
+      };
+      const mockUrl = 'url';
+
+      vi.spyOn(mockCacheService, 'get').mockResolvedValueOnce(mockCacheValue);
+      vi.spyOn(storage as any, 'getUrl').mockReturnValue(mockUrl);
+
+      const result = await storage.getObjectMeta(mockBucket, mockPath, mockToken);
+
+      expect(mockCacheService.get).toHaveBeenCalledWith(`attachment:upload:${mockToken}`);
+      expect(storage['getUrl']).toHaveBeenCalledWith(mockBucket, mockPath, {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        respHeaders: { 'Content-Type': 'text/plain' },
+        expiresDate: -1,
+      });
+      expect(result).toEqual({
+        hash: 'mock-hash',
+        mimetype: 'text/plain',
+        size: 1024,
+        url: mockUrl,
+      });
+    });
+
     it('should throw BadRequestException for invalid token', async () => {
       vi.spyOn(mockCacheService, 'get').mockResolvedValueOnce(null);
 
       await expect(
-        storage.getObject('mock-bucket', 'mock/file/path', 'invalid-token')
+        storage.getObjectMeta('mock-bucket', 'mock/file/path', 'invalid-token')
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -325,7 +331,7 @@ describe('LocalStorage', () => {
         respHeaders: mockRespHeaders,
       });
       expect(fullStorageUrlModule.getFullStorageUrl).toHaveBeenCalledWith(
-        '/api/attachments/read/mock/file/path?token=mock-token'
+        '/api/attachments/read/mock-bucket/mock/file/path?token=mock-token'
       );
       expect(result).toBe('http://example.com');
     });

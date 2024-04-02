@@ -1,6 +1,7 @@
 import { isEqual } from 'lodash';
-import { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { Doc, Query } from 'sharedb/lib/client';
+import { useSession } from '../../hooks';
 import { AppContext } from '../app/AppContext';
 import { OpListenersManager } from './opListener';
 import type { IInstanceAction } from './reducer';
@@ -47,12 +48,27 @@ export function useInstances<T, R extends { id: string }>({
     (state: R[], action: IInstanceAction<T>) => instanceReducer(state, action, factory),
     initData && !connected ? initData.map((data) => factory(data)) : []
   );
+  const { user: sessionUser } = useSession();
+
+  const newQueryParams = useMemo(
+    () => ({
+      ...(queryParams || {}),
+      sessionTicket: (sessionUser as unknown as { _session_ticket?: string })?._session_ticket,
+    }),
+    [queryParams, sessionUser]
+  );
 
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
   const preQueryRef = useRef<Query<T>>();
 
   const handleReady = useCallback((query: Query<T>) => {
-    console.log(`${query.collection}:ready:`, query.query);
+    console.log(
+      `${query.collection}:ready:`,
+      (() => {
+        const { sessionTicket: _, ...logQuery } = query.query;
+        return logQuery;
+      })()
+    );
     if (!query.results) {
       return;
     }
@@ -66,7 +82,11 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleInsert = useCallback((docs: Doc<T>[], index: number) => {
-    console.log(`${docs[0]?.collection}:insert:`, docs, index);
+    console.log(
+      `${docs[0]?.collection}:insert:`,
+      docs.map((doc) => doc.id),
+      index
+    );
     dispatch({ type: 'insert', docs, index });
 
     docs.forEach((doc) => {
@@ -78,7 +98,11 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleRemove = useCallback((docs: Doc<T>[], index: number) => {
-    console.log(`${docs[0]?.collection}:remove:`, docs, index);
+    console.log(
+      `${docs[0]?.collection}:remove:`,
+      docs.map((doc) => doc.id),
+      index
+    );
     dispatch({ type: 'remove', docs, index });
     docs.forEach((doc) => {
       opListeners.current.remove(doc);
@@ -86,7 +110,12 @@ export function useInstances<T, R extends { id: string }>({
   }, []);
 
   const handleMove = useCallback((docs: Doc<T>[], from: number, to: number) => {
-    console.log(`${docs[0]?.collection}:move:`, docs, from, to);
+    console.log(
+      `${docs[0]?.collection}:move:`,
+      docs.map((doc) => doc.id),
+      from,
+      to
+    );
     dispatch({ type: 'move', docs, from, to });
   }, []);
 
@@ -95,16 +124,16 @@ export function useInstances<T, R extends { id: string }>({
       if (!collection || !connection) {
         return undefined;
       }
-      if (query && isEqual(queryParams, query.query) && collection === query.collection) {
+      if (query && isEqual(newQueryParams, query.query) && collection === query.collection) {
         return query;
       }
 
       queryDestroy(preQueryRef.current);
-      const newQuery = connection.createSubscribeQuery<T>(collection, queryParams || {});
+      const newQuery = connection.createSubscribeQuery<T>(collection, newQueryParams);
       preQueryRef.current = newQuery;
       return newQuery;
     });
-  }, [connection, collection, queryParams]);
+  }, [connection, collection, newQueryParams]);
 
   useEffect(() => {
     return () => {
@@ -122,7 +151,10 @@ export function useInstances<T, R extends { id: string }>({
 
     const readyListener = () => handleReady(query);
     const changedListener = (docs: Doc<T>[]) => {
-      console.log(`${docs[0]?.collection}:changed:`, docs);
+      console.log(
+        `${docs[0]?.collection}:changed:`,
+        docs.map((doc) => doc.id)
+      );
     };
 
     query.on('ready', readyListener);

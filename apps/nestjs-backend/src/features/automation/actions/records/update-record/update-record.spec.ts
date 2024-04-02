@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import { Test } from '@nestjs/testing';
-import type { IFieldVo, IRecord, IViewVo } from '@teable-group/core';
+import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
 import {
   CellValueType,
   DbFieldType,
@@ -11,7 +11,7 @@ import {
   generateRecordId,
   generateTableId,
   generateWorkflowActionId,
-} from '@teable-group/core';
+} from '@teable/core';
 import { vi } from 'vitest';
 import { GlobalModule } from '../../../../../global/global.module';
 import { FieldModule } from '../../../../field/field.module';
@@ -94,12 +94,11 @@ describe('Update-Record Action Test', () => {
       ])
     );
 
-    vi.spyOn(recordOpenApiService, 'updateRecordById').mockImplementation(
+    vi.spyOn(recordOpenApiService, 'updateRecord').mockImplementation(
       (tableId, recordId, _updateRecordRo) =>
         Promise.resolve({
           id: recordId,
           fields: { [fieldId]: 'update: mockName' },
-          recordOrder: { tableId: 1 },
         })
     );
 

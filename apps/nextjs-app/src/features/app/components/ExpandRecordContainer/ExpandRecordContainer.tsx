@@ -1,5 +1,5 @@
-import type { IRecord } from '@teable-group/core';
-import { useTableId } from '@teable-group/sdk/hooks';
+import type { IRecord } from '@teable/core';
+import { useTableId } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { forwardRef, useCallback } from 'react';
 import { ExpandRecordContainerBase } from './ExpandRecordContainerBase';
@@ -15,20 +15,27 @@ export const ExpandRecordContainer = forwardRef<
   const recordId = router.query.recordId as string;
 
   const onClose = useCallback(() => {
-    if (!router.asPath.includes(`/${recordId}`)) {
+    if (!recordId) {
       return;
     }
-    const url = router.asPath.replace(`/${recordId}`, '');
-    router.push(url, undefined, {
-      shallow: true,
-    });
+    const { recordId: _recordId, fromNotify: _fromNotify, ...resetQuery } = router.query;
+    router.push(
+      {
+        pathname: router.pathname,
+        query: resetQuery,
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
   }, [recordId, router]);
 
   const onUpdateRecordIdCallback = useCallback(
     (recordId: string) => {
       router.push(
         {
-          pathname: `${router.pathname}/[recordId]`,
+          pathname: router.pathname,
           query: { ...router.query, recordId },
         },
         undefined,

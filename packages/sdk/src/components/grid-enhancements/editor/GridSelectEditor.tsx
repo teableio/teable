@@ -3,8 +3,8 @@ import type {
   ISingleSelectCellValue,
   IMultipleSelectCellValue,
   ISelectFieldChoice,
-} from '@teable-group/core';
-import { FieldType, ColorUtils } from '@teable-group/core';
+} from '@teable/core';
+import { FieldType, ColorUtils } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTableId } from '../../../hooks';
@@ -19,8 +19,9 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<string | string[] | undefined>,
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
-  const { field, record, rect, style, isEditing, setEditing } = props;
+  const { field, record, rect, style, isEditing } = props;
   const tableId = useTableId();
+  const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
   const { id: fieldId, type: fieldType, options } = field;
   const isMultiple = fieldType === FieldType.MultipleSelect;
@@ -31,7 +32,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   const attachStyle = useGridPopupPosition(rect, 340);
 
   useImperativeHandle(ref, () => ({
-    focus: () => editorRef.current?.focus?.(),
+    focus: () => (editorRef.current || defaultFocusRef.current)?.focus?.(),
     setValue: (value?: string | string[]) => {
       editorRef.current?.setValue?.(value);
     },
@@ -49,7 +50,6 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 
   const onChange = (value?: string[] | string) => {
     record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value);
-    !isMultiple && setEditing?.(false);
   };
 
   const onOptionAdd = useCallback(
@@ -66,7 +66,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 
       const newChoices = [...choices, choice];
 
-      await Field.updateField(tableId, fieldId, {
+      await Field.convertField(tableId, fieldId, {
         type: fieldType,
         options: { ...options, choices: newChoices },
       });
@@ -74,24 +74,27 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
     [tableId, fieldType, fieldId, options]
   );
 
-  if (!isEditing) return null;
-
   return (
-    <SelectEditorMain
-      ref={editorRef}
-      style={{
-        ...style,
-        ...attachStyle,
-        height: 'auto',
-        minWidth: 180,
-      }}
-      className="absolute rounded-sm border p-2 shadow-sm"
-      value={cellValue === null ? undefined : cellValue}
-      isMultiple={isMultiple}
-      options={selectOptions}
-      onChange={onChange}
-      onOptionAdd={onOptionAdd}
-    />
+    <>
+      {isEditing ? (
+        <SelectEditorMain
+          ref={editorRef}
+          style={{
+            ...style,
+            ...attachStyle,
+            height: 'auto',
+          }}
+          className="absolute rounded-sm border p-2 shadow-sm"
+          value={cellValue === null ? undefined : cellValue}
+          isMultiple={isMultiple}
+          options={selectOptions}
+          onChange={onChange}
+          onOptionAdd={onOptionAdd}
+        />
+      ) : (
+        <input className="size-0 opacity-0" ref={defaultFocusRef} />
+      )}
+    </>
   );
 };
 

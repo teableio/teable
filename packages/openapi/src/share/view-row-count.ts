@@ -1,11 +1,12 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IRowCountVo } from '@teable-group/core';
-import { rowCountVoSchema, queryBaseSchema } from '@teable-group/core';
+import type { IRowCountVo } from '../aggregation';
+import { rowCountVoSchema } from '../aggregation';
 import { axios } from '../axios';
+import { queryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/rowCount';
+export const SHARE_VIEW_ROW_COUNT = '/share/{shareId}/view/row-count';
 
 export const shareViewRowCountRoSchema = queryBaseSchema.omit({
   viewId: true,

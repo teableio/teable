@@ -2,27 +2,31 @@
 import type {
   IFilter,
   ISort,
-  IOtOperation,
   IShareViewMeta,
   IViewVo,
   IColumnMetaRo,
   IManualSortRo,
   IGroup,
-} from '@teable-group/core';
-import { ViewCore, ViewOpBuilder, generateShareId } from '@teable-group/core';
+} from '@teable/core';
+import { ViewCore } from '@teable/core';
+import type { IUpdateOrderRo } from '@teable/openapi';
 import {
   createView,
   deleteView,
   disableShareView,
   enableShareView,
   getViewList,
-  setViewColumnMeta,
+  updateViewColumnMeta,
   manualSortView,
-  setViewFilter,
-  setViewSort,
-  setViewGroup,
-  setViewOrder,
-} from '@teable-group/openapi';
+  updateViewFilter,
+  updateViewSort,
+  updateViewGroup,
+  updateViewOrder,
+  updateViewName,
+  updateViewDescription,
+  updateViewShareMeta,
+  refreshViewShareId,
+} from '@teable/openapi';
 import type { AxiosResponse } from 'axios';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
@@ -38,7 +42,7 @@ export abstract class View extends ViewCore {
 
   static deleteView = requestWrap(deleteView);
 
-  abstract setOption(
+  abstract updateOption(
     option: object // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<AxiosResponse<void, any>> | void;
 
@@ -54,69 +58,39 @@ export abstract class View extends ViewCore {
     return await requestWrap(manualSortView)(this.tableId, this.id, sortRo);
   }
 
-  async setViewColumnMeta(columnMetaRo: IColumnMetaRo) {
-    return await requestWrap(setViewColumnMeta)(this.tableId, this.id, columnMetaRo);
+  async updateColumnMeta(columnMetaRo: IColumnMetaRo) {
+    return await requestWrap(updateViewColumnMeta)(this.tableId, this.id, columnMetaRo);
   }
 
-  async setViewFilter(filter: IFilter) {
-    return await requestWrap(setViewFilter)(this.tableId, this.id, { filter });
+  async updateFilter(filter: IFilter) {
+    return await requestWrap(updateViewFilter)(this.tableId, this.id, { filter });
   }
 
-  async setViewSort(sort: ISort) {
-    return await requestWrap(setViewSort)(this.tableId, this.id, { sort });
+  async updateSort(sort: ISort) {
+    return await requestWrap(updateViewSort)(this.tableId, this.id, { sort });
   }
 
-  async setViewGroup(group: IGroup) {
-    return await requestWrap(setViewGroup)(this.tableId, this.id, { group });
+  async updateGroup(group: IGroup) {
+    return await requestWrap(updateViewGroup)(this.tableId, this.id, { group });
   }
 
-  async setViewOrder(order: number) {
-    return await requestWrap(setViewOrder)(this.tableId, this.id, { order });
-  }
-
-  async submitOperation(operation: IOtOperation) {
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([operation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+  async updateOrder(orderRo: IUpdateOrderRo) {
+    return await requestWrap(updateViewOrder)(this.tableId, this.id, orderRo);
   }
 
   async updateName(name: string) {
-    const viewOperation = ViewOpBuilder.editor.setViewName.build({
-      newName: name,
-      oldName: this.name,
-    });
-
-    return await this.submitOperation(viewOperation);
+    return await requestWrap(updateViewName)(this.tableId, this.id, { name });
   }
 
   async updateDescription(description: string) {
-    const viewOperation = ViewOpBuilder.editor.setViewDescription.build({
-      newDescription: description,
-      oldDescription: this.description,
-    });
-
-    return await this.submitOperation(viewOperation);
+    return await requestWrap(updateViewDescription)(this.tableId, this.id, { description });
   }
 
   async setRefreshLink() {
-    const viewOperation = ViewOpBuilder.editor.setViewShareId.build({
-      newShareId: generateShareId(),
-      oldShareId: this.shareId,
-    });
-    return await this.submitOperation(viewOperation);
+    return await requestWrap(refreshViewShareId)(this.tableId, this.id);
   }
 
-  async setShareMeta(newShareMeta?: IShareViewMeta) {
-    const viewOperation = ViewOpBuilder.editor.setViewShareMeta.build({
-      newShareMeta,
-      oldShareMeta: this.shareMeta,
-    });
-    return await this.submitOperation(viewOperation);
+  async setShareMeta(shareMeta: IShareViewMeta) {
+    return await requestWrap(updateViewShareMeta)(this.tableId, this.id, shareMeta);
   }
 }

@@ -36,6 +36,7 @@ export interface IBaseCell {
 }
 
 export interface IEditableCell extends IBaseCell {
+  editorWidth?: number;
   customEditor?: ICustomEditor;
 }
 
@@ -116,6 +117,7 @@ export interface ISelectCell extends IEditableCell {
   displayData: string[];
   choices?: ISelectChoice[];
   isMultiple?: boolean;
+  isEditingOnClick?: boolean;
 }
 
 export interface IImageData {
@@ -127,11 +129,13 @@ export interface IImageCell extends IEditableCell {
   type: CellType.Image;
   data: IImageData[];
   displayData: string[];
+  onPreview?: (activeId: string) => void;
 }
 
 export interface IUserData {
   id: string;
   name: string;
+  avatarUrl?: string;
 }
 
 export interface IUserCell extends IEditableCell {

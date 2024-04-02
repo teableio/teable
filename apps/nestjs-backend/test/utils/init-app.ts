@@ -1,11 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type {
-  ICreateRecordsRo,
-  ICreateRecordsVo,
   IFieldRo,
   IFieldVo,
   IRecord,
@@ -13,17 +12,21 @@ import type {
   HttpError,
   IColumnMetaRo,
   IViewVo,
-  ICreateTableRo,
   IFilterRo,
   IViewRo,
+} from '@teable/core';
+import { FieldKeyType } from '@teable/core';
+import type {
+  ICreateRecordsRo,
+  ICreateRecordsVo,
+  ICreateTableRo,
   IGetRecordsRo,
   IRecordsVo,
   IUpdateRecordRo,
   ITableFullVo,
   IGetTableQuery,
   ITableVo,
-} from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
+} from '@teable/openapi';
 import {
   axios,
   signin as apiSignin,
@@ -35,25 +38,26 @@ import {
   createRecords as apiCreateRecords,
   createField as apiCreateField,
   deleteField as apiDeleteField,
-  updateField as apiUpdateField,
+  convertField as apiConvertField,
   getFields as apiGetFields,
   getField as apiGetField,
   getViewList as apiGetViewList,
   getViewById as apiGetViewById,
-  setViewColumnMeta as apiSetViewColumnMeta,
+  updateViewColumnMeta as apiSetViewColumnMeta,
   createTable as apiCreateTable,
-  deleteTable as apiDeleteTable,
+  deleteTableArbitrary as apiDeleteTableArbitrary,
   getTableById as apiGetTableById,
-  setViewFilter as apiSetViewFilter,
+  updateViewFilter as apiSetViewFilter,
   createView as apiCreateView,
-} from '@teable-group/openapi';
-import cookieParser from 'cookie-parser';
+} from '@teable/openapi';
 import { json, urlencoded } from 'express';
 import { AppModule } from '../../src/app.module';
+import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
 import { NextService } from '../../src/features/next/next.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
+import { TestingLogger } from './testing-logger';
 
 export async function initApp() {
   const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -68,16 +72,18 @@ export async function initApp() {
     .overrideProvider(DevWsGateway)
     .useClass(WsGateway)
     .compile();
-  const app = moduleFixture.createNestApplication();
-  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  const app = moduleFixture.createNestApplication({
+    logger: new TestingLogger(),
+  });
+
+  const configService = app.get(ConfigService);
+
+  app.useGlobalFilters(new GlobalExceptionFilter(configService));
   app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
-  app.use(cookieParser());
-  // const logger = new ConsoleLogger();
-  // logger.setLogLevels(['log', 'error']);
-  // app.useLogger(logger);
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
@@ -88,14 +94,16 @@ export async function initApp() {
 
   console.log('url', url);
 
-  axios.interceptors.request.use((config) => {
-    config.baseURL = url + '/api';
-    return config;
-  });
-  const { cookie } = await getCookie(globalThis.testConfig.email, globalThis.testConfig.password);
+  process.env.STORAGE_PREFIX = url;
+
+  axios.defaults.baseURL = url + '/api';
+
+  const cookie = (
+    await getCookie(globalThis.testConfig.email, globalThis.testConfig.password)
+  ).cookie.join(';');
 
   axios.interceptors.request.use((config) => {
-    config.headers.Cookie = cookie.join(';');
+    config.headers.Cookie = cookie;
     return config;
   });
 
@@ -105,8 +113,17 @@ export async function initApp() {
   console.log(`> Test Ready on ${url}`);
   console.log('> Test System Time Zone:', timeZone);
   console.log('> Test Current System Time:', now.toString());
-
-  return { app, appUrl: url, cookie: cookie.join(';') };
+  const sessionHandleService = app.get<SessionHandleService>(SessionHandleService);
+  return {
+    app,
+    appUrl: url,
+    cookie,
+    sessionID: await sessionHandleService.getSessionIdFromRequest({
+      headers: { cookie },
+      url: `${url}/socket`,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any),
+  };
 }
 
 export async function createTable(baseId: string, tableVo: ICreateTableRo, expectStatus = 201) {
@@ -125,7 +142,7 @@ export async function createTable(baseId: string, tableVo: ICreateTableRo, expec
 
 export async function deleteTable(baseId: string, tableId: string, expectStatus?: number) {
   try {
-    const res = await apiDeleteTable(baseId, tableId);
+    const res = await apiDeleteTableArbitrary(baseId, tableId);
     expectStatus && expect(res.status).toEqual(expectStatus);
 
     return res.data;
@@ -261,6 +278,7 @@ export async function createRecords(
 ): Promise<ICreateRecordsVo> {
   try {
     const res = await apiCreateRecords(tableId, {
+      ...recordsRo,
       fieldKeyType: recordsRo.fieldKeyType ?? FieldKeyType.Id,
       records: recordsRo.records,
       typecast: recordsRo.typecast ?? false,
@@ -305,14 +323,14 @@ export async function deleteField(tableId: string, fieldId: string) {
   return result.data;
 }
 
-export async function updateField(
+export async function convertField(
   tableId: string,
   fieldId: string,
   fieldRo: IFieldRo,
   expectStatus = 200
 ): Promise<IFieldVo> {
   try {
-    const res = await apiUpdateField(tableId, fieldId, fieldRo);
+    const res = await apiConvertField(tableId, fieldId, fieldRo);
 
     expect(res.status).toEqual(expectStatus);
     return res.data;
@@ -376,7 +394,7 @@ export async function updateViewColumnMeta(
   return result.data;
 }
 
-export async function setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
+export async function updateViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
   const result = await apiSetViewFilter(tableId, viewId, filterRo);
   return result.data;
 }

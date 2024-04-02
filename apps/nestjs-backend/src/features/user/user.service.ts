@@ -1,14 +1,21 @@
+import https from 'https';
 import { join } from 'path';
 import { Injectable } from '@nestjs/common';
-import { generateSpaceId, SpaceRole } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { UploadType, type ICreateSpaceRo, type IUserNotifyMeta } from '@teable-group/openapi';
+import {
+  generateAccountId,
+  generateSpaceId,
+  generateUserId,
+  minidenticon,
+  SpaceRole,
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import { type ICreateSpaceRo, type IUserNotifyMeta, UploadType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import sharp from 'sharp';
 import type { IClsStore } from '../../types/cls';
 import { getFullStorageUrl } from '../../utils/full-storage-url';
 import StorageAdapter from '../attachments/plugins/adapter';
-import type { LocalStorage } from '../attachments/plugins/local';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 
 @Injectable()
@@ -20,7 +27,9 @@ export class UserService {
   ) {}
 
   async getUserById(id: string) {
-    const userRaw = await this.prismaService.user.findUnique({ where: { id, deletedTime: null } });
+    const userRaw = await this.prismaService
+      .txClient()
+      .user.findUnique({ where: { id, deletedTime: null } });
 
     return (
       userRaw && {
@@ -32,7 +41,9 @@ export class UserService {
   }
 
   async getUserByEmail(email: string) {
-    return await this.prismaService.user.findUnique({ where: { email, deletedTime: null } });
+    return await this.prismaService
+      .txClient()
+      .user.findUnique({ where: { email, deletedTime: null } });
   }
 
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {
@@ -48,7 +59,6 @@ export class UserService {
         id: generateSpaceId(),
         name: uniqName,
         createdBy: userId,
-        lastModifiedBy: userId,
       },
     });
     await this.prismaService.txClient().collaborator.create({
@@ -57,13 +67,15 @@ export class UserService {
         roleName: SpaceRole.Owner,
         userId,
         createdBy: userId,
-        lastModifiedBy: userId,
       },
     });
     return space;
   }
 
-  async createUser(user: Prisma.UserCreateInput) {
+  async createUser(
+    user: Prisma.UserCreateInput,
+    account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>
+  ) {
     // defaults
     const defaultNotifyMeta: IUserNotifyMeta = {
       email: true,
@@ -71,18 +83,30 @@ export class UserService {
 
     user = {
       ...user,
+      id: user.id ?? generateUserId(),
       notifyMeta: JSON.stringify(defaultNotifyMeta),
     };
+
+    if (!user?.avatar) {
+      const avatar = await this.generateDefaultAvatar(user.id!);
+      user = {
+        ...user,
+        avatar,
+      };
+    }
     // default space created
-    return await this.prismaService.$tx(async (prisma) => {
-      const newUser = await prisma.user.create({ data: user });
-      const { id, name } = newUser;
-      await this.cls.runWith(this.cls.get(), async () => {
-        this.cls.set('user.id', id);
-        await this.createSpaceBySignup({ name: `${name}'s space` });
+    const newUser = await this.prismaService.txClient().user.create({ data: user });
+    const { id, name } = newUser;
+    if (account) {
+      await this.prismaService.txClient().account.create({
+        data: { id: generateAccountId(), ...account, userId: id },
       });
-      return newUser;
+    }
+    await this.cls.runWith(this.cls.get(), async () => {
+      this.cls.set('user.id', id);
+      await this.createSpaceBySignup({ name: `${name}'s space` });
     });
+    return newUser;
   }
 
   async updateUserName(id: string, name: string) {
@@ -94,64 +118,51 @@ export class UserService {
     });
   }
 
-  async updateAvatar(id: string, avatarFile: Express.Multer.File) {
+  async updateAvatar(id: string, avatarFile: { path: string; mimetype: string; size: number }) {
     const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
-    const url = await this.storageAdapter.uploadFileWidthPath(bucket, path, avatarFile.path, {
-      // eslint-disable-next-line @typescript-eslint/naming-convention
-      'Content-Type': avatarFile.mimetype,
+    const { hash, url } = await this.storageAdapter.uploadFileWidthPath(
+      bucket,
+      path,
+      avatarFile.path,
+      {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': avatarFile.mimetype,
+      }
+    );
+    const { size, mimetype } = avatarFile;
+
+    await this.mountAttachment(id, {
+      bucket,
+      hash,
+      size,
+      mimetype,
+      token: id,
+      path,
     });
 
-    const localStorage = this.storageAdapter as LocalStorage;
-    const { size, mimetype, path: filePath } = avatarFile;
-    const hash = await localStorage.getHash(filePath);
-    const { width, height } = await localStorage.getFileMate(filePath);
-
-    const isExist = await this.prismaService.txClient().attachments.count({
-      where: {
-        deletedTime: null,
-        token: id,
-      },
-    });
-    if (isExist) {
-      await this.prismaService.txClient().attachments.update({
-        where: {
-          deletedTime: null,
-          token: id,
-        },
-        data: {
-          bucket,
-          hash,
-          size,
-          mimetype,
-          token: id,
-          path,
-          width,
-          height,
-          lastModifiedBy: id,
-        },
-      });
-    } else {
-      await this.prismaService.txClient().attachments.create({
-        data: {
-          bucket,
-          hash,
-          size,
-          mimetype,
-          token: id,
-          path,
-          width,
-          height,
-          createdBy: id,
-          lastModifiedBy: id,
-        },
-      });
-    }
     await this.prismaService.txClient().user.update({
       data: {
         avatar: url,
       },
       where: { id, deletedTime: null },
+    });
+  }
+
+  private async mountAttachment(
+    userId: string,
+    input: Prisma.AttachmentsCreateInput | Prisma.AttachmentsUpdateInput
+  ) {
+    await this.prismaService.txClient().attachments.upsert({
+      create: {
+        ...input,
+        createdBy: userId,
+      } as Prisma.AttachmentsCreateInput,
+      update: input as Prisma.AttachmentsUpdateInput,
+      where: {
+        token: userId,
+        deletedTime: null,
+      },
     });
   }
 
@@ -161,6 +172,108 @@ export class UserService {
         notifyMeta: JSON.stringify(notifyMetaRo),
       },
       where: { id, deletedTime: null },
+    });
+  }
+
+  private async generateDefaultAvatar(id: string) {
+    const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
+    const bucket = StorageAdapter.getBucket(UploadType.Avatar);
+
+    const svgSize = [410, 410];
+    const svgString = minidenticon(id);
+    const svgObject = sharp(Buffer.from(svgString))
+      .resize(svgSize[0], svgSize[1])
+      .flatten({ background: '#f0f0f0' })
+      .png({ quality: 90 });
+    const mimetype = 'image/png';
+    const { size } = await svgObject.metadata();
+    const svgBuffer = await svgObject.toBuffer();
+
+    const { url, hash } = await this.storageAdapter.uploadFile(bucket, path, svgBuffer, {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': mimetype,
+    });
+
+    await this.mountAttachment(id, {
+      bucket: bucket,
+      hash: hash,
+      size: size,
+      mimetype: mimetype,
+      token: id,
+      path: path,
+      width: svgSize[0],
+      height: svgSize[1],
+    });
+
+    return url;
+  }
+
+  private async uploadAvatarByUrl(userId: string, url: string) {
+    return new Promise<string>((resolve, reject) => {
+      https
+        .get(url, async (stream) => {
+          const contentType = stream?.headers?.['content-type']?.split(';')?.[0];
+          const size = stream?.headers?.['content-length']?.split(';')?.[0];
+          const path = join(StorageAdapter.getDir(UploadType.Avatar), userId);
+          const bucket = StorageAdapter.getBucket(UploadType.Avatar);
+
+          const { url, hash } = await this.storageAdapter.uploadFile(bucket, path, stream, {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': contentType,
+          });
+
+          await this.mountAttachment(userId, {
+            bucket: bucket,
+            hash: hash,
+            size: size ? parseInt(size) : undefined,
+            mimetype: contentType,
+            token: userId,
+            path: path,
+          });
+          resolve(url);
+        })
+        .on('error', (error) => {
+          reject(error);
+        });
+    });
+  }
+
+  async findOrCreateUser(user: {
+    name: string;
+    email: string;
+    provider: string;
+    providerId: string;
+    type: string;
+    avatarUrl?: string;
+  }) {
+    return this.prismaService.$tx(async () => {
+      const { email, name, provider, providerId, type, avatarUrl } = user;
+      // account exist check
+      const existAccount = await this.prismaService.txClient().account.findFirst({
+        where: { provider, providerId },
+      });
+      if (existAccount) {
+        return await this.getUserById(existAccount.userId);
+      }
+
+      // user exist check
+      const existUser = await this.getUserByEmail(email);
+      if (!existUser) {
+        const userId = generateUserId();
+        let avatar: string | undefined = undefined;
+        if (avatarUrl) {
+          avatar = await this.uploadAvatarByUrl(userId, avatarUrl);
+        }
+        return await this.createUser(
+          { id: userId, email, name, avatar },
+          { provider, providerId, type }
+        );
+      }
+
+      await this.prismaService.txClient().account.create({
+        data: { id: generateAccountId(), provider, providerId, type, userId: existUser.id },
+      });
+      return existUser;
     });
   }
 }

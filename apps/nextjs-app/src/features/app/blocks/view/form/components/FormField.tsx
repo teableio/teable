@@ -1,6 +1,8 @@
-import { useFieldStaticGetter, useView } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import { useFieldStaticGetter, useView } from '@teable/sdk/hooks';
+import type { FormView, IFieldInstance } from '@teable/sdk/model';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 import { FormCellEditor } from './FormCellEditor';
 
 interface IFormFieldEditorProps {
@@ -12,9 +14,10 @@ interface IFormFieldEditorProps {
 
 export const FormField: FC<IFormFieldEditorProps> = (props) => {
   const { field, value, errors, onChange } = props;
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const activeViewId = view?.id;
   const getFieldStatic = useFieldStaticGetter();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   if (!activeViewId || !view) return null;
 
@@ -40,7 +43,7 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
         className={isError ? 'border-red-500' : ''}
       />
 
-      {isError && <div className="mt-1 text-xs text-red-500">Required</div>}
+      {isError && <div className="mt-1 text-xs text-red-500">{t('required')}</div>}
 
       {required && <span className="absolute left-[-10px] top-5 text-red-500">*</span>}
     </div>

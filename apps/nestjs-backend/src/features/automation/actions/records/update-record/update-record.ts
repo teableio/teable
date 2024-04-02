@@ -1,6 +1,6 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
-import type { IUpdateRecordRo } from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
+import { FieldKeyType } from '@teable/core';
+import type { IUpdateRecordRo } from '@teable/openapi';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
 import type {
@@ -49,7 +49,7 @@ export class UpdateRecord extends ActionCore {
     let outPut: IActionResponse<unknown>;
 
     await this.recordOpenApiService
-      .updateRecordById(tableId, recordId, updateData)
+      .updateRecord(tableId, recordId, updateData)
       .then((record) => {
         outPut = { data: record, status: ActionResponseStatus.OK };
       })

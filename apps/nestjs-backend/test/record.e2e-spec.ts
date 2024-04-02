@@ -1,19 +1,21 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ISelectFieldOptions, ITableFullVo } from '@teable-group/core';
-import { CellFormat, FieldKeyType, FieldType } from '@teable-group/core';
+import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
+import { CellFormat, FieldKeyType, FieldType, Relationship } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createRecords,
   createTable,
+  deleteField,
   deleteRecord,
   deleteRecords,
   deleteTable,
   getField,
   getRecord,
   getRecords,
-  getViews,
   initApp,
+  updateRecord,
   updateRecordByApi,
 } from './utils/init-app';
 
@@ -70,6 +72,23 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(record.fields[table.fields[1].id]).toEqual('123.00');
     });
 
+    it('should get records with projections', async () => {
+      await updateRecord(table.id, table.records[0].id, {
+        record: {
+          fields: {
+            [table.fields[0].name]: 'text',
+            [table.fields[1].name]: 1,
+          },
+        },
+      });
+
+      const result = await getRecords(table.id, {
+        projection: [table.fields[0].name],
+      });
+
+      expect(Object.keys(result.records[0].fields).length).toEqual(1);
+    });
+
     it('should create a record', async () => {
       const value1 = 'New Record' + new Date();
       const res1 = await createRecords(table.id, {
@@ -101,23 +120,6 @@ describe('OpenAPI RecordController (e2e)', () => {
       });
 
       expect(res2.records[0].fields[table.fields[0].id]).toEqual(value2);
-    });
-
-    it('should create a record with order', async () => {
-      const viewResponse = await getViews(table.id);
-      const viewId = viewResponse[0].id;
-      const res = await createRecords(table.id, {
-        records: [
-          {
-            fields: {},
-            recordOrder: {
-              [viewId]: 0.6,
-            },
-          },
-        ],
-      });
-
-      expect(res.records[0].recordOrder[viewId]).toEqual(0.6);
     });
 
     it('should update record', async () => {
@@ -307,6 +309,104 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect((fieldAfter.options as ISelectFieldOptions).choices).toMatchObject([
         { name: 'select value' },
       ]);
+    });
+  });
+
+  describe('calculate when create', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      table1 = await createTable(baseId, {
+        name: 'table1',
+      });
+      table2 = await createTable(baseId, {
+        name: 'table2',
+      });
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
+    });
+
+    it('should create a record with error field formula', async () => {
+      const fieldToDel = table1.fields[2];
+
+      const formulaRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${fieldToDel.id}}`,
+        },
+      };
+
+      const formulaField = await createField(table1.id, formulaRo);
+
+      await deleteField(table1.id, fieldToDel.id);
+
+      const data = await createRecords(table1.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(data.records[0].fields[formulaField.id]).toBeUndefined();
+    });
+
+    it('should create a record with error lookup and rollup field', async () => {
+      const fieldToDel = table2.fields[2];
+
+      const linkFieldRo: IFieldRo = {
+        name: 'linkField',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = await createField(table1.id, linkFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        type: fieldToDel.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: fieldToDel.id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const rollupFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'sum({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: fieldToDel.id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const lookupField = await createField(table1.id, lookupFieldRo);
+      const rollup = await createField(table1.id, rollupFieldRo);
+
+      await deleteField(table2.id, fieldToDel.id);
+
+      const data = await createRecords(table1.id, {
+        records: [
+          {
+            fields: {
+              [linkField.id]: { id: table2.records[0].id },
+            },
+          },
+        ],
+      });
+
+      expect(data.records[0].fields[lookupField.id]).toBeUndefined();
+      expect(data.records[0].fields[rollup.id]).toBeUndefined();
     });
   });
 });

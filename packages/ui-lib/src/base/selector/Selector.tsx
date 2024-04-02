@@ -1,4 +1,4 @@
-import { Check, ChevronDown } from '@teable-group/icons';
+import { Check, ChevronDown } from '@teable/icons';
 import { useMemo, useRef, useState } from 'react';
 import {
   Popover,
@@ -51,14 +51,14 @@ export const Selector: React.FC<ISelectorProps> = ({
     () =>
       candidates.reduce(
         (pre, cur) => {
-          pre[cur.id?.toLowerCase()] = cur;
+          pre[cur.id] = cur;
           return pre;
         },
         {} as Record<string, ISelectorItem>
       ),
     [candidates]
   );
-  const selected = candidatesMap[selectedId.toLowerCase()];
+  const selected = candidatesMap[selectedId];
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={true}>
@@ -92,7 +92,6 @@ export const Selector: React.FC<ISelectorProps> = ({
         <Command
           filter={(value, search) => {
             if (!search) return 1;
-            // cmdk bugs value is always lowercase, sucks...
             const item = candidatesMap[value];
             const text = item?.name || item?.id;
             if (text?.toLocaleLowerCase().includes(search.toLocaleLowerCase())) return 1;

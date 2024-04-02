@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IActionTriggerBuffer } from '@teable-group/core';
-import { getAggregation } from '@teable-group/openapi';
+import type { IActionTriggerBuffer } from '@teable/core';
+import { getAggregation } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useActionTrigger, useIsHydrated } from '../../hooks';
+import { useActionTrigger, useIsHydrated, useSearch } from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { AggregationContext } from './AggregationContext';
 
@@ -19,29 +19,31 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   const { tableId, viewId } = useContext(AnchorContext);
   const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
-
+  const { searchQuery } = useSearch();
+  const aggQuery = useMemo(() => ({ viewId, search: searchQuery }), [searchQuery, viewId]);
   const { data: resAggregations } = useQuery({
-    queryKey: ReactQueryKeys.aggregations(tableId as string, { viewId }),
+    queryKey: ReactQueryKeys.aggregations(tableId as string, aggQuery),
     queryFn: ({ queryKey }) => getAggregation(queryKey[1], queryKey[2]),
     enabled: !!tableId && isHydrated,
     refetchOnWindowFocus: false,
   });
 
   const updateAggregations = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.aggregations(tableId as string, { viewId })),
-    [queryClient, tableId, viewId]
+    () => queryClient.invalidateQueries(ReactQueryKeys.aggregations(tableId as string, aggQuery)),
+    [aggQuery, queryClient, tableId]
   );
 
   useEffect(() => {
     if (tableId == null) return;
 
-    const relevantProps = [
-      'tableAdd',
-      'tableUpdate',
-      'tableDelete',
+    const relevantProps: PropKeys[] = [
+      'addRecord',
+      'setRecord',
+      'deleteRecord',
       'applyViewFilter',
       'showViewField',
-    ] as PropKeys[];
+      'applyViewStatisticFunc',
+    ];
 
     listener?.(relevantProps, () => updateAggregations(), [tableId, viewId]);
   }, [listener, tableId, updateAggregations, viewId]);

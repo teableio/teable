@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { shareViewFormSubmit } from '@teable-group/openapi';
+import { shareViewFormSubmit } from '@teable/openapi';
 import { useContext } from 'react';
 import { FormPreviewer } from '../../../view/form/components';
 import { ShareViewPageContext } from '../ShareViewPageContext';
@@ -13,7 +13,7 @@ export const FormView = () => {
     await mutateAsync({ shareId, fields });
   };
   return (
-    <div className="flex h-full w-full">
+    <div className="flex size-full">
       <FormPreviewer submit={onSubmit} />
     </div>
   );

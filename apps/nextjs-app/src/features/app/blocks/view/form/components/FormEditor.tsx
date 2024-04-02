@@ -12,12 +12,12 @@ import {
   useFieldStaticGetter,
   useFields,
   useIsHydrated,
-  useGridColumnOrder,
-} from '@teable-group/sdk';
-import type { IFieldInstance } from '@teable-group/sdk/model';
-import { useMemo, useState } from 'react';
+  swapReorder,
+  reorder,
+} from '@teable/sdk';
+import type { IFieldInstance } from '@teable/sdk/model';
+import { useEffect, useMemo, useState } from 'react';
 import { FieldSetting } from '../../grid/components';
-import { reorder } from '../../grid/utils';
 import { FormEditorMain } from './FormEditorMain';
 import { FormFieldEditor } from './FormFieldEditor';
 import { DragItem, FormSidebar } from './FormSidebar';
@@ -37,8 +37,8 @@ export const FormEditor = () => {
   const isHydrated = useIsHydrated();
   const visibleFields = useFields();
   const allFields = useFields({ withHidden: true });
-  const { onColumnOrdered } = useGridColumnOrder();
   const getFieldStatic = useFieldStaticGetter();
+  const [innerVisibleFields, setInnerVisibleFields] = useState([...visibleFields]);
   const [activeField, setActiveField] = useState<IFieldInstance | null>(null);
   const [activeSidebarField, setActiveSidebarField] = useState<IFieldInstance | null>(null);
   const [additionalFieldData, setAdditionalFieldData] = useState<{
@@ -54,16 +54,20 @@ export const FormEditor = () => {
     })
   );
 
+  useEffect(() => {
+    setInnerVisibleFields(visibleFields);
+  }, [visibleFields]);
+
   const renderFields = useMemo(() => {
     const fields = [
-      ...visibleFields.filter(({ isComputed, isLookup }) => !isComputed && !isLookup),
+      ...innerVisibleFields.filter(({ isComputed, isLookup }) => !isComputed && !isLookup),
     ];
     if (additionalFieldData) {
       const { field, index } = additionalFieldData;
       fields.splice(index, 0, field);
     }
     return fields;
-  }, [additionalFieldData, visibleFields]);
+  }, [additionalFieldData, innerVisibleFields]);
 
   const onClean = () => {
     setActiveField(null);
@@ -101,30 +105,43 @@ export const FormEditor = () => {
   const onDragEnd = async (event: DragEndEvent) => {
     const { over } = event;
     const overData = over?.data?.current || {};
+
     const { index: targetIndex, isContainer } = overData;
+
+    if (!view) {
+      return;
+    }
 
     onClean();
 
-    if (activeSidebarField && (targetIndex != null || isContainer) && view) {
+    if (activeSidebarField && (targetIndex != null || isContainer)) {
+      const newFields = [...innerVisibleFields];
       const sourceDragId = activeSidebarField.id;
       const sourceIndex = allFields.findIndex((f) => f.id === sourceDragId);
       const draggingField = allFields[sourceIndex];
-      await view.setViewColumnMeta([
+
+      if (draggingField == null) return;
+
+      newFields.splice(targetIndex, 0, draggingField);
+      setInnerVisibleFields(newFields);
+
+      await view.updateColumnMeta([
         {
           fieldId: draggingField.id,
           columnMeta: {
-            hidden: false,
+            visible: true,
           },
         },
       ]);
 
+      if (!visibleFields.length) return;
+
       const finalIndex = targetIndex ?? 0;
-      if (sourceIndex === finalIndex) return;
       const newOrders = reorder(1, finalIndex, visibleFields.length, (index) => {
         const fieldId = visibleFields[index].id;
         return view?.columnMeta[fieldId].order;
       });
-      await view.setViewColumnMeta([
+      await view.updateColumnMeta([
         {
           fieldId: draggingField.id,
           columnMeta: {
@@ -135,13 +152,36 @@ export const FormEditor = () => {
     }
 
     if (activeField && targetIndex != null) {
+      const newFields = [...innerVisibleFields];
       const sourceDragId = activeField.id;
       const sourceIndex = visibleFields.findIndex((f) => f.id === sourceDragId);
+
       if (sourceIndex === targetIndex) return;
-      return onColumnOrdered(
-        [sourceIndex],
-        sourceIndex < targetIndex ? targetIndex + 1 : targetIndex
+
+      const [moveField] = newFields.splice(sourceIndex, 1);
+      const newOrders = swapReorder(
+        1,
+        sourceIndex,
+        targetIndex ?? 0,
+        visibleFields.length,
+        (index: number) => {
+          const fieldId = visibleFields[index].id;
+          return view?.columnMeta[fieldId].order;
+        }
       );
+
+      newFields.splice(targetIndex, 0, moveField);
+
+      setInnerVisibleFields(newFields);
+
+      await view?.updateColumnMeta([
+        {
+          fieldId: sourceDragId,
+          columnMeta: {
+            order: newOrders[0],
+          },
+        },
+      ]);
     }
   };
 

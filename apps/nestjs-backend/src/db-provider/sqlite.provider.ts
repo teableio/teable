@@ -1,7 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Logger } from '@nestjs/common';
-import type { IAggregationField, IFilter, ISortItem } from '@teable-group/core';
-import { DriverClient } from '@teable-group/core';
+import type { IFilter, ISortItem } from '@teable/core';
+import { DriverClient } from '@teable/core';
+import type { PrismaClient } from '@teable/db-main-prisma';
+import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
@@ -15,8 +17,10 @@ import type {
 } from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
+import { SearchQueryAbstract } from './search-query/abstract';
+import { SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
-import { SortQuerySqlite } from './sort-query/sort-query.sqlite';
+import { SortQuerySqlite } from './sort-query/sqlite/sort-query.sqlite';
 
 export class SqliteProvider implements IDbProvider {
   private readonly logger = new Logger(SqliteProvider.name);
@@ -37,7 +41,21 @@ export class SqliteProvider implements IDbProvider {
     return [this.knex.raw('ALTER TABLE ?? RENAME TO ??', [oldTableName, newTableName]).toQuery()];
   }
 
-  renameColumnName(tableName: string, oldName: string, newName: string): string[] {
+  dropTable(tableName: string): string {
+    return this.knex.raw('DROP TABLE ??', [tableName]).toQuery();
+  }
+
+  async checkColumnExist(
+    tableName: string,
+    columnName: string,
+    prisma: PrismaClient
+  ): Promise<boolean> {
+    const sql = this.columnInfo(tableName);
+    const columns = await prisma.$queryRawUnsafe<{ name: string }[]>(sql);
+    return columns.some((column) => column.name === columnName);
+  }
+
+  renameColumn(tableName: string, oldName: string, newName: string): string[] {
     return [
       this.knex
         .raw('ALTER TABLE ?? RENAME COLUMN ?? TO ??', [tableName, oldName, newName])
@@ -54,6 +72,14 @@ export class SqliteProvider implements IDbProvider {
     ];
   }
 
+  splitTableName(tableName: string): string[] {
+    return tableName.split('_');
+  }
+
+  joinDbTableName(schemaName: string, dbTableName: string) {
+    return `${schemaName}_${dbTableName}`;
+  }
+
   dropColumn(tableName: string, columnName: string): string[] {
     return [this.knex.raw('ALTER TABLE ?? DROP COLUMN ??', [tableName, columnName]).toQuery()];
   }
@@ -65,8 +91,28 @@ export class SqliteProvider implements IDbProvider {
     ];
   }
 
-  columnInfo(tableName: string, _columnName: string): string {
+  columnInfo(tableName: string): string {
     return this.knex.raw(`PRAGMA table_info(??)`, [tableName]).toQuery();
+  }
+
+  duplicateTable(
+    fromSchema: string,
+    toSchema: string,
+    tableName: string,
+    withData?: boolean
+  ): string {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_, dbTableName] = this.splitTableName(tableName);
+    return this.knex
+      .raw(`CREATE TABLE ?? AS SELECT * FROM ?? ${withData ? '' : 'WHERE 1=0'}`, [
+        this.joinDbTableName(toSchema, dbTableName),
+        this.joinDbTableName(fromSchema, dbTableName),
+      ])
+      .toQuery();
+  }
+
+  alterAutoNumber(_tableName: string): string[] {
+    return [];
   }
 
   batchInsertSql(tableName: string, insertData: ReadonlyArray<unknown>): string {
@@ -147,5 +193,13 @@ export class SqliteProvider implements IDbProvider {
     extra?: ISortQueryExtra
   ): ISortQueryInterface {
     return new SortQuerySqlite(this.knex, originQueryBuilder, fields, sortObjs, extra);
+  }
+
+  searchQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    search?: string[]
+  ) {
+    return SearchQueryAbstract.factory(SearchQuerySqlite, originQueryBuilder, fieldMap, search);
   }
 }

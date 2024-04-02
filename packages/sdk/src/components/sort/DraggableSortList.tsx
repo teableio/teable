@@ -1,13 +1,12 @@
-import type { ISort, ISortItem } from '@teable-group/core';
-import { DraggableHandle, Trash2 } from '@teable-group/icons';
-import { Button } from '@teable-group/ui-lib';
+import type { ISort, ISortItem } from '@teable/core';
+import { DraggableHandle, Trash2 } from '@teable/icons';
+import { Button, cn } from '@teable/ui-lib';
 import type {
   DraggableAttributes,
   SyntheticListenerMap,
   DragEndEvent,
-} from '@teable-group/ui-lib/src/base/dnd-kit';
-import { DndKitContext, Droppable, Draggable } from '@teable-group/ui-lib/src/base/dnd-kit';
-import classNames from 'classnames';
+} from '@teable/ui-lib/src/base/dnd-kit';
+import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/src/base/dnd-kit';
 import { useIsHydrated } from '../../hooks';
 import { SortItem } from './SortItem';
 import type { ISortItemProps } from './SortItem';
@@ -42,11 +41,11 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
       <SortItem value={value} index={index} onSelect={onSelect} selectedFields={selectedFields} />
 
       <Button variant="outline" size="sm" onClick={() => deleteHandler(index)}>
-        <Trash2 className="h-4 w-4"></Trash2>
+        <Trash2 className="size-4"></Trash2>
       </Button>
 
       <div
-        className={classNames('pl-2', displayDragHandler ? null : 'hidden')}
+        className={cn('pl-2', displayDragHandler ? null : 'hidden')}
         {...attributes}
         {...listeners}
       >
@@ -95,7 +94,7 @@ function DraggableSortList(props: IDraggableSortProps) {
                 <div
                   ref={setNodeRef}
                   style={style}
-                  className={classNames(
+                  className={cn(
                     'flex items-center bg-card my-2 flex-nowrap',
                     isDragging ? 'opacity-50' : null
                   )}

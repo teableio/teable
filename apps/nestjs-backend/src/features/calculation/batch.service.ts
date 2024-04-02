@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Injectable } from '@nestjs/common';
-import type { IOtOperation } from '@teable-group/core';
-import { IdPrefix, RecordOpBuilder } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { Injectable, Logger } from '@nestjs/common';
+import type { IOtOperation } from '@teable/core';
+import { IdPrefix, RecordOpBuilder } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
 import { customAlphabet } from 'nanoid';
@@ -33,6 +33,7 @@ export interface IOpsData {
 
 @Injectable()
 export class BatchService {
+  private logger = new Logger(BatchService.name);
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
@@ -322,12 +323,14 @@ export class BatchService {
     const rawOpMap: IRawOpMap = { [collection]: {} };
 
     const baseRaw = {
-      src: this.cls.get('tx.id') || 'unknown',
+      src: this.cls.getId() || 'unknown',
       seq: 1,
       m: {
         ts: Date.now(),
       },
     };
+
+    this.logger.log(`saveOp: ${baseRaw.src}-${collection}`);
 
     const rawOps = dataList.map(({ docId: docId, version, data }) => {
       let rawOp: IRawOp;

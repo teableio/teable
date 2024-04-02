@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { FieldType } from '@teable-group/core';
+import { FieldType } from '@teable/core';
 
 import {
   Calendar as CalendarIcon,
@@ -19,9 +19,10 @@ import {
   History as LastModifiedTimeIcon,
   ListOrdered as AutoNumberIcon,
   User as UserIcon,
-} from '@teable-group/icons';
+} from '@teable/icons';
 
 import { useCallback } from 'react';
+import { useTranslation } from '../context/app/i18n';
 import {
   AttachmentField,
   AutoNumberField,
@@ -47,6 +48,8 @@ export interface IFieldStatic {
 }
 
 export const useFieldStaticGetter = () => {
+  const { t } = useTranslation();
+
   return useCallback(
     (
       type: FieldType,
@@ -56,98 +59,98 @@ export const useFieldStaticGetter = () => {
       switch (type) {
         case FieldType.SingleLineText:
           return {
-            title: 'Single line text',
+            title: t('field.title.singleLineText'),
             defaultOptions: SingleLineTextField.defaultOptions(),
             Icon: isLookup ? SearchIcon : TextIcon,
           };
         case FieldType.LongText:
           return {
-            title: 'Long text',
+            title: t('field.title.longText'),
             defaultOptions: LongTextField.defaultOptions(),
             Icon: isLookup ? SearchIcon : LongTextIcon,
           };
         case FieldType.SingleSelect:
           return {
-            title: 'Single select',
+            title: t('field.title.singleSelect'),
             defaultOptions: SingleSelectField.defaultOptions(),
             Icon: isLookup ? SearchIcon : SelectIcon,
           };
         case FieldType.Number:
           return {
-            title: 'Number',
+            title: t('field.title.number'),
             defaultOptions: NumberField.defaultOptions(),
             Icon: isLookup ? SearchIcon : NumberIcon,
           };
         case FieldType.MultipleSelect:
           return {
-            title: 'Multiple select',
+            title: t('field.title.multipleSelect'),
             defaultOptions: MultipleSelectField.defaultOptions(),
             Icon: isLookup ? SearchIcon : MenuIcon,
           };
         case FieldType.Link:
           return {
-            title: 'Link',
+            title: t('field.title.link'),
             defaultOptions: LinkField.defaultOptions(),
             Icon: isLookup ? SearchIcon : LinkIcon,
           };
         case FieldType.Formula:
           return {
-            title: 'Formula',
+            title: t('field.title.formula'),
             defaultOptions: {},
             Icon: isLookup ? SearchIcon : FormulaIcon,
           };
         case FieldType.Date:
           return {
-            title: 'Date',
+            title: t('field.title.date'),
             defaultOptions: DateField.defaultOptions(),
             Icon: isLookup ? SearchIcon : CalendarIcon,
           };
         case FieldType.CreatedTime:
           return {
-            title: 'Created time',
+            title: t('field.title.createdTime'),
             defaultOptions: CreatedTimeField.defaultOptions(),
             Icon: isLookup ? SearchIcon : CreatedTimeIcon,
           };
         case FieldType.LastModifiedTime:
           return {
-            title: 'Last modified time',
+            title: t('field.title.lastModifiedTime'),
             defaultOptions: LastModifiedTimeField.defaultOptions(),
             Icon: isLookup ? SearchIcon : LastModifiedTimeIcon,
           };
         case FieldType.Attachment:
           return {
-            title: 'Attachment',
+            title: t('field.title.attachment'),
             defaultOptions: AttachmentField.defaultOptions(),
             Icon: isLookup ? SearchIcon : AttachmentIcon,
           };
         case FieldType.Checkbox:
           return {
-            title: 'Checkbox',
+            title: t('field.title.checkbox'),
             defaultOptions: CheckboxField.defaultOptions(),
             Icon: isLookup ? SearchIcon : CheckboxIcon,
           };
         case FieldType.Rollup:
           return {
-            title: 'Rollup',
+            title: t('field.title.rollup'),
             defaultOptions: {},
             Icon: isLookup ? SearchIcon : RollupIcon,
           };
         case FieldType.User: {
           return {
-            title: 'User',
+            title: t('field.title.user'),
             defaultOptions: UserField.defaultOptions(),
             Icon: isLookup ? SearchIcon : UserIcon,
           };
         }
         case FieldType.Rating:
           return {
-            title: 'Rating',
+            title: t('field.title.rating'),
             defaultOptions: RatingField.defaultOptions(),
             Icon: isLookup ? SearchIcon : RatingIcon,
           };
         case FieldType.AutoNumber:
           return {
-            title: 'Auto number',
+            title: t('field.title.autoNumber'),
             defaultOptions: AutoNumberField.defaultOptions(),
             Icon: isLookup ? SearchIcon : AutoNumberIcon,
           };
@@ -155,6 +158,6 @@ export const useFieldStaticGetter = () => {
           throw new Error(`field type: ${type} has not define statics`);
       }
     },
-    []
+    [t]
   );
 };

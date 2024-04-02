@@ -1,20 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { FieldKeyType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
-  IAttachmentCellValue,
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecord,
+  IRecordInsertOrderRo,
   IUpdateRecordRo,
   IUpdateRecordsRo,
-} from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { UploadType } from '@teable-group/openapi';
+} from '@teable/openapi';
 import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
-import StorageAdapter from '../../attachments/plugins/adapter';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { ViewService } from '../../view/view.service';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
 import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
@@ -26,7 +26,9 @@ export class RecordOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly fieldConvertingService: FieldConvertingService,
-    private readonly attachmentsStorageService: AttachmentsStorageService
+    private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly viewService: ViewService,
+    private readonly viewOpenApiService: ViewOpenApiService
   ) {}
 
   async multipleCreateRecords(
@@ -34,29 +36,57 @@ export class RecordOpenApiService {
     createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
     return await this.prismaService.$tx(async () => {
-      return await this.createRecords(
-        tableId,
-        createRecordsRo.records,
-        createRecordsRo.fieldKeyType,
-        createRecordsRo.typecast
-      );
+      return await this.createRecords(tableId, createRecordsRo);
     });
+  }
+
+  private async getRecordOrderIndexes(
+    tableId: string,
+    orderRo: IRecordInsertOrderRo,
+    recordCount: number
+  ) {
+    const dbTableName = await this.recordService.getDbTableName(tableId);
+
+    const indexField = await this.viewService.getOrCreateViewIndexField(
+      dbTableName,
+      orderRo.viewId
+    );
+    let indexes: number[] = [];
+    await this.viewOpenApiService.updateRecordOrdersInner({
+      tableId,
+      dbTableName,
+      itemLength: recordCount,
+      indexField,
+      orderRo,
+      update: async (result) => {
+        indexes = result;
+      },
+    });
+
+    return indexes;
   }
 
   async createRecords(
     tableId: string,
-    recordsRo: { id?: string; fields: Record<string, unknown> }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    typecast?: boolean
+    createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
+    const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
     const typecastRecords = await this.validateFieldsAndTypecast(
       tableId,
-      recordsRo,
+      records,
       fieldKeyType,
       typecast
     );
 
-    return await this.recordCalculateService.createRecords(tableId, typecastRecords, fieldKeyType);
+    const indexes = order && (await this.getRecordOrderIndexes(tableId, order, records.length));
+    const orderIndex = indexes ? { viewId: order.viewId, indexes } : undefined;
+
+    return await this.recordCalculateService.createRecords(
+      tableId,
+      typecastRecords,
+      fieldKeyType,
+      orderIndex
+    );
   }
 
   async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
@@ -94,6 +124,7 @@ export class RecordOpenApiService {
       where: {
         tableId,
         [fieldKeyType]: { in: usedFieldIdsOrNames },
+        deletedTime: null,
       },
     });
 
@@ -127,6 +158,7 @@ export class RecordOpenApiService {
           prismaService: this.prismaService,
           fieldConvertingService: this.fieldConvertingService,
           recordService: this.recordService,
+          attachmentsStorageService: this.attachmentsStorageService,
         },
         field,
         tableId,
@@ -143,35 +175,6 @@ export class RecordOpenApiService {
           recordField[fieldIdOrName] = newCellValues[i];
         }
       });
-
-      if (field.type === FieldType.Attachment) {
-        // attachment presignedUrl reparation
-        for (const recordField of newRecordsFields) {
-          const attachmentCellValue = recordField[fieldIdOrName] as IAttachmentCellValue;
-          if (!attachmentCellValue) {
-            continue;
-          }
-          recordField[fieldIdOrName] = await Promise.all(
-            attachmentCellValue.map(async (item) => {
-              const { path, mimetype, token } = item;
-              const presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-                StorageAdapter.getBucket(UploadType.Table),
-                path,
-                token,
-                undefined,
-                {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  'Content-Type': mimetype,
-                }
-              );
-              return {
-                ...item,
-                presignedUrl,
-              };
-            })
-          );
-        }
-      }
     }
 
     return records.map((record, i) => ({
@@ -180,7 +183,7 @@ export class RecordOpenApiService {
     }));
   }
 
-  async updateRecordById(
+  async updateRecord(
     tableId: string,
     recordId: string,
     updateRecordRo: IUpdateRecordRo
@@ -221,31 +224,8 @@ export class RecordOpenApiService {
   }
 
   async deleteRecords(tableId: string, recordIds: string[]) {
-    return await this.prismaService.$tx(async (prisma) => {
-      const linkFieldRaws = await prisma.field.findMany({
-        where: {
-          tableId,
-          type: FieldType.Link,
-          deletedTime: null,
-          isLookup: null,
-        },
-        select: { id: true },
-      });
-
-      // reset link fields to null to clean relational data
-      const recordFields = linkFieldRaws.reduce<{ [fieldId: string]: null }>((pre, cur) => {
-        pre[cur.id] = null;
-        return pre;
-      }, {});
-
-      await this.recordCalculateService.calculateUpdatedRecord(
-        tableId,
-        FieldKeyType.Id,
-        recordIds.map((id) => ({
-          id,
-          fields: recordFields,
-        }))
-      );
+    return await this.prismaService.$tx(async () => {
+      await this.recordCalculateService.calculateDeletedRecord(tableId, recordIds);
 
       await this.recordService.batchDeleteRecords(tableId, recordIds);
     });

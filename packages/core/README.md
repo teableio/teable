@@ -1,7 +1,7 @@
-# @teable-group/core
+# @teable/core
 
 > **Note**
-> This package is part of [teable-group/teable](https://github.com/teable-group/teable).
+> This package is part of [teableio/teable](https://github.com/teableio/teable).
 
 A package holding some basic typescript utilities: typeguards, assertions...
 
@@ -14,7 +14,7 @@ A package holding some basic typescript utilities: typeguards, assertions...
 From any package or apps:
 
 ```bash
-yarn add @teable-group/core@"workspace:^"
+yarn add @teable/core@"workspace:^"
 ```
 
 ## Enable aliases
@@ -25,7 +25,7 @@ yarn add @teable-group/core@"workspace:^"
   "compilerOptions": {
     "baseUrl": "./src",
     "paths": {
-      "@teable-group/core": ["../../../packages/core/src/index"],
+      "@teable/core": ["../../../packages/core/src/index"],
     },
   },
 }
@@ -34,7 +34,7 @@ yarn add @teable-group/core@"workspace:^"
 ## Consume
 
 ```typescript
-import { isPlainObject } from "@teable-group/core";
+import { isPlainObject } from "@teable/core";
 
 isPlainObject(true) === false;
 ```

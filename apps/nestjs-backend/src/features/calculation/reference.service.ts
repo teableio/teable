@@ -4,16 +4,10 @@ import type {
   ILinkCellValue,
   ILinkFieldOptions,
   IOtOperation,
-  ITinyRecord,
-} from '@teable-group/core';
-import {
-  evaluate,
-  FieldType,
-  isMultiValueLink,
-  RecordOpBuilder,
-  Relationship,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+  IRecord,
+} from '@teable/core';
+import { evaluate, FieldType, isMultiValueLink, RecordOpBuilder, Relationship } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { cloneDeep, difference, groupBy, isEmpty, keyBy, unionWith, uniq } from 'lodash';
@@ -47,12 +41,12 @@ export interface IGraphItem {
 }
 
 export interface IRecordMap {
-  [recordId: string]: ITinyRecord;
+  [recordId: string]: IRecord;
 }
 
 export interface IRecordItem {
-  record: ITinyRecord;
-  dependencies?: ITinyRecord[];
+  record: IRecord;
+  dependencies?: IRecord[];
 }
 
 export interface IRecordData {
@@ -323,7 +317,7 @@ export class ReferenceService {
     // when link cell change, we need to get all lookup field
     if (linkFieldIds.length) {
       const lookupFieldRaw = await this.prismaService.txClient().field.findMany({
-        where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null },
+        where: { lookupLinkedFieldId: { in: linkFieldIds }, deletedTime: null, hasError: null },
         select: { id: true },
       });
       lookupFieldRaw.forEach((field) => startFieldIds.push(field.id));
@@ -438,8 +432,19 @@ export class ReferenceService {
     fieldMap: IFieldMap,
     recordItem: IRecordItem
   ) {
-    const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
-    return typedValue.toPlain();
+    if (field.hasError) {
+      return null;
+    }
+
+    try {
+      const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
+      return typedValue.toPlain();
+    } catch (e) {
+      this.logger.error(
+        `calculateFormula error, fieldId: ${field.id}; exp: ${field.options.expression}; recordId: ${recordItem.record.id}, ${(e as { message: string }).message}`
+      );
+      return null;
+    }
   }
 
   /**
@@ -504,7 +509,7 @@ export class ReferenceService {
     field: IFieldInstance,
     relationship: Relationship,
     lookupField: IFieldInstance,
-    record: ITinyRecord,
+    record: IRecord,
     lookupValues: unknown
   ): unknown {
     if (field.type !== FieldType.Link && field.type !== FieldType.Rollup) {
@@ -654,7 +659,7 @@ export class ReferenceService {
     return changes;
   }
 
-  private recordRaw2Record(fields: IFieldInstance[], raw: { [dbFieldName: string]: unknown }) {
+  recordRaw2Record(fields: IFieldInstance[], raw: { [dbFieldName: string]: unknown }): IRecord {
     const fieldsData = fields.reduce<{ [fieldId: string]: unknown }>((acc, field) => {
       acc[field.id] = field.convertDBValue2CellValue(raw[field.dbFieldName] as string);
       return acc;
@@ -668,7 +673,6 @@ export class ReferenceService {
       lastModifiedTime: (raw.__last_modified_time as Date)?.toISOString(),
       createdBy: raw.__created_by as string,
       lastModifiedBy: raw.__last_modified_by as string,
-      recordOrder: {},
     };
   }
 
@@ -840,7 +844,7 @@ export class ReferenceService {
         recordItemMap:
           recordMap &&
           Object.values(recordMap).reduce<Record<string, IRecordItem>>((pre, record) => {
-            let dependencies: ITinyRecord[] | undefined;
+            let dependencies: IRecord[] | undefined;
             if (relatedItems) {
               const options = field.lookupOptions
                 ? field.lookupOptions

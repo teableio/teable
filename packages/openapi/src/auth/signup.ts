@@ -4,7 +4,7 @@ import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { signinSchema, signinVoSchema } from './signin';
 
-export const SING_UP = '/auth/signup';
+export const SIGN_UP = '/auth/signup';
 
 export const signupSchema = signinSchema;
 
@@ -16,7 +16,7 @@ export type ISignupVo = z.infer<typeof signupVoSchema>;
 
 export const SignupRoute: RouteConfig = registerRoute({
   method: 'post',
-  path: SING_UP,
+  path: SIGN_UP,
   description: 'Sign up',
   request: {
     body: {
@@ -43,5 +43,5 @@ export const SignupRoute: RouteConfig = registerRoute({
 });
 
 export const signup = async (body: ISignup) => {
-  return axios.post<ISignupVo>(SING_UP, body);
+  return axios.post<ISignupVo>(SIGN_UP, body);
 };

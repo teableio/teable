@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { TeableNew } from '@teable-group/icons';
-import { createQueryClient } from '@teable-group/sdk/context/app/queryClient';
-import { Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib/shadcn';
+import { TeableNew } from '@teable/icons';
+import { createQueryClient } from '@teable/sdk/context/app/queryClient';
+import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
@@ -9,6 +9,7 @@ import { useState, type FC, useCallback } from 'react';
 import { authConfig } from '@/features/i18n/auth.config';
 import type { ISignForm } from '../components/SignForm';
 import { SignForm } from '../components/SignForm';
+import { SocialAuth } from '../components/SocialAuth';
 
 const queryClient = createQueryClient();
 
@@ -26,7 +27,7 @@ export const LoginPage: FC = () => {
       <div className="fixed h-screen w-full overflow-y-auto">
         <div className="absolute left-0 flex h-[4em] w-full items-center justify-between bg-background px-5 lg:h-20">
           <div className="flex h-full items-center gap-2">
-            <TeableNew className="h-8 w-8 text-black" />
+            <TeableNew className="size-8 text-black" />
             {t('common:brand')}
           </div>
           <Tabs value={signType} onValueChange={(val) => setSignType(val as ISignForm['type'])}>
@@ -36,11 +37,10 @@ export const LoginPage: FC = () => {
             </TabsList>
           </Tabs>
         </div>
-        <SignForm
-          className="mx-auto h-full w-80 items-center py-[5em] lg:py-24"
-          type={signType}
-          onSuccess={onSuccess}
-        />
+        <div className="relative top-1/2 mx-auto w-80 -translate-y-1/2 py-[5em] lg:py-24">
+          <SignForm type={signType} onSuccess={onSuccess} />
+          <SocialAuth />
+        </div>
       </div>
     </QueryClientProvider>
   );

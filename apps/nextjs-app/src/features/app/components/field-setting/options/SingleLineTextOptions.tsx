@@ -1,4 +1,4 @@
-import type { ISingleLineTextFieldOptions, ISingleLineTextShowAs } from '@teable-group/core';
+import type { ISingleLineTextFieldOptions, ISingleLineTextShowAs } from '@teable/core';
 import { SingleTextLineShowAs } from '../show-as/SingleLineTextShowAs';
 
 export const SingleLineTextOptions = (props: {

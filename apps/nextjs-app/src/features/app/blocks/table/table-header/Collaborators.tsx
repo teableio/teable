@@ -1,35 +1,33 @@
-import { ColorUtils, getCollaboratorsChannel, contractColorForTheme } from '@teable-group/core';
-import { useSession, useTheme } from '@teable-group/sdk';
-import type { IUser } from '@teable-group/sdk';
-import { useConnection } from '@teable-group/sdk/hooks';
+import { ColorUtils, contractColorForTheme, getCollaboratorsChannel } from '@teable/core';
+import type { IUser } from '@teable/sdk';
+import { useSession, useTheme } from '@teable/sdk';
+import { useConnection } from '@teable/sdk/hooks';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
+  cn,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib/shadcn';
-import classNames from 'classnames';
-import { isEmpty, chunk } from 'lodash';
+} from '@teable/ui-lib/shadcn';
+import { chunk, isEmpty } from 'lodash';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
+import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 
 interface CollaboratorsProps {
   className?: string;
   maxAvatarLen?: number;
 }
 
-type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta'>;
+type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta' | 'hasPassword'>;
 
 export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvatarLen = 3 }) => {
   const router = useRouter();
   const { connection } = useConnection();
-  const { nodeId: tableId } = router.query;
+  const { tableId } = router.query;
   const { user: sessionUser } = useSession();
   const { theme } = useTheme();
   const [presence, setPresence] = useState<Presence>();
@@ -46,13 +44,13 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const [boardUsers, hiddenUser] = chunk(users, maxAvatarLen);
 
   useEffect(() => {
-    if (!connection?.id || !tableId || !user) {
+    if (!connection || !tableId || !user) {
       return;
     }
     const channel = getCollaboratorsChannel(tableId as string);
     setPresence(connection.getPresence(channel));
     setUsers([{ ...user }]);
-  }, [connection, connection?.id, tableId, user]);
+  }, [connection, tableId, user]);
 
   useEffect(() => {
     if (!presence) {
@@ -67,7 +65,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
 
     presence.subscribe();
 
-    const presenceKey = `${tableId}_${user.id}_${connection.id}`;
+    const presenceKey = `${tableId}_${user.id}`;
     const localPresence = presence.create(presenceKey);
     localPresence.submit(user, (error) => {
       error && console.error('submit error:', error);
@@ -91,25 +89,23 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       presence.unsubscribe();
       presence?.removeListener('receive', receiveHandler);
     };
-  }, [connection, presence, tableId, user, connection?.id]);
+  }, [connection, presence, tableId, user]);
 
   const avatarRender = ({ name, avatar, id }: ICollaboratorUser) => {
     const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
     return (
-      <Avatar
-        className="h-6 w-6 cursor-pointer border-2"
+      <UserAvatar
+        user={{ name, avatar }}
+        className="size-6 cursor-pointer border-2"
         style={{
           borderColor: contractColorForTheme(borderColor, theme),
         }}
-      >
-        <AvatarImage src={avatar as string} alt={`${name} avatar`} />
-        <AvatarFallback className="text-sm leading-6">{name.slice(0, 1)}</AvatarFallback>
-      </Avatar>
+      />
     );
   };
 
   return (
-    <div className={classNames('gap-1 px-2 items-center hidden sm:flex', className)}>
+    <div className={cn('gap-1 items-center flex', className)}>
       {boardUsers?.map(({ id, name, avatar, email }, index) => {
         return (
           <HoverCard key={`${id}_${index}`}>
@@ -133,8 +129,8 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
       {hiddenUser ? (
         <Popover>
           <PopoverTrigger asChild>
-            <div className="relative h-6 w-6 shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border-slate-200">
-              <p className="flex h-full w-full items-center justify-center rounded-full border-2 text-center text-xs">
+            <div className="relative size-6 shrink-0 grow-0 cursor-pointer select-none overflow-hidden rounded-full border-slate-200">
+              <p className="flex size-full items-center justify-center rounded-full border-2 text-center text-xs">
                 +{hiddenUser.length}
               </p>
             </div>

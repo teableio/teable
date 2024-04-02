@@ -1,4 +1,4 @@
-import { Check, Plus } from '@teable-group/icons';
+import { Check, Plus } from '@teable/icons';
 import {
   Button,
   Command,
@@ -9,7 +9,7 @@ import {
   CommandList,
   cn,
   useCommandState,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
@@ -93,7 +93,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
     onChange?.(searchValue);
   };
 
-  const addOptionText = `Add an option "${searchValue}"`;
+  const addOptionText = `Add an option '${searchValue}'`;
   const optionAddable = searchValue && options.findIndex((v) => v.value === searchValue) === -1;
 
   return (
@@ -107,7 +107,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
       <CommandList>
         <CommandEmpty className="p-2">
           <Button variant={'ghost'} size={'sm'} className="w-full text-sm">
-            <Plus className="h-4 w-4" />
+            <Plus className="size-4" />
             <span className="ml-2">{addOptionText}</span>
           </Button>
         </CommandEmpty>
@@ -124,14 +124,14 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
                 backgroundColor={backgroundColor}
                 color={color}
               />
-              {checkIsActive(value) && <Check className={'ml-2 h-4 w-4'} />}
+              {checkIsActive(value) && <Check className={'ml-2 size-4'} />}
             </CommandItem>
           ))}
           <CommandItem
             className={cn('items-center justify-center', !optionAddable && 'opacity-0 h-0 p-0')}
             onSelect={onOptionAddInner}
           >
-            <Plus className="h-4 w-4 shrink-0" />
+            <Plus className="size-4 shrink-0" />
             <span className="ml-2 truncate">{addOptionText}</span>
           </CommandItem>
         </CommandGroup>

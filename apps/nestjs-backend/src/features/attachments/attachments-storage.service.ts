@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { CacheService } from '../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
+import { second } from '../../utils/second';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
 import type { IRespHeaders } from './plugins/types';
@@ -19,7 +20,7 @@ export class AttachmentsStorageService {
     token: T,
     meta?: { expiresIn?: number }
   ): Promise<T> {
-    const { expiresIn = this.storageConfig.urlExpireIn } = meta ?? {};
+    const { expiresIn = second(this.storageConfig.urlExpireIn) } = meta ?? {};
     const isArray = Array.isArray(token);
     if (isArray && token.length === 0) {
       return [] as unknown as T;
@@ -58,7 +59,7 @@ export class AttachmentsStorageService {
     bucket: string,
     path: string,
     token: string,
-    expiresIn: number = this.storageConfig.urlExpireIn,
+    expiresIn: number = second(this.storageConfig.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
     const previewCache = await this.cacheService.get(`attachment:preview:${token}`);

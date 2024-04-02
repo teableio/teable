@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { SetMetadata, UseInterceptors } from '@nestjs/common';
+import type { Events } from '../events';
 import { EventMiddleware } from '../interceptor/event.Interceptor';
-import type { Events } from '../model';
 
 type OrdinaryEventName = Extract<
   Events,

@@ -1,4 +1,4 @@
-/** @module @teable-group/sdk: colorUtils */ /** */
+/** @module @teable/sdk: colorUtils */ /** */
 import Color from 'color';
 import { getEnumValueIfExists, has } from '../../utils/enum';
 import { Colors, rgbTuplesByColor } from './colors';
@@ -29,7 +29,7 @@ export interface IColorUtils {
    * @param colorString
    * @example
    * ```js
-   * import {colorUtils, colors} from '@teable-group/sdk';
+   * import {colorUtils, colors} from '@teable/sdk';
    *
    * colorUtils.getRgbForColor(colors.PURPLE_DARK_1);
    * // => {r: 107, g: 28, b: 176}
@@ -49,7 +49,7 @@ export interface IColorUtils {
    * @param alpha
    * @example
    * ```js
-   * import {colorUtils, colors} from '@teable-group/sdk';
+   * import {colorUtils, colors} from '@teable/sdk';
    *
    * colorUtils.getRgbForColor(colors.PURPLE_DARK_1, 0.5);
    * // => rgba(107, 28, 176, 0.5)
@@ -66,7 +66,7 @@ export interface IColorUtils {
    * @param colorString
    * @example
    * ```js
-   * import {colorUtils, colors} from '@teable-group/sdk';
+   * import {colorUtils, colors} from '@teable/sdk';
    *
    * colorUtils.shouldUseLightTextOnColor(colors.PINK_LIGHT_1);
    * // => false

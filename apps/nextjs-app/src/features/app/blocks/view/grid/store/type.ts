@@ -1,12 +1,5 @@
-import type { IPosition, IRectangle } from '@teable-group/sdk/components';
-import type { IFieldInstance, Record } from '@teable-group/sdk/model';
-import type { FieldOperator } from '@/features/app/components/field-setting/type';
-
-export interface ISetting {
-  operator: FieldOperator;
-  fieldId?: string;
-  order?: number;
-}
+import type { IPosition, IRectangle } from '@teable/sdk/components';
+import type { IFieldInstance, Record } from '@teable/sdk/model';
 
 export interface IHeaderMenu {
   fields: IFieldInstance[];
@@ -18,6 +11,7 @@ export interface IRecordMenu {
   records: Record[];
   neighborRecords: (Record | null)[];
   position: IPosition;
+  onAfterInsertCallback?: (recordId: string, targetIndex?: number) => void;
 }
 
 export interface IStatisticMenu {

@@ -1,8 +1,10 @@
 import { Logger } from '@nestjs/common';
-import type { ISortItem } from '@teable-group/core';
+import type { ISortItem } from '@teable/core';
+import { CellValueType, DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { ISortQueryExtra } from '../db.provider.interface';
+import type { AbstractSortFunction } from './function/sort-function.abstract';
 import type { ISortQueryInterface } from './sort-query.interface';
 
 export abstract class AbstractSortQuery implements ISortQueryInterface {
@@ -25,24 +27,43 @@ export abstract class AbstractSortQuery implements ISortQueryInterface {
       return queryBuilder;
     }
 
-    sortObjs.forEach((sort) => {
-      const { fieldId, order } = sort;
-
+    sortObjs.forEach(({ fieldId, order }) => {
       const field = this.fields && this.fields[fieldId];
       if (!field) {
         return queryBuilder;
       }
 
-      const column =
-        field.dbFieldType === 'JSON'
-          ? this.knex.raw(`CAST(?? as text)`, [field.dbFieldName]).toQuery()
-          : this.knex.ref(field.dbFieldName).toQuery();
-
-      const nulls = order.toUpperCase() === 'ASC' ? 'FIRST' : 'LAST';
-
-      queryBuilder.orderByRaw(this.knex.raw(`${column} ${order} NULLS ${nulls}`).toQuery());
+      this.getSortAdapter(field).compiler(queryBuilder, order);
     });
 
     return queryBuilder;
   }
+
+  private getSortAdapter(field: IFieldInstance): AbstractSortFunction {
+    const { dbFieldType } = field;
+    switch (field.cellValueType) {
+      case CellValueType.Boolean:
+        return this.booleanSort(field);
+      case CellValueType.Number:
+        return this.numberSort(field);
+      case CellValueType.DateTime:
+        return this.dateTimeSort(field);
+      case CellValueType.String: {
+        if (dbFieldType === DbFieldType.Json) {
+          return this.jsonSort(field);
+        }
+        return this.stringSort(field);
+      }
+    }
+  }
+
+  abstract booleanSort(field: IFieldInstance): AbstractSortFunction;
+
+  abstract numberSort(field: IFieldInstance): AbstractSortFunction;
+
+  abstract dateTimeSort(field: IFieldInstance): AbstractSortFunction;
+
+  abstract stringSort(field: IFieldInstance): AbstractSortFunction;
+
+  abstract jsonSort(field: IFieldInstance): AbstractSortFunction;
 }

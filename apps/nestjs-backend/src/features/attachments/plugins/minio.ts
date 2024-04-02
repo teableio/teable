@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type { Readable as ReadableStream } from 'node:stream';
 import { join } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getRandomString } from '@teable-group/core';
+import { getRandomString } from '@teable/core';
 import * as minio from 'minio';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { second } from '../../../utils/second';
 import type StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
 
@@ -31,7 +33,8 @@ export class MinioStorage implements StorageAdapter {
     const { tokenExpireIn, uploadMethod } = this.config;
     const { expiresIn, contentLength, contentType, hash } = presignedParams;
     const token = getRandomString(12);
-    const path = join(dir, hash ?? token);
+    const filename = hash ?? token;
+    const path = join(dir, filename);
     const requestHeaders = {
       'Content-Type': contentType,
       'Content-Length': contentLength,
@@ -40,8 +43,8 @@ export class MinioStorage implements StorageAdapter {
       const url = await this.minioClient.presignedUrl(
         uploadMethod,
         bucket,
-        join(dir, hash ?? token),
-        expiresIn ?? tokenExpireIn,
+        path,
+        expiresIn ?? second(tokenExpireIn),
         requestHeaders
       );
       return {
@@ -57,8 +60,8 @@ export class MinioStorage implements StorageAdapter {
     }
   }
 
-  async getObject(bucket: string, path: string, token: string) {
-    const objectName = join(path, token);
+  async getObjectMeta(bucket: string, path: string, _token: string) {
+    const objectName = path;
     const { metaData, size, etag: hash } = await this.minioClient.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
     const url = `/${bucket}/${objectName}`;
@@ -87,7 +90,7 @@ export class MinioStorage implements StorageAdapter {
   async getPreviewUrl(
     bucket: string,
     path: string,
-    expiresIn: number = this.config.urlExpireIn,
+    expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, respHeaders);
@@ -99,7 +102,23 @@ export class MinioStorage implements StorageAdapter {
     filePath: string,
     metadata: Record<string, unknown>
   ) {
-    await this.minioClient.fPutObject(bucket, path, filePath, metadata);
-    return `/${bucket}/${path}`;
+    const { etag: hash } = await this.minioClient.fPutObject(bucket, path, filePath, metadata);
+    return {
+      hash,
+      url: `/${bucket}/${path}`,
+    };
+  }
+
+  async uploadFile(
+    bucket: string,
+    path: string,
+    stream: Buffer | ReadableStream,
+    metadata?: Record<string, unknown>
+  ) {
+    const { etag: hash } = await this.minioClient.putObject(bucket, path, stream, metadata);
+    return {
+      hash,
+      url: `/${bucket}/${path}`,
+    };
   }
 }

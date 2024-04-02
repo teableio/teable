@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import * as crypto from 'crypto';
 import { createReadStream, createWriteStream } from 'fs';
-import { resolve, join } from 'path';
+import { type Readable as ReadableStream } from 'node:stream';
+import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getRandomString } from '@teable-group/core';
+import { getRandomString } from '@teable/core';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
 import sharp from 'sharp';
 import { CacheService } from '../../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
 import { getFullStorageUrl } from '../../../utils/full-storage-url';
+import { second } from '../../../utils/second';
 import type StorageAdapter from './adapter';
 import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
 
@@ -35,8 +37,8 @@ export class LocalStorage implements StorageAdapter {
     this.path = this.config.local.path;
     this.storageDir = resolve(process.cwd(), this.path);
 
-    fse.ensureDir(this.temporaryDir);
-    fse.ensureDir(this.storageDir);
+    fse.ensureDirSync(this.temporaryDir);
+    fse.ensureDirSync(this.storageDir);
   }
 
   private getUploadUrl(token: string) {
@@ -49,23 +51,24 @@ export class LocalStorage implements StorageAdapter {
     }
   }
 
-  private getUrl(path: string, params: ITokenEncryptor) {
+  private getUrl(bucket: string, path: string, params: ITokenEncryptor) {
     const token = this.expireTokenEncryptor.encrypt(params);
-    return `${join(this.readPath, path)}?token=${token}`;
+    return `${join(this.readPath, bucket, path)}?token=${token}`;
   }
 
   parsePath(path: string) {
-    const [dir, token] = path.split('/');
+    const parts = path.split('/');
     return {
-      dir,
-      token,
+      bucket: parts[0],
+      token: parts[parts.length - 1],
     };
   }
 
   async presigned(_bucket: string, dir: string, params: IPresignParams) {
     const { contentType, contentLength, hash } = params;
     const token = getRandomString(12);
-    const expiresIn = params?.expiresIn ?? this.config.tokenExpireIn;
+    const filename = hash ?? token;
+    const expiresIn = params?.expiresIn ?? second(this.config.tokenExpireIn);
     await this.cacheService.set(
       `attachment:local-signature:${token}`,
       {
@@ -76,7 +79,7 @@ export class LocalStorage implements StorageAdapter {
       expiresIn
     );
 
-    const path = join(dir, hash ?? token);
+    const path = join(dir, filename);
     return {
       token,
       path,
@@ -171,44 +174,39 @@ export class LocalStorage implements StorageAdapter {
     };
   }
 
-  async getHash(path: string): Promise<string> {
-    const hash = crypto.createHash('sha256');
-    const fileReadStream = createReadStream(path);
-    fileReadStream.on('data', (data) => {
-      hash.update(data);
-    });
-    return new Promise((resolve) => {
-      fileReadStream.on('end', () => {
-        resolve(hash.digest('hex'));
-      });
-    });
-  }
-
-  async getObject(bucket: string, path: string, token: string): Promise<IObjectMeta> {
+  async getObjectMeta(bucket: string, path: string, token: string): Promise<IObjectMeta> {
     const uploadCache = await this.cacheService.get(`attachment:upload:${token}`);
     if (!uploadCache) {
       throw new BadRequestException(`Invalid token: ${token}`);
     }
     const { mimetype, hash, size } = uploadCache;
-    return {
+
+    const meta = {
       hash,
       mimetype,
       size,
-      url: this.getUrl(path, {
+      url: this.getUrl(bucket, path, {
         respHeaders: { 'Content-Type': mimetype },
         expiresDate: -1,
       }),
+    };
+
+    if (!mimetype?.startsWith('image/')) {
+      return meta;
+    }
+    return {
+      ...meta,
       ...(await this.getFileMate(resolve(this.storageDir, bucket, path))),
     };
   }
 
   async getPreviewUrl(
-    _bucket: string,
+    bucket: string,
     path: string,
-    expiresIn: number = this.config.urlExpireIn,
+    expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ): Promise<string> {
-    const url = this.getUrl(path, {
+    const url = this.getUrl(bucket, path, {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,
     });
@@ -233,7 +231,46 @@ export class LocalStorage implements StorageAdapter {
     filePath: string,
     _metadata: Record<string, unknown>
   ) {
-    this.save(filePath, join(bucket, path));
-    return join(this.readPath, path);
+    const hash = await FileUtils.getHash(filePath);
+    await this.save(filePath, join(bucket, path));
+    return {
+      hash,
+      url: join(this.readPath, bucket, path),
+    };
+  }
+
+  async uploadFile(
+    bucket: string,
+    path: string,
+    stream: Buffer | ReadableStream,
+    _metadata?: Record<string, unknown>
+  ) {
+    const name = getRandomString(12);
+    const temPath = resolve(this.temporaryDir, name);
+    if (stream instanceof Buffer) {
+      await fse.writeFile(temPath, stream);
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const writer = createWriteStream(temPath);
+        stream.pipe(writer);
+        stream.on('end', function () {
+          writer.end();
+          writer.close();
+          resolve();
+        });
+        stream.on('error', (err) => {
+          writer.end();
+          writer.close();
+          this.deleteFile(path);
+          reject(err);
+        });
+      });
+    }
+    const hash = await FileUtils.getHash(temPath);
+    await this.save(temPath, join(bucket, path));
+    return {
+      hash,
+      url: join(this.readPath, bucket, path),
+    };
   }
 }

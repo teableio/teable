@@ -1,11 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient } from '@teable-group/core';
-import type { IDbConnectionVo } from '@teable-group/openapi';
+import { DriverClient } from '@teable/core';
+import type { IDbConnectionVo } from '@teable/openapi';
 import {
   createDbConnection as apiCreateDbConnection,
   deleteDbConnection as apiDeleteDbConnection,
   getDbConnection as apiGetDbConnection,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { initApp } from './utils/init-app';
 
 describe.skip('OpenAPI Db Connection (e2e)', () => {
@@ -22,7 +22,7 @@ describe.skip('OpenAPI Db Connection (e2e)', () => {
   });
 
   it('should manage a db connection', async () => {
-    console.log('PUBLIC_DATABASE_ADDRESS', process.env.PUBLIC_DATABASE_ADDRESS);
+    console.log('PUBLIC_DATABASE_PROXY', process.env.PUBLIC_DATABASE_PROXY);
 
     if (globalThis.testConfig.driver !== DriverClient.Pg) {
       expect(true).toBeTruthy();

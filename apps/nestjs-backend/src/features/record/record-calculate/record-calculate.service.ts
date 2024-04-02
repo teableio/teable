@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable-group/core';
-import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/openapi';
 import { isEmpty, keyBy } from 'lodash';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
@@ -73,6 +73,9 @@ export class RecordCalculateService {
 
     for (const record of records) {
       Object.entries(record.fields).forEach(([fieldNameOrId, value]) => {
+        if (!fieldIdMap[fieldNameOrId]) {
+          throw new NotFoundException(`Field ${fieldNameOrId} not found`);
+        }
         const fieldId = fieldIdMap[fieldNameOrId].id;
         const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id].fields[fieldId];
         cellContexts.push({
@@ -112,6 +115,42 @@ export class RecordCalculateService {
       fieldMap,
       tableId2DbTableName,
     };
+  }
+
+  async calculateDeletedRecord(tableId: string, recordIds: string[]) {
+    const cellContextsByTableId = await this.linkService.getDeleteRecordUpdateContext(
+      tableId,
+      recordIds
+    );
+
+    // console.log('calculateDeletedRecord', tableId, recordIds);
+
+    for (const effectedTableId in cellContextsByTableId) {
+      const cellContexts = cellContextsByTableId[effectedTableId];
+      const opsMapOrigin = formatChangesToOps(
+        cellContexts.map((data) => {
+          return {
+            tableId: effectedTableId,
+            recordId: data.recordId,
+            fieldId: data.fieldId,
+            newValue: data.newValue,
+            oldValue: data.oldValue,
+          };
+        })
+      );
+
+      // 2. get cell changes by derivation
+      const { opsMap, fieldMap, tableId2DbTableName } = await this.getRecordUpdateDerivation(
+        effectedTableId,
+        opsMapOrigin,
+        cellContexts
+      );
+
+      // 3. save all ops
+      if (!isEmpty(opsMap)) {
+        await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
+      }
+    }
   }
 
   async calculateUpdatedRecord(
@@ -196,9 +235,9 @@ export class RecordCalculateService {
     recordsRo: {
       id?: string;
       fields: Record<string, unknown>;
-      recordOrder?: Record<string, number>;
     }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
+    fieldKeyType: FieldKeyType = FieldKeyType.Name,
+    orderIndex?: { viewId: string; indexes: number[] }
   ): Promise<ICreateRecordsVo> {
     if (recordsRo.length === 0) {
       throw new BadRequestException('Create records is empty');
@@ -209,11 +248,10 @@ export class RecordCalculateService {
       return RecordOpBuilder.creator.build({
         id: recordId,
         fields: {},
-        recordOrder: record.recordOrder ?? {},
       });
     });
 
-    await this.recordService.batchCreateRecords(tableId, emptyRecords);
+    await this.recordService.batchCreateRecords(tableId, emptyRecords, orderIndex);
 
     // submit auto fill changes
     const plainRecords = await this.appendDefaultValue(

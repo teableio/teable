@@ -1,6 +1,6 @@
-import { FieldKeyType } from '@teable-group/core';
-import { useIsMobile, useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
-import { Record as RecordSdk } from '@teable-group/sdk/model';
+import { FieldKeyType } from '@teable/core';
+import { useIsMobile, useTableId, useTablePermission, useViewId } from '@teable/sdk/hooks';
+import { Record as RecordSdk } from '@teable/sdk/model';
 import { FormMode, useFormModeStore } from '../tool-bar/store';
 import { FormEditor, FormPreviewer } from './components';
 import { generateUniqLocalKey } from './util';
@@ -29,7 +29,7 @@ export const FormViewBase = () => {
   };
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex size-full">
       {isEditMode && !isMobile ? <FormEditor /> : <FormPreviewer submit={submitForm} />}
     </div>
   );

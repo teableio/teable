@@ -5,6 +5,7 @@
     "COUNTALL",
     "DATETIME",
     "gantt",
+    "ILIKE",
     "Localstorage",
     "minio",
     "nextjs",
@@ -18,6 +19,7 @@
     "sonarjs",
     "sonner",
     "teable",
+    "teableio",
     "testid",
     "topo",
     "zustand"

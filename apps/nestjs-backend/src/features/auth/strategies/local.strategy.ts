@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-local';
 import { AuthService } from '../auth.service';
+import { pickUserMe } from '../utils';
 
 @Injectable()
 export class LocalStrategy extends PassportStrategy(Strategy) {
@@ -17,6 +18,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new BadRequestException('Incorrect password.');
     }
-    return user;
+    await this.authService.refreshLastSignTime(user.id);
+    return pickUserMe(user);
   }
 }

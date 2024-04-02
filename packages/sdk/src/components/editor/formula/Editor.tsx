@@ -3,9 +3,9 @@ import { closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, historyKeymap } from '@codemirror/commands';
 import type { EditorSelection } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import type { FunctionName } from '@teable-group/core';
-import { FormulaLexer } from '@teable-group/core';
-import { Button, cn } from '@teable-group/ui-lib';
+import type { FunctionName } from '@teable/core';
+import { FormulaLexer } from '@teable/core';
+import { Button, cn } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
 import Fuse from 'fuse.js';
 import { keyBy } from 'lodash';
@@ -43,7 +43,7 @@ const Functions = Array.from(FORMULA_FUNCTIONS_MAP).map((item) => item[1]);
 
 export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const { expression, onConfirm } = props;
-  const fields = useFields();
+  const fields = useFields({ withHidden: true });
   const { theme } = useTheme();
   const { t } = useTranslation();
   const isLightTheme = theme === ThemeKey.Light;
@@ -56,7 +56,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const [funcHelpData, setFuncHelpData] = useState<IFuncHelpData | null>(null);
   const [expressionByName, setExpressionByName] = useState<string>((): string => {
     return expression
-      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'), true)
+      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'))
       : '';
   });
   const [errMsg, setErrMsg] = useState('');
@@ -193,8 +193,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
             nextIndex = totalItemCount - 1;
           }
           setSuggestionItemIndex(nextIndex);
-          requestAnimationFrame(
-            () => suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
+          requestAnimationFrame(() =>
+            suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
           );
           return true;
         },
@@ -207,8 +207,8 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
             nextIndex = 0;
           }
           setSuggestionItemIndex(nextIndex);
-          requestAnimationFrame(
-            () => suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
+          requestAnimationFrame(() =>
+            suggestionItemRef.current?.scrollIntoView({ block: 'nearest' })
           );
           return true;
         },
@@ -325,7 +325,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
 
   return (
     <div className="w-[620px]">
-      <div className="flex h-12 w-full items-center justify-between border-b-[1px] pl-4 pr-2">
+      <div className="flex h-12 w-full items-center justify-between border-b-DEFAULT pl-4 pr-2">
         <h1 className="text-base">{t('editor.formula.title')}</h1>
       </div>
       <div className={cn('flex flex-col w-full border-b-[1px] caret-foreground', codeBg)}>
@@ -338,7 +338,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         />
         <div className="h-5 w-full truncate px-2 text-xs text-destructive">{errMsg}</div>
       </div>
-      <div className="flex h-[52px] w-full items-center justify-between border-b-[1px] px-2">
+      <div className="flex h-[52px] w-full items-center justify-between border-b-DEFAULT px-2">
         <div className="mr-2 flex flex-1 flex-col justify-center overflow-hidden">
           <FunctionHelper funcHelpData={funcHelpData} />
         </div>
@@ -349,7 +349,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         </div>
       </div>
       <div className="flex h-[360px] w-full">
-        <div ref={listRef} className="w-[200px] shrink-0 overflow-y-auto border-r-[1px]">
+        <div ref={listRef} className="w-[200px] shrink-0 overflow-y-auto border-r-DEFAULT">
           {formatFunctionList.length || filteredFields.length ? (
             <>
               {filteredFields.length > 0 && (

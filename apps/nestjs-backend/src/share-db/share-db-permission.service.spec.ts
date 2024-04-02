@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { ActionPrefix, IdPrefix } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { ActionPrefix, IdPrefix } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type ShareDBClass from 'sharedb';
 import { vi } from 'vitest';
@@ -83,19 +83,21 @@ describe('ShareDBPermissionService', () => {
   describe('authMiddleware', () => {
     it('should call clsRunWith and set user in the CLS context if authentication is successful', async () => {
       const context = mockDeep<IAuthMiddleContext>({
-        agent: { custom: { cookie: 'xxxx', isBackend: false, shareId: undefined } },
+        agent: {
+          custom: { cookie: 'xxxx', sessionId: 'xxxx', isBackend: false, shareId: undefined },
+        },
       });
 
       const callback = vi.fn();
 
-      vi.spyOn(wsAuthService, 'checkCookie').mockResolvedValue(mockUser);
+      vi.spyOn(wsAuthService, 'checkSession').mockResolvedValue(mockUser);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.spyOn(shareDbPermissionService as any, 'clsRunWith').mockImplementation(() => ({}));
 
       await shareDbPermissionService.authMiddleware(context, callback);
 
       expect(shareDbPermissionService['clsRunWith']).toHaveBeenCalledWith(context, callback);
-      expect(wsAuthService.checkCookie).toHaveBeenCalledWith('xxxx');
+      expect(wsAuthService.checkSession).toHaveBeenCalledWith('xxxx');
     });
 
     it('should call the callback without error if the context is from the backend', async () => {
@@ -118,7 +120,7 @@ describe('ShareDBPermissionService', () => {
       const callback = vi.fn();
 
       const checkCookieMock = vi
-        .spyOn(wsAuthService, 'checkCookie')
+        .spyOn(wsAuthService, 'checkSession')
         .mockRejectedValue(new Error('Authentication failed'));
 
       await shareDbPermissionService.authMiddleware(context, callback);

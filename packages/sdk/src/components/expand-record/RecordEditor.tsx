@@ -1,4 +1,4 @@
-import { Button } from '@teable-group/ui-lib';
+import { Button } from '@teable/ui-lib';
 import { useRef } from 'react';
 import { useMeasure, useToggle } from 'react-use';
 import type { Field, Record } from '../../model';
@@ -35,11 +35,11 @@ export const RecordEditor = (props: {
         ))}
         {hiddenFields.length !== 0 && (
           <div className="flex items-center gap-2">
-            <div className="border-top-width h-[1px] flex-1 bg-border" />
+            <div className="border-top-width h-px flex-1 bg-border" />
             <Button variant={'outline'} size={'xs'} onClick={toggle}>
               {showHiddenFields ? 'Hide' : 'Show'} {hiddenFields.length} hidden field
             </Button>
-            <div className="border-top-width h-[1px] flex-1 bg-border" />
+            <div className="border-top-width h-px flex-1 bg-border" />
           </div>
         )}
         {showHiddenFields &&

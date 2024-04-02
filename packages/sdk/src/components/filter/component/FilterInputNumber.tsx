@@ -1,5 +1,4 @@
-import { Input } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { Input, cn } from '@teable/ui-lib';
 import { useEffect } from 'react';
 
 interface InputProps {
@@ -30,7 +29,7 @@ const FilterInputNumber = (props: InputProps) => {
         const value = e.target.value === '' ? null : Number(e.target.value) ?? null;
         onChange(value);
       }}
-      className={classNames('m-1 h-8 placeholder:text-[13px]', className)}
+      className={cn('m-1 h-8 placeholder:text-[13px]', className)}
     />
   );
 };

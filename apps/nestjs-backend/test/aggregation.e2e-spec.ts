@@ -1,8 +1,17 @@
 import type { INestApplication } from '@nestjs/common';
-import type { ITableFullVo, StatisticsFunc } from '@teable-group/core';
-import { getAggregation, getRowCount } from '@teable-group/openapi';
+import type { StatisticsFunc } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { getAggregation, getRowCount } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
-import { SIMPLE_AGGREGATION_CACES } from './data-helpers/caces';
+import {
+  CHECKBOX_FIELD_CASES,
+  DATE_FIELD_CASES,
+  MULTIPLE_SELECT_FIELD_CASES,
+  NUMBER_FIELD_CASES,
+  SINGLE_SELECT_FIELD_CASES,
+  TEXT_FIELD_CASES,
+  USER_FIELD_CASES,
+} from './data-helpers/caces/aggregation-query';
 import { createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AggregationController (e2e)', () => {
@@ -36,7 +45,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
     return (await getRowCount(tableId, { viewId })).data;
   }
 
-  describe('simple aggregation', () => {
+  describe('basis field aggregation record', () => {
     let table: ITableFullVo;
     beforeAll(async () => {
       table = await createTable(baseId, {
@@ -55,26 +64,141 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(rowCount).toEqual(23);
     });
 
-    test.each(SIMPLE_AGGREGATION_CACES)(
-      `should agg func [$aggFunc] value: $expectValue`,
-      async ({ fieldIndex, aggFunc, expectValue }) => {
-        const tableId = table.id;
-        const viewId = table.views[0].id;
-        const fieldId = table.fields[fieldIndex].id;
+    describe('simple aggregation text field record', () => {
+      test.each(TEXT_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectValue`,
+        async ({ fieldIndex, aggFunc, expectValue }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
 
-        const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
-        expect(result).toBeDefined();
-        expect(result.aggregations?.length).toBeGreaterThan(0);
+          const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
 
-        const [{ total }] = result.aggregations!;
-        expect(total?.aggFunc).toBe(aggFunc);
-
-        if (typeof expectValue === 'string') {
-          expect(total?.value).toBe(expectValue);
-        } else {
+          const [{ total }] = result.aggregations!;
+          expect(total?.aggFunc).toBe(aggFunc);
           expect(total?.value).toBeCloseTo(expectValue, 4);
         }
-      }
-    );
+      );
+    });
+
+    describe('simple aggregation number field record', () => {
+      test.each(NUMBER_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectValue`,
+        async ({ fieldIndex, aggFunc, expectValue }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ total }] = result.aggregations!;
+          expect(total?.aggFunc).toBe(aggFunc);
+          expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+    });
+
+    describe('simple aggregation single select field record', () => {
+      test.each(SINGLE_SELECT_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectValue`,
+        async ({ fieldIndex, aggFunc, expectValue }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ total }] = result.aggregations!;
+          expect(total?.aggFunc).toBe(aggFunc);
+          expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+    });
+
+    describe('simple aggregation multiple select field record', () => {
+      test.each(MULTIPLE_SELECT_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectValue`,
+        async ({ fieldIndex, aggFunc, expectValue }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ total }] = result.aggregations!;
+          expect(total?.aggFunc).toBe(aggFunc);
+          expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+    });
+
+    describe('simple aggregation date field record', () => {
+      test.each(DATE_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectValue`,
+        async ({ fieldIndex, aggFunc, expectValue }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ total }] = result.aggregations!;
+          expect(total?.aggFunc).toBe(aggFunc);
+          if (typeof expectValue === 'number') {
+            expect(total?.value).toBeCloseTo(expectValue, 4);
+          } else {
+            expect(total?.value).toBe(expectValue);
+          }
+        }
+      );
+    });
+
+    describe('simple aggregation checkbox field record', () => {
+      test.each(CHECKBOX_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectValue`,
+        async ({ fieldIndex, aggFunc, expectValue }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ total }] = result.aggregations!;
+          expect(total?.aggFunc).toBe(aggFunc);
+          expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+    });
+
+    describe('simple aggregation user field record', () => {
+      test.each(USER_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectValue`,
+        async ({ fieldIndex, aggFunc, expectValue }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(tableId, viewId, aggFunc, [fieldId]);
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ total }] = result.aggregations!;
+          expect(total?.aggFunc).toBe(aggFunc);
+          expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+    });
   });
 });

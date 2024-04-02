@@ -1,7 +1,7 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { IFilter } from '@teable-group/core';
-import { parseTQL } from '@teable-group/core';
+import type { IFilter } from '@teable/core';
+import { parseTQL } from '@teable/core';
 
 @Injectable()
 export class TqlPipe<T extends { filterByTql?: string; filter?: IFilter }>

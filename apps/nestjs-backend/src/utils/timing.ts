@@ -27,7 +27,7 @@ export function Timing(customLoggerKey?: string): MethodDecorator {
             (end - start) / BigInt(1000000)
           } ms; Heap Usage: ${
             Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
-          } MB}`
+          } MB`
         );
       };
 

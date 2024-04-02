@@ -1,10 +1,10 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import type { FieldType } from '@teable-group/core';
-import { DraggableHandle, Plus } from '@teable-group/icons';
-import { useView } from '@teable-group/sdk';
-import type { IFieldStatic } from '@teable-group/sdk/hooks';
-import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import type { FieldType } from '@teable/core';
+import { DraggableHandle, Plus } from '@teable/icons';
+import { useView } from '@teable/sdk';
+import type { IFieldStatic } from '@teable/sdk/hooks';
+import { useFieldStaticGetter, useFields, useIsHydrated } from '@teable/sdk/hooks';
+import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Button,
   Tooltip,
@@ -12,11 +12,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
   cn,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useMemo } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
-import { useGridViewStore } from '../../grid/store/gridView';
+import { tableConfig } from '@/features/i18n/table.config';
+import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { DraggableItem } from './Drag';
 
 interface IDragItemProps {
@@ -28,6 +30,7 @@ interface IDragItemProps {
 
 export const DragItem: FC<IDragItemProps> = (props) => {
   const { field, disabled, onClick, getFieldStatic } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { type, name, isLookup } = field;
   const Icon = getFieldStatic(type, isLookup).Icon;
   const content = (
@@ -53,7 +56,7 @@ export const DragItem: FC<IDragItemProps> = (props) => {
           <Tooltip delayDuration={200}>
             <TooltipTrigger asChild>{content}</TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
-              Unable to add this type field
+              {t('table:form.unableAddFieldTip')}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -66,11 +69,12 @@ export const DragItem: FC<IDragItemProps> = (props) => {
 
 export const FormSidebar = () => {
   const isHydrated = useIsHydrated();
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const activeViewId = view?.id;
   const allFields = useFields({ withHidden: true });
   const getFieldStatic = useFieldStaticGetter();
-  const { openSetting } = useGridViewStore();
+  const { openSetting } = useFieldSettingStore();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const { hiddenFields, visibleFields, unavailableFields } = useMemo(() => {
     if (!activeViewId) {
@@ -88,7 +92,7 @@ export const FormSidebar = () => {
       if (isComputed || isLookup) {
         return unavailableFields.push(field);
       }
-      if (!view.columnMeta?.[id]?.hidden) {
+      if (view.columnMeta?.[id]?.visible) {
         return visibleFields.push(field);
       }
       hiddenFields.push(field);
@@ -102,45 +106,45 @@ export const FormSidebar = () => {
 
   const onFieldShown = (field: IFieldInstance) => {
     view &&
-      view.setViewColumnMeta([
+      view.updateColumnMeta([
         {
           fieldId: field.id,
           columnMeta: {
-            hidden: false,
+            visible: true,
           },
         },
       ]);
   };
 
-  const onFieldsHiddenChange = (fields: IFieldInstance[], hidden: boolean) => {
+  const onFieldsVisibleChange = (fields: IFieldInstance[], visible: boolean) => {
     view &&
-      view.setViewColumnMeta(
-        fields.map((field) => ({ fieldId: field.id, columnMeta: { hidden } }))
+      view.updateColumnMeta(
+        fields.map((field) => ({ fieldId: field.id, columnMeta: { visible } }))
       );
   };
 
   return (
     <div className="flex h-full w-64 shrink-0 flex-col border-r py-3">
       <div className="mb-2 flex justify-between px-4">
-        <h2 className="text-lg">Fields</h2>
+        <h2 className="text-lg">{t('table:form.fieldsManagement')}</h2>
         <div>
           <Button
             variant={'ghost'}
             size={'xs'}
             className="font-normal"
             disabled={!hiddenFields.length}
-            onClick={() => onFieldsHiddenChange(hiddenFields, false)}
+            onClick={() => onFieldsVisibleChange(hiddenFields, true)}
           >
-            Add All
+            {t('table:form.addAll')}
           </Button>
           <Button
             variant={'ghost'}
             size={'xs'}
             className="font-normal"
             disabled={!visibleFields.length}
-            onClick={() => onFieldsHiddenChange(visibleFields, true)}
+            onClick={() => onFieldsVisibleChange(visibleFields, false)}
           >
-            Remove All
+            {t('table:form.removeAll')}
           </Button>
         </div>
       </div>
@@ -174,8 +178,8 @@ export const FormSidebar = () => {
             })}
           </>
         )}
-        <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400">
-          Hide the field to here
+        <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400 dark:text-slate-600">
+          {t('table:form.hideFieldTip')}
         </div>
       </div>
 
@@ -186,7 +190,7 @@ export const FormSidebar = () => {
           onClick={() => openSetting({ operator: FieldOperator.Add })}
         >
           <Plus fontSize={16} />
-          Add Field
+          {t('table:field.editor.addField')}
         </Button>
       </div>
     </div>

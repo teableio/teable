@@ -1,13 +1,14 @@
-import { SPACE_ROLE_LIST, SpaceRole } from '@teable-group/core';
+import { SpaceRole } from '@teable/core';
+import { useSpaceRoleStatic } from '@teable/sdk/hooks';
 import {
+  cn,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
   Separator,
-} from '@teable-group/ui-lib';
-import classNames from 'classnames';
+} from '@teable/ui-lib';
 import { find } from 'lodash';
 import React, { useMemo } from 'react';
 interface IRoleSelect {
@@ -21,11 +22,12 @@ interface IRoleSelect {
 
 export const RoleSelect: React.FC<IRoleSelect> = (props) => {
   const { className, value, defaultValue, disabled, filterRoles, onChange } = props;
+  const spaceRoleList = useSpaceRoleStatic();
   const filteredRoleList = useMemo(() => {
     return filterRoles
-      ? SPACE_ROLE_LIST.filter(({ role }) => filterRoles.includes(role))
-      : SPACE_ROLE_LIST;
-  }, [filterRoles]);
+      ? spaceRoleList.filter(({ role }) => filterRoles.includes(role))
+      : spaceRoleList;
+  }, [filterRoles, spaceRoleList]);
 
   const showSelectedRoleValue = useMemo(
     () => find(filteredRoleList, ({ role }) => role === value)?.name,
@@ -38,7 +40,7 @@ export const RoleSelect: React.FC<IRoleSelect> = (props) => {
       onValueChange={(value) => onChange?.(value as SpaceRole)}
       disabled={disabled}
     >
-      <SelectTrigger className={classNames('h-8 w-32 bg-background', className)}>
+      <SelectTrigger className={cn('h-8 w-32 bg-background', className)}>
         <SelectValue>{showSelectedRoleValue}</SelectValue>
       </SelectTrigger>
       <SelectContent className=" w-72">

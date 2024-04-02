@@ -1,4 +1,4 @@
-import type { Colors } from '@teable-group/core';
+import type { Colors } from '@teable/core';
 
 interface IOption<T = string> {
   value: T;
@@ -20,6 +20,7 @@ interface IBaseSelect<V, O = IOption<V>> {
   onSelect: (value: V | null) => void;
   optionRender?: (option: O) => React.ReactElement;
   displayRender?: (option: O) => React.ReactElement;
+  placeholder?: string;
 }
 
 interface IBaseMultipleSelect<V, O = IOption<V>>

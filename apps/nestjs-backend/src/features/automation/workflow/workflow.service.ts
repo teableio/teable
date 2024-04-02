@@ -3,8 +3,8 @@ import type {
   AutomationWorkflow as AutomationWorkflowModel,
   AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
   Prisma,
-} from '@teable-group/db-main-prisma';
-import { PrismaManager, PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/db-main-prisma';
+import { PrismaManager, PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';

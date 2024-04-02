@@ -1,8 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IFieldVo } from '@teable-group/core';
-import { FieldOpBuilder, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { instanceToPlain } from 'class-transformer';
+import { FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
@@ -32,7 +30,6 @@ export class FieldCreatingService {
     await this.fieldService.batchCreateFields(tableId, dbTableName, [field]);
 
     await this.viewService.updateViewColumnMetaOrder(tableId, [fieldId]);
-    return this.createField2Ops(field);
   }
 
   async alterCreateField(tableId: string, field: IFieldInstance) {
@@ -55,12 +52,5 @@ export class FieldCreatingService {
 
     await this.createFieldItem(tableId, field);
     return [{ tableId, field: field }];
-  }
-
-  private createField2Ops(fieldInstance: IFieldInstance) {
-    return FieldOpBuilder.creator.build(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as IFieldVo
-    );
   }
 }

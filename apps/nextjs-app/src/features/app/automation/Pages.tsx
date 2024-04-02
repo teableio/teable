@@ -1,4 +1,4 @@
-import { PackageCheck } from '@teable-group/icons';
+import { Alert, AlertTitle, AlertDescription } from '@teable/ui-lib/shadcn/ui/alert';
 export function AutomationPage() {
   return (
     <div className="h-full flex-col md:flex">
@@ -7,8 +7,13 @@ export function AutomationPage() {
           <h2 className="text-3xl font-bold tracking-tight">Automation</h2>
         </div>
       </div>
-      <div className="flex grow items-center justify-center gap-4">
-        <PackageCheck className="h-10 w-10" /> <h1>Coming Soon</h1>
+      <div className="flex h-full items-center justify-center p-4">
+        <Alert className="w-[400px]">
+          <AlertTitle>
+            <span className="text-lg">🏗️</span> Coming soon
+          </AlertTitle>
+          <AlertDescription>Automation is under development</AlertDescription>
+        </Alert>
       </div>
     </div>
   );

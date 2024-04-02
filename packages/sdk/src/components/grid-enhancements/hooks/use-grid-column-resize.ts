@@ -18,20 +18,20 @@ export function useGridColumnResize<T extends { id: string }>(_columns: T[]) {
   useDebounce(
     () => {
       if (!view) {
-        throw new Error("Can't find view");
+        return;
       }
 
       if (index == null || newSize == null) {
         return;
       }
-      view.setViewColumnMeta([
+      view.updateColumnMeta([
         {
           fieldId: fields[index].id,
           columnMeta: { width: newSize },
         },
       ]);
     },
-    200,
+    300,
     [index, newSize]
   );
 

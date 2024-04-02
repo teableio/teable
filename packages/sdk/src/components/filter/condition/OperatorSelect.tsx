@@ -1,5 +1,5 @@
-import type { IFilterOperator } from '@teable-group/core';
-import { getValidFilterOperators } from '@teable-group/core';
+import type { IFilterOperator } from '@teable/core';
+import { getValidFilterOperators } from '@teable/core';
 import { useEffect, useMemo } from 'react';
 import { useField } from '../../../hooks';
 import { BaseSingleSelect } from '../component';
@@ -44,7 +44,7 @@ function OperatorSelect(props: IOperatorSelectProps) {
       value={value}
       options={operatorOption}
       popoverClassName="w-48"
-      className="m-1 w-32 shrink justify-between"
+      className="m-1 w-32 shrink-0 justify-between"
       onSelect={onSelect}
       disabled={shouldDisabled}
     />

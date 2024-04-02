@@ -9,7 +9,7 @@ import {
   FileText,
   FileUnknown,
   FileVideo,
-} from '@teable-group/icons';
+} from '@teable/icons';
 import {
   isAudio,
   isExcel,

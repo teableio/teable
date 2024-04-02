@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IRecord } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -33,9 +34,9 @@ export interface ITopoOrdersContext {
 @Injectable()
 export class FieldCalculationService {
   constructor(
-    private readonly referenceService: ReferenceService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
+    private readonly referenceService: ReferenceService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -126,24 +127,57 @@ export class FieldCalculationService {
     );
   }
 
+  private async getRecordsByPage(
+    dbTableName: string,
+    dbFieldNames: string[],
+    page: number,
+    chunkSize: number
+  ) {
+    const query = this.knex(dbTableName)
+      .select([...dbFieldNames, ...systemDbFieldNames])
+      .where((builder) => {
+        dbFieldNames.forEach((fieldNames, index) => {
+          if (index === 0) {
+            builder.whereNotNull(fieldNames);
+          } else {
+            builder.orWhereNotNull(fieldNames);
+          }
+        });
+      })
+      .orderBy('__auto_number')
+      .limit(chunkSize)
+      .offset(page * chunkSize)
+      .toQuery();
+    return this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(query);
+  }
+
   async getRecordsBatchByFields(dbTableName2fields: { [dbTableName: string]: IFieldInstance[] }) {
     const results: {
-      [dbTableName: string]: { [dbFieldName: string]: unknown }[];
+      [dbTableName: string]: IRecord[];
     } = {};
+    const chunkSize = this.thresholdConfig.calcChunkSize;
     for (const dbTableName in dbTableName2fields) {
       // deduplication is needed
-      const dbFieldNames = dbTableName2fields[dbTableName]
-        .map((f) => f.dbFieldName)
-        .concat([...systemDbFieldNames]);
-      const nativeSql = this.knex(dbTableName).select(dbFieldNames).toQuery();
+      const rowCount = await this.getRowCount(dbTableName);
+      const dbFieldNames = dbTableName2fields[dbTableName].map((f) => f.dbFieldName);
+      const totalPages = Math.ceil(rowCount / chunkSize);
+      const fields = dbTableName2fields[dbTableName];
 
-      const result = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(nativeSql);
-      results[dbTableName] = result;
+      const records = await lastValueFrom(
+        range(0, totalPages).pipe(
+          concatMap((page) => this.getRecordsByPage(dbTableName, dbFieldNames, page, chunkSize)),
+          toArray(),
+          map((records) => records.flat())
+        )
+      );
+
+      results[dbTableName] = records.map((record) =>
+        this.referenceService.recordRaw2Record(fields, record)
+      );
     }
-
-    return this.referenceService.formatRecordQueryResult(results, dbTableName2fields);
+    return results;
   }
 
   @Timing()
@@ -161,13 +195,13 @@ export class FieldCalculationService {
       fieldId2TableId,
     } = context;
 
-    const dbTableName2recordMap = await this.getRecordsBatchByFields(dbTableName2fields);
+    const dbTableName2records = await this.getRecordsBatchByFields(dbTableName2fields);
 
     const changes = Object.values(fieldIds).reduce<ICellChange[]>((cellChanges, fieldId) => {
       const tableId = fieldId2TableId[fieldId];
       const dbTableName = tableId2DbTableName[tableId];
-      const recordMap = dbTableName2recordMap[dbTableName];
-      Object.values(recordMap)
+      const records = dbTableName2records[dbTableName];
+      records
         .filter((record) => record.fields[fieldId] != null)
         .forEach((record) => {
           cellChanges.push({
@@ -328,7 +362,7 @@ export class FieldCalculationService {
   private async getRecordIds(dbTableName: string, page: number, chunkSize: number) {
     const query = this.knex(dbTableName)
       .select({ id: '__id' })
-      .orderBy('__id')
+      .orderBy('__auto_number')
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
@@ -366,7 +400,7 @@ export class FieldCalculationService {
 
   async calculateFieldsByRecordIds(tableId: string, recordIds: string[]) {
     const fieldRaws = await this.prismaService.field.findMany({
-      where: { OR: [{ tableId, isComputed: true, deletedTime: null }] },
+      where: { tableId, isComputed: true, deletedTime: null, hasError: null },
       select: { id: true },
     });
 

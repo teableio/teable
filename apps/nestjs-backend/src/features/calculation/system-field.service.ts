@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
-import type { IOtOperation } from '@teable-group/core';
-import { FieldType, RecordOpBuilder } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IOtOperation } from '@teable/core';
+import { FieldType, RecordOpBuilder } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -37,9 +37,9 @@ export class SystemFieldService {
 
     const result = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ __id: string; __last_modified_time: Date; __last_modified_by: string }[]>(
-        nativeQuery
-      );
+      .$queryRawUnsafe<
+        { __id: string; __last_modified_time: Date; __last_modified_by: string }[]
+      >(nativeQuery);
 
     return result.reduce<{
       [recordId: string]: { lastModifiedTime: string; lastModifiedBy: string };

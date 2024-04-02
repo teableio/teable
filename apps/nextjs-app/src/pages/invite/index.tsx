@@ -1,15 +1,14 @@
-import type { IHttpError } from '@teable-group/core';
+import type { IHttpError } from '@teable/core';
 import type { GetServerSideProps } from 'next';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
 import { Error } from '@/features/app/blocks/Error';
+import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../_app';
 
 const InvitePage: NextPageWithLayout<{ error?: IHttpError }> = () => {
   return <Error message="Sorry, we were unable to accept the invite." />;
 };
 
-export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {
+export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { invitationId, invitationCode } = context.query;
   try {
     const { spaceId, baseId } = await ssrApi.acceptInvitationLink({

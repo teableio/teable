@@ -1,4 +1,4 @@
-import { Field } from '@teable-group/sdk/model';
+import { Field } from '@teable/sdk/model';
 
 export async function tableContext2Prompt(tableId: string | undefined, viewId: string | undefined) {
   if (!tableId || !viewId) {

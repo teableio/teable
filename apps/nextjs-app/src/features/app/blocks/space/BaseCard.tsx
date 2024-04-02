@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { hasPermission } from '@teable-group/core';
-import { Database, MoreHorizontal } from '@teable-group/icons';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { deleteBase, updateBase } from '@teable-group/openapi';
-import { Button, Card, CardContent, Input } from '@teable-group/ui-lib/shadcn';
-import classNames from 'classnames';
+import { hasPermission } from '@teable/core';
+import { Database, MoreHorizontal } from '@teable/icons';
+import type { IGetBaseVo } from '@teable/openapi';
+import { deleteBase, updateBase } from '@teable/openapi';
+import { Button, Card, CardContent, cn, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
@@ -43,12 +42,11 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     },
   });
 
-  const toggleRenameBase = async (e: React.FocusEvent<HTMLInputElement, Element>) => {
-    const name = e.target.value;
-    if (name && name !== base.name) {
+  const toggleRenameBase = async () => {
+    if (baseName && baseName !== base.name) {
       await updateBaseMutator({
         baseId: base.id,
-        updateBaseRo: { name },
+        updateBaseRo: { name: baseName },
       });
     }
     setTimeout(() => setRenaming(false), 200);
@@ -82,37 +80,42 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     });
   };
 
+  const hasReadPermission = hasPermission(base.role, 'base|read');
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
   return (
-    <Card
-      className={classNames('group cursor-pointer hover:shadow-md', className)}
-      onClick={intoBase}
-    >
-      <CardContent className="flex h-full w-full items-center px-4 py-6">
+    <Card className={cn('group cursor-pointer hover:shadow-md', className)} onClick={intoBase}>
+      <CardContent className="flex size-full items-center px-4 py-6">
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
           <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
             {base.icon ? (
-              <div className="h-14 w-14 min-w-[3.5rem] text-[3.5rem] leading-none">
+              <div className="size-14 min-w-14 text-[3.5rem] leading-none">
                 <Emoji emoji={base.icon} size={56} />
               </div>
             ) : (
-              <Database className="h-14 w-14 min-w-[3.5rem]" />
+              <Database className="size-14 min-w-14" />
             )}
           </EmojiPicker>
         </div>
         <div className="h-full flex-1 overflow-hidden">
           <div className="flex items-center justify-between gap-3 p-0.5">
             {renaming ? (
-              <Input
-                ref={inputRef}
-                className="h-7 flex-1"
-                value={baseName}
-                onChange={(e) => setBaseName(e.target.value)}
-                onBlur={toggleRenameBase}
-                onClick={clickStopPropagation}
-              />
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  toggleRenameBase();
+                }}
+              >
+                <Input
+                  ref={inputRef}
+                  className="h-7 flex-1"
+                  value={baseName}
+                  onChange={(e) => setBaseName(e.target.value)}
+                  onBlur={toggleRenameBase}
+                  onClick={clickStopPropagation}
+                />
+              </form>
             ) : (
               <h3 className="line-clamp-2 flex-1 px-4	" title={base.name}>
                 {base.name}
@@ -122,16 +125,17 @@ export const BaseCard: FC<IBaseCard> = (props) => {
               <BaseActionTrigger
                 base={base}
                 showRename={hasUpdatePermission}
+                showDuplicate={hasReadPermission}
                 showDelete={hasDeletePermission}
                 onDelete={() => deleteBaseMutator(base.id)}
                 onRename={onRename}
               >
                 <Button
                   className="sm:opacity-0 sm:group-hover:opacity-100"
-                  variant={'ghost'}
-                  size={'sm'}
+                  variant="outline"
+                  size={'xs'}
                 >
-                  <MoreHorizontal />
+                  <MoreHorizontal className="size-4" />
                 </Button>
               </BaseActionTrigger>
             </div>

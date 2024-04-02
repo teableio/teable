@@ -1,4 +1,4 @@
-import type { INumberShowAs, INumberFormatting, INumberFieldOptions } from '@teable-group/core';
+import type { INumberShowAs, INumberFormatting, INumberFieldOptions } from '@teable/core';
 import { NumberFormatting } from '../formatting/NumberFormatting';
 import { MultiNumberShowAs } from '../show-as/MultiNumberShowAs';
 import { SingleNumberShowAs } from '../show-as/SingleNumberShowAs';

@@ -1,4 +1,4 @@
-import UserIcon from '@teable-group/ui-lib/icons/app/user.svg';
+import UserIcon from '@teable/ui-lib/icons/app/user.svg';
 import dayjs from 'dayjs';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
 import type { ReactElement } from 'react';
@@ -100,7 +100,7 @@ export const MessageView: React.FC<Props> = ({ message, chat }) => {
           <div className="w-auto max-w-full whitespace-pre-wrap rounded-lg bg-indigo-600 px-2 py-1 text-sm text-white">
             {message.content}
           </div>
-          <div className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border p-1">
+          <div className="ml-2 flex size-8 shrink-0 items-center justify-center rounded-full border p-1">
             <UserIcon />
           </div>
         </>

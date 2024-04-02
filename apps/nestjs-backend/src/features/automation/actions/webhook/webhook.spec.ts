@@ -6,7 +6,7 @@ import ajv from '../../engine/json-schema/ajv';
 import { ActionTypeEnums } from '../../enums/action-type.enum';
 import type { IWebhookSchema } from './webhook';
 
-describe('Webhook Action Test', () => {
+describe.skip('Webhook Action Test', () => {
   let jsonRulesEngine: JsonRulesEngine;
 
   beforeAll(async () => {
@@ -26,7 +26,7 @@ describe('Webhook Action Test', () => {
         elements: [
           {
             type: 'const',
-            value: 'https://tenapi.cn/v2/douyinhot',
+            value: 'http://localhost',
           },
         ],
       },

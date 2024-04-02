@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import { IdPrefix, ViewType } from '@teable-group/core';
-import { enableShareView as apiEnableShareView } from '@teable-group/openapi';
+import { IdPrefix, ViewType } from '@teable/core';
+import { enableShareView as apiEnableShareView } from '@teable/openapi';
 import { map } from 'lodash';
 import { logger, type Doc } from 'sharedb/lib/client';
 import { vi } from 'vitest';

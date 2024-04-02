@@ -1,54 +1,61 @@
-import { assertNever, FieldType } from '@teable-group/core';
+import { assertNever, FieldType } from '@teable/core';
+import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 
 export const useFieldTypeSubtitle = () => {
-  return useCallback((fieldType: FieldType): string => {
-    switch (fieldType) {
-      case FieldType.Link:
-        return 'Link to records in the table you choose';
-      case FieldType.SingleLineText:
-        return 'Enter text, or prefill each new cell with a default value.';
-      case FieldType.LongText:
-        return 'Enter multiple lines of text.';
-      case FieldType.Attachment:
-        return 'Add images, documents, or other files to be viewed or downloaded.';
-      case FieldType.Checkbox:
-        return 'Check or uncheck to indicate status.';
-      case FieldType.MultipleSelect:
-        return 'Select one or more predefined options in a list.';
-      case FieldType.SingleSelect:
-        return 'Select one predefined option from a list, or prefill each new cell with a default option.';
-      case FieldType.User:
-        return 'Add an user to a record.';
-      case FieldType.Date:
-        return 'Enter a date (e.g. 11/12/2023) or choose one from a calendar.';
-      case FieldType.Number:
-        return 'Enter a number, or prefill each new cell with a default value.';
-      case FieldType.Duration:
-        return 'Enter a duration of time in hours, minutes or seconds (e.g. 1:23).';
-      case FieldType.Rating:
-        return 'Add a rating on a predefined scale.';
-      case FieldType.Formula:
-        return 'Compute values based on fields.';
-      case FieldType.Rollup:
-        return 'Summarize data from linked records.';
-      case FieldType.Count:
-        return 'Count the number of linked records.';
-      case FieldType.CreatedTime:
-        return 'See the date and time each record was created.';
-      case FieldType.LastModifiedTime:
-        return 'See the date and time of the most recent edit to some or all fields in a record.';
-      case FieldType.CreatedBy:
-        return 'See which user created the record.';
-      case FieldType.LastModifiedBy:
-        return 'See which user made the most recent edit to some or all fields in a record.';
-      case FieldType.AutoNumber:
-        return 'Automatically generate unique incremental numbers for each record.';
-      case FieldType.Button:
-        return 'Trigger a customized action.';
-      default: {
-        assertNever(fieldType);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  return useCallback(
+    (fieldType: FieldType): string => {
+      switch (fieldType) {
+        case FieldType.Link:
+          return t('table:field.subTitle.link');
+        case FieldType.SingleLineText:
+          return t('table:field.subTitle.singleLineText');
+        case FieldType.LongText:
+          return t('table:field.subTitle.longText');
+        case FieldType.Attachment:
+          return t('table:field.subTitle.attachment');
+        case FieldType.Checkbox:
+          return t('table:field.subTitle.checkbox');
+        case FieldType.MultipleSelect:
+          return t('table:field.subTitle.multipleSelect');
+        case FieldType.SingleSelect:
+          return t('table:field.subTitle.singleSelect');
+        case FieldType.User:
+          return t('table:field.subTitle.user');
+        case FieldType.Date:
+          return t('table:field.subTitle.date');
+        case FieldType.Number:
+          return t('table:field.subTitle.number');
+        case FieldType.Duration:
+          return t('table:field.subTitle.duration');
+        case FieldType.Rating:
+          return t('table:field.subTitle.rating');
+        case FieldType.Formula:
+          return t('table:field.subTitle.formula');
+        case FieldType.Rollup:
+          return t('table:field.subTitle.rollup');
+        case FieldType.Count:
+          return t('table:field.subTitle.count');
+        case FieldType.CreatedTime:
+          return t('table:field.subTitle.createdTime');
+        case FieldType.LastModifiedTime:
+          return t('table:field.subTitle.lastModifiedTime');
+        case FieldType.CreatedBy:
+          return t('table:field.subTitle.createdBy');
+        case FieldType.LastModifiedBy:
+          return t('table:field.subTitle.lastModifiedBy');
+        case FieldType.AutoNumber:
+          return t('table:field.subTitle.autoNumber');
+        case FieldType.Button:
+          return t('table:field.subTitle.button');
+        default: {
+          assertNever(fieldType);
+        }
       }
-    }
-  }, []);
+    },
+    [t]
+  );
 };

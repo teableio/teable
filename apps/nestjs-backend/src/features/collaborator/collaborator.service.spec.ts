@@ -1,7 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { SpaceRole, getPermissions } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { SpaceRole, getPermissions } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { mockDeep } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
@@ -58,7 +58,6 @@ describe('CollaboratorService', () => {
           roleName: SpaceRole.Owner,
           userId: mockUser.id,
           createdBy: mockUser.id,
-          lastModifiedBy: mockUser.id,
         },
       });
     });

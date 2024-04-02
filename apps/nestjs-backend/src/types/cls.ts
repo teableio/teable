@@ -1,5 +1,5 @@
-import type { PermissionAction } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
+import type { PermissionAction } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
 import type { ClsStore } from 'nestjs-cls';
 import type { IRawOpMap } from '../share-db/interface';
 
@@ -9,6 +9,7 @@ export interface IClsStore extends ClsStore {
     name: string;
     email: string;
   };
+  accessTokenId?: string;
   tx: {
     client?: Prisma.TransactionClient;
     timeStr?: string;

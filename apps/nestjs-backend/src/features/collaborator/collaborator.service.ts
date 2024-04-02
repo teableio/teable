@@ -1,16 +1,17 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { SpaceRole } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { SpaceRole } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ListBaseCollaboratorVo,
   ListSpaceCollaboratorVo,
   UpdateSpaceCollaborateRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { isDate } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { getFullStorageUrl } from '../../utils/full-storage-url';
 
 @Injectable()
 export class CollaboratorService {
@@ -34,7 +35,6 @@ export class CollaboratorService {
         roleName: role,
         userId,
         createdBy: currentUserId,
-        lastModifiedBy: currentUserId,
       },
     });
   }
@@ -105,13 +105,16 @@ export class CollaboratorService {
 
     const collaborators = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<ListSpaceCollaboratorVo | ListBaseCollaboratorVo>(
-        getCollaboratorsSql.toQuery()
-      );
+      .$queryRawUnsafe<
+        ListSpaceCollaboratorVo | ListBaseCollaboratorVo
+      >(getCollaboratorsSql.toQuery());
 
     return collaborators.map((collaborator) => {
       if (isDate(collaborator.createdTime)) {
         collaborator.createdTime = collaborator.createdTime.toISOString();
+      }
+      if (collaborator.avatar) {
+        collaborator.avatar = getFullStorageUrl(collaborator.avatar);
       }
       return collaborator;
     });
@@ -140,7 +143,6 @@ export class CollaboratorService {
       data: {
         roleName: role,
         lastModifiedBy: currentUserId,
-        lastModifiedTime: new Date().toISOString(),
       },
     });
   }

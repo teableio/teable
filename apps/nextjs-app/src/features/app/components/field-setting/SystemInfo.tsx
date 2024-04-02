@@ -1,5 +1,5 @@
-import type { IFieldVo } from '@teable-group/core';
-import { LocalStorageKeys } from '@teable-group/sdk/config/local-storage-keys';
+import type { IFieldVo } from '@teable/core';
+import { LocalStorageKeys } from '@teable/sdk/config/local-storage-keys';
 import { useLocalStorage } from 'react-use';
 
 // eslint-disable-next-line sonarjs/cognitive-complexity

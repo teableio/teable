@@ -32,26 +32,18 @@ export class FormulaFieldCore extends FormulaAbstractCore {
 
   static convertExpressionIdToName(
     expression: string,
-    dependFieldMap: { [fieldId: string]: { name: string } },
-    withFallback?: boolean
+    dependFieldMap: { [fieldId: string]: { name: string } }
   ): string {
     const tree = this.parse(expression);
-    const idToName = Object.entries(dependFieldMap).reduce<{ [fieldId: string]: string }>(
+    const nameToId = Object.entries(dependFieldMap).reduce<{ [fieldId: string]: string }>(
       (acc, [fieldId, field]) => {
         acc[fieldId] = field?.name;
-        if (!acc[fieldId]) {
-          if (withFallback) {
-            acc[fieldId] = fieldId;
-          } else {
-            throw new Error(`Field ${fieldId} not found`);
-          }
-        }
         return acc;
       },
       {}
     );
-    const visitor = new ConversionVisitor(idToName);
-    visitor.visit(tree);
+    const visitor = new ConversionVisitor(nameToId);
+    visitor.safe().visit(tree);
     return visitor.getResult();
   }
 

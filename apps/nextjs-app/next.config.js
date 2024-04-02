@@ -1,7 +1,7 @@
 // @ts-check
 
-const { readFileSync } = require('fs');
-const path = require('path');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
 const { createSecureHeaders } = require('next-secure-headers');
 const pc = require('picocolors');
 
@@ -30,12 +30,15 @@ const NEXT_BUILD_ENV_SOURCEMAPS = trueEnv.includes(
 );
 
 const NEXT_BUILD_ENV_CSP = trueEnv.includes(process.env?.NEXT_BUILD_ENV_CSP ?? 'true');
+const NEXT_ENV_IMAGES_ALL_REMOTE = trueEnv.includes(
+  process.env?.NEXT_ENV_IMAGES_ALL_REMOTE ?? 'true'
+);
 
 const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'false'
 );
 const NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN = trueEnv.includes(
-  process.env?.NEXTJS_SENTRY_UPLOAD_DRY_RUN ?? 'false'
+  process.env?.NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN ?? 'false'
 );
 const NEXT_BUILD_ENV_SENTRY_DEBUG = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_DEBUG ?? 'false'
@@ -77,13 +80,14 @@ const secureHeaders = createSecureHeaders({
       ? {
           defaultSrc: "'self'",
           styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-eval'", "'unsafe-inline'", 'https://www.clarity.ms'],
           frameSrc: ["'self'"],
           connectSrc: [
             "'self'",
-            'https://vitals.vercel-insights.com',
             'https://*.sentry.io',
             'https://*.teable.io',
+            'https://*.teable.cn',
+            'https://*.clarity.ms',
           ],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
           workerSrc: ['blob:'],
@@ -117,6 +121,7 @@ const nextConfig = {
   },
 
   // @link https://nextjs.org/docs/advanced-features/compiler#minification
+  // @link discussion: https://github.com/vercel/next.js/discussions/30237
   // Sometimes buggy so enable/disable when debugging.
   swcMinify: true,
 
@@ -142,12 +147,23 @@ const nextConfig = {
     dangerouslyAllowSVG: false,
     disableStaticImages: false,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-      },
-    ],
+    remotePatterns: NEXT_ENV_IMAGES_ALL_REMOTE
+      ? [
+          {
+            protocol: 'http',
+            hostname: '**',
+          },
+          {
+            protocol: 'https',
+            hostname: '**',
+          },
+        ]
+      : [
+          {
+            protocol: 'https',
+            hostname: '*.teable.*',
+          },
+        ],
     unoptimized: false,
   },
 
@@ -194,7 +210,7 @@ const nextConfig = {
     return isProd ? [] : [socketProxy];
   },
 
-  // @link https://nextjs.org/docs/api-reference/next.config.js/rewrites
+  // @link https://nextjs.org/docs/api-reference/next.config.js/headers
   async headers() {
     return [
       {
@@ -224,21 +240,29 @@ const nextConfig = {
       })
     );
 
-    config.module.rules.push({
-      test: /\.svg$/,
-      issuer: /\.(js|ts)x?$/,
-      use: [
-        {
-          loader: '@svgr/webpack',
-          // https://react-svgr.com/docs/webpack/#passing-options
-          options: {
-            svgo: isProd,
-            // @link https://github.com/svg/svgo#configuration
-            // svgoConfig: { }
-          },
-        },
-      ],
-    });
+    // Grab the existing rule that handles SVG imports
+    const fileLoaderRule = config.module.rules.find(
+      (/** @type {{ test: { test: (arg0: string) => any; }; }} */ rule) => rule.test?.test?.('.svg')
+    );
+
+    config.module.rules.push(
+      // Reapply the existing rule, but only for svg imports ending in ?url
+      {
+        ...fileLoaderRule,
+        test: /\.svg$/i,
+        resourceQuery: /url/, // *.svg?url
+      },
+      // Convert all other *.svg imports to React components
+      {
+        test: /\.svg$/i,
+        issuer: fileLoaderRule.issuer,
+        resourceQuery: { not: [...fileLoaderRule.resourceQuery.not, /url/] }, // exclude if *.svg?url
+        use: ['@svgr/webpack'],
+      }
+    );
+
+    // Modify the file loader rule to ignore *.svg, since we have it handled now.
+    fileLoaderRule.exclude = /\.svg$/i;
 
     return config;
   },
@@ -252,21 +276,29 @@ const nextConfig = {
 let config = nextConfig;
 
 if (NEXT_BUILD_ENV_SENTRY_ENABLED === true) {
-  const { withSentryConfig } = require('@sentry/nextjs'); // https://docs.sentry.io/platforms/javascript/guides/nextjs)/
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore because sentry does not match nextjs current definitions
-  config = withSentryConfig(config, {
-    // Additional config options for the Sentry Webpack plugin. Keep in mind that
-    // the following options are set automatically, and overriding them is not
-    // recommended:
-    //   release, url, org, project, authToken, configFile, stripPrefix,
-    //   urlPrefix, include, ignore
-    // For all available options, see:
-    // https://github.com/getsentry/sentry-webpack-plugin#options.
-    // silent: isProd, // Suppresses all logs
-    dryRun: NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN === true,
-    silent: NEXT_BUILD_ENV_SENTRY_DEBUG === false,
-  });
+  try {
+    // https://docs.sentry.io/platforms/javascript/guides/nextjs/
+    const { withSentryConfig } = require('@sentry/nextjs');
+    // @ts-ignore because sentry does not match nextjs current definitions
+    config = withSentryConfig(config, {
+      // Additional config options for the Sentry Webpack plugin. Keep in mind that
+      // the following options are set automatically, and overriding them is not
+      // recommended:
+      //   release, url, org, project, authToken, configFile, stripPrefix,
+      //   urlPrefix, include, ignore
+      // For all available options, see:
+      // https://github.com/getsentry/sentry-webpack-plugin#options.
+      // silent: isProd, // Suppresses all logs
+      dryRun: NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN === true,
+      silent: NEXT_BUILD_ENV_SENTRY_DEBUG === false,
+    });
+    console.log(`- ${pc.green('info')} Sentry enabled for this build`);
+  } catch {
+    console.log(`- ${pc.red('error')} Could not enable sentry, import failed`);
+  }
+} else {
+  const { sentry, ...rest } = config;
+  config = rest;
 }
 
 if (tmModules.length > 0) {

@@ -1,6 +1,8 @@
+import { ViewType } from '@teable/core';
 import { sortBy } from 'lodash';
 import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
+import type { FormView, GridView } from '../model';
 import { useView } from './use-view';
 
 export function useFields(options: { withHidden?: boolean } = {}) {
@@ -14,6 +16,13 @@ export function useFields(options: { withHidden?: boolean } = {}) {
   );
 
   return useMemo(() => {
-    return withHidden || !view ? fields : fields.filter(({ id }) => !view.columnMeta?.[id]?.hidden);
+    if (withHidden || !view) {
+      return fields;
+    }
+
+    if (view.type === ViewType.Form) {
+      return fields.filter(({ id }) => (view as FormView).columnMeta?.[id]?.visible);
+    }
+    return fields.filter(({ id }) => !(view as GridView).columnMeta?.[id]?.hidden);
   }, [view, fields, withHidden]);
 }

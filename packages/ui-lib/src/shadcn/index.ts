@@ -30,6 +30,6 @@ export * from './ui/radio-group';
 export * from './ui/resizable';
 export * from './ui/badge';
 export * from './ui/toggle';
-export * from './ui/collapsible';
-export * from './ui/badge';
 export * from './ui/accordion';
+export * from './ui/collapsible';
+export * from './ui/table';

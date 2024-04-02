@@ -1,4 +1,4 @@
-import type { IFilterOperator, ILiteralValue } from '@teable-group/core';
+import type { IFilterOperator, ILiteralValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 

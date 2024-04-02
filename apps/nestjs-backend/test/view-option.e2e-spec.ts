@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IViewOptionRo, IGridView, IFormView } from '@teable-group/core';
-import { RowHeightLevel, ViewType } from '@teable-group/core';
-import { setViewOption as apiSetViewOption } from '@teable-group/openapi';
+import type { IViewOptions, IGridView, IFormView } from '@teable/core';
+import { RowHeightLevel, ViewType } from '@teable/core';
+import { updateViewOptions as apiSetViewOption } from '@teable/openapi';
 import { initApp, getView, createTable, deleteTable } from './utils/init-app';
 
 let app: INestApplication;
@@ -16,8 +16,8 @@ afterAll(async () => {
   await app.close();
 });
 
-async function setViewOption(tableId: string, viewId: string, viewOptionRo: IViewOptionRo) {
-  const result = await apiSetViewOption(tableId, viewId, viewOptionRo);
+async function updateViewOptions(tableId: string, viewId: string, viewOptionRo: IViewOptions) {
+  const result = await apiSetViewOption(tableId, viewId, { options: viewOptionRo });
   return result.data;
 }
 
@@ -38,17 +38,17 @@ describe('OpenAPI ViewController (e2e) option (PUT) update grid view option', ()
     await deleteTable(baseId, tableId);
   });
 
-  test(`/table/{tableId}/view/{viewId}/option (PUT) update option rowHeight`, async () => {
-    await setViewOption(tableId, viewId, { rowHeight: RowHeightLevel.Short });
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update option rowHeight`, async () => {
+    await updateViewOptions(tableId, viewId, { rowHeight: RowHeightLevel.Short });
     const updatedView = await getView(tableId, viewId);
     const rowHeight = (updatedView.options as IGridView['options']).rowHeight;
     expect(rowHeight).toBe(RowHeightLevel.Short);
   });
 
-  test(`/table/{tableId}/view/{viewId}/option (PUT) update other type options should return 400`, async () => {
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update other type options should return 400`, async () => {
     const [, formViewId] = viewIds;
     await expect(
-      setViewOption(tableId, formViewId, { rowHeight: RowHeightLevel.Short })
+      updateViewOptions(tableId, formViewId, { rowHeight: RowHeightLevel.Short })
     ).rejects.toMatchObject({
       status: 400,
     });
@@ -67,11 +67,27 @@ describe('OpenAPI ViewController (e2e) option (PUT) update form view option', ()
     await deleteTable(baseId, tableId);
   });
 
-  test(`/table/{tableId}/view/{viewId}/option (PUT) update option coverUrl`, async () => {
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update option coverUrl`, async () => {
     const assertUrl = 'https://test.ico';
-    await setViewOption(tableId, viewId, { coverUrl: assertUrl });
+    await updateViewOptions(tableId, viewId, { coverUrl: assertUrl });
     const updatedView = await getView(tableId, viewId);
     const coverUrl = (updatedView.options as IFormView['options']).coverUrl;
     expect(coverUrl).toBe(assertUrl);
+  });
+
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update option logoUrl`, async () => {
+    const assertUrl = 'https://test.ico';
+    await updateViewOptions(tableId, viewId, { logoUrl: assertUrl });
+    const updatedView = await getView(tableId, viewId);
+    const logoUrl = (updatedView.options as IFormView['options']).logoUrl;
+    expect(logoUrl).toBe(assertUrl);
+  });
+
+  it(`/table/{tableId}/view/{viewId}/option (PUT) update option submitLabel`, async () => {
+    const assertLabel = 'Confirm';
+    await updateViewOptions(tableId, viewId, { submitLabel: assertLabel });
+    const updatedView = await getView(tableId, viewId);
+    const submitLabel = (updatedView.options as IFormView['options']).submitLabel;
+    expect(submitLabel).toBe(assertLabel);
   });
 });

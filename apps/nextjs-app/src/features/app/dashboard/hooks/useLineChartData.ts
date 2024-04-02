@@ -1,6 +1,5 @@
-import { CellValueType, FieldType } from '@teable-group/core';
-import { useBase, useFields, useTable, useViewId } from '@teable-group/sdk/hooks';
-import { Base } from '@teable-group/sdk/model';
+import { CellValueType, FieldType } from '@teable/core';
+import { useBase, useFields, useTable, useViewId } from '@teable/sdk/hooks';
 import { useEffect, useMemo, useState } from 'react';
 
 interface IData {
@@ -35,7 +34,8 @@ export function useLineChartData() {
 
     const nameColumn = selectField.dbFieldName;
     const numberColumn = numberField.dbFieldName;
-    const nativeSql = Base.knex(table.dbTableName)
+    const nativeSql = base
+      .knex(table.dbTableName)
       .select(nameColumn)
       .min(numberColumn + ' as total')
       .avg(numberColumn + ' as average')

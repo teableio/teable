@@ -14,9 +14,9 @@
     "allowJs": false,
     "outDir": "./dist",
     "paths": {
-      "@teable-group/core": ["../../packages/core/src"],
-      "@teable-group/openapi": ["../../packages/openapi/src"],
-      "@teable-group/db-main-prisma": ["../../packages/db-main-prisma/src"]
+      "@teable/core": ["../../packages/core/src"],
+      "@teable/openapi": ["../../packages/openapi/src"],
+      "@teable/db-main-prisma": ["../../packages/db-main-prisma/src"]
     },
     "types": ["vitest/globals"]
   },

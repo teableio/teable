@@ -1,22 +1,29 @@
-import type { IHttpError } from '@teable-group/core';
-import type { ShareViewGetVo } from '@teable-group/openapi';
+import { parseDsn, type DriverClient, type IHttpError } from '@teable/core';
+import type { ShareViewGetVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
+import { SsrApi } from '@/backend/api/rest/table.ssr';
 import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';
 import { ShareViewPage } from '@/features/app/blocks/share/view/ShareViewPage';
+import { shareConfig } from '@/features/i18n/share.config';
+import { getTranslationsProps } from '@/lib/i18n';
 
-export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async ({
-  res,
-  req,
-  query,
-}) => {
+export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async (context) => {
+  const { res, req, query } = context;
   const { shareId } = query;
+  const { i18nNamespaces } = shareConfig;
+
   try {
+    const ssrApi = new SsrApi();
     res.setHeader('Content-Security-Policy', "frame-ancestors 'self' *;");
     ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
     const shareViewData = await ssrApi.getShareView(shareId as string);
+    const driver = parseDsn(process.env.PRISMA_DATABASE_URL as string).driver as DriverClient;
     return {
-      props: { shareViewData },
+      props: {
+        shareViewData,
+        driver,
+        ...(await getTranslationsProps(context, i18nNamespaces)),
+      },
     };
   } catch (e) {
     const error = e as IHttpError;
@@ -35,6 +42,12 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async
   }
 };
 
-export default function ShareView({ shareViewData }: { shareViewData: ShareViewGetVo }) {
-  return <ShareViewPage shareViewData={shareViewData} />;
+export default function ShareView({
+  shareViewData,
+  driver,
+}: {
+  shareViewData: ShareViewGetVo;
+  driver: DriverClient;
+}) {
+  return <ShareViewPage shareViewData={shareViewData} driver={driver} />;
 }

@@ -1,8 +1,6 @@
 // @ts-check
 
-const {
-  getPrettierConfig,
-} = require('@teable-group/eslint-config-bases/helpers');
+const { getPrettierConfig } = require('@teable/eslint-config-bases/helpers');
 
 const { overrides = [], ...prettierConfig } = getPrettierConfig();
 

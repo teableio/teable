@@ -1,22 +1,27 @@
+import { ExitIcon } from '@radix-ui/react-icons';
 import { useMutation } from '@tanstack/react-query';
-import { signout } from '@teable-group/openapi';
-import { useSession } from '@teable-group/sdk/hooks';
+import { Code, HelpCircle, Settings } from '@teable/icons';
+import { signout } from '@teable/openapi';
+import { useSession } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { useSettingStore } from '../setting/useSettingStore';
 
 export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
   const { children } = props;
   const router = useRouter();
+  const { t } = useTranslation(['common']);
   const { user } = useSession();
+  const setting = useSettingStore();
   const { mutateAsync: loginOut, isLoading } = useMutation({
     mutationFn: signout,
   });
@@ -37,9 +42,26 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={loginOutClick} disabled={isLoading}>
-          Log out
-          <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
+        <DropdownMenuItem className="flex gap-2" onClick={() => setting.setOpen(true)}>
+          <Settings className="size-4 shrink-0" />
+          {t('settings.nav.settings')}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="flex gap-2" asChild>
+          <a href={t('help.mainLink')} target="_blank" rel="noreferrer">
+            <HelpCircle className="size-4 shrink-0" />
+            {t('help.title')}
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="flex gap-2"
+          onClick={() => router.push('/setting/personal-access-token')}
+        >
+          <Code className="size-4 shrink-0" />
+          {t('settings.account.manageToken')}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="flex gap-2" onClick={loginOutClick} disabled={isLoading}>
+          <ExitIcon className="size-4 shrink-0" />
+          {t('settings.nav.logout')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

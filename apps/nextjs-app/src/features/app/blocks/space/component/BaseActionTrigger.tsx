@@ -1,27 +1,40 @@
-import { Pencil, Trash2 } from '@teable-group/icons';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { ConfirmDialog } from '@teable-group/ui-lib/base';
+import { Copy, Pencil, Trash2 } from '@teable/icons';
+import type { IGetBaseVo } from '@teable/openapi';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import React from 'react';
+import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
 
 interface IBaseActionTrigger {
   base: IGetBaseVo;
   showRename: boolean;
   showDelete: boolean;
+  showDuplicate: boolean;
   onRename?: () => void;
   onDelete?: () => void;
+  align?: 'center' | 'end' | 'start';
 }
 
 export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrigger>> = (props) => {
-  const { base, children, showRename, showDelete, onDelete, onRename } = props;
+  const {
+    base,
+    children,
+    showRename,
+    showDelete,
+    showDuplicate,
+    onDelete,
+    onRename,
+    align = 'end',
+  } = props;
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
-  if (!showDelete && !showRename) {
+  const baseStore = useDuplicateBaseStore();
+  if (!showDelete && !showRename && !showDuplicate) {
     return null;
   }
 
@@ -29,11 +42,21 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[160px]" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuContent
+          align={align}
+          className="w-[160px]"
+          onClick={(e) => e.stopPropagation()}
+        >
           {showRename && (
             <DropdownMenuItem onClick={onRename}>
               <Pencil className="mr-2" />
               Rename
+            </DropdownMenuItem>
+          )}
+          {showDuplicate && (
+            <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
+              <Copy className="mr-2" />
+              Duplicate
             </DropdownMenuItem>
           )}
           {showDelete && (

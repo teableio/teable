@@ -1,5 +1,5 @@
-import type { IUserCellValue } from '@teable-group/core';
-import { X } from '@teable-group/icons';
+import type { IUserCellValue } from '@teable/core';
+import { X } from '@teable/icons';
 import {
   Avatar,
   AvatarFallback,
@@ -8,9 +8,10 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib';
-import classNames from 'classnames';
+  cn,
+} from '@teable/ui-lib';
 import React, { useRef, useState } from 'react';
+import { convertNextImageUrl } from '../../grid-enhancements';
 import type { IUserEditorMainProps } from './EditorMain';
 import { UserEditorMain } from './EditorMain';
 
@@ -40,23 +41,29 @@ export const UserEditor = (props: IUserEditorMainProps) => {
       variant="outline"
       role="combobox"
       aria-expanded={open}
-      className={classNames(
-        'w-full h-auto min-h-[48px] sm:min-h-[48px] flex flex-wrap justify-start hover:bg-transparent gap-2',
+      className={cn(
+        'w-full h-auto min-h-[40px] sm:min-h-[40px] flex flex-wrap justify-start hover:bg-transparent gap-2',
         className
       )}
     >
-      {arrayValue?.map(({ id, title }) => (
+      {arrayValue?.map(({ id, title, avatarUrl }) => (
         <div key={id} className="flex items-center">
-          <Avatar className="box-content h-7 w-7 cursor-pointer border">
-            <AvatarImage src={'avatar' as string} alt="avatar-name" />
+          <Avatar className="box-content size-6 cursor-pointer border">
+            <AvatarImage
+              src={convertNextImageUrl({
+                url: avatarUrl as string,
+                w: 64,
+                q: 75,
+              })}
+              alt={title}
+            />
             <AvatarFallback className="text-sm">{title?.slice(0, 1)}</AvatarFallback>
           </Avatar>
-          {/**/}
           <div className="-ml-3 flex items-center overflow-hidden rounded-[6px] bg-secondary pl-4 pr-2 text-sm text-secondary-foreground">
             <p className="flex-1 truncate">{title}</p>
             {!readonly && (
               <X
-                className="cursor-pointer opacity-50 hover:opacity-100"
+                className="ml-[2px] cursor-pointer opacity-50 hover:opacity-100"
                 onClick={(e) => {
                   e.preventDefault();
                   onDelete({ id, title });

@@ -1,3 +1,4 @@
+import { Button } from '@teable/ui-lib/shadcn';
 import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
@@ -18,13 +19,13 @@ export const NotFoundPage: FC<Props> = (props) => {
       <Head>
         <title>{title}</title>
       </Head>
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-white">
+      <div className="flex h-screen flex-col items-center justify-center bg-white">
         <h1 data-testid="not-found-title" className="text-5xl text-black md:text-4xl lg:text-5xl">
           {title}
         </h1>
-        <p className="mt-5 text-center text-xl no-underline hover:underline">
+        <Button className="mt-5 text-center text-xl no-underline hover:underline">
           <a href={'/'}>{t('system:links.backToHome')}</a>
-        </p>
+        </Button>
       </div>
     </>
   );

@@ -1,18 +1,22 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import { HttpError, parseDsn } from '@teable-group/core';
-import type { IUser } from '@teable-group/sdk';
+import * as Sentry from '@sentry/nextjs';
+import { HttpError, parseDsn } from '@teable/core';
+import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import type { NextPage } from 'next';
 import type { AppContext, AppProps as NextAppProps } from 'next/app';
 import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
-import type { ReactElement, ReactNode } from 'react';
+import { useEffect } from 'react';
 import { z } from 'zod';
 import { getUserMe } from '@/backend/api/rest/get-user';
+import { Guide } from '@/components/Guide';
+import { MicrosoftClarity } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
+import type { IServerEnv } from '@/lib/server-env';
+import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
 import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
@@ -37,33 +41,28 @@ export type AppProps = NextAppProps & {
   err?: Error;
 };
 
-export type NextPageWithLayout<P = Record<string, unknown>, IP = P> = NextPage<P, IP> & {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getLayout?: (page: ReactElement, appProps: any) => ReactNode;
-};
-
 type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout;
   user?: IUser;
   driver: string;
+  env: IServerEnv;
 };
 
 /**
  * @link https://nextjs.org/docs/advanced-features/custom-app
  */
 const MyApp = (appProps: AppPropsWithLayout) => {
-  const { Component, pageProps, err, user, driver } = appProps;
+  const { Component, pageProps, err, user, driver, env } = appProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
 
-  const serverInfo = {
-    driver,
-    user,
-  };
+  useEffect(() => {
+    Sentry.setUser(user ? { id: user.id, email: user.email } : null);
+  }, [user]);
 
   return (
     <>
-      <AppProviders>
+      <AppProviders env={env}>
         <Head>
           <meta
             name="viewport"
@@ -71,15 +70,21 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
+        <MicrosoftClarity clarityId={env?.microsoftClarityId} />
         <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.__s = ${JSON.stringify(serverInfo)};`,
+            __html: `
+              window.clarity && window.clarity("identify", "${user?.email || user?.id}");
+              window.version="${process.env.NEXT_PUBLIC_BUILD_VERSION ?? 'develop'}";
+              window.__TE__=${JSON.stringify(env)};
+            `,
           }}
         />
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
+        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user, driver })}
       </AppProviders>
+      <Guide user={user} />
       <RouterProgressBar />
     </>
   );
@@ -98,16 +103,21 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
     return appProps;
   }
 
-  const isLoginPage = appContext.ctx.pathname.startsWith('/auth/login');
+  const isLoginPage = appContext.ctx.pathname === '/auth/login';
   const needLoginPage = isAuthLoginPage(appContext.ctx.pathname);
 
   const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
   const initialProps = {
     ...appProps,
     driver,
+    env: {
+      templateSiteLink: process.env.TEMPLATE_SITE_LINK,
+      microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
+      sentryDsn: process.env.SENTRY_DSN,
+      socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
+    },
   };
-
-  if (!needLoginPage) {
+  if (!isLoginPage && !needLoginPage) {
     return initialProps;
   }
 
@@ -137,7 +147,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
 };
 
 const isAuthLoginPage = (pathname: string) => {
-  const needLoginPage = ['/space', '/base', '/invite'];
+  const needLoginPage = ['/space', '/base', '/invite', '/setting'];
   return needLoginPage.some((path) => pathname.startsWith(path));
 };
 

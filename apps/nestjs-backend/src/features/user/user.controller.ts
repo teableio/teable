@@ -12,7 +12,7 @@ import {
   IUserNotifyMeta,
   updateUserNameRoSchema,
   userNotifyMetaSchema,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -25,7 +25,7 @@ export class UserController {
     private readonly cls: ClsService<IClsStore>
   ) {}
 
-  @Patch('updateName')
+  @Patch('name')
   async updateName(
     @Body(new ZodValidationPipe(updateUserNameRoSchema)) updateUserNameRo: IUpdateUserNameRo
   ): Promise<void> {
@@ -47,13 +47,13 @@ export class UserController {
       },
     })
   )
-  @Patch('updateAvatar')
+  @Patch('avatar')
   async updateAvatar(@UploadedFile() file: Express.Multer.File): Promise<void> {
     const userId = this.cls.get('user.id');
     return this.userService.updateAvatar(userId, file);
   }
 
-  @Patch('updateNotifyMeta')
+  @Patch('notify-meta')
   async updateNotifyMeta(
     @Body(new ZodValidationPipe(userNotifyMetaSchema))
     updateUserNotifyMetaRo: IUserNotifyMeta

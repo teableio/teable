@@ -1,0 +1,207 @@
+{
+  "toolbar": {
+    "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。"
+  },
+  "field": {
+    "fieldManagement": "字段管理",
+    "fieldManagementDesc": "当前表格所有字段的详细信息",
+    "editor": {
+      "addField": "添加字段",
+      "editField": "编辑字段",
+      "insertField": "插入字段",
+      "graph": "关系图",
+      "fieldUpdated": "字段已更新",
+      "fieldCreated": "字段已创建",
+      "previewDependenciesGraph": "预览依赖关系图",
+      "areYouSurePerformIt": "确定要执行此操作吗？",
+      "addDescription": "添加描述",
+      "description": "描述",
+      "descriptionPlaceholder": "描述这个字段（可选）",
+      "type": "字段类型",
+      "showAs": "显示样式",
+      "color": "颜色",
+      "number": "数字",
+      "chartBar": "条形图",
+      "chartLine": "折线图",
+      "ring": "环形",
+      "bar": "条形",
+      "text": "文本",
+      "url": "网址",
+      "email": "邮件",
+      "phone": "电话",
+      "maxNumber": "最大值",
+      "showNumber": "显示数值",
+      "autoFillDate": "自动填充当前日期",
+      "createSymmetricLink": "在关联表中创建对称的关联字段",
+      "allowLinkMultipleRecords": "允许添加到多个记录到单元格",
+      "allowLinkToDuplicateRecords": "允许记录被多次关联",
+      "allowSymmetricFieldLinkMultipleRecords": "对称字段中允许添加到多个记录到单元格",
+      "oneToOne": "一对一",
+      "oneToMany": "一对多",
+      "manyToOne": "多对一",
+      "manyToMany": "多对多",
+      "self": "本表",
+      "selectTable": "选择一张表...",
+      "inSelfLink": "自关联",
+      "betweenTwoTables": "关联",
+      "linkTipMessage": "提示：此配置表示<b>{{relationship}}</b>的<span>{{linkType}}</span>关系 ",
+      "style": "样式",
+      "maximum": "最大值",
+      "addOption": "添加选项",
+      "allowMultiUsers": "允许添加多个用户",
+      "notifyUsers": "用户被选择后发送通知",
+      "searchTable": "搜索表...",
+      "calculating": "计算中...",
+      "doSaveChanges": "您要保存所做的更改吗？",
+      "linkFieldToLookup": "用于查找的已链接记录字段",
+      "lookupToTable": "从{{tableName}}表中选择要进行查找的字段",
+      "selectField": "选择一个字段...",
+      "linkTable": "进行关联的表",
+      "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。"
+    },
+    "subTitle": {
+      "link": "在表之间创建关联关系",
+      "singleLineText": "可输入单行文本，或为每个新单元格预填充一个默认值。",
+      "longText": "输入多行文本，允许进行换行。",
+      "attachment": "添加图片、文档或其他文件以供查看或下载。",
+      "checkbox": "勾选或取消勾选以表示状态。",
+      "multipleSelect": "在列表中选择一个或多个预定义选项。",
+      "singleSelect": "从列表中选择一个预定义选项，或为每个新单元格预填充一个默认选项。",
+      "user": "向记录中添加用户。",
+      "date": "输入日期（例如 2023/11/12）或从日历中选择。",
+      "number": "输入数字，或为每个新单元格预填充一个默认值。",
+      "duration": "以小时、分钟或秒为单位输入时间长度（例如 1:23）。",
+      "rating": "在预定分值上添加评分。",
+      "formula": "基于字段进行动态公式计算。",
+      "rollup": "汇总来自关联记录的数据。",
+      "count": "计算关联记录的数量。",
+      "createdTime": "查看每条记录创建的日期和时间。",
+      "lastModifiedTime": "查看每条记录的最近编辑日期和时间。",
+      "createdBy": "查看创建记录的用户。",
+      "lastModifiedBy": "查看每条记录的最近编辑的用户。",
+      "autoNumber": "为每条记录自动生成唯一的递增数字。",
+      "button": "触发自定义操作。",
+      "lookup": "通过绑定一个关联字段，从关联表中查找已关联记录的信息。"
+    },
+    "fieldName": "字段名",
+    "fieldType": "字段类型"
+  },
+  "table": {
+    "rename": "重命名",
+    "design": "设计",
+    "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
+    "dbTableName": "物理数据库中的表名",
+    "schemaName": "物理数据库中的模式(Schema)名",
+    "tableInfo": "表信息",
+    "tableInfoDetail": "当前表的基础属性",
+    "typeOfDatabase": "数据库类型",
+    "descriptionForTable": "表的描述",
+    "nameForTable": "表的名称",
+    "deleteTip1": "其他表中关联了此表的关联字段将会被转换成文本字段",
+    "deleteTip2": "该操作无法撤销.",
+    "operator": {
+      "createBlank": "创建一个新表格"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "上传",
+      "import": "导入",
+      "localFile": "本地文件",
+      "linkUrl": "Link(URL)",
+      "linkUrlInputTitle": "从URl下载文件",
+      "importTitle": "创建一个新表格",
+      "incrementImportTitle": "导入到 — ",
+      "optionsTitle": "导入选项",
+      "leaveTitle": "确定离开此页面?",
+      "primitiveFields": "原表字段",
+      "importFields": "导入的字段",
+      "primaryField": "主键"
+    },
+    "menu": {
+      "addFromOtherSource": "从第三方资源导入",
+      "excelFile": "Microsoft Excel",
+      "csvFile": "Csv 文件",
+      "cancel": "取消",
+      "leave": "取消",
+      "downAsCsv": "下载 CSV",
+      "importData": "导入数据"
+    },
+    "tips": {
+      "importWayTip": "点击或者拖拽到此区域上传",
+      "leaveTip": "你的数据仍然会被导入",
+      "fileExceedSizeTip": "该类型文件限制文件大小为",
+      "analyzing": "分析中",
+      "notSupportFieldType": "字段类型不支持",
+      "resultEmpty": "未查询到结果"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "自动预测类型",
+      "useFirstRowAsHeaderOptionName": "使用第一行作为行头",
+      "importDataOptionName": "导入数据",
+      "sheetKey": "表名：",
+      "excludeFirstRow": "忽略首行"
+    },
+    "form": {
+      "defaultFieldName": "字段",
+      "error": {
+        "urlEmptyTip": "URL不能为空！",
+        "fieldNameEmpty": "字段名不能为空",
+        "errorFileFormat": "文件格式错误！",
+        "uniqueFieldName": "字段名不能重复！",
+        "urlValidateTip": "不能解析该URL，请重新输入！",
+        "atLeastAImportField": "请至少设置一个导入字段！"
+      },
+      "option": {
+        "doNotImport": "无需导入"
+      }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "下载 Csv文件"
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "此行已移动",
+    "prefillingRowTooltip": "当您选择另一行时，此行将移动到其新的位置"
+  },
+  "form": {
+    "fieldsManagement": "字段管理",
+    "addAll": "全部添加",
+    "removeAll": "全部移除",
+    "hideFieldTip": "拖拽到这里移除表单中的字段",
+    "unableAddFieldTip": "不支持添加该字段类型",
+    "removeFromFormTip": "从表单中移除该字段",
+    "descriptionPlaceholder": "请输入表单描述",
+    "dragToFormTip": "拖拽字段到这里添加至表单"
+  },
+  "menu": {
+    "insertRecordAbove": "在上方插入记录",
+    "insertRecordBelow": "在下方插入记录",
+    "copyCells": "复制单元格",
+    "deleteRecord": "删除记录",
+    "deleteAllSelectedRecords": "删除所有选定的记录",
+    "editField": "编辑字段",
+    "insertFieldLeft": "在左侧插入字段",
+    "insertFieldRight": "在右侧插入字段",
+    "freezeUpField": "冻结至此字段",
+    "hideField": "隐藏字段",
+    "deleteField": "删除字段",
+    "deleteAllSelectedFields": "删除所有选定的字段"
+  },
+  "connection": {
+    "title": "数据库连接",
+    "description": "你可以通过数据库连接来直接访问数据库",
+    "noPermission": "你没有权限访问数据库连接",
+    "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
+    "helpLink": "https://help.teable.cn/gao-dai-ma-kai-fa/shu-ju-ku-lian-jie"
+  },
+  "view": {
+    "addRecord": "添加记录",
+    "searchView": "搜索视图...",
+    "dragToolTip": "自动排序已经打开，无法进行手动拖拽排序",
+    "insertToolTip": "自动排序已经打开，无法指定插入位置"
+  },
+  "lastModifiedTime": "最近修改时间"
+}

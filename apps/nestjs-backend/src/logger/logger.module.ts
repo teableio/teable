@@ -1,7 +1,7 @@
 import type { DynamicModule } from '@nestjs/common';
-import { Module, RequestMethod } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { trace, context } from '@opentelemetry/api';
+import { context, trace } from '@opentelemetry/api';
 import { ClsService } from 'nestjs-cls';
 import { LoggerModule as BaseLoggerModule } from 'nestjs-pino';
 import type { ILoggerConfig } from '../configs/logger.config';
@@ -18,8 +18,8 @@ export class LoggerModule {
         return {
           pinoHttp: {
             name: 'teable',
-            autoLogging: process.env.NODE_ENV === 'production',
             level: level,
+            autoLogging: false,
             quietReqLogger: true,
             genReqId: (req, res) => {
               const existingID = req.id ?? req.headers[X_REQUEST_ID];
@@ -39,16 +39,6 @@ export class LoggerModule {
               },
             },
           },
-          exclude: [
-            '_next/(.*)',
-            '__nextjs(.*)',
-            'images/(.*)',
-            'favicon.ico',
-            {
-              path: 'space/(.*)?',
-              method: RequestMethod.GET,
-            },
-          ],
         };
       },
     });

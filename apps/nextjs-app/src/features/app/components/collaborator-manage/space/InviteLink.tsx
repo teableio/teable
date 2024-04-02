@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable-group/core';
-import { getRolesWithLowerPermissions } from '@teable-group/core';
-import { Copy, X } from '@teable-group/icons';
+import type { SpaceRole } from '@teable/core';
+import { Copy, X } from '@teable/icons';
 import {
   deleteSpaceInvitationLink,
   listSpaceInvitationLink,
   updateSpaceInvitationLink,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
+import { useSpaceRoleStatic } from '@teable/sdk/hooks';
 import {
   Button,
   Input,
@@ -15,12 +15,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
   useToast,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { map } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { RoleSelect } from './RoleSelect';
+import { getRolesWithLowerPermissions } from './utils';
 dayjs.extend(relativeTime);
 
 interface IInviteLink {
@@ -32,6 +34,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
   const { spaceId, role } = props;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation('common');
 
   const linkList = useQuery({
     queryKey: ['invite-link-list', spaceId],
@@ -54,10 +57,14 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
 
   const copyInviteUrl = async (url: string) => {
     await navigator.clipboard.writeText(url);
-    toast({ title: 'Link copied' });
+    toast({ title: t('invite.dialog.linkCopySuccess') });
   };
 
-  const filterRoles = useMemo(() => map(getRolesWithLowerPermissions(role), 'role'), [role]);
+  const spaceRoleStatic = useSpaceRoleStatic();
+  const filterRoles = useMemo(
+    () => map(getRolesWithLowerPermissions(role, spaceRoleStatic), 'role'),
+    [role, spaceRoleStatic]
+  );
 
   if (!linkList?.length) {
     return <></>;
@@ -65,7 +72,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
 
   return (
     <div>
-      <div className="mb-3 text-sm text-muted-foreground">Invite links</div>
+      <div className="mb-3 text-sm text-muted-foreground">{t('invite.dialog.linkTitle')}</div>
       <div className="space-y-3">
         {linkList.map(({ invitationId, inviteUrl, createdTime, role }) => (
           <div key={invitationId} className="relative flex items-center gap-3 pr-7">
@@ -73,11 +80,11 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
               <Input className="h-8 flex-1" value={inviteUrl} readOnly />
               <Copy
                 onClick={() => copyInviteUrl(inviteUrl)}
-                className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100"
+                className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100"
               />
             </div>
             <div className="text-xs text-muted-foreground">
-              created {dayjs(createdTime).fromNow()}
+              {t('invite.dialog.linkCreatedTime', { createdTime: dayjs(createdTime).fromNow() })}
             </div>
             <RoleSelect
               value={role}
@@ -97,11 +104,11 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
                     disabled={deleteInviteLinkLoading}
                     onClick={() => deleteInviteLink({ spaceId, invitationId })}
                   >
-                    <X className="h-4 w-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
+                    <X className="size-4 cursor-pointer text-muted-foreground opacity-70 hover:opacity-100" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Remove link</p>
+                  <p>{t('invite.dialog.linkRemove')}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

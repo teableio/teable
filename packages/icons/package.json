@@ -1,12 +1,14 @@
 {
-  "name": "@teable-group/icons",
+  "name": "@teable/icons",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable",
+    "url": "https://github.com/teableio/teable",
     "directory": "packages/icons"
   },
   "main": "./dist/index.js",
@@ -14,6 +16,9 @@
   "exports": {
     ".": "./dist"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
@@ -27,24 +32,22 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
-  "dependencies": {
-    "typescript": "5.3.3"
-  },
   "devDependencies": {
     "@svgr/core": "8.1.0",
     "@svgr/plugin-jsx": "8.1.0",
     "@svgr/plugin-prettier": "8.1.0",
     "@svgr/plugin-svgo": "8.1.0",
     "@types/fs-extra": "11.0.4",
-    "@types/node": "18.18.2",
-    "@types/react": "18.2.47",
-    "axios": "1.6.5",
+    "@types/node": "20.9.0",
+    "@types/react": "18.2.69",
+    "axios": "1.6.8",
     "chalk": "5.3.0",
-    "dotenv": "16.3.1",
-    "eslint": "8.56.0",
+    "dotenv": "16.4.5",
+    "eslint": "8.57.0",
     "figma-js": "1.16.0",
     "fs-extra": "11.2.0",
     "lodash": "4.17.21",
-    "rimraf": "5.0.5"
+    "rimraf": "5.0.5",
+    "typescript": "5.4.3"
   }
 }

@@ -1,0 +1,146 @@
+version: '3.9'
+
+services:
+  teable:
+    image: ghcr.io/teableio/teable:latest
+    deploy:
+      replicas: 2
+    restart: always
+    expose:
+      - '3000'
+    env_file:
+      - .env
+    environment:
+      - TZ=${TIMEZONE}
+      - NEXT_ENV_IMAGES_ALL_REMOTE=true
+    networks:
+      - teable-cluster
+    depends_on:
+      teable-db-migrate:
+        condition: service_completed_successfully
+      teable-cache:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      start_period: 5s
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  teable-db:
+    image: postgres:15.4
+    restart: always
+    ports:
+      - '42345:5432'
+    volumes:
+      - teable-db:/var/lib/postgresql/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/db/data:/var/lib/postgresql/data:rw
+    environment:
+      - TZ=${TIMEZONE}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - teable-cluster
+    healthcheck:
+      test: ['CMD-SHELL', "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  teable-db-migrate:
+    image: ghcr.io/teableio/teable-db-migrate:latest
+    environment:
+      - TZ=${TIMEZONE}
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    networks:
+      - teable-cluster
+    depends_on:
+      teable-db:
+        condition: service_healthy
+
+  teable-cache:
+    image: redis:7.2.4
+    restart: always
+    expose:
+      - '6379'
+    volumes:
+      - teable-cache:/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/cache/data:/data:rw
+    networks:
+      - teable-cluster
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  teable-storage:
+    image: minio/minio:RELEASE.2024-02-17T01-15-57Z
+    expose:
+      - '9000'
+      - '9001'
+    environment:
+      - MINIO_SERVER_URL=${MINIO_SERVER_URL}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+    volumes:
+      - teable-storage:/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/storage/data:/data:rw
+    networks:
+      - teable-cluster
+    command: server /data --console-address ":9001"
+
+  createbuckets:
+    image: minio/mc
+    networks:
+      - teable-cluster
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set teable-storage http://teable-storage:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      /usr/bin/mc mb teable-storage/public;
+      /usr/bin/mc anonymous set public teable-storage/public;
+      /usr/bin/mc mb teable-storage/private;
+      exit 0;
+      "
+    depends_on:
+      teable-storage:
+        condition: service_started
+
+  teable-gateway:
+    image: openresty/openresty:1.25.3.1-2-bookworm-fat
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '9000:9000'
+    volumes:
+      - './gateway/conf.d:/etc/nginx/conf.d'
+    networks:
+      - teable-cluster
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost/healthcheck']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      teable:
+        condition: service_started
+
+networks:
+  teable-cluster:
+    name: teable-cluster-network
+    driver: bridge
+
+volumes:
+  teable-db: {}
+  teable-cache: {}
+  teable-storage: {}

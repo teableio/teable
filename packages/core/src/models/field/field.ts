@@ -21,6 +21,8 @@ export abstract class FieldCore implements IFieldVo {
 
   isComputed?: boolean;
 
+  isPending?: boolean;
+
   hasError?: boolean;
 
   dbFieldType!: DbFieldType;

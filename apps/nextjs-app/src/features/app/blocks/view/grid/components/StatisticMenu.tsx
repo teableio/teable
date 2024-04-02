@@ -1,6 +1,6 @@
-import { getValidStatisticFunc, NoneFunc, statisticFunc2NameMap } from '@teable-group/core';
-import type { StatisticsFunc } from '@teable-group/core';
-import { useField, useView } from '@teable-group/sdk/hooks';
+import { getValidStatisticFunc, NoneFunc, statisticFunc2NameMap } from '@teable/core';
+import type { StatisticsFunc } from '@teable/core';
+import { useField, useView } from '@teable/sdk/hooks';
 import {
   Command,
   CommandGroup,
@@ -9,7 +9,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { useGridViewStore } from '../store/gridView';
@@ -40,7 +40,7 @@ export const StatisticMenu = () => {
   const onSelect = (type: NoneFunc | StatisticsFunc) => {
     closeStatisticMenu();
     view &&
-      view.setViewColumnMeta([
+      view.updateColumnMeta([
         {
           fieldId,
           columnMeta: {
@@ -53,7 +53,7 @@ export const StatisticMenu = () => {
   return (
     <Popover open={visible}>
       <PopoverTrigger asChild style={style} className="absolute">
-        <div className="h-0 w-0 opacity-0" />
+        <div className="size-0 opacity-0" />
       </PopoverTrigger>
       <PopoverContent className="h-auto w-[150px] rounded-sm px-0 py-1" align="end">
         <Command ref={fieldStatisticRef} className="rounded-none border-none shadow-none">

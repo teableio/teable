@@ -82,6 +82,7 @@ export interface IGridColumn {
   width?: number;
   hasMenu?: boolean;
   readonly?: boolean;
+  isPrimary?: boolean;
   description?: string;
   customTheme?: Partial<IGridTheme>;
 }

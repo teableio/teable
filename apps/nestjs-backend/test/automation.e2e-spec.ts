@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo } from '@teable-group/core';
+import type { IFieldVo } from '@teable/core';
 import {
   FieldType,
   generateWorkflowActionId,
@@ -8,9 +8,8 @@ import {
   generateWorkflowTriggerId,
   identify,
   IdPrefix,
-} from '@teable-group/core';
-import { axios } from '@teable-group/openapi';
-import { expect } from 'vitest';
+} from '@teable/core';
+import { axios } from '@teable/openapi';
 import { ActionTypeEnums } from '../src/features/automation/enums/action-type.enum';
 import { TriggerTypeEnums } from '../src/features/automation/enums/trigger-type.enum';
 import type { CreateWorkflowActionRo } from '../src/features/automation/model/create-workflow-action.ro';
@@ -56,7 +55,7 @@ describe.skip('AutomationController (e2e)', () => {
     }
   ) => {
     const triggerId = generateWorkflowTriggerId();
-    const axiosRes = await axios.post(`/api/workflowTrigger/${triggerId}`, createRo);
+    const axiosRes = await axios.post(`/api/workflow-trigger/${triggerId}`, createRo);
 
     expect(axiosRes.status).toBe(201);
     expect(axiosRes.data).toMatchObject({
@@ -66,7 +65,7 @@ describe.skip('AutomationController (e2e)', () => {
   };
 
   const updateWorkflowTrigger = async (triggerId: string, updateRo: UpdateWorkflowTriggerRo) => {
-    const axiosRes = await axios.put(`/api/workflowTrigger/${triggerId}/updateConfig`, updateRo);
+    const axiosRes = await axios.put(`/api/workflow-trigger/${triggerId}/update-config`, updateRo);
 
     expect(axiosRes.status).toBe(200);
     expect(axiosRes.data).toMatchObject({
@@ -77,12 +76,12 @@ describe.skip('AutomationController (e2e)', () => {
   const createWorkflowAction = async (workflowId: string, createRo: CreateWorkflowActionRo) => {
     let actionId = generateWorkflowActionId();
 
-    let url1 = `/api/workflowAction/${actionId}`;
+    let url1 = `/api/workflow-action/${actionId}`;
 
     if (createRo.actionType === ActionTypeEnums.Decision) {
       actionId = generateWorkflowDecisionId();
 
-      url1 = `/api/workflowDecision/${actionId}`;
+      url1 = `/api/workflow-decision/${actionId}`;
     }
 
     const axiosRes = await axios.post(url1, createRo);
@@ -95,10 +94,10 @@ describe.skip('AutomationController (e2e)', () => {
   };
 
   const updateWorkflowAction = async (actionId: string, updateRo: UpdateWorkflowActionRo) => {
-    let url2 = `/api/workflowAction/${actionId}/updateConfig`;
+    let url2 = `/api/workflow-action/${actionId}/update-config`;
 
     if (identify(actionId) === IdPrefix.WorkflowDecision) {
-      url2 = `/api/workflowDecision/${actionId}/updateConfig`;
+      url2 = `/api/workflow-decision/${actionId}/update-config`;
     }
 
     const axiosRes = await axios.put(url2, updateRo);

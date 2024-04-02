@@ -1,4 +1,4 @@
-import { Button, Label, Spin, Switch } from '@teable-group/ui-lib';
+import { Button, Label, Spin, Switch } from '@teable/ui-lib';
 
 interface ISortConfigProps {
   value?: boolean;
@@ -27,7 +27,7 @@ export const SortConfig = (props: ISortConfigProps) => {
       {value && (
         <div className="flex items-center justify-between">
           <Button size="sm" disabled={buttonLoading} className="ml-2 text-sm" onClick={onClick}>
-            {buttonLoading ? <Spin className="mr-1 h-4 w-4" /> : null}
+            {buttonLoading ? <Spin className="mr-1 size-4" /> : null}
             sort
           </Button>
         </div>

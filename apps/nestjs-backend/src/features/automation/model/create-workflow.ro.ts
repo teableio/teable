@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { FieldKeyType } from '@teable-group/core';
+import { FieldKeyType } from '@teable/core';
 
 export class CreateWorkflowRo {
   @ApiPropertyOptional({

@@ -1,5 +1,5 @@
-import type { IOrder, FieldCore } from '@teable-group/core';
-import { Checked, Square } from '@teable-group/icons';
+import type { FieldCore, SortFunc } from '@teable/core';
+import { Checked, Square } from '@teable/icons';
 import {
   Select,
   SelectTrigger,
@@ -7,15 +7,15 @@ import {
   SelectGroup,
   SelectContent,
   SelectItem,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFields } from '../../hooks';
 
 interface IOrderProps {
-  value: IOrder;
+  value: SortFunc;
   fieldId: string;
-  onSelect: (value: IOrder) => void;
+  onSelect: (value: SortFunc) => void;
 }
 
 function OrderSelect(props: IOrderProps) {

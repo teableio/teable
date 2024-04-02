@@ -1,15 +1,16 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
+import type { ILinkCellValue, ILinkFieldOptions, IOtOperation } from '@teable/core';
 import {
   Relationship,
   RelationshipRevert,
   FieldType,
   RecordOpBuilder,
   isMultiValueLink,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { isEqual } from 'lodash';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { groupBy, isEqual } from 'lodash';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
+import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import type { IFieldInstance } from '../model/factory';
 import {
@@ -26,6 +27,7 @@ import { FieldSupplementService } from './field-supplement.service';
 export class FieldConvertingLinkService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly linkService: LinkService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -72,7 +74,7 @@ export class FieldConvertingLinkService {
     if (oldField.options.symmetricFieldId) {
       const { foreignTableId, symmetricFieldId } = oldField.options;
       const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
-      await this.fieldDeletingService.delateFieldItem(foreignTableId, symField);
+      symField && (await this.fieldDeletingService.delateFieldItem(foreignTableId, symField));
     }
 
     // create new symmetric link
@@ -139,7 +141,7 @@ export class FieldConvertingLinkService {
     if (oldField.options.symmetricFieldId) {
       const { foreignTableId, symmetricFieldId } = oldField.options;
       const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
-      await this.fieldDeletingService.delateFieldItem(foreignTableId, symField);
+      symField && (await this.fieldDeletingService.delateFieldItem(foreignTableId, symField));
     }
   }
 
@@ -201,6 +203,55 @@ export class FieldConvertingLinkService {
     return records;
   }
 
+  async oneWayToTwoWay(newField: LinkFieldDto) {
+    const { foreignTableId, relationship, symmetricFieldId } = newField.options;
+    const foreignKeys = await this.linkService.getAllForeignKeys(newField.options);
+    const foreignKeyMap = groupBy(foreignKeys, 'foreignId');
+
+    const opsMap: {
+      [recordId: string]: IOtOperation[];
+    } = {};
+
+    Object.keys(foreignKeyMap).forEach((foreignId) => {
+      const ids = foreignKeyMap[foreignId].map((item) => item.id);
+      // relational behavior needs to be reversed
+      if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
+        opsMap[foreignId] = [
+          RecordOpBuilder.editor.setRecord.build({
+            fieldId: symmetricFieldId as string,
+            newCellValue: { id: ids[0] },
+            oldCellValue: null,
+          }),
+        ];
+      }
+
+      if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
+        opsMap[foreignId] = [
+          RecordOpBuilder.editor.setRecord.build({
+            fieldId: symmetricFieldId as string,
+            newCellValue: ids.map((id) => ({ id })),
+            oldCellValue: null,
+          }),
+        ];
+      }
+    });
+
+    return { recordOpsMap: { [foreignTableId]: opsMap } };
+  }
+
+  async modifyLinkOptions(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
+    if (
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.relationship === oldField.options.relationship &&
+      newField.options.symmetricFieldId &&
+      !newField.options.isOneWay &&
+      oldField.options.isOneWay
+    ) {
+      return this.oneWayToTwoWay(newField);
+    }
+    return this.convertLink(tableId, newField, oldField);
+  }
+
   /**
    * convert oldCellValue to new link field cellValue
    * if oldCellValue is not in foreignTable, create new record in foreignTable
@@ -216,21 +267,18 @@ export class FieldConvertingLinkService {
 
     const records = await this.getRecords(tableId, oldField);
     // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
-    const foreignRecordMap = await this.getRecords(foreignTableId, lookupField);
+    const foreignRecords = await this.getRecords(foreignTableId, lookupField);
 
-    const primaryNameToIdMap = Object.values(foreignRecordMap).reduce<{ [name: string]: string }>(
-      (pre, record) => {
-        const str = lookupField.cellValue2String(record.fields[lookupField.id]);
-        pre[str] = record.id;
-        return pre;
-      },
-      {}
-    );
+    const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {
+      const str = lookupField.cellValue2String(record.fields[lookupField.id]);
+      pre[str] = record.id;
+      return pre;
+    }, {});
 
     const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
     const checkSet = new Set<string>();
     // eslint-disable-next-line sonarjs/cognitive-complexity
-    Object.values(records).forEach((record) => {
+    records.forEach((record) => {
       const oldCellValue = record.fields[fieldId];
       if (oldCellValue == null) {
         return;

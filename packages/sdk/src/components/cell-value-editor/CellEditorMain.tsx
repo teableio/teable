@@ -16,8 +16,8 @@ import type {
   ISingleSelectCellValue,
   IUserCellValue,
   IUserFieldOptions,
-} from '@teable-group/core';
-import { ColorUtils, FieldType } from '@teable-group/core';
+} from '@teable/core';
+import { ColorUtils, FieldType } from '@teable/core';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId } from '../../hooks';
 import { Field } from '../../model';
@@ -69,7 +69,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
 
       const newChoices = [...choices, choice];
 
-      await Field.updateField(tableId, fieldId, {
+      await Field.convertField(tableId, fieldId, {
         type,
         options: { ...options, choices: newChoices },
       });

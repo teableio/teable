@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ISendMailOptions } from '@nestjs-modules/mailer';
 import { MailerService } from '@nestjs-modules/mailer';
+import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 
 @Injectable()
@@ -9,7 +10,8 @@ export class MailSenderService {
 
   constructor(
     private readonly mailService: MailerService,
-    @MailConfig() private readonly config: IMailConfig
+    @MailConfig() private readonly mailConfig: IMailConfig,
+    @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
 
   async sendMail(mailOptions: ISendMailOptions): Promise<boolean> {
@@ -27,19 +29,20 @@ export class MailSenderService {
   inviteEmailOptions(info: { name: string; email: string; spaceName: string; inviteUrl: string }) {
     const { name, email, inviteUrl, spaceName } = info;
     return {
-      subject: `${name} (${email}) invited you to their space ${spaceName} - Teable`,
-      template: 'invite',
+      subject: `${name} (${email}) invited you to their space ${spaceName} - ${this.baseConfig.brandName}`,
+      template: 'normal',
       context: {
         name,
         email,
         spaceName,
         inviteUrl,
-        year: new Date().getFullYear(),
+        partialBody: 'invite',
       },
     };
   }
 
   collaboratorCellTagEmailOptions(info: {
+    notifyId: string;
     fromUserName: string;
     refRecord: {
       baseId: string;
@@ -50,34 +53,50 @@ export class MailSenderService {
     };
   }) {
     const {
+      notifyId,
       fromUserName,
       refRecord: { baseId, tableId, fieldName, tableName, recordIds },
     } = info;
-    let subject, template;
+    let subject, partialBody;
     const refLength = recordIds.length;
 
-    const viewRecordUrlPrefix = `${this.config.origin}/base/${baseId}/${tableId}`;
+    const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/${tableId}`;
 
     if (refLength <= 1) {
       subject = `${fromUserName} added you to the ${fieldName} field of a record in ${tableName}`;
-      template = 'collaborator-cell-tag';
+      partialBody = 'collaborator-cell-tag';
     } else {
       subject = `${fromUserName} added you to ${refLength} records in ${tableName}`;
-      template = 'collaborator-multi-row-tag';
+      partialBody = 'collaborator-multi-row-tag';
     }
 
     return {
       notifyMessage: subject,
-      subject: `${subject} - Teable`,
-      template,
+      subject: `${subject} - ${this.baseConfig.brandName}`,
+      template: 'normal',
       context: {
+        notifyId,
         fromUserName,
         refLength,
         tableName,
         fieldName,
         recordIds,
         viewRecordUrlPrefix,
-        year: new Date().getFullYear(),
+        partialBody,
+      },
+    };
+  }
+
+  resetPasswordEmailOptions(info: { name: string; email: string; resetPasswordUrl: string }) {
+    const { name, email, resetPasswordUrl } = info;
+    return {
+      subject: `Reset your password - ${this.baseConfig.brandName}`,
+      template: 'normal',
+      context: {
+        name,
+        email,
+        resetPasswordUrl,
+        partialBody: 'reset-password',
       },
     };
   }

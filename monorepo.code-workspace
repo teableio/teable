@@ -70,6 +70,7 @@
       "./packages/common-i18n",
       "./packages/sdk",
       "./packages/core",
+      "./packages/icons",
       "./packages/db-main-prisma",
       "./packages/eslint-config-bases",
       "./packages/ui-lib"

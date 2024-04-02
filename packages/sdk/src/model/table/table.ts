@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IRecord, ITableVo, IViewRo } from '@teable-group/core';
-import { FieldKeyType, TableCore, TableOpBuilder } from '@teable-group/core';
+import type { IFieldRo, IRecord, IUpdateFieldRo, IViewRo } from '@teable/core';
+import { FieldKeyType, TableCore } from '@teable/core';
+import type { IUpdateOrderRo, IRecordInsertOrderRo, ITableVo } from '@teable/openapi';
 import {
   createTable,
   deleteTable,
@@ -8,7 +9,12 @@ import {
   getGroupPoints,
   getRowCount,
   tableSqlQuery,
-} from '@teable-group/openapi';
+  updateDbTableName,
+  updateTableDescription,
+  updateTableIcon,
+  updateTableName,
+  updateTableOrder,
+} from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 import { Field } from '../field/field';
@@ -30,44 +36,30 @@ export class Table extends TableCore {
 
   protected doc!: Doc<ITableVo>;
 
+  baseId!: string;
+
   async getViews() {
     return View.getViews(this.id);
   }
 
   async updateName(name: string) {
-    const fieldOperation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'name',
-      newValue: name,
-      oldValue: this.name,
-    });
+    return requestWrap(updateTableName)(this.baseId, this.id, { name });
+  }
 
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([fieldOperation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+  async updateDbTableName(dbTableName: string) {
+    return requestWrap(updateDbTableName)(this.baseId, this.id, { dbTableName });
+  }
+
+  async updateDescription(description: string | null) {
+    return requestWrap(updateTableDescription)(this.baseId, this.id, { description });
   }
 
   async updateIcon(icon: string) {
-    const tableOperation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'icon',
-      newValue: icon,
-      oldValue: this.icon,
-    });
+    return requestWrap(updateTableIcon)(this.baseId, this.id, { icon });
+  }
 
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([tableOperation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+  async updateOrder(orderRo: IUpdateOrderRo) {
+    return requestWrap(updateTableOrder)(this.baseId, this.id, orderRo);
   }
 
   async createView(viewRo: IViewRo) {
@@ -78,15 +70,15 @@ export class Table extends TableCore {
     return View.deleteView(this.id, viewId);
   }
 
-  async createRecord(recordFields: IRecord['fields'], recordOrder?: { [viewId: string]: number }) {
+  async createRecord(recordFields: IRecord['fields'], recordOrder?: IRecordInsertOrderRo) {
     return Record.createRecords(this.id, {
       fieldKeyType: FieldKeyType.Id,
       records: [
         {
           fields: recordFields,
-          recordOrder,
         },
       ],
+      order: recordOrder,
     });
   }
 
@@ -94,29 +86,15 @@ export class Table extends TableCore {
     return Field.createField(this.id, fieldRo);
   }
 
-  async updateField(fieldId: string, fieldRo: IFieldRo) {
+  async updateField(fieldId: string, fieldRo: IUpdateFieldRo) {
     return Field.updateField(this.id, fieldId, fieldRo);
+  }
+
+  async convertField(fieldId: string, fieldRo: IFieldRo) {
+    return Field.convertField(this.id, fieldId, fieldRo);
   }
 
   async deleteField(fieldId: string) {
     return Field.deleteField(this.id, fieldId);
-  }
-
-  async updateOrder(order: number) {
-    const tableOperation = TableOpBuilder.editor.setTableProperty.build({
-      key: 'order',
-      newValue: order,
-      oldValue: this.order,
-    });
-
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([tableOperation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
   }
 }

@@ -1,5 +1,5 @@
-import { CellValueType, FieldType } from '@teable-group/core';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import { CellValueType, FieldType } from '@teable/core';
+import type { IFieldInstance } from '@teable/sdk/model';
 import { render, TestAnchorProvider } from '@/test-utils';
 import { FieldEditor } from './FieldEditor';
 
@@ -32,12 +32,14 @@ const lookupFields = [
 describe('field editor static tests', () => {
   it('should render text field options', async () => {
     const el = render(
-      <FieldEditor
-        field={{
-          type: FieldType.SingleLineText,
-        }}
-        onChange={() => undefined}
-      />
+      <TestAnchorProvider>
+        <FieldEditor
+          field={{
+            type: FieldType.SingleLineText,
+          }}
+          onChange={() => undefined}
+        />
+      </TestAnchorProvider>
     );
     expect(el.getByTestId('text-show-as')).toBeInTheDocument();
   });

@@ -1,13 +1,11 @@
 import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PrismaModule } from '@teable-group/db-main-prisma';
+import { context, trace } from '@opentelemetry/api';
+import { PrismaModule } from '@teable/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsMiddleware, ClsModule } from 'nestjs-cls';
 import { CacheModule } from '../cache/cache.module';
-import type { IAuthConfig } from '../configs/auth.config';
-import { authConfig } from '../configs/auth.config';
 import { ConfigModule } from '../configs/config.module';
 import { X_REQUEST_ID } from '../const';
 import { EventEmitterModule } from '../event-emitter/event-emitter.module';
@@ -24,25 +22,24 @@ import { KnexModule } from './knex';
       middleware: {
         mount: true,
         generateId: true,
-        idGenerator: (req: Request) => (req.headers[X_REQUEST_ID] as string) ?? nanoid(),
+        idGenerator: (req: Request) => {
+          const existingID = req.headers[X_REQUEST_ID] as string;
+          if (existingID) return existingID;
+
+          const span = trace.getSpan(context.active());
+          if (!span) return nanoid();
+
+          const { traceId } = span.spanContext();
+          return traceId;
+        },
       },
     }),
-    JwtModule.registerAsync({
-      global: true,
-      useFactory: (config: IAuthConfig) => ({
-        secret: config.jwt.secret,
-        signOptions: {
-          expiresIn: config.jwt.expiresIn,
-        },
-      }),
-      inject: [authConfig.KEY],
-    }),
+    CacheModule.register({ global: true }),
     MailSenderModule.register({ global: true }),
     EventEmitterModule.register({ global: true }),
     KnexModule.register(),
     PrismaModule,
     PermissionModule,
-    CacheModule,
   ],
 })
 export class GlobalModule implements NestModule {

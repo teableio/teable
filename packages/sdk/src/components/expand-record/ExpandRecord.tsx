@@ -1,6 +1,5 @@
-import type { IRecord } from '@teable-group/core';
-import { Separator, Skeleton } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import type { IRecord } from '@teable/core';
+import { Separator, Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useMemo } from 'react';
 import { useMeasure } from 'react-use';
@@ -12,11 +11,12 @@ import {
   useViewId,
   useViews,
 } from '../../hooks';
+import type { GridView } from '../../model';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordRight } from './ExpandRecordRight';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
 import { RecordEditor } from './RecordEditor';
-import { IExpandRecordModel } from './type';
+import { ExpandRecordModel } from './type';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const MIN_SHOW_ACTIVITY_WIDTH = 700;
@@ -25,7 +25,7 @@ interface IExpandRecordProps {
   recordId: string;
   recordIds?: string[];
   visible?: boolean;
-  model?: IExpandRecordModel;
+  model?: ExpandRecordModel;
   serverData?: IRecord;
   showActivity?: boolean;
   onClose?: () => void;
@@ -49,9 +49,10 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     onCopyUrl,
     onShowActivity,
   } = props;
-  const defaultViewId = useViews()?.[0]?.id;
+  const views = useViews() as (GridView | undefined)[];
+  const defaultViewId = views?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
-  const view = useViews()?.[0];
+  const columnMeta = views?.[0]?.columnMeta;
   const allFields = useFields({ withHidden: true });
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
@@ -59,13 +60,13 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const permission = useTablePermission();
 
   const fields = useMemo(
-    () => (viewId ? allFields.filter((field) => !view.columnMeta?.[field.id]?.hidden) : []),
-    [allFields, view.columnMeta, viewId]
+    () => (viewId ? allFields.filter((field) => !columnMeta?.[field.id]?.hidden) : []),
+    [allFields, columnMeta, viewId]
   );
 
   const hiddenFields = useMemo(
-    () => (viewId ? allFields.filter((field) => view.columnMeta?.[field.id]?.hidden) : []),
-    [allFields, view.columnMeta, viewId]
+    () => (viewId ? allFields.filter((field) => columnMeta?.[field.id]?.hidden) : []),
+    [allFields, columnMeta, viewId]
   );
 
   const nextRecordIndex = useMemo(() => {
@@ -102,7 +103,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
 
   return (
     <ExpandRecordWrap
-      model={isTouchDevice ? IExpandRecordModel.Panel : model ?? IExpandRecordModel.Modal}
+      model={isTouchDevice ? ExpandRecordModel.Drawer : model ?? ExpandRecordModel.Modal}
       visible={visible}
       showActivity={showActivity}
       onClose={onClose}
@@ -136,7 +137,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
 
           {showActivity && (
             <div
-              className={classNames('flex', {
+              className={cn('flex', {
                 'absolute top-0 right-0 h-full bg-background w-80':
                   containerWidth <= MIN_SHOW_ACTIVITY_WIDTH,
               })}

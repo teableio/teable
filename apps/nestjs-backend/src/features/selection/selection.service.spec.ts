@@ -2,7 +2,7 @@
 import { faker } from '@faker-js/faker';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldOptionsVo, IFieldVo, IRecord } from '@teable-group/core';
+import type { IFieldOptionsVo, IFieldVo, IRecord } from '@teable/core';
 import {
   CellValueType,
   Colors,
@@ -18,9 +18,9 @@ import {
   getPermissions,
   nullsToUndefined,
   SpaceRole,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import { RangeType } from '@teable-group/openapi';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { RangeType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
 import type { DeepMockProxy } from 'vitest-mock-extended';
@@ -80,7 +80,6 @@ describe('selectionService', () => {
       const mockSelectionCtxRecords = [
         {
           id: 'record1',
-          recordOrder: {},
           fields: {
             field1: '1',
             field2: '2',
@@ -89,7 +88,6 @@ describe('selectionService', () => {
         },
         {
           id: 'record2',
-          recordOrder: {},
           fields: {
             field1: '1',
             field2: '2',
@@ -190,10 +188,9 @@ describe('selectionService', () => {
 
       // Verify the multipleCreateRecords call
       expect(recordOpenApiService.createRecords).toHaveBeenCalledTimes(1);
-      expect(recordOpenApiService.createRecords).toHaveBeenCalledWith(
-        tableId,
-        Array.from({ length: numRowsToExpand }, () => ({ fields: {} }))
-      );
+      expect(recordOpenApiService.createRecords).toHaveBeenCalledWith(tableId, {
+        records: Array.from({ length: numRowsToExpand }, () => ({ fields: {} })),
+      });
 
       // Verify the result
       expect(result).toEqual(expectedRecords);
@@ -356,9 +353,9 @@ describe('selectionService', () => {
       ].map(createFieldInstanceByVo);
 
       const records = [
-        { id: 'record1', recordOrder: {}, fields: {} },
-        { id: 'record2', recordOrder: {}, fields: {} },
-        { id: 'record3', recordOrder: {}, fields: {} },
+        { id: 'record1', fields: {} },
+        { id: 'record2', fields: {} },
+        { id: 'record3', fields: {} },
       ];
 
       // Execute the method
@@ -590,9 +587,7 @@ describe('selectionService', () => {
       expect(recordService.getRecordsFields).toHaveBeenCalledWith(tableId, {
         viewId,
         skip: 1,
-        projection: {
-          fieldId3: true,
-        },
+        projection: ['fieldId3'],
         take: tableData.length,
         fieldKeyType: 'id',
       });

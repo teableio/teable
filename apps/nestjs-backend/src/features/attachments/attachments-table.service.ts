@@ -1,16 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { difference } from 'lodash';
-import { ClsService } from 'nestjs-cls';
-import type { IClsStore } from '../../types/cls';
+import { FieldType } from '@teable/core';
+import type { IAttachmentCellValue, IRecord } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { Prisma } from '@teable/db-main-prisma';
+import type { IChangeRecord } from '../../event-emitter/events';
 
 @Injectable()
 export class AttachmentsTableService {
-  constructor(
-    private readonly cls: ClsService<IClsStore>,
-    private readonly prismaService: PrismaService
-  ) {}
+  constructor(private readonly prismaService: PrismaService) {}
 
   private createUniqueKey(
     tableId: string,
@@ -21,84 +18,106 @@ export class AttachmentsTableService {
     return `${tableId}-${fieldId}-${recordId}-${attachmentId}`;
   }
 
-  async updateByRecord(
-    tableId: string,
-    recordId: string,
-    _attachments: {
-      attachmentId: string;
-      token: string;
-      name: string;
-      fieldId: string;
-    }[]
-  ) {
-    const userId = this.cls.get('user.id');
-
-    const exists = await this.prismaService.txClient().attachmentsTable.findMany({
-      where: {
-        tableId,
-        recordId,
-        deletedTime: null,
-      },
-      select: {
-        attachmentId: true,
-        tableId: true,
-        recordId: true,
-        fieldId: true,
-      },
+  private async getAttachmentFields(tableId: string) {
+    return await this.prismaService.txClient().field.findMany({
+      where: { tableId, type: FieldType.Attachment, isLookup: null, deletedTime: null },
+      select: { id: true },
     });
-    const attachmentsMap = _attachments.reduce(
-      (map, attachment) => {
-        const key = this.createUniqueKey(
-          tableId,
-          recordId,
-          attachment.fieldId,
-          attachment.attachmentId
-        );
-        map[key] = {
-          ...attachment,
-          tableId,
-          recordId,
-          attachmentId: attachment.attachmentId,
-          createdBy: userId,
-          lastModifiedBy: userId,
-        };
-        return map;
-      },
-      {} as { [key: string]: Prisma.AttachmentsTableCreateInput }
-    );
+  }
 
-    const existsMap = exists.reduce(
-      (map, attachment) => {
-        const { tableId, recordId, fieldId, attachmentId } = attachment;
-        const key = this.createUniqueKey(tableId, recordId, fieldId, attachmentId);
-        map[key] = { tableId, recordId, fieldId, attachmentId };
-        return map;
-      },
-      {} as {
-        [key: string]: {
-          tableId: string;
-          recordId: string;
-          fieldId: string;
-          attachmentId: string;
-        };
-      }
-    );
-
-    const existsKeys = Object.keys(existsMap);
-
-    const attachmentsKeys = Object.keys(attachmentsMap);
-
-    const needDeleteKey = difference(existsKeys, attachmentsKeys);
-    const needCreateKey = difference(attachmentsKeys, existsKeys);
-
-    for (let i = 0; i < needCreateKey.length; i++) {
-      await this.prismaService.txClient().attachmentsTable.create({
-        data: attachmentsMap[needCreateKey[i]],
+  async createRecords(userId: string, tableId: string, records: IRecord[]) {
+    const fieldRaws = await this.getAttachmentFields(tableId);
+    const newAttachments: Prisma.AttachmentsTableCreateInput[] = [];
+    records.forEach((record) => {
+      const { id: recordId, fields } = record;
+      fieldRaws.forEach(({ id }) => {
+        const attachments = fields[id] as IAttachmentCellValue;
+        attachments?.forEach((attachment) => {
+          newAttachments.push({
+            tableId,
+            recordId,
+            name: attachment.name,
+            fieldId: id,
+            token: attachment.token,
+            attachmentId: attachment.id,
+            createdBy: userId,
+          });
+        });
       });
-    }
+    });
+    await this.prismaService.$tx(async (prisma) => {
+      for (let i = 0; i < newAttachments.length; i++) {
+        await prisma.attachmentsTable.create({ data: newAttachments[i] });
+      }
+    });
+  }
 
-    const toDeletes = needDeleteKey.map((key) => existsMap[key]);
-    toDeletes.length && (await this.delete(toDeletes));
+  async updateRecords(userId: string, tableId: string, records: IChangeRecord[]) {
+    const fieldRaws = await this.getAttachmentFields(tableId);
+    const newAttachments: Prisma.AttachmentsTableCreateInput[] = [];
+    const needDelete: {
+      tableId: string;
+      fieldId: string;
+      recordId: string;
+      attachmentId: string;
+    }[] = [];
+    records.forEach((record) => {
+      const { id: recordId, fields } = record;
+      fieldRaws.forEach(({ id: fieldId }) => {
+        const { newValue, oldValue } = fields[fieldId] || {};
+        const newAttachmentsValue = newValue as IAttachmentCellValue;
+        const newAttachmentsMap = new Map<string, boolean>();
+        const oldAttachmentsValue = oldValue as IAttachmentCellValue;
+        const oldAttachmentsMap = new Map<string, boolean>();
+        newAttachmentsValue?.forEach((attachment) => {
+          newAttachmentsMap.set(
+            this.createUniqueKey(tableId, fieldId, recordId, attachment.id),
+            true
+          );
+        });
+        oldAttachmentsValue?.forEach((attachment) => {
+          oldAttachmentsMap.set(
+            this.createUniqueKey(tableId, fieldId, recordId, attachment.id),
+            true
+          );
+        });
+        oldAttachmentsValue?.forEach((attachment) => {
+          const uniqueKey = this.createUniqueKey(tableId, fieldId, recordId, attachment.id);
+          if (newAttachmentsMap.has(uniqueKey)) {
+            return;
+          }
+          needDelete.push({
+            tableId,
+            fieldId,
+            recordId,
+            attachmentId: attachment.id,
+          });
+        });
+        newAttachmentsValue?.forEach((attachment) => {
+          const uniqueKey = this.createUniqueKey(tableId, fieldId, recordId, attachment.id);
+          if (oldAttachmentsMap.has(uniqueKey)) {
+            return;
+          } else {
+            newAttachments.push({
+              tableId,
+              recordId,
+              name: attachment.name,
+              fieldId,
+              token: attachment.token,
+              attachmentId: attachment.id,
+              createdBy: userId,
+            });
+          }
+        });
+      });
+    });
+
+    await this.prismaService.$tx(async (prisma) => {
+      needDelete.length && (await this.delete(needDelete));
+      for (let i = 0; i < newAttachments.length; i++) {
+        await prisma.attachmentsTable.create({ data: newAttachments[i] });
+      }
+    });
   }
 
   async delete(
@@ -115,6 +134,12 @@ export class AttachmentsTableService {
 
     await this.prismaService.txClient().attachmentsTable.deleteMany({
       where: { OR: query },
+    });
+  }
+
+  async deleteRecords(tableId: string, recordIds: string[]) {
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
+      where: { tableId, recordId: { in: recordIds } },
     });
   }
 

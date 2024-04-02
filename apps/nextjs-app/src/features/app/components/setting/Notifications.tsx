@@ -1,8 +1,10 @@
-import { updateUserNotifyMeta } from '@teable-group/openapi';
-import { useSession } from '@teable-group/sdk';
-import { Label, Separator, Switch } from '@teable-group/ui-lib/shadcn';
+import { updateUserNotifyMeta } from '@teable/openapi';
+import { useSession } from '@teable/sdk';
+import { Label, Separator, Switch } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 
 export const Notifications: React.FC = () => {
+  const { t } = useTranslation('common');
   const { user: sessionUser, refresh } = useSession();
   const onNotifyMetaEmailSwitchChange = (check: boolean) => {
     updateUserNotifyMeta({ email: check }).then(() => refresh?.());
@@ -11,16 +13,13 @@ export const Notifications: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">My notifications</h3>
+        <h3 className="text-lg font-medium">{t('settings.notify.title')}</h3>
       </div>
       <Separator />
       <div className="flex items-center justify-start">
         <div className="mr-[10%]">
-          <Label>Activity in your workspace</Label>
-          <div className="text-sm text-muted-foreground">
-            Receive emails when you get comments, mentions, page invites, reminders, access
-            requests, and property changes
-          </div>
+          <Label>{t('settings.notify.label')}</Label>
+          <div className="text-sm text-muted-foreground">{t('settings.notify.desc')}</div>
         </div>
         <Switch
           id="notify-meta-email"

@@ -4,8 +4,9 @@ import {
   RowCountProvider,
   ActionTriggerProvider,
   GroupPointProvider,
-} from '@teable-group/sdk/context';
-import { useIsHydrated } from '@teable-group/sdk/hooks';
+} from '@teable/sdk/context';
+import { SearchProvider } from '@teable/sdk/context/query';
+import { useIsHydrated } from '@teable/sdk/hooks';
 import { DynamicCellGraph } from '../../graph/DynamicCellGraph';
 import { useCellGraphStore } from '../../graph/useCellGraphStore';
 import { GridToolBar } from '../tool-bar/GridToolBar';
@@ -17,25 +18,23 @@ export const GridView = (props: IViewBaseProps) => {
   const { graphOpen } = useCellGraphStore();
   const isHydrated = useIsHydrated();
 
-  if (!isHydrated) {
-    return <div className="w-full grow overflow-hidden pl-2" />;
-  }
-
   return (
-    <ActionTriggerProvider>
-      <GridToolBar />
-      <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
-        <AggregationProvider>
-          <RowCountProvider>
-            <GroupPointProvider>
-              <div className="w-full grow overflow-hidden sm:pl-2">
-                <GridViewBase />
-                {graphOpen && <DynamicCellGraph />}
-              </div>
-            </GroupPointProvider>
-          </RowCountProvider>
-        </AggregationProvider>
-      </RecordProvider>
-    </ActionTriggerProvider>
+    <SearchProvider>
+      <ActionTriggerProvider>
+        <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
+          <AggregationProvider>
+            <RowCountProvider>
+              <GroupPointProvider>
+                <GridToolBar />
+                <div className="w-full grow overflow-hidden sm:pl-2">
+                  {isHydrated && <GridViewBase />}
+                  {graphOpen && <DynamicCellGraph />}
+                </div>
+              </GroupPointProvider>
+            </RowCountProvider>
+          </AggregationProvider>
+        </RecordProvider>
+      </ActionTriggerProvider>
+    </SearchProvider>
   );
 };

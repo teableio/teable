@@ -1,35 +1,31 @@
-import type { ITableVo } from '@teable-group/core';
-import type { IGetBaseVo } from '@teable-group/openapi';
 import type { GetServerSideProps } from 'next';
-import type { ReactElement } from 'react';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
-import { DashboardPage } from '@/features/app/dashboard/Pages';
-import { BaseLayout } from '@/features/app/layouts/BaseLayout';
+import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../_app';
 
-const Base: NextPageWithLayout = () => {
-  return <DashboardPage />;
+const Node: NextPageWithLayout = () => {
+  return <p>redirecting</p>;
 };
 
-export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {
+export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { baseId } = context.query;
-  const result = await ssrApi.getTables(baseId as string);
-  const base = await ssrApi.getBaseById(baseId as string);
+  const tables = await ssrApi.getTables(baseId as string);
+  const defaultTable = tables[0];
+  if (defaultTable) {
+    const defaultView = await ssrApi.getDefaultViewId(baseId as string, defaultTable.id);
+    return {
+      redirect: {
+        destination: `/base/${baseId}/${defaultTable.id}/${defaultView.id}`,
+        permanent: false,
+      },
+    };
+  }
 
   return {
-    props: {
-      baseServerData: base,
-      tableServerData: result,
+    redirect: {
+      destination: `/base/${baseId}/dashboard`,
+      permanent: false,
     },
   };
 });
 
-Base.getLayout = function getLayout(
-  page: ReactElement,
-  pageProps: { tableServerData: ITableVo[]; baseServerData: IGetBaseVo }
-) {
-  return <BaseLayout {...pageProps}>{page}</BaseLayout>;
-};
-
-export default Base;
+export default Node;

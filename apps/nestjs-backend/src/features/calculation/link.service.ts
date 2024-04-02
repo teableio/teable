@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions } from '@teable-group/core';
-import { FieldType, Relationship } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
+import { FieldType, Relationship } from '@teable/core';
+import type { Field } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { cloneDeep, keyBy, difference, groupBy, isEqual, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -89,7 +90,7 @@ export class LinkService {
       });
   }
 
-  private async getFieldMapByTableId(fieldIds: string[]): Promise<IFieldMapByTableId> {
+  private async getRelatedFieldMap(fieldIds: string[]): Promise<IFieldMapByTableId> {
     const fieldRaws = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldIds } },
     });
@@ -446,6 +447,43 @@ export class LinkService {
       .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
   }
 
+  async getAllForeignKeys(options: ILinkFieldOptions) {
+    const { fkHostTableName, selfKeyName, foreignKeyName } = options;
+
+    const query = this.knex(fkHostTableName)
+      .select({
+        id: selfKeyName,
+        foreignId: foreignKeyName,
+      })
+      .whereNotNull(selfKeyName)
+      .whereNotNull(foreignKeyName)
+      .toQuery();
+
+    return this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
+  }
+
+  private async getJoinedForeignKeys(linkRecordIds: string[], options: ILinkFieldOptions) {
+    const { fkHostTableName, selfKeyName, foreignKeyName } = options;
+
+    const query = this.knex(fkHostTableName)
+      .select({
+        id: `a.${selfKeyName}`,
+        foreignId: `b.${foreignKeyName}`,
+      })
+      .from(this.knex.ref(fkHostTableName).as('a'))
+      .join(`${fkHostTableName} AS b`, `a.${selfKeyName}`, '=', `b.${selfKeyName}`)
+      .whereIn(`a.${foreignKeyName}`, linkRecordIds)
+      .whereNotNull(`a.${selfKeyName}`)
+      .whereNotNull(`b.${foreignKeyName}`)
+      .toQuery();
+
+    return this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
+  }
+
   /**
    * Checks if there are duplicate associations in one-to-one and one-to-many relationships.
    */
@@ -778,6 +816,7 @@ export class LinkService {
     const fieldMap = fieldMapByTableId[tableId];
     const recordMapStruct = this.getRecordMapStruct(tableId, fieldMapByTableId, linkContexts);
 
+    // console.log('fieldMapByTableId', fieldMapByTableId);
     const fkRecordMap = await this.getFkRecordMap(fieldMap, linkContexts);
 
     const originRecordMapByTableId = await this.fetchRecordMap(
@@ -989,17 +1028,12 @@ export class LinkService {
   }
 
   /**
-   * v2.0 improved strategy
+   * strategy
    * 0: define `main table` is where foreign key located in, `foreign table` is where foreign key referenced to
    * 1. generate foreign key changes, cache effected recordIds, both main table and foreign table
    * 2. update foreign key by changes and submit origin op
    * 3. check and generate op to update main table by cached recordIds
    * 4. check and generate op to update foreign table by cached recordIds
-   *
-   * v1.0 Strategy (deprecated)
-   * 1. diff changes from context, merge all off changes by recordId
-   * 2. generate new changes from merged changes
-   * 3. update foreign key by changes
    */
   async getDerivateByLink(tableId: string, cellContexts: ICellContext[], fromReset?: boolean) {
     const linkContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
@@ -1007,7 +1041,7 @@ export class LinkService {
       return;
     }
     const fieldIds = linkContexts.map((ctx) => ctx.fieldId);
-    const fieldMapByTableId = await this.getFieldMapByTableId(fieldIds);
+    const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
     const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
 
     return this.getDerivateByCellContexts(
@@ -1018,5 +1052,119 @@ export class LinkService {
       cellContexts,
       fromReset
     );
+  }
+
+  private parseFkRecordItemToDelete(
+    options: ILinkFieldOptions,
+    toDeleteRecordIds: string[],
+    foreignKeys: {
+      id: string;
+      foreignId: string;
+    }[]
+  ): Record<string, IFkRecordItem> {
+    const relationship = options.relationship;
+    const foreignKeysIndexed = groupBy(foreignKeys, 'id');
+    const toDeleteSet = new Set(toDeleteRecordIds);
+
+    return Object.keys(foreignKeysIndexed).reduce<IFkRecordMap['fieldId']>((acc, id) => {
+      // this two relations only have one key in one recordId
+      const foreignKeys = foreignKeysIndexed[id];
+      if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
+        if ((foreignKeys?.length ?? 0) > 1) {
+          throw new Error('duplicate foreign key from database');
+        }
+
+        const foreignRecordId = foreignKeys?.[0].foreignId;
+        const oldKey = foreignRecordId || null;
+        if (!toDeleteSet.has(foreignRecordId)) {
+          return acc;
+        }
+
+        acc[id] = { oldKey, newKey: null };
+        return acc;
+      }
+
+      if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
+        const oldKey = foreignKeys?.map((key) => key.foreignId) ?? null;
+        if (!oldKey) {
+          return acc;
+        }
+
+        const newKey = oldKey.filter((key) => !toDeleteSet.has(key));
+
+        if (newKey.length === oldKey.length) {
+          return acc;
+        }
+
+        acc[id] = {
+          oldKey,
+          newKey: newKey.length ? newKey : null,
+        };
+        return acc;
+      }
+      return acc;
+    }, {});
+  }
+
+  private async getContextByDelete(linkFieldRaws: Field[], recordIds: string[]) {
+    const cellContextsMap: { [tableId: string]: ICellContext[] } = {};
+
+    const keyToValue = (key: string | string[] | null) =>
+      key ? (Array.isArray(key) ? key.map((id) => ({ id })) : { id: key }) : null;
+
+    for (const fieldRaws of linkFieldRaws) {
+      const options = JSON.parse(fieldRaws.options as string) as ILinkFieldOptions;
+      const tableId = fieldRaws.tableId;
+      const foreignKeys = await this.getJoinedForeignKeys(recordIds, options);
+      const fieldItems = this.parseFkRecordItemToDelete(options, recordIds, foreignKeys);
+      if (!cellContextsMap[tableId]) {
+        cellContextsMap[tableId] = [];
+      }
+      Object.keys(fieldItems).forEach((recordId) => {
+        const { oldKey, newKey } = fieldItems[recordId];
+        cellContextsMap[tableId].push({
+          fieldId: fieldRaws.id,
+          recordId,
+          oldValue: keyToValue(oldKey),
+          newValue: keyToValue(newKey),
+        });
+      });
+    }
+
+    return cellContextsMap;
+  }
+
+  async getRelatedLinkFieldRaws(tableId: string) {
+    const { id: primaryFieldId } = await this.prismaService
+      .txClient()
+      .field.findFirstOrThrow({
+        where: { tableId, deletedTime: null, isPrimary: true },
+        select: { id: true },
+      })
+      .catch(() => {
+        throw new BadRequestException(`Primary field not found`);
+      });
+
+    const references = await this.prismaService.txClient().reference.findMany({
+      where: { fromFieldId: primaryFieldId },
+      select: { toFieldId: true },
+    });
+
+    const referenceFieldIds = references.map((ref) => ref.toFieldId);
+
+    return await this.prismaService.txClient().field.findMany({
+      where: {
+        id: { in: referenceFieldIds },
+        type: FieldType.Link,
+        isLookup: null,
+        deletedTime: null,
+      },
+    });
+  }
+
+  async getDeleteRecordUpdateContext(tableId: string, recordIds: string[]) {
+    const linkFieldRaws = await this.getRelatedLinkFieldRaws(tableId);
+
+    return await this.getContextByDelete(linkFieldRaws, recordIds);
   }
 }

@@ -1,9 +1,11 @@
-import type { IFieldOptionsRo, IFieldVo } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
-import { useFieldStaticGetter } from '@teable-group/sdk';
-import { Textarea } from '@teable-group/ui-lib/shadcn';
-import { Input } from '@teable-group/ui-lib/shadcn/ui/input';
+import type { IFieldOptionsRo, IFieldVo } from '@teable/core';
+import { FieldType } from '@teable/core';
+import { useFieldStaticGetter } from '@teable/sdk';
+import { Textarea } from '@teable/ui-lib/shadcn';
+import { Input } from '@teable/ui-lib/shadcn/ui/input';
+import { useTranslation } from 'next-i18next';
 import { useCallback, useState } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
 import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
@@ -27,6 +29,7 @@ export const FieldEditor = (props: {
   );
   const getFieldSubtitle = useFieldTypeSubtitle();
   const getFieldStatic = useFieldStaticGetter();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const updateFieldName = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFieldFn({
@@ -104,7 +107,7 @@ export const FieldEditor = (props: {
       <div className="flex flex-col gap-2">
         <div className="relative flex w-full flex-col gap-2">
           <div>
-            <p className="label-text mb-2">Name</p>
+            <p className="label-text mb-2">{t('common:name')}</p>
           </div>
           <Input
             placeholder="Field name (optional)"
@@ -129,7 +132,7 @@ export const FieldEditor = (props: {
                 role={'button'}
                 className="cursor-pointer border-b border-solid border-slate-500 "
               >
-                Add Description
+                {t('table:field.editor.addDescription')}
               </span>
             </p>
           )}
@@ -137,19 +140,19 @@ export const FieldEditor = (props: {
         {showDescription && (
           <div className="flex w-full flex-col gap-2">
             <div>
-              <span className="label-text mb-2">Description</span>
+              <span className="label-text mb-2">{t('common:description')}</span>
             </div>
             <Textarea
               className="h-12 resize-none"
-              value={field['description']}
-              placeholder="Describe this field (optional)"
+              value={field['description'] || undefined}
+              placeholder={t('table:field.editor.descriptionPlaceholder')}
               onChange={updateFieldDesc}
             />
           </div>
         )}
         <div className="flex w-full flex-col gap-2">
           <div>
-            <span className="label-text mb-2">Type</span>
+            <span className="label-text mb-2">{t('table:field.editor.type')}</span>
           </div>
           <SelectFieldType
             value={field.isLookup ? 'lookup' : field.type}
@@ -157,7 +160,7 @@ export const FieldEditor = (props: {
           />
           <p className="text-left text-xs font-medium text-slate-500">
             {field.isLookup
-              ? 'See values from a field in a linked record.'
+              ? t('table:field.subTitle.lookup')
               : getFieldSubtitle(field.type as FieldType)}
           </p>
         </div>

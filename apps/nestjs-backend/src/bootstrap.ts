@@ -7,9 +7,9 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
+import type { OpenAPIObject } from '@nestjs/swagger';
 import { SwaggerModule } from '@nestjs/swagger';
-import { getOpenApiDocumentation } from '@teable-group/openapi';
-import cookieParser from 'cookie-parser';
+import { getOpenApiDocumentation } from '@teable/openapi';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
@@ -17,7 +17,8 @@ import { Logger } from 'nestjs-pino';
 import type { RedocOptions } from 'nestjs-redoc';
 import { RedocModule } from 'nestjs-redoc';
 import { AppModule } from './app.module';
-import type { ISecurityWebConfig, ISwaggerConfig } from './configs/bootstrap.config';
+import type { IBaseConfig } from './configs/base.config';
+import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import otelSDK from './tracing';
 
@@ -28,24 +29,26 @@ const host = 'localhost';
 
 export async function setUpAppMiddleware(app: INestApplication, configService: ConfigService) {
   app.useWebSocketAdapter(new WsAdapter(app));
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter(configService));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
   app.use(helmet());
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
-  app.use(cookieParser());
 
-  const swaggerConfig = configService.get<ISwaggerConfig>('swagger');
+  const apiDocConfig = configService.get<IApiDocConfig>('apiDoc');
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');
-  const openApiDocumentation = getOpenApiDocumentation();
+  const baseConfig = configService.get<IBaseConfig>('base');
+  if (!apiDocConfig?.disabled) {
+    const openApiDocumentation = await getOpenApiDocumentation({
+      origin: baseConfig?.publicOrigin,
+      snippet: apiDocConfig?.enabledSnippet,
+    });
 
-  if (!swaggerConfig?.disabled) {
     const jsonString = JSON.stringify(openApiDocumentation);
     fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    SwaggerModule.setup('/docs', app, openApiDocumentation as any);
+    SwaggerModule.setup('/docs', app, openApiDocumentation as OpenAPIObject);
 
     // Instead of using SwaggerModule.setup() you call this module
     const redocOptions: RedocOptions = {
@@ -54,8 +57,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
         altText: 'Teable logo',
       },
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await RedocModule.setup('/redocs', app, openApiDocumentation as any, redocOptions);
+    await RedocModule.setup('/redocs', app, openApiDocumentation as OpenAPIObject, redocOptions);
   }
 
   if (securityWebConfig?.cors.enabled) {

@@ -1,4 +1,4 @@
-import type { IFilterOperator, IFilterValue } from '@teable-group/core';
+import type { IFilterOperator, IFilterValue } from '@teable/core';
 import type { Knex } from 'knex';
 
 export type ICellValueFilterHandler = (

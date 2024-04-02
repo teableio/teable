@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { notificationSchema, NotificationStatesEnum } from '@teable-group/core';
+import { notificationSchema, NotificationStatesEnum } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';

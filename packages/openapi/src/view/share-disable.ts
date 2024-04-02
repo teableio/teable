@@ -3,10 +3,10 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const DISABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/disableShare';
+export const DISABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/disable-share';
 
 export const DisableShareViewRoute: RouteConfig = registerRoute({
-  method: 'patch',
+  method: 'post',
   path: DISABLE_SHARE_VIEW,
   description: 'Disable view share',
   request: {
@@ -16,7 +16,7 @@ export const DisableShareViewRoute: RouteConfig = registerRoute({
     }),
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns successfully disable view share',
     },
   },
@@ -24,5 +24,5 @@ export const DisableShareViewRoute: RouteConfig = registerRoute({
 });
 
 export const disableShareView = (params: { tableId: string; viewId: string }) => {
-  return axios.patch<void>(urlBuilder(DISABLE_SHARE_VIEW, params));
+  return axios.post<void>(urlBuilder(DISABLE_SHARE_VIEW, params));
 };

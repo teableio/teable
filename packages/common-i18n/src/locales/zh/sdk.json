@@ -8,18 +8,19 @@
     "cancel": "取消",
     "confirm": "确认",
     "search": {
-      "placeholder": "搜索记录",
+      "placeholder": "搜索...",
       "empty": "未找到结果。"
     },
     "selectPlaceHolder": "请选择..."
   },
   "editor": {
     "attachment": {
-      "uploadDragOver": "粘贴或拖放文件到此处上传",
-      "uploadDragDefault": "释放以上传文件"
+      "uploadDragOver": "释放以上传文件",
+      "uploadDragDefault": "粘贴或拖放文件到此处上传"
     },
     "date": {
-      "placeholder": "选择日期"
+      "placeholder": "选择日期",
+      "today": "今天"
     },
     "formula": {
       "title": "公式编辑器",
@@ -31,6 +32,7 @@
       "placeholder": "选择要链接的记录",
       "searchPlaceholder": "搜索记录",
       "create": "添加记录",
+      "selectRecord": "选择记录",
       "unselected": "未选择",
       "selected": "已选择"
     }
@@ -44,7 +46,8 @@
   },
   "hidden": {
     "showAll": "显示全部",
-    "hideAll": "隐藏全部"
+    "hideAll": "隐藏全部",
+    "forbidHiddenPrimaryTip": "主列：用于标识每条记录，不能隐藏"
   },
   "expandRecord": {
     "copy": "复制到剪贴板"
@@ -56,5 +59,88 @@
   "group": {
     "title": "分组方式",
     "addButton": "添加另一个分组"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "单行文本",
+      "longText": "长文本",
+      "singleSelect": "单选",
+      "number": "数字",
+      "multipleSelect": "多选",
+      "link": "关联",
+      "formula": "公式",
+      "date": "日期",
+      "createdTime": "创建时间",
+      "lastModifiedTime": "最近修改时间",
+      "attachment": "附件",
+      "checkbox": "勾选",
+      "rollup": "汇总",
+      "user": "用户",
+      "rating": "评分",
+      "autoNumber": "自增数字",
+      "lookup": "从关联的表中查找"
+    }
+  },
+  "spaceRole": {
+    "role": {
+      "owner": "拥有者",
+      "creator": "创建者",
+      "editor": "编辑者",
+      "commenter": "评论者",
+      "viewer": "查看者"
+    },
+    "description": {
+      "owner": "具有完全配置和编辑数据库、管理空间设置和计费的权限",
+      "creator": "具有完全配置和编辑数据库的权限",
+      "editor": "可以编辑记录和视图，但不能配置表格或字段",
+      "commenter": "可以在记录上添加评论的权限",
+      "viewer": "无法编辑或评论"
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "创建空间",
+      "spaceDelete": "删除空间",
+      "spaceRead": "查看空间",
+      "spaceUpdate": "更新空间",
+      "spaceInviteEmail": "通过电子邮件邀请进入空间",
+      "spaceInviteLink": "通过链接邀请进入空间",
+      "spaceGrantRole": "在空间中授予角色",
+      "baseCreate": "创建数据库",
+      "baseDelete": "删除数据库",
+      "baseRead": "查看数据库",
+      "baseUpdate": "更新数据库",
+      "baseInviteEmail": "通过电子邮件邀请进入数据库",
+      "baseInviteLink": "通过链接邀请进入数据库",
+      "baseTableImport": "导入到数据库",
+      "baseTableExport": "导出数据库",
+      "tableCreate": "创建表格",
+      "tableRead": "查看表格",
+      "tableDelete": "删除表格",
+      "tableUpdate": "更新表格",
+      "tableImport": "导入数据到表格",
+      "tableExport": "导出表格数据",
+      "viewCreate": "创建视图",
+      "viewDelete": "删除视图",
+      "viewRead": "查看视图",
+      "viewUpdate": "更新视图",
+      "fieldCreate": "创建字段",
+      "fieldDelete": "删除字段",
+      "fieldRead": "查看字段",
+      "fieldUpdate": "更新字段",
+      "recordCreate": "创建记录",
+      "recordComment": "对记录进行评论",
+      "recordDelete": "删除记录",
+      "recordRead": "查看记录",
+      "recordUpdate": "更新记录"
+    }
+  },
+  "noun": {
+    "table": "表格",
+    "view": "视图",
+    "space": "空间",
+    "base": "数据库",
+    "field": "字段",
+    "record": "记录"
   }
 }

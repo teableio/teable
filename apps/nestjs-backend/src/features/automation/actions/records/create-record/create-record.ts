@@ -1,6 +1,6 @@
 import { Injectable, Logger, Scope } from '@nestjs/common';
-import type { ICreateRecordsRo } from '@teable-group/core';
-import { FieldKeyType } from '@teable-group/core';
+import { FieldKeyType } from '@teable/core';
+import type { ICreateRecordsRo } from '@teable/openapi';
 import type { Almanac, Event, RuleResult } from 'json-rules-engine';
 import { RecordOpenApiService } from '../../../../record/open-api/record-open-api.service';
 import type { IActionResponse, IConstSchema, IObjectSchema } from '../../action-core';

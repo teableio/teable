@@ -41,8 +41,8 @@ const RatingEditorBase: ForwardRefRenderFunction<
   };
 
   return (
-    <div onKeyDown={onKeyDown} className="h-0 w-0">
-      <input ref={focusRef} className="h-0 w-0 border-none p-0 shadow-none outline-none" />
+    <div onKeyDown={onKeyDown} className="size-0">
+      <input ref={focusRef} className="size-0 border-none p-0 shadow-none outline-none" />
     </div>
   );
 };

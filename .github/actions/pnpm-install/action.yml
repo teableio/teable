@@ -36,7 +36,7 @@ runs:
       id: pnpm-config
       shell: bash
       run: |
-        echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+        echo "STORE_PATH=$(pnpm store path | tr -d '\n')" >> $GITHUB_OUTPUT
 
     - name: ⚙️ Cache rotation keys
       id: cache-rotation
@@ -47,7 +47,7 @@ runs:
 
     - name: ♻️ Restore pnpm cache
       id: pnpm-store-cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{ steps.pnpm-config.outputs.STORE_PATH }}
         key: ${{ runner.os }}-pnpm-store-cache-${{ steps.cache-rotation.outputs.YEAR_WEEK }}-${{ hashFiles('**/pnpm-lock.yaml') }}

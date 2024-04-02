@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  teable-storage:
+    image: minio/minio:RELEASE.2024-02-17T01-15-57Z
+    container_name: teable-storage
+    hostname: teable-storage
+    restart: always
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    networks:
+      - teable-net
+    environment:
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+    volumes:
+      - storage_data:/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/storage/data:/data:rw
+    command: server /data --console-address ":9001"
+
+  createbuckets:
+    image: minio/mc:RELEASE.2024-02-16T11-05-48Z
+    networks:
+      - teable-net
+    depends_on:
+      - teable-storage
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set teable-storage http://teable-storage:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      /usr/bin/mc mb teable-storage/public;
+      /usr/bin/mc anonymous set public teable-storage/public;
+      /usr/bin/mc mb teable-storage/private;
+      exit 0;
+      "
+
+volumes:
+  storage_data:

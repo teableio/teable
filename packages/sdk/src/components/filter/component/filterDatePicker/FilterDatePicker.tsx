@@ -1,8 +1,9 @@
-import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable-group/core';
-import { exactDate, FieldType, getValidFilterSubOperators } from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib';
+import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable/core';
+import { exactDate, FieldType, getValidFilterSubOperators } from '@teable/core';
+import { Input } from '@teable/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DateField } from '../../../../model';
+import { DateEditor } from '../../../editor';
 import { BaseSingleSelect } from '../base';
 import {
   DATEPICKEROPTIONS,
@@ -11,7 +12,6 @@ import {
   withInDefaultValue,
   defaultMapping,
 } from './constant';
-import { DatePicker } from './DatePicker';
 
 interface IFilerDatePickerProps {
   value: IDateFilter | null;
@@ -63,12 +63,14 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   );
 
   const datePickerSelect = useCallback(
-    (val: string) => {
-      const mergedValue = {
-        mode: exactDate.value,
-        exactDate: val,
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
-      };
+    (val: string | null | undefined) => {
+      const mergedValue = val
+        ? {
+            mode: exactDate.value,
+            exactDate: val,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
+          }
+        : null;
       onSelect?.(mergedValue);
     },
     [onSelect]
@@ -99,7 +101,13 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     switch (true) {
       case isDatePick:
         return (
-          <DatePicker value={innerValue?.exactDate} onSelect={datePickerSelect} field={field} />
+          <DateEditor
+            value={innerValue?.exactDate}
+            onChange={datePickerSelect}
+            options={field.options}
+            disableTimePicker={true}
+            className="m-1 h-8 w-40 text-xs sm:h-8"
+          />
         );
       case isInput:
         return (

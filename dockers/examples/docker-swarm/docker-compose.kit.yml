@@ -1,0 +1,79 @@
+version: '3.9'
+
+services:
+  teable-db:
+    image: postgres:15.4
+    ports:
+      - '42345:5432'
+    volumes:
+      - teable-db:/var/lib/postgresql/data:rw
+    environment:
+      - TZ=${TIMEZONE}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - teable-swarm
+    healthcheck:
+      test: ['CMD-SHELL', "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  teable-db-migrate:
+    image: ghcr.io/teableio/teable-db-migrate:latest
+    deploy:
+      restart_policy:
+        condition: on-failure
+    environment:
+      - TZ=${TIMEZONE}
+      - PRISMA_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@teable-db:5432/${POSTGRES_DB}
+    networks:
+      - teable-swarm
+
+  teable-cache:
+    image: redis:7.2.4
+    expose:
+      - '6379'
+    volumes:
+      - teable-cache:/data:rw
+    networks:
+      - teable-swarm
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  teable-storage:
+    image: minio/minio:RELEASE.2024-02-17T01-15-57Z
+    expose:
+      - '9000'
+      - '9001'
+    environment:
+      - MINIO_SERVER_URL=${MINIO_SERVER_URL}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+    volumes:
+      - teable-storage:/data:rw
+    networks:
+      - teable-swarm
+    command: server /data --console-address ":9001"
+
+  createbuckets:
+    image: minio/mc
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - teable-swarm
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set teable-storage http://teable-storage:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+      /usr/bin/mc mb teable-storage/public;
+      /usr/bin/mc anonymous set public teable-storage/public;
+      /usr/bin/mc mb teable-storage/private;
+      exit 0;
+      "

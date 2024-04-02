@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { generateWorkflowActionId } from '@teable-group/core';
+import { generateWorkflowActionId } from '@teable/core';
 import { vi } from 'vitest';
 import { GlobalModule } from '../../../../global/global.module';
 import { MailSenderService } from '../../../mail-sender/mail-sender.service';

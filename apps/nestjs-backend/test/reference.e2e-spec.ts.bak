@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IRecord } from '@teable-group/core';
+import type { IRecord } from '@teable/core';
 import {
   CellValueType,
   DbFieldType,
   FieldType,
   NumberFormattingType,
   Relationship,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
 import { CalculationModule } from '../src/features/calculation/calculation.module';
 import type { ITopoItemWithRecords } from '../src/features/calculation/reference.service';
@@ -462,17 +462,14 @@ describe('Reference Service (e2e)', () => {
         idC1: {
           id: 'idC1',
           fields: { fieldC: 'CX', manyToOneB: { title: 'C1, C2', id: 'idB1' } },
-          recordOrder: {},
         },
         idC2: {
           id: 'idC2',
           fields: { fieldC: 'C2', manyToOneB: { title: 'C1, C2', id: 'idB1' } },
-          recordOrder: {},
         },
         idC3: {
           id: 'idC3',
           fields: { fieldC: 'C3', manyToOneB: { title: 'C3', id: 'idB2' } },
-          recordOrder: {},
         },
         idB1: {
           id: 'idB1',
@@ -484,7 +481,6 @@ describe('Reference Service (e2e)', () => {
               { title: 'C2', id: 'idC2' },
             ],
           },
-          recordOrder: {},
         },
         idB2: {
           id: 'idB2',
@@ -493,7 +489,6 @@ describe('Reference Service (e2e)', () => {
             manyToOneA: { title: 'A1', id: 'idA1' },
             oneToManyC: [{ title: 'C3', id: 'idC3' }],
           },
-          recordOrder: {},
         },
         idA1: {
           id: 'idA1',
@@ -504,7 +499,6 @@ describe('Reference Service (e2e)', () => {
               { title: 'C3', id: 'idB2' },
             ],
           },
-          recordOrder: {},
         },
       };
       // topoOrder Graph:
@@ -722,7 +716,7 @@ describe('Reference Service (e2e)', () => {
       };
       const recordMap = {
         // use new value fieldA: 1 here
-        idA1: { id: 'idA1', fields: { fieldA: 1, fieldB: null, fieldC: 'X' }, recordOrder: {} },
+        idA1: { id: 'idA1', fields: { fieldA: 1, fieldB: null, fieldC: 'X' } },
       };
       // topoOrder Graph:
       // A.fieldA -> A.fieldB

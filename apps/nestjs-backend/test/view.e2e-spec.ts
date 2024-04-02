@@ -1,7 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IColumn, IFieldVo, ITableFullVo, IViewRo } from '@teable-group/core';
-import { FieldType, ViewType } from '@teable-group/core';
+import type { IColumn, IFieldVo, IViewRo } from '@teable/core';
+import { FieldType, ViewType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { updateViewDescription, updateViewName } from '@teable/openapi';
 import {
   createField,
   getFields,
@@ -10,6 +12,7 @@ import {
   deleteTable,
   createTable,
   getViews,
+  getView,
 } from './utils/init-app';
 
 const defaultViews = [
@@ -65,6 +68,23 @@ describe('OpenAPI ViewController (e2e)', () => {
         type: ViewType.Grid,
       },
     ]);
+  });
+
+  it('should update view simple properties', async () => {
+    const viewRo: IViewRo = {
+      name: 'New view',
+      description: 'the new view',
+      type: ViewType.Grid,
+    };
+
+    const view = await createView(table.id, viewRo);
+
+    await updateViewName(table.id, view.id, { name: 'New view 2' });
+    await updateViewDescription(table.id, view.id, { description: 'description2' });
+    const viewNew = await getView(table.id, view.id);
+
+    expect(viewNew.name).toEqual('New view 2');
+    expect(viewNew.description).toEqual('description2');
   });
 
   it('should create view with field order', async () => {

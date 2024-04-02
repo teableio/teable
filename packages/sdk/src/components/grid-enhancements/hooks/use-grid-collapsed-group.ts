@@ -1,19 +1,7 @@
-import {
-  is,
-  and,
-  isNot,
-  hasNoneOf,
-  isNotEmpty,
-  FieldType,
-  GroupPointType,
-} from '@teable-group/core';
-import type {
-  IFilter,
-  IGetRecordsRo,
-  IGroupHeaderPoint,
-  IGroupPointsVo,
-  IOperator,
-} from '@teable-group/core';
+import { is, or, and, isNot, hasNoneOf, isNotEmpty, FieldType, exactDate } from '@teable/core';
+import type { IFilter, IFilterSet, ILinkCellValue, IOperator, IUserCellValue } from '@teable/core';
+import { GroupPointType } from '@teable/openapi';
+import type { IGetRecordsRo, IGroupHeaderPoint, IGroupPointsVo } from '@teable/openapi';
 import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
 import type { GridView, IFieldInstance } from '../../../model';
@@ -24,6 +12,43 @@ const FILTER_RELATED_FILED_TYPE_SET = new Set([
   FieldType.User,
   FieldType.Link,
 ]);
+
+export const cellValue2FilterValue = (cellValue: unknown, field: IFieldInstance) => {
+  const { type, isMultipleCellValue } = field;
+
+  if (cellValue == null || ![FieldType.User, FieldType.Link].includes(type)) return cellValue;
+
+  if (isMultipleCellValue) {
+    return (cellValue as (IUserCellValue | ILinkCellValue)[])?.map((v) => v.id);
+  }
+  return (cellValue as IUserCellValue | ILinkCellValue).id;
+};
+
+export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
+  let operator: IOperator = isNot.value;
+  const { id: fieldId, type, isMultipleCellValue } = field;
+
+  if (type === FieldType.Checkbox) {
+    operator = is.value;
+    value = !value || null;
+  } else if (value == null) {
+    operator = isNotEmpty.value;
+  } else if (type === FieldType.Date) {
+    value = {
+      exactDate: value,
+      mode: exactDate.value,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+  } else if (FILTER_RELATED_FILED_TYPE_SET.has(type) && isMultipleCellValue) {
+    operator = hasNoneOf.value;
+  }
+
+  return {
+    fieldId,
+    value: cellValue2FilterValue(value, field) as never,
+    operator,
+  };
+};
 
 export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPointsVo) => {
   const activeViewId = useViewId();
@@ -47,14 +72,19 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
 
   const groupId2DataMap = useMemo(() => {
     if (groupPoints == null) return null;
+    const groupIds: string[] = [];
     return groupPoints.reduce(
       (prev, cur) => {
-        if (cur.type === GroupPointType.Header) {
-          prev[cur.id] = cur;
+        if (cur.type !== GroupPointType.Header) {
+          return prev;
         }
+        const { id, depth } = cur;
+
+        groupIds[depth] = id;
+        prev[id] = { ...cur, path: groupIds.slice(0, depth + 1) };
         return prev;
       },
-      {} as Record<string, IGroupHeaderPoint>
+      {} as Record<string, IGroupHeaderPoint & { path: string[] }>
     );
   }, [groupPoints]);
 
@@ -88,34 +118,32 @@ export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPoint
 
       if (groupData == null) continue;
 
-      const { depth } = groupData;
-      let value = groupData.value;
-      const curGroup = group[depth];
+      const { path } = groupData;
+      const innerFilterSet: IFilterSet = {
+        conjunction: or.value,
+        filterSet: [],
+      };
 
-      if (curGroup == null) continue;
+      path.forEach((pathGroupId) => {
+        const pathGroupData = groupId2DataMap[pathGroupId];
 
-      const { fieldId } = curGroup;
-      const field = fieldId2DataMap[fieldId];
+        if (pathGroupData == null) return;
 
-      if (field == null) continue;
+        const { depth } = pathGroupData;
+        const curGroup = group[depth];
 
-      let operator: IOperator = isNot.value;
-      const { type, isMultipleCellValue } = field;
+        if (curGroup == null) return;
 
-      if (type === FieldType.Checkbox) {
-        operator = is.value;
-        value = !value || null;
-      } else if (value == null) {
-        operator = isNotEmpty.value;
-      } else if (FILTER_RELATED_FILED_TYPE_SET.has(type) && isMultipleCellValue) {
-        operator = hasNoneOf.value;
-      }
+        const { fieldId } = curGroup;
+        const field = fieldId2DataMap[fieldId];
 
-      filterQuery.filterSet.push({
-        fieldId,
-        value: value as never,
-        operator,
+        if (field == null) return;
+
+        const filterItem = generateFilterItem(field, pathGroupData.value);
+        innerFilterSet.filterSet.push(filterItem);
       });
+
+      filterQuery.filterSet.push(innerFilterSet);
     }
 
     return { filter: filterQuery, groupBy: group as IGetRecordsRo['groupBy'] };

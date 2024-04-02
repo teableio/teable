@@ -1,6 +1,6 @@
-import type { IViewVo } from '@teable-group/core';
-import { assertNever, ViewType } from '@teable-group/core';
-import type { View } from '@teable-group/db-main-prisma';
+import type { IViewVo } from '@teable/core';
+import { assertNever, ViewType } from '@teable/core';
+import type { View } from '@teable/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { FormViewDto } from './form-view.dto';
 import { GridViewDto } from './grid-view.dto';
@@ -38,11 +38,10 @@ export function createViewVoByRaw(viewRaw: View): IViewVo {
     shareId: viewRaw.shareId || undefined,
     shareMeta: JSON.parse(viewRaw.shareMeta as string) || undefined,
     enableShare: viewRaw.enableShare || undefined,
-    order: viewRaw.order,
     createdBy: viewRaw.createdBy,
-    lastModifiedBy: viewRaw.lastModifiedBy,
+    lastModifiedBy: viewRaw.lastModifiedBy || undefined,
     createdTime: viewRaw.createdTime.toISOString(),
-    lastModifiedTime: viewRaw.lastModifiedTime.toISOString(),
+    lastModifiedTime: viewRaw.lastModifiedTime ? viewRaw.lastModifiedTime.toISOString() : undefined,
     columnMeta: JSON.parse(viewRaw.columnMeta as string) || undefined,
   };
 }

@@ -1,6 +1,5 @@
-import { ChevronDown, ChevronUp, Link, MessageSquare, X } from '@teable-group/icons';
-import { Button, Separator } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { ChevronDown, ChevronUp, Link, MessageSquare, X } from '@teable/icons';
+import { Button, Separator, cn } from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { TooltipWrap } from './TooltipWrap';
@@ -43,7 +42,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   return (
     <div
       ref={ref}
-      className={classNames(
+      className={cn(
         'w-full h-12 flex items-center gap-4 px-4 border-b border-solid border-border',
         'justify-between' && !showTitle
       )}

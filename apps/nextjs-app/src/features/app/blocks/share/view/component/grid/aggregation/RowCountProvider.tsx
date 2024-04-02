@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IShareViewRowCountRo } from '@teable-group/openapi';
-import { getShareViewRowCount } from '@teable-group/openapi';
-import type { PropKeys } from '@teable-group/sdk';
-import { RowCountContext, ReactQueryKeys, useActionTrigger } from '@teable-group/sdk';
-import { useView } from '@teable-group/sdk/hooks';
+import type { IShareViewRowCountRo } from '@teable/openapi';
+import { getShareViewRowCount } from '@teable/openapi';
+import type { PropKeys } from '@teable/sdk';
+import { RowCountContext, ReactQueryKeys, useActionTrigger } from '@teable/sdk';
+import { useSearch, useView } from '@teable/sdk/hooks';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
@@ -14,7 +14,11 @@ interface IRowCountProviderProps {
 
 const useRowCountQuery = (): IShareViewRowCountRo => {
   const view = useView();
-  return useMemo(() => ({ filter: view?.filter }), [view?.filter]);
+  const { searchQuery } = useSearch();
+  return useMemo(
+    () => ({ filter: view?.filter, search: searchQuery }),
+    [view?.filter, searchQuery]
+  );
 };
 
 export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
@@ -35,12 +39,7 @@ export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
   );
 
   useEffect(() => {
-    const relevantProps = [
-      'tableUpdate',
-      'tableAdd',
-      'tableDelete',
-      'applyViewFilter',
-    ] as PropKeys[];
+    const relevantProps: PropKeys[] = ['setRecord', 'addRecord', 'deleteRecord', 'applyViewFilter'];
 
     listener?.(relevantProps, () => updateViewRowCount(), [tableId, viewId]);
   }, [listener, tableId, updateViewRowCount, viewId]);

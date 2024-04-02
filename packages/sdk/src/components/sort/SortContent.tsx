@@ -1,8 +1,9 @@
-import type { ISort } from '@teable-group/core';
+import type { ISort } from '@teable/core';
+import { SortFunc } from '@teable/core';
 import { useMemo } from 'react';
+import { FieldCommand } from '../field/FieldCommand';
 import { DraggableSortList } from './DraggableSortList';
 import { SortFieldAddButton } from './SortFieldAddButton';
-import { SortFieldCommand } from './SortFieldCommand';
 
 interface ISortProps {
   sortValues?: NonNullable<ISort>['sortObjs'];
@@ -14,13 +15,16 @@ interface ISortProps {
 export function SortContent(props: ISortProps) {
   const { onChange, sortValues = [], addBtnText, limit = Infinity } = props;
 
-  const selectedFields = useMemo(() => sortValues.map((sort) => sort.fieldId) || [], [sortValues]);
+  const selectedFieldIds = useMemo(
+    () => sortValues.map((sort) => sort.fieldId) || [],
+    [sortValues]
+  );
 
   const onFieldSelect = (fieldId: string) => {
     onChange([
       {
         fieldId: fieldId,
-        order: 'asc',
+        order: SortFunc.Asc,
       },
     ]);
   };
@@ -29,7 +33,7 @@ export function SortContent(props: ISortProps) {
     onChange(
       sortValues.concat({
         fieldId: value,
-        order: 'asc',
+        order: SortFunc.Asc,
       })
     );
   };
@@ -39,7 +43,7 @@ export function SortContent(props: ISortProps) {
   };
 
   if (!sortValues.length) {
-    return <SortFieldCommand onSelect={onFieldSelect} />;
+    return <FieldCommand onSelect={onFieldSelect} />;
   }
 
   return (
@@ -47,14 +51,14 @@ export function SortContent(props: ISortProps) {
       <div className="max-h-96 overflow-auto p-3">
         <DraggableSortList
           sorts={sortValues}
-          selectedFields={selectedFields}
+          selectedFields={selectedFieldIds}
           onChange={onSortChange}
         />
       </div>
-      {selectedFields.length < limit && (
+      {selectedFieldIds.length < limit && (
         <SortFieldAddButton
           addBtnText={addBtnText}
-          selectedFields={selectedFields}
+          selectedFieldIds={selectedFieldIds}
           onSelect={onFieldAdd}
         />
       )}

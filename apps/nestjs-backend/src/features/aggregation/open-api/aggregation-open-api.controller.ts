@@ -1,22 +1,20 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable-group/core';
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import type { IAggregationVo, IGroupPointsVo, IRowCountVo } from '@teable/openapi';
 import {
   aggregationRoSchema,
-  IGroupPointsRo,
   groupPointsRoSchema,
   IAggregationRo,
-  queryBaseSchema,
+  IGroupPointsRo,
   IQueryBaseRo,
-} from '@teable-group/core';
+  queryBaseSchema,
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
-@UseGuards(PermissionGuard)
 export class AggregationOpenApiController {
   constructor(private readonly aggregationOpenApiService: AggregationOpenApiService) {}
 
@@ -29,7 +27,7 @@ export class AggregationOpenApiController {
     return await this.aggregationOpenApiService.getAggregation(tableId, query);
   }
 
-  @Get('/rowCount')
+  @Get('/row-count')
   @Permissions('table|read')
   async getRowCount(
     @Param('tableId') tableId: string,
@@ -38,7 +36,7 @@ export class AggregationOpenApiController {
     return await this.aggregationOpenApiService.getRowCount(tableId, query);
   }
 
-  @Get('/groupPoints')
+  @Get('/group-points')
   @Permissions('table|read')
   async getGroupPoints(
     @Param('tableId') tableId: string,

@@ -1,14 +1,15 @@
-import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable-group/core';
-import { COLOR_PALETTE, ColorUtils } from '@teable-group/core';
-import { DraggableHandle, Plus, Trash } from '@teable-group/icons';
-import { DndKitContext, Droppable, Draggable } from '@teable-group/ui-lib/base/dnd-kit';
-import type { DragEndEvent } from '@teable-group/ui-lib/base/dnd-kit';
+import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable/core';
+import { COLOR_PALETTE, ColorUtils } from '@teable/core';
+import { DraggableHandle, Plus, Trash } from '@teable/icons';
+import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base/dnd-kit';
+import type { DragEndEvent } from '@teable/ui-lib/base/dnd-kit';
 
-import { Input } from '@teable-group/ui-lib/shadcn';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn/ui/popover';
-import classNames from 'classnames';
+import { Input, cn } from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn/ui/popover';
+import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 
 interface IOptionItemProps {
   choice: ISelectFieldChoice;
@@ -32,6 +33,7 @@ export const SelectOptions = (props: {
 }) => {
   const { options, isLookup, onChange } = props;
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const choices = useMemo(() => options?.choices ?? [], [options?.choices]);
   const choiceIds = useMemo(
@@ -106,14 +108,11 @@ export const SelectOptions = (props: {
                     ref={setNodeRef}
                     style={style}
                     {...attributes}
-                    className={classNames(
-                      isDragging ? 'opacity-60' : null,
-                      isLookup && 'cursor-default'
-                    )}
+                    className={cn(isDragging ? 'opacity-60' : null, isLookup && 'cursor-default')}
                   >
                     <div className="flex items-center">
                       {!isLookup && (
-                        <DraggableHandle {...listeners} className="mr-1 h-4 w-4 cursor-grabbing" />
+                        <DraggableHandle {...listeners} className="mr-1 size-4 cursor-grabbing" />
                       )}
                       <ChoiceItem
                         choice={choice}
@@ -140,8 +139,8 @@ export const SelectOptions = (props: {
             variant={'outline'}
             onClick={addOption}
           >
-            <Plus className="h-4 w-4" />
-            Add option
+            <Plus className="size-4" />
+            {t('table:field.editor.addOption')}
           </Button>
         </li>
       )}
@@ -158,7 +157,7 @@ const ChoiceItem = (props: IOptionItemProps) => {
     <li className="flex grow items-center">
       {readonly ? (
         <div className="h-auto rounded-full border-2 p-[2px]" style={{ borderColor: bgColor }}>
-          <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
+          <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
         </div>
       ) : (
         <Popover>
@@ -168,7 +167,7 @@ const ChoiceItem = (props: IOptionItemProps) => {
               className="h-auto rounded-full border-2 p-[2px]"
               style={{ borderColor: bgColor }}
             >
-              <div style={{ backgroundColor: bgColor }} className="h-3 w-3 rounded-full" />
+              <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2">
@@ -188,10 +187,10 @@ const ChoiceItem = (props: IOptionItemProps) => {
       {!readonly && (
         <Button
           variant={'ghost'}
-          className="h-6 w-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+          className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
           onClick={() => onDelete(index)}
         >
-          <Trash className="h-4 w-4" />
+          <Trash className="size-4" />
         </Button>
       )}
     </li>
@@ -239,7 +238,7 @@ export const ColorPicker = ({
                 <Button
                   key={c}
                   variant={'ghost'}
-                  className={classNames('p-1 my-1 rounded-full h-auto', {
+                  className={cn('p-1 my-1 rounded-full h-auto', {
                     'border-2 p-[2px]': color === c,
                   })}
                   style={{ borderColor: bg }}
@@ -249,7 +248,7 @@ export const ColorPicker = ({
                     style={{
                       backgroundColor: bg,
                     }}
-                    className="h-4 w-4 rounded-full"
+                    className="size-4 rounded-full"
                   />
                 </Button>
               );

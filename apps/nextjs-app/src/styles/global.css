@@ -1,4 +1,4 @@
-@import url('@teable-group/ui-lib/shadcn/global.shadcn.css');
+@import url('@teable/ui-lib/shadcn/global.shadcn.css');
 
 :root {
   --btn-text-case: none;
@@ -17,4 +17,8 @@ svg.icon {
 html,
 body {
   overflow: hidden;
+}
+
+.select-field-type [cmdk-list] {
+  max-height: min(600px, calc(100vh - 300px));
 }

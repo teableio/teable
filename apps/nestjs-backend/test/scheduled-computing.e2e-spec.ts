@@ -1,8 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, type ITableFullVo } from '@teable-group/core';
-import { deleteTableArbitrary, getRecords } from '@teable-group/openapi';
-import { initApp, createTable, createField, deleteField, updateField } from './utils/init-app';
+import { FieldKeyType, FieldType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { deleteTableArbitrary, getRecords } from '@teable/openapi';
+import { initApp, createTable, createField, deleteField, convertField } from './utils/init-app';
 import { seeding } from './utils/record-mock';
 
 describe('Test Scheduled Computing', () => {
@@ -53,7 +54,7 @@ describe('Test Scheduled Computing', () => {
         expression: `2 + 2`,
       },
     };
-    const newFormulaField = await updateField(table.id, formulaField.id, newFormulaFieldRo);
+    const newFormulaField = await convertField(table.id, formulaField.id, newFormulaFieldRo);
     const newResult = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
       skip: 0,

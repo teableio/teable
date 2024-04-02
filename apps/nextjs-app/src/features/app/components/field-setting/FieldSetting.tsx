@@ -1,23 +1,25 @@
 import { useQueryClient } from '@tanstack/react-query';
-import type { IFieldRo } from '@teable-group/core';
-import { updateFieldRoSchema, FieldType, getOptionsSchema } from '@teable-group/core';
-import { Share2 } from '@teable-group/icons';
-import { planFieldCreate, type IPlanFieldUpdateVo, planFieldUpdate } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config';
-import { useTable, useView } from '@teable-group/sdk/hooks';
-import { ConfirmDialog } from '@teable-group/ui-lib/base';
+import type { IFieldRo } from '@teable/core';
+import { convertFieldRoSchema, FieldType, getOptionsSchema } from '@teable/core';
+import { Share2 } from '@teable/icons';
+import { planFieldCreate, type IPlanFieldConvertVo, planFieldConvert } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { useTable, useView } from '@teable/sdk/hooks';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   Dialog,
   DialogClose,
   DialogContent,
   DialogFooter,
   DialogTrigger,
-} from '@teable-group/ui-lib/shadcn';
-import { Button } from '@teable-group/ui-lib/shadcn/ui/button';
-import { Sheet, SheetContent } from '@teable-group/ui-lib/shadcn/ui/sheet';
-import { toast } from '@teable-group/ui-lib/shadcn/ui/sonner';
+} from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
+import { tableConfig } from '@/features/i18n/table.config';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
@@ -32,9 +34,10 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [processVisible, setProcessVisible] = useState<boolean>(false);
-  const [plan, setPlan] = useState<IPlanFieldUpdateVo>();
+  const [plan, setPlan] = useState<IPlanFieldConvertVo>();
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
   const queryClient = useQueryClient();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const onCancel = () => {
     props.onCancel?.();
@@ -54,23 +57,20 @@ export const FieldSetting = (props: IFieldSetting) => {
         const result = await table?.createField(field);
         const fieldId = result?.data?.id;
         if (view && order != null && fieldId && table?.id) {
-          await view.setViewColumnMeta([{ fieldId, columnMeta: { order } }]);
+          await view.updateColumnMeta([{ fieldId, columnMeta: { order } }]);
         }
       }
 
       if (operator === FieldOperator.Edit) {
         const fieldId = props.field?.id;
-        table && fieldId && (await table.updateField(fieldId, field));
+        table && fieldId && (await table.convertField(fieldId, field));
       }
 
-      toast(`Field has been ${operator === FieldOperator.Edit ? 'updated' : 'created'}`, {
-        action: {
-          label: 'Dismiss',
-          onClick: () => {
-            toast.dismiss();
-          },
-        },
-      });
+      toast(
+        operator === FieldOperator.Edit
+          ? t('table:field.editor.fieldUpdated')
+          : t('table:field.editor.fieldCreated')
+      );
     } finally {
       setProcessVisible(false);
     }
@@ -81,12 +81,12 @@ export const FieldSetting = (props: IFieldSetting) => {
   const getPlan = async (fieldRo: IFieldRo) => {
     if (operator === FieldOperator.Edit) {
       return queryClient.ensureQueryData({
-        queryKey: ReactQueryKeys.planFieldUpdate(
+        queryKey: ReactQueryKeys.planFieldConvert(
           table?.id as string,
           props.field?.id as string,
           fieldRo
         ),
-        queryFn: ({ queryKey }) => planFieldUpdate(queryKey[1], queryKey[2], queryKey[3]),
+        queryFn: ({ queryKey }) => planFieldConvert(queryKey[1], queryKey[2], queryKey[3]),
       });
     }
     return queryClient.ensureQueryData({
@@ -116,7 +116,7 @@ export const FieldSetting = (props: IFieldSetting) => {
       <FieldSettingBase {...props} onCancel={onCancel} onConfirm={onConfirm} />
       <ConfirmDialog
         contentClassName="max-w-4xl"
-        title="Preview Dependencies Graph"
+        title={t('table:field.editor.previewDependenciesGraph')}
         open={graphVisible}
         onOpenChange={setGraphVisible}
         content={
@@ -126,18 +126,18 @@ export const FieldSetting = (props: IFieldSetting) => {
               fieldId={props.field?.id}
               fieldRo={fieldRo}
             />
-            <p className="text-sm">Are you sure you want to perform it?</p>
+            <p className="text-sm">{t('table:field.editor.areYouSurePerformIt')}</p>
           </>
         }
-        cancelText="Cancel"
-        confirmText="Continue"
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.confirm')}
         onCancel={() => setGraphVisible(false)}
         onConfirm={() => performAction(fieldRo as IFieldRo)}
       />
       <ConfirmDialog
         open={processVisible}
         onOpenChange={setProcessVisible}
-        title="Calculating..."
+        title={t('table:field.editor.calculating')}
         content={
           <ProgressBar duration={plan?.estimateTime || 0} cellCount={plan?.updateCellCount || 0} />
         }
@@ -148,6 +148,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
 const FieldSettingBase = (props: IFieldSettingBase) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const table = useTable();
   const [field, setField] = useState<IFieldEditorRo>(
     originField
@@ -174,7 +175,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
 
   const checkFieldReady = useCallback(
     (field: IFieldEditorRo) => {
-      const result = updateFieldRoSchema.safeParse(field);
+      const result = convertFieldRoSchema.safeParse(field);
       if (!result.success) {
         return false;
       }
@@ -213,7 +214,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
 
   const onSave = () => {
     !updateCount && onConfirm?.();
-    const result = updateFieldRoSchema.safeParse(field);
+    const result = convertFieldRoSchema.safeParse(field);
     if (result.success) {
       onConfirm?.(result.data);
       return;
@@ -228,13 +229,13 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   const title = useMemo(() => {
     switch (operator) {
       case FieldOperator.Add:
-        return 'Add Field';
+        return t('table:field.editor.addField');
       case FieldOperator.Edit:
-        return 'Edit Field';
+        return t('table:field.editor.editField');
       case FieldOperator.Insert:
-        return 'Insert Field';
+        return t('table:field.editor.insertField');
     }
-  }, [operator]);
+  }, [operator, t]);
 
   return (
     <>
@@ -252,7 +253,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button size={'sm'} variant={'ghost'}>
-                        <Share2 className="h-4 w-4" /> Graph
+                        <Share2 className="size-4" /> {t('table:field.editor.graph')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl">
@@ -264,7 +265,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                       <DialogFooter>
                         <DialogClose asChild>
                           <Button type="button" variant="secondary">
-                            Close
+                            {t('common:actions.close')}
                           </Button>
                         </DialogClose>
                       </DialogFooter>
@@ -273,11 +274,11 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button size={'sm'} variant={'ghost'} onClick={onCancelInner}>
-                  Cancel
+                <Button size={'sm'} variant={'ghost'} onClick={onCancel}>
+                  {t('common:actions.cancel')}
                 </Button>
                 <Button size={'sm'} onClick={onSave}>
-                  Save
+                  {t('common:actions.save')}
                 </Button>
               </div>
             </div>
@@ -286,12 +287,13 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
       </Sheet>
       <ConfirmDialog
         open={alertVisible}
+        closeable={true}
         onOpenChange={setAlertVisible}
-        title="Are you sure you want to discard your changes?"
-        onCancel={() => setAlertVisible(false)}
-        cancelText="Cancel"
-        confirmText="Continue"
-        onConfirm={onCancel}
+        title={t('table:field.editor.doSaveChanges')}
+        onCancel={onCancel}
+        cancelText={t('common:actions.doNotSave')}
+        confirmText={t('common:actions.save')}
+        onConfirm={onSave}
       />
     </>
   );

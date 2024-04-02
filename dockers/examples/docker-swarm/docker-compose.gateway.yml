@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  teable-gateway:
+    image: openresty/openresty:1.25.3.1-2-bookworm-fat
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    ports:
+      - '80:80'
+      - '443:443'
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - ./gateway/conf.d:/etc/nginx/conf.d
+    networks:
+      - teable-swarm
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1/healthcheck']
+      interval: 10s
+      timeout: 3s
+      retries: 3

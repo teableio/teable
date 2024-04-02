@@ -1,9 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
-import { ColorUtils } from '@teable-group/core';
-import { DraggableHandle, X } from '@teable-group/icons';
-import { IdReturnType, getGraph, getIdsFromRanges } from '@teable-group/openapi';
-import { useBase, useTableId, useViewId } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { ColorUtils } from '@teable/core';
+import { DraggableHandle, X } from '@teable/icons';
+import { IdReturnType, getGraph, getIdsFromRanges } from '@teable/openapi';
+import { useBase, useTableId, useViewId } from '@teable/sdk';
+import { Button } from '@teable/ui-lib/shadcn';
 import { useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useMount } from 'react-use';
@@ -125,14 +125,14 @@ export const CellGraph: React.FC = () => {
         className="absolute right-2 top-2 z-10"
         onClick={() => closeGraph()}
       >
-        <X className="h-4 w-4" />
+        <X className="size-4" />
       </Button>
       <div className="absolute left-5 top-0 flex gap-2 p-2 text-xs">
         {tables.map((table) => {
           return (
             <div key={table.color} className="flex items-center justify-center gap-1">
               <span>{table.name}</span>
-              <span className="h-2 w-2" style={{ backgroundColor: table.color }}></span>
+              <span className="size-2" style={{ backgroundColor: table.color }}></span>
             </div>
           );
         })}
@@ -142,7 +142,7 @@ export const CellGraph: React.FC = () => {
           Click a cell and see what happens.
         </p>
       )}
-      <div ref={ref} className="h-full w-full"></div>
+      <div ref={ref} className="size-full"></div>
     </Rnd>
   );
 };

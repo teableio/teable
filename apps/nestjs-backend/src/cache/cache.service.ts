@@ -1,15 +1,15 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Injectable, Inject } from '@nestjs/common';
-import { getRandomInt } from '@teable-group/core';
-import { Cache } from 'cache-manager';
+import { Injectable } from '@nestjs/common';
+import { getRandomInt } from '@teable/core';
+import { type Store } from 'keyv';
 import type { ICacheStore } from './types';
 
 @Injectable()
 export class CacheService {
-  constructor(@Inject(CACHE_MANAGER) private cacheManager: Cache) {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(private readonly cacheManager: Store<any>) {}
 
-  async get<TKey extends keyof ICacheStore>(key: TKey) {
-    return this.cacheManager.get<ICacheStore[TKey]>(key);
+  async get<TKey extends keyof ICacheStore>(key: TKey): Promise<ICacheStore[TKey] | undefined> {
+    return this.cacheManager.get(key);
   }
 
   async set<TKey extends keyof ICacheStore>(
@@ -21,10 +21,6 @@ export class CacheService {
   }
 
   async del<TKey extends keyof ICacheStore>(key: TKey): Promise<void> {
-    await this.cacheManager.del(key);
-  }
-
-  async reset(): Promise<void> {
-    await this.cacheManager.reset();
+    await this.cacheManager.delete(key);
   }
 }

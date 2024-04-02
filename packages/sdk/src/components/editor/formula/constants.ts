@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string, @typescript-eslint/naming-convention */
-import { FormulaFuncType, FunctionName, FUNCTIONS, FormulaLexer } from '@teable-group/core';
-import { Hash, A, CheckSquare, Calendar } from '@teable-group/icons';
+import { FormulaFuncType, FunctionName, FUNCTIONS, FormulaLexer } from '@teable/core';
+import { Hash, A, CheckSquare, Calendar } from '@teable/icons';
 import type { IFunctionMap, IFunctionSchema } from './interface';
 
 export const Type2IconMap = {
@@ -195,7 +195,7 @@ export const FORMULA_FUNCTIONS_MAP = new Map<FunctionName, IFunctionSchema<Funct
       params: ['value'],
       definition: 'ODD(value)',
       summary:
-        'Rounds positive value up the the nearest odd number and negative value down to the nearest odd number.',
+        'Rounds positive value up the nearest odd number and negative value down to the nearest odd number.',
       example: 'ODD(0.1) => 1\nODD(-0.1) => -1',
     },
   ],

@@ -1,12 +1,14 @@
 {
-  "name": "@teable-group/db-main-prisma",
+  "name": "@teable/db-main-prisma",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable",
+    "url": "https://github.com/teableio/teable",
     "directory": "packages/db-main-prisma"
   },
   "author": {
@@ -16,9 +18,14 @@
   "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "prisma"
+  ],
   "scripts": {
     "build": "tsc",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "tsc --watch",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --fix",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/db-main-prisma.eslintcache",
@@ -36,32 +43,32 @@
   "peerDependencies": {
     "@prisma/client": "^5.0.0",
     "@nestjs/common": "^10.0.0",
-    "nestjs-cls": ">= 3.5.0"
+    "nestjs-cls": "^4.0.0"
   },
   "dependencies": {
-    "@prisma/client": "5.8.0",
-    "prisma": "5.8.0",
-    "nanoid": "3.3.6"
+    "@prisma/client": "5.11.0",
+    "prisma": "5.11.0",
+    "nanoid": "3.3.7"
   },
   "devDependencies": {
     "@soluble/dsn-parser": "1.9.2",
-    "@faker-js/faker": "8.3.1",
-    "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/node": "18.18.2",
+    "@faker-js/faker": "8.4.1",
+    "@teable/eslint-config-bases": "workspace:^",
+    "@types/node": "20.9.0",
     "@types/bcrypt": "5.0.2",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.1.1",
-    "eslint": "8.56.0",
+    "eslint": "8.57.0",
     "handlebars": "4.7.8",
     "is-port-reachable": "3.1.0",
     "mustache": "4.2.0",
-    "npm-run-all": "4.1.5",
+    "npm-run-all2": "6.1.2",
     "picocolors": "1.0.0",
-    "prettier": "3.1.1",
+    "prettier": "3.2.5",
     "rimraf": "5.0.5",
-    "tsx": "4.7.0",
-    "typescript": "5.3.3",
+    "tsx": "4.7.1",
+    "typescript": "5.4.3",
     "bcrypt": "5.1.1"
   },
   "prisma": {

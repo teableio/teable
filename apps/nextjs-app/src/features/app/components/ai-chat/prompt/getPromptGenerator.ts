@@ -15,8 +15,8 @@ ${AI_SYNTAX_PROMPT}
 \n`;
   if (assistant.id === 'tai-app') {
     return async (prompt: string, type?: 'chart' | 'table') => {
-      const { nodeId, viewId } = router.query as { nodeId?: string; viewId?: string };
-      const tableContextPrompt = await tableContext2Prompt(nodeId, viewId);
+      const { tableId, viewId } = router.query as { tableId?: string; viewId?: string };
+      const tableContextPrompt = await tableContext2Prompt(tableId, viewId);
       if (type === 'chart') {
         return `${basicPrompt}, This is create chart method syntax define: "${GENERATE_CHART_PROMPT}".
 ${tableContextPrompt}

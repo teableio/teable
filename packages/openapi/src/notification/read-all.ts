@@ -2,7 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 
-export const NOTIFICATION_READ_ALL = '/notifications/readAll';
+export const NOTIFICATION_READ_ALL = '/notifications/read-all';
 
 export const NotificationReadALlRoute: RouteConfig = registerRoute({
   method: 'patch',

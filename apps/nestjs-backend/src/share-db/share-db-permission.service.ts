@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { ANONYMOUS_USER_ID, IdPrefix } from '@teable-group/core';
-import type { IShareViewMeta, PermissionAction } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import { ANONYMOUS_USER_ID, IdPrefix } from '@teable/core';
+import type { IShareViewMeta, PermissionAction } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import ShareDBClass from 'sharedb';
 import { PermissionService } from '../features/auth/permission.service';
@@ -80,12 +80,12 @@ export class ShareDbPermissionService {
   @ContextDecorator('skipIfBackend')
   async authMiddleware(context: IAuthMiddleContext, callback: (err?: unknown) => void) {
     try {
-      const { cookie, shareId } = context.agent.custom;
+      const { cookie, shareId, sessionId } = context.agent.custom;
       if (shareId) {
         context.agent.custom.user = { id: ANONYMOUS_USER_ID, name: ANONYMOUS_USER_ID, email: '' };
         await this.wsAuthService.checkShareCookie(shareId, cookie);
       } else {
-        const user = await this.wsAuthService.checkCookie(cookie);
+        const user = await this.wsAuthService.checkSession(sessionId);
         context.agent.custom.user = user;
       }
       await this.clsRunWith(context, callback);

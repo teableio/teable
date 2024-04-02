@@ -1,8 +1,13 @@
-import { sharePasswordSchema } from '../../share';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
+import { filterSchema } from './filter';
+import { groupSchema } from './group';
+import { viewOptionsSchema } from './option.schema';
+import { sortSchema } from './sort';
+
+export const sharePasswordSchema = z.string().min(3);
 
 export const shareViewMetaSchema = z.object({
   allowCopy: z.boolean().optional(),
@@ -17,18 +22,18 @@ export const viewVoSchema = z.object({
   name: z.string(),
   type: z.nativeEnum(ViewType),
   description: z.string().optional(),
-  order: z.number(),
-  options: z.unknown().optional(),
-  sort: z.unknown().optional(),
-  filter: z.unknown().optional(),
-  group: z.unknown().optional(),
+  order: z.number().optional(),
+  options: viewOptionsSchema.optional(),
+  sort: sortSchema.optional(),
+  filter: filterSchema.optional(),
+  group: groupSchema.optional(),
   shareId: z.string().optional(),
   enableShare: z.boolean().optional(),
   shareMeta: shareViewMetaSchema.optional(),
   createdBy: z.string(),
-  lastModifiedBy: z.string(),
+  lastModifiedBy: z.string().optional(),
   createdTime: z.string(),
-  lastModifiedTime: z.string(),
+  lastModifiedTime: z.string().optional(),
   columnMeta: columnMetaSchema.openapi({
     description: 'A mapping of view IDs to their corresponding column metadata.',
   }),
@@ -51,3 +56,5 @@ export const viewRoSchema = viewVoSchema
   });
 
 export type IViewRo = z.infer<typeof viewRoSchema>;
+export type IViewPropertyKeys = keyof IViewVo;
+export const VIEW_JSON_KEYS = ['options', 'sort', 'filter', 'group', 'shareMeta', 'columnMeta'];

@@ -1,13 +1,15 @@
 import type { IncomingHttpHeaders } from 'http';
 import { join } from 'path';
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { SignatureRo, SignatureVo } from '@teable-group/openapi';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { INotifyVo, SignatureRo, SignatureVo } from '@teable/openapi';
 import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { StorageConfig, IStorageConfig } from '../../configs/storage';
 import type { IClsStore } from '../../types/cls';
+import { FileUtils } from '../../utils';
+import { second } from '../../utils/second';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
@@ -35,13 +37,13 @@ export class AttachmentsService {
     const { path, bucket } = tokenCache;
     const file = await localStorage.saveTemporaryFile(req);
     await localStorage.validateToken(token, file);
-    const hash = await localStorage.getHash(file.path);
+    const hash = await FileUtils.getHash(file.path);
     await localStorage.save(file.path, join(bucket, path));
 
     await this.cacheService.set(
       `attachment:upload:${token}`,
       { mimetype: file.mimetype, hash, size: file.size },
-      60 * 60 * 24 * 7
+      second(this.storageConfig.tokenExpireIn)
     );
   }
 
@@ -52,8 +54,8 @@ export class AttachmentsService {
     if (!path) {
       throw new HttpException(`Could not find attachment: ${token}`, HttpStatus.NOT_FOUND);
     }
-    const { dir, token: tokenInPath } = localStorage.parsePath(path);
-    if (token && !StorageAdapter.isPublicDir(dir)) {
+    const { bucket, token: tokenInPath } = localStorage.parsePath(path);
+    if (token && !StorageAdapter.isPublicBucket(bucket)) {
       respHeaders = localStorage.verifyReadToken(token).respHeaders ?? {};
     } else {
       const attachment = await this.prismaService
@@ -103,19 +105,19 @@ export class AttachmentsService {
     await this.cacheService.set(
       `attachment:signature:${token}`,
       { path, bucket, hash },
-      signatureRo.expiresIn ?? this.storageConfig.tokenExpireIn
+      signatureRo.expiresIn ?? second(this.storageConfig.tokenExpireIn)
     );
     return res;
   }
 
-  async notify(token: string) {
+  async notify(token: string): Promise<INotifyVo> {
     const tokenCache = await this.cacheService.get(`attachment:signature:${token}`);
     if (!tokenCache) {
       throw new BadRequestException(`Invalid token: ${token}`);
     }
     const userId = this.cls.get('user.id');
     const { path, bucket } = tokenCache;
-    const { hash, size, mimetype, width, height, url } = await this.storageAdapter.getObject(
+    const { hash, size, mimetype, width, height, url } = await this.storageAdapter.getObjectMeta(
       bucket,
       path,
       token
@@ -131,7 +133,6 @@ export class AttachmentsService {
         width,
         height,
         createdBy: userId,
-        lastModifiedBy: userId,
       },
       select: {
         token: true,
@@ -146,7 +147,6 @@ export class AttachmentsService {
       ...attachment,
       width: attachment.width ?? undefined,
       height: attachment.height ?? undefined,
-      bucket,
       url,
       presignedUrl: await this.attachmentsStorageService.getPreviewUrlByPath(
         bucket,

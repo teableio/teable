@@ -1,15 +1,15 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { NotificationStatesEnum } from '@teable-group/core';
-import { Bell, CheckCircle2 as Read, RefreshCcw } from '@teable-group/icons';
+import { NotificationStatesEnum } from '@teable/core';
+import { Bell, CheckCircle2 as Read, RefreshCcw } from '@teable/icons';
 import {
   getNotificationList,
   getNotificationUnreadCount,
   notificationReadAll,
-} from '@teable-group/openapi';
-import { useNotification } from '@teable-group/sdk';
-import { ReactQueryKeys } from '@teable-group/sdk/config/react-query-keys';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+} from '@teable/openapi';
+import { useNotification } from '@teable/sdk';
+import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
+import { cn } from '@teable/ui-lib/shadcn';
 import React, { useEffect, useState } from 'react';
 import { NotificationList } from './NotificationList';
 
@@ -101,7 +101,7 @@ export const NotificationsManage: React.FC = () => {
             refresh();
           }}
         >
-          <Bell className="h-5 w-5 shrink-0" />
+          <Bell className="size-5 shrink-0" />
           {unreadCount > 0 ? (
             <span className="absolute right-2.5 top-1 inline-flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-zinc-400 p-[3px] text-[8px] leading-none text-white">
               {unreadCount}
@@ -146,7 +146,7 @@ export const NotificationsManage: React.FC = () => {
               <Button
                 variant="ghost"
                 size="xs"
-                className={classNames('ml-2', {
+                className={cn('ml-2', {
                   'bg-secondary': notifyStatus === NotificationStatesEnum.Unread,
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
@@ -156,7 +156,7 @@ export const NotificationsManage: React.FC = () => {
               <Button
                 variant="ghost"
                 size="xs"
-                className={classNames('ml-2', {
+                className={cn('ml-2', {
                   'bg-secondary': notifyStatus === NotificationStatesEnum.Read,
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}

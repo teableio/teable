@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { IViewVo, IShareViewMeta } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { IViewVo, IShareViewMeta } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { createViewVoByRaw } from '../view/model/factory';
 
 export interface IShareViewInfo {

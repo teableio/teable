@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IFieldVo } from '@teable-group/core';
-import { FieldCore } from '@teable-group/core';
-import { createField, deleteField, getFields, updateField } from '@teable-group/openapi';
+import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable/core';
+import { FieldCore } from '@teable/core';
+import { createField, deleteField, getFields, convertField, updateField } from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 
@@ -14,24 +14,18 @@ export abstract class Field extends FieldCore {
 
   static updateField = requestWrap(updateField);
 
+  static convertField = requestWrap(convertField);
+
   static deleteField = requestWrap(deleteField);
 
   protected doc!: Doc<IFieldVo>;
 
-  private async submitOperation(operation: unknown) {
-    try {
-      return await new Promise((resolve, reject) => {
-        this.doc.submitOp([operation], undefined, (error) => {
-          error ? reject(error) : resolve(undefined);
-        });
-      });
-    } catch (error) {
-      return error;
-    }
+  async update(updateFieldRo: IUpdateFieldRo) {
+    return Field.updateField(this.tableId, this.id, updateFieldRo);
   }
 
-  async update(fieldRo: IFieldRo) {
-    return Field.updateField(this.tableId, this.id, fieldRo);
+  async convert(fieldRo: IFieldRo) {
+    return Field.convertField(this.tableId, this.id, fieldRo);
   }
 
   async delete() {

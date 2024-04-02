@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo } from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
+import type { IFieldRo, IFieldVo } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { cloneDeep } from 'lodash';
 import { FIELD_MOCK_DATA } from './field-mock';
 import { createTable, initApp, createRecords, createField, getFields } from './init-app';

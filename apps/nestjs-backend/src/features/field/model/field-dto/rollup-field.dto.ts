@@ -1,7 +1,11 @@
-import { RollupFieldCore } from '@teable-group/core';
-import type { IFieldBase } from '../field-base';
+import { RollupFieldCore } from '@teable/core';
+import type { FieldBase } from '../field-base';
 
-export class RollupFieldDto extends RollupFieldCore implements IFieldBase {
+export class RollupFieldDto extends RollupFieldCore implements FieldBase {
+  get isStructuredCellValue() {
+    return false;
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
       return value == null ? value : JSON.stringify(value);

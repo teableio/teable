@@ -2,19 +2,21 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { IFilter, ITableFullVo } from '@teable-group/core';
-import { and, FieldKeyType } from '@teable-group/core';
-import { getRecords as apiGetRecords } from '@teable-group/openapi';
+import type { IFilter } from '@teable/core';
+import { and, FieldKeyType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { getRecords as apiGetRecords } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import {
   CHECKBOX_FIELD_CASES,
   DATE_FIELD_CASES,
   MULTIPLE_SELECT_FIELD_CASES,
+  MULTIPLE_USER_FIELD_CASES,
   NUMBER_FIELD_CASES,
   SINGLE_SELECT_FIELD_CASES,
   TEXT_FIELD_CASES,
   USER_FIELD_CASES,
-} from './data-helpers/caces';
+} from './data-helpers/caces/record-filter-query';
 import { createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Record-Filter-Query (e2e)', () => {
@@ -252,7 +254,7 @@ describe('OpenAPI Record-Filter-Query (e2e)', () => {
     });
 
     describe('simple filter user field record', () => {
-      test.each(USER_FIELD_CASES)(
+      test.each([...USER_FIELD_CASES, ...MULTIPLE_USER_FIELD_CASES])(
         `should filter [$operator], query value: $queryValue, expect result length: $expectResultLength`,
         async ({
           fieldIndex,

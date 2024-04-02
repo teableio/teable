@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { isMeTag, Me } from '@teable-group/core';
-import { User as UserIcon } from '@teable-group/icons';
-import { getBaseCollaboratorList } from '@teable-group/openapi';
-import { Avatar, AvatarFallback, AvatarImage } from '@teable-group/ui-lib';
+import { isMeTag, Me } from '@teable/core';
+import { User as UserIcon } from '@teable/icons';
+import { getBaseCollaboratorList } from '@teable/openapi';
+import { Avatar, AvatarFallback, AvatarImage } from '@teable/ui-lib';
 import React, { useCallback, useMemo } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBase, useSession } from '../../../hooks';
 import type { UserField } from '../../../model';
+import { convertNextImageUrl } from '../../grid-enhancements';
 import { BaseMultipleSelect, BaseSingleSelect } from './base';
 
 interface IFilterUserProps {
@@ -57,14 +58,21 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
         key={option.value}
       >
         <div className="flex items-center space-x-2">
-          <Avatar className="h-7 w-7 border">
+          <Avatar className="size-6 border">
             {isMeTag(option.value) ? (
-              <span className="flex h-full w-full items-center justify-center">
-                <UserIcon className="h-4 w-4" />
+              <span className="flex size-full items-center justify-center">
+                <UserIcon className="size-4" />
               </span>
             ) : (
               <>
-                <AvatarImage src={option.avatar as string} alt="avatar-name" />
+                <AvatarImage
+                  src={convertNextImageUrl({
+                    url: option.avatar as string,
+                    w: 64,
+                    q: 75,
+                  })}
+                  alt={option.label}
+                />
                 <AvatarFallback className="text-sm">{option.label.slice(0, 1)}</AvatarFallback>
               </>
             )}
@@ -82,14 +90,21 @@ const FilterUserSelectBase = (props: IFilterUserProps) => {
         className="truncate rounded-lg bg-secondary px-2 text-secondary-foreground"
       >
         <div className="flex items-center space-x-2">
-          <Avatar className="h-7 w-7 border">
+          <Avatar className="size-7 border">
             {isMeTag(option.value) ? (
-              <span className="flex h-full w-full items-center justify-center">
-                <UserIcon className="h-4 w-4" />
+              <span className="flex size-full items-center justify-center">
+                <UserIcon className="size-4" />
               </span>
             ) : (
               <>
-                <AvatarImage src={option.avatar as string} alt="avatar-name" />
+                <AvatarImage
+                  src={convertNextImageUrl({
+                    url: option.avatar as string,
+                    w: 64,
+                    q: 75,
+                  })}
+                  alt={option.label}
+                />
                 <AvatarFallback className="text-sm">{option.label.slice(0, 1)}</AvatarFallback>
               </>
             )}

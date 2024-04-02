@@ -1,7 +1,7 @@
-import { SingleLineTextDisplayType } from '@teable-group/core';
-import type { ISingleLineTextFieldOptions } from '@teable-group/core';
-import { Link, Mail, Phone } from '@teable-group/icons';
-import { Button, Input, cn } from '@teable-group/ui-lib';
+import { SingleLineTextDisplayType } from '@teable/core';
+import type { ISingleLineTextFieldOptions } from '@teable/core';
+import { Link, Mail, Phone } from '@teable/icons';
+import { Button, Input, cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
@@ -38,11 +38,11 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
   const getIcon = (type: SingleLineTextDisplayType) => {
     switch (type) {
       case SingleLineTextDisplayType.Url:
-        return <Link className="h-4 w-4" />;
+        return <Link className="size-4" />;
       case SingleLineTextDisplayType.Email:
-        return <Mail className="h-4 w-4" />;
+        return <Mail className="size-4" />;
       case SingleLineTextDisplayType.Phone:
-        return <Phone className="h-4 w-4" />;
+        return <Phone className="size-4" />;
       default:
         return null;
     }

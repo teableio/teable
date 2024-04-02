@@ -1,4 +1,4 @@
-import { Progress } from '@teable-group/ui-lib/shadcn';
+import { Progress } from '@teable/ui-lib/shadcn';
 import React, { useState, useEffect } from 'react';
 
 export function ProgressBar({ duration, cellCount }: { duration: number; cellCount: number }) {

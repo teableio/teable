@@ -1,26 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ISendMailOptions } from '@nestjs-modules/mailer';
-import type { INotificationBuffer, INotificationUrl } from '@teable-group/core';
+import type { INotificationBuffer, INotificationUrl } from '@teable/core';
 import {
   generateNotificationId,
   getUserNotificationChannel,
   NotificationStatesEnum,
   NotificationTypeEnum,
   notificationUrlSchema,
-  systemIconSchema,
   userIconSchema,
-} from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IGetNotifyListQuery,
   INotificationUnreadCountVo,
   INotificationVo,
   IUpdateNotifyStatusRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { ShareDbService } from '../../share-db/share-db.service';
+import { getFullStorageUrl } from '../../utils/full-storage-url';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
 
@@ -59,6 +59,7 @@ export class NotificationService {
 
     const notifyId = generateNotificationId();
     const emailOptions = this.mailSenderService.collaboratorCellTagEmailOptions({
+      notifyId,
       fromUserName: fromUser.name,
       refRecord,
     });
@@ -66,7 +67,7 @@ export class NotificationService {
     const userIcon = userIconSchema.parse({
       userId: fromUser.id,
       userName: fromUser.name,
-      userAvatarUrl: fromUser.avatar,
+      userAvatarUrl: fromUser?.avatar && getFullStorageUrl(fromUser.avatar),
     });
 
     const urlMeta = notificationUrlSchema.parse({
@@ -176,16 +177,16 @@ export class NotificationService {
 
     switch (notifyType) {
       case NotificationTypeEnum.System:
-        return systemIconSchema.parse({ iconUrl: origin });
+        return { iconUrl: origin };
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { id, name, avatar } = fromUserSets[fromUserId];
 
-        return userIconSchema.parse({
+        return {
           userId: id,
           userName: name,
-          userAvatarUrl: avatar,
-        });
+          userAvatarUrl: avatar && getFullStorageUrl(avatar),
+        };
       }
     }
   }
@@ -200,7 +201,7 @@ export class NotificationService {
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { baseId, tableId, recordId } = urlMeta || {};
 
-        return `${origin}/base/${baseId}/${tableId}/${recordId ? recordId : ''}`;
+        return `${origin}/base/${baseId}/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
       }
     }
   }

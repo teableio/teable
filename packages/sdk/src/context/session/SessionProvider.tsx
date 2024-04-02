@@ -1,20 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { userMe } from '@teable-group/openapi';
+import { userMe } from '@teable/openapi';
 import { useCallback, useMemo, useState } from 'react';
 import type { IUser } from './SessionContext';
 import { SessionContext } from './SessionContext';
 
 interface ISessionProviderProps {
   user?: IUser;
-}
-
-declare global {
-  interface Window {
-    __s: {
-      user?: IUser;
-      driver: string;
-    };
-  }
 }
 
 export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderProps>> = (
@@ -24,9 +15,6 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   const [currentUser, setCurrentUser] = useState<IUser | undefined>(() => {
     if (user) {
       return user;
-    }
-    if (typeof window === 'object') {
-      return window.__s.user;
     }
     return undefined;
   });
@@ -52,7 +40,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
       });
       return;
     }
-    refresh?.();
+    refresh();
   }, [currentUser, refresh]);
 
   const value = useMemo(

@@ -3,7 +3,7 @@ import { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro'
 import { UpdateWorkflowTriggerRo } from '../../model/update-workflow-trigger.ro';
 import { WorkflowTriggerService } from './workflow-trigger.service';
 
-@Controller('api/workflowTrigger/:triggerId')
+@Controller('api/workflow-trigger/:triggerId')
 export class WorkflowTriggerController {
   constructor(private readonly workflowTriggerService: WorkflowTriggerService) {}
 
@@ -16,7 +16,7 @@ export class WorkflowTriggerController {
     return null;
   }
 
-  @Put('updateConfig')
+  @Put('update-config')
   async updateConfig(
     @Param('triggerId') triggerId: string,
     @Body() updateRo: UpdateWorkflowTriggerRo

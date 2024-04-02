@@ -1,29 +1,32 @@
 name: Unit Tests
 
 on:
+  push:
+    branches:
+      - develop
   pull_request:
     branches:
       - develop
     paths:
-      - 'apps/nestjs-backend/**'
       - 'apps/nextjs-app/**'
       - 'packages/core/**'
       - 'packages/sdk/**'
+      - 'packages/openapi/**'
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     name: Unit Tests
 
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [20.9.0]
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -33,7 +36,7 @@ jobs:
       - name: 🧩 Generate Prisma Client
         working-directory: packages/db-main-prisma
         run: |
-          pnpm -F @teable-group/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+          pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
 
       - name: 🏗 Run build
         run: |
@@ -41,4 +44,19 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          pnpm g:test-unit
+          pnpm -F "!@teable/backend" -r --parralel test-unit-cover
+
+      - name: Coveralls Parallel
+        uses: coverallsapp/github-action@v2
+        with:
+          flag-name: run-${{ join(matrix.*, '-') }}
+          parallel: true
+
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

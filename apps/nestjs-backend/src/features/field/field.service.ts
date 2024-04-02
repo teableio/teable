@@ -7,10 +7,10 @@ import type {
   DbFieldType,
   ILookupOptionsVo,
   IOtOperation,
-} from '@teable-group/core';
-import { FieldOpBuilder, IdPrefix, OpName } from '@teable-group/core';
-import type { Field as RawField, Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { FieldOpBuilder, IdPrefix, OpName } from '@teable/core';
+import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { keyBy, sortBy } from 'lodash';
@@ -18,11 +18,10 @@ import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IAdapterService } from '../../share-db/interface';
+import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
-import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
 import { createViewVoByRaw } from '../view/model/factory';
 import type { IFieldInstance } from './model/factory';
@@ -32,13 +31,12 @@ import { dbType2knexFormat } from './util';
 type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
-export class FieldService implements IAdapterService {
+export class FieldService implements IReadonlyAdapterService {
   private logger = new Logger(FieldService.name);
 
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly attachmentService: AttachmentsTableService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
@@ -47,7 +45,7 @@ export class FieldService implements IAdapterService {
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
     let dbFieldName = convertNameToValidCharacter(name, 40);
 
-    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId), dbFieldName);
+    const query = this.dbProvider.columnInfo(await this.getDbTableName(tableId));
     const columns = await this.prismaService.txClient().$queryRawUnsafe<{ name: string }[]>(query);
     // fallback logic
     if (columns.some((column) => column.name === dbFieldName)) {
@@ -103,7 +101,6 @@ export class FieldService implements IAdapterService {
       cellValueType,
       isMultipleCellValue,
       createdBy: userId,
-      lastModifiedBy: userId,
     };
 
     return this.prismaService.txClient().field.create({ data });
@@ -163,7 +160,7 @@ export class FieldService implements IAdapterService {
       throw new BadRequestException(`Db Field name ${newDbFieldName} already exists in this table`);
     }
 
-    const alterTableSql = this.dbProvider.renameColumnName(
+    const alterTableSql = this.dbProvider.renameColumn(
       table.dbTableName,
       dbFieldName,
       newDbFieldName
@@ -268,6 +265,22 @@ export class FieldService implements IAdapterService {
     return tableMeta.dbTableName;
   }
 
+  async resolvePending(tableId: string, fieldIds: string[]) {
+    await this.batchUpdateFields(
+      tableId,
+      fieldIds.map((fieldId) => ({
+        fieldId,
+        ops: [
+          FieldOpBuilder.editor.setFieldProperty.build({
+            key: 'isPending',
+            newValue: null,
+            oldValue: true,
+          }),
+        ],
+      }))
+    );
+  }
+
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
     if (!opData.length) return;
 
@@ -361,10 +374,6 @@ export class FieldService implements IAdapterService {
 
   private async deleteMany(tableId: string, fieldData: { docId: string; version: number }[]) {
     const userId = this.cls.get('user.id');
-    await this.attachmentService.deleteFields(
-      tableId,
-      fieldData.map((data) => data.docId)
-    );
 
     for (const data of fieldData) {
       const { docId: id, version } = data;

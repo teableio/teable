@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { FieldType } from '@teable-group/core';
+import { FieldType } from '@teable/core';
 import { GlobalModule } from '../../../global/global.module';
 import { FieldService } from '../field.service';
 import { FieldCalculateModule } from './field-calculate.module';

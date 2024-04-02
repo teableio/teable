@@ -1,6 +1,9 @@
 name: Integration Tests
 
 on:
+  push:
+    branches:
+      - develop
   pull_request:
     branches:
       - develop
@@ -8,14 +11,14 @@ on:
       - 'apps/nestjs-backend/**'
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     name: Integration Tests
 
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18.x]
+        node-version: [20.9.0]
         database-type: [postgres, sqlite]
     env:
       CI: 1
@@ -24,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -38,3 +41,22 @@ jobs:
           VITEST_MIN_THREADS: 1
         run: |
           make ${{ matrix.database-type }}.integration.test
+          pnpm -F "@teable/backend" test-unit-cover
+          pnpm -F "@teable/backend" merge-cover
+          pnpm -F "@teable/backend" generate-cover
+
+      - name: Coveralls Parallel
+        uses: coverallsapp/github-action@v2
+        with:
+          flag-name: run-${{ join(matrix.*, '-') }}
+          file: apps/nestjs-backend/coverage/nestjs-backend/clover.xml
+          parallel: true
+
+  finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

@@ -1,7 +1,7 @@
 import { difference, map } from 'lodash';
 import React from 'react';
 import { useViewId, useFields, useView } from '../../hooks';
-import type { IFieldInstance } from '../../model';
+import type { GridView, IFieldInstance } from '../../model';
 import { HideFieldsBase } from './HideFieldsBase';
 
 export const HideFields: React.FC<{
@@ -9,14 +9,12 @@ export const HideFields: React.FC<{
 }> = ({ children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true });
-  const view = useView();
+  const view = useView() as GridView | undefined;
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>
     fields.filter(
-      ({ isPrimary, id }) =>
-        activeViewId &&
-        !isPrimary &&
-        (!shouldBeHidden || view?.columnMeta?.[id]?.hidden === shouldBeHidden)
+      ({ id }) =>
+        activeViewId && (!shouldBeHidden || view?.columnMeta?.[id]?.hidden === shouldBeHidden)
     );
 
   const fieldData = filterFields(fields);
@@ -32,12 +30,12 @@ export const HideFields: React.FC<{
 
     if (view) {
       hiddenIds.length &&
-        view.setViewColumnMeta(
+        view.updateColumnMeta(
           hiddenIds.map((id) => ({ fieldId: id, columnMeta: { hidden: true } }))
         );
 
       showIds.length &&
-        view.setViewColumnMeta(
+        view.updateColumnMeta(
           showIds.map((id) => ({ fieldId: id, columnMeta: { hidden: false } }))
         );
     }

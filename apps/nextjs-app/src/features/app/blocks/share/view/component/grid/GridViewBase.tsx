@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
-import type { GridViewOptions, IFilter, IGetRecordsRo } from '@teable-group/core';
-import { RowHeightLevel, mergeFilter } from '@teable-group/core';
-import type { IRangesRo } from '@teable-group/openapi';
-import { shareViewCopy } from '@teable-group/openapi';
+import type { IGridViewOptions, IFilter } from '@teable/core';
+import { RowHeightLevel, mergeFilter } from '@teable/core';
+import type { IGetRecordsRo, IRangesRo } from '@teable/openapi';
+import { shareViewCopy } from '@teable/openapi';
 import type {
   CombinedSelection,
   ICell,
@@ -10,7 +10,7 @@ import type {
   IGridRef,
   IGroupPoint,
   IRectangle,
-} from '@teable-group/sdk/components';
+} from '@teable/sdk/components';
 import {
   DraggableType,
   Grid,
@@ -27,18 +27,19 @@ import {
   RowCounter,
   useGridColumnOrder,
   generateLocalId,
-} from '@teable-group/sdk/components';
+} from '@teable/sdk/components';
 import {
   useGroupPoint,
   useIsHydrated,
   useIsTouchDevice,
   useRowCount,
+  useSearch,
   useSSRRecord,
   useSSRRecords,
   useTableId,
   useView,
-} from '@teable-group/sdk/hooks';
-import { Skeleton, useToast } from '@teable-group/ui-lib/shadcn';
+} from '@teable/sdk/hooks';
+import { Skeleton, useToast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';
@@ -65,7 +66,7 @@ export const GridViewBase = () => {
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const isTouchDevice = useIsTouchDevice();
-  const { setSelection, openStatisticMenu } = useGridViewStore();
+  const { selection, setSelection, openStatisticMenu } = useGridViewStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -77,6 +78,7 @@ export const GridViewBase = () => {
   });
   const copyMethod = useCopy({ copyReq: copy });
   const { filter, sort, group } = view ?? {};
+  const { searchQuery } = useSearch();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
   const groupCollection = useGridGroupCollection();
@@ -89,11 +91,12 @@ export const GridViewBase = () => {
   const viewQuery = useMemo(() => {
     const mergedFilter = mergeFilter(filter, viewGroupQuery?.filter);
     return {
+      search: searchQuery,
       filter: mergedFilter as IFilter,
       orderBy: sort?.sortObjs as IGetRecordsRo['orderBy'],
       groupBy: group as IGetRecordsRo['groupBy'],
     };
-  }, [filter, sort?.sortObjs, group, viewGroupQuery]);
+  }, [filter, viewGroupQuery?.filter, searchQuery, sort?.sortObjs, group]);
 
   const { onVisibleRegionChanged, recordMap } = useGridAsyncRecords(
     ssrRecords,
@@ -120,7 +123,7 @@ export const GridViewBase = () => {
     }
     router.push(
       {
-        pathname: `${router.pathname}/[recordId]`,
+        pathname: router.pathname,
         query: { ...router.query, recordId },
       },
       undefined,
@@ -132,7 +135,7 @@ export const GridViewBase = () => {
 
   const rowHeightLevel = useMemo(() => {
     if (view == null) return RowHeightLevel.Short;
-    return (view.options as GridViewOptions)?.rowHeight || RowHeightLevel.Short;
+    return (view.options as IGridViewOptions)?.rowHeight || RowHeightLevel.Short;
   }, [view]);
 
   const onSelectionChanged = useCallback(
@@ -195,8 +198,24 @@ export const GridViewBase = () => {
     [columns, openStatisticMenu]
   );
 
+  useEffect(() => {
+    if (!selection) {
+      return;
+    }
+    const handleFocus = (event: FocusEvent) => {
+      const target = event.target as Node;
+      if (container.current && !container.current.contains(target)) {
+        gridRef.current?.resetState();
+      }
+    };
+    document.addEventListener('focus', handleFocus, true);
+    return () => {
+      document.removeEventListener('focus', handleFocus, true);
+    };
+  }, [selection]);
+
   return (
-    <div ref={container} className="relative h-full w-full overflow-hidden">
+    <div ref={container} className="relative size-full overflow-hidden">
       {prepare ? (
         <>
           <Grid
@@ -209,8 +228,6 @@ export const GridViewBase = () => {
             columnStatistics={columnStatistics}
             freezeColumnCount={isTouchDevice ? 0 : 1}
             columns={columns}
-            smoothScrollX
-            smoothScrollY
             customIcons={customIcons}
             rowControls={rowControls}
             style={{

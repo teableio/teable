@@ -1,9 +1,11 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { IGetTableQuery, ITableVo } from '@teable-group/core';
-import { getTableQuerySchema, tableVoSchema } from '@teable-group/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { ITableVo } from './create';
+import { tableVoSchema } from './create';
+import type { IGetTableQuery } from './get-list';
+import { getTableQuerySchema } from './get-list';
 
 export const GET_TABLE = '/base/{baseId}/table/{tableId}';
 

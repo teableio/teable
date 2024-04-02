@@ -1,6 +1,6 @@
-import type { IFieldVo, IRecord, ITableVo, IViewVo } from '@teable-group/core';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
+import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
+import type { IGetBaseVo, ITableVo } from '@teable/openapi';
+import type { SsrApi } from '@/backend/api/rest/table.ssr';
 
 export interface IViewPageProps {
   baseServerData: IGetBaseVo;
@@ -8,15 +8,17 @@ export interface IViewPageProps {
   fieldServerData: IFieldVo[];
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
+  recordServerData?: IRecord;
 }
 
 export const getViewPageServerData = async (
+  ssrApi: SsrApi,
   baseId: string,
-  nodeId: string,
+  tableId: string,
   viewId: string
 ): Promise<IViewPageProps | undefined> => {
   const api = ssrApi;
-  const tableResult = await api.getTable(baseId, nodeId, viewId);
+  const tableResult = await api.getTable(baseId, tableId, viewId);
   if (tableResult) {
     const base = await ssrApi.getBaseById(baseId);
     const tablesResult = await api.getTables(baseId);

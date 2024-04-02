@@ -1,3 +1,4 @@
+import { cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction, MutableRefObject, ReactNode, UIEvent } from 'react';
 import { useMemo, useRef, useCallback, forwardRef, useImperativeHandle, useEffect } from 'react';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -12,7 +13,14 @@ import type { ITimeoutID } from './utils';
 import { cancelTimeout, isWindowsOS, requestTimeout } from './utils/utils';
 
 export interface ScrollerProps
-  extends Pick<IGridProps, 'smoothScrollX' | 'smoothScrollY' | 'onVisibleRegionChanged'> {
+  extends Pick<
+    IGridProps,
+    | 'smoothScrollX'
+    | 'smoothScrollY'
+    | 'scrollBarVisible'
+    | 'onScrollChanged'
+    | 'onVisibleRegionChanged'
+  > {
   coordInstance: CoordinateManager;
   containerWidth: number;
   containerHeight: number;
@@ -44,10 +52,12 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     containerRef,
     smoothScrollX,
     smoothScrollY,
+    scrollBarVisible,
     scrollEnable = true,
     scrollState,
     getLinearRow,
     setScrollState,
+    onScrollChanged,
     onVisibleRegionChanged,
   } = props;
 
@@ -135,6 +145,10 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       width: stopColumnIndex - startColumnIndex,
       height: realStopRowIndex - realStartRowIndex,
     });
+    onScrollChanged?.(
+      scrollProps.scrollLeft ?? scrollState.scrollLeft,
+      scrollProps.scrollTop ?? scrollState.scrollTop
+    );
 
     setScrollState((prev) => {
       return {
@@ -255,7 +269,10 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
     <>
       <div
         ref={horizontalScrollRef}
-        className="scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-h-[10px] absolute bottom-[2px] left-0 h-4 cursor-pointer overflow-y-hidden overflow-x-scroll will-change-transform"
+        className={cn(
+          'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-h-[10px] absolute bottom-[2px] left-0 h-4 cursor-pointer overflow-y-hidden overflow-x-scroll will-change-transform',
+          !scrollBarVisible && 'opacity-0 pointer-events-none'
+        )}
         style={{
           left,
           width: containerWidth - left,
@@ -272,14 +289,17 @@ const InfiniteScrollerBase: ForwardRefRenderFunction<ScrollerRef, ScrollerProps>
       </div>
       <div
         ref={verticalScrollRef}
-        className="scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[10px] scrollbar-min-thumb absolute right-[2px] w-4 cursor-pointer overflow-x-hidden overflow-y-scroll will-change-transform"
+        className={cn(
+          'scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[10px] scrollbar-min-thumb absolute right-[2px] w-4 cursor-pointer overflow-x-hidden overflow-y-scroll will-change-transform',
+          !scrollBarVisible && 'opacity-0 pointer-events-none'
+        )}
         style={{
           top,
           height: containerHeight - top,
         }}
         onScroll={(e) => onScroll(e, 'vertical')}
       >
-        <div className="flex shrink-0 flex-col">{placeholderElements}</div>
+        <div className="flex w-px shrink-0 flex-col">{placeholderElements}</div>
       </div>
     </>
   );

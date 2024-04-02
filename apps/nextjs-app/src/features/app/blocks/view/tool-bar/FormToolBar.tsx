@@ -1,23 +1,13 @@
-import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable-group/icons';
-import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
-import { Button } from '@teable-group/ui-lib/shadcn';
+import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable/icons';
+import { useTableId, useTablePermission, useViewId } from '@teable/sdk/hooks';
+import { Button } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 import { generateUniqLocalKey } from '../form/util';
 import { SharePopover } from './SharePopover';
 import { FormMode, useFormModeStore } from './store';
 import { ToolBarButton } from './ToolBarButton';
-
-const FORM_MODE_BUTTON_LIST = [
-  {
-    text: 'Edit',
-    Icon: Edit,
-    mode: FormMode.Edit,
-  },
-  {
-    text: 'Fill',
-    Icon: Fill,
-    mode: FormMode.Fill,
-  },
-];
 
 export const FormToolBar: React.FC = () => {
   const tableId = useTableId();
@@ -27,12 +17,29 @@ export const FormToolBar: React.FC = () => {
   const currentMode = modeMap[modeKey] ?? FormMode.Edit;
   const permission = useTablePermission();
   const isEditable = permission['view|update'];
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const setFormMode = (mode: FormMode) => {
     if (!tableId || !currentViewId) return;
 
     setModeMap(modeKey, mode);
   };
+
+  const FORM_MODE_BUTTON_LIST = useMemo(
+    () => [
+      {
+        text: t('actions.edit'),
+        Icon: Edit,
+        mode: FormMode.Edit,
+      },
+      {
+        text: t('actions.fill'),
+        Icon: Fill,
+        mode: FormMode.Fill,
+      },
+    ],
+    [t]
+  );
 
   return (
     <div className="flex flex-wrap items-center justify-end border-y py-2 pl-8 pr-4 @container/toolbar sm:justify-between">
@@ -55,14 +62,10 @@ export const FormToolBar: React.FC = () => {
           })}
       </div>
 
-      {/* <Button variant={'ghost'} size={'xs'} className="font-normal">
-        <ArrowUpRight className="h-4 w-4" />
-        Share
-      </Button> */}
       <SharePopover>
         {(text, isActive) => (
           <ToolBarButton disabled={!isEditable} isActive={isActive} text={text}>
-            <ArrowUpRight className="h-4 w-4" />
+            <ArrowUpRight className="size-4" />
           </ToolBarButton>
         )}
       </SharePopover>

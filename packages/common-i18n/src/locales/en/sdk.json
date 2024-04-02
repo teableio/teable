@@ -8,18 +8,27 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "search": {
-      "placeholder": "Search records",
+      "placeholder": "Search...",
       "empty": "No results found."
     },
     "selectPlaceHolder": "Select..."
   },
+  "noun": {
+    "table": "Table",
+    "view": "View",
+    "space": "Space",
+    "base": "Base",
+    "field": "Field",
+    "record": "Record"
+  },
   "editor": {
     "attachment": {
-      "uploadDragOver": "Paste or drag and drop to upload here",
-      "uploadDragDefault": "Release to upload file"
+      "uploadDragOver": "Release to upload file",
+      "uploadDragDefault": "Paste or drag and drop to upload here"
     },
     "date": {
-      "placeholder": "Pick a date"
+      "placeholder": "Pick a date",
+      "today": "Today"
     },
     "formula": {
       "title": "Formula Editor",
@@ -31,6 +40,7 @@
       "placeholder": "Select records to link",
       "searchPlaceholder": "Search records",
       "create": "Add Record",
+      "selectRecord": "Select Record",
       "unselected": "Unselected",
       "selected": "Selected"
     }
@@ -44,7 +54,8 @@
   },
   "hidden": {
     "showAll": "Show All",
-    "hideAll": "Hide All"
+    "hideAll": "Hide All",
+    "forbidHiddenPrimaryTip": "Primary key: is used to identify records, could not to hidden"
   },
   "expandRecord": {
     "copy": "Copy to clipboard"
@@ -56,5 +67,80 @@
   "group": {
     "title": "Group by",
     "addButton": "Add Subgroup"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "Single line text",
+      "longText": "Long text",
+      "singleSelect": "Single select",
+      "number": "Number",
+      "multipleSelect": "Multiple select",
+      "link": "Link",
+      "formula": "Formula",
+      "date": "Date",
+      "createdTime": "Created time",
+      "lastModifiedTime": "Last modified time",
+      "attachment": "Attachment",
+      "checkbox": "Checkbox",
+      "rollup": "Rollup",
+      "user": "User",
+      "rating": "Rating",
+      "autoNumber": "Auto number",
+      "lookup": "lookup to other table"
+    }
+  },
+  "spaceRole": {
+    "role": {
+      "owner": "Owner",
+      "creator": "Creator",
+      "editor": "Editor",
+      "commenter": "Commenter",
+      "viewer": "Viewer"
+    },
+    "description": {
+      "owner": "Can fully configure and edit bases, and manage space settings and billing",
+      "creator": "Can fully configure and edit bases",
+      "editor": "Can edit records and views, but cannot configure tables or fields",
+      "commenter": "Can comment on records",
+      "viewer": "Cannot edit or comment"
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "Create space",
+      "spaceDelete": "Delete space",
+      "spaceRead": "Read space",
+      "spaceUpdate": "Update space",
+      "spaceInviteEmail": "Invite via email in space",
+      "spaceInviteLink": "Invite via link in space",
+      "spaceGrantRole": "Grant role in space",
+      "baseCreate": "Create base",
+      "baseDelete": "Delete base",
+      "baseRead": "Read base",
+      "baseUpdate": "Update base",
+      "baseInviteEmail": "Invite via email in base",
+      "baseInviteLink": "Invite via link in base",
+      "baseTableImport": "Import data into base",
+      "baseTableExport": "Export data from base",
+      "tableCreate": "Create table",
+      "tableRead": "Read table",
+      "tableDelete": "Delete table",
+      "tableUpdate": "Update table",
+      "tableImport": "Import data into table",
+      "tableExport": "export table data",
+      "viewCreate": "Create view",
+      "viewDelete": "Delete view",
+      "viewRead": "Read view",
+      "viewUpdate": "Update view",
+      "fieldCreate": "Create field",
+      "fieldDelete": "Delete field",
+      "fieldRead": "Read field",
+      "fieldUpdate": "Update field",
+      "recordCreate": "Create record",
+      "recordComment": "Comment on record",
+      "recordDelete": "Delete record",
+      "recordRead": "Read record",
+      "recordUpdate": "Update record"
+    }
   }
 }

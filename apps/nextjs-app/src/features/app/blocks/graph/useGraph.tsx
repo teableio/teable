@@ -1,7 +1,7 @@
 import type { GraphData, Graph as IGraph } from '@antv/g6';
 import G6 from '@antv/g6';
-import { ThemeKey } from '@teable-group/sdk/context';
-import { useTheme } from '@teable-group/sdk/hooks';
+import { ThemeKey } from '@teable/sdk/context';
+import { useTheme } from '@teable/sdk/hooks';
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 export const useGraph = (ref: RefObject<HTMLDivElement>) => {

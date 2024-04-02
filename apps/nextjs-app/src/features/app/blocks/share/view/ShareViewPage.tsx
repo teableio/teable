@@ -1,8 +1,16 @@
-import type { ShareViewGetVo } from '@teable-group/openapi';
-import { AnchorContext, AppProvider, FieldProvider, ViewProvider } from '@teable-group/sdk/context';
-import { getWsPath } from '@teable-group/sdk/context/app/useConnection';
+import { ANONYMOUS_USER_ID, type DriverClient } from '@teable/core';
+import type { ShareViewGetVo } from '@teable/openapi';
+import {
+  AnchorContext,
+  AppProvider,
+  FieldProvider,
+  SessionProvider,
+  ViewProvider,
+} from '@teable/sdk/context';
+import { getWsPath } from '@teable/sdk/context/app/useConnection';
+import Head from 'next/head';
 import { useMemo } from 'react';
-import { useTitle } from 'react-use';
+import { useTranslation } from 'react-i18next';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
 import { AppLayout } from '@/features/app/layouts';
 import { addQueryParamsToWebSocketUrl } from '@/features/app/utils/socket-url';
@@ -12,11 +20,13 @@ import { ViewProxy } from './ViewProxy';
 
 export interface IShareViewPageProps {
   shareViewData: ShareViewGetVo;
+  driver: DriverClient;
 }
 
 export const ShareViewPage = (props: IShareViewPageProps) => {
   const { tableId, viewId, view, fields, shareId } = props.shareViewData;
   const sdkLocale = useSdkLocale();
+  const { i18n } = useTranslation();
 
   const wsPath = useMemo(() => {
     if (typeof window === 'object') {
@@ -25,26 +35,37 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
     return undefined;
   }, [shareId]);
 
-  useTitle(view?.name ?? 'Teable');
-
   return (
     <ShareViewPageContext.Provider value={props.shareViewData}>
+      <Head>
+        <title>{view?.name ?? 'Teable'}</title>
+      </Head>
       <AppLayout>
-        <AppProvider wsPath={wsPath} locale={sdkLocale}>
-          <AnchorContext.Provider
-            value={{
-              tableId,
-              viewId,
+        <AppProvider lang={i18n.language} wsPath={wsPath} locale={sdkLocale} driver={props.driver}>
+          <SessionProvider
+            user={{
+              id: ANONYMOUS_USER_ID,
+              name: ANONYMOUS_USER_ID,
+              email: '',
+              notifyMeta: {},
+              hasPassword: false,
             }}
           >
-            <ViewProvider serverData={[view]}>
-              <ViewProxy serverData={[view]}>
-                <FieldProvider serverSideData={fields}>
-                  <ShareView />
-                </FieldProvider>
-              </ViewProxy>
-            </ViewProvider>
-          </AnchorContext.Provider>
+            <AnchorContext.Provider
+              value={{
+                tableId,
+                viewId,
+              }}
+            >
+              <ViewProvider serverData={[view]}>
+                <ViewProxy serverData={[view]}>
+                  <FieldProvider serverSideData={fields}>
+                    <ShareView />
+                  </FieldProvider>
+                </ViewProxy>
+              </ViewProvider>
+            </AnchorContext.Provider>
+          </SessionProvider>
         </AppProvider>
       </AppLayout>
     </ShareViewPageContext.Provider>

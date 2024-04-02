@@ -1,10 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { NotificationStatesEnum } from '@teable-group/core';
-import { Inbox } from '@teable-group/icons';
-import type { INotificationVo } from '@teable-group/openapi';
-import { updateNotificationStatus } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk/config/react-query-keys';
-import { Button } from '@teable-group/ui-lib';
+import type { NotificationStatesEnum } from '@teable/core';
+import { Inbox } from '@teable/icons';
+import type { INotificationVo } from '@teable/openapi';
+import { updateNotificationStatus } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
+import { Button } from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import React from 'react';
@@ -60,17 +60,23 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
             <NotificationActionBar
               key={id}
               notifyStatus={notifyStatus}
-              onStatusCheck={() => {
+              onStatusCheck={() =>
                 updateStatusMutator({
                   notificationId: id,
                   updateNotifyStatusRo: { isRead: !isRead },
-                });
-              }}
+                })
+              }
             >
               <div className="max-h-[80px]">
                 <a
                   className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
                   href={url}
+                  onClick={() =>
+                    updateStatusMutator({
+                      notificationId: id,
+                      updateNotifyStatusRo: { isRead: true },
+                    })
+                  }
                 >
                   <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
                   <div className="mr-3 w-[calc(100%_-_100px)]  items-center whitespace-pre-wrap break-words text-sm font-normal">

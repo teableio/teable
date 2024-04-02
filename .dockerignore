@@ -1,6 +1,5 @@
 # All node_modules directories
 node_modules
-**/node_modules
 **/dist
 **/.next
 
@@ -10,35 +9,31 @@ node_modules
 
 # By default all git files
 .git
-.gitignore
+**/.gitignore
 .gitattributes
 .github
 
 # Tools caches
-.cache/*
-**.tsbuildinfo
+.cache
+**/*.tsbuildinfo
 **/.eslintcache
 
-# Used when building with nextjs (next-eslint)
-!.eslintrc.base.json
-!.prettierignore
-!.prettierrc.js
-!.eslintignore
+# eslint
+**/.eslintrc.cjs
+**/lint-staged.config.js
 
 # npm
 !.npmrc
 
 # Docker related
 .dockerignore
-Dockerfile
-Dockerfile.*
-docker-compose.yml
-docker-compose.*.yml
-dockers/**
+dockers
+*Dockerfile*
+*docker-compose*
 
 # Log files
 logs
-*.log
+**/*.log
 
 # Temp files
 tmp
@@ -49,6 +44,9 @@ tmp
 .vscode
 
 # other
+**/db
 **/.assets
+**/.temporary
 **.DS_Store
-*.md
+docs
+**/*.md

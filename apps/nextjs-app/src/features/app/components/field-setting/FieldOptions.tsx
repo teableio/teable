@@ -11,8 +11,8 @@ import type {
   ICreatedTimeFieldOptions,
   ILastModifiedTimeFieldOptions,
   IUserFieldOptions,
-} from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
+} from '@teable/core';
+import { FieldType } from '@teable/core';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';

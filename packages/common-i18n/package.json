@@ -1,12 +1,14 @@
 {
-  "name": "@teable-group/common-i18n",
+  "name": "@teable/common-i18n",
   "version": "1.0.0",
   "license": "AGPL-3.0",
-  "private": true,
-  "homepage": "https://github.com/teable-group/teable",
+  "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/teable-group/teable",
+    "url": "https://github.com/teableio/teable",
     "directory": "packages/common-i18n"
   },
   "author": {
@@ -15,6 +17,10 @@
   },
   "sideEffects": false,
   "type": "module",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
   "exports": {
     "./locales/*.json": {
       "require": "./src/locales/*.json",
@@ -32,12 +38,12 @@
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@teable-group/eslint-config-bases": "workspace:^",
-    "@types/node": "18.18.2",
+    "@teable/eslint-config-bases": "workspace:^",
+    "@types/node": "20.9.0",
     "cross-env": "7.0.3",
-    "eslint": "8.56.0",
-    "prettier": "3.1.1",
+    "eslint": "8.57.0",
+    "prettier": "3.2.5",
     "rimraf": "5.0.5",
-    "typescript": "5.3.3"
+    "typescript": "5.4.3"
   }
 }

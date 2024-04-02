@@ -4,18 +4,13 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import type { IViewVo, IShareViewMeta, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
-  IViewVo,
-  IShareViewMeta,
   IRowCountVo,
-  ILinkFieldOptions,
   IAggregationVo,
   IGroupPointsVo,
-  StatisticsFunc,
-} from '@teable-group/core';
-import { FieldKeyType, FieldType } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type {
   IShareViewLinkRecordsRo,
   ShareViewFormSubmitRo,
   ShareViewGetVo,
@@ -23,7 +18,7 @@ import type {
   IShareViewAggregationsRo,
   IRangesRo,
   IShareViewGroupPointsRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
@@ -74,13 +69,7 @@ export class ShareService {
       skip: 0,
       take: 50,
       fieldKeyType: FieldKeyType.Id,
-      projection: fields.reduce(
-        (acc, field) => {
-          acc[field.id] = true;
-          return acc;
-        },
-        {} as Record<string, boolean>
-      ),
+      projection: fields.map((f) => f.id),
     });
     return {
       shareMeta,
@@ -135,7 +124,10 @@ export class ShareService {
     const { tableId } = shareInfo;
     const { fields } = shareViewFormSubmitRo;
     const { records } = await this.prismaService.$tx(async () => {
-      return await this.recordOpenApiService.createRecords(tableId, [{ fields }], FieldKeyType.Id);
+      return await this.recordOpenApiService.createRecords(tableId, {
+        records: [{ fields }],
+        fieldKeyType: FieldKeyType.Id,
+      });
     });
     if (records.length === 0) {
       throw new InternalServerErrorException('The number of successful submit records is 0');
@@ -166,9 +158,7 @@ export class ShareService {
       (field.options as ILinkFieldOptions).lookupFieldId
     );
     const fieldKeyType = shareViewLinkRecordsRo.fieldKeyType ?? FieldKeyType.Name;
-    const projection = {
-      [linkField[fieldKeyType]]: true,
-    };
+    const projection = [linkField[fieldKeyType]];
     return this.recordService.getRecords(linkTableId, {
       ...shareViewLinkRecordsRo,
       projection,

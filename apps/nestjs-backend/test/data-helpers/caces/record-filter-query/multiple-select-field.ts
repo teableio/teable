@@ -1,4 +1,4 @@
-import { hasAllOf, hasAnyOf, hasNoneOf, isEmpty, isExactly, isNotEmpty } from '@teable-group/core';
+import { hasAllOf, hasAnyOf, hasNoneOf, isEmpty, isExactly, isNotEmpty } from '@teable/core';
 
 export const MULTIPLE_SELECT_FIELD_CASES = [
   {

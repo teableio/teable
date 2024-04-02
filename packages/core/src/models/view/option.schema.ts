@@ -2,24 +2,24 @@ import z from 'zod';
 import { ViewType } from './constant';
 import { kanbanViewOptionSchema, gridViewOptionSchema, formViewOptionSchema } from './derivate';
 
-export const viewOptionRoSchema = z.union([
+export const viewOptionsSchema = z.union([
   gridViewOptionSchema,
   kanbanViewOptionSchema,
   formViewOptionSchema,
 ]);
 
-export type IViewOptionRo = z.infer<typeof viewOptionRoSchema>;
+export type IViewOptions = z.infer<typeof viewOptionsSchema>;
 
-export const validateOptionType = (type: ViewType, optionString: IViewOptionRo): string | void => {
+export const validateOptionsType = (type: ViewType, optionsString: IViewOptions): string | void => {
   switch (type) {
     case ViewType.Grid:
-      gridViewOptionSchema.parse(optionString);
+      gridViewOptionSchema.parse(optionsString);
       break;
     case ViewType.Kanban:
-      kanbanViewOptionSchema.parse(optionString);
+      kanbanViewOptionSchema.parse(optionsString);
       break;
     case ViewType.Form:
-      formViewOptionSchema.parse(optionString);
+      formViewOptionSchema.parse(optionsString);
       break;
     default:
       throw new Error(`Unsupported view type: ${type}`);

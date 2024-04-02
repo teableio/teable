@@ -1,19 +1,25 @@
-import { FieldKeyType } from '@teable-group/core';
-import { Trash, Copy, ArrowUp, ArrowDown } from '@teable-group/icons';
-import { deleteRecords } from '@teable-group/openapi';
-import { useTableId, useTablePermission, useViewId } from '@teable-group/sdk/hooks';
-import { Record } from '@teable-group/sdk/model';
+import { FieldKeyType } from '@teable/core';
+import { Trash, ArrowUp, ArrowDown } from '@teable/icons';
+import { deleteRecords } from '@teable/openapi';
+import { SelectionRegionType } from '@teable/sdk/components';
+import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
+import { Record } from '@teable/sdk/model';
 import {
+  cn,
   Command,
   CommandGroup,
   CommandItem,
   CommandList,
   CommandSeparator,
-} from '@teable-group/ui-lib/shadcn';
-import classNames from 'classnames';
-import { useRef } from 'react';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
+import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
-import { useSelectionOperation } from '../hooks/useSelectionOperation';
+import { tableConfig } from '@/features/i18n/table.config';
 import { useGridViewStore } from '../store/gridView';
 
 export interface IMenuItemProps<T> {
@@ -37,10 +43,11 @@ const iconClassName = 'mr-2 h-4 w-4';
 
 export const RecordMenu = () => {
   const { recordMenu, closeRecordMenu, selection } = useGridViewStore();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const tableId = useTableId();
-  const viewId = useViewId();
+  const view = useView();
+  const viewId = view?.id;
   const permission = useTablePermission();
-  const { copy } = useSelectionOperation();
   const recordMenuRef = useRef<HTMLDivElement>(null);
 
   useClickAway(recordMenuRef, () => {
@@ -49,12 +56,12 @@ export const RecordMenu = () => {
 
   if (recordMenu == null) return null;
 
-  const { records, neighborRecords } = recordMenu;
-
+  const { records, onAfterInsertCallback } = recordMenu;
   if (!records?.length) return null;
 
   const visible = Boolean(recordMenu);
   const position = recordMenu?.position;
+  const isAutoSort = Boolean(view?.sort && !view.sort?.manualSort);
   const style = position
     ? {
         left: position.x,
@@ -62,79 +69,68 @@ export const RecordMenu = () => {
       }
     : {};
 
+  const onInsertRecord = async (anchorId: string, position: 'before' | 'after') => {
+    if (!tableId || !viewId) return;
+
+    const res = await Record.createRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        {
+          fields: {},
+        },
+      ],
+      order: {
+        viewId,
+        anchorId,
+        position,
+      },
+    });
+    const record = res.data.records[0];
+
+    if (record == null || selection == null) return;
+
+    const { type, ranges } = selection;
+
+    if (type === SelectionRegionType.Cells) {
+      return onAfterInsertCallback?.(record.id, ranges[0][1]);
+    }
+    if (type === SelectionRegionType.Rows) {
+      return onAfterInsertCallback?.(record.id, ranges[0][0]);
+    }
+  };
+
   const menuItemGroups: IMenuItemProps<MenuItemType>[][] = [
     [
       {
         type: MenuItemType.InsertAbove,
-        name: 'Insert record above',
+        name: t('table:menu.insertRecordAbove'),
         icon: <ArrowUp className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
+        disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId) return;
-          let finalSort;
-          const [aboveRecord] = neighborRecords;
-          const sort = records[0].recordOrder[viewId];
-
-          if (aboveRecord == null) {
-            finalSort = sort - 1;
-          } else {
-            const aboveSort = aboveRecord.recordOrder[viewId];
-            finalSort = (sort + aboveSort) / 2;
-          }
-
-          await Record.createRecords(tableId, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                fields: {},
-                recordOrder: { [viewId]: finalSort },
-              },
-            ],
-          });
+          await onInsertRecord(records[0].id, 'before');
         },
       },
       {
         type: MenuItemType.InsertBelow,
-        name: 'Insert record below',
+        name: t('table:menu.insertRecordBelow'),
         icon: <ArrowDown className={iconClassName} />,
         hidden: records.length !== 1 || !permission['record|create'],
+        disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId) return;
-          let finalSort;
-          const [, blewRecord] = neighborRecords;
-          const sort = records[0].recordOrder[viewId];
-
-          if (blewRecord == null) {
-            finalSort = sort + 1;
-          } else {
-            const aboveSort = blewRecord.recordOrder[viewId];
-            finalSort = (sort + aboveSort) / 2;
-          }
-
-          await Record.createRecords(tableId, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                fields: {},
-                recordOrder: { [viewId]: finalSort },
-              },
-            ],
-          });
+          await onInsertRecord(records[0].id, 'after');
         },
       },
     ],
     [
       {
-        type: MenuItemType.Copy,
-        name: 'Copy cells',
-        icon: <Copy className={iconClassName} />,
-        onClick: async () => {
-          selection && (await copy(selection));
-        },
-      },
-      {
         type: MenuItemType.Delete,
-        name: records.length > 1 ? 'Delete all selected records' : 'Delete record',
+        name:
+          records.length > 1
+            ? t('table:menu.deleteAllSelectedRecords')
+            : t('table:menu.deleteRecord'),
         icon: <Trash className={iconClassName} />,
         hidden: !permission['record|delete'],
         className: 'text-red-500 aria-selected:text-red-500',
@@ -149,7 +145,7 @@ export const RecordMenu = () => {
   return (
     <Command
       ref={recordMenuRef}
-      className={classNames('absolute rounded-sm shadow-sm w-60 h-auto border', {
+      className={cn('absolute rounded-sm shadow-sm w-60 h-auto border', {
         hidden: !visible,
       })}
       style={style}
@@ -160,25 +156,48 @@ export const RecordMenu = () => {
           if (!items.length) return null;
 
           return (
-            <>
-              <CommandGroup key={`rm-group-${index}`} aria-valuetext="name">
-                {items.map(({ type, name, icon, className, onClick }) => (
+            <Fragment key={index}>
+              <CommandGroup aria-valuetext="name">
+                {items.map(({ type, name, icon, className, disabled, onClick }) => (
                   <CommandItem
-                    className={classNames('px-4 py-2', className)}
+                    className={cn('px-4 py-2', className)}
                     key={type}
                     value={name}
                     onSelect={async () => {
+                      if (disabled) {
+                        return;
+                      }
                       await onClick();
                       closeRecordMenu();
                     }}
                   >
-                    {icon}
-                    {name}
+                    {disabled ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger
+                            className={cn('flex items-center gap-2', {
+                              'opacity-50': disabled,
+                            })}
+                          >
+                            {icon}
+                            {name}
+                          </TooltipTrigger>
+                          <TooltipContent hideWhenDetached={true}>
+                            {t('table:view.insertToolTip')}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <>
+                        {icon}
+                        {name}
+                      </>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>
-              {nextItems.length > 0 && <CommandSeparator key={`rm-separator-${index}`} />}
-            </>
+              {nextItems.length > 0 && <CommandSeparator />}
+            </Fragment>
           );
         })}
       </CommandList>

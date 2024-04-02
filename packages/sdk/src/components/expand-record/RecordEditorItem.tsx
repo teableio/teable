@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib';
 import { useFieldStaticGetter } from '../../hooks';
 import type { Field, Record } from '../../model';
 import { CellEditor } from '../cell-value-editor';
@@ -23,16 +23,11 @@ export const RecordEditorItem = (props: {
 
   return (
     <div className={vertical ? 'flex space-x-2' : 'space-y-2'}>
-      <div className={classNames('w-36 flex items-top space-x-1', vertical ? 'pt-2' : 'w-full')}>
-        <div className="flex h-5 w-5 items-center">
+      <div className={cn('w-36 flex items-top space-x-1', vertical ? 'pt-2' : 'w-full')}>
+        <div className="flex size-5 items-center">
           <Icon />
         </div>
-        <div
-          className={classNames(
-            'text-sm flex-1 truncate',
-            vertical && 'break-words whitespace-normal'
-          )}
-        >
+        <div className={cn('text-sm flex-1 truncate', vertical && 'break-words whitespace-normal')}>
           {field.name}
         </div>
       </div>

@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IEitherOr } from '@teable-group/core';
+import type { IEitherOr } from '@teable/core';
 import type {
   Prisma,
   AutomationWorkflowTrigger as AutomationWorkflowTriggerModel,
-} from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { TriggerTypeEnums } from '../../enums/trigger-type.enum';
 import type { CreateWorkflowTriggerRo } from '../../model/create-workflow-trigger.ro';
 import type { UpdateWorkflowTriggerRo } from '../../model/update-workflow-trigger.ro';

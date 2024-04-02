@@ -1,10 +1,14 @@
-import { LongTextFieldCore } from '@teable-group/core';
-import type { IFieldBase } from '../field-base';
+import { LongTextFieldCore } from '@teable/core';
+import type { FieldBase } from '../field-base';
 
-export class LongTextFieldDto extends LongTextFieldCore implements IFieldBase {
+export class LongTextFieldDto extends LongTextFieldCore implements FieldBase {
+  get isStructuredCellValue() {
+    return false;
+  }
+
   convertCellValue2DBValue(value: unknown): unknown {
     if (this.isMultipleCellValue) {
-      return JSON.stringify(value);
+      return value == null ? value : JSON.stringify(value);
     }
     return value;
   }

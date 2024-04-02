@@ -1,57 +1,49 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
-  ISetViewFilterOpContext,
-  ISetViewSortOpContext,
-  ISetViewGroupOpContext,
-  ISetViewNameOpContext,
-  ISetViewOptionsOpContext,
   ISnapshotBase,
   IViewRo,
   IViewVo,
-  ISetViewDescriptionOpContext,
   ISort,
-  ISetViewShareMetaOpContext,
   IOtOperation,
-  ISetViewShareIdOpContext,
-  ISetViewEnableShareOpContext,
-  ISetViewColumnMetaOpContext,
+  IUpdateViewColumnMetaOpContext,
+  ISetViewPropertyOpContext,
   IColumnMeta,
-  ISetViewOrderOpContext,
-} from '@teable-group/core';
-import { getUniqName, IdPrefix, generateViewId, OpName, ViewOpBuilder } from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+  IViewPropertyKeys,
+} from '@teable/core';
+import {
+  getUniqName,
+  IdPrefix,
+  generateViewId,
+  OpName,
+  ViewOpBuilder,
+  viewVoSchema,
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { maxBy, isEmpty } from 'lodash';
+import { isEmpty, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import type { IAdapterService } from '../../share-db/interface';
+import { fromZodError } from 'zod-validation-error';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 
-type IViewOpContext =
-  | ISetViewNameOpContext
-  | ISetViewDescriptionOpContext
-  | ISetViewFilterOpContext
-  | ISetViewOptionsOpContext
-  | ISetViewSortOpContext
-  | ISetViewGroupOpContext
-  | ISetViewShareMetaOpContext
-  | ISetViewEnableShareOpContext
-  | ISetViewShareIdOpContext
-  | ISetViewOrderOpContext
-  | ISetViewColumnMetaOpContext;
+type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
 @Injectable()
-export class ViewService implements IAdapterService {
+export class ViewService implements IReadonlyAdapterService {
   constructor(
     private readonly cls: ClsService<IClsStore>,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
   getRowIndexFieldName(viewId: string) {
@@ -66,18 +58,73 @@ export class ViewService implements IAdapterService {
     const viewRaws = await this.prismaService.txClient().view.findMany({
       where: { tableId, deletedTime: null },
       select: { name: true, order: true },
+      orderBy: { order: 'asc' },
     });
 
-    let { name, order } = viewRo;
+    let { name } = viewRo;
 
     const names = viewRaws.map((view) => view.name);
     name = getUniqName(name ?? 'New view', names);
 
-    if (order == null) {
-      const maxOrder = maxBy(viewRaws)?.order;
-      order = maxOrder == null ? 0 : maxOrder + 1;
-    }
+    const maxOrder = viewRaws[viewRaws.length - 1]?.order;
+    const order = maxOrder == null ? 0 : maxOrder + 1;
+
     return { name, order };
+  }
+
+  async existIndex(dbTableName: string, viewId: string) {
+    const columnName = this.getRowIndexFieldName(viewId);
+    const exists = await this.dbProvider.checkColumnExist(
+      dbTableName,
+      columnName,
+      this.prismaService.txClient()
+    );
+
+    if (exists) {
+      return columnName;
+    }
+  }
+
+  async createViewIndexField(dbTableName: string, viewId: string) {
+    const prisma = this.prismaService.txClient();
+
+    const rowIndexFieldName = this.getRowIndexFieldName(viewId);
+
+    // add a field for maintain row order number
+    const addRowIndexColumnSql = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        table.double(rowIndexFieldName);
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(addRowIndexColumnSql);
+
+    // fill initial order for every record, with auto increment integer
+    const updateRowIndexSql = this.knex(dbTableName)
+      .update({
+        [rowIndexFieldName]: this.knex.ref('__auto_number'),
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(updateRowIndexSql);
+
+    // create index
+    const createRowIndexSQL = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(createRowIndexSQL);
+    console.log('addRowIndexColumnSql', addRowIndexColumnSql);
+    console.log('createViewIndexField', createRowIndexSQL);
+    return rowIndexFieldName;
+  }
+
+  async getOrCreateViewIndexField(dbTableName: string, viewId: string) {
+    const indexFieldName = await this.existIndex(dbTableName, viewId);
+    console.log('exits', indexFieldName);
+    if (indexFieldName) {
+      return indexFieldName;
+    }
+    return this.createViewIndexField(dbTableName, viewId);
   }
 
   async createDbView(tableId: string, viewRo: IViewRo) {
@@ -91,7 +138,7 @@ export class ViewService implements IAdapterService {
 
     const orderColumnMeta = await this.generateViewOrderColumnMeta(tableId);
 
-    const mergedColumnMeta = { ...orderColumnMeta, ...columnMeta };
+    const mergedColumnMeta = merge(orderColumnMeta, columnMeta);
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,
@@ -110,50 +157,10 @@ export class ViewService implements IAdapterService {
       version: 1,
       order,
       createdBy: userId,
-      lastModifiedBy: userId,
       columnMeta: mergedColumnMeta ? JSON.stringify(mergedColumnMeta) : JSON.stringify({}),
     };
 
-    const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: {
-        id: tableId,
-      },
-      select: {
-        dbTableName: true,
-      },
-    });
-
-    const rowIndexFieldName = this.getRowIndexFieldName(viewId);
-
-    // 1. create a new view in view model
-    const viewData = await prisma.view.create({ data });
-    // const columnMeta = await this.updateViewColumnMetaOrderByViewId(tableId, viewId);
-
-    // 2. add a field for maintain row order number
-    const addRowIndexColumnSql = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.double(rowIndexFieldName);
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(addRowIndexColumnSql);
-
-    // 3. fill initial order for every record, with auto increment integer
-    const updateRowIndexSql = this.knex(dbTableName)
-      .update({
-        [rowIndexFieldName]: this.knex.ref('__auto_number'),
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(updateRowIndexSql);
-
-    // 4. create index
-    const createRowIndexSQL = this.knex.schema
-      .alterTable(dbTableName, (table) => {
-        table.index(rowIndexFieldName, this.getRowIndexFieldIndexName(viewId));
-      })
-      .toQuery();
-    await prisma.$executeRawUnsafe(createRowIndexSQL);
-
-    return viewData;
+    return await prisma.view.create({ data });
   }
 
   async getViewById(viewId: string): Promise<IViewVo> {
@@ -170,7 +177,7 @@ export class ViewService implements IAdapterService {
       orderBy: { order: 'asc' },
     });
 
-    return viewRaws.map((viewRaw) => createViewInstanceByRaw(viewRaw) as IViewVo);
+    return viewRaws.map((viewRaw) => createViewVoByRaw(viewRaw));
   }
 
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
@@ -221,9 +228,10 @@ export class ViewService implements IAdapterService {
     };
 
     const ops = [
-      ViewOpBuilder.editor.setViewSort.build({
-        newSort: sort,
-        oldSort: viewRaw?.sort ? JSON.parse(viewRaw.sort) : null,
+      ViewOpBuilder.editor.setViewProperty.build({
+        key: 'sort',
+        newValue: sort,
+        oldValue: viewRaw?.sort ? JSON.parse(viewRaw.sort) : null,
       }),
     ];
 
@@ -286,7 +294,7 @@ export class ViewService implements IAdapterService {
   async getUpdatedColumnMeta(
     tableId: string,
     viewId: string,
-    opContexts: ISetViewColumnMetaOpContext
+    opContexts: IUpdateViewColumnMetaOpContext
   ) {
     const { fieldId, newColumnMeta } = opContexts;
     const { columnMeta: rawColumnMeta } = await this.prismaService
@@ -325,50 +333,34 @@ export class ViewService implements IAdapterService {
     const userId = this.cls.get('user.id');
 
     for (const opContext of opContexts) {
-      const updateData: Prisma.ViewUpdateInput = { version };
-      switch (opContext.name) {
-        case OpName.SetViewName:
-          updateData['name'] = opContext.newName;
-          break;
-        case OpName.SetViewDescription:
-          updateData['description'] = opContext.newDescription;
-          break;
-        case OpName.SetViewFilter:
-          updateData['filter'] = JSON.stringify(opContext.newFilter) ?? null;
-          break;
-        case OpName.SetViewSort:
-          updateData['sort'] = JSON.stringify(opContext.newSort) ?? null;
-          break;
-        case OpName.SetViewGroup:
-          updateData['group'] = JSON.stringify(opContext.newGroup) ?? null;
-          break;
-        case OpName.SetViewOptions:
-          updateData['options'] = JSON.stringify(opContext.newOptions) ?? null;
-          break;
-        case OpName.SetViewColumnMeta:
-          updateData['columnMeta'] = await this.getUpdatedColumnMeta(_tableId, viewId, opContext);
-          break;
-        case OpName.SetViewShareMeta:
-          updateData['shareMeta'] = JSON.stringify(opContext.newShareMeta) ?? null;
-          break;
-        case OpName.SetViewOrder:
-          updateData['order'] = opContext.newOrder;
-          break;
-        case OpName.SetViewEnableShare:
-          updateData['enableShare'] = opContext.newEnableShare;
-          break;
-        case OpName.SetViewShareId:
-          updateData['shareId'] = opContext.newShareId;
-          break;
-        default:
-          throw new InternalServerErrorException(`Unknown context ${opContext} for view update`);
+      const updateData: Prisma.ViewUpdateInput = { version, lastModifiedBy: userId };
+      if (opContext.name === OpName.UpdateViewColumnMeta) {
+        const columnMeta = await this.getUpdatedColumnMeta(_tableId, viewId, opContext);
+        await this.prismaService.txClient().view.update({
+          where: { id: viewId },
+          data: {
+            ...updateData,
+            columnMeta,
+          },
+        });
+        continue;
       }
-
+      const { key, newValue } = opContext;
+      const result = viewVoSchema.partial().safeParse({ [key]: newValue });
+      if (!result.success) {
+        throw new BadRequestException(fromZodError(result.error).message);
+      }
+      const parsedValue = result.data[key] as IViewPropertyKeys;
       await this.prismaService.txClient().view.update({
         where: { id: viewId },
         data: {
           ...updateData,
-          lastModifiedBy: userId,
+          [key]:
+            parsedValue == null
+              ? null
+              : typeof parsedValue === 'object'
+                ? JSON.stringify(parsedValue)
+                : parsedValue,
         },
       });
     }
@@ -416,6 +408,17 @@ export class ViewService implements IAdapterService {
         tableId,
         deletedTime: null,
       },
+      orderBy: [
+        {
+          isPrimary: {
+            sort: 'asc',
+            nulls: 'last',
+          },
+        },
+        {
+          createdTime: 'asc',
+        },
+      ],
     });
 
     // create table first view there is no field should return
@@ -448,7 +451,7 @@ export class ViewService implements IAdapterService {
         ? -1
         : Math.max(...Object.values(curColumnMeta).map((meta) => meta.order));
       fieldIds.forEach((fieldId) => {
-        const op = ViewOpBuilder.editor.setViewColumnMeta.build({
+        const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
           fieldId: fieldId,
           newColumnMeta: { order: maxOrder + 1 },
           oldColumnMeta: undefined,
@@ -477,7 +480,7 @@ export class ViewService implements IAdapterService {
       const viewId = view[i].id;
       const curColumnMeta: IColumnMeta = JSON.parse(view[i].columnMeta);
       fieldIds.forEach((fieldId) => {
-        const op = ViewOpBuilder.editor.setViewColumnMeta.build({
+        const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
           fieldId: fieldId,
           newColumnMeta: null,
           oldColumnMeta: { ...curColumnMeta[fieldId] },

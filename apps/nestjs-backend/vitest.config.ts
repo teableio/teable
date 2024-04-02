@@ -1,11 +1,12 @@
 import swc from 'unplugin-swc';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
   plugins: [swc.vite({}), tsconfigPaths()],
+  cacheDir: '../../.cache/vitest/nestjs-backend/unit',
   test: {
     globals: true,
     environment: 'node',
@@ -15,22 +16,17 @@ export default defineConfig({
         singleThread: true,
       },
     },
-    cache: {
-      dir: '../../.cache/vitest/nestjs-backend/unit',
-    },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'clover'],
-      extension: ['js', 'ts'],
-      all: true,
+      reportsDirectory: './coverage/unit',
+      extension: ['.js', '.ts'],
+      include: ['src/**/*'],
     },
     include: testFiles,
     exclude: [
+      ...configDefaults.exclude,
       '**/*.controller.spec.ts', // exclude controller test
-      '**/node_modules/**',
-      '**/dist/**',
       '**/.next/**',
-      '**/.{idea,git,cache,output,temp}/**',
     ],
   },
 });

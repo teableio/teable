@@ -1,4 +1,4 @@
-import { IdPrefix } from '@teable-group/core';
+import { IdPrefix } from '@teable/core';
 
 // for performance, we detect if record contains link by check recordId cellValue
 export function isLinkCellValue(value: unknown): boolean {

@@ -1,5 +1,5 @@
-import { HttpError, HttpErrorCode } from '@teable-group/core';
-import { toast } from '@teable-group/ui-lib';
+import { HttpError, HttpErrorCode } from '@teable/core';
+import { toast } from '@teable/ui-lib';
 import { useEffect, useMemo, useState } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
@@ -44,8 +44,16 @@ export const useConnection = (path?: string) => {
     if (!connection) {
       return;
     }
-    const onConnected = () => setConnected(true);
-    const onDisconnected = () => setConnected(false);
+
+    let pingInterval: ReturnType<typeof setInterval>;
+    const onConnected = () => {
+      setConnected(true);
+      pingInterval = setInterval(() => connection.ping(), 1000 * 30);
+    };
+    const onDisconnected = () => {
+      setConnected(false);
+      pingInterval && clearInterval(pingInterval);
+    };
     const onReceive = (request: ConnectionReceiveRequest) => {
       if (request.data.error) {
         shareDbErrorHandler(request.data.error);
@@ -58,6 +66,7 @@ export const useConnection = (path?: string) => {
     connection.on('error', shareDbErrorHandler);
     connection.on('receive', onReceive);
     return () => {
+      pingInterval && clearInterval(pingInterval);
       connection.removeListener('connected', onConnected);
       connection.removeListener('disconnected', onDisconnected);
       connection.removeListener('closed', onDisconnected);

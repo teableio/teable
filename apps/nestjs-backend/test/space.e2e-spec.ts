@@ -1,8 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { HttpError } from '@teable-group/core';
-import { IdPrefix, SpaceRole } from '@teable-group/core';
-import type { ListSpaceCollaboratorVo, ListSpaceInvitationLinkVo } from '@teable-group/openapi';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { HttpError } from '@teable/core';
+import { IdPrefix, SpaceRole } from '@teable/core';
+import type { ListSpaceCollaboratorVo, ListSpaceInvitationLinkVo } from '@teable/openapi';
 import {
   createSpace as apiCreateSpace,
   createSpaceInvitationLink as apiCreateSpaceInvitationLink,
@@ -17,7 +18,9 @@ import {
   listSpaceInvitationLink as apiListSpaceInvitationLink,
   updateSpace as apiUpdateSpace,
   updateSpaceInvitationLink as apiUpdateSpaceInvitationLink,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
+import { Events } from '../src/event-emitter/events';
+import type { SpaceDeleteEvent, SpaceUpdateEvent } from '../src/event-emitter/events';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { initApp } from './utils/init-app';
 
@@ -25,12 +28,14 @@ describe('OpenAPI SpaceController (e2e)', () => {
   let app: INestApplication;
   const globalSpaceId: string = testConfig.spaceId;
   let spaceId: string;
+  let event: EventEmitter2;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
 
     spaceId = (await apiCreateSpace({ name: 'new space' })).data.id;
+    event = app.get(EventEmitter2);
   });
 
   afterAll(async () => {
@@ -44,6 +49,13 @@ describe('OpenAPI SpaceController (e2e)', () => {
   });
 
   it('/api/space/:spaceId (PUT)', async () => {
+    event.once(Events.SPACE_UPDATE, async (payload: SpaceUpdateEvent) => {
+      expect(payload).toBeDefined();
+      expect(payload.name).toBe(Events.SPACE_UPDATE);
+      expect(payload?.payload).toBeDefined();
+      expect(payload?.payload?.space).toBeDefined();
+    });
+
     const res = await apiUpdateSpace({
       spaceId,
       updateSpaceRo: { name: 'new space1' },
@@ -65,6 +77,13 @@ describe('OpenAPI SpaceController (e2e)', () => {
   });
 
   it('/api/space/:spaceId (DELETE)', async () => {
+    event.once(Events.SPACE_DELETE, async (payload: SpaceDeleteEvent) => {
+      expect(payload).toBeDefined();
+      expect(payload.name).toBe(Events.SPACE_DELETE);
+      expect(payload?.payload).toBeDefined();
+      expect(payload?.payload?.spaceId).toBeDefined();
+    });
+
     const newSpaceRes = await apiCreateSpace({ name: 'delete space' });
     expect((await apiDeleteSpace(newSpaceRes.data.id)).status).toEqual(200);
 

@@ -1,13 +1,23 @@
-import { Body, Controller, Get, HttpCode, Post, Request, Res, UseGuards } from '@nestjs/common';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { ISignup, signupSchema } from '@teable-group/openapi';
-import { Response } from 'express';
-import { AUTH_COOKIE } from '../../const';
+import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  IAddPasswordRo,
+  IChangePasswordRo,
+  IResetPasswordRo,
+  ISendResetPasswordEmailRo,
+  ISignup,
+  addPasswordRoSchema,
+  changePasswordRoSchema,
+  resetPasswordRoSchema,
+  sendResetPasswordEmailRoSchema,
+  signupSchema,
+} from '@teable/openapi';
+import { Response, Request } from 'express';
+import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
-import { AuthGuard } from './guard/auth.guard';
 import { LocalAuthGuard } from './guard/local-auth.guard';
+import { pickUserMe } from './utils';
 
 @Controller('api/auth')
 export class AuthController {
@@ -17,40 +27,64 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @HttpCode(200)
   @Post('signin')
-  async signin(@Request() req: Express.Request, @Res({ passthrough: true }) res: Response) {
-    const user = req.user as Prisma.UserGetPayload<null>;
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const { access_token } = await this.authService.signin(user);
-    res.cookie(AUTH_COOKIE, access_token, {
-      httpOnly: true,
-    });
-    return { access_token };
+  async signin(@Req() req: Express.Request) {
+    return req.user;
   }
 
   @Post('signout')
   @HttpCode(200)
-  async signout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(AUTH_COOKIE);
-    return null;
+  async signout(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
+    await this.authService.signout(req);
+    res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 
   @Public()
   @Post('signup')
   async signup(
     @Body(new ZodValidationPipe(signupSchema)) body: ISignup,
-    @Res({ passthrough: true }) res: Response
+    @Res({ passthrough: true }) res: Response,
+    @Req() req: Express.Request
   ) {
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const { access_token } = await this.authService.signup(body.email, body.password);
-    res.cookie(AUTH_COOKIE, access_token, {
-      httpOnly: true,
+    const user = pickUserMe(await this.authService.signup(body.email, body.password));
+    // set cookie, passport login
+    await new Promise<void>((resolve, reject) => {
+      req.login(user, (err) => (err ? reject(err) : resolve()));
     });
-    return { access_token };
+    return user;
   }
 
-  @UseGuards(AuthGuard)
   @Get('/user/me')
-  async me(@Request() request: Express.Request) {
-    return request.user;
+  async me(@Req() request: Express.Request) {
+    return { ...request.user!, _session_ticket: request.sessionID };
+  }
+
+  @Patch('/change-password')
+  async changePassword(
+    @Body(new ZodValidationPipe(changePasswordRoSchema)) changePasswordRo: IChangePasswordRo,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    await this.authService.changePassword(changePasswordRo);
+    await this.authService.signout(req);
+    res.clearCookie(AUTH_SESSION_COOKIE_NAME);
+  }
+
+  @Post('/send-reset-password-email')
+  @Public()
+  async sendResetPasswordEmail(
+    @Body(new ZodValidationPipe(sendResetPasswordEmailRoSchema)) body: ISendResetPasswordEmailRo
+  ) {
+    return this.authService.sendResetPasswordEmail(body.email);
+  }
+
+  @Post('/reset-password')
+  @Public()
+  async resetPassword(@Body(new ZodValidationPipe(resetPasswordRoSchema)) body: IResetPasswordRo) {
+    return this.authService.resetPassword(body.code, body.password);
+  }
+
+  @Post('/add-password')
+  async addPassword(@Body(new ZodValidationPipe(addPasswordRoSchema)) body: IAddPasswordRo) {
+    return this.authService.addPassword(body.password);
   }
 }

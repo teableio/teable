@@ -6,14 +6,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IRecord, ITableFullVo } from '@teable-group/core';
+import type { IFieldRo, IRecord } from '@teable/core';
 import {
   RecordOpBuilder,
   IdPrefix,
   FieldType,
   Relationship,
   NumberFormattingType,
-} from '@teable-group/core';
+} from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import {
@@ -32,11 +33,13 @@ describe('OpenAPI link (socket-e2e)', () => {
   let shareDbService!: ShareDbService;
   const baseId = globalThis.testConfig.baseId;
   let cookie: string;
+  let sessionID: string;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
     cookie = appCtx.cookie;
+    sessionID = appCtx.sessionID;
 
     shareDbService = app.get(ShareDbService);
   });
@@ -106,8 +109,9 @@ describe('OpenAPI link (socket-e2e)', () => {
     ) {
       const connection = shareDbService.connect(undefined, {
         headers: {
-          cookie: cookie,
+          cookie,
         },
+        sessionID,
       });
       const collection = `${IdPrefix.Record}_${tableId}`;
       return new Promise<IRecord>((resolve, reject) => {

@@ -1,8 +1,6 @@
-import type { IFilterItem } from '@teable-group/core';
-import { Input } from '@teable-group/ui-lib';
-import classNames from 'classnames';
-import { debounce } from 'lodash';
-import { useEffect, useMemo, useState } from 'react';
+import type { IFilterItem } from '@teable/core';
+import { Input, cn } from '@teable/ui-lib';
+import { useEffect, useState } from 'react';
 
 interface InputProps {
   value: IFilterItem['value'];
@@ -21,23 +19,15 @@ const FilterInput = (props: InputProps) => {
     }
   }, [onChange, value]);
 
-  const updateInput = useMemo(() => {
-    return debounce(setInput, 30);
-  }, []);
-
-  useEffect(() => {
-    updateInput((value as string) ?? '');
-  }, [updateInput, value]);
-
   return (
     <Input
       placeholder={placeholder}
       value={input}
       onChange={(e) => {
         setInput(e.target.value);
+        onChange(e.target.value ?? null);
       }}
-      onBlur={() => onChange(input ?? null)}
-      className={classNames('m-1 h-8 placeholder:text-[13px]', className)}
+      className={cn('m-1 h-8 placeholder:text-[13px]', className)}
     />
   );
 };

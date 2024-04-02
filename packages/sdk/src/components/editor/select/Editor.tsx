@@ -1,6 +1,5 @@
-import { X } from '@teable-group/icons';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { X } from '@teable/icons';
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { keyBy } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
@@ -48,7 +47,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
       variant="outline"
       role="combobox"
       aria-expanded={open}
-      className={classNames(
+      className={cn(
         'w-full h-auto min-h-[40px] sm:min-h-[32px] flex flex-wrap justify-start hover:bg-transparent gap-2',
         className
       )}

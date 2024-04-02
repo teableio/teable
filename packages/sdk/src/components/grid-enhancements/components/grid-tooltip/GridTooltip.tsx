@@ -1,5 +1,4 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@teable/ui-lib';
 import type { FC } from 'react';
 import { useGridTooltipStore } from './grid-tooltip';
 
@@ -29,16 +28,13 @@ export const GridTooltip: FC<IGridTooltipProps> = (props) => {
           <Tooltip delayDuration={200} open={true}>
             <TooltipTrigger asChild>
               <div
-                className={classNames(
-                  'pointer-events-none absolute cursor-pointer',
-                  triggerClassName
-                )}
+                className={cn('pointer-events-none absolute cursor-pointer', triggerClassName)}
                 style={{ ...triggerStyle, ...style }}
               />
             </TooltipTrigger>
             <TooltipContent
               sideOffset={8}
-              className={classNames(
+              className={cn(
                 'pointer-events-none whitespace-pre-line rounded-none',
                 contentClassName
               )}

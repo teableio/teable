@@ -1,4 +1,4 @@
-import { useBase } from '@teable-group/sdk/hooks';
+import { useBase } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 
@@ -13,8 +13,8 @@ export function useAddTable() {
     const viewId = tableData.defaultViewId;
     router.push(
       {
-        pathname: '/base/[baseId]/[nodeId]/[viewId]',
-        query: { baseId, nodeId: tableId, viewId },
+        pathname: '/base/[baseId]/[tableId]/[viewId]',
+        query: { baseId, tableId, viewId },
       },
       undefined,
       {

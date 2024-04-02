@@ -10,28 +10,33 @@ datasource db {
 }
 
 model Space {
-  id             String    @id @default(cuid())
-  name           String
-  deletedTime    DateTime? @map("deleted_time")
-  createdTime    DateTime  @default(now()) @map("created_time")
-  createdBy      String    @map("created_by")
-  lastModifiedBy String    @map("last_modified_by")
+  id               String    @id @default(cuid())
+  name             String
+  credit           Int?
+  deletedTime      DateTime? @map("deleted_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
   baseGroup      Base[]
 
   @@map("space")
 }
 
 model Base {
-  id             String      @id @default(cuid())
-  spaceId        String      @map("space_id")
-  name           String
-  order          Float
-  icon           String?
-  schemaPass     String?     @map("schema_pass")
-  deletedTime    DateTime?   @map("deleted_time")
-  createdTime    DateTime    @default(now()) @map("created_time")
-  createdBy      String      @map("created_by")
-  lastModifiedBy String      @map("last_modified_by")
+  id               String      @id @default(cuid())
+  spaceId          String      @map("space_id")
+  name             String
+  order            Float
+  icon             String?
+  schemaPass       String?     @map("schema_pass")
+  deletedTime      DateTime?   @map("deleted_time")
+  createdTime      DateTime    @default(now()) @map("created_time")
+  createdBy        String      @map("created_by")
+  lastModifiedBy   String?     @map("last_modified_by")
+  lastModifiedTime DateTime?   @updatedAt @map("last_modified_time")
+
   space          Space       @relation(fields: [spaceId], references: [id])
   tables         TableMeta[]
 
@@ -49,10 +54,10 @@ model TableMeta {
   version          Int
   order            Float
   createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
+  lastModifiedBy   String?   @map("last_modified_by")
   base             Base      @relation(fields: [baseId], references: [id])
   fields           Field[]
   views            View[]
@@ -76,6 +81,7 @@ model Field {
   isPrimary           Boolean?  @map("is_primary")
   isComputed          Boolean?  @map("is_computed")
   isLookup            Boolean?  @map("is_lookup")
+  isPending           Boolean?  @map("is_pending")
   hasError            Boolean?  @map("has_error")
   // the link field id that a lookup field is linked to
   lookupLinkedFieldId String?   @map("lookup_linked_field_id")
@@ -83,10 +89,10 @@ model Field {
   tableId             String    @map("table_id")
   version             Int
   createdTime         DateTime  @default(now()) @map("created_time")
-  lastModifiedTime    DateTime  @updatedAt @map("last_modified_time")
+  lastModifiedTime    DateTime? @updatedAt @map("last_modified_time")
   deletedTime         DateTime? @map("deleted_time")
   createdBy           String    @map("created_by")
-  lastModifiedBy      String    @map("last_modified_by")
+  lastModifiedBy      String?   @map("last_modified_by")
   table               TableMeta @relation(fields: [tableId], references: [id])
 
   @@index([lookupLinkedFieldId])
@@ -110,10 +116,10 @@ model View {
   shareId          String?   @map("share_id")
   shareMeta        String?   @map("share_meta")
   createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
+  lastModifiedBy   String?   @map("last_modified_by")
   table            TableMeta @relation(fields: [tableId], references: [id])
 
   @@index([order])
@@ -149,6 +155,7 @@ model Reference {
   id          String @id @default(cuid())
   fromFieldId String @map("from_field_id")
   toFieldId   String @map("to_field_id")
+  createdTime DateTime @default(now()) @map("created_time")
 
   @@unique([toFieldId, fromFieldId])
   @@index([fromFieldId])
@@ -165,16 +172,27 @@ model User {
   email            String    @unique
   avatar           String?
   notifyMeta       String?   @map("notify_meta")
-  provider         String?
-  providerId       String?   @map("provider_id")
   lastSignTime     DateTime? @map("last_sign_time")
   createdTime      DateTime  @default(now()) @map("created_time")
   deletedTime      DateTime? @map("deleted_time")
-  lastModifiedBy   DateTime  @updatedAt @map("updated_at")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  accounts         Account[]
+  @@map("users")
+}
+
+model Account {
+  id               String    @id @default(cuid())
+  userId           String    @map("user_id")
+  type             String
+  provider         String
+  providerId       String    @map("provider_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerId])
-  @@map("users")
+  @@map("account")
 }
 
 model Attachments {
@@ -190,23 +208,23 @@ model Attachments {
   deletedTime    DateTime? @map("deleted_time")
   createdTime    DateTime  @default(now()) @map("created_time")
   createdBy      String    @map("created_by")
-  lastModifiedBy String    @map("last_modified_by")
+  lastModifiedBy String?   @map("last_modified_by")
 
   @@map("attachments")
 }
 
 model AttachmentsTable {
-  id             String    @id @default(cuid())
-  attachmentId   String    @map("attachment_id")
-  name           String
-  token          String
-  tableId        String    @map("table_id")
-  recordId       String    @map("record_id")
-  fieldId        String    @map("field_id")
-  deletedTime    DateTime? @map("deleted_time")
-  createdTime    DateTime  @default(now()) @map("created_time")
-  createdBy      String    @map("created_by")
-  lastModifiedBy String    @map("last_modified_by")
+  id               String    @id @default(cuid())
+  attachmentId     String    @map("attachment_id")
+  name             String
+  token            String
+  tableId          String    @map("table_id")
+  recordId         String    @map("record_id")
+  fieldId          String    @map("field_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
   @@map("attachments_table")
 }
@@ -218,10 +236,10 @@ model AutomationWorkflow {
   description      String?   @map("description")
   deploymentStatus String    @default("undeployed") @map("deployment_status")
   createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
+  lastModifiedBy   String?   @map("last_modified_by")
 
   @@map("automation_workflow")
 }
@@ -234,10 +252,10 @@ model AutomationWorkflowTrigger {
   triggerType      String?   @map("trigger_type")
   inputExpressions String?   @map("input_expressions")
   createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
+  lastModifiedBy   String?   @map("last_modified_by")
 
   @@index([workflowId])
   @@map("automation_workflow_trigger")
@@ -253,10 +271,10 @@ model AutomationWorkflowAction {
   nextNodeId       String?   @map("next_node_id")
   parentNodeId     String?   @map("parent_node_id")
   createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @updatedAt @map("last_modified_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
-  lastModifiedBy   String    @map("last_modified_by")
+  lastModifiedBy   String?   @map("last_modified_by")
 
   @@index([workflowId])
   @@map("automation_workflow_action")
@@ -282,23 +300,25 @@ model Collaborator {
   deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
   createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime  @default(now()) @map("last_modified_time")
-  lastModifiedBy   String    @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
 
   @@map("collaborator")
 }
 
 model Invitation {
-  id             String    @id @default(cuid())
-  baseId         String?   @map("base_id")
-  spaceId        String?   @map("space_id")
-  type           String    @map("type")
-  role           String
-  invitationCode String    @map("invitation_code")
-  expiredTime    DateTime? @map("expired_time")
-  createdBy      String    @map("create_by")
-  createdTime    DateTime  @default(now()) @map("created_time")
-  deletedTime    DateTime? @map("deleted_time")
+  id               String    @id @default(cuid())
+  baseId           String?   @map("base_id")
+  spaceId          String?   @map("space_id")
+  type             String    @map("type")
+  role             String
+  invitationCode   String    @map("invitation_code")
+  expiredTime      DateTime? @map("expired_time")
+  createdBy        String    @map("create_by")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+  deletedTime      DateTime? @map("deleted_time")
 
   @@map("invitation")
 }
@@ -331,4 +351,21 @@ model Notification {
 
   @@index([toUserId, isRead, createdTime])
   @@map("notification")
+}
+
+model AccessToken {
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  userId           String    @map("user_id")
+  scopes           String
+  spaceIds         String?   @map("space_ids")
+  baseIds          String?   @map("base_ids")
+  sign             String
+  expiredTime      DateTime  @map("expired_time")
+  lastUsedTime     DateTime? @map("last_used_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  @@map("access_token")
 }

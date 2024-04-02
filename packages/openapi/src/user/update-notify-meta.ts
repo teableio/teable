@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const UPDATE_USER_NOTIFY_META = '/user/updateNotifyMeta';
+export const UPDATE_USER_NOTIFY_META = '/user/notify-meta';
 
 export const userNotifyMetaSchema = z.object({
   email: z.boolean().optional(),

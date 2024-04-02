@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IUserCellValue, IUserFieldOptions } from '@teable-group/core';
-import { Check } from '@teable-group/icons';
-import { getBaseCollaboratorList } from '@teable-group/openapi';
+import type { IUserCellValue, IUserFieldOptions } from '@teable/core';
+import { Check } from '@teable/icons';
+import { getBaseCollaboratorList } from '@teable/openapi';
 import {
   Avatar,
   AvatarFallback,
@@ -13,12 +13,14 @@ import {
   CommandItem,
   CommandList,
   Skeleton,
-} from '@teable-group/ui-lib';
-import classNames from 'classnames';
-import React, { useCallback } from 'react';
+  cn,
+} from '@teable/ui-lib';
+import type { ForwardRefRenderFunction } from 'react';
+import React, { useCallback, useImperativeHandle, useRef, forwardRef } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useBase } from '../../../hooks';
-import type { ICellEditor } from '../type';
+import { convertNextImageUrl } from '../../grid-enhancements';
+import type { ICellEditor, IEditorRef } from '../type';
 
 export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUserCellValue[]> {
   options: IUserFieldOptions;
@@ -27,10 +29,20 @@ export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUser
   className?: string;
 }
 
-export function UserEditorMain(props: IUserEditorMainProps) {
+const UserEditorMainBase: ForwardRefRenderFunction<
+  IEditorRef<IUserCellValue | IUserCellValue[] | undefined>,
+  IUserEditorMainProps
+> = (props, ref) => {
   const { options, value: cellValue, onChange, className, style } = props;
   const { isMultiple } = options;
   const { id: baseId } = useBase();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    focus: () => {
+      inputRef.current?.focus();
+    },
+  }));
 
   const { data: collaborators, isLoading } = useQuery({
     queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
@@ -62,13 +74,13 @@ export function UserEditorMain(props: IUserEditorMainProps) {
 
   return (
     <Command className={className} style={style}>
-      <CommandInput placeholder="Search user" />
+      <CommandInput ref={inputRef} placeholder="Search user" />
       <CommandList>
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {isLoading ? (
             <CommandItem className="flex items-center space-x-4">
-              <Skeleton className="h-7 w-7 rounded-full" />
+              <Skeleton className="size-7 rounded-full" />
               <Skeleton className="h-4 w-32" />
             </CommandItem>
           ) : (
@@ -76,12 +88,19 @@ export function UserEditorMain(props: IUserEditorMainProps) {
               <CommandItem
                 key={userId}
                 value={userName}
-                onSelect={() => onSelect({ id: userId, title: userName })}
+                onSelect={() => onSelect({ id: userId, title: userName, avatarUrl: avatar })}
                 className="flex justify-between"
               >
                 <div className="flex items-center space-x-4">
-                  <Avatar className="box-content h-7 w-7 cursor-pointer border">
-                    <AvatarImage src={avatar as string} alt="avatar-name" />
+                  <Avatar className="box-content size-7 cursor-pointer border">
+                    <AvatarImage
+                      src={convertNextImageUrl({
+                        url: avatar as string,
+                        w: 64,
+                        q: 75,
+                      })}
+                      alt={userName}
+                    />
                     <AvatarFallback className="text-sm">{userName.slice(0, 1)}</AvatarFallback>
                   </Avatar>
                   <div>
@@ -90,10 +109,7 @@ export function UserEditorMain(props: IUserEditorMainProps) {
                   </div>
                 </div>
                 <Check
-                  className={classNames(
-                    'ml-2 h-4 w-4',
-                    activeStatus(userId) ? 'opacity-100' : 'opacity-0'
-                  )}
+                  className={cn('ml-2 h-4 w-4', activeStatus(userId) ? 'opacity-100' : 'opacity-0')}
                 />
               </CommandItem>
             ))
@@ -102,4 +118,6 @@ export function UserEditorMain(props: IUserEditorMainProps) {
       </CommandList>
     </Command>
   );
-}
+};
+
+export const UserEditorMain = forwardRef(UserEditorMainBase);

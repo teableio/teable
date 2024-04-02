@@ -1,5 +1,5 @@
-import type { IRecord } from '@teable-group/core';
-import { useToast } from '@teable-group/ui-lib';
+import type { IRecord } from '@teable/core';
+import { useToast } from '@teable/ui-lib';
 import { type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
@@ -7,7 +7,7 @@ import { AnchorProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
 import { useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
-import type { IExpandRecordModel } from './type';
+import type { ExpandRecordModel } from './type';
 
 const Wrap: FC<PropsWithChildren<{ tableId: string }>> = (props) => {
   const { tableId, children } = props;
@@ -28,7 +28,7 @@ interface IExpandRecorderProps {
   viewId?: string;
   recordId?: string;
   recordIds?: string[];
-  model?: IExpandRecordModel;
+  model?: ExpandRecordModel;
   serverData?: IRecord;
   onClose?: () => void;
   onUpdateRecordIdCallback?: (recordId: string) => void;
@@ -41,7 +41,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const { t } = useTranslation();
   const [showActivity, setShowActivity] = useLocalStorage<boolean>(
     LocalStorageKeys.ShowActivity,
-    true
+    false
   );
 
   if (!recordId) {

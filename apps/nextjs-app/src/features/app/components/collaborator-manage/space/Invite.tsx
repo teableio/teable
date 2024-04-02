@@ -1,14 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { SpaceRole, getRolesWithLowerPermissions, hasPermission } from '@teable-group/core';
-import { X } from '@teable-group/icons';
-import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk';
-import { Button } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { SpaceRole, hasPermission } from '@teable/core';
+import { X } from '@teable/icons';
+import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable/openapi';
+import { ReactQueryKeys, useSpaceRoleStatic } from '@teable/sdk';
+import { Button, cn } from '@teable/ui-lib';
 import { map } from 'lodash';
+import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
 import { RoleSelect } from './RoleSelect';
+import { getRolesWithLowerPermissions } from './utils';
 
 interface IInvite {
   className?: string;
@@ -19,6 +20,7 @@ interface IInvite {
 export const Invite: React.FC<IInvite> = (props) => {
   const { className, spaceId, role } = props;
   const queryClient = useQueryClient();
+  const { t } = useTranslation('common');
 
   const [inviteType, setInviteType] = useState<'link' | 'email'>('email');
   const [inviteRole, setInviteRole] = useState<SpaceRole>(role);
@@ -87,14 +89,18 @@ export const Invite: React.FC<IInvite> = (props) => {
     setInviteEmails((inviteEmails) => inviteEmails.filter((inviteEmail) => email !== inviteEmail));
   };
 
-  const filterRoles = useMemo(() => map(getRolesWithLowerPermissions(role), 'role'), [role]);
+  const spaceRoleStatic = useSpaceRoleStatic();
+  const filterRoles = useMemo(
+    () => map(getRolesWithLowerPermissions(role, spaceRoleStatic), 'role'),
+    [role, spaceRoleStatic]
+  );
 
   const isEmailInputValid = useMemo(() => z.string().email().safeParse(email).success, [email]);
 
   const EmailInvite = (
     <div>
       <div className="flex gap-2">
-        <div className="flex max-h-64 min-h-[2rem] flex-1 flex-wrap gap-1 overflow-y-auto rounded-md border border-input bg-background p-1 text-sm shadow-sm transition-colors">
+        <div className="flex max-h-64 min-h-8 flex-1 flex-wrap gap-1 overflow-y-auto rounded-md border border-input bg-background p-1 text-sm shadow-sm transition-colors">
           {inviteEmails.map((email) => (
             <div
               key={email}
@@ -109,7 +115,7 @@ export const Invite: React.FC<IInvite> = (props) => {
           ))}
           <input
             className="h-6 flex-auto bg-background text-xs outline-none"
-            placeholder="Invite more space collaborators via email"
+            placeholder={t('invite.dialog.emailPlaceholder')}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -124,7 +130,7 @@ export const Invite: React.FC<IInvite> = (props) => {
         disabled={(!isEmailInputValid && inviteEmails.length === 0) || updateCollaboratorLoading}
         onClick={sendInviteEmail}
       >
-        Send invite
+        {t('invite.dialog.emailSend')}
       </Button>
     </div>
   );
@@ -132,14 +138,14 @@ export const Invite: React.FC<IInvite> = (props) => {
   const LinkInvite = (
     <div>
       <div className="flex items-center text-sm">
-        Create an invite link that grants
-        <RoleSelect
-          className="mx-1"
-          filterRoles={filterRoles}
-          value={inviteRole}
-          onChange={setInviteRole}
-        />
-        access to anyone who opens it.
+        <Trans ns="common" i18nKey={'invite.dialog.linkPlaceholder'}>
+          <RoleSelect
+            className="mx-1"
+            filterRoles={filterRoles}
+            value={inviteRole}
+            onChange={setInviteRole}
+          />
+        </Trans>
       </div>
       <Button
         className="mt-2"
@@ -147,7 +153,7 @@ export const Invite: React.FC<IInvite> = (props) => {
         disabled={createInviteLinkLoading}
         onClick={createInviteLink}
       >
-        Create link
+        {t('invite.dialog.linkSend')}
       </Button>
     </div>
   );
@@ -155,11 +161,11 @@ export const Invite: React.FC<IInvite> = (props) => {
   const showLink = hasPermission(role, 'space|invite_link');
 
   if (!showLink) {
-    return <div className={classNames(className, 'rounded bg-muted px-4 py-2')}>{EmailInvite}</div>;
+    return <div className={cn(className, 'rounded bg-muted px-4 py-2')}>{EmailInvite}</div>;
   }
 
   return (
-    <div className={classNames(className, 'rounded bg-muted px-4 py-2')}>
+    <div className={cn(className, 'rounded bg-muted px-4 py-2')}>
       <div className="pb-2">
         <Button
           className="mr-6 p-0 data-[state=active]:underline"
@@ -167,7 +173,7 @@ export const Invite: React.FC<IInvite> = (props) => {
           variant={'link'}
           onClick={() => changeInviteType('email')}
         >
-          invite by email
+          {t('invite.dialog.tabEmail')}
         </Button>
         <Button
           className="p-0 data-[state=active]:underline"
@@ -175,7 +181,7 @@ export const Invite: React.FC<IInvite> = (props) => {
           variant={'link'}
           onClick={() => changeInviteType('link')}
         >
-          invite by link
+          {t('invite.dialog.tabLink')}
         </Button>
       </div>
       <div>{inviteType === 'email' ? EmailInvite : LinkInvite}</div>

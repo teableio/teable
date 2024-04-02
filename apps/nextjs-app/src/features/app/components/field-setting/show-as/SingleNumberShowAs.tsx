@@ -1,5 +1,5 @@
-import { ColorUtils, Colors, SingleNumberDisplayType } from '@teable-group/core';
-import type { ISingleNumberShowAs } from '@teable-group/core';
+import { ColorUtils, Colors, SingleNumberDisplayType } from '@teable/core';
+import type { ISingleNumberShowAs } from '@teable/core';
 import {
   Button,
   Input,
@@ -7,27 +7,14 @@ import {
   PopoverContent,
   PopoverTrigger,
   Switch,
-} from '@teable-group/ui-lib/shadcn';
-import { Label } from '@teable-group/ui-lib/shadcn/ui/label';
-import classNames from 'classnames';
+  cn,
+} from '@teable/ui-lib/shadcn';
+import { Label } from '@teable/ui-lib/shadcn/ui/label';
+import { useTranslation } from 'next-i18next';
+import { tableConfig } from '@/features/i18n/table.config';
 import { ColorPicker } from '../options/SelectOptions';
 
 const numberFlag = 'Number';
-
-export const SINGLE_NUMBER_DISPLAY_INFOS = [
-  {
-    type: numberFlag,
-    text: 'Number',
-  },
-  {
-    type: SingleNumberDisplayType.Ring,
-    text: 'Ring',
-  },
-  {
-    type: SingleNumberDisplayType.Bar,
-    text: 'Bar',
-  },
-];
 
 const defaultShowAsProps = {
   color: Colors.TealBright,
@@ -44,6 +31,7 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
   const { showAs, onChange } = props;
   const { type, color, maxValue, showValue } = (showAs || {}) as ISingleNumberShowAs;
   const selectedType = showAs == null ? numberFlag : type;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const updateDisplayType = (type: string) => {
     const newShowAs =
@@ -84,9 +72,24 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
     });
   };
 
+  const SINGLE_NUMBER_DISPLAY_INFOS = [
+    {
+      type: numberFlag,
+      text: t('table:field.editor.number'),
+    },
+    {
+      type: SingleNumberDisplayType.Ring,
+      text: t('table:field.editor.ring'),
+    },
+    {
+      type: SingleNumberDisplayType.Bar,
+      text: t('table:field.editor.bar'),
+    },
+  ];
+
   return (
     <div className="flex w-full flex-col gap-2" data-testid="single-number-show-as">
-      <Label className="font-normal">Show As</Label>
+      <Label className="font-normal">{t('table:field.editor.showAs')}</Label>
       <div className="flex justify-between">
         {SINGLE_NUMBER_DISPLAY_INFOS.map(({ type, text }) => {
           return (
@@ -94,7 +97,7 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
               key={type}
               variant="outline"
               size="sm"
-              className={classNames(
+              className={cn(
                 'font-normal w-20',
                 type === selectedType &&
                   'bg-foreground text-accent hover:bg-foreground hover:text-accent'
@@ -109,12 +112,12 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
       {showAs != null && (
         <>
           <div className="flex items-center justify-between">
-            <Label className="font-normal">Max Number</Label>
+            <Label className="font-normal">{t('table:field.editor.maxNumber')}</Label>
             <Input defaultValue={maxValue} onChange={updateMaxValue} className="h-8 w-4/6" />
           </div>
 
           <div className="flex items-center justify-between">
-            <Label className="font-normal">Show Number</Label>
+            <Label className="font-normal">{t('table:field.editor.showNumber')}</Label>
             <Switch
               className="h-5 w-9"
               classNameThumb="w-4 h-4 data-[state=checked]:translate-x-4"
@@ -124,15 +127,15 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
           </div>
 
           <div className="flex items-center justify-between">
-            <Label className="font-normal">Color</Label>
+            <Label className="font-normal">{t('table:field.editor.color')}</Label>
             <Popover>
               <PopoverTrigger>
                 <div
-                  className="ml-4 h-5 w-5 rounded-full p-[2px]"
+                  className="ml-4 size-5 rounded-full p-[2px]"
                   style={{ border: `1px solid ${ColorUtils.getHexForColor(color)}` }}
                 >
                   <div
-                    className="h-full w-full rounded-full"
+                    className="size-full rounded-full"
                     style={{ backgroundColor: ColorUtils.getHexForColor(color) }}
                   />
                 </div>

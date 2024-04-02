@@ -1,26 +1,36 @@
-import type { ILookupOptionsRo, ILookupOptionsVo } from '@teable-group/core';
-import { FieldType } from '@teable-group/core';
-import { AnchorProvider } from '@teable-group/sdk/context';
-import { useFields, useTable, useFieldStaticGetter } from '@teable-group/sdk/hooks';
-import type { IFieldInstance, LinkField } from '@teable-group/sdk/model';
-import { Selector } from '@teable-group/ui-lib/base';
+import type { ILookupOptionsRo, ILookupOptionsVo } from '@teable/core';
+import { FieldType } from '@teable/core';
+import { AnchorProvider } from '@teable/sdk/context';
+import { useFields, useTable, useFieldStaticGetter } from '@teable/sdk/hooks';
+import type { IFieldInstance, LinkField } from '@teable/sdk/model';
+import { Selector } from '@teable/ui-lib/base';
+import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 
 const SelectFieldByTableId: React.FC<{
   selectedId?: string;
   onChange: (lookupField: IFieldInstance) => void;
 }> = ({ selectedId, onChange }) => {
-  const fields = useFields();
+  const fields = useFields({ withHidden: true });
   const table = useTable();
   const getFieldStatic = useFieldStaticGetter();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
   return (
     <div className="space-y-2">
       <span className="neutral-content label-text mb-2">
-        {table?.name} field you want to look up
+        <Trans
+          ns="table"
+          i18nKey="field.editor.lookupToTable"
+          values={{
+            tableName: table?.name,
+          }}
+        />
       </span>
       <Selector
         className="w-full"
-        placeholder="Select a field..."
+        placeholder={t('table:field.editor.selectField')}
         selectedId={selectedId}
         onChange={(id) => {
           onChange(fields.find((f) => f.id === id) as IFieldInstance);
@@ -30,7 +40,7 @@ const SelectFieldByTableId: React.FC<{
           return {
             id: f.id,
             name: f.name,
-            icon: <Icon className="h-4 w-4 shrink-0" />,
+            icon: <Icon className="size-4 shrink-0" />,
           };
         })}
       />
@@ -47,7 +57,8 @@ export const LookupOptions = (props: {
   ) => void;
 }) => {
   const { options = {}, onChange } = props;
-  const fields = useFields();
+  const fields = useFields({ withHidden: true });
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [innerOptions, setInnerOptions] = useState<Partial<ILookupOptionsRo>>({
     foreignTableId: options.foreignTableId,
     linkFieldId: options.linkFieldId,
@@ -74,11 +85,11 @@ export const LookupOptions = (props: {
         <>
           <div className="space-y-2">
             <span className="neutral-content label-text">
-              Linked record field to use for lookup
+              {t('table:field.editor.linkFieldToLookup')}
             </span>
             <Selector
               className="w-full"
-              placeholder="Select a table..."
+              placeholder={t('table:field.editor.selectTable')}
               selectedId={options.linkFieldId}
               onChange={(selected: string) => {
                 const selectedLinkField = linkFields.find((l) => l.id === selected);
@@ -107,8 +118,7 @@ export const LookupOptions = (props: {
       ) : (
         <div className="space-y-2">
           <span className="neutral-content label-text mb-2">
-            No linked records to look up. Add a Link to another record field, then try to configure
-            your lookup again.
+            {t('table:field.editor.noLinkTip')}
           </span>
         </div>
       )}

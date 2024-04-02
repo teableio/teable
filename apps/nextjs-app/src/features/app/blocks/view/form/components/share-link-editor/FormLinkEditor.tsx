@@ -1,9 +1,11 @@
-import type { ILinkCellValue } from '@teable-group/core';
-import { Plus } from '@teable-group/icons';
-import { LinkCard } from '@teable-group/sdk/components';
-import type { LinkField } from '@teable-group/sdk/model';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable-group/ui-lib/shadcn';
+import type { ILinkCellValue } from '@teable/core';
+import { Plus } from '@teable/icons';
+import { LinkCard } from '@teable/sdk/components';
+import type { LinkField } from '@teable/sdk/model';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 import { LinkRecordList } from './LinkRecordList';
 
 interface IShareFormLinkEditorProps {
@@ -17,6 +19,7 @@ interface IShareFormLinkEditorProps {
 export const ShareFormLinkEditor = (props: IShareFormLinkEditorProps) => {
   const { cellValue, shareId, className, field, onChange } = props;
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const isMultiple = field.isMultipleCellValue;
 
@@ -52,7 +55,7 @@ export const ShareFormLinkEditor = (props: IShareFormLinkEditorProps) => {
         <PopoverTrigger asChild>
           <Button variant="outline" size={'sm'} className={className}>
             <Plus />
-            Add Record
+            {t('table:view.addRecord')}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="h-[350px] w-screen md:w-[480px]">

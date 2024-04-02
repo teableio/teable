@@ -1,58 +1,61 @@
-import { LocalStorageKeys } from '@teable-group/sdk/config/local-storage-keys';
-import { AnchorProvider } from '@teable-group/sdk/context';
-import { useBase, useTables } from '@teable-group/sdk/hooks';
-import { Tabs, TabsList, TabsTrigger } from '@teable-group/ui-lib/shadcn';
-import { useEffect, useMemo } from 'react';
+import { AnchorProvider } from '@teable/sdk/context';
+import { Button, Tabs } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
 import { useLocalStorage } from 'react-use';
+import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { Pickers } from './components/Pickers';
 import { GridContent } from './GridContent';
 
 export function DashboardPage() {
-  const base = useBase();
-  const tables = useTables();
-  const [anchor, setAnchor] = useLocalStorage<{ tableId?: string; viewId?: string }>(
-    LocalStorageKeys.DashboardKey + base.id
-  );
-
-  const existTable = useMemo(
-    () => tables.find((t) => t.id === anchor?.tableId),
-    [anchor?.tableId, tables]
-  );
-
-  useEffect(() => {
-    if (!existTable) {
-      setAnchor({});
-    }
-  }, [existTable, setAnchor, tables]);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { viewId, tableId } = existTable && anchor ? anchor : ({} as any);
-
+  const { t } = useTranslation(dashboardConfig.i18nNamespaces);
+  const [anchor, setAnchor] = useState<{ tableId?: string; viewId?: string }>({});
+  const { viewId, tableId } = anchor;
+  const [showDashboard, setShowDashboard] = useLocalStorage('showDashboard', false);
   return (
     <AnchorProvider viewId={viewId} tableId={tableId}>
       <div className="h-full flex-col md:flex">
         <div className="flex h-full flex-1 flex-col gap-2 lg:gap-4">
           <div className="items-center justify-between space-y-2 px-8 pb-2 pt-6 lg:flex">
-            <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-            <Pickers setAnchor={setAnchor} />
+            <h2 className="text-3xl font-bold tracking-tight">{t('common:noun.dashboard')}</h2>
           </div>
-          <Tabs defaultValue="overview" className="overflow-y-auto">
-            <div className="sticky top-0 z-[1] bg-background px-8 pb-4">
-              <TabsList className="shrink-0">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="analytics" disabled>
-                  Analytics
-                </TabsTrigger>
-                <TabsTrigger value="reports" disabled>
-                  Reports
-                </TabsTrigger>
-                <TabsTrigger value="notifications" disabled>
-                  Notifications
-                </TabsTrigger>
-              </TabsList>
+          {!showDashboard ? (
+            <div className="flex h-full flex-col items-center justify-center p-4">
+              <ul className="mb-4 space-y-2 text-left">
+                <li>Click the + sign on the left sidebar to create a table.</li>
+                <li>
+                  Visit the{' '}
+                  <a
+                    href={t('help.mainLink')}
+                    className="text-blue-500 hover:text-blue-700"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Help Center
+                  </a>{' '}
+                  for assistance.
+                </li>
+                <li>
+                  Dashboard is under development,
+                  <Button
+                    className="text-md"
+                    variant="link"
+                    size="xs"
+                    onClick={() => setShowDashboard(true)}
+                  >
+                    click to view demo
+                  </Button>
+                </li>
+              </ul>
             </div>
-            <GridContent />
-          </Tabs>
+          ) : (
+            <Tabs defaultValue="overview" className="overflow-y-auto">
+              <div className="p-8">
+                <Pickers setAnchor={setAnchor} />
+              </div>
+              <GridContent />
+            </Tabs>
+          )}
         </div>
       </div>
     </AnchorProvider>

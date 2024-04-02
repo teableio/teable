@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
-import type { INotificationUnreadCountVo, INotificationVo } from '@teable-group/openapi';
+import type { INotificationUnreadCountVo, INotificationVo } from '@teable/openapi';
 import {
   getNotifyListQuerySchema,
   IGetNotifyListQuery,
   IUpdateNotifyStatusRo,
   updateNotifyStatusRoSchema,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -26,7 +26,7 @@ export class NotificationController {
     return this.notificationService.getNotifyList(currentUserId, query);
   }
 
-  @Get('/unreadCount')
+  @Get('/unread-count')
   async unreadCount(): Promise<INotificationUnreadCountVo> {
     const currentUserId = this.cls.get('user.id');
     return this.notificationService.unreadCount(currentUserId);
@@ -46,7 +46,7 @@ export class NotificationController {
     );
   }
 
-  @Patch('/readAll')
+  @Patch('/read-all')
   async markAllAsRead(): Promise<void> {
     const currentUserId = this.cls.get('user.id');
     return this.notificationService.markAllAsRead(currentUserId);

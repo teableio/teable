@@ -10,9 +10,9 @@ import type {
   ILookupOptionsVo,
   IRollupFieldOptions,
   ISelectFieldOptionsRo,
-  IUpdateFieldRo,
+  IConvertFieldRo,
   IUserFieldOptions,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   assertNever,
   AttachmentFieldCore,
@@ -41,8 +41,8 @@ import {
   SelectFieldCore,
   SingleLineTextFieldCore,
   UserFieldCore,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { keyBy, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -50,6 +50,7 @@ import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
@@ -269,9 +270,13 @@ export class FieldSupplementService {
   private async prepareUpdateLinkField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     const newOptionsRo = fieldRo.options as ILinkFieldOptionsRo;
     const oldOptions = oldFieldVo.options as ILinkFieldOptions;
+    // isOneWay may be undefined or false, so we should convert it to boolean
+    const oldIsOneWay = Boolean(oldOptions.isOneWay);
+    const newIsOneWay = Boolean(newOptionsRo.isOneWay);
     if (
       oldOptions.foreignTableId === newOptionsRo.foreignTableId &&
-      oldOptions.relationship === newOptionsRo.relationship
+      oldOptions.relationship === newOptionsRo.relationship &&
+      oldIsOneWay !== newIsOneWay
     ) {
       return {
         ...oldFieldVo,
@@ -279,7 +284,7 @@ export class FieldSupplementService {
         options: {
           ...oldOptions,
           ...newOptionsRo,
-          symmetricFieldId: newOptionsRo.isOneWay ? undefined : oldOptions.symmetricFieldId,
+          symmetricFieldId: newOptionsRo.isOneWay ? undefined : generateFieldId(),
         },
       };
     }
@@ -908,7 +913,7 @@ export class FieldSupplementService {
    * this method do not do any db update
    */
   async prepareCreateField(tableId: string, fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
-    const field = await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos);
+    const field = (await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos)) as IFieldVo;
 
     const fieldId = field.id || generateFieldId();
     const fieldName = await this.uniqFieldName(tableId, field.name);
@@ -926,36 +931,46 @@ export class FieldSupplementService {
       }
     }
 
-    const fieldVo = {
+    const fieldVo: IFieldVo = {
       ...field,
       id: fieldId,
       name: fieldName,
       dbFieldName,
-    } as IFieldVo;
+      isPending: field.isComputed ? true : undefined,
+    };
 
     this.validateFormattingShowAs(fieldVo);
 
     return fieldVo;
   }
 
-  async prepareUpdateField(tableId: string, fieldRo: IUpdateFieldRo, oldField: IFieldInstance) {
-    const fieldVo = (await this.prepareUpdateFieldInner(
-      tableId,
-      {
-        ...fieldRo,
-        name: fieldRo.name ?? oldField.name,
-        dbFieldName: fieldRo.dbFieldName ?? oldField.dbFieldName,
-        description: fieldRo.description === undefined ? oldField.description : fieldRo.description,
-      }, // for convenience, we fallback name adn dbFieldName when it be undefined
-      oldField
-    )) as IFieldVo;
+  async prepareUpdateField(
+    tableId: string,
+    fieldRo: IConvertFieldRo,
+    oldFieldVo: IFieldVo
+  ): Promise<IFieldVo> {
+    const fieldVo = (
+      majorFieldKeysChanged(oldFieldVo, fieldRo)
+        ? await this.prepareUpdateFieldInner(
+            tableId,
+            {
+              ...fieldRo,
+              name: fieldRo.name ?? oldFieldVo.name,
+              dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
+              description:
+                fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
+            }, // for convenience, we fallback name adn dbFieldName when it be undefined
+            oldFieldVo
+          )
+        : merge({}, oldFieldVo, fieldRo)
+    ) as IFieldVo;
 
     this.validateFormattingShowAs(fieldVo);
 
     return {
       ...fieldVo,
-      id: oldField.id,
-      isPrimary: oldField.isPrimary,
+      id: oldFieldVo.id,
+      isPrimary: oldFieldVo.isPrimary,
     };
   }
 

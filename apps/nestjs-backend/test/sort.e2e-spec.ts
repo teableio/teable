@@ -1,27 +1,21 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { faker } from '@faker-js/faker';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ISortItem, ITableFullVo, IGetRecordsRo } from '@teable-group/core';
-import {
-  CellValueType,
-  FieldKeyType,
-  FieldType,
-  NumberFormattingType,
-  orderTypeEnum,
-  TimeFormatting,
-} from '@teable-group/core';
-import { setViewSort as apiSetViewSort } from '@teable-group/openapi';
+import type { IFieldRo, ISelectFieldOptions, ISortItem } from '@teable/core';
+import { CellValueType, SortFunc, FieldType } from '@teable/core';
+import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
+import { updateViewSort as apiSetViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
+import { x_20 } from './data-helpers/20x';
+import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import {
+  createField,
   createTable,
-  createRecords,
   deleteTable,
+  getFields,
+  getRecords,
   getView,
   initApp,
-  updateRecordByApi,
-  createField,
-  getRecords,
-  getFields,
 } from './utils/init-app';
 
 let app: INestApplication;
@@ -31,106 +25,25 @@ const baseId = globalThis.testConfig.baseId;
 const typeTests = [
   {
     type: CellValueType.String,
-    valueGenerateFn: () => faker.string.numeric(5),
   },
   {
     type: CellValueType.Number,
-    valueGenerateFn: () => faker.number.int(),
   },
   {
     type: CellValueType.DateTime,
-    valueGenerateFn: () => faker.date.anytime(),
   },
   {
     type: CellValueType.Boolean,
-    valueGenerateFn: () => faker.datatype.boolean() || null,
   },
 ];
 
-// some fieldType need
-const defaultFields: IFieldRo[] = [
-  {
-    name: CellValueType.String,
-    type: FieldType.SingleLineText,
-    options: {},
-  },
-  {
-    name: CellValueType.Number,
-    type: FieldType.Number,
-    options: {
-      formatting: {
-        type: NumberFormattingType.Decimal,
-        precision: 2,
-      },
-    },
-  },
-  {
-    name: CellValueType.Boolean,
-    type: FieldType.Checkbox,
-    options: {},
-  },
-  {
-    name: CellValueType.DateTime,
-    type: FieldType.Date,
-    options: {
-      formatting: {
-        date: 'YYYY-MM-DD',
-        time: TimeFormatting.Hour24,
-        timeZone: 'America/New_York',
-      },
-      defaultValue: 'now',
-    },
-  },
-];
-
-// api aggregation
-const fillTable = async (tableId: string, fieldName: string, length: number) => {
-  if (!length) {
-    return [];
-  }
-
-  const records = Array.from({ length: length }).map((_, i) => ({
-    fields: {
-      [fieldName]: `String_${i}`,
-    },
-  }));
-
-  const res = await createRecords(tableId, { fieldKeyType: FieldKeyType.Name, records });
-  return res.records || [];
-};
-
-const createTableWithExtraRec = async (tableName: string, recordsLength = 10) => {
-  const { id, fields, defaultViewId, records } = await createTable(baseId, {
-    name: tableName,
-    fields: defaultFields.map((f) => ({ ...f, name: f.name })),
-  });
-
-  console.log('fields', fields);
-
-  const newRecords = await fillTable(id, fields[0].name, recordsLength);
-
-  return {
-    id,
-    fields,
-    defaultViewId: defaultViewId!,
-    records: records.concat(newRecords),
-  };
-};
-
-const createLink = async (mainTableId: string, subTableId: string) => {
-  await createField(mainTableId, {
-    name: 'link',
-    type: FieldType.Link,
-    options: {
-      foreignTableId: subTableId,
-      relationship: 'oneMany',
-    },
-  });
-};
-
-const getSortRecords = async (tableId: string, orderBy?: IGetRecordsRo['orderBy']) => {
+const getSortRecords = async (
+  tableId: string,
+  query?: Pick<IGetRecordsRo, 'viewId' | 'orderBy'>
+) => {
   const result = await getRecords(tableId, {
-    orderBy: orderBy,
+    viewId: query?.viewId,
+    orderBy: query?.orderBy,
   });
   return result.records;
 };
@@ -150,17 +63,23 @@ const getRecordsByOrder = (
   const fns = conditions.map((condition) => {
     const { fieldId } = condition;
     const field = fields.find((field) => field.id === fieldId) as ITableFullVo['fields'][number];
-    const { name, isMultipleCellValue } = field;
+    const { name, type, options, isMultipleCellValue } = field;
     return (record: ITableFullVo['records'][number]) => {
-      if (isEmpty(record?.fields?.[name])) {
+      const cellValue = record?.fields?.[name];
+      if (isEmpty(cellValue)) {
         return -Infinity;
       }
+      if (type === FieldType.SingleSelect && !isMultipleCellValue) {
+        const { choices } = options as ISelectFieldOptions;
+        return choices.map(({ name }) => name).indexOf(cellValue as string);
+      }
       if (isMultipleCellValue) {
-        return JSON.stringify(record?.fields?.[name]);
+        // return JSON.stringify(record?.fields?.[name]);
+        return (cellValue as any)[0];
       }
     };
   });
-  const orders = conditions.map((condition) => condition.order || 'asc');
+  const orders = conditions.map((condition) => condition.order || SortFunc.Asc);
   return orderBy([...records], fns, orders);
 };
 
@@ -173,271 +92,29 @@ afterAll(async () => {
   await app.close();
 });
 
-describe('OpenAPI RecordController sort (e2e) base cellValueType', () => {
-  let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
-
-  beforeAll(async () => {
-    console.log('subTable - --1--1');
-    subTable = await createTableWithExtraRec('subTable', 10);
-    console.log('subTable', subTable);
-  });
-
-  afterAll(async () => {
-    console.log('subTable111', subTable);
-    console.log('subTable111', JSON.stringify(subTable));
-    const { id: subTableId } = subTable;
-    const result2 = await deleteTable(baseId, subTableId);
-    console.log('clear subTable: ', result2);
-  });
-
-  test.each(typeTests)(
-    `/api/table/{tableId}/record sort (GET) Test CellValueType: $type`,
-    async ({ type, valueGenerateFn }) => {
-      const { id: subTableId, fields: fields2, records: subRecords } = subTable;
-      const field = fields2.find((field) => field.cellValueType === type);
-      const { id: fieldId } = field!;
-      // write content
-      for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
-      }
-
-      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'asc' }];
-      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'desc' }];
-      const ascOriginRecords = await getSortRecords(subTableId, ascOrders);
-      const descOriginRecords = await getSortRecords(subTableId, descOrders);
-
-      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
-      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
-
-      expect(ascOriginRecords).toEqual(ascManualSortRecords);
-      expect(descOriginRecords).toEqual(descManualSortRecords);
-    }
-  );
-});
-
-describe('OpenAPI RecordController sort (e2e) Multiple CellValueType', () => {
-  let mainTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
-  let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
-
-  beforeAll(async () => {
-    mainTable = await createTableWithExtraRec('mainTable', 10);
-    subTable = await createTableWithExtraRec('subTable', 10);
-
-    const { id: mainTableId } = mainTable;
-    const { id: subTableId } = subTable;
-
-    await createLink(mainTableId, subTableId);
-
-    mainTable.fields = await getFields(mainTableId);
-  });
-
-  afterAll(async () => {
-    const { id: mainTableId } = mainTable;
-    const { id: subTableId } = subTable;
-
-    const result1 = await deleteTable(baseId, mainTableId);
-    console.log('clear mainTable: ', result1);
-
-    const result2 = await deleteTable(baseId, subTableId);
-    console.log('clear subTable: ', result2);
-  });
-
-  test.each(typeTests)(
-    `/api/table/{tableId}/record sort (GET) Test CellValueType: $type - Multiple`,
-    async ({ type, valueGenerateFn }) => {
-      const { id: mainTableId, fields: fields1 } = mainTable;
-      const { id: subTableId, fields: fields2, records: subRecords } = subTable;
-
-      const field = fields2.find((field) => field.cellValueType === type);
-      const { id: fieldId } = field!;
-
-      // write content
-      for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
-      }
-      const linkField = fields1.find((field) => field.type === 'link')!;
-      const lookupField = fields2.find((field) => field.cellValueType === type)!;
-
-      const lookupRes = await createField(mainTableId, {
-        name: `lookup_${type}`,
-        type: lookupField.type,
-        isLookup: true,
-        lookupOptions: {
-          foreignTableId: subTableId,
-          linkFieldId: linkField.id,
-          lookupFieldId: lookupField.id,
-        },
-      });
-      fields1.push(lookupRes);
-      const lookupFieldId = lookupRes?.id;
-
-      // link records
-      for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(mainTableId, mainTable?.records[i]?.id, linkField.id, [
-          { id: subTable?.records?.[i]?.id },
-        ]);
-      }
-
-      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'asc' }];
-      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'desc' }];
-      const ascOriginRecords = await getSortRecords(mainTableId, ascOrders);
-      const descOriginRecords = await getSortRecords(mainTableId, descOrders);
-
-      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields1);
-      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields1);
-
-      expect(ascOriginRecords).toEqual(ascManualSortRecords);
-      expect(descOriginRecords).toEqual(descManualSortRecords);
-    }
-  );
-});
-
-describe('OpenAPI ViewController raw order sort (e2e) base cellValueType', () => {
-  let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields'> & { defaultViewId: string };
-
-  beforeEach(async () => {
-    subTable = await createTableWithExtraRec('subTable', 10);
-  });
-
-  afterEach(async () => {
-    const { id: subTableId } = subTable;
-    const result2 = await deleteTable(baseId, subTableId);
-    console.log('clear subTable: ', result2);
-  });
-
-  test.each(typeTests)(
-    `/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: $type`,
-    async ({ type, valueGenerateFn }) => {
-      const {
-        id: subTableId,
-        fields: fields2,
-        records: subRecords,
-        defaultViewId: subTableDefaultViewId,
-      } = subTable;
-      const field = fields2.find(
-        (field) => field.cellValueType === type
-      ) as ITableFullVo['fields'][number];
-      const { id: fieldId } = field;
-
-      for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
-      }
-
-      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'asc' }];
-      await setRecordsOrder(subTableId, subTableDefaultViewId, ascOrders);
-      const ascOriginRecords = await getSortRecords(subTableId);
-      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: 'desc' }];
-      await setRecordsOrder(subTableId, subTableDefaultViewId, descOrders);
-      const descOriginRecords = await getSortRecords(subTableId);
-
-      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
-      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
-
-      expect(ascOriginRecords).toEqual(ascManualSortRecords);
-      expect(descOriginRecords).toEqual(descManualSortRecords);
-    }
-  );
-});
-
-describe('OpenAPI ViewController raw order sort (e2e) Multiple CellValueType', () => {
-  let mainTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
-  let subTable: Pick<ITableFullVo, 'id' | 'records' | 'fields' | 'defaultViewId'>;
-
-  beforeEach(async () => {
-    mainTable = await createTableWithExtraRec('mainTable', 10);
-    subTable = await createTableWithExtraRec('subTable', 10);
-
-    const { id: mainTableId } = mainTable;
-    const { id: subTableId } = subTable;
-
-    await createLink(mainTableId, subTableId);
-
-    mainTable.fields = await getFields(mainTableId);
-  });
-
-  afterEach(async () => {
-    const { id: mainTableId } = mainTable;
-    const { id: subTableId } = subTable;
-
-    const result1 = await deleteTable(baseId, mainTableId);
-    console.log('clear mainTable: ', result1);
-
-    const result2 = await deleteTable(baseId, subTableId);
-    console.log('clear subTable: ', result2);
-  });
-
-  test.each(typeTests)(
-    `/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: $type - Multiple`,
-    async ({ type, valueGenerateFn }) => {
-      const { id: mainTableId, fields: fields1, defaultViewId: mainDefaultViewId } = mainTable;
-      const { id: subTableId, fields: fields2, records: subRecords } = subTable;
-      const field = fields2.find((field) => field.cellValueType === type);
-      const { id: fieldId } = field!;
-
-      // write content
-      for (let i = 0; i < subTable.records.length; i++) {
-        await updateRecordByApi(subTableId, subTable.records[i].id, fieldId, valueGenerateFn());
-      }
-      const linkField = fields1.find((field) => field.type === 'link')!;
-      const lookupField = fields2.find((field) => field.cellValueType === type)!;
-
-      const lookupRes = await createField(mainTableId, {
-        name: `lookup_${type}`,
-        type: lookupField.type,
-        isLookup: true,
-        lookupOptions: {
-          foreignTableId: subTableId,
-          linkFieldId: linkField.id,
-          lookupFieldId: lookupField.id,
-        },
-      });
-      fields1.push(lookupRes);
-      const lookupFieldId = lookupRes?.id;
-
-      // link records
-      for (let i = 0; i < subRecords.length; i++) {
-        await updateRecordByApi(mainTableId, mainTable?.records[i]?.id, linkField.id, [
-          { id: subTable?.records?.[i]?.id },
-        ]);
-      }
-
-      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'asc' }];
-      await setRecordsOrder(mainTableId, mainDefaultViewId!, ascOrders);
-      const ascOriginRecords = await getSortRecords(mainTableId);
-      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: 'desc' }];
-      await setRecordsOrder(mainTableId, mainDefaultViewId!, descOrders);
-      const descOriginRecords = await getSortRecords(mainTableId);
-
-      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields1);
-      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields1);
-
-      expect(ascOriginRecords).toEqual(ascManualSortRecords);
-      expect(descOriginRecords).toEqual(descManualSortRecords);
-    }
-  );
-});
-
 describe('OpenAPI ViewController view order sort (e2e)', () => {
   let tableId: string;
   let viewId: string;
   let fields: IFieldRo[];
+
   beforeEach(async () => {
     const result = await createTable(baseId, { name: 'Table' });
     tableId = result.id;
     viewId = result.defaultViewId!;
     fields = result.fields!;
   });
+
   afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
-  test('/api/table/{tableId}/view/{viewId}/sort sort view order (PUT)', async () => {
+  it('/api/table/{tableId}/view/{viewId}/sort sort view order (PUT)', async () => {
     const assertSort = {
       sort: {
         sortObjs: [
           {
             fieldId: fields[0].id as string,
-            order: orderTypeEnum.Enum.asc,
+            order: SortFunc.Asc,
           },
         ],
         manualSort: false,
@@ -448,4 +125,188 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     const viewSort = updatedView.sort;
     expect(viewSort).toEqual(assertSort.sort);
   });
+});
+
+describe('OpenAPI Sort (e2e) Base CellValueType', () => {
+  let table: ITableFullVo;
+
+  beforeAll(async () => {
+    table = await createTable(baseId, {
+      name: 'sort_x_20',
+      fields: x_20.fields,
+      records: x_20.records,
+    });
+  });
+
+  afterAll(async () => {
+    await deleteTable(baseId, table.id);
+  });
+
+  test.each(typeTests)(
+    `/api/table/{tableId}/record sort (GET) Test CellValueType: $type`,
+    async ({ type }) => {
+      const { id: subTableId, fields: fields2 } = table;
+      const field = fields2.find((field) => field.cellValueType === type);
+      const { id: fieldId } = field!;
+
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
+      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Desc }];
+      const ascOriginRecords = await getSortRecords(subTableId, { orderBy: ascOrders });
+      const descOriginRecords = await getSortRecords(subTableId, { orderBy: descOrders });
+
+      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
+      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
+
+      expect(ascOriginRecords).toEqual(ascManualSortRecords);
+      expect(descOriginRecords).toEqual(descManualSortRecords);
+    }
+  );
+
+  test.each(typeTests)(
+    `/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: $type`,
+    async ({ type }) => {
+      const { id: subTableId, fields: fields2, defaultViewId } = table;
+      const field = fields2.find(
+        (field) => field.cellValueType === type
+      ) as ITableFullVo['fields'][number];
+      const { id: fieldId } = field;
+
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
+      await setRecordsOrder(subTableId, defaultViewId!, ascOrders);
+      const ascOriginRecords = await getSortRecords(subTableId, { viewId: defaultViewId });
+      const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Desc }];
+      await setRecordsOrder(subTableId, defaultViewId!, descOrders);
+      const descOriginRecords = await getSortRecords(subTableId, { viewId: defaultViewId });
+
+      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
+      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
+
+      expect(ascOriginRecords).toEqual(ascManualSortRecords);
+      expect(descOriginRecords).toEqual(descManualSortRecords);
+    }
+  );
+
+  test('SingleSelect field sorting should be sorted based on option value', async () => {
+    const { id: subTableId, fields: fields2 } = table;
+    const singleSelectField = fields2.find((field) => field.type === FieldType.SingleSelect);
+    const { id: fieldId } = singleSelectField!;
+
+    const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
+    const descOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Desc }];
+    const ascOriginRecords = await getSortRecords(subTableId, { orderBy: ascOrders });
+    const descOriginRecords = await getSortRecords(subTableId, { orderBy: descOrders });
+
+    const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
+    const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
+
+    expect(ascOriginRecords).toEqual(ascManualSortRecords);
+    expect(descOriginRecords).toEqual(descManualSortRecords);
+  });
+
+  test('view sort property should be merged after by interface parameter orderBy', async () => {
+    const { id: subTableId, fields: fields2, defaultViewId } = table;
+    const field = fields2.find(
+      (field) => field.type === FieldType.Number
+    ) as ITableFullVo['fields'][number];
+    const { id: fieldId } = field;
+
+    const booleanField = fields2.find((field) => field.type === FieldType.Checkbox);
+    const { id: booleanFieldId } = booleanField!;
+
+    const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId, order: SortFunc.Asc }];
+    const descOrders: IGetRecordsRo['orderBy'] = [
+      { fieldId: booleanFieldId, order: SortFunc.Desc },
+    ];
+    await setRecordsOrder(subTableId, defaultViewId!, ascOrders);
+    const originRecords = await getSortRecords(subTableId, {
+      viewId: defaultViewId,
+      orderBy: descOrders,
+    });
+    const manualSortRecords = getRecordsByOrder(
+      originRecords,
+      [...descOrders, ...ascOrders],
+      fields2
+    );
+    expect(originRecords).toEqual(manualSortRecords);
+  });
+});
+
+describe('OpenAPI Sort (e2e) Multiple CellValueType', () => {
+  let mainTable: ITableFullVo;
+  let subTable: ITableFullVo;
+
+  beforeAll(async () => {
+    mainTable = await createTable(baseId, {
+      name: 'sort_x_20',
+      fields: x_20.fields,
+      records: x_20.records,
+    });
+
+    const x20Link = x_20_link(mainTable);
+    subTable = await createTable(baseId, {
+      name: 'sort_x_20',
+      fields: x20Link.fields,
+      records: x20Link.records,
+    });
+
+    const x20LinkFromLookups = x_20_link_from_lookups(mainTable, subTable.fields[2].id);
+    for (const field of x20LinkFromLookups.fields) {
+      await createField(subTable.id, field);
+    }
+
+    subTable.fields = await getFields(subTable.id);
+  });
+
+  afterAll(async () => {
+    await deleteTable(baseId, mainTable.id);
+    await deleteTable(baseId, subTable.id);
+  });
+
+  test.each(typeTests)(
+    `/api/table/{tableId}/record sort (GET) Test CellValueType: $type - Multiple`,
+    async ({ type }) => {
+      const { id: subTableId, fields: fields2 } = subTable;
+
+      const field = fields2.find((field) => field.cellValueType === type && field.isLookup);
+      const { id: lookupFieldId } = field!;
+
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: SortFunc.Asc }];
+      const descOrders: IGetRecordsRo['orderBy'] = [
+        { fieldId: lookupFieldId, order: SortFunc.Desc },
+      ];
+      const ascOriginRecords = await getSortRecords(subTableId, { orderBy: ascOrders });
+      const descOriginRecords = await getSortRecords(subTableId, { orderBy: descOrders });
+
+      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
+      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
+
+      expect(ascOriginRecords).toEqual(ascManualSortRecords);
+      expect(descOriginRecords).toEqual(descManualSortRecords);
+    }
+  );
+
+  test.each(typeTests)(
+    `/api/table/{tableId}/view/{viewId}/sort sort view raw order (POST) Test CellValueType: $type - Multiple`,
+    async ({ type }) => {
+      const { id: subTableId, fields: fields2, defaultViewId: subDefaultViewId } = subTable;
+
+      const field = fields2.find((field) => field.cellValueType === type && field.isLookup);
+      const { id: lookupFieldId } = field!;
+
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: lookupFieldId, order: SortFunc.Asc }];
+      await setRecordsOrder(subTableId, subDefaultViewId!, ascOrders);
+      const ascOriginRecords = await getSortRecords(subTableId, { viewId: subDefaultViewId });
+      const descOrders: IGetRecordsRo['orderBy'] = [
+        { fieldId: lookupFieldId, order: SortFunc.Desc },
+      ];
+      await setRecordsOrder(subTableId, subDefaultViewId!, descOrders);
+      const descOriginRecords = await getSortRecords(subTableId, { viewId: subDefaultViewId });
+
+      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
+      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
+
+      expect(ascOriginRecords).toEqual(ascManualSortRecords);
+      expect(descOriginRecords).toEqual(descManualSortRecords);
+    }
+  );
 });

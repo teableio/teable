@@ -2,14 +2,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type {
-  IFieldRo,
-  IFieldVo,
-  ILookupOptionsRo,
-  IRecord,
-  ITableFullVo,
-  LinkFieldCore,
-} from '@teable-group/core';
+import type { IFieldRo, IFieldVo, ILookupOptionsRo, IRecord, LinkFieldCore } from '@teable/core';
 import {
   Colors,
   FieldKeyType,
@@ -17,7 +10,8 @@ import {
   NumberFormattingType,
   Relationship,
   TimeFormatting,
-} from '@teable-group/core';
+} from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createTable,

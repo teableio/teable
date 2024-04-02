@@ -1,15 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  Body,
-  Controller,
-  Param,
-  Patch,
-  Post,
-  Get,
-  Delete,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
@@ -20,7 +10,7 @@ import type {
   UpdateSpaceInvitationLinkVo,
   ListSpaceCollaboratorVo,
   IGetBaseVo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import {
   createSpaceRoSchema,
   ICreateSpaceRo,
@@ -34,18 +24,16 @@ import {
   createSpaceInvitationLinkRoSchema,
   updateSpaceCollaborateRoSchema,
   UpdateSpaceCollaborateRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
-import { Events } from '../../event-emitter/model';
+import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { PermissionGuard } from '../auth/guard/permission.guard';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { SpaceService } from './space.service';
 
 @Controller('api/space/')
-@UseGuards(PermissionGuard)
 export class SpaceController {
   constructor(
     private readonly spaceService: SpaceService,
@@ -54,6 +42,7 @@ export class SpaceController {
   ) {}
 
   @Post()
+  @Permissions('space|create')
   @EmitControllerEvent(Events.SPACE_CREATE)
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
@@ -86,7 +75,7 @@ export class SpaceController {
 
   @Permissions('space|delete')
   @Delete(':spaceId')
-  @EmitControllerEvent(Events.SPACE_UPDATE)
+  @EmitControllerEvent(Events.SPACE_DELETE)
   async deleteSpace(@Param('spaceId') spaceId: string) {
     await this.spaceService.deleteSpace(spaceId);
     return null;

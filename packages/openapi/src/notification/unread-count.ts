@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const NOTIFICATION_UNREAD_COUNT = '/notifications/unreadCount';
+export const NOTIFICATION_UNREAD_COUNT = '/notifications/unread-count';
 
 export const notificationUnreadCountVoSchema = z.object({
   unreadCount: z.number().nonnegative().int(),

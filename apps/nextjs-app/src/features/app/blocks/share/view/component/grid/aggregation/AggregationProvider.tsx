@@ -1,9 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IAggregationRo } from '@teable-group/core';
-import type { IShareViewAggregationsRo } from '@teable-group/openapi';
-import { getShareViewAggregations } from '@teable-group/openapi';
-import type { PropKeys } from '@teable-group/sdk';
-import { useView, ReactQueryKeys, AggregationContext, useActionTrigger } from '@teable-group/sdk';
+import type { IGridColumnMeta } from '@teable/core';
+import type { IAggregationRo, IShareViewAggregationsRo } from '@teable/openapi';
+import { getShareViewAggregations } from '@teable/openapi';
+import type { PropKeys } from '@teable/sdk';
+import {
+  useView,
+  ReactQueryKeys,
+  AggregationContext,
+  useActionTrigger,
+  useSearch,
+} from '@teable/sdk';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
@@ -14,10 +20,12 @@ interface IAggregationProviderProps {
 
 const useAggregationQuery = (): IShareViewAggregationsRo => {
   const view = useView();
+  const { searchQuery } = useSearch();
+
   const field = useMemo(
     () =>
       view?.columnMeta &&
-      Object.entries(view.columnMeta).reduce<Partial<IAggregationRo['field']>>(
+      Object.entries(view.columnMeta as IGridColumnMeta).reduce<Partial<IAggregationRo['field']>>(
         (acc, [fieldId, { statisticFunc }]) => {
           if (statisticFunc && acc) {
             const existingArr = acc[statisticFunc] || [];
@@ -29,7 +37,10 @@ const useAggregationQuery = (): IShareViewAggregationsRo => {
       ),
     [view?.columnMeta]
   );
-  return useMemo(() => ({ filter: view?.filter, field }), [field, view?.filter]);
+  return useMemo(
+    () => ({ filter: view?.filter, field, search: searchQuery }),
+    [field, searchQuery, view?.filter]
+  );
 };
 
 export const AggregationProvider = ({ children }: IAggregationProviderProps) => {
@@ -52,13 +63,14 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
   );
 
   useEffect(() => {
-    const relevantProps = [
-      'tableAdd',
-      'tableUpdate',
-      'tableDelete',
+    const relevantProps: PropKeys[] = [
+      'addRecord',
+      'setRecord',
+      'deleteRecord',
       'applyViewFilter',
       'showViewField',
-    ] as PropKeys[];
+      'applyViewStatisticFunc',
+    ];
 
     listener?.(relevantProps, () => updateViewAggregations(), [tableId, viewId]);
   }, [listener, tableId, updateViewAggregations, viewId]);

@@ -8,9 +8,8 @@ import type {
   INumberFieldOptionsRo,
   IRecord,
   ISingleLineTextFieldOptions,
-  IUpdateRecordsRo,
   IUserFieldOptions,
-} from '@teable-group/core';
+} from '@teable/core';
 import {
   CellValueType,
   FieldKeyType,
@@ -25,16 +24,17 @@ import {
   singleLineTextShowAsSchema,
   singleNumberShowAsSchema,
   stringifyClipboardText,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IUpdateRecordsRo,
   IRangesToIdQuery,
   IRangesToIdVo,
   IPasteRo,
   IPasteVo,
   IRangesRo,
-} from '@teable-group/openapi';
-import { IdReturnType, RangeType } from '@teable-group/openapi';
+} from '@teable/openapi';
+import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -156,13 +156,7 @@ export class SelectionService {
   }
 
   private fieldsToProjection(fields: IFieldVo[], fieldKeyType: FieldKeyType) {
-    return fields.reduce(
-      (acc, field) => {
-        acc[field[fieldKeyType]] = true;
-        return acc;
-      },
-      {} as Record<string, boolean>
-    );
+    return fields.map((f) => f[fieldKeyType]);
   }
 
   private async columnsSelectionCtx(tableId: string, rangesRo: IRangesRo) {
@@ -291,7 +285,7 @@ export class SelectionService {
       return [];
     }
     const records = Array.from({ length: numRowsToExpand }, () => ({ fields: {} }));
-    const createdRecords = await this.recordOpenApiService.createRecords(tableId, records);
+    const createdRecords = await this.recordOpenApiService.createRecords(tableId, { records });
     return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
   }
 
@@ -440,23 +434,22 @@ export class SelectionService {
       return acc.concat(tokensInRecord);
     }, [] as string[]);
 
-    return nullsToUndefined(
-      await this.prismaService.attachments.findMany({
-        where: {
-          token: {
-            in: tokens,
-          },
+    const attachments = await this.prismaService.attachments.findMany({
+      where: {
+        token: {
+          in: tokens,
         },
-        select: {
-          token: true,
-          size: true,
-          mimetype: true,
-          width: true,
-          height: true,
-          path: true,
-        },
-      })
-    );
+      },
+      select: {
+        token: true,
+        size: true,
+        mimetype: true,
+        width: true,
+        height: true,
+        path: true,
+      },
+    });
+    return attachments.map(nullsToUndefined);
   }
 
   private parseCopyContent(content: string): string[][] {
@@ -681,13 +674,7 @@ export class SelectionService {
 
     const effectFields = fields.slice(col, col + tableColCount);
 
-    const projection = effectFields.reduce(
-      (acc, field) => {
-        acc[field.id] = true;
-        return acc;
-      },
-      {} as Record<string, boolean>
-    );
+    const projection = effectFields.map((f) => f.id);
 
     const records = await this.recordService.getRecordsFields(tableId, {
       ...queryRo,

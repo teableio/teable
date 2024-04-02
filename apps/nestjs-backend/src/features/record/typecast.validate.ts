@@ -1,9 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
-import type { ILinkCellValue } from '@teable-group/core';
-import { ColorUtils, FieldType, generateChoiceId } from '@teable-group/core';
-import type { PrismaService } from '@teable-group/db-main-prisma';
+import type { IAttachmentCellValue, ILinkCellValue } from '@teable/core';
+import { ColorUtils, FieldType, generateChoiceId } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
+import { UploadType } from '@teable/openapi';
 import { isUndefined, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
+import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import StorageAdapter from '../attachments/plugins/adapter';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -15,6 +18,7 @@ interface IServices {
   prismaService: PrismaService;
   fieldConvertingService: FieldConvertingService;
   recordService: RecordService;
+  attachmentsStorageService: AttachmentsStorageService;
 }
 
 /**
@@ -61,6 +65,10 @@ export class TypeCastAndValidate {
       case FieldType.Link: {
         return await this.castToLink(cellValues);
       }
+      case FieldType.User:
+        return await this.castToUser(cellValues);
+      case FieldType.Attachment:
+        return await this.castToAttachment(cellValues);
       default:
         return this.defaultCastTo(cellValues);
     }
@@ -200,6 +208,45 @@ export class TypeCastAndValidate {
       );
       return newCellValue;
     });
+  }
+
+  private async castToUser(cellValues: unknown[]): Promise<unknown[]> {
+    const newCellValues = this.defaultCastTo(cellValues);
+    return newCellValues.map((cellValues) => {
+      return this.field.convertDBValue2CellValue(cellValues);
+    });
+  }
+
+  private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
+    const newCellValues = this.defaultCastTo(cellValues);
+
+    const allAttachmentsPromises = newCellValues.map((cellValues) => {
+      const attachmentCellValue = cellValues as IAttachmentCellValue;
+      if (!attachmentCellValue) {
+        return attachmentCellValue;
+      }
+
+      const attachmentsWithPresignedUrls = attachmentCellValue.map(async (item) => {
+        const { path, mimetype, token } = item;
+        const presignedUrl = await this.services.attachmentsStorageService.getPreviewUrlByPath(
+          StorageAdapter.getBucket(UploadType.Table),
+          path,
+          token,
+          undefined,
+          {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': mimetype,
+          }
+        );
+        return {
+          ...item,
+          presignedUrl,
+        };
+      });
+
+      return Promise.all(attachmentsWithPresignedUrls);
+    });
+    return await Promise.all(allAttachmentsPromises);
   }
 
   /**

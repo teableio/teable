@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const ENABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/enableShare';
+export const ENABLE_SHARE_VIEW = '/table/{tableId}/view/{viewId}/enable-share';
 
 export const enableShareViewVoSchema = z.object({
   shareId: z.string(),
@@ -12,7 +12,7 @@ export const enableShareViewVoSchema = z.object({
 export type EnableShareViewVo = z.infer<typeof enableShareViewVoSchema>;
 
 export const EnableShareViewRoute: RouteConfig = registerRoute({
-  method: 'patch',
+  method: 'post',
   path: ENABLE_SHARE_VIEW,
   description: 'Enable view share',
   request: {
@@ -22,7 +22,7 @@ export const EnableShareViewRoute: RouteConfig = registerRoute({
     }),
   },
   responses: {
-    200: {
+    201: {
       description: 'Returns successfully enable view share',
       content: {
         'application/json': {
@@ -35,5 +35,5 @@ export const EnableShareViewRoute: RouteConfig = registerRoute({
 });
 
 export const enableShareView = (params: { tableId: string; viewId: string }) => {
-  return axios.patch<EnableShareViewVo>(urlBuilder(ENABLE_SHARE_VIEW, params));
+  return axios.post<EnableShareViewVo>(urlBuilder(ENABLE_SHARE_VIEW, params));
 };

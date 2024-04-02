@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { hasPermission } from '@teable-group/core';
-import type { IGetSpaceVo } from '@teable-group/openapi';
-import { getSpaceCollaboratorList } from '@teable-group/openapi';
-import { ReactQueryKeys } from '@teable-group/sdk';
+import { hasPermission } from '@teable/core';
+import type { IGetSpaceVo } from '@teable/openapi';
+import { getSpaceCollaboratorList } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk';
+import { Trans, useTranslation } from 'next-i18next';
 import { Collaborators } from './Collaborators';
 import { Invite } from './Invite';
 import { InviteLink } from './InviteLink';
@@ -14,6 +15,7 @@ interface ISpaceCollaboratorModal {
 export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props) => {
   const { space } = props;
   const { id: spaceId, role } = space;
+  const { t } = useTranslation('common');
 
   const { data: collaborators } = useQuery({
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
@@ -21,14 +23,18 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
   });
 
   if (!collaborators?.length) {
-    return <div>Loading...</div>;
+    return <div>{t('actions.loading')}</div>;
   }
 
   return (
     <div className="overflow-y-auto">
       <div className="pb-2 text-sm text-muted-foreground">
-        This space has <b>{collaborators.length} collaborators</b>. Adding a space collaborator will
-        give them access to all bases within this space.
+        <Trans
+          ns="common"
+          i18nKey={'invite.dialog.desc'}
+          count={collaborators.length}
+          components={{ b: <b /> }}
+        />
       </div>
       <div className="space-y-8">
         <Invite spaceId={spaceId} role={role} />

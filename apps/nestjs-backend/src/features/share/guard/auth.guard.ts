@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
-import { ANONYMOUS_USER_ID } from '@teable-group/core';
+import { ANONYMOUS_USER_ID } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { ShareAuthService } from '../share-auth.service';

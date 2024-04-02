@@ -1,4 +1,3 @@
-import type { IUser } from '../../../../context';
 import type { IRectangle } from '../../interface';
 
 export interface IPoint {
@@ -120,7 +119,8 @@ export interface ITextInfo {
 }
 
 export interface IAvatarProps extends IRectangle {
-  user: Omit<IUser, 'notifyMeta'>;
+  defaultText: string;
+  img?: HTMLImageElement | ImageBitmap;
   fill?: string;
   stroke?: string;
   fontSize?: number;

@@ -1,17 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable-group/openapi';
+import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
-import { BaseCard } from './BaseCard';
+import { DraggableBaseGrid } from './DraggableBaseGrid';
 
 export const SpaceInnerPage: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const ref = useRef<HTMLDivElement>(null);
   const spaceId = router.query.spaceId as string;
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
@@ -29,7 +33,7 @@ export const SpaceInnerPage: React.FC = () => {
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['space-list'] });
+      await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
       router.push({
         pathname: '/space',
       });
@@ -40,7 +44,7 @@ export const SpaceInnerPage: React.FC = () => {
     mutationFn: updateSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['space'] });
-      queryClient.invalidateQueries({ queryKey: ['space-list'] });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
     },
   });
 
@@ -63,7 +67,7 @@ export const SpaceInnerPage: React.FC = () => {
 
   return (
     space && (
-      <div ref={ref} className="flex h-full w-full min-w-[760px] px-12 pt-8">
+      <div ref={ref} className="flex size-full min-w-[760px] px-12 pt-8">
         <div className="w-full flex-1 space-y-6">
           <div className="pb-6">
             <SpaceRenaming
@@ -77,23 +81,15 @@ export const SpaceInnerPage: React.FC = () => {
           </div>
 
           {bases?.length ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
-              {bases.map((base) => (
-                <BaseCard
-                  key={base.id}
-                  className="h-24 min-w-[17rem] max-w-[34rem] flex-1"
-                  base={base}
-                />
-              ))}
-            </div>
+            <DraggableBaseGrid bases={bases} />
           ) : (
             <div className="flex items-center justify-center">
-              <h1>This workspace is empty</h1>
+              <h1>{t('space:spaceIsEmpty')}</h1>
             </div>
           )}
         </div>
 
-        <div className="ml-16 w-60 min-w-60">
+        <div className="ml-16 w-72 min-w-60">
           <SpaceActionBar
             className="flex shrink-0 items-center justify-end gap-3 pb-8"
             space={space}

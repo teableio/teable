@@ -1,10 +1,10 @@
-import type { IFormulaFieldOptions } from '@teable-group/core';
-import { getFormattingSchema, getShowAsSchema, CellValueType } from '@teable-group/core';
-import { FormulaEditor } from '@teable-group/sdk/components';
-import { useFields } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
-import { FormulaField } from '@teable-group/sdk/model';
-import { Dialog, DialogContent, DialogTrigger } from '@teable-group/ui-lib/shadcn';
+import type { IFormulaFieldOptions } from '@teable/core';
+import { getFormattingSchema, getShowAsSchema, CellValueType } from '@teable/core';
+import { FormulaEditor } from '@teable/sdk/components';
+import { useFields } from '@teable/sdk/hooks';
+import type { IFieldInstance } from '@teable/sdk/model';
+import { FormulaField } from '@teable/sdk/model';
+import { Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { isEmpty, isEqual, keyBy } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
@@ -30,12 +30,12 @@ export const FormulaOptionsInner = (props: {
   const { expression } = options;
   const [formatting, setFormatting] = useState(options.formatting);
   const [showAs, setShowAs] = useState(options.showAs);
-  const fields = useFields();
+  const fields = useFields({ withHidden: true });
   const [visible, setVisible] = useState(false);
 
   const expressionByName = useMemo(() => {
     return expression
-      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'), true)
+      ? FormulaField.convertExpressionIdToName(expression, keyBy(fields, 'id'))
       : '';
   }, [expression, fields]);
 
@@ -74,7 +74,7 @@ export const FormulaOptionsInner = (props: {
           <DialogContent
             tabIndex={-1}
             closeable
-            className="flex h-auto w-auto max-w-full overflow-hidden rounded-sm p-0 outline-0 md:w-auto"
+            className="flex size-auto max-w-full overflow-hidden rounded-sm p-0 outline-0 md:w-auto"
           >
             <FormulaEditor expression={expression} onConfirm={onExpressionChange} />
           </DialogContent>

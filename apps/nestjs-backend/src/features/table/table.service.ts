@@ -1,12 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type {
-  ICreateTableRo,
-  IOtOperation,
-  ISetTablePropertyOpContext,
-  ISnapshotBase,
-  ITableFullVo,
-  ITableVo,
-} from '@teable-group/core';
+import type { IOtOperation, ISnapshotBase } from '@teable/core';
 import {
   FieldKeyType,
   generateTableId,
@@ -14,29 +7,27 @@ import {
   getUniqName,
   IdPrefix,
   nullsToUndefined,
-  tablePropertyKeySchema,
-} from '@teable-group/core';
-import type { Prisma } from '@teable-group/db-main-prisma';
-import { PrismaService } from '@teable-group/db-main-prisma';
+} from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { ICreateTableRo, ITableFullVo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { fromZodError } from 'zod-validation-error';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IAdapterService } from '../../share-db/interface';
+import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { Timing } from '../../utils/timing';
-import { AttachmentsTableService } from '../attachments/attachments-table.service';
 import { BatchService } from '../calculation/batch.service';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
 
 @Injectable()
-export class TableService implements IAdapterService {
+export class TableService implements IReadonlyAdapterService {
   private logger = new Logger(TableService.name);
 
   constructor(
@@ -46,7 +37,6 @@ export class TableService implements IAdapterService {
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
-    private readonly attachmentService: AttachmentsTableService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -102,8 +92,6 @@ export class TableService implements IAdapterService {
       dbTableName,
       order,
       createdBy: userId,
-      lastModifiedBy: userId,
-      lastModifiedTime: new Date(),
       version: 1,
     };
 
@@ -148,10 +136,9 @@ export class TableService implements IAdapterService {
 
     const results = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ tableId: string; lastModifiedTime: Date }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      .$queryRawUnsafe<
+        { tableId: string; lastModifiedTime: Date }[]
+      >(nativeSql.sql, ...nativeSql.bindings);
 
     return tableIds.map((tableId) => {
       const item = results.find((result) => result.tableId === tableId);
@@ -241,6 +228,7 @@ export class TableService implements IAdapterService {
     const viewRaw = await this.prismaService.view.findFirst({
       where: { tableId, deletedTime: null },
       select: { id: true },
+      orderBy: { order: 'asc' },
     });
     if (!viewRaw) {
       throw new NotFoundException('Table No found');
@@ -313,7 +301,7 @@ export class TableService implements IAdapterService {
         },
       })
       .catch(() => {
-        throw new BadRequestException('Table not found');
+        throw new NotFoundException('Table not found');
       });
 
     const updateInput: Prisma.TableMetaUpdateInput = {
@@ -324,7 +312,7 @@ export class TableService implements IAdapterService {
     };
 
     const ops = Object.entries(updateInput)
-      .filter(([key, value]) => Boolean(value == (tableRaw as Record<string, unknown>)[key]))
+      .filter(([key, value]) => Boolean(value !== (tableRaw as Record<string, unknown>)[key]))
       .map<IOtOperation>(([key, value]) => {
         return {
           p: [key],
@@ -355,44 +343,16 @@ export class TableService implements IAdapterService {
 
   async del(version: number, baseId: string, tableId: string) {
     const userId = this.cls.get('user.id');
-    await this.attachmentService.deleteTable(tableId);
     await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId, baseId },
       data: { version, deletedTime: new Date(), lastModifiedBy: userId },
     });
   }
 
-  async update(
-    version: number,
-    baseId: string,
-    tableId: string,
-    opContexts: ISetTablePropertyOpContext[]
-  ) {
-    const userId = this.cls.get('user.id');
-
-    for (const opContext of opContexts) {
-      const { key, newValue } = opContext;
-      const result = tablePropertyKeySchema.safeParse({ [key]: newValue });
-      if (!result.success) {
-        throw new BadRequestException(fromZodError(result.error).message);
-      }
-
-      // skip undefined value
-      const parsedValue = result.data[key];
-      if (parsedValue === undefined) {
-        continue;
-      }
-
-      await this.prismaService.txClient().tableMeta.update({
-        where: { id: tableId, baseId },
-        data: { [key]: parsedValue, version, lastModifiedBy: userId },
-      });
-    }
-  }
-
   async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { baseId, id: { in: ids }, deletedTime: null },
+      orderBy: { order: 'asc' },
     });
     const tableTime = await this.getTableLastModifiedTime(ids);
     const tableDefaultViewIds = await this.getTableDefaultViewId(ids);
@@ -407,7 +367,6 @@ export class TableService implements IAdapterService {
             ...table,
             description: table.description ?? undefined,
             icon: table.icon ?? undefined,
-            order: table.order,
             lastModifiedTime: tableTime[i] || table.createdTime.toISOString(),
             defaultViewId: tableDefaultViewIds[i],
           },

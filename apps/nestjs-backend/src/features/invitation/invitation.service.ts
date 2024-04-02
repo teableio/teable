@@ -5,9 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { SpaceRole } from '@teable-group/core';
-import { generateInvitationId } from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
+import type { SpaceRole } from '@teable/core';
+import { generateInvitationId } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type {
   AcceptInvitationLinkRo,
   CreateSpaceInvitationLinkRo,
@@ -15,7 +15,7 @@ import type {
   EmailSpaceInvitationRo,
   ItemSpaceInvitationLinkVo,
   UpdateSpaceInvitationLinkRo,
-} from '@teable-group/openapi';
+} from '@teable/openapi';
 import dayjs from 'dayjs';
 import { ClsService } from 'nestjs-cls';
 import type { IMailConfig } from '../../configs/mail.config';
@@ -208,7 +208,6 @@ export class InvitationService {
             roleName: role,
             userId: currentUserId,
             createdBy: createdBy,
-            lastModifiedBy: createdBy,
           },
         });
         // save invitation record for audit

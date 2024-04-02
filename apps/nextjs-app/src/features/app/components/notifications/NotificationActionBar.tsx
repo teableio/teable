@@ -1,5 +1,5 @@
-import { NotificationStatesEnum } from '@teable-group/core';
-import { CheckSquare, MarkUnread, MoreHorizontal } from '@teable-group/icons';
+import { NotificationStatesEnum } from '@teable/core';
+import { CheckSquare, MarkUnread, MoreHorizontal } from '@teable/icons';
 import {
   Button,
   HoverCard,
@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import React from 'react';
 
 interface ActionBarProps {
@@ -25,18 +25,18 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
     <HoverCard openDelay={100} closeDelay={0}>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent
-        className="h-auto w-auto p-0"
+        className="size-auto p-0"
         sideOffset={-35}
         alignOffset={16}
         side="top"
         align="end"
       >
         <div className="flex p-0.5">
-          <div className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-secondary">
+          <div className="inline-flex size-6 cursor-pointer items-center justify-center rounded hover:bg-secondary">
             <TooltipProvider>
               <Tooltip delayDuration={20}>
                 <TooltipTrigger asChild>
-                  <Button className="h-full w-full p-0" variant="ghost" onClick={onStatusCheck}>
+                  <Button className="size-full p-0" variant="ghost" onClick={onStatusCheck}>
                     {notifyStatus === NotificationStatesEnum.Unread ? (
                       <CheckSquare className="text-sm" />
                     ) : (
@@ -51,11 +51,11 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded hover:bg-secondary">
+          <div className="inline-flex size-6 cursor-pointer items-center justify-center rounded hover:bg-secondary">
             <TooltipProvider>
               <Tooltip delayDuration={20}>
                 <TooltipTrigger asChild>
-                  <Button className="h-full w-full p-0" variant="ghost">
+                  <Button className="size-full p-0" variant="ghost">
                     <MoreHorizontal />
                   </Button>
                 </TooltipTrigger>

@@ -615,7 +615,19 @@ export const drawChartBar = (ctx: CanvasRenderingContext2D, props: IChartBarProp
 };
 
 export const drawAvatar = (ctx: CanvasRenderingContext2D, props: IAvatarProps) => {
-  const { x, y, width, height, fill, stroke, user, textColor, fontSize = 10, fontFamily } = props;
+  const {
+    x,
+    y,
+    width,
+    height,
+    fill,
+    stroke,
+    defaultText,
+    textColor,
+    img,
+    fontSize = 10,
+    fontFamily,
+  } = props;
 
   ctx.save();
   ctx.beginPath();
@@ -624,9 +636,11 @@ export const drawAvatar = (ctx: CanvasRenderingContext2D, props: IAvatarProps) =
   if (stroke) ctx.strokeStyle = stroke;
   ctx.arc(x + width / 2, y + height / 2, width / 2, 0, Math.PI * 2, false);
 
-  if (user?.avatar) {
-    const img = new Image();
-    img.src = user.avatar;
+  if (fill) ctx.fillStyle = fill;
+  if (fill) ctx.fill();
+  if (stroke) ctx.stroke();
+
+  if (img) {
     ctx.clip();
     ctx.drawImage(img, x, y, width, height);
     if (stroke) ctx.stroke();
@@ -634,11 +648,7 @@ export const drawAvatar = (ctx: CanvasRenderingContext2D, props: IAvatarProps) =
     return;
   }
 
-  const textAbb = user.name.slice(0, 1);
-
-  if (fill) ctx.fillStyle = fill;
-  if (fill) ctx.fill();
-  if (stroke) ctx.stroke();
+  const textAbb = defaultText.slice(0, 1);
 
   ctx.beginPath();
   if (textColor) ctx.fillStyle = textColor;

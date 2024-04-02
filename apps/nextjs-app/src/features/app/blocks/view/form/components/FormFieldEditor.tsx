@@ -1,8 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { DraggableHandle, EyeOff } from '@teable-group/icons';
-import { CellEditor } from '@teable-group/sdk/components';
-import { useFieldStaticGetter, useTableId, useView } from '@teable-group/sdk/hooks';
-import type { IFieldInstance } from '@teable-group/sdk/model';
+import { DraggableHandle, EyeOff } from '@teable/icons';
+import { CellEditor } from '@teable/sdk/components';
+import { useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
+import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import {
   Label,
   Switch,
@@ -10,8 +10,10 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib/shadcn';
+} from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 
 interface IFormFieldEditorProps {
   field: IFieldInstance;
@@ -19,9 +21,10 @@ interface IFormFieldEditorProps {
 
 export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   const { field } = props;
-  const view = useView();
+  const view = useView() as FormView | undefined;
   const tableId = useTableId();
   const getFieldStatic = useFieldStaticGetter();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   if (!view || !tableId) return null;
 
@@ -30,18 +33,18 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
 
   const onHidden = (event: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
     event.stopPropagation();
-    view.setViewColumnMeta([
+    view.updateColumnMeta([
       {
         fieldId: fieldId,
         columnMeta: {
-          hidden: true,
+          visible: false,
         },
       },
     ]);
   };
 
   const onRequiredChange = (checked: boolean) => {
-    view.setViewColumnMeta([
+    view.updateColumnMeta([
       {
         fieldId: fieldId,
         columnMeta: {
@@ -62,8 +65,8 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
         </div>
         <div className="flex items-center">
           {!isComputed && (
-            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
-              <Label htmlFor="form-field-required">Required</Label>
+            <div className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
+              <Label htmlFor="form-field-required">{t('required')}</Label>
               <Switch
                 id="form-field-required"
                 className="ml-1 mr-2"
@@ -77,12 +80,12 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
               <TooltipTrigger asChild>
                 <span>
                   <EyeOff
-                    className="h-6 w-6 cursor-pointer rounded p-1 hover:bg-slate-300 dark:hover:bg-slate-600"
+                    className="size-6 cursor-pointer rounded p-1 hover:bg-slate-300 dark:hover:bg-slate-600"
                     onClick={onHidden}
                   />
                 </span>
               </TooltipTrigger>
-              <TooltipContent sideOffset={8}>Remove from the form</TooltipContent>
+              <TooltipContent sideOffset={8}>{t('table:form.removeFromFormTip')}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>

@@ -1,6 +1,6 @@
-import type { IFieldRo } from '@teable-group/core';
-import { ColorUtils } from '@teable-group/core';
-import { Badge } from '@teable-group/ui-lib/shadcn';
+import type { IFieldRo } from '@teable/core';
+import { ColorUtils } from '@teable/core';
+import { Badge } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -85,7 +85,7 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
       <div className="text-sm">
         {isCreate ? 'Creating' : 'Modifying'} this field may affect{' '}
         <Badge>{Intl.NumberFormat().format(updateCellCount || 0)}</Badge> cells and It should be
-        done in about <b>{formatDuration(estimateTime)}</b>
+        done <b>{formatDuration(estimateTime)}</b>
       </div>
       <div className="relative flex h-[calc(100vh-400px)] max-h-[600px] w-full flex-col">
         <div ref={ref} className="grow rounded border shadow"></div>

@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable-group/ui-lib';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
 import type { FC, PropsWithChildren } from 'react';
 
 export const TooltipWrap: FC<PropsWithChildren<{ description: string; disabled?: boolean }>> = (

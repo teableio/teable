@@ -115,9 +115,9 @@ export const rgbTuplesByColor = {
   [Colors.TealLight2]: [178, 235, 242],
   [Colors.Teal]: [0, 121, 107],
 
-  [Colors.YellowBright]: [255, 235, 59],
-  [Colors.YellowDark1]: [204, 187, 0],
-  [Colors.YellowLight1]: [250, 245, 150],
-  [Colors.YellowLight2]: [255, 255, 153],
-  [Colors.Yellow]: [255, 193, 7],
+  [Colors.YellowBright]: [255, 212, 59],
+  [Colors.YellowDark1]: [250, 176, 5],
+  [Colors.YellowLight1]: [255, 236, 153],
+  [Colors.YellowLight2]: [255, 243, 191],
+  [Colors.Yellow]: [252, 196, 25],
 };

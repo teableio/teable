@@ -11,7 +11,6 @@ import {
   Body,
   Query,
 } from '@nestjs/common';
-import type { IRecord, IAggregationVo, IRowCountVo, IGroupPointsVo } from '@teable-group/core';
 import {
   ShareViewFormSubmitRo,
   shareViewFormSubmitRoSchema,
@@ -25,8 +24,16 @@ import {
   IShareViewAggregationsRo,
   rangesQuerySchema,
   IRangesRo,
-} from '@teable-group/openapi';
-import type { ICopyVo, IShareViewLinkRecordsVo, ShareViewGetVo } from '@teable-group/openapi';
+} from '@teable/openapi';
+import type {
+  IRecord,
+  IAggregationVo,
+  IRowCountVo,
+  IGroupPointsVo,
+  ICopyVo,
+  IShareViewLinkRecordsVo,
+  ShareViewGetVo,
+} from '@teable/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
@@ -77,7 +84,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/:shareId/view/rowCount')
+  @Get('/:shareId/view/row-count')
   async getViewRowCount(
     @Request() req: any,
     @Query(new ZodValidationPipe(shareViewRowCountRoSchema), TqlPipe)
@@ -88,7 +95,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Post('/:shareId/view/formSubmit')
+  @Post('/:shareId/view/form-submit')
   async submitRecord(
     @Request() req: any,
     @Body(new ZodValidationPipe(shareViewFormSubmitRoSchema))
@@ -109,7 +116,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/:shareId/view/linkRecords')
+  @Get('/:shareId/view/link-records')
   async linkRecords(
     @Request() req: any,
     @Query(new ZodValidationPipe(shareViewLinkRecordsRoSchema), TqlPipe)
@@ -120,7 +127,7 @@ export class ShareController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('/:shareId/view/groupPoints')
+  @Get('/:shareId/view/group-points')
   async getViewGroupPoints(
     @Request() req: any,
     @Query(new ZodValidationPipe(shareViewGroupPointsRoSchema))

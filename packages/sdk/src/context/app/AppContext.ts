@@ -1,4 +1,4 @@
-import type { DriverClient } from '@teable-group/core';
+import type { DriverClient } from '@teable/core';
 import React from 'react';
 import type { Connection } from 'sharedb/lib/client';
 import type { ILocale } from './i18n';
@@ -15,6 +15,7 @@ export interface IAppContext {
   theme: ThemeKey;
   isAutoTheme: boolean;
   locale: ILocale;
+  lang?: string;
   setTheme: (theme: ThemeKey | null) => void;
 }
 

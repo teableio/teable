@@ -27,6 +27,31 @@ export const reorder = (
   return newOrders;
 };
 
+export const swapReorder = (
+  dragElemSize: number,
+  fromIndex: number,
+  dropIndex: number,
+  totalSize: number,
+  getOrder: (index: number) => number
+) => {
+  let newOrders = Array.from({ length: dragElemSize }).fill(0) as number[];
+  if (dropIndex === 0) {
+    newOrders = newOrders.map((_, index) => getOrder(0) - index - 1);
+  } else if (dropIndex === totalSize - 1) {
+    newOrders = newOrders.map((_, index) => getOrder(totalSize - 1) + index + 1);
+  } else {
+    /**
+     * different between above reorder
+     * this way is to swap order
+     */
+    const index = dropIndex > fromIndex ? dropIndex + 1 : dropIndex;
+    const prevOrder = getOrder(index - 1);
+    const nextOrder = getOrder(index);
+    newOrders = splitRange(prevOrder, nextOrder, dragElemSize + 1);
+  }
+  return newOrders;
+};
+
 export const insertSingle = (
   insertAt: number,
   totalSize: number,

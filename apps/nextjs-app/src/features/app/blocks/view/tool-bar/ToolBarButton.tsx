@@ -1,8 +1,7 @@
-import { Button } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { Button, cn } from '@teable/ui-lib';
 import React, { forwardRef } from 'react';
 
-interface IToolBarButton {
+interface IToolBarButton extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   text?: string;
   isActive?: boolean;
   className?: string;
@@ -19,25 +18,12 @@ const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(
       <Button
         variant={'ghost'}
         size={'xs'}
-        className={classNames(
-          'font-normal shrink-0 truncate',
-          { 'bg-secondary': isActive },
-          className
-        )}
+        className={cn('font-normal shrink-0 truncate', { 'bg-secondary': isActive }, className)}
         ref={ref}
         {...restProps}
       >
         {children}
-        {text && (
-          <span
-            className={classNames(
-              'hidden truncate',
-              textClassName ? textClassName : '@2xl/toolbar:inline'
-            )}
-          >
-            {text}
-          </span>
-        )}
+        {text && <span className={cn('hidden truncate', textClassName)}>{text}</span>}
       </Button>
     );
   }

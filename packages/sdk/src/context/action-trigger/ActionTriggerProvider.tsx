@@ -1,5 +1,5 @@
-import type { IActionTriggerBuffer } from '@teable-group/core';
-import { getActionTriggerChannel } from '@teable-group/core';
+import type { IActionTriggerBuffer } from '@teable/core';
+import { getActionTriggerChannel } from '@teable/core';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
@@ -51,9 +51,8 @@ export const ActionTriggerProvider: FC<INotificationProviderProps> = ({ children
 
       const isRelevantAction = actionSets.length > 0;
 
-      const hasSpecificKeys = ['tableAdd', 'tableUpdate', 'tableDelete'].some(
-        (key) => key in actionTrigger
-      );
+      const keys: PropKeys[] = ['addRecord', 'setRecord', 'deleteRecord'];
+      const hasSpecificKeys = keys.some((key) => key in actionTrigger);
 
       const isDependencyTriggered = hasSpecificKeys
         ? deps?.some((dep) => actionSets.includes(dep as string))

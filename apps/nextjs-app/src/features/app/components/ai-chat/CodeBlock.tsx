@@ -1,5 +1,5 @@
-import CopyIcon from '@teable-group/ui-lib/icons/app/copy.svg';
-import { useToast } from '@teable-group/ui-lib/shadcn/ui/use-toast';
+import CopyIcon from '@teable/ui-lib/icons/app/copy.svg';
+import { useToast } from '@teable/ui-lib/shadcn/ui/use-toast';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import type { IChat } from './type';
@@ -44,14 +44,14 @@ export const CodeBlock: React.FC<Props> = ({ language, value, onExecute }) => {
         <span className="font-mono text-xs text-white">{language}</span>
         <div className="flex items-center space-x-2">
           <button
-            className="flex h-6 w-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
+            className="flex size-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
             onClick={copyToClipboard}
           >
             <CopyIcon />
           </button>
           {showExecuteButton && (
             <button
-              className="flex h-6 w-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
+              className="flex size-6 items-center justify-center rounded bg-gray-500 bg-none p-1 text-xs text-white opacity-70 hover:opacity-100"
               onClick={handleExecuteQuery}
             >
               ▶️

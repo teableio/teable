@@ -1,44 +1,47 @@
-import type { ITableVo } from '@teable-group/core';
-import type { IGetBaseVo } from '@teable-group/openapi';
-import { NotificationProvider, SessionProvider } from '@teable-group/sdk';
-import type { IUser } from '@teable-group/sdk';
-import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable-group/sdk/context';
+import type { DriverClient } from '@teable/core';
+import type { IGetBaseVo, ITableVo } from '@teable/openapi';
+import { NotificationProvider, SessionProvider } from '@teable/sdk';
+import type { IUser } from '@teable/sdk';
+import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
 import { useRouter } from 'next/router';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
-import { ResizablePane } from '../components/toggle-side-bar/ResizablePane';
+import { Pane } from '../components/toggle-side-bar/Pane';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 
 export const BaseLayout: React.FC<{
   children: React.ReactNode;
   tableServerData: ITableVo[];
   baseServerData: IGetBaseVo;
+  driver?: DriverClient;
   user?: IUser;
-}> = ({ children, tableServerData, baseServerData, user }) => {
+}> = ({ children, tableServerData, baseServerData, driver, user }) => {
   const router = useRouter();
-  const { baseId, nodeId, viewId } = router.query;
+  const { baseId, tableId, viewId } = router.query;
   const sdkLocale = useSdkLocale();
+  const { i18n } = useTranslation();
 
   return (
     <AppLayout>
-      <AppProvider locale={sdkLocale}>
+      <AppProvider lang={i18n.language} locale={sdkLocale} driver={driver as DriverClient}>
         <SessionProvider user={user}>
           <NotificationProvider>
             <AnchorContext.Provider
               value={{
                 baseId: baseId as string,
-                tableId: nodeId as string,
+                tableId: tableId as string,
                 viewId: viewId as string,
               }}
             >
               <BaseProvider serverData={baseServerData}>
                 <TableProvider serverData={tableServerData}>
                   <div id="portal" className="relative flex h-screen w-full items-start">
-                    <ResizablePane>
+                    <Pane>
                       <SideBar />
                       {children}
-                    </ResizablePane>
+                    </Pane>
                   </div>
                 </TableProvider>
               </BaseProvider>

@@ -10,24 +10,25 @@ import type {
   IOtOperation,
   IViewRo,
   IViewVo,
-  IFilterRo,
-  IViewSortRo,
-  IViewGroupRo,
-  IViewOptionRo,
   IColumnMetaRo,
-} from '@teable-group/core';
+  IViewPropertyKeys,
+  IViewOptions,
+  IGridColumnMeta,
+} from '@teable/core';
 import {
   ViewType,
   IManualSortRo,
   ViewOpBuilder,
   generateShareId,
-  validateOptionType,
-} from '@teable-group/core';
-import { PrismaService } from '@teable-group/db-main-prisma';
-import type { IViewOrderRo } from '@teable-group/openapi';
+  VIEW_JSON_KEYS,
+  validateOptionsType,
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { IUpdateOrderRo, IUpdateRecordOrdersRo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../../utils/timing';
+import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
 import { FieldService } from '../../field/field.service';
 import { RecordService } from '../../record/record.service';
 import { ViewService } from '../view.service';
@@ -64,12 +65,31 @@ export class ViewOpenApiService {
     await this.viewService.deleteView(tableId, viewId);
   }
 
+  private updateRecordOrderSql(orderRawSql: string, dbTableName: string, indexField: string) {
+    return this.knex
+      .raw(
+        `
+        UPDATE :dbTableName:
+        SET :indexField: = temp_order.new_order
+        FROM (
+          SELECT __id, ROW_NUMBER() OVER (ORDER BY ${orderRawSql}) AS new_order FROM :dbTableName:
+        ) AS temp_order
+        WHERE :dbTableName:.__id = temp_order.__id AND :dbTableName:.:indexField: != temp_order.new_order;
+      `,
+        {
+          dbTableName,
+          indexField,
+        }
+      )
+      .toQuery();
+  }
+
   @Timing()
   async manualSort(tableId: string, viewId: string, viewOrderRo: IManualSortRo) {
     const { sortObjs } = viewOrderRo;
     const dbTableName = await this.recordService.getDbTableName(tableId);
     const fields = await this.fieldService.getFieldsByQuery(tableId, { viewId });
-    const fieldIndexId = this.viewService.getRowIndexFieldName(viewId);
+    const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
 
     const fieldMap = fields.reduce(
       (map, field) => {
@@ -102,23 +122,6 @@ export class ViewOpenApiService {
     // ensure order stable
     orderRawSql += this.knex.raw(`, ?? ASC`, ['__auto_number']).toQuery();
 
-    const updateRecordsOrderSql = this.knex
-      .raw(
-        `
-          UPDATE :dbTableName:
-          SET :fieldIndexId: = temp_order.new_order
-          FROM (
-            SELECT __id, ROW_NUMBER() OVER (ORDER BY ${orderRawSql}) AS new_order FROM :dbTableName:
-          ) AS temp_order
-          WHERE :dbTableName:.__id = temp_order.__id AND :dbTableName:.:fieldIndexId: != temp_order.new_order;
-        `,
-        {
-          dbTableName: dbTableName,
-          fieldIndexId: fieldIndexId,
-        }
-      )
-      .toQuery();
-
     // build ops
     const newSort = {
       sortObjs: sortObjs,
@@ -126,15 +129,16 @@ export class ViewOpenApiService {
     };
 
     await this.prismaService.$tx(async (prisma) => {
-      await prisma.$executeRawUnsafe(updateRecordsOrderSql);
+      await prisma.$executeRawUnsafe(
+        this.updateRecordOrderSql(orderRawSql, dbTableName, indexField)
+      );
       await this.viewService.updateViewSort(tableId, viewId, newSort);
     });
   }
 
-  async setViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
-    const view = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
+  async updateViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
+    const view = await this.prismaService.view
+      .findFirstOrThrow({
         where: { tableId, id: viewId },
         select: {
           columnMeta: true,
@@ -148,7 +152,7 @@ export class ViewOpenApiService {
       });
 
     // validate field legal
-    const fields = await this.prismaService.txClient().field.findMany({
+    const fields = await this.prismaService.field.findMany({
       where: { tableId, deletedTime: null },
       select: {
         id: true,
@@ -158,7 +162,7 @@ export class ViewOpenApiService {
     const primaryFields = fields.filter((field) => field.isPrimary).map((field) => field.id);
 
     const isHiddenPrimaryField = columnMetaRo.some(
-      (f) => primaryFields.includes(f.fieldId) && f.columnMeta.hidden
+      (f) => primaryFields.includes(f.fieldId) && (f.columnMeta as IGridColumnMeta).hidden
     );
     const fieldIds = columnMetaRo.map(({ fieldId }) => fieldId);
 
@@ -184,80 +188,44 @@ export class ViewOpenApiService {
         newColumnMeta: { ...curColumnMeta[fieldId], ...columnMeta },
         oldColumnMeta: curColumnMeta[fieldId] ? curColumnMeta[fieldId] : undefined,
       };
-      ops.push(ViewOpBuilder.editor.setViewColumnMeta.build(obj));
+      ops.push(ViewOpBuilder.editor.updateViewColumnMeta.build(obj));
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, ops);
     });
   }
 
-  async setViewFilter(tableId: string, viewId: string, filterRo: IFilterRo) {
-    const { filter } = filterRo;
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
-        select: { filter: true },
-        where: { tableId, id: viewId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new BadRequestException('View filter not found');
-      });
-    const { filter: oldFilter } = curView;
-    const ops = ViewOpBuilder.editor.setViewFilter.build({
-      newFilter: filter,
-      oldFilter: oldFilter ? JSON.parse(oldFilter) : oldFilter,
-    });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-    });
-  }
-
-  async setViewSort(tableId: string, viewId: string, sortRo: IViewSortRo) {
-    const { sort } = sortRo;
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
-        select: { sort: true },
+  async setViewProperty(
+    tableId: string,
+    viewId: string,
+    key: IViewPropertyKeys,
+    newValue: unknown
+  ) {
+    const curView = await this.prismaService.view
+      .findFirstOrThrow({
+        select: { [key]: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
         throw new BadRequestException('View not found');
       });
-    const { sort: oldSort } = curView;
-    const ops = ViewOpBuilder.editor.setViewSort.build({
-      newSort: sort,
-      oldSort: oldSort ? JSON.parse(oldSort) : oldSort,
+    const oldValue =
+      curView[key] != null && VIEW_JSON_KEYS.includes(key)
+        ? JSON.parse(curView[key])
+        : curView[key];
+    const ops = ViewOpBuilder.editor.setViewProperty.build({
+      key,
+      newValue,
+      oldValue,
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });
   }
 
-  async setViewGroup(tableId: string, viewId: string, groupRo: IViewGroupRo) {
-    const { group } = groupRo;
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
-        select: { group: true },
-        where: { tableId, id: viewId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new BadRequestException('View not found');
-      });
-    const { group: oldGroup } = curView;
-    const ops = ViewOpBuilder.editor.setViewGroup.build({
-      newGroup: group,
-      oldGroup: oldGroup ? JSON.parse(oldGroup) : oldGroup,
-    });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-    });
-  }
-
-  async setViewOption(tableId: string, viewId: string, viewOption: IViewOptionRo) {
-    const curView = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
+  async patchViewOptions(tableId: string, viewId: string, viewOptions: IViewOptions) {
+    const curView = await this.prismaService.view
+      .findFirstOrThrow({
         select: { options: true, type: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
@@ -268,59 +236,253 @@ export class ViewOpenApiService {
 
     // validate option type
     try {
-      validateOptionType(viewType as ViewType, viewOption);
+      validateOptionsType(viewType as ViewType, viewOptions);
     } catch (err) {
       throw new BadRequestException(err);
     }
 
     const oldOptions = options ? JSON.parse(options) : options;
-    const ops = ViewOpBuilder.editor.setViewOptions.build({
-      newOptions: {
+    const ops = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'options',
+      newValue: {
         ...oldOptions,
-        ...viewOption,
+        ...viewOptions,
       },
-      oldOptions: oldOptions,
+      oldValue: oldOptions,
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [ops]);
     });
   }
 
-  async setViewOrder(tableId: string, viewId: string, orderRo: IViewOrderRo) {
-    const { order } = orderRo;
-
-    const views = await this.prismaService.txClient().view.findMany({
-      select: { order: true, id: true },
+  /**
+   * shuffle view order
+   */
+  async shuffle(tableId: string) {
+    const views = await this.prismaService.view.findMany({
       where: { tableId, deletedTime: null },
+      select: { id: true, order: true },
+      orderBy: { order: 'asc' },
     });
 
-    const curView = views.find(({ id }) => id === viewId);
-
-    if (!curView) {
-      throw new BadRequestException('View not found in the table');
-    }
-
-    const orders = views.filter(({ id }) => id !== viewId).map(({ order }) => order);
-
-    if (orders.includes(order)) {
-      // validate repeatability, because of order should be unique key
-      throw new BadRequestException('View order could not be duplicate');
-    }
-
-    const { order: oldOrder } = curView;
-
-    const ops = ViewOpBuilder.editor.setViewOrder.build({
-      newOrder: order,
-      oldOrder,
-    });
+    this.logger.log(`lucky view shuffle! ${tableId}`, 'shuffle');
 
     await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+      for (let i = 0; i < views.length; i++) {
+        const view = views[i];
+        await this.viewService.updateViewByOps(tableId, view.id, [
+          ViewOpBuilder.editor.setViewProperty.build({
+            key: 'order',
+            newValue: i,
+            oldValue: view.order,
+          }),
+        ]);
+      }
     });
+  }
+
+  async updateViewOrder(tableId: string, viewId: string, orderRo: IUpdateOrderRo) {
+    const { anchorId, position } = orderRo;
+
+    const view = await this.prismaService.view
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`View ${viewId} not found in the table`);
+      });
+
+    const anchorView = await this.prismaService.view
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { tableId, id: anchorId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Anchor ${anchorId} not found in the table`);
+      });
+
+    await updateOrder({
+      parentId: tableId,
+      position,
+      item: view,
+      anchorItem: anchorView,
+      getNextItem: async (whereOrder, align) => {
+        return this.prismaService.view.findFirst({
+          select: { order: true, id: true },
+          where: {
+            tableId,
+            deletedTime: null,
+            order: whereOrder,
+          },
+          orderBy: { order: align },
+        });
+      },
+      update: async (
+        parentId: string,
+        id: string,
+        data: { newOrder: number; oldOrder: number }
+      ) => {
+        const ops = ViewOpBuilder.editor.setViewProperty.build({
+          key: 'order',
+          newValue: data.newOrder,
+          oldValue: data.oldOrder,
+        });
+
+        await this.prismaService.$tx(async () => {
+          await this.viewService.updateViewByOps(parentId, id, [ops]);
+        });
+      },
+      shuffle: this.shuffle.bind(this),
+    });
+  }
+
+  /**
+   * shuffle record order
+   */
+  async shuffleRecords(dbTableName: string, indexField: string) {
+    const recordCount = await this.recordService.getAllRecordCount(dbTableName);
+    if (recordCount > 100_000) {
+      throw new BadRequestException('Not enough gap to move the row here');
+    }
+
+    const sql = this.updateRecordOrderSql(
+      this.knex.raw(`?? ASC`, [indexField]).toQuery(),
+      dbTableName,
+      indexField
+    );
+
+    await this.prismaService.$executeRawUnsafe(sql);
+  }
+
+  async updateRecordOrdersInner(props: {
+    tableId: string;
+    dbTableName: string;
+    itemLength: number;
+    indexField: string;
+    orderRo: {
+      anchorId: string;
+      position: 'before' | 'after';
+    };
+    update: (indexes: number[]) => Promise<void>;
+  }) {
+    const { tableId, itemLength, dbTableName, indexField, orderRo, update } = props;
+    const { anchorId, position } = orderRo;
+
+    const anchorRecordSql = this.knex(dbTableName)
+      .select({
+        id: '__id',
+        order: indexField,
+      })
+      .where('__id', anchorId)
+      .toQuery();
+
+    const anchorRecord = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ id: string; order: number }[]>(anchorRecordSql)
+      .then((res) => {
+        return res[0];
+      });
+
+    if (!anchorRecord) {
+      throw new NotFoundException(`Anchor ${anchorId} not found in the table`);
+    }
+
+    await updateMultipleOrders({
+      parentId: tableId,
+      position,
+      itemLength,
+      anchorItem: anchorRecord,
+      getNextItem: async (whereOrder, align) => {
+        const nextRecordSql = this.knex(dbTableName)
+          .select({
+            id: '__id',
+            order: indexField,
+          })
+          .where(
+            indexField,
+            whereOrder.lt != null ? '<' : '>',
+            (whereOrder.lt != null ? whereOrder.lt : whereOrder.gt) as number
+          )
+          .orderBy(indexField, align)
+          .limit(1)
+          .toQuery();
+        return this.prismaService
+          .txClient()
+          .$queryRawUnsafe<{ id: string; order: number }[]>(nextRecordSql)
+          .then((res) => {
+            return res[0];
+          });
+      },
+      update,
+      shuffle: async () => {
+        await this.shuffleRecords(dbTableName, indexField);
+      },
+    });
+  }
+
+  async updateRecordOrders(tableId: string, viewId: string, orderRo: IUpdateRecordOrdersRo) {
+    const dbTableName = await this.recordService.getDbTableName(tableId);
+
+    const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
+    const recordIds = orderRo.recordIds;
+
+    await this.updateRecordOrdersInner({
+      tableId,
+      dbTableName,
+      itemLength: recordIds.length,
+      indexField,
+      orderRo,
+      update: async (indexes) => {
+        // for notify view update only
+        const ops = ViewOpBuilder.editor.setViewProperty.build({
+          key: 'lastModifiedTime',
+          newValue: new Date().toISOString(),
+        });
+
+        await this.prismaService.$tx(async (prisma) => {
+          await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+          for (let i = 0; i < recordIds.length; i++) {
+            const recordId = recordIds[i];
+            const updateRecordSql = this.knex(dbTableName)
+              .update({
+                [indexField]: indexes[i],
+              })
+              .where('__id', recordId)
+              .toQuery();
+            await prisma.$executeRawUnsafe(updateRecordSql);
+          }
+        });
+      },
+    });
+  }
+
+  async refreshShareId(tableId: string, viewId: string) {
+    const view = await this.prismaService.view.findUnique({
+      where: { id: viewId, tableId, deletedTime: null },
+      select: { shareId: true, enableShare: true },
+    });
+    if (!view) {
+      throw new NotFoundException(`View ${viewId} does not exist`);
+    }
+    const { enableShare } = view;
+    if (!enableShare) {
+      throw new BadRequestException(`View ${viewId} has not been enabled share`);
+    }
+    const newShareId = generateShareId();
+    const setShareIdOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'shareId',
+      newValue: newShareId,
+      oldValue: view.shareId || undefined,
+    });
+    await this.prismaService.$tx(async () => {
+      await this.viewService.updateViewByOps(tableId, viewId, [setShareIdOp]);
+    });
+    return { shareId: newShareId };
   }
 
   async enableShare(tableId: string, viewId: string) {
-    const view = await this.prismaService.txClient().view.findUnique({
+    const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
       select: { shareId: true, enableShare: true },
     });
@@ -332,13 +494,15 @@ export class ViewOpenApiService {
       throw new BadRequestException(`View ${viewId} has already been enabled share`);
     }
     const newShareId = generateShareId();
-    const enableShareOp = ViewOpBuilder.editor.setViewEnableShare.build({
-      newEnableShare: true,
-      oldEnableShare: enableShare || undefined,
+    const enableShareOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'enableShare',
+      newValue: true,
+      oldValue: enableShare || undefined,
     });
-    const setShareIdOp = ViewOpBuilder.editor.setViewShareId.build({
-      newShareId,
-      oldShareId: shareId || undefined,
+    const setShareIdOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'shareId',
+      newValue: newShareId,
+      oldValue: shareId || undefined,
     });
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
@@ -347,7 +511,7 @@ export class ViewOpenApiService {
   }
 
   async disableShare(tableId: string, viewId: string) {
-    const view = await this.prismaService.txClient().view.findUnique({
+    const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
       select: { shareId: true, enableShare: true, shareMeta: true },
     });
@@ -358,18 +522,14 @@ export class ViewOpenApiService {
     if (!enableShare) {
       throw new BadRequestException(`View ${viewId} has already been disable share`);
     }
-    const shareMeta = JSON.parse(view.shareMeta as string) || undefined;
-    const enableShareOp = ViewOpBuilder.editor.setViewEnableShare.build({
-      newEnableShare: false,
-      oldEnableShare: enableShare || undefined,
-    });
-
-    const shareMetaOp = ViewOpBuilder.editor.setViewShareMeta.build({
-      oldShareMeta: shareMeta || undefined,
+    const enableShareOp = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'enableShare',
+      newValue: false,
+      oldValue: enableShare || undefined,
     });
 
     await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, shareMetaOp]);
+      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp]);
     });
   }
 }

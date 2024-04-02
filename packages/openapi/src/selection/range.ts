@@ -1,15 +1,11 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import {
-  contentQueryBaseSchema,
-  filterSchema,
-  groupSchema,
-  orderBySchema,
-} from '@teable-group/core';
+import { filterSchema, groupSchema } from '@teable/core';
 import { axios } from '../axios';
+import { contentQueryBaseSchema, orderBySchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_IDS_FROM_RANGES_URL = '/table/{tableId}/selection/rangeToId';
+export const GET_IDS_FROM_RANGES_URL = '/table/{tableId}/selection/range-to-id';
 
 export enum RangeType {
   Rows = 'rows',
@@ -63,10 +59,7 @@ export const rangesQuerySchema = contentQueryBaseSchema.extend({
       type: 'string',
       description:
         'The parameter "ranges" is used to represent the coordinates [column, row][] of a selected range in a table. ',
-      example: [
-        [0, 0],
-        [1, 1],
-      ],
+      example: '[[0, 0], [1, 1]]',
     }),
   type: rangeTypeSchema,
 });

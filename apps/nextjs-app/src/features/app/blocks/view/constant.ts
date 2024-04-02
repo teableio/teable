@@ -1,5 +1,5 @@
-import { ViewType } from '@teable-group/core';
-import { Sheet, ClipboardList as Form } from '@teable-group/icons';
+import { ViewType } from '@teable/core';
+import { Sheet, ClipboardList as Form } from '@teable/icons';
 
 export const VIEW_ICON_MAP = {
   [ViewType.Grid]: Sheet,
