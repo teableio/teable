@@ -1,17 +1,18 @@
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import { ssrApi } from '@/backend/api/rest/table.ssr';
 import { AutoMationPage } from '@/features/app/automation';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
+import { baseConfig } from '@/features/i18n/base.config';
+import { getTranslationsProps } from '@/lib/i18n';
+import type { NextPageWithLayout } from '@/lib/type';
 import type { IViewPageProps } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
-import type { NextPageWithLayout } from '../../../../_app';
 
 const AutoMation: NextPageWithLayout = () => {
   return <AutoMationPage></AutoMationPage>;
 };
 
-export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context) => {
+export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { baseId, automationId, actionId } = context.query;
   const result = await ssrApi.getTables(baseId as string);
   const base = await ssrApi.getBaseById(baseId as string);
@@ -21,6 +22,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
       baseServerData: base,
       automationId: automationId,
       actionId,
+      ...(await getTranslationsProps(context, baseConfig.i18nNamespaces)),
     },
   };
 });

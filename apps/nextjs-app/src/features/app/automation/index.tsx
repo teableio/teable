@@ -7,6 +7,7 @@ import { Menu } from './menu';
 import { menuData } from './mock';
 import { RightSider, FormPanel } from './right-sider';
 import { WorkFlowPanel } from './workflow-panel';
+import 'allotment/dist/style.css';
 
 const AutoMationPage = () => {
   const [menuVisible, setMenuVisible] = useState(true);
@@ -45,17 +46,17 @@ const AutoMationPage = () => {
     >
       <div className="p-t-4 p-r-4 p-l-4 flex size-full justify-between">
         <>
-          <Allotment>
+          <Allotment className="w-full">
             {menuVisible && (
               <Allotment.Pane minSize={250} maxSize={350} preferredSize={300}>
                 <Menu></Menu>
               </Allotment.Pane>
             )}
-            <Allotment.Pane>
+            <Allotment.Pane preferredSize="100%">
               <WorkFlowPanel></WorkFlowPanel>
             </Allotment.Pane>
             {rightSiderVisible && (
-              <Allotment.Pane minSize={320} maxSize={370} preferredSize={300}>
+              <Allotment.Pane minSize={320} maxSize={370} preferredSize={320}>
                 <RightSider>
                   <FormPanel></FormPanel>
                 </RightSider>

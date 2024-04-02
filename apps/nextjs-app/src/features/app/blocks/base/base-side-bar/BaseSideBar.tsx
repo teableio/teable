@@ -4,14 +4,14 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { tableConfig } from '@/features/i18n/table.config';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { TableList } from '../../table-list/TableList';
 import { QuickAction } from './QuickAction';
 
 export const BaseSideBar = () => {
   const router = useRouter();
   const { baseId } = router.query;
-  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const pageRoutes: {
     href: string;
     text: string;
