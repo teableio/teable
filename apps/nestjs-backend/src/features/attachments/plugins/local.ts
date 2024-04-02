@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { createReadStream, createWriteStream } from 'fs';
+import { createReadStream, createWriteStream, access, constants } from 'fs';
 import os from 'node:os';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
@@ -249,21 +249,32 @@ export class LocalStorage implements StorageAdapter {
     const name = getRandomString(12);
     const temPath = resolve(this.temporaryDir, name);
     if (stream instanceof Buffer) {
-      await fse.writeFile(temPath, stream);
+      access(temPath, constants.F_OK | constants.W_OK, async (err) => {
+        if (err) {
+          throw new Error('Temporary file not found');
+        }
+        await fse.writeFile(temPath, stream);
+      });
     } else {
       await new Promise<void>((resolve, reject) => {
-        const writer = createWriteStream(temPath);
-        stream.pipe(writer);
-        stream.on('end', function () {
-          writer.end();
-          writer.close();
-          resolve();
-        });
-        stream.on('error', (err) => {
-          writer.end();
-          writer.close();
-          this.deleteFile(path);
-          reject(err);
+        access(temPath, constants.F_OK | constants.W_OK, (err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          const writer = createWriteStream(temPath);
+          stream.pipe(writer);
+          stream.on('end', function () {
+            writer.end();
+            writer.close();
+            resolve();
+          });
+          stream.on('error', (err) => {
+            writer.end();
+            writer.close();
+            this.deleteFile(path);
+            reject(err);
+          });
         });
       });
     }
