@@ -1,9 +1,8 @@
-import type { IWorkFlowItem, IWorkflowSection } from '@teable-group/core';
-import { getRandomString } from '@teable-group/core';
-import { Menu as MenuIcon, Plus, Sheet, Network } from '@teable-group/icons';
-import { Button, Separator } from '@teable-group/ui-lib';
-import { Toggle } from '@teable-group/ui-lib/shadcn/ui/toggle';
-import classnames from 'classnames';
+import type { IWorkFlowItem, IWorkflowSection } from '@teable/core';
+import { getRandomString } from '@teable/core';
+import { Menu as MenuIcon, Plus, Sheet, Network } from '@teable/icons';
+import { Button, Separator, cn } from '@teable/ui-lib';
+import { Toggle } from '@teable/ui-lib/shadcn/ui/toggle';
 import { useRouter } from 'next/router';
 import { useContext, useEffect } from 'react';
 import { autoMationContext } from '../context';
@@ -57,14 +56,14 @@ const Menu = () => {
 
   return (
     <div
-      className={classnames(
+      className={cn(
         'flex h-full min-w-[250px] max-w-lg flex-1 flex-col',
         !menuVisible ? 'hidden' : ''
       )}
     >
       <header className="flex h-12 items-center border-b border-secondary p-2">
         <Toggle onClick={() => toggleMenu(!menuVisible)} pressed={menuVisible}>
-          <MenuIcon className="h-4 w-4" />
+          <MenuIcon className="size-4" />
           <span className="truncate">Automation List</span>
         </Toggle>
       </header>

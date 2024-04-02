@@ -1,13 +1,13 @@
 import { useSortable } from '@dnd-kit/sortable';
-import { MoreHorizontal } from '@teable-group/icons';
+import { MoreHorizontal } from '@teable/icons';
 import {
+  cn,
   Button,
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib';
-import classNames from 'classnames';
+} from '@teable/ui-lib';
 import { useRouter } from 'next/router';
 import { NodeStatus } from '../../NodeStatus';
 
@@ -41,7 +41,7 @@ const ConditionItem = (props: IConditionItemProps) => {
 
   return (
     <div
-      className={classNames(
+      className={cn(
         'bg-card p-2 border-2 hover:border-blue-300 cursor-pointer shadow-secondary relative',
         isFocus ? 'border-blue-300' : ''
       )}
@@ -54,13 +54,13 @@ const ConditionItem = (props: IConditionItemProps) => {
       {/* header */}
       <div className="flex items-center justify-between px-2">
         <div
-          className={classNames('absolute -left-5', 'border-y-2 border-secondary/10')}
+          className={cn('absolute -left-5', 'border-y-2 border-secondary/10')}
           style={{
             transform: `translate(calc(-100%), 0)`,
           }}
         >
           <NodeStatus isActive={isFocus}></NodeStatus>
-          <div className="absolute right-[-18px] top-[50%] h-0.5 w-[18px]  bg-slate-300"></div>
+          <div className="absolute right-[-18px] top-1/2 h-0.5 w-[18px]  bg-slate-300"></div>
         </div>
 
         <div>
@@ -74,7 +74,7 @@ const ConditionItem = (props: IConditionItemProps) => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <div className="text-slate-400">
-                <MoreHorizontal className="h-4 w-4" />
+                <MoreHorizontal className="size-4" />
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent>

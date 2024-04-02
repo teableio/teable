@@ -1,4 +1,4 @@
-import type { IWorkflowSection } from '@teable-group/core';
+import type { IWorkflowSection } from '@teable/core';
 import React from 'react';
 
 export interface IAutoMationContext {

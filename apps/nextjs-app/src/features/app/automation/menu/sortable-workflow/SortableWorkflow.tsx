@@ -17,15 +17,14 @@ import type {
   DropAnimation,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { IWorkflow } from '@teable-group/core';
-import { DeploymentStatus } from '@teable-group/core';
-import { DraggableHandle, MoreHorizontal, ChevronRight } from '@teable-group/icons';
-import { Button } from '@teable-group/ui-lib';
-import { useLocalStorage } from '@uidotdev/usehooks';
-import classNames from 'classnames';
+import type { IWorkflow } from '@teable/core';
+import { DeploymentStatus } from '@teable/core';
+import { DraggableHandle, MoreHorizontal, ChevronRight } from '@teable/icons';
+import { cn, Button } from '@teable/ui-lib';
 import { cloneDeep } from 'lodash';
 import { useRouter } from 'next/router';
 import { useContext, useState } from 'react';
+import { useLocalStorage } from 'react-use';
 
 import { autoMationContext } from '../../context';
 import { DroppableContainer } from './DroppableContainer';
@@ -146,11 +145,9 @@ const SortableWorkflow = () => {
     return draggingId ? (
       <Button
         variant="ghost"
-        className={classNames('w-full flex justify-between cursor-grab px-3 items-center')}
+        className={cn('w-full flex justify-between cursor-grab px-3 items-center')}
       >
-        <ChevronRight
-          className={classNames('w-4 h-4 ease-in-out duration-300', open ? 'rotate-90' : '')}
-        />
+        <ChevronRight className={cn('w-4 h-4 ease-in-out duration-300', open ? 'rotate-90' : '')} />
         <div className="flex flex-1 truncate text-left">{sectionInfo?.name}</div>
         <div className="flex items-center text-slate-400">
           <MoreHorizontal></MoreHorizontal>
@@ -201,11 +198,11 @@ const SortableWorkflow = () => {
                     name={name}
                     description={description}
                     className={
-                      collapseIds.includes(sectionId)
+                      collapseIds?.includes(sectionId)
                         ? ''
                         : isActive(id) || draggingId === id
-                        ? ''
-                        : 'hidden'
+                          ? ''
+                          : 'hidden'
                     }
                   ></WorkflowCard>
                 ))}

@@ -1,5 +1,5 @@
 import { CaretSortIcon, CheckIcon } from '@radix-ui/react-icons';
-import { Plus } from '@teable-group/icons';
+import { Plus } from '@teable/icons';
 import {
   Button,
   Command,
@@ -9,8 +9,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@teable-group/ui-lib';
-import classNames from 'classnames';
+  cn,
+} from '@teable/ui-lib';
 import * as React from 'react';
 
 const configGroups = [
@@ -47,7 +47,7 @@ export function Combobox() {
           {value
             ? configGroups.find((configGroup) => configGroup.value === value)?.label
             : 'Select configGroup...'}
-          <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <CaretSortIcon className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0">
@@ -64,7 +64,7 @@ export function Combobox() {
               >
                 {configGroup.label}
                 <CheckIcon
-                  className={classNames(
+                  className={cn(
                     'ml-auto h-4 w-4',
                     value === configGroup.value ? 'opacity-100' : 'opacity-0'
                   )}

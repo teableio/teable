@@ -1,15 +1,15 @@
-import type { IWorkflow } from '@teable-group/core';
-import { DraggableHandle, ChevronRight, MoreHorizontal } from '@teable-group/icons';
+import type { IWorkflow } from '@teable/core';
+import { DraggableHandle, ChevronRight, MoreHorizontal } from '@teable/icons';
 import {
   Button,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '@teable-group/ui-lib';
-import { useLocalStorage } from '@uidotdev/usehooks';
-import classNames from 'classnames';
+  cn,
+} from '@teable/ui-lib';
 import React, { useState, forwardRef, useEffect } from 'react';
+import { useLocalStorage } from 'react-use';
 
 interface ICollapseContainerProps {
   children: React.ReactElement;
@@ -56,11 +56,9 @@ const CollapseContainer = forwardRef<HTMLDivElement, ICollapseContainerProps>((p
         onMouseLeave={() => {
           setHover(false);
         }}
-        className={classNames('w-full flex justify-between px-2')}
+        className={cn('w-full flex justify-between px-2')}
       >
-        <ChevronRight
-          className={classNames('w-4 h-4 ease-in-out duration-300', open ? 'rotate-90' : '')}
-        />
+        <ChevronRight className={cn('w-4 h-4 ease-in-out duration-300', open ? 'rotate-90' : '')} />
         <span className="flex-1 truncate text-start text-sm font-semibold">{name}</span>
         <div className="flex items-center">
           {!isHover && !showDropdown && !isDragging ? (
@@ -78,7 +76,7 @@ const CollapseContainer = forwardRef<HTMLDivElement, ICollapseContainerProps>((p
               >
                 <DropdownMenuTrigger asChild>
                   <div className="text-slate-400">
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MoreHorizontal className="size-4" />
                   </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
@@ -93,7 +91,7 @@ const CollapseContainer = forwardRef<HTMLDivElement, ICollapseContainerProps>((p
                 </DropdownMenuContent>
               </DropdownMenu>
               <div {...handleProps}>
-                <DraggableHandle className="h-4 w-4 cursor-grab" />
+                <DraggableHandle className="size-4 cursor-grab" />
               </div>
             </div>
           )}

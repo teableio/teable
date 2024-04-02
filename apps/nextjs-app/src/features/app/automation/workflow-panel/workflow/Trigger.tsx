@@ -1,12 +1,11 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@teable/ui-lib';
 import { Action } from './actions/Action';
 
 const Trigger = () => {
   return (
     <div className="flex px-2">
       <div
-        className={classNames(
+        className={cn(
           'w-12 mr-8 flex relative justify-end',
           'before:block before:absolute before:w-0.5 before:h-full before:bg-gray-300 before:right-0 before:top-0'
         )}

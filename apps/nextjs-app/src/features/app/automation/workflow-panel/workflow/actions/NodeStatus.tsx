@@ -1,6 +1,5 @@
-import { AlertTriangle } from '@teable-group/icons';
-import { Button } from '@teable-group/ui-lib';
-import classNames from 'classnames';
+import { AlertTriangle } from '@teable/icons';
+import { cn, Button } from '@teable/ui-lib';
 
 interface INodeStatus {
   isActive: boolean;
@@ -14,7 +13,7 @@ const NodeStatus = (props: INodeStatus) => {
       <div className="flex items-center justify-center">
         <AlertTriangle></AlertTriangle>
         <div
-          className={classNames(
+          className={cn(
             'group-hover:max-w-xs group-hover:pl-2',
             'truncate overflow-hidden transition-all ease first-letter:max-w-0',
             isActive ? 'max-w-xs pl-2' : 'max-w-0'

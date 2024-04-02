@@ -10,15 +10,15 @@ import {
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { SortableContext } from '@dnd-kit/sortable';
-import { Plus } from '@teable-group/icons';
+import { Plus } from '@teable/icons';
 import {
+  cn,
   Button,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@teable-group/ui-lib';
-import classnames from 'classnames';
+} from '@teable/ui-lib';
 import { useState } from 'react';
 import { AddActionDropMenu } from '../../../../components';
 import { Action } from '../Action';
@@ -92,7 +92,7 @@ const DraggableAction = () => {
     <div className="flex px-2">
       {/* vertical line shaft */}
       <div
-        className={classnames(
+        className={cn(
           'before:absolute before:bottom-[17px] before:right-0 before:top-0 before:block before:w-0.5 before:bg-gray-300',
           'relative mr-8 flex w-12 justify-end'
         )}
@@ -178,7 +178,7 @@ const DraggableAction = () => {
               >
                 <Plus />
                 Add Condition
-                <div className="absolute left-[-34px] top-[50%] h-0.5 w-[34px] bg-slate-300"></div>
+                <div className="absolute left-[-34px] top-1/2 h-0.5 w-[34px] bg-slate-300"></div>
               </Button>
             </SortableContext>
           </SortableContext>

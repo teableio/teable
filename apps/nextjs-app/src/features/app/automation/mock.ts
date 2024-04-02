@@ -1,4 +1,4 @@
-import type { IWorkflowSection } from '@teable-group/core';
+import type { IWorkflowSection } from '@teable/core';
 
 // TODO refactor type
 export const menuData = [

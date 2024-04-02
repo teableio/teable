@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+import { cn } from '@teable/ui-lib';
 import { useState } from 'react';
 
 interface ICollapsibleProps {
@@ -13,7 +13,7 @@ const CollapsibleText = (props: ICollapsibleProps) => {
     <div
       role="button"
       tabIndex={0}
-      className={classNames(open ? 'break-words' : 'truncate', 'w-full white-space', className)}
+      className={cn(open ? 'break-words' : 'truncate', 'w-full white-space', className)}
       onClick={() => setOpen(!open)}
       onKeyDown={() => setOpen(!open)}
     >

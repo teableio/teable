@@ -10,7 +10,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 import { useForm } from 'react-hook-form';
 import { Collapse } from '../../components';
 import { Combobox, CollapsibleText } from './components';

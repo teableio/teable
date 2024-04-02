@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { DeploymentStatus } from '@teable-group/core';
-import { DraggableHandle, MoreHorizontal } from '@teable-group/icons';
+import { DeploymentStatus } from '@teable/core';
+import { DraggableHandle, MoreHorizontal } from '@teable/icons';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -11,8 +11,8 @@ import {
   AvatarImage,
   AvatarFallback,
   Avatar,
-} from '@teable-group/ui-lib';
-import classNames from 'classnames';
+  cn,
+} from '@teable/ui-lib';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useMemo, useState } from 'react';
@@ -61,7 +61,7 @@ const WorkflowCard = (props: IWorkflowCardProps) => {
       shallow={true}
     >
       <section
-        className={classNames(
+        className={cn(
           'flex items-center p-2 rounded cursor-pointer hover:bg-secondary m-1 box-border',
           className,
           isActive ? 'bg-sky-200' : null
@@ -90,7 +90,7 @@ const WorkflowCard = (props: IWorkflowCardProps) => {
                 variant={
                   deploymentStatus === DeploymentStatus.UnDeployed ? 'destructive' : 'secondary'
                 }
-                className={classNames(
+                className={cn(
                   'p-1',
                   deploymentStatus === DeploymentStatus.Deployed ? 'bg-green-700 text-slate-50' : ''
                 )}
@@ -110,7 +110,7 @@ const WorkflowCard = (props: IWorkflowCardProps) => {
                 >
                   <DropdownMenuTrigger asChild>
                     <div className="text-slate-400">
-                      <MoreHorizontal className="h-4 w-4" />
+                      <MoreHorizontal className="size-4" />
                     </div>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -126,7 +126,7 @@ const WorkflowCard = (props: IWorkflowCardProps) => {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <div {...attributes} {...listeners}>
-                  <DraggableHandle className="h-4 w-4 cursor-grab" />
+                  <DraggableHandle className="size-4 cursor-grab" />
                 </div>
               </>
             )}

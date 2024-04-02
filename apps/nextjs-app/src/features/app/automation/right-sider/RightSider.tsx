@@ -1,5 +1,5 @@
-import { X } from '@teable-group/icons';
-import classnames from 'classnames';
+import { X } from '@teable/icons';
+import { cn } from '@teable/ui-lib';
 import { useRouter } from 'next/router';
 import { useContext } from 'react';
 import { autoMationContext } from '../context';
@@ -32,7 +32,7 @@ const RightSider = (props: ILeftSiderProps) => {
   };
 
   return (
-    <div className={classnames('flex-1', rightSiderVisible ? '' : 'hidden')}>
+    <div className={cn('flex-1', rightSiderVisible ? '' : 'hidden')}>
       <header className="flex h-12 items-center justify-between border-b border-secondary px-4">
         <span>{title}</span>
         <X className="h-5 w-5 cursor-pointer" onClick={() => closeSider()}></X>

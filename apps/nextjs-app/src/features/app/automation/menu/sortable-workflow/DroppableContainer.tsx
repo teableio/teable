@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { IWorkflow } from '@teable-group/core';
-import classNames from 'classnames';
+import type { IWorkflow } from '@teable/core';
+import { cn } from '@teable/ui-lib';
 import React from 'react';
 import { CollapseContainer } from './CollapseContainer';
 
@@ -47,7 +47,7 @@ const DroppableContainer = (
         ...attributes,
         ...listeners,
       }}
-      className={classNames(
+      className={cn(
         'w-full box-border border-2',
         isOverContainer ? 'border-2 rounded-sm border-secondary' : 'border-transparent'
       )}

@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from '@teable-group/ui-lib';
+} from '@teable/ui-lib';
 
 interface IAddActionDropMenuProps {
   children: React.ReactElement;

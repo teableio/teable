@@ -1,4 +1,4 @@
-import { useIsHydrated } from '@teable-group/sdk/hooks';
+import { useIsHydrated } from '@teable/sdk/hooks';
 import { Allotment } from 'allotment';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
@@ -43,7 +43,7 @@ const AutoMationPage = () => {
         setMenuData,
       }}
     >
-      <div className="p-t-4 p-r-4 p-l-4 flex h-full w-full justify-between">
+      <div className="p-t-4 p-r-4 p-l-4 flex size-full justify-between">
         <>
           <Allotment>
             {menuVisible && (
