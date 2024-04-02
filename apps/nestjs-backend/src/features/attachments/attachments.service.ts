@@ -29,22 +29,25 @@ export class AttachmentsService {
    * Local upload
    */
   async upload(req: Request, token: string) {
-    const tokenCache = await this.cacheService.get(`attachment:signature:${token}`);
-    const localStorage = this.storageAdapter as LocalStorage;
-    if (!tokenCache) {
-      throw new BadRequestException(`Invalid token: ${token}`);
+    try {
+      const tokenCache = await this.cacheService.get(`attachment:signature:${token}`);
+      const localStorage = this.storageAdapter as LocalStorage;
+      if (!tokenCache) {
+        throw new BadRequestException(`Invalid token: ${token}`);
+      }
+      const { path, bucket } = tokenCache;
+      const file = await localStorage.saveTemporaryFile(req);
+      await localStorage.validateToken(token, file);
+      const hash = await FileUtils.getHash(file.path);
+      await localStorage.save(file.path, join(bucket, path));
+      await this.cacheService.set(
+        `attachment:upload:${token}`,
+        { mimetype: file.mimetype, hash, size: file.size },
+        second(this.storageConfig.tokenExpireIn)
+      );
+    } catch (e) {
+      console.log('debugger: outer', e);
     }
-    const { path, bucket } = tokenCache;
-    const file = await localStorage.saveTemporaryFile(req);
-    await localStorage.validateToken(token, file);
-    const hash = await FileUtils.getHash(file.path);
-    await localStorage.save(file.path, join(bucket, path));
-
-    await this.cacheService.set(
-      `attachment:upload:${token}`,
-      { mimetype: file.mimetype, hash, size: file.size },
-      second(this.storageConfig.tokenExpireIn)
-    );
   }
 
   async readLocalFile(path: string, token?: string, filename?: string) {
