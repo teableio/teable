@@ -134,15 +134,15 @@ export class LocalStorage implements StorageAdapter {
         });
         req.on('error', (err) => {
           this.deleteFile(path);
-          reject(err.message);
+          reject(`debugger req: ${err.message}`);
         });
         fileStream.on('error', (err) => {
           this.deleteFile(path);
-          reject(err.message);
+          reject(`debugger error: ${err.message}`);
         });
       } catch (error) {
         this.deleteFile(path);
-        reject(error);
+        reject(`debugger catch: ${error}`);
       }
     });
   }
