@@ -9,7 +9,7 @@ import { generateLocalId } from '@teable/sdk/components';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IKanbanContext } from '../context';
 import { useInView, useKanban } from '../hooks';
@@ -37,20 +37,23 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
   const [ref, isInView] = useInView();
   const [editMode, setEditMode] = useState(false);
 
-  const { id: fieldId, type: fieldType } = stackField;
   const { id: stackId, data: stackData } = stack;
+  const { id: fieldId, type: fieldType } = stackField;
   const isUncategorized = stackId === UNCATEGORIZED_STACK_ID;
-  const disabledInner = disabled || editMode || isUncategorized;
+  const disabledInner = disabled || editMode;
 
-  const cardIds = useMemo(() => {
-    return cards.map(({ id }) => id);
-  }, [cards]);
-
-  const { attributes, isDragging, listeners, transition, transform, setNodeRef } = useSortable({
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    transition,
+    transform,
+    setNodeRef,
+    setDroppableNodeRef,
+  } = useSortable({
     id: stackId,
     data: {
       type: 'stack',
-      children: cardIds,
     },
     disabled: disabledInner,
   });
@@ -90,7 +93,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
 
   return (
     <div
-      ref={disabledInner ? undefined : setNodeRef}
+      ref={disabledInner ? undefined : isUncategorized ? setDroppableNodeRef : setNodeRef}
       style={itemStyle}
       className={cn(
         'w-[264px] h-full border bg-slate-50 dark:bg-slate-900 rounded-md shrink-0 shadow-md flex flex-col',

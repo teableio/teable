@@ -10,8 +10,10 @@ import {
   IGetRecordQuery,
   IUpdateRecordRo,
   updateRecordRoSchema,
+  updateRecordWithOrderRoSchema,
   deleteRecordsQuerySchema,
   IDeleteRecordsQuery,
+  IUpdateRecordWithOrderRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -53,6 +55,23 @@ export class RecordOpenApiController {
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
     return await this.recordOpenApiService.updateRecord(tableId, recordId, updateRecordRo);
+  }
+
+  @Permissions('view|update', 'record|update')
+  @Patch(':viewId/:recordId')
+  async updateRecordWithOrder(
+    @Param('tableId') tableId: string,
+    @Param('viewId') viewId: string,
+    @Param('recordId') recordId: string,
+    @Body(new ZodValidationPipe(updateRecordWithOrderRoSchema))
+    updateRecordWithOrderRo: IUpdateRecordWithOrderRo
+  ): Promise<IRecord> {
+    return await this.recordOpenApiService.updateRecordWithOrder(
+      tableId,
+      viewId,
+      recordId,
+      updateRecordWithOrderRo
+    );
   }
 
   @Permissions('record|create')

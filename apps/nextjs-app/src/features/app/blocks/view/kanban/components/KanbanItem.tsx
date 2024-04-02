@@ -15,6 +15,7 @@ interface IKanbanItemProps {
 interface IKanbanItemDragContainerProps {
   card: Record;
   stackId: string;
+  skipIndex: number;
 }
 
 const KanbanItemBase = (props: ListChildComponentProps<IKanbanItemProps>) => {
@@ -25,7 +26,9 @@ const KanbanItemBase = (props: ListChildComponentProps<IKanbanItemProps>) => {
 
   return (
     <div style={style}>
-      {card ? <KanbanItemDragContainer card={card} stackId={stackId} /> : null}
+      {card ? (
+        <KanbanItemDragContainer card={card} stackId={stackId} skipIndex={skipIndex} />
+      ) : null}
     </div>
   );
 };
@@ -33,13 +36,15 @@ const KanbanItemBase = (props: ListChildComponentProps<IKanbanItemProps>) => {
 export const KanbanItem = memo(KanbanItemBase);
 
 export const KanbanItemDragContainer = (props: IKanbanItemDragContainerProps) => {
-  const { card, stackId } = props;
+  const { card, stackId, skipIndex } = props;
   const { id } = card;
 
   const { listeners, attributes, isDragging, transform, transition, setNodeRef } = useSortable({
     id,
     data: {
+      type: 'card',
       stackId,
+      skipIndex,
     },
   });
 

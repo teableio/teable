@@ -114,7 +114,7 @@ export const KanbanStack = (props: IKanbanStackProps) => {
 
   useEffect(() => {
     listRef.current?.resetAfterIndex(skipIndex, false);
-  }, [skipIndex, cardCount, displayFields]);
+  }, [skipIndex, cards, displayFields]);
 
   return (
     <div ref={ref} className="size-full pt-3">

@@ -1,4 +1,5 @@
 import type {
+  CollisionDetection,
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
@@ -13,10 +14,15 @@ import {
   PointerSensor,
   MeasuringStrategy,
   defaultDropAnimationSideEffects,
+  closestCenter,
+  pointerWithin,
+  rectIntersection,
+  getFirstCollision,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import type { ISelectFieldChoice, IUserCellValue } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
+import type { IUpdateRecordWithOrderRo } from '@teable/openapi';
 import { generateLocalId } from '@teable/sdk/components';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
 import type { SingleSelectField } from '@teable/sdk/model';
@@ -65,12 +71,59 @@ export const KanbanContainer = () => {
   );
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [clonedCardMap, setClonedCardMap] = useState<ICardMap | null>(null);
+  const lastOverId = useRef<UniqueIdentifier | null>(null);
   const recentlyMovedToNewStack = useRef(false);
 
   const { id: fieldId, type: fieldType } = stackField;
   const localId = generateLocalId(tableId, viewId);
-  const stackSortingDisabled =
-    fieldType === FieldType.User || (Boolean(activeId) && !stackIds.includes(activeId as string));
+  const isStackUserField = fieldType === FieldType.User;
+  const isSortingCard = Boolean(activeId) && !stackIds.includes(activeId as string);
+
+  const collisionDetectionStrategy: CollisionDetection = useCallback(
+    (args) => {
+      if (activeId && activeId in cardMap) {
+        return closestCenter({
+          ...args,
+          droppableContainers: args.droppableContainers.filter(
+            (container) => container.id in cardMap
+          ),
+        });
+      }
+
+      const pointerIntersections = pointerWithin(args);
+      const intersections =
+        pointerIntersections.length > 0 ? pointerIntersections : rectIntersection(args);
+      let overId = getFirstCollision(intersections, 'id');
+
+      if (overId != null) {
+        if (overId in cardMap) {
+          const cards = cardMap[overId];
+
+          if (cards.length > 0) {
+            overId = closestCenter({
+              ...args,
+              droppableContainers: args.droppableContainers.filter(
+                (container) =>
+                  container.id !== overId &&
+                  cards.findIndex((card) => card.id === (container.id as string)) > -1
+              ),
+            })[0]?.id;
+          }
+        }
+
+        lastOverId.current = overId;
+
+        return [{ id: overId }];
+      }
+
+      if (recentlyMovedToNewStack.current) {
+        lastOverId.current = activeId;
+      }
+
+      return lastOverId.current ? [{ id: lastOverId.current }] : [];
+    },
+    [activeId, cardMap]
+  );
 
   const collapsedStackIdSet = useMemo(() => {
     return new Set(collapsedStackMap[localId] ?? []);
@@ -92,7 +145,8 @@ export const KanbanContainer = () => {
     setCardMap((prev) => ({ ...prev, ...partialCardMap }));
   }, []);
 
-  const findStackId = (id: UniqueIdentifier) => {
+  const findStackId = (cardMap: ICardMap | null, id: UniqueIdentifier) => {
+    if (cardMap == null) return;
     if (id in cardMap) return id;
     return Object.keys(cardMap).find(
       (key) => cardMap[key].findIndex((record) => record.id === id) > -1
@@ -115,17 +169,21 @@ export const KanbanContainer = () => {
   };
 
   const onDragOver = ({ active, over }: DragOverEvent) => {
-    const overId = over?.id;
     const activeId = active.id;
 
-    if (overId == null) return;
+    if (over == null || over.id == null) return;
 
     if (stackIds.includes(activeId)) {
       return;
     }
 
-    const overStackId = findStackId(overId);
-    const activeStackId = findStackId(activeId);
+    const activeStackId = findStackId(cardMap, activeId);
+
+    const { id: overId } = over;
+    const overData = over?.data?.current ?? {};
+    const { type: overType } = overData;
+    const isOverStack = overType === 'stack';
+    const overStackId = isOverStack ? overId : overData?.stackId;
 
     if (!overStackId || !activeStackId) return;
 
@@ -134,7 +192,11 @@ export const KanbanContainer = () => {
         const activeCards = prevCardMap[activeStackId];
         const overCards = prevCardMap[overStackId];
         const activeIndex = findIndex(activeCards, { id: activeId as string });
-        const overIndex = findIndex(overCards, { id: overId as string });
+        const overIndex = isOverStack
+          ? overCards.length
+          : findIndex(overCards, { id: overId as string });
+
+        if (activeIndex === -1 || overIndex === -1) return prevCardMap;
 
         let newIndex: number;
 
@@ -166,9 +228,16 @@ export const KanbanContainer = () => {
     }
   };
 
-  const onDragEnd = (event: DragEndEvent) => {
+  const onClear = () => {
+    setActiveId(null);
+    setClonedCardMap(null);
+  };
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  const onDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    const { id: activeId, data: activeData } = active;
+    const { data: activeData } = active;
+    const activeId = active.id as string;
     const overId = over?.id;
 
     if (stackIds.includes(activeId) && overId) {
@@ -192,49 +261,98 @@ export const KanbanContainer = () => {
           options: { ...stackField.options, choices: newChoices },
         });
       }
-      return;
+      return onClear();
     }
 
-    const activeStackId = findStackId(activeId);
+    const sourceStackId = findStackId(clonedCardMap, activeId);
+    const activeStackId = findStackId(cardMap, activeId);
 
     if (!activeStackId || overId == null) {
-      setActiveId(null);
-      setClonedCardMap(null);
-      return;
+      return onClear();
     }
 
-    const overStackId = findStackId(overId);
+    const overStackId = findStackId(cardMap, overId);
 
     if (overStackId) {
+      const isSameStack = sourceStackId === overStackId;
+      const overStackCards = cardMap[overStackId];
       const activeIndex = findIndex(cardMap[activeStackId], { id: activeId as string });
-      const overIndex = findIndex(cardMap[overStackId], { id: overId as string });
+      const overIndex = findIndex(overStackCards, { id: overId as string });
+
+      if (activeIndex === -1 || overIndex === -1) return onClear();
 
       if (activeIndex !== overIndex) {
-        setCardMap((prev) => ({
-          ...prev,
-          [overStackId]: arrayMove(prev[overStackId], activeIndex, overIndex),
-        }));
+        setCardMap({
+          ...cardMap,
+          [overStackId]: arrayMove(cardMap[overStackId], activeIndex, overIndex),
+        });
       }
 
       const { stackId } = activeData.current ?? {};
       const stack = stackMap[stackId];
 
-      if (stack != null && tableId != null) {
-        const isUserField = fieldType === FieldType.User;
-        const { data } = stack;
-        Record.updateRecord(tableId, activeId as string, {
+      if (tableId == null || viewId == null || stack == null) return onClear();
+
+      if (isSameStack) {
+        const currentCard = overStackCards[overIndex];
+        if (currentCard) {
+          Record.updateRecordOrders(tableId, viewId, {
+            anchorId: currentCard.id,
+            position: 'before',
+            recordIds: [activeId as string],
+          });
+        }
+        return onClear();
+      }
+
+      const beforeCard = overStackCards[overIndex - 1];
+      const afterCard = overStackCards[overIndex + 1];
+      let anchorInfo: Pick<IUpdateRecordWithOrderRo, 'anchorId' | 'position'> | null = null;
+
+      if (beforeCard) {
+        anchorInfo = {
+          anchorId: beforeCard.id,
+          position: 'after',
+        };
+      } else if (afterCard) {
+        anchorInfo = {
+          anchorId: afterCard.id,
+          position: 'before',
+        };
+      }
+
+      const isUserField = fieldType === FieldType.User;
+      const { id, data } = stack;
+      const fieldValue =
+        id === UNCATEGORIZED_STACK_ID
+          ? null
+          : isUserField
+            ? (data as IUserCellValue)
+            : (data as ISelectFieldChoice).name;
+
+      if (anchorInfo == null) {
+        return Record.updateRecord(tableId, activeId, {
+          fieldKeyType: FieldKeyType.Id,
           record: {
             fields: {
-              [fieldId]: isUserField ? (data as IUserCellValue) : (data as ISelectFieldChoice).name,
+              [fieldId]: fieldValue,
             },
           },
-          fieldKeyType: FieldKeyType.Id,
         });
       }
+
+      Record.updateRecordWithOrder(tableId, viewId, activeId, {
+        ...anchorInfo,
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [fieldId]: fieldValue,
+          },
+        },
+      });
     }
 
-    setActiveId(null);
-    setClonedCardMap(null);
+    onClear();
   };
 
   const dragItemOverlay = useMemo(() => {
@@ -266,6 +384,7 @@ export const KanbanContainer = () => {
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={collisionDetectionStrategy}
       measuring={{
         droppable: {
           strategy: MeasuringStrategy.Always,
@@ -277,7 +396,10 @@ export const KanbanContainer = () => {
       onDragCancel={onDragCancel}
     >
       <div className="flex h-full gap-4">
-        <SortableContext items={stackIds} strategy={horizontalListSortingStrategy}>
+        <SortableContext
+          items={stackIds}
+          strategy={isSortingCard ? undefined : horizontalListSortingStrategy}
+        >
           {stackIds.map((stackId) => {
             const stack = stackMap[stackId];
             if (stack == null) return null;
@@ -288,7 +410,7 @@ export const KanbanContainer = () => {
                 stack={stack}
                 cards={cardMap[stackId] ?? []}
                 setCardMap={setItemMapInner}
-                disabled={stackSortingDisabled}
+                disabled={isStackUserField}
                 isCollapsed={isCollapsed}
               />
             );
