@@ -106,7 +106,7 @@ const genTestFiles = async () => {
 
     fs.writeFileSync(tmpPath, data);
 
-    const file = fs.readFileSync(tmpPath);
+    const file = fs.createReadStream(tmpPath);
     const stats = fs.statSync(tmpPath);
 
     const { token, requestHeaders } = (

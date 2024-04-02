@@ -40,6 +40,7 @@ export class LocalStorage implements StorageAdapter {
 
     fse.ensureDirSync(this.temporaryDir);
     fse.ensureDirSync(this.storageDir);
+    console.log('temporaryDir', this.temporaryDir);
   }
 
   private getUploadUrl(token: string) {
