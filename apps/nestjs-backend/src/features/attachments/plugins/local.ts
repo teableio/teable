@@ -251,7 +251,7 @@ export class LocalStorage implements StorageAdapter {
     if (stream instanceof Buffer) {
       access(temPath, constants.F_OK | constants.W_OK, async (err) => {
         if (err) {
-          throw new Error('Temporary file not found');
+          throw new Error('Temporary file not found', err);
         }
         await fse.writeFile(temPath, stream);
       });
