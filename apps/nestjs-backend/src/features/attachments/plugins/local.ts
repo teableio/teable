@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createReadStream, createWriteStream } from 'fs';
+import os from 'node:os';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
@@ -25,7 +26,7 @@ interface ITokenEncryptor {
 export class LocalStorage implements StorageAdapter {
   path: string;
   storageDir: string;
-  temporaryDir = resolve(process.cwd(), '.temporary');
+  temporaryDir = resolve(os.tmpdir(), '.temporary');
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
   readPath = '/api/attachments/read';
 
