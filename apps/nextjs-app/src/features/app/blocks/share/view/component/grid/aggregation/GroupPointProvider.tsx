@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { IKanbanViewOptions } from '@teable/core';
+import { SortFunc, ViewType } from '@teable/core';
 import { getShareViewGroupPoints } from '@teable/openapi';
 import type { PropKeys } from '@teable/sdk';
 import {
@@ -16,32 +18,36 @@ interface GroupPointProviderProps {
   children: ReactNode;
 }
 
-const useGroupPointsQuery = () => {
-  const view = useView();
-  const { filter, group } = view || {};
-  const { searchQuery } = useSearch();
-  return useMemo(
-    () => ({
-      filter,
-      groupBy: group,
-      search: searchQuery,
-    }),
-    [filter, group, searchQuery]
-  );
-};
-
 export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
   const { tableId, viewId, shareId } = useContext(ShareViewPageContext);
   const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
-  const query = useGroupPointsQuery();
   const view = useView(viewId);
-  const group = view?.group;
+  const { searchQuery } = useSearch();
+  const { type, filter, group, options } = view || {};
+
+  const groupBy = useMemo(() => {
+    if (type === ViewType.Kanban) {
+      const { stackFieldId } = (options ?? {}) as IKanbanViewOptions;
+      if (stackFieldId == null) return;
+      return [{ order: SortFunc.Asc, fieldId: stackFieldId }];
+    }
+    return group;
+  }, [group, options, type]);
+
+  const query = useMemo(() => {
+    return {
+      filter,
+      groupBy,
+      search: searchQuery,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, JSON.stringify(groupBy), searchQuery]);
 
   const { data: resGroupPoints } = useQuery({
     queryKey: ReactQueryKeys.shareViewGroupPoints(shareId, query),
     queryFn: ({ queryKey }) => getShareViewGroupPoints(queryKey[1], queryKey[2]),
-    enabled: !!tableId && !!group?.length,
+    enabled: Boolean(tableId && groupBy?.length),
     refetchOnWindowFocus: false,
     retry: 1,
   });

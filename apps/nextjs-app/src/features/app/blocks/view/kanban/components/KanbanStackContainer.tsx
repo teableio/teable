@@ -34,15 +34,16 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
   const tableId = useTableId();
   const viewId = useViewId();
   const { collapsedStackMap, setCollapsedStackMap } = useKanbanStackCollapsedStore();
-  const { stackField, setExpandRecordId } = useKanban() as Required<IKanbanContext>;
+  const { permission, stackField, setExpandRecordId } = useKanban() as Required<IKanbanContext>;
   const [ref, isInView] = useInView();
   const [editMode, setEditMode] = useState(false);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   const { id: stackId } = stack;
   const { id: fieldId, type: fieldType } = stackField;
+  const { stackDraggable, cardCreatable } = permission;
   const isUncategorized = stackId === UNCATEGORIZED_STACK_ID;
-  const disabledInner = disabled || editMode || isUncategorized;
+  const draggable = stackDraggable && !disabled && !editMode && !isUncategorized;
 
   const onAppend = async () => {
     if (tableId == null) return;
@@ -76,7 +77,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
   };
 
   return (
-    <Draggable draggableId={stackId} index={index} key={stackId} isDragDisabled={disabledInner}>
+    <Draggable draggableId={stackId} index={index} key={stackId} isDragDisabled={!draggable}>
       {(provided, snapshot) => {
         const { draggableProps, dragHandleProps } = provided;
         const { isDragging } = snapshot;
@@ -125,11 +126,13 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
-                    <Button variant="outline" className="w-full shadow-none" onClick={onAppend}>
-                      <Plus className="size-5" />
-                    </Button>
-                  </div>
+                  {cardCreatable && (
+                    <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
+                      <Button variant="outline" className="w-full shadow-none" onClick={onAppend}>
+                        <Plus className="size-5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

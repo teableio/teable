@@ -164,6 +164,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           options={options as IDateFieldOptions}
           value={cellValue as string}
           onChange={(selectedDay) => onChange?.(selectedDay ?? null)}
+          readonly={readonly}
         />
       );
     }

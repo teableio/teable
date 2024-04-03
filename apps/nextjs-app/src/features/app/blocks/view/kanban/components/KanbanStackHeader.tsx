@@ -35,11 +35,12 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
   const tableId = useTableId();
   const viewId = useViewId();
   const { collapsedStackMap, setCollapsedStackMap } = useKanbanStackCollapsedStore();
-  const { stackField } = useKanban() as Required<IKanbanContext>;
+  const { permission, stackField } = useKanban() as Required<IKanbanContext>;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const { type, options } = stackField;
   const { id: stackId, data: stackData } = stack;
+  const { stackEditable, stackDeletable } = permission;
   const isSingleSelectField = type === FieldType.SingleSelect;
 
   const choiceRef = useRef<HTMLDivElement>(null);
@@ -47,6 +48,7 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
   const [renamingChoice, setRenamingChoice] = useState<ISelectFieldChoice | null>();
 
   const onStackRename = () => {
+    if (!stackEditable) return;
     setEditMode(true);
     setRenamingChoice({ ...(stackData as ISelectFieldChoice) });
   };
@@ -145,18 +147,24 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
           </DropdownMenuItem>
           {isSingleSelectField && !isUncategorized && (
             <>
-              <DropdownMenuItem className="cursor-pointer" onClick={onStackRename}>
-                <Pencil className="mr-2 size-4" />
-                {t('table:kanban.stackMenu.renameStack')}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="cursor-pointer text-destructive focus:text-destructive"
-                onClick={onStackDelete}
-              >
-                <Trash className="mr-2 size-4" />
-                {t('table:kanban.stackMenu.deleteStack')}
-              </DropdownMenuItem>
+              {stackEditable && (
+                <DropdownMenuItem className="cursor-pointer" onClick={onStackRename}>
+                  <Pencil className="mr-2 size-4" />
+                  {t('table:kanban.stackMenu.renameStack')}
+                </DropdownMenuItem>
+              )}
+              {stackDeletable && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                    onClick={onStackDelete}
+                  >
+                    <Trash className="mr-2 size-4" />
+                    {t('table:kanban.stackMenu.deleteStack')}
+                  </DropdownMenuItem>
+                </>
+              )}
             </>
           )}
         </DropdownMenuContent>

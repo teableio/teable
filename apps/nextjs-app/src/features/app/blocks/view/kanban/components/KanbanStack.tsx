@@ -23,8 +23,8 @@ interface IKanbanStackProps {
   setCardMap?: (partialItemMap: ICardMap) => void;
 }
 
-const LOAD_COUNT = 10;
-const TAKE_COUNT = 20;
+const LOAD_COUNT = 100;
+const TAKE_COUNT = 200;
 
 // @ts-ignore
 const HeightPreservingItem = ({ children, ...props }) => {
@@ -54,12 +54,13 @@ const HeightPreservingItem = ({ children, ...props }) => {
 export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props, forwardRef) => {
   const { stack, cards, setCardMap } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { stackField } = useKanban() as Required<IKanbanContext>;
+  const { stackField, permission } = useKanban() as Required<IKanbanContext>;
   const [skipIndex, setSkipIndex] = useState(0);
   const skipIndexRef = useRef(skipIndex);
   const [ref, { height }] = useMeasure<HTMLDivElement>();
 
   const cardCount = cards.length;
+  const { cardDraggable } = permission;
   const { id: fieldId, type: fieldType } = stackField;
   const { id: stackId, data: stackData, count: stackCount } = stack;
   const isUncategorized = stackId === UNCATEGORIZED_STACK_ID;
@@ -140,7 +141,12 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
                     return <div className="h-32 w-full" />;
                   }
                   return (
-                    <Draggable draggableId={card.id} index={realIndex} key={card.id}>
+                    <Draggable
+                      draggableId={card.id}
+                      index={realIndex}
+                      key={card.id}
+                      isDragDisabled={!cardDraggable}
+                    >
                       {(provided) => <KanbanCard provided={provided} card={card} stack={stack} />}
                     </Draggable>
                   );

@@ -2,6 +2,7 @@ import { ViewType } from '@teable/core';
 import { useContext } from 'react';
 import { FormView } from './component/FormView';
 import { GridView } from './component/grid/GridView';
+import { KanbanView } from './component/kanban/KanbanView';
 import { ShareViewPageContext } from './ShareViewPageContext';
 
 export const ShareView = () => {
@@ -15,6 +16,8 @@ export const ShareView = () => {
         return <FormView />;
       case ViewType.Grid:
         return <GridView />;
+      case ViewType.Kanban:
+        return <KanbanView />;
       default:
         return null;
     }

@@ -22,12 +22,13 @@ export const KanbanContainer = () => {
   const tableId = useTableId();
   const viewId = useViewId();
   const { collapsedStackMap } = useKanbanStackCollapsedStore();
-  const { stackField, stackCollection } = useKanban() as Required<IKanbanContext>;
+  const { permission, stackField, stackCollection } = useKanban() as Required<IKanbanContext>;
 
   const [cardMap, setCardMap] = useState<ICardMap>({});
   const [stackIds, setStackIds] = useState(stackCollection.map(({ id }) => id));
 
   const localId = generateLocalId(tableId, viewId);
+  const { stackCreatable } = permission;
   const { id: fieldId, type: fieldType } = stackField;
   const isUserField = fieldType === FieldType.User;
 
@@ -173,7 +174,7 @@ export const KanbanContainer = () => {
             );
           }}
         </Droppable>
-        {fieldType === FieldType.SingleSelect && (
+        {stackCreatable && !isUserField && (
           <div className="pr-2">
             <KanbanStackCreator />
           </div>

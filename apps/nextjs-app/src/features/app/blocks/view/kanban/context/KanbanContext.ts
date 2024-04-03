@@ -6,7 +6,7 @@ import type {
 } from '@teable/sdk/model';
 import type { Dispatch, SetStateAction } from 'react';
 import { createContext } from 'react';
-import type { IStackData } from '../type';
+import type { IKanbanPermission, IStackData } from '../type';
 
 export interface IKanbanContext {
   stackField?: SingleSelectField | UserField;
@@ -14,6 +14,7 @@ export interface IKanbanContext {
   coverField?: AttachmentField;
   isCoverFit?: boolean;
   isFieldNameHidden?: boolean;
+  permission: IKanbanPermission;
   primaryField: IFieldInstance;
   displayFields: IFieldInstance[];
   setExpandRecordId: Dispatch<SetStateAction<string | undefined>>;

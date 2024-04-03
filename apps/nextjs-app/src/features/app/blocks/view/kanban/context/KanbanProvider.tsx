@@ -4,7 +4,14 @@ import { FieldType } from '@teable/core';
 import { GroupPointType, getBaseCollaboratorList } from '@teable/openapi';
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase, useFields, useGroupPoint, useTableId, useView } from '@teable/sdk/hooks';
+import {
+  useBase,
+  useView,
+  useFields,
+  useTableId,
+  useGroupPoint,
+  useTablePermission,
+} from '@teable/sdk/hooks';
 import type {
   KanbanView,
   UserField,
@@ -24,7 +31,8 @@ import { KanbanContext } from './KanbanContext';
 export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
-  const { id: baseId } = useBase();
+  const { id: baseId } = useBase() ?? {};
+  const permission = useTablePermission();
   const fields = useFields();
   const allFields = useFields({ withHidden: true });
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
@@ -45,8 +53,21 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const { data: userList } = useQuery({
     queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
     queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
-    enabled: stackFieldType === FieldType.User,
+    enabled: Boolean(baseId && stackFieldType === FieldType.User),
   });
+
+  const kanbanPermission = useMemo(() => {
+    return {
+      stackCreatable: permission['field|update'],
+      stackEditable: permission['field|update'],
+      stackDeletable: permission['field|update'],
+      stackDraggable: permission['field|update'],
+      cardCreatable: permission['record|create'],
+      cardEditable: permission['record|update'],
+      cardDeletable: permission['record|delete'],
+      cardDraggable: permission['record|update'],
+    };
+  }, [permission]);
 
   const groupPointMap = useMemo(() => {
     if (groupPoints == null || stackFieldType == null) return null;
@@ -175,6 +196,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     return {
       isCoverFit,
       isFieldNameHidden,
+      permission: kanbanPermission,
       stackField,
       coverField,
       primaryField,
@@ -185,6 +207,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   }, [
     isCoverFit,
     isFieldNameHidden,
+    kanbanPermission,
     stackField,
     coverField,
     primaryField,
