@@ -7,7 +7,6 @@ import type {
   IRecord,
   IRecordInsertOrderRo,
   IUpdateRecordRo,
-  IUpdateRecordWithOrderRo,
   IUpdateRecordsRo,
 } from '@teable/openapi';
 import { forEach, map } from 'lodash';
@@ -222,19 +221,20 @@ export class RecordOpenApiService {
 
   async updateRecordWithOrder(
     tableId: string,
-    viewId: string,
     recordId: string,
-    updateRecordWithOrderRo: IUpdateRecordWithOrderRo
+    updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
-    const { anchorId, position, ...updateRecordRo } = updateRecordWithOrderRo;
+    const { order, ...recordRo } = updateRecordRo;
+    if (order != null) {
+      const { viewId, anchorId, position } = order;
+      await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
+        anchorId,
+        position,
+        recordIds: [recordId],
+      });
+    }
 
-    await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
-      anchorId,
-      position,
-      recordIds: [recordId],
-    });
-
-    return await this.updateRecord(tableId, recordId, updateRecordRo);
+    return await this.updateRecord(tableId, recordId, recordRo);
   }
 
   async deleteRecord(tableId: string, recordId: string) {

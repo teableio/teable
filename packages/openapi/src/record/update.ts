@@ -4,6 +4,7 @@ import { recordSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { recordInsertOrderRoSchema } from './create';
 import { fieldKeyTypeRoSchema, typecastSchema } from './get';
 
 export const updateRecordRoSchema = z
@@ -13,6 +14,7 @@ export const updateRecordRoSchema = z
     record: z.object({
       fields: recordSchema.shape.fields,
     }),
+    order: recordInsertOrderRoSchema.optional(),
   })
   .openapi({
     description: 'Update record by id',
@@ -30,6 +32,7 @@ export const updateRecordsRoSchema = z
         fields: recordSchema.shape.fields,
       })
     ),
+    order: recordInsertOrderRoSchema.optional(),
   })
   .openapi({
     description: 'Multiple Update records',

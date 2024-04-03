@@ -22,3 +22,8 @@ body {
 .select-field-type [cmdk-list] {
   max-height: min(600px, calc(100vh - 300px));
 }
+
+.height-preserving-container:empty {
+  min-height: calc(var(--child-height));
+  box-sizing: border-box;
+}

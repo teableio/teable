@@ -1,22 +1,21 @@
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { IAttachmentCellValue } from '@teable/core';
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { and, isEmpty, is, FieldType } from '@teable/core';
 import type { ISelectChoice } from '@teable/sdk/components';
 import { useRecords } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import { Draggable, Droppable } from 'react-beautiful-dnd';
 import { useTranslation } from 'react-i18next';
 import { useMeasure } from 'react-use';
-import type { ListOnItemsRenderedProps, VariableSizeList } from 'react-window';
-import { VariableSizeList as List } from 'react-window';
+import type { ListRange, VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 import { tableConfig } from '@/features/i18n/table.config';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';
 import type { IStackData } from '../type';
-import { getCardHeight } from '../utils';
 import type { ICardMap } from './interface';
-import { KanbanItem } from './KanbanItem';
+import { KanbanCard } from './KanbanCard';
 
 interface IKanbanStackProps {
   stack: IStackData;
@@ -24,15 +23,38 @@ interface IKanbanStackProps {
   setCardMap?: (partialItemMap: ICardMap) => void;
 }
 
-const LOAD_COUNT = 100;
-const TAKE_COUNT = 200;
+const LOAD_COUNT = 10;
+const TAKE_COUNT = 20;
 
-export const KanbanStack = (props: IKanbanStackProps) => {
+// @ts-ignore
+const HeightPreservingItem = ({ children, ...props }) => {
+  const [size, setSize] = useState(0);
+  const knownSize = props['data-known-size'];
+
+  useEffect(() => {
+    setSize((prevSize) => {
+      return knownSize == 0 ? prevSize : knownSize;
+    });
+  }, [knownSize]);
+
+  return (
+    <div
+      {...props}
+      className="height-preserving-container"
+      style={{
+        // @ts-ignore
+        '--child-height': `${size}px`,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props, forwardRef) => {
   const { stack, cards, setCardMap } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { stackField, displayFields, coverField, isFieldNameHidden } =
-    useKanban() as Required<IKanbanContext>;
-  const listRef = useRef<VariableSizeList>(null);
+  const { stackField } = useKanban() as Required<IKanbanContext>;
   const [skipIndex, setSkipIndex] = useState(0);
   const skipIndexRef = useRef(skipIndex);
   const [ref, { height }] = useMeasure<HTMLDivElement>();
@@ -66,39 +88,14 @@ export const KanbanStack = (props: IKanbanStackProps) => {
     return records.filter(Boolean);
   }, [records]);
 
-  const cardIds = useMemo(() => {
-    return cards.map(({ id }) => id);
-  }, [cards]);
-
   useEffect(() => {
     if (stackCount && !sortedRecords.length) return;
     setCardMap?.({ [stackId]: sortedRecords });
   }, [setCardMap, sortedRecords, stackId, stackCount]);
 
-  const itemData = useMemo(() => {
-    return {
-      stackId,
-      cards,
-      skipIndex: skipIndexRef.current,
-    };
-  }, [cards, stackId]);
-
-  const getItemSize = (index: number) => {
-    const card = cards[index - skipIndexRef.current];
-    if (card == null) return 160;
-    return getCardHeight(
-      card,
-      displayFields,
-      Boolean(
-        (card.getCellValue(coverField?.id as string) as IAttachmentCellValue | undefined)?.length
-      ),
-      isFieldNameHidden
-    );
-  };
-
-  const onItemsRendered = (props: ListOnItemsRenderedProps) => {
-    const { visibleStartIndex } = props;
-    const willSkipIndex = Math.max(0, Math.floor(visibleStartIndex / LOAD_COUNT) * LOAD_COUNT);
+  const onRangeChanged = (range: ListRange) => {
+    const { startIndex } = range;
+    const willSkipIndex = Math.max(0, Math.floor(startIndex / LOAD_COUNT) * LOAD_COUNT);
     if (willSkipIndex !== skipIndex) {
       setSkipIndex(willSkipIndex);
       skipIndexRef.current = willSkipIndex;
@@ -112,34 +109,58 @@ export const KanbanStack = (props: IKanbanStackProps) => {
     return stackCount;
   }, [cardCount, stackCount]);
 
-  useEffect(() => {
-    listRef.current?.resetAfterIndex(skipIndex, false);
-  }, [skipIndex, cards, displayFields]);
-
   return (
     <div ref={ref} className="size-full pt-3">
-      <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
-        {itemCount ? (
-          <List
-            ref={listRef}
-            height={height}
-            width="100%"
-            estimatedItemSize={160}
-            itemCount={itemCount}
-            itemSize={getItemSize}
-            itemData={itemData}
-            overscanCount={1}
-            onItemsRendered={onItemsRendered}
-            useIsScrolling
-          >
-            {KanbanItem}
-          </List>
-        ) : (
-          <div className="flex size-full items-center justify-center text-slate-500">
-            {t('table:kanban.stack.noCards')}
-          </div>
+      <Droppable
+        droppableId={stackId}
+        mode="virtual"
+        renderClone={(provided, snapshot, rubric) => {
+          const card = cards[rubric.source.index];
+          const { isDragging } = snapshot;
+          return (
+            <KanbanCard provided={provided} card={card} stack={stack} isDragging={isDragging} />
+          );
+        }}
+      >
+        {(provided, _snapshot) => (
+          <>
+            {cardCount ? (
+              <Virtuoso
+                ref={forwardRef}
+                scrollerRef={provided.innerRef as never}
+                components={{
+                  Item: HeightPreservingItem as never,
+                }}
+                style={{ width: '100%', height }}
+                totalCount={itemCount}
+                itemContent={(index) => {
+                  const realIndex = index - skipIndex;
+                  const card = cards[realIndex];
+                  if (card == null) {
+                    return <div className="h-32 w-full" />;
+                  }
+                  return (
+                    <Draggable draggableId={card.id} index={realIndex} key={card.id}>
+                      {(provided) => <KanbanCard provided={provided} card={card} stack={stack} />}
+                    </Draggable>
+                  );
+                }}
+                rangeChanged={onRangeChanged}
+              />
+            ) : (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className="flex size-full items-center justify-center text-slate-500"
+              >
+                {t('table:kanban.stack.noCards')}
+              </div>
+            )}
+          </>
         )}
-      </SortableContext>
+      </Droppable>
     </div>
   );
-};
+});
+
+KanbanStack.displayName = 'KanbanStack';
