@@ -16,8 +16,8 @@ interface IShareUserEditor {
 export const ShareUserEditor = (props: IShareUserEditor) => {
   const { className, shareId, cellValue, field, onChange } = props;
   const { data: userQuery, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.shareViewCollaborators(shareId, field.id),
-    queryFn: ({ queryKey }) => getShareViewCollaborators(queryKey[1], { fieldId: queryKey[2] }),
+    queryKey: ReactQueryKeys.shareViewCollaborators(shareId),
+    queryFn: ({ queryKey }) => getShareViewCollaborators(queryKey[1], {}),
   });
   return (
     <CellEditor

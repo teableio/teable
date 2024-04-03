@@ -315,9 +315,7 @@ describe('OpenAPI ShareController (e2e)', () => {
         fromViewShareId = shareResult.data.shareId;
       });
       it('should return the base collaborators', async () => {
-        const result = await apiGetShareViewCollaborators(fromViewShareId, {
-          fieldId: userFieldId,
-        });
+        const result = await apiGetShareViewCollaborators(fromViewShareId, {});
         const baseCollaborators = await apiGetBaseCollaboratorList(baseId);
         expect(result.data.map((user) => user.userId)).toEqual(
           baseCollaborators.data.map((user) => user.userId)

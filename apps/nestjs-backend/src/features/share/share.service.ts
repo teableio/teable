@@ -236,6 +236,15 @@ export class ShareService {
     const { view, tableId } = shareInfo;
     const { fieldId } = query;
 
+    // only form view can get all records
+    if (view.type === ViewType.Form) {
+      return this.getViewFormCollaborators(shareInfo);
+    }
+
+    if (!fieldId) {
+      throw new BadRequestException('fieldId is required');
+    }
+
     await this.preCheckFieldHidden(view, fieldId);
 
     // user field check
@@ -243,10 +252,6 @@ export class ShareService {
     // All user field, contains lastModifiedBy, createdBy
     if (field.type !== FieldType.User) {
       throw new ForbiddenException('field type is not user field');
-    }
-
-    if (view.type === ViewType.Form) {
-      return this.getViewFormCollaborators(shareInfo);
     }
 
     return this.getViewFilterCollaborators(shareInfo, field);

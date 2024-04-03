@@ -5,7 +5,7 @@ import { z } from '../zod';
 export const SHARE_VIEW_COLLABORATORS = '/share/{shareId}/view/collaborators';
 
 export const shareViewCollaboratorsRoSchema = z.object({
-  fieldId: z.string(),
+  fieldId: z.string().optional(),
 });
 
 export type IShareViewCollaboratorsRo = z.infer<typeof shareViewCollaboratorsRoSchema>;
