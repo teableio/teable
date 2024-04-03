@@ -94,9 +94,6 @@ function FieldValue(props: IFieldValue) {
           operator={filter.operator}
         />
       );
-    case FieldType.SingleLineText:
-    case FieldType.AutoNumber:
-      return InputComponent;
     case FieldType.Checkbox:
       return <FilterCheckbox value={filter.value as boolean} onChange={onSelect} />;
     case FieldType.Link: {
