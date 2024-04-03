@@ -142,8 +142,8 @@ describe('UserFieldCore', () => {
 
     expect(field.validateCellValue(null as any).success).toBe(true);
     expect(field.validateCellValue(cellValue).success).toBe(true);
-    expect(field.validateCellValue({ id: 'usrxxxxxx ', name: '' }).success).toBe(true);
-    expect(field.validateCellValue({ id: 'xxxxxxxxxxx ', name: '' }).success).toBe(false);
+    expect(field.validateCellValue({ id: 'usrxxxxxx ', title: '' }).success).toBe(true);
+    expect(field.validateCellValue({ id: 'xxxxxxxxxxx ', title: '' }).success).toBe(false);
     expect(field.validateCellValue([cellValue]).success).toBe(false);
   });
 
