@@ -50,6 +50,9 @@ export const ReactQueryKeys = {
 
   field: (tableId: string) => ['field-info', tableId],
 
-  shareViewCollaborators: (shareId: string, fieldId: string) =>
+  shareViewCollaborators: (shareId: string, fieldId?: string) =>
     ['share-view-collaborators', shareId, fieldId] as const,
+
+  getViewFilterLinkRecords: (tableId: string, viewId: string) =>
+    ['get-view-filter-link-records', tableId, viewId] as const,
 };
