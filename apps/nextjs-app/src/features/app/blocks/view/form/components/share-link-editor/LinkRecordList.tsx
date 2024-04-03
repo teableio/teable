@@ -2,6 +2,7 @@ import type { QueryFunctionContext } from '@tanstack/react-query';
 import type { ILinkCellValue } from '@teable/core';
 import { getShareViewLinkRecords } from '@teable/openapi';
 import { ApiRecordList } from '@teable/sdk/components';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useCallback, useMemo, useState } from 'react';
 
 interface ILinkRecordListProps {
@@ -18,7 +19,7 @@ export const LinkRecordList = (props: ILinkRecordListProps) => {
   const [searchParam, setSearchParam] = useState<string>();
 
   const queryKey = useMemo(
-    () => ['share-link-records', shareId, fieldId, searchParam],
+    () => ReactQueryKeys.shareViewLinkRecords(shareId, fieldId, searchParam),
     [fieldId, searchParam, shareId]
   );
 

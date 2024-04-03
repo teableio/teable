@@ -23,14 +23,16 @@ interface IFilterUserBaseProps extends IFilterUserProps {
     userName: string;
     avatar?: string | null;
   }[];
+  disableMe?: boolean;
 }
 
 const SINGLE_SELECT_OPERATORS = ['is', 'isNot'];
 
 const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
+  const { value, onSelect, operator, data, disableMe } = props;
+
   const { user: currentUser } = useSession();
   const { t } = useTranslation();
-  const { value, onSelect, operator, data } = props;
   const values = useMemo<string | string[] | null>(() => value, [value]);
 
   const options = useMemo(() => {
@@ -42,7 +44,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
       avatar: avatar,
     }));
 
-    if (currentUser) {
+    if (!disableMe && currentUser) {
       map.unshift({
         value: Me,
         label: t('filter.currentUser'),
@@ -50,7 +52,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
       });
     }
     return map;
-  }, [data, currentUser, t]);
+  }, [data, disableMe, currentUser, t]);
 
   const displayRender = useCallback((option: (typeof options)[number]) => {
     return (

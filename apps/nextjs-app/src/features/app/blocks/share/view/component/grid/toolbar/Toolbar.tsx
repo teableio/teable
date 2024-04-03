@@ -5,6 +5,7 @@ import { cn } from '@teable/ui-lib/shadcn';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { SearchButton } from '@/features/app/blocks/view/search/SearchButton';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
+import { FilterLink } from './filter-link';
 import { FilterUser } from './FilterUser';
 import { Sort } from './Sort';
 
@@ -22,6 +23,7 @@ export const Toolbar = () => {
       <Filter
         components={{
           [FieldType.User]: FilterUser,
+          [FieldType.Link]: FilterLink,
         }}
         filters={view?.filter || null}
         onChange={onFilterChange}

@@ -83,6 +83,7 @@ export const RecordList = (props: IRecordListProps) => {
                 height: `${virtualItem.size}px`,
                 transform: `translateY(${virtualItem.start}px)`,
               }}
+              value={virtualItem.key.toString()}
               onSelect={() => onSelect?.(virtualItem.index)}
             >
               {itemRender(virtualItem.index)}

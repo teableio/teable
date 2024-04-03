@@ -14,5 +14,5 @@ export const FilterUser: IFilterComponents[FieldType.User] = (props) => {
     queryKey: ReactQueryKeys.shareViewCollaborators(shareId, props.field.id),
     queryFn: ({ queryKey }) => getShareViewCollaborators(queryKey[1], { fieldId: queryKey[2] }),
   });
-  return <FilterUserSelectBase {...props} data={userQuery?.data} />;
+  return <FilterUserSelectBase {...props} data={userQuery?.data} disableMe />;
 };

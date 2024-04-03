@@ -15,11 +15,12 @@ interface IApiRecordListProps {
   selectedRecordIds?: string[];
   pageSize: number;
   onSearch?: (search?: string) => void;
+  onClick?: (record: ILinkCellValue) => void;
   onSelected?: (record: ILinkCellValue) => void;
 }
 
 export const ApiRecordList = (props: IApiRecordListProps) => {
-  const { queryFn, queryKey, onSearch, selectedRecordIds, pageSize, onSelected } = props;
+  const { queryFn, queryKey, onSearch, selectedRecordIds, pageSize, onClick, onSelected } = props;
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
 
@@ -53,9 +54,13 @@ export const ApiRecordList = (props: IApiRecordListProps) => {
       className="h-full"
       onSelect={(index) => {
         const record = allRows[index];
-        if (record && !selectedRecordIds?.includes(record.id)) {
+        if (!record) {
+          return;
+        }
+        if (!selectedRecordIds?.includes(record.id)) {
           onSelected?.(record);
         }
+        onClick?.(record);
       }}
       itemRender={(index) => {
         const record = allRows[index];

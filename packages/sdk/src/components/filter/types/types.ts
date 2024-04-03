@@ -1,5 +1,5 @@
 import type { IFilter, IFilterItem, IFilterSet, IConjunction, FieldType } from '@teable/core';
-import type { IFieldInstance, UserField } from '../../../model';
+import type { IFieldInstance, LinkField, UserField } from '../../../model';
 
 enum ConditionAddType {
   ITEM = 'item',
@@ -11,6 +11,7 @@ type IFiltersPath = (string | number)[];
 interface IFilterProps {
   filters: IFilter | null;
   contentHeader?: React.ReactNode;
+  context?: IFilterContextMap;
   components?: IFilterComponents;
   onChange?: (filters: IFilter | null) => void;
   children?: (text: string, isActive?: boolean) => React.ReactNode;
@@ -20,6 +21,7 @@ interface IFilterBaseProps {
   filters: IFilter | null;
   fields: IFieldInstance[];
   components?: IFilterComponents;
+  context?: IFilterContextMap;
   onChange?: (filters: IFilter | null) => void;
   children?: React.ReactNode;
   contentHeader?: React.ReactNode;
@@ -49,6 +51,17 @@ interface IFilterEditorProps<T = unknown, F = IFieldInstance> {
 
 interface IFilterComponents {
   [FieldType.User]: (props: IFilterEditorProps<string | string[] | null, UserField>) => JSX.Element;
+  [FieldType.Link]: (props: IFilterEditorProps<string | string[] | null, LinkField>) => JSX.Element;
+}
+
+interface IFilterContextMap {
+  [FieldType.Link]: {
+    isLoading?: boolean;
+    data?: {
+      tableId: string;
+      data: Record<string, string | undefined>;
+    }[];
+  };
 }
 
 export type {
@@ -59,5 +72,6 @@ export type {
   IFilter,
   IFiltersPath,
   IFilterComponents,
+  IFilterContextMap,
 };
 export { ConditionAddType };

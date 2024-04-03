@@ -12,12 +12,12 @@ import {
   FilterCheckbox,
   FilterDatePicker,
   FilterInput,
-  FilterLinkSelect,
+  FilterLink,
   FilterMultipleSelect,
   FilterSingleSelect,
   FilterUserSelect,
 } from '../component';
-import { EMPTYOPERATORS, MULPTIPLEOPERATORS } from '../constant';
+import { EMPTY_OPERATORS, MULTIPLE_OPERATORS } from '../constant';
 import { FilterContext } from '../context';
 
 interface IFieldValue {
@@ -32,7 +32,7 @@ function FieldValue(props: IFieldValue) {
 
   const emptyComponent = <Input className="m-1 h-8 w-40 placeholder:text-[13px]" disabled />;
   const showEmptyComponent = useMemo(() => {
-    const showEmpty = EMPTYOPERATORS.includes(filter.operator);
+    const showEmpty = EMPTY_OPERATORS.includes(filter.operator);
     showEmpty && onSelect?.(null);
     return showEmpty;
   }, [filter.operator, onSelect]);
@@ -61,7 +61,7 @@ function FieldValue(props: IFieldValue) {
         />
       );
     case FieldType.SingleSelect:
-      return MULPTIPLEOPERATORS.includes(filter.operator) ? (
+      return MULTIPLE_OPERATORS.includes(filter.operator) ? (
         <FilterMultipleSelect
           field={field}
           value={filter.value as string[]}
@@ -99,15 +99,20 @@ function FieldValue(props: IFieldValue) {
       return InputComponent;
     case FieldType.Checkbox:
       return <FilterCheckbox value={filter.value as boolean} onChange={onSelect} />;
-    case FieldType.Link:
-      return (
-        <FilterLinkSelect
-          field={field}
-          onSelect={(value) => onSelect(value as IFilterItem['value'])}
-          value={filter.value as string[]}
-          operator={filter.operator}
-        />
-      );
+    case FieldType.Link: {
+      const linkProps = {
+        field,
+        onSelect: (value: string[] | string | null) =>
+          onSelect(value?.length ? (value as IFilterItem['value']) : null),
+        value: filter.value as string[],
+        operator: filter.operator,
+      };
+      if (components && FieldType.Link in components) {
+        const LinkComponents = components[FieldType.Link];
+        return <LinkComponents {...linkProps} />;
+      }
+      return <FilterLink {...linkProps} />;
+    }
     case FieldType.Attachment:
       return <FileTypeSelect value={filter.value as string} onSelect={onSelect} />;
     case FieldType.Rating:
@@ -123,7 +128,8 @@ function FieldValue(props: IFieldValue) {
     case FieldType.User: {
       const props = {
         field,
-        onSelect: (value: string[] | string | null) => onSelect(value as IFilterItem['value']),
+        onSelect: (value: string[] | string | null) =>
+          onSelect(value?.length ? (value as IFilterItem['value']) : null),
         value: filter.value as string[],
         operator: filter.operator,
       };
