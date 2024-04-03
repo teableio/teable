@@ -1,3 +1,5 @@
+import { DragDropContext, Droppable } from '@hello-pangea/dnd';
+import type { DropResult } from '@hello-pangea/dnd';
 import { FieldKeyType, FieldType } from '@teable/core';
 import type { IUpdateRecordRo } from '@teable/openapi';
 import { generateLocalId } from '@teable/sdk/components';
@@ -5,8 +7,6 @@ import { useTableId, useViewId } from '@teable/sdk/hooks';
 import { Record } from '@teable/sdk/model';
 import { keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { DropResult } from 'react-beautiful-dnd';
-import { DragDropContext, Droppable } from 'react-beautiful-dnd';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';

@@ -1,4 +1,5 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
+import { Draggable } from '@hello-pangea/dnd';
 import { FieldKeyType } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { createRecords } from '@teable/openapi';
@@ -7,7 +8,6 @@ import { useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib';
 import { useRef, useState } from 'react';
-import { Draggable } from 'react-beautiful-dnd';
 import type { VirtuosoHandle } from 'react-virtuoso';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IKanbanContext } from '../context';

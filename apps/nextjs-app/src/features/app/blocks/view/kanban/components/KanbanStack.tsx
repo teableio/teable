@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
+import { Draggable, Droppable } from '@hello-pangea/dnd';
 import { and, isEmpty, is, FieldType } from '@teable/core';
 import type { ISelectChoice } from '@teable/sdk/components';
 import { useRecords } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
-import { Draggable, Droppable } from 'react-beautiful-dnd';
 import { useTranslation } from 'react-i18next';
 import { useMeasure } from 'react-use';
 import type { ListRange, VirtuosoHandle } from 'react-virtuoso';
@@ -124,45 +124,38 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
         }}
       >
         {(provided, _snapshot) => (
-          <>
-            {cardCount ? (
-              <Virtuoso
-                ref={forwardRef}
-                scrollerRef={provided.innerRef as never}
-                components={{
-                  Item: HeightPreservingItem as never,
-                }}
-                style={{ width: '100%', height }}
-                totalCount={itemCount}
-                itemContent={(index) => {
-                  const realIndex = index - skipIndex;
-                  const card = cards[realIndex];
-                  if (card == null) {
-                    return <div className="h-32 w-full" />;
-                  }
-                  return (
-                    <Draggable
-                      draggableId={card.id}
-                      index={realIndex}
-                      key={card.id}
-                      isDragDisabled={!cardDraggable}
-                    >
-                      {(provided) => <KanbanCard provided={provided} card={card} stack={stack} />}
-                    </Draggable>
-                  );
-                }}
-                rangeChanged={onRangeChanged}
-              />
-            ) : (
-              <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className="flex size-full items-center justify-center text-slate-500"
-              >
-                {t('table:kanban.stack.noCards')}
-              </div>
-            )}
-          </>
+          <Virtuoso
+            ref={forwardRef}
+            scrollerRef={provided.innerRef as never}
+            components={{
+              Item: HeightPreservingItem as never,
+              EmptyPlaceholder: () => (
+                <div className="flex size-full items-center justify-center text-slate-500">
+                  {t('table:kanban.stack.noCards')}
+                </div>
+              ),
+            }}
+            style={{ width: '100%', height }}
+            totalCount={itemCount}
+            itemContent={(index) => {
+              const realIndex = index - skipIndex;
+              const card = cards[realIndex];
+              if (card == null) {
+                return <div className="h-32 w-full" />;
+              }
+              return (
+                <Draggable
+                  draggableId={card.id}
+                  index={realIndex}
+                  key={card.id}
+                  isDragDisabled={!cardDraggable}
+                >
+                  {(provided) => <KanbanCard provided={provided} card={card} stack={stack} />}
+                </Draggable>
+              );
+            }}
+            rangeChanged={onRangeChanged}
+          />
         )}
       </Droppable>
     </div>

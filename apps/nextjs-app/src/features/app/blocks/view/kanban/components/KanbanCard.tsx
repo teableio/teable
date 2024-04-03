@@ -1,4 +1,5 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
+import type { DraggableProvided } from '@hello-pangea/dnd';
 import { FieldKeyType, type IAttachmentCellValue } from '@teable/core';
 import { ArrowDown, ArrowUp, Maximize2, Trash } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
@@ -21,7 +22,6 @@ import {
 } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useMemo } from 'react';
-import type { DraggableProvided } from 'react-beautiful-dnd';
 import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IKanbanContext } from '../context';
