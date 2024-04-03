@@ -136,7 +136,7 @@ describe('OpenAPI ViewController (e2e)', () => {
     expect(newFields.slice(3)).toMatchObject(oldFields);
   });
 
-  describe.only('/api/table/{tableId}/view/:viewId/filter-link-records (GET)', () => {
+  describe('/api/table/{tableId}/view/:viewId/filter-link-records (GET)', () => {
     let table: ITableVo;
     let linkTable1: ITableFullVo;
     let linkTable2: ITableFullVo;
