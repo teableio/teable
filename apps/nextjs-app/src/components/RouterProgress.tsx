@@ -1,6 +1,5 @@
 'use client';
 
-import 'nprogress/nprogress.css';
 import { useRouter } from 'next/router';
 import NProgress from 'nprogress';
 import { useEffect } from 'react';
