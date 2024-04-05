@@ -367,5 +367,48 @@ describe('OpenAPI link Select (e2e)', () => {
         expect(result2.records).toMatchObject(updateValue2);
       });
     });
+
+    describe('fetch candidate records', () => {
+      let linkField2: IFieldVo;
+      beforeEach(async () => {
+        // create link field
+        const Link1FieldRo: IFieldRo = {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        };
+
+        await createField(table1.id, Link1FieldRo);
+
+        const table2Fields = await getFields(table2.id);
+        // oneMany
+        linkField2 = table2Fields[2];
+      });
+
+      it('should filter candidate records that cannot be select', async () => {
+        // table2 link field first record link to table1 first record
+        const updateValue1 = [
+          { id: table1.records[2].id },
+          { id: table1.records[0].id },
+          { id: table1.records[1].id },
+        ];
+        await updateRecordByApi(table2.id, table2.records[0].id, linkField2.id, updateValue1);
+        const table1Record0Selected: IGetRecordsRo = {
+          fieldKeyType: FieldKeyType.Id,
+          filterLinkCellCandidate: [linkField2.id, table2.records[0].id],
+        };
+        const result0 = await getRecords(table1.id, table1Record0Selected);
+        expect(result0.records.length).toEqual(0);
+
+        const table1Record1Selected: IGetRecordsRo = {
+          fieldKeyType: FieldKeyType.Id,
+          filterLinkCellCandidate: [linkField2.id, table2.records[1].id],
+        };
+        const result1 = await getRecords(table1.id, table1Record1Selected);
+        expect(result1.records.length).toEqual(0);
+      });
+    });
   });
 });
