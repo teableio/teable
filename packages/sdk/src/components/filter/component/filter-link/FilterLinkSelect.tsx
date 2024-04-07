@@ -22,7 +22,6 @@ export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
 
   const onListClick = (recordId: string) => {
     const values = typeof value === 'string' ? [value] : value || [];
-    console.log('values', values, recordId);
 
     if (!SINGLE_SELECT_OPERATORS.includes(operator)) {
       values.includes(recordId)

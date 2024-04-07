@@ -596,7 +596,7 @@ export class ViewOpenApiService {
   async getFilterLinkRecords(tableId: string, viewId: string) {
     const view = await this.viewService.getViewById(viewId);
     const linkFields = await this.prismaService.field.findMany({
-      where: { tableId, deletedTime: null, type: FieldType.Link, options: { not: null } },
+      where: { tableId, deletedTime: null, type: FieldType.Link },
     });
     const linkFieldTableMap = linkFields.reduce(
       (map, field) => {
