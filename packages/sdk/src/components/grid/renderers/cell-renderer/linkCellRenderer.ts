@@ -27,7 +27,7 @@ interface IComputeTextPositionProps {
   data: string[];
   rect: IRectangle;
   theme: IGridTheme;
-  isActive: boolean;
+  isActive?: boolean;
 }
 
 const { cellHorizontalPadding, cellVerticalPaddingMD, cellTextLineHeight, maxRowCount } =
@@ -137,7 +137,7 @@ export const linkCellRenderer: IInternalCellRenderer<ILinkCell> = {
       data,
       rect,
       theme,
-      isActive: true,
+      isActive,
     });
 
     ctx.textAlign = 'left';

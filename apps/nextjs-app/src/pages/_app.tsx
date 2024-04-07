@@ -115,6 +115,7 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
       sentryDsn: process.env.SENTRY_DSN,
       socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
+      storagePrefix: process.env.STORAGE_PREFIX,
     },
   };
   if (!isLoginPage && !needLoginPage) {
