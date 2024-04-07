@@ -52,21 +52,23 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const views = useViews() as (GridView | undefined)[];
   const defaultViewId = views?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
-  const columnMeta = views?.[0]?.columnMeta;
   const allFields = useFields({ withHidden: true });
+  const showFields = useFields();
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
   const isTouchDevice = useIsTouchDevice();
   const permission = useTablePermission();
 
+  const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
+
   const fields = useMemo(
-    () => (viewId ? allFields.filter((field) => !columnMeta?.[field.id]?.hidden) : []),
-    [allFields, columnMeta, viewId]
+    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : []),
+    [allFields, showFieldsId, viewId]
   );
 
   const hiddenFields = useMemo(
-    () => (viewId ? allFields.filter((field) => columnMeta?.[field.id]?.hidden) : []),
-    [allFields, columnMeta, viewId]
+    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : []),
+    [allFields, showFieldsId, viewId]
   );
 
   const nextRecordIndex = useMemo(() => {
