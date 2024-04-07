@@ -47,7 +47,6 @@ function Condition(props: IConditionProps) {
     const newOperators = newField ? getValidFilterOperators(newField) : null;
     if (!newOperators?.includes(operator as IOperator)) {
       const newPath = [...path, 'operator'];
-      console.log('setFilters', newPath, newOperators?.[0] ?? null);
       setFilters(newPath, newOperators?.[0] ?? null);
     }
     setFilters(newFieldPath, newFieldId);
