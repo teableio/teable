@@ -11,6 +11,7 @@ import {
   getShareViewLinkRecords as apiGetShareViewLinkRecords,
   getShareViewCollaborators as apiGetShareViewCollaborators,
   getBaseCollaboratorList as apiGetBaseCollaboratorList,
+  updateViewColumnMeta as apiUpdateViewColumnMeta,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -314,12 +315,30 @@ describe('OpenAPI ShareController (e2e)', () => {
         });
         fromViewShareId = shareResult.data.shareId;
       });
+      it('should return [], no user cell visible', async () => {
+        const result = await apiGetShareViewCollaborators(fromViewShareId, {
+          fieldId: userFieldId,
+        });
+        expect(result.data).toEqual([]);
+      });
       it('should return the base collaborators', async () => {
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          {
+            fieldId: userFieldId,
+            columnMeta: { visible: true },
+          },
+        ]);
         const result = await apiGetShareViewCollaborators(fromViewShareId, {});
         const baseCollaborators = await apiGetBaseCollaboratorList(baseId);
         expect(result.data.map((user) => user.userId)).toEqual(
           baseCollaborators.data.map((user) => user.userId)
         );
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          {
+            fieldId: userFieldId,
+            columnMeta: { visible: false },
+          },
+        ]);
       });
     });
   });
