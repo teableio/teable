@@ -84,7 +84,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
     const uploadItem = { instance: files[0], id: generateAttachmentId() };
     attachmentManager.upload([uploadItem], UploadType.Form, {
       successCallback: (_file: IFile, attachment: INotifyVo) => {
-        const url = attachment.url;
+        const url = attachment.presignedUrl;
         const optionProp = isCover ? 'coverUrl' : 'logoUrl';
         isCover ? setCoverUrl(url) : setLogoUrl(url);
         view.updateOption({ [optionProp]: url });
