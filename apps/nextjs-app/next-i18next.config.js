@@ -6,6 +6,8 @@ const localePublicFolder = undefined;
 const localPaths = [
   path.resolve('../../packages/common-i18n/src/locales'),
   path.join(__dirname, '../../../node_modules/@teable/common-i18n/src/locales'),
+  path.resolve('../../community/packages/common-i18n/src/locales'),
+  path.join(__dirname, '../../../../node_modules/@teable/common-i18n/src/locales'),
   process.env.I18N_LOCALES_PATH,
 ];
 
