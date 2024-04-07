@@ -43,6 +43,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const {
+    permission,
     stackField,
     primaryField,
     displayFields,
@@ -52,6 +53,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     setExpandRecordId,
   } = useKanban() as Required<IKanbanContext>;
 
+  const { cardCreatable, cardDeletable } = permission;
   const { id: fieldId, type: fieldType } = stackField;
   const coverFieldId = coverField?.id;
   const coverCellValue = card.getCellValue(coverFieldId as string) as
@@ -169,24 +171,32 @@ export const KanbanCard = (props: IKanbanCardProps) => {
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={() => onInsert('before')}>
-          <ArrowUp className="mr-2 size-4" />
-          {t('table:kanban.cardMenu.insertCardAbove')}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => onInsert('after')}>
-          <ArrowDown className="mr-2 size-4" />
-          {t('table:kanban.cardMenu.insertCardBelow')}
-        </ContextMenuItem>
-        <ContextMenuSeparator />
+        {cardCreatable && (
+          <>
+            <ContextMenuItem onClick={() => onInsert('before')}>
+              <ArrowUp className="mr-2 size-4" />
+              {t('table:kanban.cardMenu.insertCardAbove')}
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => onInsert('after')}>
+              <ArrowDown className="mr-2 size-4" />
+              {t('table:kanban.cardMenu.insertCardBelow')}
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+          </>
+        )}
         <ContextMenuItem onClick={onExpand}>
           <Maximize2 className="mr-2 size-4" />
           {t('table:kanban.cardMenu.expandCard')}
         </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
-          <Trash className="mr-2 size-4" />
-          {t('table:kanban.cardMenu.deleteCard')}
-        </ContextMenuItem>
+        {cardDeletable && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
+              <Trash className="mr-2 size-4" />
+              {t('table:kanban.cardMenu.deleteCard')}
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   );
