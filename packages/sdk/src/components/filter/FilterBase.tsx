@@ -28,7 +28,15 @@ const defaultGroupFilter: NonNullable<IFilter> = {
 };
 
 function FilterBase(props: IFilterBaseProps) {
-  const { onChange, filters: initFilter, fields, children, contentHeader } = props;
+  const {
+    onChange,
+    filters: initFilter,
+    fields,
+    children,
+    contentHeader,
+    components,
+    context,
+  } = props;
   const { t } = useTranslation();
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
 
@@ -36,12 +44,14 @@ function FilterBase(props: IFilterBaseProps) {
     path: IFiltersPath,
     value: IFilterItem['value'] | IConjunction | IFilterItem['fieldId'] | IFilterItem['operator']
   ) => {
-    if (filters) {
-      const newFilters = produce(filters, (draft) => {
-        set(draft, path, value);
-      });
-      setFilters(newFilters);
-    }
+    setFilters((prev) => {
+      if (prev) {
+        return produce(prev, (draft) => {
+          set(draft, path, value);
+        });
+      }
+      return prev;
+    });
   };
 
   useEffect(() => {
@@ -52,6 +62,7 @@ function FilterBase(props: IFilterBaseProps) {
   useDebounce(
     () => {
       if (!isEqual(filters, initFilter)) {
+        console.log('filters', JSON.stringify(filters));
         onChange?.(filters);
       }
     },
@@ -159,6 +170,9 @@ function FilterBase(props: IFilterBaseProps) {
   return (
     <FilterContext.Provider
       value={{
+        fields,
+        context,
+        components,
         setFilters: setFilterHandler,
         onChange: onChange,
         addCondition: addCondition,

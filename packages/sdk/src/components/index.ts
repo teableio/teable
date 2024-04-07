@@ -12,3 +12,4 @@ export * from './expand-record';
 export * from './grid-enhancements';
 export * from './select-field-dialog';
 export * from './search';
+export * from './record-list';

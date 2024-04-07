@@ -202,4 +202,18 @@ export class SqliteProvider implements IDbProvider {
   ) {
     return SearchQueryAbstract.factory(SearchQuerySqlite, originQueryBuilder, fieldMap, search);
   }
+
+  shareFilterCollaboratorsQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbFieldName: string,
+    isMultipleCellValue?: boolean | null
+  ) {
+    if (isMultipleCellValue) {
+      originQueryBuilder
+        .distinct(this.knex.raw(`json_extract(json_each.value, '$.id') AS user_id`))
+        .crossJoin(this.knex.raw(`json_each(${dbFieldName})`));
+    } else {
+      originQueryBuilder.distinct(this.knex.raw(`json_extract(${dbFieldName}, '$.id') AS user_id`));
+    }
+  }
 }

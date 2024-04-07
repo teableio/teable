@@ -61,7 +61,7 @@ export const ShareFormLinkEditor = (props: IShareFormLinkEditorProps) => {
         <PopoverContent className="h-[350px] w-screen md:w-[480px]">
           <LinkRecordList
             shareId={shareId}
-            field={field}
+            fieldId={field.id}
             selectedRecordIds={selectedRecordIds}
             onSelected={onSelected}
           />

@@ -98,4 +98,10 @@ export interface IDbProvider {
     fieldMap?: { [fieldId: string]: IFieldInstance },
     search?: string[]
   ): Knex.QueryBuilder;
+
+  shareFilterCollaboratorsQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbFieldName: string,
+    isMultipleCellValue?: boolean | null
+  ): void;
 }

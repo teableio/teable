@@ -4,7 +4,7 @@ export * from './FilterInput';
 export * from './FilterInputNumber';
 export * from './filterDatePicker';
 export * from './FilterCheckBox';
-export * from './FilterLinkSelect';
+export * from './filter-link';
 export * from './FileTypeSelect';
 export * from './FilterUserSelect';
 export * from './base';

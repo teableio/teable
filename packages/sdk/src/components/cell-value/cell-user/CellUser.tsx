@@ -20,7 +20,7 @@ export const CellUser = (props: ICellUser) => {
     <div className={cn('flex space-x-1', className)} style={style}>
       {innerValue?.map((itemVal) => {
         const { id, title, avatarUrl } = itemVal;
-        return <UserTag key={id} label={title} url={avatarUrl} className={itemClassName} />;
+        return <UserTag key={id} name={title} avatar={avatarUrl} className={itemClassName} />;
       })}
     </div>
   );

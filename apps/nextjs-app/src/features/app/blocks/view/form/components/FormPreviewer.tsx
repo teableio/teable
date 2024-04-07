@@ -7,6 +7,7 @@ import { omit } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 import { useLocalStorage, useMap, useSet } from 'react-use';
+import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { tableConfig } from '@/features/i18n/table.config';
 import { generateUniqLocalKey } from '../util';
 import { BrandFooter } from './BrandFooter';
@@ -22,6 +23,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
   const view = useView() as FormView | undefined;
   const fields = useFields();
   const { toast } = useToast();
+  const getPreviewUrl = usePreviewUrl();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const localKey = generateUniqLocalKey(tableId, view?.id);
   const [formDataMap, setFormDataMap] = useLocalStorage<Record<string, Record<string, unknown>>>(
@@ -141,13 +143,19 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
               'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600 dark:from-green-600 dark:via-blue-600 dark:to-blue-900'
           )}
         >
-          {coverUrl && <img src={coverUrl} alt="form cover" className="size-full object-cover" />}
+          {coverUrl && (
+            <img
+              src={getPreviewUrl(coverUrl)}
+              alt="form cover"
+              className="size-full object-cover"
+            />
+          )}
         </div>
 
         {logoUrl && (
           <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
             <img
-              src={logoUrl}
+              src={getPreviewUrl(logoUrl)}
               alt="form logo"
               className="size-full rounded-lg object-cover shadow-sm"
             />

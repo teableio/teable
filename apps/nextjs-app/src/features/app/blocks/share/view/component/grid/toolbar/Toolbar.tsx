@@ -1,10 +1,12 @@
-import type { IGridViewOptions } from '@teable/core';
+import { FieldType, type IGridViewOptions } from '@teable/core';
 import { ArrowUpDown, Filter as FilterIcon, LayoutList } from '@teable/icons';
 import { Filter, useView, RowHeight, Group } from '@teable/sdk';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { SearchButton } from '@/features/app/blocks/view/search/SearchButton';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
+import { FilterLink } from './filter-link';
+import { FilterUser } from './FilterUser';
 import { Sort } from './Sort';
 
 export const Toolbar = () => {
@@ -18,7 +20,14 @@ export const Toolbar = () => {
 
   return (
     <div className="flex w-full items-center justify-between gap-2 border-b px-4 py-2 @container/toolbar">
-      <Filter filters={view?.filter || null} onChange={onFilterChange}>
+      <Filter
+        components={{
+          [FieldType.User]: FilterUser,
+          [FieldType.Link]: FilterLink,
+        }}
+        filters={view?.filter || null}
+        onChange={onFilterChange}
+      >
         {(text, isActive) => (
           <ToolBarButton
             isActive={isActive}

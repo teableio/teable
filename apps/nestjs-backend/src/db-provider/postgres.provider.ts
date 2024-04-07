@@ -244,4 +244,20 @@ export class PostgresProvider implements IDbProvider {
   ) {
     return SearchQueryAbstract.factory(SearchQueryPostgres, originQueryBuilder, fieldMap, search);
   }
+
+  shareFilterCollaboratorsQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    dbFieldName: string,
+    isMultipleCellValue?: boolean
+  ) {
+    if (isMultipleCellValue) {
+      originQueryBuilder.distinct(
+        this.knex.raw(`jsonb_array_elements("${dbFieldName}")->>'id' AS user_id`)
+      );
+    } else {
+      originQueryBuilder.distinct(
+        this.knex.raw(`jsonb_extract_path_text("${dbFieldName}", 'id') AS user_id`)
+      );
+    }
+  }
 }

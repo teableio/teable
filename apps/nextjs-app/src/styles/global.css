@@ -1,4 +1,5 @@
 @import url('@teable/ui-lib/shadcn/global.shadcn.css');
+@import url('nprogress/nprogress.css');
 
 :root {
   --btn-text-case: none;

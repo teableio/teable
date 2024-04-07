@@ -2,7 +2,7 @@ import type { IFilter } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { cloneDeep } from 'lodash';
 import type { IFieldInstance } from '../../model';
-import { operatorLabelMapping, fieldNumberLabelMap, EMPTYOPERATORS } from './constant';
+import { operatorLabelMapping, fieldNumberLabelMap, EMPTY_OPERATORS } from './constant';
 import { isFilterItem } from './types';
 
 export const getFieldOperatorMapping = (type?: FieldType) => {
@@ -25,7 +25,7 @@ export const getFilterFieldIds = (
       if (
         item.value === 0 ||
         item.value ||
-        EMPTYOPERATORS.includes(item.operator) ||
+        EMPTY_OPERATORS.includes(item.operator) ||
         fieldMap[item.fieldId]?.type === FieldType.Checkbox
       ) {
         filterIds.add(item.fieldId);

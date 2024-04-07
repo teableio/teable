@@ -207,6 +207,13 @@ export class RecordService implements IAdapterService {
       .orderBy('ordered_ids.sort_order');
   }
 
+  private isJunctionTable(dbTableName: string) {
+    if (dbTableName.includes('.')) {
+      return dbTableName.split('.')[1].startsWith('junction');
+    }
+    return dbTableName.split('_')[1].startsWith('junction');
+  }
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   async buildLinkSelectedQuery(
     queryBuilder: Knex.QueryBuilder,
@@ -292,47 +299,30 @@ export class RecordService implements IAdapterService {
     if (foreignTableId !== tableId) {
       throw new BadRequestException('Field is not linked to current table');
     }
-
+    if (relationship === Relationship.OneMany) {
+      if (this.isJunctionTable(fkHostTableName)) {
+        queryBuilder.whereNotIn('__id', function () {
+          this.select(foreignKeyName).from(fkHostTableName);
+        });
+      } else {
+        queryBuilder.where(selfKeyName, null);
+      }
+    }
     if (relationship === Relationship.OneOne) {
       if (selfKeyName === '__id') {
         queryBuilder.whereNotIn('__id', function () {
           this.select(foreignKeyName).from(fkHostTableName).whereNotNull(foreignKeyName);
         });
-        return;
+      } else {
+        queryBuilder.where(selfKeyName, null);
       }
-      queryBuilder.where(selfKeyName, null);
-      return;
-    }
-
-    if (fkHostTableName !== dbTableName) {
-      queryBuilder.leftJoin(
-        `${fkHostTableName}`,
-        `${dbTableName}.__id`,
-        '=',
-        `${fkHostTableName}.${foreignKeyName}`
-      );
-    }
-
-    if (fkHostTableName !== dbTableName && recordId) {
-      queryBuilder.where((builder) => {
-        builder
-          .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
-          .orWhereNull(`${fkHostTableName}.${foreignKeyName}`);
-      });
-      return;
     }
 
     if (recordId) {
-      queryBuilder.where((builder) => {
-        builder
-          .whereNot(`${fkHostTableName}.${selfKeyName}`, recordId)
-          .orWhereNull(`${fkHostTableName}.${selfKeyName}`);
-      });
-      return;
-    }
-
-    if (relationship === Relationship.OneMany) {
-      queryBuilder.whereNull(`${fkHostTableName}.${selfKeyName}`);
+      const linkIds = await this.getLinkCellIds(fieldRaw.tableId, field, recordId);
+      if (linkIds.length) {
+        queryBuilder.whereNotIn('__id', linkIds);
+      }
     }
   }
 
@@ -912,7 +902,6 @@ export class RecordService implements IAdapterService {
 
     const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
     const fieldNames = fields.map((f) => f.dbFieldName).concat(Array.from(preservedDbFieldNames));
-
     const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
       .whereIn('__id', recordIds)
@@ -943,7 +932,6 @@ export class RecordService implements IAdapterService {
     });
 
     const primaryField = createFieldInstanceByRaw(primaryFieldRaw);
-
     const snapshots = result
       .sort((a, b) => {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];

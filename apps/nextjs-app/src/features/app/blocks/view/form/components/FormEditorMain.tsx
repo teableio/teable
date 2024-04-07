@@ -18,8 +18,9 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
+import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { FORM_EDITOR_DROPPABLE_ID } from '../constant';
@@ -33,10 +34,13 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const { fields } = props;
   const view = useView() as FormView | undefined;
   const isHydrated = useIsHydrated();
+  const getPreviewUrl = usePreviewUrl();
   const { openSetting } = useFieldSettingStore();
 
   const coverInput = useRef<HTMLInputElement>(null);
   const logoInput = useRef<HTMLInputElement>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
 
   const [name, setName] = useState(view?.name ?? '');
   const [isNameEditing, setNameEditing] = useState(false);
@@ -47,6 +51,18 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
 
   const { setNodeRef } = useDroppable({ id: FORM_EDITOR_DROPPABLE_ID });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  useEffect(() => {
+    if (viewRef.current == null) return;
+    const { name = '', description = '', options } = viewRef.current;
+    const { coverUrl = '', logoUrl = '', submitLabel } = options ?? {};
+    setName(name);
+    setNameEditing(false);
+    setDescription(description);
+    setCoverUrl(coverUrl);
+    setLogoUrl(logoUrl);
+    setSubmitLabel(submitLabel);
+  }, [view?.id]);
 
   if (view == null) return null;
 
@@ -123,7 +139,13 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               'bg-gradient-to-tr from-green-400 via-blue-400 to-blue-600 dark:from-green-600 dark:via-blue-600 dark:to-blue-900'
           )}
         >
-          {coverUrl && <img src={coverUrl} alt="form cover" className="size-full object-cover" />}
+          {coverUrl && (
+            <img
+              src={getPreviewUrl(coverUrl)}
+              alt="form cover"
+              className="size-full object-cover"
+            />
+          )}
           <Button
             variant={'ghost'}
             size={'icon'}
@@ -144,7 +166,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           {logoUrl ? (
             <>
               <img
-                src={logoUrl}
+                src={getPreviewUrl(logoUrl)}
                 alt="form logo"
                 className="size-full rounded-lg object-cover shadow-sm"
               />

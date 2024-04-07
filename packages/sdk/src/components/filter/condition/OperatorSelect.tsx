@@ -1,6 +1,6 @@
 import type { IFilterOperator } from '@teable/core';
 import { getValidFilterOperators } from '@teable/core';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useField } from '../../../hooks';
 import { BaseSingleSelect } from '../component';
 import { getFieldOperatorMapping } from '../utils';
@@ -32,12 +32,6 @@ function OperatorSelect(props: IOperatorSelectProps) {
   const shouldDisabled = useMemo(() => {
     return field?.type === 'checkbox';
   }, [field]);
-  useEffect(() => {
-    const index = operatorOption.findIndex((operator) => operator.value === value);
-    if (index === -1) {
-      onSelect?.(operatorOption?.[0]?.value);
-    }
-  }, [onSelect, operatorOption, value]);
 
   return (
     <BaseSingleSelect

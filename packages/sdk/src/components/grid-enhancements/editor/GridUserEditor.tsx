@@ -41,7 +41,7 @@ const GridUserEditorBase: ForwardRefRenderFunction<
           }}
           className="absolute rounded-sm border shadow-sm"
           value={cellValue}
-          options={options}
+          isMultiple={options.isMultiple}
           onChange={onChange}
         />
       ) : (

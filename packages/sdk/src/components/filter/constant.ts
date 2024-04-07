@@ -1,5 +1,5 @@
-const EMPTYOPERATORS = ['isEmpty', 'isNotEmpty'];
-const MULPTIPLEOPERATORS = ['isAnyOf', 'isNoneOf'];
+const EMPTY_OPERATORS = ['isEmpty', 'isNotEmpty'];
+const MULTIPLE_OPERATORS = ['isAnyOf', 'isNoneOf'];
 
 const operatorLabelMapping = {
   is: 'is',
@@ -36,4 +36,4 @@ const fieldNumberLabelMap = {
   isNotEmpty: 'is not empty',
 };
 
-export { EMPTYOPERATORS, MULPTIPLEOPERATORS, operatorLabelMapping, fieldNumberLabelMap };
+export { EMPTY_OPERATORS, MULTIPLE_OPERATORS, operatorLabelMapping, fieldNumberLabelMap };
