@@ -52,7 +52,7 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string,
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
-    return await this.recordOpenApiService.updateRecordWithOrder(tableId, recordId, updateRecordRo);
+    return await this.recordOpenApiService.updateRecord(tableId, recordId, updateRecordRo);
   }
 
   @Permissions('record|create')

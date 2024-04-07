@@ -189,7 +189,17 @@ export class RecordOpenApiService {
     updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
     return await this.prismaService.$tx(async () => {
-      const { fieldKeyType = FieldKeyType.Name, typecast, record } = updateRecordRo;
+      const { order, ...recordRo } = updateRecordRo;
+      if (order != null) {
+        const { viewId, anchorId, position } = order;
+        await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
+          anchorId,
+          position,
+          recordIds: [recordId],
+        });
+      }
+
+      const { fieldKeyType = FieldKeyType.Name, typecast, record } = recordRo;
 
       const typecastRecords = await this.validateFieldsAndTypecast(
         tableId,
@@ -217,24 +227,6 @@ export class RecordOpenApiService {
       }
       return snapshots[0].data;
     });
-  }
-
-  async updateRecordWithOrder(
-    tableId: string,
-    recordId: string,
-    updateRecordRo: IUpdateRecordRo
-  ): Promise<IRecord> {
-    const { order, ...recordRo } = updateRecordRo;
-    if (order != null) {
-      const { viewId, anchorId, position } = order;
-      await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
-        anchorId,
-        position,
-        recordIds: [recordId],
-      });
-    }
-
-    return await this.updateRecord(tableId, recordId, recordRo);
   }
 
   async deleteRecord(tableId: string, recordId: string) {
