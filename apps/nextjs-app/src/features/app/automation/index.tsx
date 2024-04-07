@@ -7,7 +7,6 @@ import { Menu } from './menu';
 import { menuData } from './mock';
 import { RightSider, FormPanel } from './right-sider';
 import { WorkFlowPanel } from './workflow-panel';
-import 'allotment/dist/style.css';
 
 const AutoMationPage = () => {
   const [menuVisible, setMenuVisible] = useState(true);

@@ -1,5 +1,6 @@
 @import url('@teable/ui-lib/shadcn/global.shadcn.css');
 @import url('nprogress/nprogress.css');
+@import url('allotment/dist/style.css');
 
 :root {
   --btn-text-case: none;
