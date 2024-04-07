@@ -1,13 +1,17 @@
 import { type INestApplication } from '@nestjs/common';
-import type { IFieldRo, IRecord, IViewRo } from '@teable/core';
-import { ANONYMOUS_USER_ID, FieldType, Relationship, ViewType } from '@teable/core';
+import type { IFieldRo, IRecord, IUserFieldOptions, IViewRo } from '@teable/core';
+import { ANONYMOUS_USER_ID, FieldKeyType, FieldType, Relationship, ViewType } from '@teable/core';
 import {
+  urlBuilder,
+  SHARE_VIEW_GET,
+  SHARE_VIEW_FORM_SUBMIT,
+  createRecords as apiCreateRecords,
+  deleteRecords as apiDeleteRecords,
   enableShareView as apiEnableShareView,
   getShareViewLinkRecords as apiGetShareViewLinkRecords,
-  updateViewFilter as apiUpdateViewFilter,
-  SHARE_VIEW_FORM_SUBMIT,
-  SHARE_VIEW_GET,
-  urlBuilder,
+  getShareViewCollaborators as apiGetShareViewCollaborators,
+  getBaseCollaboratorList as apiGetBaseCollaboratorList,
+  updateViewColumnMeta as apiUpdateViewColumnMeta,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -20,12 +24,27 @@ import {
   updateViewColumnMeta,
 } from './utils/init-app';
 
+const formViewRo: IViewRo = {
+  name: 'Form view',
+  description: 'the form view',
+  type: ViewType.Form,
+};
+
+const gridViewRo: IViewRo = {
+  name: 'Grid view',
+  description: 'the grid view',
+  type: ViewType.Grid,
+};
+
 describe('OpenAPI ShareController (e2e)', () => {
   let app: INestApplication;
   let tableId: string;
   let shareId: string;
   let viewId: string;
   const baseId = globalThis.testConfig.baseId;
+  const userId = globalThis.testConfig.userId;
+  const userName = globalThis.testConfig.userName;
+  const userEmail = globalThis.testConfig.email;
   let fieldIds: string[] = [];
   let anonymousUser: ReturnType<typeof createAnonymousUserAxios>;
 
@@ -55,7 +74,7 @@ describe('OpenAPI ShareController (e2e)', () => {
     await app.close();
   });
 
-  it('getShareView', async () => {
+  it('api/:shareId/view (GET)', async () => {
     const result = await anonymousUser.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }));
     const shareViewData = result.data;
     // filter hidden field
@@ -63,18 +82,12 @@ describe('OpenAPI ShareController (e2e)', () => {
     expect(shareViewData.viewId).toEqual(viewId);
   });
 
-  describe('Share from view', () => {
+  describe('api/:shareId/view/form-submit (POST)', () => {
     let formViewId: string;
     let fromViewShareId: string;
 
     beforeEach(async () => {
-      const viewRo: IViewRo = {
-        name: 'Form view',
-        description: 'the form view',
-        type: ViewType.Form,
-      };
-
-      const result = await createView(tableId, viewRo);
+      const result = await createView(tableId, formViewRo);
       formViewId = result.id;
 
       const shareResult = await apiEnableShareView({ tableId, viewId: formViewId });
@@ -93,22 +106,34 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
   });
 
-  describe('getLinkRecords', () => {
+  describe('api/:shareId/view/link-records (GET)', () => {
     let linkTableRes: ITableFullVo;
-    const linkPrimaryFieldName = 'Text1';
-    const linkTableRecords = [
-      { fields: { [linkPrimaryFieldName]: '1' } },
-      { fields: { [linkPrimaryFieldName]: '2' } },
-      { fields: { [linkPrimaryFieldName]: '3' } },
+    const primaryFieldName = 'Text1';
+    let linkFieldId: string;
+    let tableRes: ITableFullVo;
+
+    const tableRecords = [
+      { fields: { [primaryFieldName]: '1' } },
+      { fields: { [primaryFieldName]: '2' } },
+      { fields: { [primaryFieldName]: '3' } },
     ];
 
     beforeAll(async () => {
+      tableRes = await createTable(baseId, {
+        records: tableRecords,
+        fields: [
+          {
+            name: primaryFieldName,
+            type: FieldType.SingleLineText,
+          },
+        ],
+      });
       const linkFieldRo: IFieldRo = {
         name: 'link field',
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyOne,
-          foreignTableId: tableId,
+          foreignTableId: tableRes.id,
         },
       };
 
@@ -116,44 +141,211 @@ describe('OpenAPI ShareController (e2e)', () => {
         name: 'linkTable',
         fields: [
           {
-            name: linkPrimaryFieldName,
+            name: 'primary',
             type: FieldType.SingleLineText,
           },
           linkFieldRo,
         ],
-        records: linkTableRecords,
+        records: [
+          { fields: { primary: '1', [linkFieldRo.name!]: { id: tableRes.records[0].id } } },
+          { fields: { primary: '2', [linkFieldRo.name!]: { id: tableRes.records[1].id } } },
+        ],
       });
+      linkFieldId = linkTableRes.fields[1].id;
     });
 
     afterAll(async () => {
       await deleteTable(baseId, linkTableRes.id);
+      await deleteTable(baseId, tableRes.id);
     });
 
-    it('should return link records independent of views', async () => {
-      await apiUpdateViewFilter(linkTableRes.id, linkTableRes.defaultViewId!, {
-        filter: {
-          conjunction: 'and',
-          filterSet: [
-            {
-              fieldId: linkTableRes.fields[0].id,
-              operator: 'is',
-              value: '1',
-            },
-          ],
-        },
+    describe('form view', () => {
+      let formViewId: string;
+      let fromViewShareId: string;
+      beforeAll(async () => {
+        const result = await createView(linkTableRes.id, formViewRo);
+        formViewId = result.id;
+        await apiUpdateViewColumnMeta(linkTableRes.id, formViewId, [
+          {
+            fieldId: linkFieldId,
+            columnMeta: { visible: true },
+          },
+        ]);
+        const shareResult = await apiEnableShareView({
+          tableId: linkTableRes.id,
+          viewId: formViewId,
+        });
+        fromViewShareId = shareResult.data.shareId;
+      });
+      it('should return link records', async () => {
+        const result = await apiGetShareViewLinkRecords(fromViewShareId, {
+          fieldId: linkFieldId,
+        });
+        const linkRecords = result.data;
+        expect(linkRecords.map((record) => record.title)).toEqual(
+          tableRecords.map((record) => record.fields[primaryFieldName])
+        );
+      });
+    });
+
+    describe('grid view', () => {
+      let gridViewId: string;
+      let gridViewShareId: string;
+      beforeAll(async () => {
+        const result = await createView(linkTableRes.id, gridViewRo);
+        gridViewId = result.id;
+        const shareResult = await apiEnableShareView({
+          tableId: linkTableRes.id,
+          viewId: gridViewId,
+        });
+        gridViewShareId = shareResult.data.shareId;
       });
 
-      const result = await apiGetShareViewLinkRecords(shareId, { tableId: linkTableRes.id });
-      const linkRecords = result.data.records;
-      expect(linkRecords.map((record) => record.fields)).toEqual(
-        linkTableRecords.map((record) => record.fields)
-      );
+      it('should return link records', async () => {
+        const result = await apiGetShareViewLinkRecords(gridViewShareId, {
+          fieldId: linkFieldId,
+        });
+        const linkRecords = result.data;
+        expect(linkRecords.map((record) => record.title)).toEqual(
+          tableRecords.slice(0, 2).map((record) => record.fields[primaryFieldName])
+        );
+      });
+    });
+  });
+
+  describe('api/:shareId/view/collaborators (GET)', () => {
+    let userTableRes: ITableFullVo;
+    const userFieldName = 'normal user';
+    const multipleUserFieldName = 'multiple user';
+    let userFieldId: string;
+    let multipleUserFieldId: string;
+    const userFieldRo: IFieldRo = {
+      name: userFieldName,
+      type: FieldType.User,
+      options: {
+        isMultiple: false,
+        shouldNotify: false,
+      } as IUserFieldOptions,
+    };
+
+    const multipleUserFieldRo: IFieldRo = {
+      name: multipleUserFieldName,
+      type: FieldType.User,
+      options: {
+        isMultiple: true,
+        shouldNotify: false,
+      } as IUserFieldOptions,
+    };
+    beforeAll(async () => {
+      userTableRes = await createTable(baseId, {
+        name: 'user table',
+        fields: [
+          {
+            name: 'primary',
+            type: FieldType.SingleLineText,
+          },
+          userFieldRo,
+          multipleUserFieldRo,
+        ],
+        records: [],
+      });
+      userFieldId = userTableRes.fields[1].id;
+      multipleUserFieldId = userTableRes.fields[2].id;
     });
 
-    it('should return a prohibition, passing in a table that exists but is not inside the association', async () => {
-      await expect(apiGetShareViewLinkRecords(shareId, { tableId })).rejects.toThrow(
-        'tableId is not allowed'
-      );
+    afterAll(async () => {
+      await deleteTable(baseId, userTableRes.id);
+    });
+    describe('grid view', () => {
+      let gridViewId: string;
+      let gridViewShareId: string;
+      beforeAll(async () => {
+        const result = await createView(userTableRes.id, gridViewRo);
+        gridViewId = result.id;
+        const shareResult = await apiEnableShareView({
+          tableId: userTableRes.id,
+          viewId: gridViewId,
+        });
+        gridViewShareId = shareResult.data.shareId;
+      });
+      it('should return [], no user cell with a value exists', async () => {
+        const result = await apiGetShareViewCollaborators(gridViewShareId, {
+          fieldId: userFieldId,
+        });
+        expect(result.data).toEqual([]);
+      });
+
+      it('should return the value that exists and there will be no duplicates of the', async () => {
+        const { data: createRes } = await apiCreateRecords(userTableRes.id, {
+          records: [
+            {
+              fields: {
+                [multipleUserFieldId]: [{ id: userId, title: userName }],
+                [userFieldId]: { id: userId, title: userName },
+              },
+            },
+            {
+              fields: {
+                [multipleUserFieldId]: [{ id: userId, title: userName }],
+                [userFieldId]: { id: userId, title: userName },
+              },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Id,
+        });
+        const result = await apiGetShareViewCollaborators(gridViewShareId, {
+          fieldId: userFieldId,
+        });
+        const mulResult = await apiGetShareViewCollaborators(gridViewShareId, {
+          fieldId: multipleUserFieldId,
+        });
+        expect(result.data).toEqual([{ userId, userName, email: userEmail, avatar: null }]);
+        expect(mulResult.data).toEqual([{ userId, userName, email: userEmail, avatar: null }]);
+
+        await apiDeleteRecords(
+          userTableRes.id,
+          createRes.records.map((record) => record.id)
+        );
+      });
+    });
+
+    describe('Form view', () => {
+      let formViewId: string;
+      let fromViewShareId: string;
+      beforeAll(async () => {
+        const result = await createView(userTableRes.id, formViewRo);
+        formViewId = result.id;
+        const shareResult = await apiEnableShareView({
+          tableId: userTableRes.id,
+          viewId: formViewId,
+        });
+        fromViewShareId = shareResult.data.shareId;
+      });
+      it('should return [], no user cell visible', async () => {
+        const result = await apiGetShareViewCollaborators(fromViewShareId, {
+          fieldId: userFieldId,
+        });
+        expect(result.data).toEqual([]);
+      });
+      it('should return the base collaborators', async () => {
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          {
+            fieldId: userFieldId,
+            columnMeta: { visible: true },
+          },
+        ]);
+        const result = await apiGetShareViewCollaborators(fromViewShareId, {});
+        const baseCollaborators = await apiGetBaseCollaboratorList(baseId);
+        expect(result.data.map((user) => user.userId)).toEqual(
+          baseCollaborators.data.map((user) => user.userId)
+        );
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          {
+            fieldId: userFieldId,
+            columnMeta: { visible: false },
+          },
+        ]);
+      });
     });
   });
 });

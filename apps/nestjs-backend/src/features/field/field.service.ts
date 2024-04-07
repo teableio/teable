@@ -7,6 +7,7 @@ import type {
   DbFieldType,
   ILookupOptionsVo,
   IOtOperation,
+  ViewType,
 } from '@teable/core';
 import { FieldOpBuilder, IdPrefix, OpName } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
@@ -21,6 +22,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { getFieldHiddenFilter } from '../../utils/get-field-hidden-filter';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
 import { createViewVoByRaw } from '../view/model/factory';
@@ -232,17 +234,19 @@ export class FieldService implements IReadonlyAdapterService {
       const { viewId } = query;
       const curView = await this.prismaService.txClient().view.findFirst({
         where: { id: viewId, deletedTime: null },
-        select: { id: true, columnMeta: true },
+        select: { id: true, type: true, columnMeta: true },
       });
       if (!curView) {
         throw new NotFoundException('view is not found');
       }
       const view = {
         id: viewId,
+        type: curView.type as ViewType,
         columnMeta: JSON.parse(curView.columnMeta),
       };
       if (query?.filterHidden) {
-        result = result.filter((field) => !view?.columnMeta[field.id].hidden);
+        const fieldHiddenFilter = getFieldHiddenFilter(view.type, view.columnMeta);
+        result = result.filter((field) => fieldHiddenFilter(field.id));
       }
       result = sortBy(result, (field) => {
         return view?.columnMeta[field.id].order;

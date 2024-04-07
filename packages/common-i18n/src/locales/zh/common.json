@@ -20,8 +20,7 @@
     "editSucceed": "编辑成功！",
     "updateSucceed": "更新成功！",
     "deleteSucceed": "删除成功！",
-    "loading": "加载中...",
-    "loadMore": "加载更多"
+    "loading": "加载中..."
   },
   "settings": {
     "title": "设置",

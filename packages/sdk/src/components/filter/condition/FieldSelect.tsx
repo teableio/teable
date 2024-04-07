@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
-import { useFields, useFieldStaticGetter } from '../../../hooks';
+import { useCallback, useContext, useMemo } from 'react';
+import { useFieldStaticGetter } from '../../../hooks';
 
 import { BaseSingleSelect } from '../component';
+import { FilterContext } from '../context';
 
 interface IFieldSelectProps {
   fieldId: string | null;
@@ -10,8 +11,7 @@ interface IFieldSelectProps {
 
 function FieldSelect(props: IFieldSelectProps) {
   const { fieldId: value, onSelect } = props;
-
-  const fields = useFields({ withHidden: true });
+  const { fields } = useContext(FilterContext);
   const options = useMemo(() => {
     return fields.map((field) => ({
       value: field.id,

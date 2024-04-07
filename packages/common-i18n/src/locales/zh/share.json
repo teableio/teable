@@ -3,5 +3,8 @@
     "title": "输入您的密码查看此页面",
     "submit": "提交",
     "password": "密码"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "请选择..."
   }
 }

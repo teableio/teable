@@ -1,8 +1,18 @@
 import type { IFilterItem } from '@teable/core';
 import React from 'react';
-import type { IFilterProps, IFiltersPath, ConditionAddType } from './types';
+import type { IFieldInstance } from '../../model';
+import type {
+  IFilterProps,
+  IFiltersPath,
+  ConditionAddType,
+  IFilterComponents,
+  IFilterContextMap,
+} from './types';
 
 export interface IFilterContext {
+  fields: IFieldInstance[];
+  components?: IFilterComponents;
+  context?: IFilterContextMap;
   onChange: IFilterProps['onChange'];
   setFilters: (path: IFiltersPath, value: IFilterItem['value'] | null) => void;
   addCondition: (path: IFiltersPath, type?: ConditionAddType) => void;

@@ -27,7 +27,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     popoverClassName,
     disabled = false,
     optionRender,
-    notFoundText = t('common.search.empty'),
+    notFoundText = t('common.noRecords'),
     displayRender,
     search = true,
     placeholder = t('common.search.placeholder'),
@@ -64,7 +64,6 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
 
   const commandFilter = useCallback(
     (id: string, searchValue: string) => {
-      console.log('optionMap[id]', optionMap[id]);
       const name = optionMap[id]?.toLowerCase() || t('common.untitled');
       const containWord = name.indexOf(searchValue?.toLowerCase()) > -1;
       return Number(containWord);

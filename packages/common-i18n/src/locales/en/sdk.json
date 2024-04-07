@@ -9,9 +9,11 @@
     "confirm": "Confirm",
     "search": {
       "placeholder": "Search...",
-      "empty": "No results found."
+      "empty": "No results found"
     },
-    "selectPlaceHolder": "Select..."
+    "selectPlaceHolder": "Select...",
+    "loading": "Loading...",
+    "loadMore": "Load more"
   },
   "noun": {
     "table": "Table",
@@ -43,6 +45,9 @@
       "selectRecord": "Select Record",
       "unselected": "Unselected",
       "selected": "Selected"
+    },
+    "user": {
+      "searchPlaceholder": "Find users by name"
     }
   },
   "filter": {

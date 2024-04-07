@@ -6,6 +6,7 @@ import dotenv from 'dotenv-flow';
 interface ITestConfig {
   driver: string;
   email: string;
+  userName: string;
   userId: string;
   password: string;
   spaceId: string;
@@ -19,6 +20,7 @@ declare global {
 
 // Set global variables (if needed)
 globalThis.testConfig = {
+  userName: 'test',
   email: 'test@e2e.com',
   password: '12345678',
   userId: 'usrTestUserId',

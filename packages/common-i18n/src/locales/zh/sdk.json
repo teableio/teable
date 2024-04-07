@@ -9,9 +9,11 @@
     "confirm": "确认",
     "search": {
       "placeholder": "搜索...",
-      "empty": "未找到结果。"
+      "empty": "未找到结果"
     },
-    "selectPlaceHolder": "请选择..."
+    "selectPlaceHolder": "请选择...",
+    "loading": "加载中...",
+    "loadMore": "加载更多"
   },
   "editor": {
     "attachment": {
@@ -35,6 +37,9 @@
       "selectRecord": "选择记录",
       "unselected": "未选择",
       "selected": "已选择"
+    },
+    "user": {
+      "searchPlaceholder": "通过姓名查找用户"
     }
   },
   "filter": {

@@ -1,4 +1,4 @@
-import type { IGridViewOptions } from '@teable/core';
+import { FieldType, type IGridViewOptions } from '@teable/core';
 import {
   ArrowUpDown,
   PaintBucket,
@@ -7,7 +7,7 @@ import {
   LayoutList,
   Share2,
 } from '@teable/icons';
-import { Filter, HideFields, RowHeight, useFields, Sort, Group } from '@teable/sdk';
+import { Filter, HideFields, RowHeight, useFields, Sort, Group, useTableId } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import {
   Tooltip,
@@ -21,12 +21,14 @@ import { GUIDE_VIEW_FILTERING, GUIDE_VIEW_SORTING, GUIDE_VIEW_GROUPING } from '@
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../hooks/useToolbarChange';
 import { ToolBarButton } from './ToolBarButton';
+import { useViewFilterLinkContext } from './useViewFilterLinkContext';
 
 export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
+  const tableId = useTableId();
   const view = useView();
   const fields = useFields();
-
+  const viewFilerContext = useViewFilterLinkContext(tableId, view?.id, { disabled });
   const { onFilterChange, onRowHeightChange, onSortChange, onGroupChange } = useToolbarChange();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   if (!view || !fields.length) {
@@ -50,6 +52,9 @@ export const ViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
       <Filter
         filters={view?.filter || null}
         onChange={onFilterChange}
+        context={{
+          [FieldType.Link]: viewFilerContext,
+        }}
         contentHeader={
           view.enableShare && (
             <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">

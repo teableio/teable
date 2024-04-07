@@ -1,14 +1,11 @@
 import { Filter as FilterIcon } from '@teable/icons';
 import { keyBy } from 'lodash';
 import { useMemo } from 'react';
-import { useFields } from '../../hooks';
 import type { IFieldInstance } from '../../model';
 import type { IFilter } from './types';
 import { getFilterFieldIds } from './utils';
 
-export const useFilterNode = (filters?: IFilter | null) => {
-  const fields = useFields({ withHidden: true });
-
+export const useFilterNode = (filters: IFilter | null | undefined, fields: IFieldInstance[]) => {
   const generateFilterButtonText = (filterIds: Set<string>, fields: IFieldInstance[]): string => {
     let text = filterIds.size ? 'Filtered by ' : '';
     const defaultText = 'Filter';

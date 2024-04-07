@@ -1,31 +1,36 @@
-import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { getRecordsRoSchema, recordsVoSchema } from '../record';
+import { getRecordsRoSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const SHARE_VIEW_LINK_RECORDS = '/share/{shareId}/view/link-records';
 
 export const shareViewLinkRecordsRoSchema = getRecordsRoSchema
-  .omit({
-    viewId: true,
-    projection: true,
-    filterLinkCellSelected: true,
+  .pick({
+    take: true,
+    skip: true,
   })
   .extend({
-    tableId: z.string(),
+    fieldId: z.string(),
+    search: z.string().optional(),
   });
 
 export type IShareViewLinkRecordsRo = z.infer<typeof shareViewLinkRecordsRoSchema>;
 
-export const shareViewLinkRecordsVoSchema = recordsVoSchema;
+export const shareViewLinkRecordsVoSchema = z.array(
+  z.object({
+    id: z.string(),
+    title: z.string().optional(),
+  })
+);
 
 export type IShareViewLinkRecordsVo = z.infer<typeof shareViewLinkRecordsVoSchema>;
 
-export const ShareViewLinkRecordsRoute: RouteConfig = registerRoute({
+export const ShareViewLinkRecordsRoute = registerRoute({
   method: 'get',
   path: SHARE_VIEW_LINK_RECORDS,
-  description: 'Link records in Share view',
+  description:
+    'In a view with a field selector, link the records list of the associated field selector to get the. Linking the desired ones inside the share view should fetch the ones that have already been selected.',
   request: {
     params: z.object({
       shareId: z.string(),
@@ -34,7 +39,7 @@ export const ShareViewLinkRecordsRoute: RouteConfig = registerRoute({
   },
   responses: {
     200: {
-      description: 'Link records',
+      description: 'Link records list',
       content: {
         'application/json': {
           schema: shareViewLinkRecordsVoSchema,
