@@ -8,7 +8,7 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
 } from '@teable/core';
-import { FieldOpBuilder, IdPrefix, OpName } from '@teable/core';
+import { FieldOpBuilder, IdPrefix, OpName, ViewType } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -232,26 +232,23 @@ export class FieldService implements IReadonlyAdapterService {
       const { viewId } = query;
       const curView = await this.prismaService.txClient().view.findFirst({
         where: { id: viewId, deletedTime: null },
-        select: { id: true, columnMeta: true },
+        select: { id: true, type: true, columnMeta: true },
       });
       if (!curView) {
         throw new NotFoundException('view is not found');
       }
       const view = {
         id: viewId,
+        type: curView.type as ViewType,
         columnMeta: JSON.parse(curView.columnMeta),
       };
       if (query?.filterHidden) {
-        result = result.filter((field) => {
-          const columnMeta = view.columnMeta[field.id];
-          if ('hidden' in columnMeta) {
-            return !columnMeta.hidden;
-          }
-          if ('visible' in columnMeta) {
-            return columnMeta.visible;
-          }
-          return false;
-        });
+        const isHiddenByVisible = (field: IFieldVo) => view.columnMeta[field.id].visible;
+        const isHiddenByHidden = (field: IFieldVo) => !view.columnMeta[field.id].hidden;
+        const filterFn = [ViewType.Form, ViewType.Kanban].includes(view.type)
+          ? isHiddenByVisible
+          : isHiddenByHidden;
+        result = result.filter(filterFn);
       }
       result = sortBy(result, (field) => {
         return view?.columnMeta[field.id].order;
