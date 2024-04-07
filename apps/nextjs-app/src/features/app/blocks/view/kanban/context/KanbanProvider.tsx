@@ -20,7 +20,8 @@ import type {
   SingleSelectField,
 } from '@teable/sdk/model';
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
+import { ShareViewPageContext } from '../../../share/view/ShareViewPageContext';
 import {
   KANBAN_STACK_FIELD_TYPES,
   UNCATEGORIZED_STACK_ID,
@@ -31,6 +32,8 @@ import { KanbanContext } from './KanbanContext';
 export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
+  const { shareId } = useContext(ShareViewPageContext) ?? {};
+  const { sort, filter } = view ?? {};
   const { id: baseId } = useBase() ?? {};
   const permission = useTablePermission();
   const fields = useFields();
@@ -39,6 +42,15 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const groupPoints = useGroupPoint();
+
+  const recordQuery = useMemo(() => {
+    if (!shareId || (!sort && !filter)) return;
+
+    return {
+      orderBy: sort?.sortObjs,
+      filter: filter,
+    };
+  }, [shareId, sort, filter]);
 
   const stackField = useMemo(() => {
     if (!stackFieldId) return;
@@ -194,6 +206,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
 
   const value = useMemo(() => {
     return {
+      recordQuery,
       isCoverFit,
       isFieldNameHidden,
       permission: kanbanPermission,
@@ -205,6 +218,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       setExpandRecordId,
     };
   }, [
+    recordQuery,
     isCoverFit,
     isFieldNameHidden,
     kanbanPermission,

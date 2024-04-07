@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Draggable, Droppable } from '@hello-pangea/dnd';
-import { and, isEmpty, is, FieldType } from '@teable/core';
-import type { ISelectChoice } from '@teable/sdk/components';
+import { and, isEmpty, is, FieldType, mergeFilter } from '@teable/core';
+import type { IFilter, ISelectChoice } from '@teable/sdk/components';
 import { useRecords } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
@@ -54,7 +54,7 @@ const HeightPreservingItem = ({ children, ...props }) => {
 export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props, forwardRef) => {
   const { stack, cards, setCardMap } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { stackField, permission } = useKanban() as Required<IKanbanContext>;
+  const { stackField, permission, recordQuery } = useKanban() as Required<IKanbanContext>;
   const [skipIndex, setSkipIndex] = useState(0);
   const skipIndexRef = useRef(skipIndex);
   const [ref, { height }] = useMeasure<HTMLDivElement>();
@@ -67,10 +67,13 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
   const filterValue = fieldType === FieldType.User ? stackId : (stackData as ISelectChoice).name;
 
   const query = useMemo(() => {
+    const outerFilter = recordQuery?.filter;
+
     return {
+      ...recordQuery,
       skip: skipIndex,
       take: TAKE_COUNT,
-      filter: {
+      filter: mergeFilter(outerFilter, {
         conjunction: and.value,
         filterSet: [
           {
@@ -79,9 +82,9 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
             value: (isUncategorized ? null : filterValue) as string | null,
           },
         ],
-      },
+      }) as IFilter,
     };
-  }, [fieldId, isUncategorized, skipIndex, filterValue]);
+  }, [fieldId, isUncategorized, skipIndex, filterValue, recordQuery]);
 
   const records = useRecords(query);
 

@@ -1,3 +1,4 @@
+import type { IGetRecordsRo } from '@teable/openapi';
 import type {
   UserField,
   AttachmentField,
@@ -9,6 +10,7 @@ import { createContext } from 'react';
 import type { IKanbanPermission, IStackData } from '../type';
 
 export interface IKanbanContext {
+  recordQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy'>;
   stackField?: SingleSelectField | UserField;
   stackCollection?: IStackData[];
   coverField?: AttachmentField;
