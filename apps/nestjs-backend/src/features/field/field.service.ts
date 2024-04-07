@@ -242,7 +242,16 @@ export class FieldService implements IReadonlyAdapterService {
         columnMeta: JSON.parse(curView.columnMeta),
       };
       if (query?.filterHidden) {
-        result = result.filter((field) => !view?.columnMeta[field.id].hidden);
+        result = result.filter((field) => {
+          const columnMeta = view.columnMeta[field.id];
+          if ('hidden' in columnMeta) {
+            return !columnMeta.hidden;
+          }
+          if ('visible' in columnMeta) {
+            return columnMeta.visible;
+          }
+          return false;
+        });
       }
       result = sortBy(result, (field) => {
         return view?.columnMeta[field.id].order;
