@@ -34,6 +34,7 @@ import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { getFullStorageUrl } from '../../utils/full-storage-url';
+import { getFieldHiddenFilter } from '../../utils/get-field-hidden-filter';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldService } from '../field/field.service';
@@ -164,7 +165,7 @@ export class ShareService {
     // hidden check
     if (
       !view.shareMeta?.includeHiddenField &&
-      (view.columnMeta[fieldId] as { hidden?: boolean })?.hidden
+      !getFieldHiddenFilter(view.type, view.columnMeta)(fieldId)
     ) {
       throw new ForbiddenException('field is hidden, not allowed');
     }

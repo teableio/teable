@@ -165,6 +165,12 @@ describe('OpenAPI ShareController (e2e)', () => {
       beforeAll(async () => {
         const result = await createView(linkTableRes.id, formViewRo);
         formViewId = result.id;
+        await apiUpdateViewColumnMeta(linkTableRes.id, formViewId, [
+          {
+            fieldId: linkFieldId,
+            columnMeta: { visible: true },
+          },
+        ]);
         const shareResult = await apiEnableShareView({
           tableId: linkTableRes.id,
           viewId: formViewId,
