@@ -102,14 +102,13 @@ export const KanbanCard = (props: IKanbanCardProps) => {
   return (
     <ContextMenu>
       <ContextMenuTrigger>
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          className={cn('w-full px-3 pb-2', isDragging && 'opacity-60')}
-        >
+        <div ref={provided.innerRef} {...provided.draggableProps} className="w-full px-3 pb-2">
           <div
             {...provided.dragHandleProps}
-            className="relative flex w-full grow flex-col space-y-2 overflow-hidden rounded-md border border-input bg-background p-3"
+            className={cn(
+              'relative flex w-full grow flex-col space-y-2 overflow-hidden rounded-md border border-input bg-background p-3',
+              isDragging && 'shadow-md'
+            )}
             onClick={onExpand}
           >
             {coverCellValue?.length && (

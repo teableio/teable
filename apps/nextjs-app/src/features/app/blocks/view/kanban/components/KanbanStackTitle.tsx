@@ -28,18 +28,23 @@ export const KanbanStackTitle = (props: IKanbanStackTitle) => {
   return (
     <>
       {isUncategorized ? (
-        <div className="flex items-center space-x-2 text-slate-500 dark:text-slate-400">
+        <div className="flex items-center space-x-2 overflow-hidden text-slate-500 dark:text-slate-400">
           <span className="text-sm font-semibold">{t('table:kanban.stack.uncategorized')}</span>
-          <span className="text-[13px]">{`(${stackCount})`}</span>
+          <span className="rounded-xl border px-2 text-xs">{stackCount}</span>
         </div>
       ) : (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
-          className="flex items-center space-x-2 text-slate-500 dark:text-slate-400"
+          className="flex items-center space-x-2 overflow-hidden text-slate-500 dark:text-slate-400"
           onClick={onClick}
         >
-          <CellValue field={stackField} value={cellValue} />
-          <span className="text-[13px]">{`(${stackCount})`}</span>
+          <CellValue
+            field={stackField}
+            value={cellValue}
+            className="overflow-hidden"
+            itemClassName="shrink overflow-hidden"
+          />
+          <span className="rounded-xl border px-2 text-xs">{stackCount}</span>
         </div>
       )}
     </>

@@ -23,10 +23,11 @@ import type { ICellValue } from './type';
 
 interface ICellValueContainer extends ICellValue<unknown> {
   field: IFieldInstance;
+  itemClassName?: string;
 }
 
 export const CellValue = (props: ICellValueContainer) => {
-  const { field, value, className } = props;
+  const { field, value, className, itemClassName } = props;
   const { type, options, cellValueType } = field;
 
   switch (type) {
@@ -66,11 +67,18 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as ISingleSelectCellValue | IMultipleSelectCellValue}
           options={transformSelectOptions(options)}
           className={className}
+          itemClassName={itemClassName}
         />
       );
     }
     case FieldType.User: {
-      return <CellUser value={value as IUserCellValue | IUserCellValue[]} className={className} />;
+      return (
+        <CellUser
+          value={value as IUserCellValue | IUserCellValue[]}
+          className={className}
+          itemClassName={itemClassName}
+        />
+      );
     }
     case FieldType.Attachment: {
       return <CellAttachment value={value as IAttachmentCellValue} className={className} />;
@@ -81,6 +89,7 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as number}
           options={options as IRatingFieldOptions}
           className={className}
+          itemClassName={itemClassName}
         />
       );
     }
@@ -115,7 +124,13 @@ export const CellValue = (props: ICellValueContainer) => {
       return <CellText value={value as string} className={className} />;
     }
     case FieldType.Link: {
-      return <CellLink value={value as ILinkCellValue | ILinkCellValue[]} className={className} />;
+      return (
+        <CellLink
+          value={value as ILinkCellValue | ILinkCellValue[]}
+          className={className}
+          itemClassName={itemClassName}
+        />
+      );
     }
     default:
       throw new Error(`The field type (${type}) is not implemented editor`);

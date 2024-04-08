@@ -13,7 +13,7 @@ export const SelectTag: React.FC<React.PropsWithChildren<ISelectTag>> = (props) 
   return (
     <div
       className={cn(
-        'text-[13px] px-2 h-6 leading-6 rounded-md bg-secondary text-secondary-foreground overflow-hidden shrink-0',
+        'text-[13px] px-2 h-6 leading-6 rounded-md bg-secondary text-secondary-foreground shrink-0',
         className
       )}
       style={{ color, backgroundColor }}

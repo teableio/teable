@@ -107,7 +107,7 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
   });
 
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between rounded-t-md border-b bg-background px-4">
+    <div className="flex h-12 w-full shrink-0 items-center justify-between rounded-t-md border-b bg-background px-4">
       {renamingChoice ? (
         <div ref={choiceRef}>
           <ChoiceItem

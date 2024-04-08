@@ -160,7 +160,6 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
 
     if (stackFieldType === FieldType.SingleSelect) {
       const { choices } = stackFieldOptions as ISelectFieldOptions;
-      if (!choices?.length) return;
 
       const stacks = choices.map((choice) => {
         const { id, name } = choice;

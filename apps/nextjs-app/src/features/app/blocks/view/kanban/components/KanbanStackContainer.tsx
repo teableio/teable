@@ -84,17 +84,13 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
 
         return (
           <div className="h-full pr-4" ref={provided.innerRef} {...draggableProps}>
-            <div
-              className={cn(
-                'w-[264px] h-full border bg-slate-50 dark:bg-slate-900 rounded-md shrink-0 shadow-md flex flex-col',
-                isCollapsed &&
-                  'w-14 h-full bg-transparent dark:bg-transparent border-none shadow-none',
-                isDragging && 'opacity-60'
-              )}
-            >
-              {isCollapsed ? (
+            {isCollapsed ? (
+              <div className="h-full w-14">
                 <div
-                  className="h-64 w-full cursor-grab rounded-md border bg-slate-50 shadow-md hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800"
+                  className={cn(
+                    'h-64 w-full cursor-grab rounded-md border bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800',
+                    isDragging && 'shadow-md'
+                  )}
                   {...dragHandleProps}
                   onClick={onStackExpand}
                 >
@@ -105,7 +101,14 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
                     <KanbanStackTitle stack={stack} isUncategorized={isUncategorized} />
                   </div>
                 </div>
-              ) : (
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  'w-[264px] h-full border bg-slate-50 dark:bg-slate-900 rounded-md shrink-0 flex flex-col',
+                  isDragging && 'shadow-md'
+                )}
+              >
                 <div ref={ref} className="flex size-full flex-col justify-between">
                   <div {...dragHandleProps} className="w-full">
                     <KanbanStackHeader
@@ -134,8 +137,8 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         );
       }}

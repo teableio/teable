@@ -203,7 +203,6 @@ export const ChoiceInput: React.FC<{
   const [value, setValue] = useState<string>(name);
   const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {
     const curValue = e.target.value;
-    if (curValue === name) return;
     setValue(curValue);
   };
 
