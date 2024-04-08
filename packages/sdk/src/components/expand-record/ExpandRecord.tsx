@@ -67,7 +67,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   );
 
   const hiddenFields = useMemo(
-    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : []),
+    () => (viewId ? allFields.filter((field) => !showFieldsId.has(field.id)) : []),
     [allFields, showFieldsId, viewId]
   );
 
