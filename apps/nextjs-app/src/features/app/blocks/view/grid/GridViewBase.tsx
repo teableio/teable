@@ -437,7 +437,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const collaborators = useCollaborate(selection, getCellContent);
 
   const groupedCollaborators = useMemo(() => {
-    return groupBy(collaborators, 'activeCell');
+    return groupBy(collaborators, 'activeCellId');
   }, [collaborators]);
 
   const onRowExpandInner = (rowIndex: number) => {
@@ -519,8 +519,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       if (!cellInfo?.id) {
         return;
       }
-      const [recordId, fieldId] = cellInfo.id.split('-');
-      const hoverCollaborators = groupedCollaborators?.[`${recordId},${fieldId}`]?.sort(
+      const hoverCollaborators = groupedCollaborators?.[cellInfo.id]?.sort(
         (a, b) => a.timeStamp - b.timeStamp
       );
       const collaboratorText = hoverCollaborators?.map((cur) => cur.user.name).join('、');

@@ -72,7 +72,7 @@ export const useCollaborate = (
         error && console.error('submit error:', error);
       });
     } else {
-      const activeCellId = getCellContent(activeCell)?.id?.split('-');
+      const activeCellId = getCellContent(activeCell)?.id;
       activeCellId?.length &&
         localPresence.submit(
           {
@@ -82,7 +82,7 @@ export const useCollaborate = (
               avatar: user.avatar,
               email: user.email,
             },
-            activeCell: activeCellId,
+            activeCellId: activeCellId,
             borderColor: ColorUtils.getRandomHexFromStr(`${tableId}_${user.id}`),
             timeStamp: Date.now(),
           },

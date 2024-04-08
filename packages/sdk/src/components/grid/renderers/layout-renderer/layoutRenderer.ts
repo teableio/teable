@@ -667,7 +667,7 @@ const getVisibleCollaborators = (
   visibleRegion: IVisibleRegion,
   getCellContent: (cell: ICellItem) => ICell
 ) => {
-  const groupedCollaborators = Object.values(groupBy(collaborators, 'activeCell'));
+  const groupedCollaborators = groupBy(collaborators, 'activeCellId');
 
   // through visible region to find the cell that has collaborators and get the real coordinate
   const { startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex } = visibleRegion;
@@ -678,7 +678,7 @@ const getVisibleCollaborators = (
       if (!cell?.id) {
         continue;
       }
-      const visibleCell = groupedCollaborators.find((g) => g[0]?.activeCell?.join('-') === cell.id);
+      const visibleCell = groupedCollaborators[cell.id];
       if (visibleCell) {
         const newCell = cloneDeep(visibleCell);
         newCell[0].activeCell = [i, j];
@@ -689,6 +689,7 @@ const getVisibleCollaborators = (
   return visibleCells;
 };
 
+// TODO optimize the performance
 export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
   const {
     collaborators,
@@ -720,6 +721,9 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     // for conflict cell, we'd like to show the latest collaborator
     const conflictCollaborators = visibleCells[i].sort((a, b) => b.timeStamp - a.timeStamp);
     const { activeCell, borderColor } = conflictCollaborators[0];
+    if (!activeCell) {
+      return;
+    }
     const [columnIndex, _rowIndex] = activeCell;
     const rowIndex = real2RowIndex(_rowIndex);
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
