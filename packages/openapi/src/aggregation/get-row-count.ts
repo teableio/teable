@@ -42,5 +42,10 @@ export const GetRowCountRoute: RouteConfig = registerRoute({
 });
 
 export const getRowCount = async (tableId: string, query?: IQueryBaseRo) => {
-  return axios.get<IRowCountVo>(urlBuilder(GET_ROW_COUNT, { tableId }), { params: query });
+  return axios.get<IRowCountVo>(urlBuilder(GET_ROW_COUNT, { tableId }), {
+    params: {
+      ...query,
+      filter: JSON.stringify(query?.filter),
+    },
+  });
 };

@@ -237,9 +237,9 @@ export class ShareService {
     const { view, tableId } = shareInfo;
     const { fieldId } = query;
 
-    // only form view can get all records
-    if (view.type === ViewType.Form) {
-      return this.getViewFormCollaborators(shareInfo);
+    // only form and kanban view can get all records
+    if ([ViewType.Form, ViewType.Kanban].includes(view.type)) {
+      return this.getViewAllCollaborators(shareInfo);
     }
 
     if (!fieldId) {
@@ -313,10 +313,10 @@ export class ShareService {
     }));
   }
 
-  async getViewFormCollaborators(shareInfo: IShareViewInfo) {
+  async getViewAllCollaborators(shareInfo: IShareViewInfo) {
     const { tableId, view } = shareInfo;
 
-    if (view.type !== ViewType.Form) {
+    if (![ViewType.Form, ViewType.Kanban].includes(view.type)) {
       throw new ForbiddenException('view type is not allowed');
     }
 

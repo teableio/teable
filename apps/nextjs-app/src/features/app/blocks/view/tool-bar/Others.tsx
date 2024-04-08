@@ -1,5 +1,6 @@
+import { ViewType } from '@teable/core';
 import { ArrowUpRight, Code2, Component, Database, MoreHorizontal, Share2 } from '@teable/icons';
-import { useDriver } from '@teable/sdk/hooks';
+import { useDriver, useView } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
@@ -17,7 +18,9 @@ const OthersList = ({
   className?: string;
 }) => {
   const { toggleGraph } = useCellGraphStore();
+  const view = useView();
   const driver = useDriver();
+
   return (
     <div className={className}>
       <SharePopover>
@@ -32,28 +35,31 @@ const OthersList = ({
           </ToolBarButton>
         )}
       </SharePopover>
-      <Popover>
-        <PopoverTrigger asChild>
-          <ToolBarButton
-            text="Extensions"
-            textClassName={classNames?.textClassName}
-            className={classNames?.buttonClassName}
-          >
-            <Component className="size-4" />
-          </ToolBarButton>
-        </PopoverTrigger>
-        <PopoverContent side="bottom" align="start" className="w-40 p-0">
-          <Button
-            variant={'ghost'}
-            size={'xs'}
-            className="w-full justify-start font-normal"
-            onClick={() => toggleGraph()}
-          >
-            <Share2 className="pr-1 text-lg" />
-            Graph
-          </Button>
-        </PopoverContent>
-      </Popover>
+
+      {view?.type === ViewType.Grid && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <ToolBarButton
+              text="Extensions"
+              textClassName={classNames?.textClassName}
+              className={classNames?.buttonClassName}
+            >
+              <Component className="size-4" />
+            </ToolBarButton>
+          </PopoverTrigger>
+          <PopoverContent side="bottom" align="start" className="w-40 p-0">
+            <Button
+              variant={'ghost'}
+              size={'xs'}
+              className="w-full justify-start font-normal"
+              onClick={() => toggleGraph()}
+            >
+              <Share2 className="pr-1 text-lg" />
+              Graph
+            </Button>
+          </PopoverContent>
+        </Popover>
+      )}
 
       <Popover>
         <PopoverTrigger asChild>

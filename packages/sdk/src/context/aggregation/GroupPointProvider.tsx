@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { IKanbanViewOptions } from '@teable/core';
+import { SortFunc, ViewType } from '@teable/core';
 import { getGroupPoints } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
@@ -12,31 +14,37 @@ interface GroupPointProviderProps {
   children: ReactNode;
 }
 
-const useGroupPointsQuery = () => {
-  const view = useView();
-  const { searchQuery } = useSearch();
-
-  const { id: viewId, group } = view || {};
-
-  return useMemo(
-    () => ({ viewId, groupBy: group, search: searchQuery }),
-    [searchQuery, group, viewId]
-  );
-};
-
 export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
   const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
-  const query = useGroupPointsQuery();
   const view = useView(viewId);
-  const group = view?.group;
+  const { searchQuery } = useSearch();
+  const { type, group, options } = view || {};
+
+  const groupBy = useMemo(() => {
+    if (type === ViewType.Kanban) {
+      const { stackFieldId } = (options ?? {}) as IKanbanViewOptions;
+      if (stackFieldId == null) return;
+      return [{ order: SortFunc.Asc, fieldId: stackFieldId }];
+    }
+    return group;
+  }, [group, options, type]);
+
+  const query = useMemo(() => {
+    return {
+      viewId,
+      groupBy,
+      search: searchQuery,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewId, JSON.stringify(groupBy), searchQuery]);
 
   const { data: resGroupPoints } = useQuery({
     queryKey: ReactQueryKeys.groupPoints(tableId as string, query),
     queryFn: ({ queryKey }) => getGroupPoints(queryKey[1], queryKey[2]),
-    enabled: !!tableId && isHydrated && !!group?.length,
+    enabled: Boolean(tableId && isHydrated && groupBy?.length),
     refetchOnWindowFocus: false,
     retry: 1,
   });

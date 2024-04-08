@@ -3,10 +3,10 @@ import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-
 import { keyBy } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { SelectTag } from '../../cell-value/cell-select/SelectTag';
 import type { IEditorRef } from '../type';
 import type { ISelectEditorMain, ISelectValue } from './EditorMain';
 import { SelectEditorMain } from './EditorMain';
-import { SelectTag } from './SelectTag';
 
 const SelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<string | string[] | undefined>,

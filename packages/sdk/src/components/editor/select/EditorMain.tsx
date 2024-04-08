@@ -12,8 +12,8 @@ import {
 } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
+import { SelectTag } from '../../cell-value/cell-select/SelectTag';
 import type { ICellEditor, IEditorRef } from '../type';
-import { SelectTag } from './SelectTag';
 
 export type ISelectValue<T extends boolean> = T extends true ? string[] : string;
 

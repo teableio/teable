@@ -1,6 +1,8 @@
 {
   "toolbar": {
-    "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。"
+    "comingSoon": "即将推出",
+    "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。",
+    "createFieldButtonText": "创建一个<0/>类型的字段"
   },
   "field": {
     "fieldManagement": "字段管理",
@@ -175,6 +177,36 @@
     "removeFromFormTip": "从表单中移除该字段",
     "descriptionPlaceholder": "请输入表单描述",
     "dragToFormTip": "拖拽字段到这里添加至表单"
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "隐藏字段名",
+      "customizeCards": "卡片配置",
+      "stackedBy": "分组依据 <0/>",
+      "chooseStackingField": "选择分组依据",
+      "chooseStackingFieldDescription": "您希望使用哪个单选或用户字段来设置看板？您的记录将根据这个字段来进行分组。",
+      "hideEmptyStack": "隐藏空的分组",
+      "imageSetting": "封面设置",
+      "fit": "适应",
+      "noImage": "无封面",
+      "chooseAttachmentField": "请选择一个附件字段"
+    },
+    "stack": {
+      "addStack": "添加分组",
+      "noCards": "暂无卡片",
+      "uncategorized": "未分类"
+    },
+    "stackMenu": {
+      "collapseStack": "折叠分组",
+      "renameStack": "重命名分组",
+      "deleteStack": "删除分组"
+    },
+    "cardMenu": {
+      "insertCardAbove": "在上方插入卡片",
+      "insertCardBelow": "在下方插入卡片",
+      "expandCard": "展开卡片",
+      "deleteCard": "删除卡片"
+    }
   },
   "menu": {
     "insertRecordAbove": "在上方插入记录",

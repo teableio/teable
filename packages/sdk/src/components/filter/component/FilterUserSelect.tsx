@@ -7,7 +7,8 @@ import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBase, useSession } from '../../../hooks';
 import type { UserField } from '../../../model';
-import { UserOption, UserTag } from '../../editor';
+import { UserTag } from '../../cell-value';
+import { UserOption } from '../../editor';
 import { BaseMultipleSelect, BaseSingleSelect } from './base';
 
 interface IFilterUserProps {
@@ -69,7 +70,6 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
               )
             }
             name={option.label}
-            readonly
           />
         </div>
       </div>

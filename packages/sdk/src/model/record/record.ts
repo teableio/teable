@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IRecord } from '@teable/core';
 import { RecordOpBuilder, RecordCore } from '@teable/core';
-import { createRecords, getRecords, updateRecordOrders } from '@teable/openapi';
+import { createRecords, getRecords, updateRecord, updateRecordOrders } from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 import type { IFieldInstance } from '../field/factory';
@@ -10,6 +10,8 @@ export class Record extends RecordCore {
   static createRecords = requestWrap(createRecords);
 
   static getRecords = requestWrap(getRecords);
+
+  static updateRecord = requestWrap(updateRecord);
 
   static updateRecordOrders = requestWrap(updateRecordOrders);
 

@@ -1,9 +1,10 @@
 import type { IUserFieldOptions, IUserCellValue } from '@teable/core';
+import { X } from '@teable/icons';
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { useRef, useState } from 'react';
+import { UserTag } from '../../cell-value';
 import type { IUserEditorMainProps } from './EditorMain';
 import { UserEditorMain } from './EditorMain';
-import { UserTag } from './UserTag';
 
 interface IUserEditorProps extends Omit<IUserEditorMainProps, 'isMultiple'> {
   options: IUserFieldOptions;
@@ -41,7 +42,20 @@ export const UserEditor = (props: IUserEditorProps) => {
       )}
     >
       {arrayValue?.map(({ id, title, avatarUrl }) => (
-        <UserTag key={id} name={title} avatar={avatarUrl} onDelete={() => onDelete(id)} />
+        <UserTag
+          key={id}
+          name={title}
+          avatar={avatarUrl}
+          suffix={
+            <X
+              className="ml-[2px] cursor-pointer opacity-50 hover:opacity-100"
+              onClick={(e) => {
+                e.preventDefault();
+                onDelete(id);
+              }}
+            />
+          }
+        />
       ))}
     </Button>
   );

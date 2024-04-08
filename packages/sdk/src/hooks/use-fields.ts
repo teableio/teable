@@ -2,27 +2,30 @@ import { ViewType } from '@teable/core';
 import { sortBy } from 'lodash';
 import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
-import type { FormView, GridView } from '../model';
 import { useView } from './use-view';
 
 export function useFields(options: { withHidden?: boolean } = {}) {
   const { withHidden } = options;
-  const { fields: fieldsOrigin } = useContext(FieldContext);
+  const { fields: originFields } = useContext(FieldContext);
   const view = useView();
-
-  const fields = useMemo(
-    () => sortBy(fieldsOrigin, (field) => view?.columnMeta[field.id]?.order ?? Infinity),
-    [fieldsOrigin, view?.columnMeta]
-  );
+  const { type: viewType, columnMeta } = view ?? {};
 
   return useMemo(() => {
-    if (withHidden || !view) {
-      return fields;
+    const sortedFields = sortBy(originFields, (field) => columnMeta?.[field.id]?.order ?? Infinity);
+
+    if (withHidden || viewType == null) {
+      return sortedFields;
+    }
+    if (viewType === ViewType.Form) {
+      return sortedFields.filter(({ id }) => columnMeta?.[id]?.visible);
+    }
+    if (viewType === ViewType.Kanban) {
+      return sortedFields.filter(({ id, isPrimary }) => {
+        return isPrimary || columnMeta?.[id]?.visible;
+      });
     }
 
-    if (view.type === ViewType.Form) {
-      return fields.filter(({ id }) => (view as FormView).columnMeta?.[id]?.visible);
-    }
-    return fields.filter(({ id }) => !(view as GridView).columnMeta?.[id]?.hidden);
-  }, [view, fields, withHidden]);
+    return sortedFields.filter(({ id }) => !columnMeta?.[id]?.hidden);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [originFields, withHidden, viewType, JSON.stringify(columnMeta)]);
 }

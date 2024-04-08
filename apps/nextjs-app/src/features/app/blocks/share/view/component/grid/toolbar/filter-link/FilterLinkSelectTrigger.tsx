@@ -1,6 +1,5 @@
 import type { FieldType } from '@teable/core';
-import type { IFilterComponents } from '@teable/sdk/components';
-import { SelectTag } from '@teable/sdk/components/editor/select/SelectTag';
+import { SelectTag, type IFilterComponents } from '@teable/sdk/components';
 import { useTranslation } from 'next-i18next';
 import { shareConfig } from '@/features/i18n/share.config';
 import { StorageSelected } from './FilterLinkSelectList';

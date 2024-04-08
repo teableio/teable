@@ -21,6 +21,7 @@ import { ColorUtils, FieldType } from '@teable/core';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId } from '../../hooks';
 import { Field } from '../../model';
+import { transformSelectOptions } from '../cell-value';
 import {
   AttachmentEditor,
   CheckboxEditor,
@@ -45,15 +46,6 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
   useEffect(() => {
     editorRef?.current?.setValue?.(cellValue);
   }, [cellValue]);
-
-  const selectOptions = useCallback((options: ISelectFieldOptions) => {
-    return options.choices.map(({ name, color }) => ({
-      label: name,
-      value: name,
-      color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-      backgroundColor: ColorUtils.getHexForColor(color),
-    }));
-  }, []);
 
   const onOptionAdd = useCallback(
     async (name: string) => {
@@ -130,7 +122,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as ISingleSelectCellValue}
-          options={selectOptions(options as ISelectFieldOptions)}
+          options={transformSelectOptions(options as ISelectFieldOptions)}
           onChange={onChange}
           readonly={readonly}
           onOptionAdd={onOptionAdd}
@@ -143,7 +135,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as IMultipleSelectCellValue}
-          options={selectOptions(options as ISelectFieldOptions)}
+          options={transformSelectOptions(options as ISelectFieldOptions)}
           onChange={onChange}
           isMultiple
           readonly={readonly}
@@ -172,6 +164,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           options={options as IDateFieldOptions}
           value={cellValue as string}
           onChange={(selectedDay) => onChange?.(selectedDay ?? null)}
+          readonly={readonly}
         />
       );
     }

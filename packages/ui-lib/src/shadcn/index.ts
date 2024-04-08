@@ -33,3 +33,5 @@ export * from './ui/toggle';
 export * from './ui/accordion';
 export * from './ui/collapsible';
 export * from './ui/table';
+export * from './ui/context-menu';
+export * from './ui/carousel';

@@ -1,20 +1,19 @@
-import { X } from '@teable/icons';
 import { Avatar, AvatarFallback, AvatarImage, cn } from '@teable/ui-lib';
-import { useMemo, isValidElement } from 'react';
+import type { ReactNode } from 'react';
+import { isValidElement, useMemo } from 'react';
 import { convertNextImageUrl } from '../../grid-enhancements';
 
-interface IUserTagProps {
-  className?: string;
+interface IUserTag {
   name: string;
-  avatar?: string | null | React.ReactNode;
-  readonly?: boolean;
-  onDelete?: () => void;
+  avatar?: ReactNode | string | null;
+  className?: string;
+  suffix?: ReactNode;
 }
 
-export const UserTag = (props: IUserTagProps) => {
-  const { className, name, avatar, readonly, onDelete } = props;
+export const UserTag = (props: IUserTag) => {
+  const { name, avatar, suffix, className } = props;
 
-  const avatarCom = useMemo(() => {
+  const avatarComponent = useMemo(() => {
     if (isValidElement(avatar)) {
       return avatar;
     }
@@ -35,24 +34,14 @@ export const UserTag = (props: IUserTagProps) => {
         <AvatarFallback className="text-sm">{name.slice(0, 1)}</AvatarFallback>
       </>
     );
-  }, [avatar, name]);
+  }, [name, avatar]);
 
   return (
     <div className={cn('flex items-center', className)}>
-      <Avatar className="box-content size-5 cursor-pointer border">{avatarCom}</Avatar>
+      <Avatar className="size-6 cursor-pointer border">{avatarComponent}</Avatar>
       <div className="-ml-3 flex items-center overflow-hidden rounded-[6px] bg-secondary pl-4 pr-2 text-sm text-secondary-foreground">
         <p className="flex-1 truncate">{name}</p>
-        {!readonly && (
-          <X
-            className="ml-[2px] cursor-pointer opacity-50 hover:opacity-100"
-            onClick={(e) => {
-              if (onDelete) {
-                e.preventDefault();
-                onDelete();
-              }
-            }}
-          />
-        )}
+        {suffix}
       </div>
     </div>
   );

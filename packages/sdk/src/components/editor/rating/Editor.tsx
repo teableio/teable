@@ -1,25 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { ColorUtils, RatingIcon, type IRatingFieldOptions } from '@teable/core';
-import { Star, Moon, Sun, Zap, Flame, Heart, Apple, ThumbsUp } from '@teable/icons';
+import { ColorUtils } from '@teable/core';
+import type { IRatingFieldOptions } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { useState, type FC } from 'react';
+import { RATING_ICON_MAP } from '../../cell-value';
 import type { ICellEditor } from '../type';
 
 interface IRatingEditor extends ICellEditor<number> {
   options: IRatingFieldOptions;
   iconClassName?: string;
 }
-
-export const RATING_ICON_MAP = {
-  [RatingIcon.Star]: Star,
-  [RatingIcon.Moon]: Moon,
-  [RatingIcon.Sun]: Sun,
-  [RatingIcon.Zap]: Zap,
-  [RatingIcon.Flame]: Flame,
-  [RatingIcon.Heart]: Heart,
-  [RatingIcon.Apple]: Apple,
-  [RatingIcon.ThumbUp]: ThumbsUp,
-};
 
 export const RatingEditor: FC<IRatingEditor> = (props) => {
   const { value, options, readonly, className, iconClassName, onChange } = props;

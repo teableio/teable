@@ -32,12 +32,13 @@ import { swapReorder } from '../../utils/order';
 interface IHideFieldsBaseProps {
   fields: IFieldInstance[];
   hidden: string[];
+  footer?: React.ReactNode;
   children: React.ReactNode;
   onChange: (hidden: string[]) => void;
 }
 
 export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
-  const { fields, hidden, children, onChange } = props;
+  const { fields, hidden, footer, children, onChange } = props;
   const fieldStaticGetter = useFieldStaticGetter();
   const view = useView();
   const [innerFields, setInnerFields] = useState([...fields]);
@@ -124,14 +125,14 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   };
 
   const content = () => (
-    <div className="rounded-lg border p-1 shadow-md">
+    <div className="rounded-lg p-1">
       <Command filter={commandFilter}>
         <CommandInput
           placeholder="Search a field"
           className="h-8 text-xs"
           onValueChange={(value) => searchHandle(value)}
         />
-        <CommandList className="my-2">
+        <CommandList className="my-2 max-h-64">
           <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
           <DndKitContext onDragEnd={dragEndHandler}>
             <Droppable items={innerFields.map(({ id }) => ({ id }))}>
@@ -227,8 +228,9 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="border-0 p-0">
+      <PopoverContent side="bottom" align="start" className="p-0">
         {content()}
+        {footer}
       </PopoverContent>
     </Popover>
   );

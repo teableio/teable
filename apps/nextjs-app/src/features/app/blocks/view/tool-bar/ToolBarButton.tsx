@@ -2,7 +2,7 @@ import { Button, cn } from '@teable/ui-lib';
 import React, { forwardRef } from 'react';
 
 interface IToolBarButton extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  text?: string;
+  text?: string | React.ReactNode;
   isActive?: boolean;
   className?: string;
   textClassName?: string;

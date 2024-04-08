@@ -2,7 +2,7 @@ import { FieldType } from '@teable/core';
 import { Spin } from '@teable/ui-lib';
 import { useContext } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
-import { SelectTag } from '../../../editor/select/SelectTag';
+import { SelectTag } from '../../../cell-value';
 import { FilterContext } from '../../context';
 import type { IFilterLinkProps } from './types';
 

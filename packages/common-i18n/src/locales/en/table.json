@@ -1,6 +1,8 @@
 {
   "toolbar": {
-    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link."
+    "comingSoon": "Coming soon",
+    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
+    "createFieldButtonText": "Create a new <0/> field"
   },
   "field": {
     "fieldManagement": "Field Management",
@@ -176,6 +178,36 @@
     "removeFromFormTip": "Remove from the form",
     "descriptionPlaceholder": "Enter from description",
     "dragToFormTip": "Drag the field here to add it to the form"
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Hide field name",
+      "customizeCards": "Customize cards",
+      "stackedBy": "Stacked by <0/>",
+      "chooseStackingField": "Choose a stacking field",
+      "chooseStackingFieldDescription": "Which single select or user field would you like to use for this kanban view? Your records will be stacked based on this field.",
+      "hideEmptyStack": "Hide empty stack",
+      "imageSetting": "Image Setting",
+      "fit": "Fit",
+      "noImage": "No image",
+      "chooseAttachmentField": "Choose attachment field"
+    },
+    "stack": {
+      "addStack": "Add Stack",
+      "noCards": "No cards",
+      "uncategorized": "Uncategorized"
+    },
+    "stackMenu": {
+      "collapseStack": "Collapse stack",
+      "renameStack": "Rename stack",
+      "deleteStack": "Delete stack"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Insert card above",
+      "insertCardBelow": "Insert card below",
+      "expandCard": "Expand card",
+      "deleteCard": "Delete card"
+    }
   },
   "menu": {
     "insertRecordAbove": "Insert record above",

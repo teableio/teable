@@ -5,8 +5,9 @@ import type { GridView, IFieldInstance } from '../../model';
 import { HideFieldsBase } from './HideFieldsBase';
 
 export const HideFields: React.FC<{
+  footer?: React.ReactNode;
   children: (text: string, isActive: boolean) => React.ReactNode;
-}> = ({ children }) => {
+}> = ({ footer, children }) => {
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true });
   const view = useView() as GridView | undefined;
@@ -46,7 +47,7 @@ export const HideFields: React.FC<{
   }
 
   return (
-    <HideFieldsBase fields={fieldData} hidden={hiddenFieldIds} onChange={onChange}>
+    <HideFieldsBase footer={footer} fields={fieldData} hidden={hiddenFieldIds} onChange={onChange}>
       {children(
         hiddenCount ? `${hiddenCount} hidden field(s)` : 'Hide fields',
         Boolean(hiddenCount)

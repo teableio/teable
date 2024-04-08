@@ -18,6 +18,11 @@ const VIEW_INFO_LIST = [
     type: ViewType.Form,
     Icon: VIEW_ICON_MAP[ViewType.Form],
   },
+  {
+    name: 'Kanban View',
+    type: ViewType.Kanban,
+    Icon: VIEW_ICON_MAP[ViewType.Kanban],
+  },
 ];
 
 export const AddView: React.FC = () => {
