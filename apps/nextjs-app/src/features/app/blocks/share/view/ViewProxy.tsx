@@ -3,12 +3,10 @@ import { ViewContext, createViewInstance, useView } from '@teable/sdk';
 import type { IViewInstance } from '@teable/sdk';
 import { useEffect, useState } from 'react';
 
-type IProxyViewKey = 'filter' | 'sort' | 'rowHeight';
-
+// Properties that don't need to be updated when view updates come from op
 const enableKey = ['filter', 'sort'];
 
 interface IViewProxyProps {
-  proxyKeys?: IProxyViewKey[];
   serverData?: IViewVo[];
   children: React.ReactNode;
 }
@@ -40,7 +38,7 @@ export const getViewData = (view?: IViewInstance, initData?: IViewVo[]) => {
 };
 
 export const ViewProxy = (props: IViewProxyProps) => {
-  const { proxyKeys, serverData, children } = props;
+  const { serverData, children } = props;
   const view = useView();
   const [viewData, setViewData] = useState<IViewVo>(getViewData(view, serverData));
   const [proxyView, setProxyView] = useState<IProxyView | undefined>(() => {
@@ -100,7 +98,7 @@ export const ViewProxy = (props: IViewProxyProps) => {
       setViewData(newViewData);
     };
     setProxyView(newViewProxy);
-  }, [viewData, proxyKeys, view?.id]);
+  }, [viewData, view?.id]);
 
   return (
     <ViewContext.Provider value={{ views: (proxyView ? [proxyView] : []) as IViewInstance[] }}>
