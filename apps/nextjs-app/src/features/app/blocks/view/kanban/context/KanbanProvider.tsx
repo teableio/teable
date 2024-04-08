@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ISelectFieldChoice, ISelectFieldOptions, IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { GroupPointType, getBaseCollaboratorList } from '@teable/openapi';
+import {
+  GroupPointType,
+  getBaseCollaboratorList,
+  getShareViewCollaborators,
+} from '@teable/openapi';
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import {
@@ -63,9 +67,12 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const { type: stackFieldType, options: stackFieldOptions } = stackField ?? {};
 
   const { data: userList } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
-    enabled: Boolean(baseId && stackFieldType === FieldType.User),
+    queryKey: shareId
+      ? ReactQueryKeys.shareViewCollaborators(shareId)
+      : ReactQueryKeys.baseCollaboratorList(baseId),
+    queryFn: ({ queryKey }) =>
+      shareId ? getShareViewCollaborators(queryKey[1], {}) : getBaseCollaboratorList(queryKey[1]),
+    enabled: Boolean((shareId || baseId) && stackFieldType === FieldType.User),
   });
 
   const kanbanPermission = useMemo(() => {
