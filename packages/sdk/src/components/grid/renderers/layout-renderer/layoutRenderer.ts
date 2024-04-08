@@ -1,8 +1,9 @@
 import { contractColorForTheme } from '@teable/core';
-import { isEqual, groupBy } from 'lodash';
+import { isEqual, groupBy, cloneDeep } from 'lodash';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
+import type { IVisibleRegion } from '../../hooks';
 import { getDropTargetIndex } from '../../hooks';
-import type { IRectangle } from '../../interface';
+import type { ICellItem, ICell, IRectangle, ICollaborator } from '../../interface';
 import { DragRegionType, LinearRowType, RegionType, RowControlType } from '../../interface';
 import { GridInnerIcon } from '../../managers';
 import {
@@ -661,9 +662,44 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
   ctx.restore();
 };
 
+const getVisibleCollaborators = (
+  collaborators: ICollaborator,
+  visibleRegion: IVisibleRegion,
+  getCellContent: (cell: ICellItem) => ICell
+) => {
+  const groupedCollaborators = Object.values(groupBy(collaborators, 'activeCell'));
+
+  // through visible region to find the cell that has collaborators and get the real coordinate
+  const { startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex } = visibleRegion;
+  const visibleCells = [];
+  for (let i = startColumnIndex; i <= stopColumnIndex; i++) {
+    for (let j = startRowIndex; j < stopRowIndex; j++) {
+      const cell = getCellContent([i, j]);
+      if (!cell?.id) {
+        continue;
+      }
+      const visibleCell = groupedCollaborators.find((g) => g[0]?.activeCell?.join('-') === cell.id);
+      if (visibleCell) {
+        const newCell = cloneDeep(visibleCell);
+        newCell[0].activeCell = [i, j];
+        visibleCells.push(newCell);
+      }
+    }
+  }
+  return visibleCells;
+};
+
 export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { collaborators, scrollState, coordInstance, activeCellBound, theme, real2RowIndex } =
-    props;
+  const {
+    collaborators,
+    scrollState,
+    coordInstance,
+    activeCellBound,
+    theme,
+    real2RowIndex,
+    getCellContent,
+    visibleRegion,
+  } = props;
   const { scrollTop, scrollLeft } = scrollState;
   const { themeKey } = theme;
 
@@ -678,11 +714,11 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
 
   ctx.save();
 
-  const groupedCollaborators = Object.values(groupBy(collaborators, 'activeCell'));
+  const visibleCells = getVisibleCollaborators(collaborators, visibleRegion, getCellContent);
 
-  for (let i = 0; i < groupedCollaborators.length; i++) {
+  for (let i = 0; i < visibleCells.length; i++) {
     // for conflict cell, we'd like to show the latest collaborator
-    const conflictCollaborators = groupedCollaborators[i].sort((a, b) => b.timeStamp - a.timeStamp);
+    const conflictCollaborators = visibleCells[i].sort((a, b) => b.timeStamp - a.timeStamp);
     const { activeCell, borderColor } = conflictCollaborators[0];
     const [columnIndex, _rowIndex] = activeCell;
     const rowIndex = real2RowIndex(_rowIndex);
