@@ -167,8 +167,19 @@ export const useSelectionOperation = (filter?: IFilter) => {
       const toaster = toast({
         title: 'Copying...',
       });
-      await copyMethod(selection);
-      toaster.update({ id: toaster.id, title: 'Copied success!' });
+      try {
+        await copyMethod(selection);
+        toaster.update({ id: toaster.id, title: 'Copied success!' });
+      } catch (e) {
+        const error = e as Error;
+        toaster.update({
+          id: toaster.id,
+          variant: 'destructive',
+          title: 'Copy error',
+          description: error.message,
+        });
+        console.error('Copy error: ', error);
+      }
     },
     [tableId, toast, viewId, copyMethod]
   );
@@ -181,10 +192,21 @@ export const useSelectionOperation = (filter?: IFilter) => {
 
       const { files, types } = e.clipboardData;
       const toaster = toast({ title: 'Pasting...' });
-      if (files.length > 0 && !types.includes(ClipboardTypes.text)) {
-        await handleFilePaste(files, selection, recordMap, toaster);
-      } else {
-        await handleTextPaste(selection, toaster);
+      try {
+        if (files.length > 0 && !types.includes(ClipboardTypes.text)) {
+          await handleFilePaste(files, selection, recordMap, toaster);
+        } else {
+          await handleTextPaste(selection, toaster);
+        }
+      } catch (e) {
+        const error = e as Error;
+        toaster.update({
+          id: toaster.id,
+          variant: 'destructive',
+          title: 'Past error',
+          description: error.message,
+        });
+        console.error('Past error: ', error);
       }
     },
     [viewId, tableId, toast, handleFilePaste, handleTextPaste]
