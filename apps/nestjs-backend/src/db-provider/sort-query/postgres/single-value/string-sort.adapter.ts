@@ -13,6 +13,8 @@ export class StringSortAdapter extends SortFunctionPostgres {
 
     const { choices } = options as ISelectFieldOptions;
 
+    if (!choices.length) return builderClient;
+
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(
       `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) ASC NULLS FIRST`,
@@ -29,6 +31,8 @@ export class StringSortAdapter extends SortFunctionPostgres {
     }
 
     const { choices } = options as ISelectFieldOptions;
+
+    if (!choices.length) return builderClient;
 
     const optionSets = choices.map(({ name }) => name);
     builderClient.orderByRaw(
