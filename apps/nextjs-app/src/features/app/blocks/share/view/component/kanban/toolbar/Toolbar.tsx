@@ -1,21 +1,22 @@
-import { ArrowUpDown, Filter as FilterIcon, Layers, Share2 } from '@teable/icons';
+import { FieldType } from '@teable/core';
+import { ArrowUpDown, Filter as FilterIcon, Layers } from '@teable/icons';
 import type { KanbanView } from '@teable/sdk';
 import { Filter, useFields } from '@teable/sdk';
+import { FilterLink } from '@teable/sdk/components/filter/component';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { cn } from '@teable/ui-lib/shadcn';
-import { Trans, useTranslation } from 'next-i18next';
+import { Trans } from 'next-i18next';
 import { useMemo } from 'react';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { SearchButton } from '@/features/app/blocks/view/search/SearchButton';
 import { ToolBarButton } from '@/features/app/blocks/view/tool-bar/ToolBarButton';
-import { tableConfig } from '@/features/i18n/table.config';
+import { FilterUser } from '../../grid/toolbar/FilterUser';
 import { Sort } from '../../grid/toolbar/Sort';
 
 export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView() as KanbanView | undefined;
   const allFields = useFields({ withHidden: true });
-  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { stackFieldId } = view?.options ?? {};
 
@@ -41,16 +42,12 @@ export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
         <Layers className="size-4 text-sm" />
       </ToolBarButton>
       <Filter
+        components={{
+          [FieldType.User]: FilterUser,
+          [FieldType.Link]: FilterLink,
+        }}
         filters={view?.filter || null}
         onChange={onFilterChange}
-        contentHeader={
-          view.enableShare && (
-            <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
-              <Share2 className="mr-4 size-4 shrink-0" />
-              <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
-            </div>
-          )
-        }
       >
         {(text, isActive) => (
           <ToolBarButton

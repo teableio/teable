@@ -1,7 +1,8 @@
 {
   "toolbar": {
     "comingSoon": "即将推出",
-    "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。"
+    "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。",
+    "createFieldButtonText": "创建一个<0/>类型的字段"
   },
   "field": {
     "fieldManagement": "字段管理",

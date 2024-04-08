@@ -1,7 +1,8 @@
 {
   "toolbar": {
     "comingSoon": "Coming soon",
-    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link."
+    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
+    "createFieldButtonText": "Create a new <0/> field"
   },
   "field": {
     "fieldManagement": "Field Management",

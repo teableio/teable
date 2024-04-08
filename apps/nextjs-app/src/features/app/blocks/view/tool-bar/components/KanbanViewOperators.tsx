@@ -17,6 +17,7 @@ import {
   VisibleFields,
   generateLocalId,
   FieldCreateOrSelectModal,
+  useTablePermission,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import {
@@ -35,6 +36,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
+import { useViewFilterLinkContext } from '../useViewFilterLinkContext';
 import { CoverFieldSelect } from './CoverFieldSelect';
 
 const KANBAN_STACKED_BY_FIELD_TYPES = [FieldType.SingleSelect, FieldType.User];
@@ -44,9 +46,11 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
   const allFields = useFields({ withHidden: true });
+  const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
+  const viewFilerContext = useViewFilterLinkContext(tableId, view?.id, { disabled });
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
 
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
@@ -107,9 +111,15 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             </Label>
           </div>
         }
+        isCreatable={permission['field|create']}
         selectedFieldId={stackFieldId}
         fieldTypes={KANBAN_STACKED_BY_FIELD_TYPES}
         onConfirm={onFieldSelected}
+        getCreateBtnText={(fieldName) => (
+          <Trans ns="table" i18nKey={'toolbar.createFieldButtonText'}>
+            {fieldName}
+          </Trans>
+        )}
       >
         {(isActive) => (
           <ToolBarButton
@@ -173,6 +183,9 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             </div>
           )
         }
+        context={{
+          [FieldType.Link]: viewFilerContext,
+        }}
       >
         {(text, isActive) => (
           <ToolBarButton

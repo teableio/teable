@@ -4,14 +4,14 @@ import { isValidElement, useMemo } from 'react';
 import { convertNextImageUrl } from '../../grid-enhancements';
 
 interface IUserTag {
-  name?: string;
+  name: string;
   avatar?: ReactNode | string | null;
   className?: string;
   suffix?: ReactNode;
 }
 
 export const UserTag = (props: IUserTag) => {
-  const { name = 'Untitled', avatar, suffix, className } = props;
+  const { name, avatar, suffix, className } = props;
 
   const avatarComponent = useMemo(() => {
     if (isValidElement(avatar)) {

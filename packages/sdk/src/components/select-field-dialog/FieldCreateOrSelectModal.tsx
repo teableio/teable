@@ -17,6 +17,7 @@ import {
   ScrollArea,
   cn,
 } from '@teable/ui-lib';
+import type { ReactNode } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFieldStaticGetter, useFields, useTableId } from '../../hooks';
@@ -25,12 +26,14 @@ import { Field } from '../../model';
 import { FieldCreator } from './FieldCreator';
 
 interface IFieldCreateOrSelectModalProps {
-  title: React.ReactNode;
-  content?: React.ReactNode;
-  description?: React.ReactNode;
+  title: ReactNode;
+  content?: ReactNode;
+  description?: ReactNode;
   fieldTypes: FieldType[];
   selectedFieldId?: string;
   isMultipleEnable?: boolean;
+  isCreatable?: boolean;
+  getCreateBtnText: (fieldName: string) => ReactNode;
   children: (isActive: boolean) => React.ReactNode;
   onConfirm?: (field: IFieldVo | IFieldInstance) => void;
 }
@@ -51,8 +54,10 @@ export const FieldCreateOrSelectModal = forwardRef<
     fieldTypes,
     selectedFieldId: _selectedFieldId,
     isMultipleEnable,
+    isCreatable,
     children,
     onConfirm,
+    getCreateBtnText,
   } = props;
   const tableId = useTableId();
   const totalFields = useFields({ withHidden: true });
@@ -156,17 +161,19 @@ export const FieldCreateOrSelectModal = forwardRef<
                   key={type}
                   variant="secondary"
                   className="justify-start"
-                  onClick={() =>
+                  disabled={!isCreatable}
+                  onClick={() => {
+                    if (!isCreatable) return;
                     onNewFieldEdit({
                       type,
                       name: title,
                       options: defaultOptions,
-                    } as IFieldRo)
-                  }
+                    } as IFieldRo);
+                  }}
                 >
                   <Plus className="size-5" />
                   <Icon className="size-4" />
-                  {`Create a new ${title} field`}
+                  {getCreateBtnText(title)}
                 </Button>
               );
             })}
