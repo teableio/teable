@@ -4,7 +4,6 @@ import { AccessTokenModule } from './features/access-token/access-token.module';
 import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AuthModule } from './features/auth/auth.module';
-import { AutomationModule } from './features/automation/automation.module';
 import { BaseModule } from './features/base/base.module';
 import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
@@ -33,7 +32,6 @@ export const appModules = {
     BaseModule,
     ChatModule,
     AttachmentsModule,
-    AutomationModule,
     WsModule,
     SelectionModule,
     AggregationOpenApiModule,

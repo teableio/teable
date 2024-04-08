@@ -19,7 +19,7 @@ import type { UpdateWorkflowActionRo } from '../src/features/automation/model/up
 import type { UpdateWorkflowTriggerRo } from '../src/features/automation/model/update-workflow-trigger.ro';
 import { createTable, getFields, initApp } from './utils/init-app';
 
-describe.skip('AutomationController (e2e)', () => {
+describe('AutomationController (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
 
