@@ -17,6 +17,7 @@ import {
 import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
+import { isHTTPS, isLocalhost } from '@/features/app/utils';
 import { extractTableHeader, serializerHtml } from '../../../../utils/clipboard';
 import { getSelectionCell, selectionCoverAttachments, uploadFiles } from '../utils';
 
@@ -40,22 +41,45 @@ export const useCopy = (props: {
 
   return useCallback(
     async (selection: CombinedSelection) => {
-      const ranges = selection.serialize();
+      const getData = async () => {
+        const ranges = selection.serialize();
+        const type = rangeTypes[selection.type];
+        const { data } = await copyReq({
+          ranges,
+          ...(type ? { type } : {}),
+        });
+        const { content, header } = data;
+        return { content, header };
+      };
 
-      const type = rangeTypes[selection.type];
+      // Can't await asynchronous action before navigator.clipboard.write in safari
+      if (!/^(?:(?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+        const { header, content } = await getData();
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [ClipboardTypes.text]: new Blob([content], { type: ClipboardTypes.text }),
+            [ClipboardTypes.html]: new Blob([serializerHtml(content, header)], {
+              type: ClipboardTypes.html,
+            }),
+          }),
+        ]);
+        return;
+      }
 
-      const { data } = await copyReq({
-        ranges,
-        ...(type ? { type } : {}),
-      });
-      const { content, header } = data;
+      const getText = async () => {
+        const { content } = await getData();
+        return new Blob([content], { type: ClipboardTypes.text });
+      };
+
+      const getHtml = async () => {
+        const { header, content } = await getData();
+        return new Blob([serializerHtml(content, header)], { type: ClipboardTypes.html });
+      };
 
       await navigator.clipboard.write([
         new ClipboardItem({
-          [ClipboardTypes.text]: new Blob([content], { type: ClipboardTypes.text }),
-          [ClipboardTypes.html]: new Blob([serializerHtml(content, header)], {
-            type: ClipboardTypes.html,
-          }),
+          [ClipboardTypes.text]: getText(),
+          [ClipboardTypes.html]: getHtml(),
         }),
       ]);
     },
@@ -160,6 +184,14 @@ export const useSelectionOperation = (filter?: IFilter) => {
 
   const doCopy = useCallback(
     async (selection: CombinedSelection) => {
+      // not support http
+      if (!isLocalhost() && !isHTTPS()) {
+        toast({
+          variant: 'destructive',
+          description: 'Copy and paste only works in HTTPS or localhost.',
+        });
+        return;
+      }
       if (!viewId || !tableId) {
         return;
       }
@@ -186,6 +218,14 @@ export const useSelectionOperation = (filter?: IFilter) => {
 
   const doPaste = useCallback(
     async (selection: CombinedSelection, e: React.ClipboardEvent, recordMap: IRecordIndexMap) => {
+      // not support http
+      if (!isLocalhost() && !isHTTPS()) {
+        toast({
+          variant: 'destructive',
+          description: 'Copy and paste only works in HTTPS or localhost.',
+        });
+        return;
+      }
       if (!viewId || !tableId) {
         return;
       }
