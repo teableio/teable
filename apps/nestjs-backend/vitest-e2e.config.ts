@@ -1,11 +1,12 @@
 import swc from 'unplugin-swc';
+import tsconfigPaths from 'vite-tsconfig-paths';
 import { configDefaults, defineConfig } from 'vitest/config';
 
 const timeout = process.env.CI ? 30000 : 10000;
 const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
 
 export default defineConfig({
-  plugins: [swc.vite({})],
+  plugins: [swc.vite({}), tsconfigPaths()],
   cacheDir: '../../.cache/vitest/nestjs-backend/e2e',
   test: {
     globals: true,
