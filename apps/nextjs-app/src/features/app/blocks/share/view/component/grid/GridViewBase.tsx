@@ -65,7 +65,7 @@ export const GridViewBase = () => {
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const isTouchDevice = useIsTouchDevice();
-  const { selection, setSelection, openStatisticMenu } = useGridViewStore();
+  const { setSelection, openStatisticMenu } = useGridViewStore();
   const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns();
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
@@ -194,22 +194,6 @@ export const GridViewBase = () => {
     },
     [columns, openStatisticMenu]
   );
-
-  useEffect(() => {
-    if (!selection) {
-      return;
-    }
-    const handleFocus = (event: FocusEvent) => {
-      const target = event.target as Node;
-      if (container.current && !container.current.contains(target)) {
-        gridRef.current?.resetState();
-      }
-    };
-    document.addEventListener('focus', handleFocus, true);
-    return () => {
-      document.removeEventListener('focus', handleFocus, true);
-    };
-  }, [selection]);
 
   return (
     <div ref={container} className="relative size-full overflow-hidden">

@@ -63,8 +63,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   };
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-    <div id={`${tableId}-${recordId}`} onKeyDown={(e) => e.stopPropagation()}>
+    <div id={`${tableId}-${recordId}`}>
       <Wrap tableId={tableId}>
         <ExpandRecord
           visible
