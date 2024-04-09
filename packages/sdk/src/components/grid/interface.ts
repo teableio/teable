@@ -134,7 +134,8 @@ export interface IRowControlItem {
 export type ICellItem = [colIndex: number, rowIndex: number];
 
 export type ICollaborator = {
-  activeCell: ICellItem;
+  activeCell?: ICellItem;
+  activeCellId: [recordId: string, field: string];
   user: Omit<IUser, 'phone'>;
   borderColor: string;
   timeStamp: number;
