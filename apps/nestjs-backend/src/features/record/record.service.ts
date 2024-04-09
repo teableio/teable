@@ -507,7 +507,7 @@ export class RecordService implements IAdapterService {
       queryBuilder.orderBy(`${dbTableName}.${basicSortIndex}`, 'asc');
     }
 
-    this.logger.log('buildFilterSortQuery: %s', queryBuilder.toQuery());
+    this.logger.debug('buildFilterSortQuery: %s', queryBuilder.toQuery());
     // If you return `queryBuilder` directly and use `await` to receive it,
     // it will perform a query DB operation, which we obviously don't want to see here
     return { queryBuilder, dbTableName };
@@ -1012,7 +1012,7 @@ export class RecordService implements IAdapterService {
       queryBuilder.limit(take);
     }
 
-    this.logger.log('getRecordsQuery: %s', queryBuilder.toQuery());
+    this.logger.debug('getRecordsQuery: %s', queryBuilder.toQuery());
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());

@@ -87,6 +87,7 @@ model Field {
   lookupLinkedFieldId String?   @map("lookup_linked_field_id")
   lookupOptions       String?   @map("lookup_options")
   tableId             String    @map("table_id")
+  order               Float
   version             Int
   createdTime         DateTime  @default(now()) @map("created_time")
   lastModifiedTime    DateTime? @updatedAt @map("last_modified_time")
