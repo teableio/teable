@@ -144,6 +144,7 @@ export const TableImport = (props: ITableImportProps) => {
         importRo: {
           worksheets: workSheets,
           ...fileInfo,
+          notification: true,
         },
       });
     };
@@ -161,10 +162,12 @@ export const TableImport = (props: ITableImportProps) => {
         ),
       };
       inplaceImportFn([
+        base.id,
         tableId as string,
         {
           ...fileInfo,
           insertConfig: preInsertConfig,
+          notification: true,
         },
       ]);
     };

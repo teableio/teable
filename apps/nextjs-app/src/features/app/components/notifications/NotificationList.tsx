@@ -7,6 +7,7 @@ import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button } from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import Link from 'next/link';
 import React from 'react';
 import { NotificationActionBar } from './NotificationActionBar';
 import { NotificationIcon } from './NotificationIcon';
@@ -67,26 +68,28 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
                 })
               }
             >
-              <div className="max-h-[80px]">
-                <a
-                  className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
-                  href={url}
-                  onClick={() =>
+              <Link
+                className="flex flex-auto cursor-pointer items-center px-6 py-2 hover:bg-accent"
+                href={url}
+                onClick={async () => {
+                  !isRead &&
                     updateStatusMutator({
                       notificationId: id,
                       updateNotifyStatusRo: { isRead: true },
-                    })
-                  }
-                >
-                  <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
-                  <div className="mr-3 w-[calc(100%_-_100px)]  items-center whitespace-pre-wrap break-words text-sm font-normal">
-                    <div>{message}</div>
-                    <div className="truncate text-[11px] opacity-75" title={fromNow}>
-                      {fromNow}
-                    </div>
+                    });
+                }}
+              >
+                <NotificationIcon notifyIcon={notifyIcon} notifyType={notifyType} />
+                <div className="mr-3 w-[calc(100%_-_100px)]  items-center whitespace-pre-wrap break-words text-sm font-normal">
+                  <div
+                    className="max-h-20 overflow-auto break-words"
+                    dangerouslySetInnerHTML={{ __html: message }}
+                  ></div>
+                  <div className="truncate text-[11px] opacity-75" title={fromNow}>
+                    {fromNow}
                   </div>
-                </a>
-              </div>
+                </div>
+              </Link>
             </NotificationActionBar>
           );
         })

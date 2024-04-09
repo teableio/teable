@@ -47,7 +47,14 @@ export abstract class Importer {
   constructor(public config: IImportConstructorParams) {}
 
   abstract parse(
-    ...args: [options?: unknown, cb?: (chunk: Record<string, unknown[][]>) => Promise<void>]
+    ...args: [
+      options?: unknown,
+      chunk?: (
+        chunk: Record<string, unknown[][]>,
+        onFinished?: () => void,
+        onError?: (errorMsg: string) => void
+      ) => Promise<void>,
+    ]
   ): Promise<IParseResult>;
 
   abstract getSupportedFieldTypes(): IValidateTypes[];
@@ -161,19 +168,23 @@ export class CsvImporter extends Importer {
   parse(): Promise<IParseResult>;
   parse(
     options: Papa.ParseConfig & { skipFirstNLines: number; key: string },
-    cb: (chunk: Record<string, unknown[][]>) => Promise<void>
+    chunk: (chunk: Record<string, unknown[][]>) => Promise<void>,
+    onFinished?: () => void,
+    onError?: (errorMsg: string) => void
   ): Promise<void>;
   async parse(
     ...args: [
       options?: Papa.ParseConfig & { skipFirstNLines: number; key: string },
-      cb?: (chunk: Record<string, unknown[][]>) => Promise<void>,
+      chunkCb?: (chunk: Record<string, unknown[][]>) => Promise<void>,
+      onFinished?: () => void,
+      onError?: (errorMsg: string) => void,
     ]
   ): Promise<unknown> {
-    const [options, cb] = args;
+    const [options, chunkCb, onFinished, onError] = args;
     const stream = await this.getFile();
 
     // chunk parse
-    if (options && cb) {
+    if (options && chunkCb) {
       return new Promise((resolve, reject) => {
         let isFirst = true;
         Papa.parse(stream, {
@@ -188,15 +199,17 @@ export class CsvImporter extends Importer {
                 isFirst = false;
               }
               parser.pause();
-              await cb({ [CsvImporter.DEFAULT_SHEETKEY]: newChunk });
+              await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: newChunk });
               parser.resume();
             })();
           },
           complete: () => {
+            onFinished?.();
             resolve({});
           },
-          error: (err) => {
-            reject(err);
+          error: (e) => {
+            onError?.(e?.message || 'unknown error');
+            reject(e);
           },
         });
       });
@@ -232,12 +245,16 @@ export class ExcelImporter extends Importer {
   parse(): Promise<IParseResult>;
   parse(
     options: { skipFirstNLines: number; key: string },
-    cb: (chunk: Record<string, unknown[][]>) => Promise<void>
+    chunk: (chunk: Record<string, unknown[][]>) => Promise<void>,
+    onFinished?: () => void,
+    onError?: (errorMsg: string) => void
   ): Promise<void>;
 
   async parse(
     options?: { skipFirstNLines: number; key: string },
-    cb?: (chunk: Record<string, unknown[][]>) => Promise<void>
+    chunk?: (chunk: Record<string, unknown[][]>) => Promise<void>,
+    onFinished?: () => void,
+    onError?: (errorMsg: string) => void
   ): Promise<unknown> {
     const fileSteam = await this.getFile();
 
@@ -259,18 +276,20 @@ export class ExcelImporter extends Importer {
           res(result);
         });
         stream.on('error', (e) => {
+          onError?.(e?.message || 'unknown error');
           rej(e);
         });
       });
 
     const parseResult = await asyncRs(fileSteam);
 
-    if (options && cb) {
+    if (options && chunk) {
       const { skipFirstNLines, key } = options;
       if (skipFirstNLines) {
         parseResult[key].splice(0, 1);
       }
-      return await cb(parseResult);
+      await chunk(parseResult);
+      onFinished?.();
     }
 
     return parseResult;

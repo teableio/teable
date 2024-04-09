@@ -106,7 +106,7 @@ const genTestFiles = async () => {
 
     fs.writeFileSync(tmpPath, data);
 
-    const file = fs.readFileSync(tmpPath);
+    const file = fs.createReadStream(tmpPath);
     const stats = fs.statSync(tmpPath);
 
     const { token, requestHeaders } = (
@@ -280,7 +280,7 @@ describe('OpenAPI ImportController (e2e)', () => {
     );
   });
 
-  describe('/import/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
+  describe('/import/{baseId}/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
     const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     it('should import data into Table from file', async () => {
@@ -331,7 +331,7 @@ describe('OpenAPI ImportController (e2e)', () => {
       });
 
       // import data into table
-      await apiInplaceImportTableFromFile(tableId, {
+      await apiInplaceImportTableFromFile(baseId, tableId, {
         attachmentUrl,
         fileType,
         insertConfig: {

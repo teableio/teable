@@ -1,6 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { IAnalyzeRo, IImportOptionRo, IInplaceImportOptionRo } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../../types/cls';
+import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
@@ -11,7 +15,10 @@ export class ImportOpenApiService {
   private logger = new Logger(ImportOpenApiService.name);
   constructor(
     private readonly tableOpenApiService: TableOpenApiService,
-    private readonly recordOpenApiService: RecordOpenApiService
+    private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService,
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly notificationService: NotificationService
   ) {}
 
   async analyze(analyzeRo: IAnalyzeRo) {
@@ -26,7 +33,8 @@ export class ImportOpenApiService {
   }
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo) {
-    const { attachmentUrl, fileType, worksheets } = importRo;
+    const userId = this.cls.get('user.id');
+    const { attachmentUrl, fileType, worksheets, notification = false } = importRo;
 
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
@@ -84,8 +92,26 @@ export class ImportOpenApiService {
                 records,
               });
             } catch (e) {
-              this.logger.error((e as Error)?.message, 'Import: Records');
+              this.logger.error((e as Error)?.message, (e as Error)?.stack);
             }
+          },
+          () => {
+            notification &&
+              this.notificationService.sendImportResultNotify({
+                baseId,
+                tableId: table.id,
+                toUserId: userId,
+                message: `<em>${table.name}</em> import successfully🎉`,
+              });
+          },
+          (error) => {
+            notification &&
+              this.notificationService.sendImportResultNotify({
+                baseId,
+                tableId: table.id,
+                toUserId: userId,
+                message: `<em>${table.name}</em> import failed reason: ${error}`,
+              });
           }
         );
       }
@@ -93,10 +119,28 @@ export class ImportOpenApiService {
     return tableResult;
   }
 
-  async inplaceImportTable(tableId: string, inplaceImportRo: IInplaceImportOptionRo) {
-    const { attachmentUrl, fileType, insertConfig } = inplaceImportRo;
+  async inplaceImportTable(
+    baseId: string,
+    tableId: string,
+    inplaceImportRo: IInplaceImportOptionRo
+  ) {
+    const userId = this.cls.get('user.id');
+    const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
 
     const { sourceColumnMap, sourceWorkSheetKey, excludeFirstRow } = insertConfig;
+
+    const tableRaw = await this.prismaService.tableMeta
+      .findUnique({
+        where: { id: tableId, deletedTime: null },
+        select: { name: true },
+      })
+      .catch(() => {
+        throw new BadRequestException('table is not found');
+      });
+
+    if (!tableRaw) {
+      return;
+    }
 
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
@@ -132,8 +176,26 @@ export class ImportOpenApiService {
             records,
           });
         } catch (e) {
-          this.logger.error((e as Error)?.message, 'Import: Records');
+          this.logger.error((e as Error)?.message, (e as Error)?.stack);
         }
+      },
+      () => {
+        notification &&
+          this.notificationService.sendImportResultNotify({
+            baseId,
+            tableId,
+            toUserId: userId,
+            message: `<em>${tableRaw.name}</em> insert data successfully🎉`,
+          });
+      },
+      (error) => {
+        notification &&
+          this.notificationService.sendImportResultNotify({
+            baseId,
+            tableId,
+            toUserId: userId,
+            message: `<em>${tableRaw.name}</em> insert data failed reason: ${error}`,
+          });
       }
     );
   }
