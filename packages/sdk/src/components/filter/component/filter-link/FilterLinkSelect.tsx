@@ -29,7 +29,7 @@ export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
         : onSelect([...values, recordId]);
     } else {
       setOpen(false);
-      onSelect(value?.[0] === recordId ? null : values?.[0]);
+      onSelect(value?.[0] === recordId ? null : recordId);
     }
   };
 
