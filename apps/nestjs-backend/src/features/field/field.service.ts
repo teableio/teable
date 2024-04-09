@@ -78,6 +78,13 @@ export class FieldService implements IReadonlyAdapterService {
       isLookup,
     } = fieldInstance;
 
+    const agg = await this.prismaService.txClient().field.aggregate({
+      where: { tableId, deletedTime: null },
+      _max: {
+        order: true,
+      },
+    });
+    const order = agg._max.order == null ? 0 : agg._max.order + 1;
     const data: Prisma.FieldCreateInput = {
       id,
       table: {
@@ -92,6 +99,7 @@ export class FieldService implements IReadonlyAdapterService {
       notNull,
       unique,
       isPrimary,
+      order,
       version: 1,
       isComputed,
       isLookup,
@@ -220,7 +228,7 @@ export class FieldService implements IReadonlyAdapterService {
           },
         },
         {
-          createdTime: 'asc',
+          order: 'asc',
         },
       ],
     });

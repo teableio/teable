@@ -416,7 +416,7 @@ export class ViewService implements IReadonlyAdapterService {
           },
         },
         {
-          createdTime: 'asc',
+          order: 'asc',
         },
       ],
     });
