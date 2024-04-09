@@ -2,8 +2,9 @@
 import { clamp } from 'lodash';
 import type { CSSProperties, ForwardRefRenderFunction } from 'react';
 import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
+import { HotkeysProvider } from 'react-hotkeys-hook';
 import type { IGridTheme } from '../../configs';
-import { useKeyboardSelection } from '../../hooks';
+import { GRID_HOTKEY_SCOPE, useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
 import type { IActiveCellBound, ICellItem, IRectangle, IScrollState } from '../../interface';
 import type { CombinedSelection } from '../../managers';
@@ -270,22 +271,24 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   return (
-    <div className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full">
-      <div
-        className="absolute z-10"
-        style={{
-          top: rect.y,
-          left: rect.x,
-          minWidth: width,
-          minHeight: height,
-        }}
-        onKeyDown={onKeyDown}
-        onPaste={onPasteInner}
-      >
-        {EditorRenderer}
-        <input className="opacity-0" ref={defaultFocusRef} />
+    <HotkeysProvider initiallyActiveScopes={[GRID_HOTKEY_SCOPE]}>
+      <div className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full">
+        <div
+          className="absolute z-10"
+          style={{
+            top: rect.y,
+            left: rect.x,
+            minWidth: width,
+            minHeight: height,
+          }}
+          onKeyDown={onKeyDown}
+          onPaste={onPasteInner}
+        >
+          {EditorRenderer}
+          <input className="opacity-0" ref={defaultFocusRef} />
+        </div>
       </div>
-    </div>
+    </HotkeysProvider>
   );
 };
 

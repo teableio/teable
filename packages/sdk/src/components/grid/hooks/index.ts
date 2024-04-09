@@ -8,4 +8,3 @@ export * from './useVisibleRegion';
 export * from './useResizeObserver';
 export * from './useScrollFrameRate';
 export * from './useKeyboardSelection';
-export * from './useKeyboardNavigation';

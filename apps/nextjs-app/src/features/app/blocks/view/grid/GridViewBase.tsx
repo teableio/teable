@@ -605,22 +605,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     gridRef.current?.resetState();
   });
 
-  useEffect(() => {
-    if (!selection) {
-      return;
-    }
-    const handleFocus = (event: FocusEvent) => {
-      const target = event.target as Node;
-      if (containerRef.current && !containerRef.current.contains(target)) {
-        gridRef.current?.resetState();
-      }
-    };
-    document.addEventListener('focus', handleFocus, true);
-    return () => {
-      document.removeEventListener('focus', handleFocus, true);
-    };
-  }, [selection]);
-
   useScrollFrameRate(gridRef.current?.scrollBy);
 
   return (

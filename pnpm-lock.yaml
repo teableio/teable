@@ -1315,9 +1315,6 @@ importers:
       '@teable/ui-lib':
         specifier: workspace:*
         version: link:../ui-lib
-      '@types/mousetrap':
-        specifier: 1.6.15
-        version: 1.6.15
       antlr4ts:
         specifier: 0.5.0-alpha.4
         version: 0.5.0-alpha.4
@@ -1357,15 +1354,15 @@ importers:
       lucide-react:
         specifier: 0.363.0
         version: 0.363.0(react@18.2.0)
-      mousetrap:
-        specifier: 1.6.5
-        version: 1.6.5
       react-day-picker:
         specifier: 8.10.0
         version: 8.10.0(date-fns@2.30.0)(react@18.2.0)
       react-hammerjs:
         specifier: 1.0.1
         version: 1.0.1(react@18.2.0)
+      react-hotkeys-hook:
+        specifier: 4.5.0
+        version: 4.5.0(react-dom@18.2.0)(react@18.2.0)
       react-textarea-autosize:
         specifier: 8.5.3
         version: 8.5.3(@types/react@18.2.69)(react@18.2.0)
@@ -9676,10 +9673,6 @@ packages:
   /@types/minimist@1.2.5:
     resolution: {integrity: sha512-hov8bUuiLiyFPGyFPE1lwWhmzYbirOXQNNo40+y3zow8aFVTeyn3VWL0VFFfdNddA8S4Vf0Tc062rzyNr7Paag==}
     dev: true
-
-  /@types/mousetrap@1.6.15:
-    resolution: {integrity: sha512-qL0hyIMNPow317QWW/63RvL1x5MVMV+Ru3NaY9f/CuEpCqrmb7WeuK2071ZY5hczOnm38qExWM2i2WtkXLSqFw==}
-    dev: false
 
   /@types/ms@0.7.34:
     resolution: {integrity: sha512-nG96G3Wp6acyAgJqGasjODb+acrI7KltPiRxzHPXnP3NgI28bpQDRv53olbqGXbfcgF5aiiHmO3xpwEpS5Ld9g==}
@@ -19459,10 +19452,6 @@ packages:
 
   /module-details-from-path@1.0.3:
     resolution: {integrity: sha512-ySViT69/76t8VhE1xXHK6Ch4NcDd26gx0MzKXLO+F7NOtnqH68d9zF94nT8ZWSxXh8ELOERsnJO/sWt1xZYw5A==}
-    dev: false
-
-  /mousetrap@1.6.5:
-    resolution: {integrity: sha512-QNo4kEepaIBwiT8CDhP98umTetp+JNfQYBWvC1pc6/OAibuXtRcxZ58Qz8skvEHYvURne/7R8T5VoOI7rDsEUA==}
     dev: false
 
   /move-concurrently@1.0.1:
