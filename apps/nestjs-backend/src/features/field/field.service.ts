@@ -230,6 +230,9 @@ export class FieldService implements IReadonlyAdapterService {
         {
           order: 'asc',
         },
+        {
+          createdTime: 'asc',
+        },
       ],
     });
 
