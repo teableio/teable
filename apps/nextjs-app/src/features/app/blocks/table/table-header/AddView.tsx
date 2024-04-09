@@ -14,14 +14,14 @@ const VIEW_INFO_LIST = [
     Icon: VIEW_ICON_MAP[ViewType.Grid],
   },
   {
-    name: 'Form View',
-    type: ViewType.Form,
-    Icon: VIEW_ICON_MAP[ViewType.Form],
-  },
-  {
     name: 'Kanban View',
     type: ViewType.Kanban,
     Icon: VIEW_ICON_MAP[ViewType.Kanban],
+  },
+  {
+    name: 'Form View',
+    type: ViewType.Form,
+    Icon: VIEW_ICON_MAP[ViewType.Form],
   },
 ];
 

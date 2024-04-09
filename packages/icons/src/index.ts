@@ -70,6 +70,7 @@ export { default as History } from './components/History';
 export { default as Home } from './components/Home';
 export { default as Import } from './components/Import';
 export { default as Inbox } from './components/Inbox';
+export { default as Kanban } from './components/Kanban';
 export { default as Key } from './components/Key';
 export { default as Layers } from './components/Layers';
 export { default as LayoutList } from './components/LayoutList';
