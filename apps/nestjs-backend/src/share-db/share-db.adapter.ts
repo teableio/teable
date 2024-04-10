@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation, IRecord } from '@teable/core';
 import {
   FieldOpBuilder,
@@ -20,6 +20,7 @@ import { RecordService } from '../features/record/record.service';
 import { TableService } from '../features/table/table.service';
 import { ViewService } from '../features/view/view.service';
 import type { IClsStore } from '../types/cls';
+import { exceptionParse } from '../utils/exception-parse';
 import type { IAdapterService, IReadonlyAdapterService } from './interface';
 import { WsAuthService } from './ws-auth.service';
 
@@ -55,7 +56,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     if (IdPrefix.Record === type) {
       return this.recordService;
     }
-    throw new Error(`QueryType: ${type} has no adapter service implementation`);
+    throw new ForbiddenException(`QueryType: ${type} has no adapter service implementation`);
   }
 
   getReadonlyService(type: IdPrefix): IReadonlyAdapterService {
@@ -110,7 +111,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     query: unknown,
     _options: unknown,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    callback: (error: ShareDb.Error | null, ids: string[], extra?: any) => void
+    callback: (error: any | null, ids: string[], extra?: any) => void
   ) {
     try {
       let currentUser = this.cls.get('user');
@@ -133,7 +134,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       });
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      callback(e as any, []);
+      callback(exceptionParse(e as Error), []);
     }
   }
 
@@ -272,7 +273,7 @@ export class ShareDbAdapter extends ShareDb.DB {
       });
       callback(null, true, true);
     } catch (err) {
-      callback(err);
+      callback(exceptionParse(err as Error));
     }
   }
 
@@ -291,7 +292,7 @@ export class ShareDbAdapter extends ShareDb.DB {
     ids: string[],
     projection: IProjection | undefined,
     options: unknown,
-    callback: (err: ShareDb.Error | null, data?: Record<string, Snapshot>) => void
+    callback: (err: unknown | null, data?: Record<string, Snapshot>) => void
   ) {
     try {
       const [docType, collectionId] = collection.split('_');
@@ -319,8 +320,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         callback(null, this.snapshots2Map(snapshots));
       }
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      callback(err as any);
+      callback(exceptionParse(err as Error));
     }
   }
 
@@ -384,7 +384,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         })
       );
     } catch (err) {
-      callback(err);
+      callback(exceptionParse(err as Error));
     }
   }
 }

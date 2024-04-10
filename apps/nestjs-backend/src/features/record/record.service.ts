@@ -53,6 +53,7 @@ import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
+import { RecordPermissionService } from './record-permission.service';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -65,6 +66,7 @@ export class RecordService implements IAdapterService {
     private readonly batchService: BatchService,
     private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly recordPermissionService: RecordPermissionService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -773,6 +775,7 @@ export class RecordService implements IAdapterService {
     recordId: string,
     opContexts: ISetRecordOpContext[]
   ) {
+    await this.recordPermissionService.hasUpdateRecordPermissionOrThrow(tableId, recordId);
     const dbTableName = await this.getDbTableName(tableId);
     if (opContexts[0].name === OpName.SetRecord) {
       await this.setRecord(
@@ -897,7 +900,11 @@ export class RecordService implements IAdapterService {
     fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
     cellFormat = CellFormat.Json
   ): Promise<ISnapshotBase<IRecord>[]> {
-    const projectionInner = await this.projectionFormPermission(tableId, fieldKeyType, projection);
+    const projectionInner = await this.recordPermissionService.getProjectionWithPermission(
+      tableId,
+      fieldKeyType,
+      projection
+    );
     const dbTableName = await this.getDbTableName(tableId);
 
     const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
@@ -964,34 +971,16 @@ export class RecordService implements IAdapterService {
     return snapshots;
   }
 
-  async shareWithViewId(tableId: string, viewId?: string) {
-    const shareId = this.cls.get('shareViewId');
-    if (!shareId) {
-      return viewId;
-    }
-    const view = await this.prismaService.txClient().view.findFirst({
-      select: { id: true },
-      where: {
-        tableId,
-        shareId,
-        ...(viewId ? { id: viewId } : {}),
-        enableShare: true,
-        deletedTime: null,
-      },
-    });
-    if (!view) {
-      throw new BadRequestException('error shareId');
-    }
-    return view.id;
-  }
-
   async getDocIdsByQuery(
     tableId: string,
     query: IGetRecordsRo
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
-    const viewId = await this.shareWithViewId(tableId, query.viewId);
+    const recordQuery = await this.recordPermissionService.getRecordQueryWithPermission(
+      tableId,
+      query
+    );
 
-    const { skip, take = 100 } = query;
+    const { skip, take = 100 } = recordQuery;
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
@@ -1000,10 +989,7 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
-      ...query,
-      viewId,
-    });
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, recordQuery);
 
     queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
 

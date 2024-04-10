@@ -17,6 +17,7 @@ import {
   OpName,
   ViewOpBuilder,
   viewVoSchema,
+  ViewType,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -33,6 +34,7 @@ import type { IClsStore } from '../../types/cls';
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
+import { ViewPermissionService } from './view-permission.service';
 
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
@@ -42,6 +44,7 @@ export class ViewService implements IReadonlyAdapterService {
     private readonly cls: ClsService<IClsStore>,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
+    private readonly viewPermissionService: ViewPermissionService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
@@ -127,11 +130,32 @@ export class ViewService implements IReadonlyAdapterService {
     return this.createViewIndexField(dbTableName, viewId);
   }
 
+  private async viewDataCompensation(tableId: string, viewRo: IViewRo) {
+    // create view compensation data
+    const innerViewRo = { ...viewRo };
+    // primary field set visible default
+    if ((viewRo.type = ViewType.Kanban)) {
+      const primaryField = await this.prismaService.txClient().field.findFirstOrThrow({
+        where: { tableId, isPrimary: true, deletedTime: null },
+        select: { id: true },
+      });
+      const columnMeta = innerViewRo.columnMeta ?? {};
+      const primaryFieldColumnMeta = columnMeta[primaryField.id] ?? {};
+      innerViewRo.columnMeta = {
+        ...columnMeta,
+        [primaryField.id]: { ...primaryFieldColumnMeta, visible: true },
+      };
+    }
+    return innerViewRo;
+  }
+
   async createDbView(tableId: string, viewRo: IViewRo) {
     const userId = this.cls.get('user.id');
-    const { description, type, options, sort, filter, group, columnMeta } = viewRo;
+    const createViewRo = await this.viewDataCompensation(tableId, viewRo);
 
-    const { name, order } = await this.polishOrderAndName(tableId, viewRo);
+    const { description, type, options, sort, filter, group, columnMeta } = createViewRo;
+
+    const { name, order } = await this.polishOrderAndName(tableId, createViewRo);
 
     const viewId = generateViewId();
     const prisma = this.prismaService.txClient();
@@ -367,11 +391,10 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IViewVo>[]> {
-    const shareViewId = this.cls.get('shareViewId');
-    const shareWhere = shareViewId ? { shareId: shareViewId, enableShare: true } : {};
+    const viewQuery = await this.viewPermissionService.getViewQueryWithPermission();
 
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, id: { in: ids }, ...shareWhere },
+      where: { tableId, id: { in: ids }, ...viewQuery },
     });
 
     return views
@@ -387,11 +410,10 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async getDocIdsByQuery(tableId: string, _query: unknown) {
-    const shareViewId = this.cls.get('shareViewId');
-    const shareWhere = shareViewId ? { shareId: shareViewId, enableShare: true } : {};
+    const viewQuery = await this.viewPermissionService.getViewQueryWithPermission();
 
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null, ...shareWhere },
+      where: { tableId, deletedTime: null, ...viewQuery },
       select: { id: true },
       orderBy: { order: 'asc' },
     });
