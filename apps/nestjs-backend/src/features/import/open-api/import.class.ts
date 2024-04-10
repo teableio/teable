@@ -1,13 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
 import { getUniqName, FieldType } from '@teable/core';
-import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
+import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
 import { zip, toString, intersection } from 'lodash';
 import fetch from 'node-fetch';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
 import z from 'zod';
+import { toLineDelimitedStream } from './delimiter-stream';
 
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.Checkbox]: z.union([z.string(), z.boolean()]).refine((value: unknown) => {
@@ -40,7 +41,7 @@ interface IParseResult {
 }
 
 export abstract class Importer {
-  public static CHUNK_SIZE = 1024 * 1024 * 1;
+  public static CHUNK_SIZE = 2000;
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
@@ -187,10 +188,10 @@ export class CsvImporter extends Importer {
     if (options && chunkCb) {
       return new Promise((resolve, reject) => {
         let isFirst = true;
-        Papa.parse(stream, {
+        let recordBuffer = [] as unknown[][];
+        Papa.parse(toLineDelimitedStream(stream), {
           download: false,
           dynamicTyping: true,
-          chunkSize: Importer.CHUNK_SIZE,
           chunk: (chunk, parser) => {
             (async () => {
               const newChunk = [...chunk.data] as unknown[][];
@@ -198,12 +199,24 @@ export class CsvImporter extends Importer {
                 newChunk.splice(0, 1);
                 isFirst = false;
               }
-              parser.pause();
-              await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: newChunk });
-              parser.resume();
+
+              recordBuffer.push(...newChunk);
+
+              if (recordBuffer.length > Importer.CHUNK_SIZE) {
+                parser.pause();
+                await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+                recordBuffer = [];
+                parser.resume();
+              }
             })();
           },
           complete: () => {
+            (async () => {
+              if (recordBuffer.length) {
+                await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+                recordBuffer = [];
+              }
+            })();
             onFinished?.();
             resolve({});
           },
