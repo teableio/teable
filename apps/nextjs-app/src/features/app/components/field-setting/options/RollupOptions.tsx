@@ -1,7 +1,15 @@
 import type { IRollupFieldOptions, IUnionFormatting, IUnionShowAs } from '@teable/core';
-import { assertNever, ROLLUP_FUNCTIONS, CellValueType } from '@teable/core';
+import {
+  assertNever,
+  ROLLUP_FUNCTIONS,
+  CellValueType,
+  getDefaultFormatting,
+  getFormattingSchema,
+  getShowAsSchema,
+} from '@teable/core';
 import { RollupField } from '@teable/sdk/model';
 import { Selector } from '@teable/ui-lib/base';
+import { isEmpty, isEqual } from 'lodash';
 import { useMemo } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
@@ -39,35 +47,45 @@ export const RollupOptions = (props: {
     isMultipleCellValue,
     onChange,
   } = props;
-  const { formatting, expression } = options;
+  const { expression, formatting, showAs } = options;
 
   const typedValue = isLookup
     ? { cellValueType, isMultipleCellValue }
     : calculateRollupTypedValue(expression, cellValueType, isMultipleCellValue);
 
-  const onExpressionChange = (expression: IRollupFieldOptions['expression']) => {
-    onChange?.({
-      expression,
-    });
+  const onExpressionChange = (expr: IRollupFieldOptions['expression']) => {
+    const { cellValueType: newCellValueType } = isLookup
+      ? { cellValueType }
+      : calculateRollupTypedValue(expr, cellValueType, isMultipleCellValue);
+    const newOptions: IRollupFieldOptions = { expression: expr };
+    if (newCellValueType !== cellValueType) {
+      const defaultFormatting = getDefaultFormatting(newCellValueType);
+      newOptions.formatting = defaultFormatting;
+      newOptions.showAs = undefined;
+    }
+    onChange?.(newOptions);
   };
 
-  const onFormattingChange = (value?: IUnionFormatting) => {
-    const formatting = value;
-    if (isLookup) {
-      return onChange?.({
-        formatting,
-      });
+  const onFormattingChange = (newFormatting?: IUnionFormatting) => {
+    const { cellValueType } = typedValue;
+    const formattingResult = getFormattingSchema(cellValueType).safeParse(newFormatting);
+    const formattingParsed = formattingResult.success ? formattingResult.data : undefined;
+
+    if (isEqual(formattingParsed, formatting)) {
+      return;
     }
-    onChange?.({ formatting });
+    onChange?.({ formatting: isEmpty(formattingParsed) ? undefined : newFormatting });
   };
 
-  const onShowAsChange = (value?: IUnionShowAs) => {
-    if (isLookup) {
-      return onChange?.({
-        showAs: value,
-      });
+  const onShowAsChange = (newShowAs?: IUnionShowAs) => {
+    const { cellValueType, isMultipleCellValue } = typedValue;
+    const showAsResult = getShowAsSchema(cellValueType, isMultipleCellValue).safeParse(newShowAs);
+    const showAsParsed = showAsResult.success ? showAsResult.data : undefined;
+
+    if (isEqual(showAsParsed, showAs)) {
+      return;
     }
-    onChange?.({ showAs: value });
+    onChange?.({ showAs: isEmpty(showAsParsed) ? undefined : newShowAs });
   };
 
   const candidates = useMemo(() => {
