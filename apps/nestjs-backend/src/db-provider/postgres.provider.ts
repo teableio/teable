@@ -16,6 +16,8 @@ import type {
 } from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQueryPostgres } from './filter-query/postgres/filter-query.postgres';
+import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
+import { GroupQueryPostgres } from './group-query/group-query.postgres';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { SearchQueryPostgres } from './search-query/search-query.postgres';
 import { SortQueryPostgres } from './sort-query/postgres/sort-query.postgres';
@@ -235,6 +237,15 @@ export class PostgresProvider implements IDbProvider {
     extra?: ISortQueryExtra
   ): ISortQueryInterface {
     return new SortQueryPostgres(this.knex, originQueryBuilder, fields, sortObjs, extra);
+  }
+
+  groupQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    groupFieldIds?: string[],
+    extra?: IGroupQueryExtra
+  ): IGroupQueryInterface {
+    return new GroupQueryPostgres(this.knex, originQueryBuilder, fieldMap, groupFieldIds, extra);
   }
 
   searchQuery(

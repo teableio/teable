@@ -10,12 +10,13 @@ import type {
   RecordDeleteEvent,
   RecordUpdateEvent,
   ViewUpdateEvent,
+  FieldUpdateEvent,
 } from '../events';
 import { Events } from '../events';
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
-type IListenerEvent = IViewEvent | IRecordEvent;
+type IListenerEvent = IViewEvent | IRecordEvent | FieldUpdateEvent;
 
 @Injectable()
 export class ActionTriggerListener {
@@ -24,11 +25,17 @@ export class ActionTriggerListener {
   constructor(private readonly shareDbService: ShareDbService) {}
 
   @OnEvent(Events.TABLE_VIEW_UPDATE, { async: true })
+  @OnEvent(Events.TABLE_FIELD_UPDATE, { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
     // Handling table view update events
     if (this.isTableViewUpdateEvent(listenerEvent)) {
       await this.handleTableViewUpdate(listenerEvent as ViewUpdateEvent);
+    }
+
+    // Handling table field update events
+    if (this.isTableFieldUpdateEvent(listenerEvent)) {
+      await this.handleTableFieldUpdate(listenerEvent as FieldUpdateEvent);
     }
 
     // Handling table record events (create, delete, update)
@@ -82,6 +89,17 @@ export class ActionTriggerListener {
     }
   }
 
+  private async handleTableFieldUpdate(event: FieldUpdateEvent): Promise<void> {
+    if (!this.isValidFieldUpdateOperation(event)) {
+      return;
+    }
+
+    const { tableId } = event.payload;
+    return this.emitActionTrigger(tableId, {
+      setField: [tableId],
+    });
+  }
+
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
     const { tableId } = event.payload;
 
@@ -101,10 +119,20 @@ export class ActionTriggerListener {
     return Events.TABLE_VIEW_UPDATE === event.name;
   }
 
+  private isTableFieldUpdateEvent(event: IListenerEvent): boolean {
+    return Events.TABLE_FIELD_UPDATE === event.name;
+  }
+
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
     const propertyKeys = ['filter', 'group'];
     const { name, propertyKey } = event.context.opMeta || {};
     return name === OpName.UpdateViewColumnMeta || propertyKeys.includes(propertyKey as string);
+  }
+
+  private isValidFieldUpdateOperation(event: FieldUpdateEvent): boolean | undefined {
+    const propertyKeys = ['options'];
+    const { propertyKey } = event.context.opMeta || {};
+    return propertyKeys.includes(propertyKey as string);
   }
 
   private isTableRecordEvent(event: IListenerEvent): boolean {

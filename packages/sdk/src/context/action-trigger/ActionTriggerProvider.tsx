@@ -51,7 +51,7 @@ export const ActionTriggerProvider: FC<INotificationProviderProps> = ({ children
 
       const isRelevantAction = actionSets.length > 0;
 
-      const keys: PropKeys[] = ['addRecord', 'setRecord', 'deleteRecord'];
+      const keys: PropKeys[] = ['addRecord', 'setRecord', 'deleteRecord', 'setField'];
       const hasSpecificKeys = keys.some((key) => key in actionTrigger);
 
       const isDependencyTriggered = hasSpecificKeys
