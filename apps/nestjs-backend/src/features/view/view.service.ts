@@ -134,7 +134,7 @@ export class ViewService implements IReadonlyAdapterService {
     // create view compensation data
     const innerViewRo = { ...viewRo };
     // primary field set visible default
-    if ((viewRo.type = ViewType.Kanban)) {
+    if (viewRo.type === ViewType.Kanban) {
       const primaryField = await this.prismaService.txClient().field.findFirstOrThrow({
         where: { tableId, isPrimary: true, deletedTime: null },
         select: { id: true },
