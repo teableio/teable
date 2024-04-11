@@ -1,7 +1,13 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IAnalyzeRo, IImportOptionRo, IInplaceImportOptionRo } from '@teable/openapi';
+import type {
+  IAnalyzeRo,
+  IImportOptionRo,
+  IInplaceImportOptionRo,
+  ITableFullVo,
+  IImportColumn,
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { NotificationService } from '../../notification/notification.service';
@@ -9,6 +15,7 @@ import { RecordOpenApiService } from '../../record/open-api/record-open-api.serv
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
 import { importerFactory } from './import.class';
+import type { CsvImporter, ExcelImporter } from './import.class';
 
 @Injectable()
 export class ImportOpenApiService {
@@ -64,57 +71,18 @@ export class ImportOpenApiService {
 
       const { fields } = table;
 
-      if (importData) {
-        importer.parse(
+      importData &&
+        this.importRecords(
+          baseId,
+          table,
+          userId,
+          importer,
+          { skipFirstNLines: useFirstRowAsHeader ? 1 : 0, sheetKey, notification },
           {
-            skipFirstNLines: useFirstRowAsHeader ? 1 : 0,
-            key: sheetKey,
-          },
-          async (result) => {
-            const currentResult = result[sheetKey];
-            // fill data
-            const records = currentResult.map((row) => {
-              const res: { fields: Record<string, unknown> } = {
-                fields: {},
-              };
-              columnInfo.forEach((col, index) => {
-                res.fields[fields[index].id] = row[col.sourceColumnIndex];
-              });
-              return res;
-            });
-            if (records.length === 0) {
-              return;
-            }
-            try {
-              await this.recordOpenApiService.multipleCreateRecords(table.id, {
-                fieldKeyType: FieldKeyType.Id,
-                typecast: true,
-                records,
-              });
-            } catch (e) {
-              this.logger.error((e as Error)?.message, (e as Error)?.stack);
-            }
-          },
-          () => {
-            notification &&
-              this.notificationService.sendImportResultNotify({
-                baseId,
-                tableId: table.id,
-                toUserId: userId,
-                message: `<em>${table.name}</em> import successfully🎉`,
-              });
-          },
-          (error) => {
-            notification &&
-              this.notificationService.sendImportResultNotify({
-                baseId,
-                tableId: table.id,
-                toUserId: userId,
-                message: `<em>${table.name}</em> import failed reason: ${error}`,
-              });
+            columnInfo,
+            fields,
           }
         );
-      }
     }
     return tableResult;
   }
@@ -147,54 +115,90 @@ export class ImportOpenApiService {
       type: fileType,
     });
 
+    this.importRecords(
+      baseId,
+      { id: tableId, name: tableRaw.name },
+      userId,
+      importer,
+      { skipFirstNLines: excludeFirstRow ? 1 : 0, sheetKey: sourceWorkSheetKey, notification },
+      {
+        sourceColumnMap,
+      }
+    );
+  }
+
+  private importRecords(
+    baseId: string,
+    table: { id: string; name: string },
+    userId: string,
+    importer: CsvImporter | ExcelImporter,
+    options: { skipFirstNLines: number; sheetKey: string; notification: boolean },
+    recordsCal: {
+      columnInfo?: IImportColumn[];
+      fields?: ITableFullVo['fields'];
+      sourceColumnMap?: Record<string, number | null>;
+    }
+  ) {
+    const { skipFirstNLines, sheetKey, notification } = options;
+    const { columnInfo, fields, sourceColumnMap } = recordsCal;
     importer.parse(
       {
-        skipFirstNLines: excludeFirstRow ? 1 : 0,
-        key: sourceWorkSheetKey,
+        skipFirstNLines,
+        key: sheetKey,
       },
       async (result) => {
-        const currentResult = result[sourceWorkSheetKey];
-        if (currentResult.length === 0) {
-          return;
-        }
+        const currentResult = result[sheetKey];
         // fill data
         const records = currentResult.map((row) => {
           const res: { fields: Record<string, unknown> } = {
             fields: {},
           };
-          for (const [key, value] of Object.entries(sourceColumnMap)) {
-            if (value !== null) {
-              res.fields[key] = row[value];
+          // import new table
+          if (columnInfo && fields) {
+            columnInfo.forEach((col, index) => {
+              res.fields[fields[index].id] = row[col.sourceColumnIndex];
+            });
+          }
+          // inplace records
+          if (sourceColumnMap) {
+            for (const [key, value] of Object.entries(sourceColumnMap)) {
+              if (value !== null) {
+                res.fields[key] = row[value];
+              }
             }
           }
           return res;
         });
+        if (records.length === 0) {
+          return;
+        }
         try {
-          await this.recordOpenApiService.multipleCreateRecords(tableId, {
+          await this.recordOpenApiService.multipleCreateRecords(table.id, {
             fieldKeyType: FieldKeyType.Id,
             typecast: true,
             records,
           });
         } catch (e) {
           this.logger.error((e as Error)?.message, (e as Error)?.stack);
+          throw e;
         }
       },
       () => {
         notification &&
           this.notificationService.sendImportResultNotify({
             baseId,
-            tableId,
+            tableId: table.id,
             toUserId: userId,
-            message: `<em>${tableRaw.name}</em> insert data successfully🎉`,
+            message: `<em>${table.name}</em> import successfully🎉`,
           });
       },
       (error) => {
         notification &&
           this.notificationService.sendImportResultNotify({
             baseId,
-            tableId,
+            tableId: table.id,
             toUserId: userId,
-            message: `<em>${tableRaw.name}</em> insert data failed reason: ${error}`,
+            message: `<em>${table.name}</em> import abort: \n <code>${error}</code>`,
           });
       }
     );

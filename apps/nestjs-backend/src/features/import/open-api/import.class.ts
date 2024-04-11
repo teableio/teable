@@ -41,7 +41,7 @@ interface IParseResult {
 }
 
 export abstract class Importer {
-  public static CHUNK_SIZE = 2000;
+  public static CHUNK_SIZE = 500;
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
@@ -188,7 +188,8 @@ export class CsvImporter extends Importer {
     if (options && chunkCb) {
       return new Promise((resolve, reject) => {
         let isFirst = true;
-        let recordBuffer = [] as unknown[][];
+        let recordBuffer: unknown[][] = [];
+        let isAbort = false;
         Papa.parse(toLineDelimitedStream(stream), {
           download: false,
           dynamicTyping: true,
@@ -204,7 +205,15 @@ export class CsvImporter extends Importer {
 
               if (recordBuffer.length > Importer.CHUNK_SIZE) {
                 parser.pause();
-                await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+                try {
+                  await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+                } catch (e) {
+                  isAbort = true;
+                  recordBuffer = [];
+                  // TODO: judge error type
+                  // onError?.(e?.message || 'unknown error');
+                  parser.abort();
+                }
                 recordBuffer = [];
                 parser.resume();
               }
@@ -217,7 +226,7 @@ export class CsvImporter extends Importer {
                 recordBuffer = [];
               }
             })();
-            onFinished?.();
+            !isAbort && onFinished?.();
             resolve({});
           },
           error: (e) => {
