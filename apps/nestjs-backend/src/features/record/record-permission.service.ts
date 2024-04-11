@@ -66,7 +66,7 @@ export class RecordPermissionService {
     if (shareViewId) {
       return this.getProjectionWithSharePermission(tableId, fieldKeyType, projection);
     }
-    return undefined;
+    return projection;
   }
 
   private async getProjectionWithSharePermission(
