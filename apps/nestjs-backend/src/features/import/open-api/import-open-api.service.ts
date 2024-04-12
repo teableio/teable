@@ -189,7 +189,7 @@ export class ImportOpenApiService {
             baseId,
             tableId: table.id,
             toUserId: userId,
-            message: `<em>${table.name}</em> import successfully🎉`,
+            message: `<em>${table.name}</em> ${sourceColumnMap ? 'inplace' : ''} import successfully🎉`,
           });
       },
       (error) => {

@@ -4,6 +4,7 @@ import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
 import { zip, toString, intersection } from 'lodash';
 import fetch from 'node-fetch';
+import sizeof from 'object-sizeof';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
@@ -44,7 +45,9 @@ interface IParseResult {
 export abstract class Importer {
   public static DEFAULT_ERROR_MESSAGE = 'unknown error';
 
-  public static CHUNK_SIZE = 500;
+  public static CHUNK_SIZE = 1024 * 1024 * 0.2;
+
+  public static MAX_CHUNK_LENGTH = 500;
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
@@ -206,7 +209,10 @@ export class CsvImporter extends Importer {
 
               recordBuffer.push(...newChunk);
 
-              if (recordBuffer.length > Importer.CHUNK_SIZE) {
+              if (
+                recordBuffer.length >= Importer.MAX_CHUNK_LENGTH ||
+                sizeof(recordBuffer) > Importer.CHUNK_SIZE
+              ) {
                 parser.pause();
                 try {
                   await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
@@ -233,7 +239,6 @@ export class CsvImporter extends Importer {
                 const error = exceptionParse(e as Error);
                 onError?.(error?.message || Importer.DEFAULT_ERROR_MESSAGE);
               }
-
               !isAbort && onFinished?.();
               resolve({});
             })();
