@@ -87,18 +87,12 @@ export class RecordPermissionService {
 
       const view = createViewVoByRaw(rawView);
 
-      const fieldsPlain = await this.prismaService.txClient().field.findMany({
+      const fields = await this.prismaService.txClient().field.findMany({
         where: { tableId, deletedTime: null },
         select: {
           id: true,
           name: true,
         },
-      });
-
-      const fields = fieldsPlain.map((field) => {
-        return {
-          ...field,
-        };
       });
 
       if (!view?.shareMeta?.includeHiddenField) {

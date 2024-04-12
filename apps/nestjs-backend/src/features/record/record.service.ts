@@ -13,7 +13,6 @@ import type {
   ILinkCellValue,
   IRecord,
   ISetRecordOpContext,
-  IShareViewMeta,
   ISnapshotBase,
   ISortItem,
 } from '@teable/core';
@@ -809,48 +808,6 @@ export class RecordService implements IAdapterService {
     });
 
     return fields.map((field) => createFieldInstanceByRaw(field));
-  }
-
-  async projectionFormPermission(
-    tableId: string,
-    fieldKeyType: FieldKeyType,
-    projection?: { [fieldNameOrId: string]: boolean }
-  ) {
-    const shareId = this.cls.get('shareViewId');
-    const projectionInner = projection || {};
-    if (shareId) {
-      const rawView = await this.prismaService.txClient().view.findFirst({
-        where: { shareId: shareId, enableShare: true, deletedTime: null },
-        select: { id: true, shareMeta: true, columnMeta: true },
-      });
-      const view = {
-        ...rawView,
-        columnMeta: rawView?.columnMeta ? JSON.parse(rawView.columnMeta) : {},
-      };
-      if (!view) {
-        throw new NotFoundException();
-      }
-      const fieldsPlain = await this.prismaService.txClient().field.findMany({
-        where: { tableId, deletedTime: null },
-        select: {
-          id: true,
-          name: true,
-        },
-      });
-
-      const fields = fieldsPlain.map((field) => {
-        return {
-          ...field,
-        };
-      });
-
-      if (!(view.shareMeta as IShareViewMeta)?.includeHiddenField) {
-        fields
-          .filter((field) => !view.columnMeta[field.id].hidden)
-          .forEach((field) => (projectionInner[field[fieldKeyType]] = true));
-      }
-    }
-    return Object.keys(projectionInner).length ? projectionInner : undefined;
   }
 
   private async recordsPresignedUrl(
