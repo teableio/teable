@@ -104,11 +104,14 @@ export class PrismaService
         this.cls.set('tx.client', prisma);
         this.cls.set('tx.id', nanoid());
         this.cls.set('tx.timeStr', new Date().toISOString());
-        const res = await fn(prisma);
-        this.cls.set('tx.client', undefined);
-        this.cls.set('tx.id', undefined);
-        this.cls.set('tx.timeStr', undefined);
-        return res;
+        try {
+          // can not delete await here
+          return await fn(prisma);
+        } finally {
+          this.cls.set('tx.client', undefined);
+          this.cls.set('tx.id', undefined);
+          this.cls.set('tx.timeStr', undefined);
+        }
       }, options);
       this.afterTxCb?.();
     });

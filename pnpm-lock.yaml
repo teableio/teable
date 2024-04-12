@@ -258,6 +258,9 @@ importers:
       nodemailer:
         specifier: 6.9.13
         version: 6.9.13
+      object-sizeof:
+        specifier: 2.6.4
+        version: 2.6.4
       papaparse:
         specifier: 5.4.1
         version: 5.4.1
@@ -20087,6 +20090,12 @@ packages:
   /object-keys@1.1.1:
     resolution: {integrity: sha512-NuAESUOUMrlIXOfHKzD6bpPu3tYt3xvjNdRIQ+FeT0lNb4K8WR70CaDxhuNguS2XG+GjkyMwOzsN5ZktImfhLA==}
     engines: {node: '>= 0.4'}
+
+  /object-sizeof@2.6.4:
+    resolution: {integrity: sha512-YuJAf7Bi61KROcYmXm8RCeBrBw8UOaJDzTm1gp0eU7RjYi1xEte3/Nmg/VyPaHcJZ3sNojs1Y0xvSrgwkLmcFw==}
+    dependencies:
+      buffer: 6.0.3
+    dev: false
 
   /object-visit@1.0.1:
     resolution: {integrity: sha512-GBaMwwAVK9qbQN3Scdo0OyvgPW7l3lnaVMj84uTOZlswkX0KpF6fyDBJhtTthf7pymztoN36/KEr1DyhF96zEA==}

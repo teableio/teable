@@ -4,10 +4,12 @@ import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
 import { zip, toString, intersection } from 'lodash';
 import fetch from 'node-fetch';
+import sizeof from 'object-sizeof';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
 import z from 'zod';
+import { exceptionParse } from '../../../utils/exception-parse';
 import { toLineDelimitedStream } from './delimiter-stream';
 
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
@@ -41,7 +43,11 @@ interface IParseResult {
 }
 
 export abstract class Importer {
-  public static CHUNK_SIZE = 2000;
+  public static DEFAULT_ERROR_MESSAGE = 'unknown error';
+
+  public static CHUNK_SIZE = 1024 * 1024 * 0.2;
+
+  public static MAX_CHUNK_LENGTH = 500;
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
@@ -188,7 +194,8 @@ export class CsvImporter extends Importer {
     if (options && chunkCb) {
       return new Promise((resolve, reject) => {
         let isFirst = true;
-        let recordBuffer = [] as unknown[][];
+        let recordBuffer: unknown[][] = [];
+        let isAbort = false;
         Papa.parse(toLineDelimitedStream(stream), {
           download: false,
           dynamicTyping: true,
@@ -202,9 +209,20 @@ export class CsvImporter extends Importer {
 
               recordBuffer.push(...newChunk);
 
-              if (recordBuffer.length > Importer.CHUNK_SIZE) {
+              if (
+                recordBuffer.length >= Importer.MAX_CHUNK_LENGTH ||
+                sizeof(recordBuffer) > Importer.CHUNK_SIZE
+              ) {
                 parser.pause();
-                await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+                try {
+                  await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+                } catch (e) {
+                  isAbort = true;
+                  recordBuffer = [];
+                  const error = exceptionParse(e as Error);
+                  onError?.(error?.message || Importer.DEFAULT_ERROR_MESSAGE);
+                  parser.abort();
+                }
                 recordBuffer = [];
                 parser.resume();
               }
@@ -212,16 +230,21 @@ export class CsvImporter extends Importer {
           },
           complete: () => {
             (async () => {
-              if (recordBuffer.length) {
-                await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+              try {
+                recordBuffer.length &&
+                  (await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer }));
+              } catch (e) {
+                isAbort = true;
                 recordBuffer = [];
+                const error = exceptionParse(e as Error);
+                onError?.(error?.message || Importer.DEFAULT_ERROR_MESSAGE);
               }
+              !isAbort && onFinished?.();
+              resolve({});
             })();
-            onFinished?.();
-            resolve({});
           },
           error: (e) => {
-            onError?.(e?.message || 'unknown error');
+            onError?.(e?.message || Importer.DEFAULT_ERROR_MESSAGE);
             reject(e);
           },
         });
@@ -289,7 +312,7 @@ export class ExcelImporter extends Importer {
           res(result);
         });
         stream.on('error', (e) => {
-          onError?.(e?.message || 'unknown error');
+          onError?.(e?.message || Importer.DEFAULT_ERROR_MESSAGE);
           rej(e);
         });
       });
