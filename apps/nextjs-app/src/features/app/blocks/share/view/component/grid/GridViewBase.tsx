@@ -35,6 +35,7 @@ import {
   useRowCount,
   useSSRRecord,
   useSSRRecords,
+  useSearch,
   useTableId,
   useView,
 } from '@teable/sdk/hooks';
@@ -45,8 +46,9 @@ import { useClickAway } from 'react-use';
 import { StatisticMenu } from '@/features/app/blocks/view/grid/components';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
+import { useHiddenFields } from '@/features/app/hooks/useHiddenFields';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from '../../../../view/grid/const';
-import { useCopy } from '../../../../view/grid/hooks';
+import { useSelectionOperation } from '../../../../view/grid/hooks';
 import { useGridViewStore } from '../../../../view/grid/store/gridView';
 
 export const GridViewBase = () => {
@@ -70,12 +72,10 @@ export const GridViewBase = () => {
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
-
+  const { searchQuery: search } = useSearch();
+  const hiddenFields = useHiddenFields();
   const customIcons = useGridIcons();
-  const { mutateAsync: copy } = useMutation({
-    mutationFn: (copyRo: IRangesRo) => shareViewCopy(router.query.shareId as string, copyRo),
-  });
-  const copyMethod = useCopy({ copyReq: copy });
+
   const { filter, sort, group } = view ?? {};
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
@@ -85,6 +85,19 @@ export const GridViewBase = () => {
     generateLocalId(tableId, view?.id),
     groupPoints
   );
+
+  const { mutateAsync: copyReq } = useMutation({
+    mutationFn: (copyRo: IRangesRo) =>
+      shareViewCopy(router.query.shareId as string, {
+        ...copyRo,
+        orderBy: view?.sort?.sortObjs,
+        groupBy: view?.group,
+        filter: mergeFilter(view?.filter, viewGroupQuery?.filter),
+        search,
+        excludeFieldIds: hiddenFields.map((field) => field.id),
+      }),
+  });
+  const { copy } = useSelectionOperation({ copyReq });
 
   const viewQuery = useMemo(() => {
     const mergedFilter = mergeFilter(filter, viewGroupQuery?.filter);
@@ -177,13 +190,9 @@ export const GridViewBase = () => {
         toast({ title: "Sorry, the table's owner has disabled copying" });
         return;
       }
-      const toaster = toast({
-        title: 'Copying...',
-      });
-      await copyMethod(selection);
-      toaster.update({ id: toaster.id, title: 'Copied success!' });
+      await copy(selection);
     },
-    [copyMethod, view?.shareMeta?.allowCopy, toast]
+    [copy, view?.shareMeta?.allowCopy, toast]
   );
 
   const onColumnStatisticClick = useCallback(

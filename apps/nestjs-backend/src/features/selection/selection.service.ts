@@ -160,11 +160,12 @@ export class SelectionService {
   }
 
   private async columnsSelectionCtx(tableId: string, rangesRo: IRangesRo) {
-    const { ranges, type, ...queryRo } = rangesRo;
+    const { ranges, type, excludeFieldIds, ...queryRo } = rangesRo;
 
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: queryRo.viewId,
       filterHidden: true,
+      excludeFieldIds,
     });
 
     const records = await this.recordService.getRecordsFields(tableId, {
@@ -184,10 +185,11 @@ export class SelectionService {
   }
 
   private async rowsSelectionCtx(tableId: string, rangesRo: IRangesRo) {
-    const { ranges, type, ...queryRo } = rangesRo;
+    const { ranges, type, excludeFieldIds, ...queryRo } = rangesRo;
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: queryRo.viewId,
       filterHidden: true,
+      excludeFieldIds,
     });
     let records: Pick<IRecord, 'id' | 'fields'>[] = [];
     for (const [start, end] of ranges) {
@@ -208,11 +210,12 @@ export class SelectionService {
   }
 
   private async defaultSelectionCtx(tableId: string, rangesRo: IRangesRo) {
-    const { ranges, type, ...queryRo } = rangesRo;
+    const { ranges, type, excludeFieldIds, ...queryRo } = rangesRo;
     const [start, end] = ranges;
     const fields = await this.fieldService.getFieldInstances(tableId, {
       viewId: queryRo.viewId,
       filterHidden: true,
+      excludeFieldIds,
     });
 
     const records = await this.recordService.getRecordsFields(tableId, {
@@ -229,7 +232,7 @@ export class SelectionService {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<{ cellCount: number; columnCount: number; rowCount: number }> {
-    const { ranges, type, ...queryRo } = rangesRo;
+    const { ranges, type, excludeFieldIds, ...queryRo } = rangesRo;
     switch (type) {
       case RangeType.Columns: {
         const { rowCount } = await this.aggregationService.performRowCount(tableId, queryRo);
@@ -242,6 +245,7 @@ export class SelectionService {
         const fields = await this.fieldService.getFieldsByQuery(tableId, {
           viewId: queryRo.viewId,
           filterHidden: true,
+          excludeFieldIds,
         });
         const columnCount = fields.length;
         const rowCount = ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);

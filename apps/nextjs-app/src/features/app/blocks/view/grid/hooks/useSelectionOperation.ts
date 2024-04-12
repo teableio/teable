@@ -87,7 +87,11 @@ export const useCopy = (props: {
   );
 };
 
-export const useSelectionOperation = (filter?: IFilter) => {
+export const useSelectionOperation = (props?: {
+  filter?: IFilter;
+  copyReq?: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, IRangesRo, unknown>;
+}) => {
+  const { filter, copyReq } = props || {};
   const tableId = useTableId();
   const viewId = useViewId();
   const fields = useFields();
@@ -95,7 +99,7 @@ export const useSelectionOperation = (filter?: IFilter) => {
   const { searchQuery: search } = useSearch();
   const groupBy = view?.group;
 
-  const { mutateAsync: copyReq } = useMutation({
+  const { mutateAsync: defaultCopyReq } = useMutation({
     mutationFn: (copyRo: IRangesRo) =>
       copy(tableId!, { ...copyRo, viewId, groupBy, filter, search }),
   });
@@ -111,7 +115,7 @@ export const useSelectionOperation = (filter?: IFilter) => {
   });
 
   const { toast } = useToast();
-  const copyMethod = useCopy({ copyReq });
+  const copyMethod = useCopy({ copyReq: copyReq || defaultCopyReq });
 
   const handleFilePaste = useCallback(
     async (
