@@ -198,7 +198,7 @@ export class ImportOpenApiService {
             baseId,
             tableId: table.id,
             toUserId: userId,
-            message: `<em>${table.name}</em> import abort: \n <code>${error}</code>`,
+            message: `<em>${table.name}</em> import abort: ${error}`,
           });
       }
     );

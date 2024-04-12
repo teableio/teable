@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
 import z from 'zod';
+import { exceptionParse } from '../../../utils/exception-parse';
 import { toLineDelimitedStream } from './delimiter-stream';
 
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
@@ -41,6 +42,8 @@ interface IParseResult {
 }
 
 export abstract class Importer {
+  public static DEFAULT_ERROR_MESSAGE = 'unknown error';
+
   public static CHUNK_SIZE = 500;
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
@@ -210,8 +213,8 @@ export class CsvImporter extends Importer {
                 } catch (e) {
                   isAbort = true;
                   recordBuffer = [];
-                  // TODO: judge error type
-                  // onError?.(e?.message || 'unknown error');
+                  const error = exceptionParse(e as Error);
+                  onError?.(error?.message || Importer.DEFAULT_ERROR_MESSAGE);
                   parser.abort();
                 }
                 recordBuffer = [];
@@ -221,16 +224,22 @@ export class CsvImporter extends Importer {
           },
           complete: () => {
             (async () => {
-              if (recordBuffer.length) {
-                await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer });
+              try {
+                recordBuffer.length &&
+                  (await chunkCb({ [CsvImporter.DEFAULT_SHEETKEY]: recordBuffer }));
+              } catch (e) {
+                isAbort = true;
                 recordBuffer = [];
+                const error = exceptionParse(e as Error);
+                onError?.(error?.message || Importer.DEFAULT_ERROR_MESSAGE);
               }
+
+              !isAbort && onFinished?.();
+              resolve({});
             })();
-            !isAbort && onFinished?.();
-            resolve({});
           },
           error: (e) => {
-            onError?.(e?.message || 'unknown error');
+            onError?.(e?.message || Importer.DEFAULT_ERROR_MESSAGE);
             reject(e);
           },
         });
@@ -298,7 +307,7 @@ export class ExcelImporter extends Importer {
           res(result);
         });
         stream.on('error', (e) => {
-          onError?.(e?.message || 'unknown error');
+          onError?.(e?.message || Importer.DEFAULT_ERROR_MESSAGE);
           rej(e);
         });
       });
