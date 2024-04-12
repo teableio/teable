@@ -91,5 +91,5 @@ export const mergeFilter = (filter1?: IFilter, filter2?: IFilter) => {
   return {
     filterSet: [{ filterSet: [finalFilter1, finalFilter2], conjunction: 'and' }],
     conjunction: 'and',
-  };
+  } as IFilter;
 };

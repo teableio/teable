@@ -125,7 +125,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     viewGroupQuery
   );
 
-  const { copy, paste, clear } = useSelectionOperation(viewGroupQuery?.filter);
+  const { copy, paste, clear } = useSelectionOperation({ filter: viewGroupQuery?.filter });
 
   const {
     prefillingRowIndex,

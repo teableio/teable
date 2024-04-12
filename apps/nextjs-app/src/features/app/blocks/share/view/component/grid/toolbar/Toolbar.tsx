@@ -1,6 +1,6 @@
 import { FieldType, type IGridViewOptions } from '@teable/core';
-import { ArrowUpDown, Filter as FilterIcon, LayoutList } from '@teable/icons';
-import { Filter, useView, RowHeight, Group } from '@teable/sdk';
+import { ArrowUpDown, EyeOff, Filter as FilterIcon, LayoutList } from '@teable/icons';
+import { Filter, useView, RowHeight, Group, HideFields } from '@teable/sdk';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useToolbarChange } from '@/features/app/blocks/view/hooks/useToolbarChange';
 import { SearchButton } from '@/features/app/blocks/view/search/SearchButton';
@@ -20,6 +20,13 @@ export const Toolbar = () => {
 
   return (
     <div className="flex w-full items-center justify-between gap-2 border-b px-4 py-2 @container/toolbar">
+      <HideFields>
+        {(text, isActive) => (
+          <ToolBarButton isActive={isActive} text={text} textClassName="@2xl/toolbar:inline">
+            <EyeOff className="size-4 text-sm" />
+          </ToolBarButton>
+        )}
+      </HideFields>
       <Filter
         components={{
           [FieldType.User]: FilterUser,
