@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
+import { useEffect } from 'react';
 import { FieldSelector } from './FieldSelector';
 
 interface IPreviewColumnProps {
@@ -46,6 +47,22 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
       value: col.name,
       icon: fieldStaticGetter(col.type, false).Icon,
     })) || [];
+
+  useEffect(() => {
+    const isEmptySourceColumnMap = !Object.keys(insertConfig.sourceColumnMap).length;
+    const initSourceColumnMap: Record<string, number | null> = {};
+    const analyzeColumns = sourceColumnMap?.columns;
+    // init sourceColumnMap automatically
+    // TODO add more match logic
+    if (isEmptySourceColumnMap && analyzeColumns?.length) {
+      columns.forEach((col, index) => {
+        if (analyzeColumns[index] && !UNSUPPORTFIELDTYPES.includes(col.type)) {
+          initSourceColumnMap[col.id] = index;
+        }
+      });
+      onChange(initSourceColumnMap);
+    }
+  }, [columns, insertConfig.sourceColumnMap, onChange, sourceColumnMap?.columns]);
 
   return (
     <Table className="relative scroll-smooth">
