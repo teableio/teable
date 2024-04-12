@@ -1,3 +1,4 @@
+import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { AccessTokenModule } from './features/access-token/access-token.module';
 import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
@@ -23,9 +24,8 @@ import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
 import { WsModule } from './ws/ws.module';
 
-@Module({
+export const appModules = {
   imports: [
-    GlobalModule,
     LoggerModule.register(),
     HealthModule,
     NextModule,
@@ -49,5 +49,17 @@ import { WsModule } from './ws/ws.module';
     ExportOpenApiModule,
   ],
   providers: [InitBootstrapProvider],
+};
+
+@Module({
+  ...appModules,
+  imports: [GlobalModule, ...appModules.imports],
 })
-export class AppModule {}
+export class AppModule {
+  static register(customModuleMetadata: ModuleMetadata) {
+    return {
+      module: AppModule,
+      ...customModuleMetadata,
+    };
+  }
+}

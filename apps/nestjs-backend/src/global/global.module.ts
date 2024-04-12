@@ -1,4 +1,4 @@
-import type { MiddlewareConsumer, NestModule } from '@nestjs/common';
+import type { DynamicModule, MiddlewareConsumer, ModuleMetadata, NestModule } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
 import { context, trace } from '@opentelemetry/api';
 import { PrismaModule } from '@teable/db-main-prisma';
@@ -10,11 +10,13 @@ import { ConfigModule } from '../configs/config.module';
 import { X_REQUEST_ID } from '../const';
 import { EventEmitterModule } from '../event-emitter/event-emitter.module';
 import { PermissionModule } from '../features/auth/permission.module';
+import { FieldPermissionService } from '../features/field/field-permission.service';
 import { MailSenderModule } from '../features/mail-sender/mail-sender.module';
+import { RecordPermissionService } from '../features/record/record-permission.service';
+import { ViewPermissionService } from '../features/view/view-permission.service';
 import { KnexModule } from './knex';
 
-@Global()
-@Module({
+const globalModules = {
   imports: [
     ConfigModule.register(),
     ClsModule.forRoot({
@@ -41,9 +43,25 @@ import { KnexModule } from './knex';
     PrismaModule,
     PermissionModule,
   ],
-})
+  // for overriding the default FieldPermissionService, RecordPermissionService, and ViewPermissionService
+  providers: [FieldPermissionService, RecordPermissionService, ViewPermissionService],
+  exports: [FieldPermissionService, RecordPermissionService, ViewPermissionService],
+};
+
+@Global()
+@Module(globalModules)
 export class GlobalModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(ClsMiddleware).forRoutes('*');
+  }
+
+  static register(moduleMetadata: ModuleMetadata): DynamicModule {
+    return {
+      module: GlobalModule,
+      global: true,
+      imports: [...globalModules.imports, ...(moduleMetadata.imports || [])],
+      providers: [...globalModules.providers, ...(moduleMetadata.providers || [])],
+      exports: [...globalModules.exports, ...(moduleMetadata.exports || [])],
+    };
   }
 }

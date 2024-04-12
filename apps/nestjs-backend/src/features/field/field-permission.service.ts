@@ -12,7 +12,7 @@ export class FieldPermissionService {
     private readonly prismaService: PrismaService
   ) {}
 
-  async getFieldsQueryWithPermission(tableId: string, fieldsQuery: IGetFieldsQuery) {
+  async getFieldsQueryWithPermission(tableId: string, fieldsQuery?: IGetFieldsQuery) {
     const shareViewId = this.cls.get('shareViewId');
     if (shareViewId) {
       return this.getFieldsQueryWithSharePermission(tableId, fieldsQuery);
@@ -20,8 +20,8 @@ export class FieldPermissionService {
     return fieldsQuery;
   }
 
-  private async getFieldsQueryWithSharePermission(tableId: string, fieldsQuery: IGetFieldsQuery) {
-    const { viewId } = fieldsQuery;
+  private async getFieldsQueryWithSharePermission(tableId: string, fieldsQuery?: IGetFieldsQuery) {
+    const { viewId } = fieldsQuery ?? {};
     const shareViewId = this.cls.get('shareViewId');
     const view = await this.prismaService.txClient().view.findFirst({
       where: {
