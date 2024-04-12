@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   IFieldVo,
   IGetFieldsQuery,
@@ -8,7 +8,6 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ViewType,
-  IViewVo,
 } from '@teable/core';
 import { FieldOpBuilder, IdPrefix, OpName } from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
@@ -23,10 +22,10 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import { checkIsNecessaryField, getFieldHiddenFilter } from '../../utils/get-field-hidden-filter';
+import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
-import { createViewVoByRaw } from '../view/model/factory';
+import { FieldPermissionService } from './field-permission.service';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
@@ -35,12 +34,11 @@ type IOpContext = ISetFieldPropertyOpContext;
 
 @Injectable()
 export class FieldService implements IReadonlyAdapterService {
-  private logger = new Logger(FieldService.name);
-
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly fieldPermissionService: FieldPermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -258,15 +256,16 @@ export class FieldService implements IReadonlyAdapterService {
         columnMeta: JSON.parse(curView.columnMeta),
       };
       if (query?.filterHidden) {
-        const fieldHiddenFilter = getFieldHiddenFilter(view.type, view.columnMeta);
-        result = result.filter((field) => {
-          if (checkIsNecessaryField(field as IFieldInstance, view as IViewVo)) return true;
-          return fieldHiddenFilter(field.id);
-        });
+        result = result.filter((field) => isNotHiddenField(field.id, view));
       }
       result = sortBy(result, (field) => {
         return view?.columnMeta[field.id].order;
       });
+    }
+
+    if (query?.excludeFieldIds) {
+      const ids = query?.excludeFieldIds;
+      result = result.filter((field) => !ids.includes(field.id));
     }
 
     return result;
@@ -494,31 +493,12 @@ export class FieldService implements IReadonlyAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async viewQueryWidthShare(tableId: string, query: IGetFieldsQuery): Promise<IGetFieldsQuery> {
-    const shareId = this.cls.get('shareViewId');
-    if (!shareId) {
-      return query;
-    }
-    const { viewId } = query;
-    const view = await this.prismaService.txClient().view.findFirst({
-      where: {
-        tableId,
-        shareId,
-        ...(viewId ? { id: viewId } : {}),
-        enableShare: true,
-        deletedTime: null,
-      },
-    });
-    if (!view) {
-      throw new BadRequestException('error shareId');
-    }
-    const filterHidden = !createViewVoByRaw(view).shareMeta?.includeHiddenField;
-    return { viewId: view.id, filterHidden };
-  }
-
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
-    const { viewId, filterHidden } = await this.viewQueryWidthShare(tableId, query);
-    const result = await this.getFieldsByQuery(tableId, { viewId, filterHidden });
+    const fieldsQuery = await this.fieldPermissionService.getFieldsQueryWithPermission(
+      tableId,
+      query
+    );
+    const result = await this.getFieldsByQuery(tableId, fieldsQuery);
 
     return {
       ids: result.map((field) => field.id),

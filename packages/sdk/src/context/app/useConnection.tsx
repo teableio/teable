@@ -21,7 +21,7 @@ const shareDbErrorHandler = (error: unknown) => {
     window.location.reload();
     return;
   }
-  toast({ title: 'Socket Error', description: `${code}: ${message}` });
+  toast({ title: 'Socket Error', variant: 'destructive', description: `${code}: ${message}` });
 };
 
 export const useConnection = (path?: string) => {

@@ -1,20 +1,17 @@
-import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
+import type { ArgumentsHost, ExceptionFilter, HttpException } from '@nestjs/common';
 import {
   BadRequestException,
   Catch,
   ForbiddenException,
-  HttpException,
-  HttpStatus,
   Logger,
   NotFoundException,
   NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpErrorCode } from '@teable/core';
 import type { Request, Response } from 'express';
 import type { ILoggerConfig } from '../configs/logger.config';
-import { CustomHttpException, getDefaultCodeByStatus } from '../custom.exception';
+import { exceptionParse } from '../utils/exception-parse';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
@@ -38,30 +35,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         exception instanceof NotFoundException ||
         exception instanceof NotImplementedException
       )
-    )
+    ) {
       this.logError(exception, request);
-
-    if (exception instanceof CustomHttpException) {
-      const customException = exception as CustomHttpException;
-      const status = customException.getStatus();
-      return response.status(status).json({
-        message: exception.message,
-        status: status,
-        code: customException.code,
-      });
     }
-
-    if (exception instanceof HttpException) {
-      const status = exception.getStatus();
-      return response
-        .status(status)
-        .json({ message: exception.message, status, code: getDefaultCodeByStatus(status) });
-    }
-
-    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-      message: 'Internal Server Error',
-      status: HttpStatus.INTERNAL_SERVER_ERROR,
-      code: HttpErrorCode.INTERNAL_SERVER_ERROR,
+    const customHttpException = exceptionParse(exception);
+    const status = customHttpException.getStatus();
+    return response.status(status).json({
+      message: customHttpException.message,
+      status: status,
+      code: customHttpException.code,
     });
   }
 

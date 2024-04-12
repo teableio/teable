@@ -12,9 +12,9 @@ export type IHttpError = {
 export enum HttpErrorCode {
   // 400 - The request body does not match the schema for the expected parameters
   VALIDATION_ERROR = 'validation_error',
-  // 403 - The bearer token is not valid.
+  // 401 - The bearer token is not valid.
   UNAUTHORIZED = 'unauthorized',
-  // 403 - Given the bearer token used, the client doesn't have permission to perform this operation.
+  // 401 - Given the bearer token used, the client doesn't have permission to perform this operation.
   UNAUTHORIZED_SHARE = 'unauthorized_share',
   // 403 - Given the bearer token used, the client doesn't have permission to perform this operation.
   RESTRICTED_RESOURCE = 'restricted_resource',
