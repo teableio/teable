@@ -1,4 +1,5 @@
-import { TimeFormatting, type IDateFieldOptions } from '@teable/core';
+import { TimeFormatting } from '@teable/core';
+import type { INumberFieldOptions, IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import { AbstractGroupQuery } from './group-query.abstract';
@@ -15,30 +16,44 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     super(knex, originQueryBuilder, fieldMap, groupFieldIds, extra);
   }
 
-  string(field: IFieldInstance): Knex.QueryBuilder {
-    if (!field) return this.originQueryBuilder;
-
+  private get isDistinct() {
     const { isDistinct } = this.extra ?? {};
+    return isDistinct;
+  }
+
+  string(field: IFieldInstance): Knex.QueryBuilder {
     const { dbFieldName } = field;
     const column = this.knex.ref(dbFieldName);
 
-    if (isDistinct) {
+    if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(dbFieldName);
     }
-
     return this.originQueryBuilder.select(column).groupBy(dbFieldName);
   }
 
-  date(field: IFieldInstance): Knex.QueryBuilder {
-    if (!field) return this.originQueryBuilder;
+  number(field: IFieldInstance): Knex.QueryBuilder {
+    const { dbFieldName, options } = field;
+    const { precision } = (options as INumberFieldOptions).formatting;
+    const column = this.knex.raw('ROUND(??::numeric, ?)::text as ??', [
+      dbFieldName,
+      precision,
+      dbFieldName,
+    ]);
+    const groupByColumn = this.knex.raw('ROUND(??::numeric, ?)::text', [dbFieldName, precision]);
 
-    const { isDistinct } = this.extra ?? {};
+    if (this.isDistinct) {
+      return this.originQueryBuilder.countDistinct(groupByColumn);
+    }
+    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+  }
+
+  date(field: IFieldInstance): Knex.QueryBuilder {
     const { dbFieldName, options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
 
     if (time !== TimeFormatting.None) {
       const column = this.knex.ref(dbFieldName);
-      return isDistinct
+      return this.isDistinct
         ? this.originQueryBuilder.countDistinct(dbFieldName)
         : this.originQueryBuilder.select(column).groupBy(dbFieldName);
     }
@@ -49,29 +64,81 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
       dbFieldName,
       dbFieldName,
     ]);
+    const groupByColumn = this.knex.raw(`TO_CHAR(TIMEZONE(?, ??), '${format}')`, [
+      timeZone,
+      dbFieldName,
+    ]);
 
-    if (isDistinct) {
-      return this.originQueryBuilder.countDistinct(
-        this.knex.raw(`TO_CHAR(TIMEZONE(?, ??), '${format}')`, [timeZone, dbFieldName])
-      );
+    if (this.isDistinct) {
+      return this.originQueryBuilder.countDistinct(groupByColumn);
     }
-
-    return this.originQueryBuilder
-      .select(column)
-      .groupBy(this.knex.raw(`TO_CHAR(TIMEZONE(?, ??), '${format}')`, [timeZone, dbFieldName]));
+    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
   }
 
   json(field: IFieldInstance): Knex.QueryBuilder {
-    if (!field) return this.originQueryBuilder;
-
-    const { isDistinct } = this.extra ?? {};
     const { dbFieldName } = field;
     const column = this.knex.raw(`CAST(?? as text)`, [dbFieldName]);
 
-    if (isDistinct) {
+    if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(dbFieldName);
     }
-
     return this.originQueryBuilder.select(column).groupBy(dbFieldName);
+  }
+
+  multipleDate(field: IFieldInstance): Knex.QueryBuilder {
+    const { dbFieldName, options } = field;
+    const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
+
+    if (time !== TimeFormatting.None) {
+      const column = this.knex.ref(dbFieldName);
+      return this.isDistinct
+        ? this.originQueryBuilder.countDistinct(dbFieldName)
+        : this.originQueryBuilder.select(column).groupBy(dbFieldName);
+    }
+
+    const format = date;
+    const column = this.knex.raw(
+      `
+      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), '${format}')))
+      FROM jsonb_array_elements_text(??::jsonb) as elem) as ??
+      `,
+      [timeZone, dbFieldName, dbFieldName]
+    );
+    const groupByColumn = this.knex.raw(
+      `
+      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), '${format}')))
+      FROM jsonb_array_elements_text(??::jsonb) as elem)
+      `,
+      [timeZone, dbFieldName]
+    );
+
+    if (this.isDistinct) {
+      return this.originQueryBuilder.countDistinct(groupByColumn);
+    }
+    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+  }
+
+  multipleNumber(field: IFieldInstance): Knex.QueryBuilder {
+    const { dbFieldName, options } = field;
+    const { precision } = (options as INumberFieldOptions).formatting;
+    const column = this.knex.raw(
+      `
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      FROM jsonb_array_elements_text(??::jsonb) as elem) as ??
+      `,
+      [precision, dbFieldName, dbFieldName]
+    );
+    const groupByColumn = this.knex.raw(
+      `
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      FROM jsonb_array_elements_text(??::jsonb) as elem)
+      `,
+      [precision, dbFieldName]
+    );
+
+    if (this.isDistinct) {
+      return this.originQueryBuilder.countDistinct(groupByColumn);
+    }
+    return this.originQueryBuilder.select(column).groupBy(groupByColumn);
   }
 }

@@ -382,7 +382,8 @@ export class AggregationService {
     if (isDate(currentValue)) {
       return currentValue.toISOString();
     }
-    return currentValue?.toString() ?? null;
+    if (currentValue == null) return null;
+    return JSON.stringify(currentValue);
   }
 
   private calculateDateRangeOfMonths(currentValue: string): number {
@@ -508,10 +509,10 @@ export class AggregationService {
     }
 
     this.dbProvider
-      .groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds, { isDistinct: true })
+      .groupQuery(distinctQueryBuilder, fieldInstanceMap, groupFieldIds, { isDistinct: true })
       .appendGroupBuilder();
     const distinctResult = await this.prisma.$queryRawUnsafe<{ count: number }[]>(
-      queryBuilder.toQuery()
+      distinctQueryBuilder.toQuery()
     );
     const distinctCount = Number(distinctResult[0].count);
 
@@ -522,7 +523,6 @@ export class AggregationService {
     }
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
-
     this.dbProvider.groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds).appendGroupBuilder();
 
     queryBuilder.count({ __c: '*' });

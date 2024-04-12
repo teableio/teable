@@ -1,14 +1,35 @@
+import type { INumberFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
 import { SortFunctionPostgres } from '../sort-query.function';
 
 export class MultipleNumberSortAdapter extends SortFunctionPostgres {
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    builderClient.orderByRaw(`(??::jsonb ->> 0)::bigint ASC NULLS FIRST`, [this.columnName]);
+    const { options } = this.field;
+    const { precision } = (options as INumberFieldOptions).formatting;
+    const orderByColumn = this.knex.raw(
+      `
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      FROM jsonb_array_elements_text(??::jsonb) as elem) 
+      ASC NULLS FIRST
+      `,
+      [precision, this.columnName]
+    );
+    builderClient.orderByRaw(orderByColumn);
     return builderClient;
   }
 
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
-    builderClient.orderByRaw(`(??::jsonb ->> 0)::bigint DESC NULLS LAST`, [this.columnName]);
+    const { options } = this.field;
+    const { precision } = (options as INumberFieldOptions).formatting;
+    const orderByColumn = this.knex.raw(
+      `
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      FROM jsonb_array_elements_text(??::jsonb) as elem)
+      DESC NULLS LAST
+      `,
+      [precision, this.columnName]
+    );
+    builderClient.orderByRaw(orderByColumn);
     return builderClient;
   }
 }

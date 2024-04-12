@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { CellValueType, DbFieldType } from '@teable/core';
+import { CellValueType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import type { IGroupQueryInterface, IGroupQueryExtra } from './group-query.interface';
@@ -40,17 +40,33 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
   }
 
   private getGroupAdapter(field: IFieldInstance): Knex.QueryBuilder {
-    const { dbFieldType } = field;
-    switch (field.cellValueType) {
+    if (!field) return this.originQueryBuilder;
+    const { cellValueType, isMultipleCellValue, isStructuredCellValue } = field;
+
+    if (isMultipleCellValue) {
+      switch (cellValueType) {
+        case CellValueType.DateTime:
+          return this.multipleDate(field);
+        case CellValueType.Number:
+          return this.multipleNumber(field);
+        case CellValueType.String:
+          if (isStructuredCellValue) {
+            return this.json(field);
+          }
+          return this.string(field);
+        default:
+          return this.originQueryBuilder;
+      }
+    }
+
+    switch (cellValueType) {
       case CellValueType.DateTime:
-        if (dbFieldType === DbFieldType.Json) {
-          return this.json(field);
-        }
         return this.date(field);
-      case CellValueType.Boolean:
       case CellValueType.Number:
+        return this.number(field);
+      case CellValueType.Boolean:
       case CellValueType.String: {
-        if (dbFieldType === DbFieldType.Json) {
+        if (isStructuredCellValue) {
           return this.json(field);
         }
         return this.string(field);
@@ -62,5 +78,11 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
 
   abstract date(field: IFieldInstance): Knex.QueryBuilder;
 
+  abstract number(field: IFieldInstance): Knex.QueryBuilder;
+
   abstract json(field: IFieldInstance): Knex.QueryBuilder;
+
+  abstract multipleDate(field: IFieldInstance): Knex.QueryBuilder;
+
+  abstract multipleNumber(field: IFieldInstance): Knex.QueryBuilder;
 }
