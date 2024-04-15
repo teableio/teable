@@ -34,12 +34,12 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
   number(field: IFieldInstance): Knex.QueryBuilder {
     const { dbFieldName, options } = field;
     const { precision } = (options as INumberFieldOptions).formatting;
-    const column = this.knex.raw('ROUND(??::numeric, ?)::text as ??', [
+    const column = this.knex.raw('ROUND(??::numeric, ?)::float as ??', [
       dbFieldName,
       precision,
       dbFieldName,
     ]);
-    const groupByColumn = this.knex.raw('ROUND(??::numeric, ?)::text', [dbFieldName, precision]);
+    const groupByColumn = this.knex.raw('ROUND(??::numeric, ?)::float', [dbFieldName, precision]);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);

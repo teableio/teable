@@ -2,6 +2,7 @@ import { TimeFormatting } from '@teable/core';
 import type { INumberFieldOptions, IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import { getOffset } from '../search-query/get-offset';
 import { AbstractGroupQuery } from './group-query.abstract';
 import type { IGroupQueryExtra } from './group-query.interface';
 
@@ -49,7 +50,7 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     if (!field) return this.originQueryBuilder;
 
     const { dbFieldName, options } = field;
-    const { time } = (options as IDateFieldOptions).formatting;
+    const { time, timeZone } = (options as IDateFieldOptions).formatting;
 
     if (time !== TimeFormatting.None) {
       const column = this.knex.ref(dbFieldName);
@@ -58,8 +59,9 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
         : this.originQueryBuilder.select(column).groupBy(dbFieldName);
     }
 
-    const column = this.knex.raw('DATE(??) as ??', [dbFieldName, dbFieldName]);
-    const groupByColumn = this.knex.raw('DATE(??) as ??', [dbFieldName, dbFieldName]);
+    const offsetStr = `${getOffset(timeZone)} hour`;
+    const column = this.knex.raw('DATE(??, ?) as ??', [dbFieldName, offsetStr, dbFieldName]);
+    const groupByColumn = this.knex.raw('DATE(??, ?)', [dbFieldName, offsetStr]);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
@@ -71,7 +73,7 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     if (!field) return this.originQueryBuilder;
 
     const { dbFieldName } = field;
-    const column = this.knex.raw(`CAST(?? as text)`, [dbFieldName]);
+    const column = this.knex.raw(`CAST(?? as text) as ??`, [dbFieldName, dbFieldName]);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(dbFieldName);
@@ -81,7 +83,7 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
 
   multipleDate(field: IFieldInstance): Knex.QueryBuilder {
     const { dbFieldName, options } = field;
-    const { time } = (options as IDateFieldOptions).formatting;
+    const { time, timeZone } = (options as IDateFieldOptions).formatting;
 
     if (time !== TimeFormatting.None) {
       const column = this.knex.ref(dbFieldName);
@@ -90,23 +92,24 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
         : this.originQueryBuilder.select(column).groupBy(dbFieldName);
     }
 
+    const offsetStr = `${getOffset(timeZone)} hour`;
     const column = this.knex.raw(
       `
       (
-        SELECT group_concat(DATE(elem.value), ', ')
-        FROM json_each(??) as elem
+        SELECT json_group_array(DATE(value, ?))
+        FROM json_each(??)
       ) as ??
       `,
-      [dbFieldName, dbFieldName]
+      [offsetStr, dbFieldName, dbFieldName]
     );
     const groupByColumn = this.knex.raw(
       `
       (
-        SELECT group_concat(DATE(elem.value), ', ')
-        FROM json_each(??) as elem
+        SELECT json_group_array(DATE(value, ?))
+        FROM json_each(??)
       )
       `,
-      [dbFieldName]
+      [offsetStr, dbFieldName]
     );
 
     if (this.isDistinct) {
@@ -121,8 +124,8 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     const column = this.knex.raw(
       `
       (
-        SELECT group_concat(ROUND(elem.value, ?), ', ')
-        FROM json_each(??) as elem
+        SELECT json_group_array(ROUND(value, ?))
+        FROM json_each(??)
       ) as ??
       `,
       [precision, dbFieldName, dbFieldName]
@@ -130,8 +133,8 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
     const groupByColumn = this.knex.raw(
       `
       (
-        SELECT group_concat(ROUND(elem.value, ?), ', ')
-        FROM json_each(??) as elem
+        SELECT json_group_array(ROUND(value, ?))
+        FROM json_each(??)
       )
       `,
       [precision, dbFieldName]

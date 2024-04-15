@@ -15,10 +15,13 @@ export class MultipleDateTimeSortAdapter extends SortFunctionPostgres {
     const orderByColumn = this.knex.raw(
       `
       (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), '${date}')))
+      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
+      ASC NULLS FIRST,
+      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), '${date}')))
       FROM jsonb_array_elements_text(??::jsonb) as elem)
       ASC NULLS FIRST
       `,
-      [timeZone, this.columnName]
+      [timeZone, this.columnName, timeZone, this.columnName]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -36,10 +39,13 @@ export class MultipleDateTimeSortAdapter extends SortFunctionPostgres {
     const orderByColumn = this.knex.raw(
       `
       (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), '${date}')))
+      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
+      DESC NULLS LAST,
+      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), '${date}')))
       FROM jsonb_array_elements_text(??::jsonb) as elem)
-      ASC NULLS LAST
+      DESC NULLS LAST
       `,
-      [timeZone, this.columnName]
+      [timeZone, this.columnName, timeZone, this.columnName]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;

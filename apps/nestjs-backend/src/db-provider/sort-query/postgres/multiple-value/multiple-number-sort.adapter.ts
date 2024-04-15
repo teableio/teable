@@ -9,10 +9,13 @@ export class MultipleNumberSortAdapter extends SortFunctionPostgres {
     const orderByColumn = this.knex.raw(
       `
       (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
+      ASC NULLS FIRST,
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
       FROM jsonb_array_elements_text(??::jsonb) as elem) 
       ASC NULLS FIRST
       `,
-      [precision, this.columnName]
+      [precision, this.columnName, precision, this.columnName]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -24,10 +27,13 @@ export class MultipleNumberSortAdapter extends SortFunctionPostgres {
     const orderByColumn = this.knex.raw(
       `
       (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      FROM jsonb_array_elements_text(??::jsonb) as elem) ->> 0
+      DESC NULLS LAST,
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
       FROM jsonb_array_elements_text(??::jsonb) as elem)
       DESC NULLS LAST
       `,
-      [precision, this.columnName]
+      [precision, this.columnName, precision, this.columnName]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;

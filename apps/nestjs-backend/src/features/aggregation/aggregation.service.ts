@@ -382,6 +382,9 @@ export class AggregationService {
     if (isDate(currentValue)) {
       return currentValue.toISOString();
     }
+    if (typeof currentValue === 'string') {
+      return currentValue;
+    }
     if (currentValue == null) return null;
     return JSON.stringify(currentValue);
   }
