@@ -382,11 +382,7 @@ export class AggregationService {
     if (isDate(currentValue)) {
       return currentValue.toISOString();
     }
-    if (typeof currentValue === 'string') {
-      return currentValue;
-    }
-    if (currentValue == null) return null;
-    return JSON.stringify(currentValue);
+    return currentValue?.toString() ?? null;
   }
 
   private calculateDateRangeOfMonths(currentValue: string): number {
@@ -441,6 +437,20 @@ export class AggregationService {
     return prisma.$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
   }
 
+  private convertValueToStringify(value: unknown): number | string | null {
+    if (typeof value === 'bigint' || typeof value === 'number') {
+      return Number(value);
+    }
+    if (isDate(value)) {
+      return value.toISOString();
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (value == null) return null;
+    return JSON.stringify(value);
+  }
+
   @Timing()
   private groupDbCollection2GroupPoints(
     groupResult: { [key: string]: unknown; __c: number }[],
@@ -454,7 +464,7 @@ export class AggregationService {
 
       groupFields.forEach((field, index) => {
         const { id, dbFieldName } = field;
-        const fieldValue = this.convertValueToNumberOrString(item[dbFieldName]);
+        const fieldValue = this.convertValueToStringify(item[dbFieldName]);
 
         if (fieldValues[index] === fieldValue) return;
 
