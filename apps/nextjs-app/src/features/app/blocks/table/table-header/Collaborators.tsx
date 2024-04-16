@@ -116,11 +116,11 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
             </HoverCardTrigger>
             <HoverCardContent className="flex w-max max-w-[160px] flex-col justify-center truncate p-2 text-sm">
               <div className="truncate">
-                <span>{name}</span>
+                <span title={name}>{name}</span>
                 <span className="pl-1">{id === user.id ? '(You)' : null}</span>
               </div>
               <div className="truncate">
-                <span>{email}</span>
+                <span title={email}>{email}</span>
               </div>
             </HoverCardContent>
           </HoverCard>
