@@ -48,6 +48,10 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'record|delete': true,
     'record|read': true,
     'record|update': true,
+    'automation|create': true,
+    'automation|delete': true,
+    'automation|read': true,
+    'automation|update': true,
   },
   creator: {
     'space|create': false,
@@ -84,6 +88,10 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'record|delete': true,
     'record|read': true,
     'record|update': true,
+    'automation|create': true,
+    'automation|delete': true,
+    'automation|read': true,
+    'automation|update': true,
   },
   editor: {
     'space|create': false,
@@ -120,6 +128,10 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'record|delete': true,
     'record|read': true,
     'record|update': true,
+    'automation|create': false,
+    'automation|delete': false,
+    'automation|read': true,
+    'automation|update': false,
   },
   commenter: {
     'space|create': false,
@@ -156,6 +168,10 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'record|delete': false,
     'record|read': true,
     'record|update': false,
+    'automation|create': false,
+    'automation|delete': false,
+    'automation|read': true,
+    'automation|update': false,
   },
   viewer: {
     'space|create': false,
@@ -192,5 +208,9 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'record|delete': false,
     'record|read': true,
     'record|update': false,
+    'automation|create': false,
+    'automation|delete': false,
+    'automation|read': true,
+    'automation|update': false,
   },
 };

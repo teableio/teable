@@ -8,6 +8,7 @@ export enum ActionPrefix {
   View = 'view',
   Record = 'record',
   Field = 'field',
+  Automation = 'automation',
 }
 
 const defaultActionsSchema = z.enum(['create', 'update', 'delete', 'read']);
@@ -40,13 +41,19 @@ export const recordActionsSchema = defaultActionsSchema.or(z.enum(['comment']));
 
 export type RecordActions = `${ActionPrefix.Record}|${z.infer<typeof recordActionsSchema>}`;
 
+export const automationActionsSchema = defaultActionsSchema;
+
+export type AutomationActions =
+  `${ActionPrefix.Automation}|${z.infer<typeof automationActionsSchema>}`;
+
 export type AllActions =
   | SpaceActions
   | BaseActions
   | TableActions
   | ViewActions
   | FieldActions
-  | RecordActions;
+  | RecordActions
+  | AutomationActions;
 
 export type ActionPrefixMap = {
   [ActionPrefix.Space]: SpaceActions[];
@@ -55,6 +62,7 @@ export type ActionPrefixMap = {
   [ActionPrefix.View]: ViewActions[];
   [ActionPrefix.Field]: FieldActions[];
   [ActionPrefix.Record]: RecordActions[];
+  [ActionPrefix.Automation]: AutomationActions[];
 };
 
 export const actionPrefixMap: ActionPrefixMap = {
@@ -76,5 +84,11 @@ export const actionPrefixMap: ActionPrefixMap = {
     'record|delete',
     'record|read',
     'record|update',
+  ],
+  [ActionPrefix.Automation]: [
+    'automation|create',
+    'automation|delete',
+    'automation|read',
+    'automation|update',
   ],
 };
