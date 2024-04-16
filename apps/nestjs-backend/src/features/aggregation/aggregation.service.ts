@@ -1,7 +1,6 @@
 import { Injectable, Logger, PayloadTooLargeException } from '@nestjs/common';
 import type { IGridColumnMeta, IFilter } from '@teable/core';
 import {
-  DbFieldType,
   mergeWithDefaultFilter,
   nullsToUndefined,
   parseGroup,
@@ -438,6 +437,20 @@ export class AggregationService {
     return prisma.$queryRawUnsafe<{ count?: number }[]>(rowCountSql.toQuery());
   }
 
+  private convertValueToStringify(value: unknown): number | string | null {
+    if (typeof value === 'bigint' || typeof value === 'number') {
+      return Number(value);
+    }
+    if (isDate(value)) {
+      return value.toISOString();
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (value == null) return null;
+    return JSON.stringify(value);
+  }
+
   @Timing()
   private groupDbCollection2GroupPoints(
     groupResult: { [key: string]: unknown; __c: number }[],
@@ -451,7 +464,7 @@ export class AggregationService {
 
       groupFields.forEach((field, index) => {
         const { id, dbFieldName } = field;
-        const fieldValue = this.convertValueToNumberOrString(item[dbFieldName]);
+        const fieldValue = this.convertValueToStringify(item[dbFieldName]);
 
         if (fieldValues[index] === fieldValue) return;
 
@@ -471,17 +484,6 @@ export class AggregationService {
       groupPoints.push({ type: GroupPointType.Row, count: Number(count) });
     });
     return groupPoints;
-  }
-
-  private async checkGroupingOverLimit(dbFieldNames: string[], queryBuilder: Knex.QueryBuilder) {
-    queryBuilder.countDistinct(dbFieldNames);
-
-    const distinctResult = await this.prisma.$queryRawUnsafe<{ count: number }[]>(
-      queryBuilder.toQuery()
-    );
-    const distinctCount = Number(distinctResult[0].count);
-
-    return distinctCount > this.thresholdConfig.maxGroupPoints;
   }
 
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
@@ -519,36 +521,24 @@ export class AggregationService {
       this.dbProvider.searchQuery(distinctQueryBuilder, fieldInstanceMap, search);
     }
 
-    const dbFieldNames = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId].dbFieldName);
-
-    const isGroupingOverLimit = await this.checkGroupingOverLimit(
-      dbFieldNames,
-      distinctQueryBuilder
+    this.dbProvider
+      .groupQuery(distinctQueryBuilder, fieldInstanceMap, groupFieldIds, { isDistinct: true })
+      .appendGroupBuilder();
+    const distinctResult = await this.prisma.$queryRawUnsafe<{ count: number }[]>(
+      distinctQueryBuilder.toQuery()
     );
+    const distinctCount = Number(distinctResult[0].count);
 
-    if (isGroupingOverLimit) {
+    if (distinctCount > this.thresholdConfig.maxGroupPoints) {
       throw new PayloadTooLargeException(
         'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.'
       );
     }
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
+    this.dbProvider.groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds).appendGroupBuilder();
 
     queryBuilder.count({ __c: '*' });
-
-    groupFieldIds.forEach((fieldId) => {
-      const field = fieldInstanceMap[fieldId];
-
-      if (!field) return;
-
-      const { dbFieldType, dbFieldName } = field;
-      const column =
-        dbFieldType === DbFieldType.Json
-          ? this.knex.raw(`CAST(?? as text)`, [dbFieldName]).toQuery()
-          : this.knex.ref(dbFieldName).toQuery();
-
-      queryBuilder.select(this.knex.raw(`${column}`)).groupBy(dbFieldName);
-    });
 
     const groupSql = queryBuilder.toQuery();
 

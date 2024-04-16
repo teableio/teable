@@ -1,8 +1,20 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ISelectFieldOptions, ISortItem } from '@teable/core';
-import { CellValueType, SortFunc, FieldType } from '@teable/core';
+import type {
+  IDateFieldOptions,
+  IFieldRo,
+  INumberFieldOptions,
+  ISelectFieldOptions,
+  ISortItem,
+} from '@teable/core';
+import {
+  CellValueType,
+  SortFunc,
+  FieldType,
+  formatNumberToString,
+  formatDateToString,
+} from '@teable/core';
 import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import { updateViewSort as apiSetViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
@@ -72,6 +84,25 @@ const getRecordsByOrder = (
       if (type === FieldType.SingleSelect && !isMultipleCellValue) {
         const { choices } = options as ISelectFieldOptions;
         return choices.map(({ name }) => name).indexOf(cellValue as string);
+      }
+      if (type === FieldType.Number) {
+        if (isMultipleCellValue && Array.isArray(cellValue)) {
+          return cellValue
+            .map((v) => formatNumberToString(v, (options as INumberFieldOptions).formatting))
+            .join(', ');
+        }
+        return formatNumberToString(
+          cellValue as number,
+          (options as INumberFieldOptions).formatting
+        );
+      }
+      if (type === FieldType.Date) {
+        if (isMultipleCellValue && Array.isArray(cellValue)) {
+          return cellValue
+            .map((v) => formatDateToString(v, (options as IDateFieldOptions).formatting))
+            .join(', ');
+        }
+        return formatDateToString(cellValue as string, (options as IDateFieldOptions).formatting);
       }
       if (isMultipleCellValue) {
         // return JSON.stringify(record?.fields?.[name]);

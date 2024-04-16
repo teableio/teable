@@ -17,6 +17,8 @@ import type {
 } from './db.provider.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import { FilterQuerySqlite } from './filter-query/sqlite/filter-query.sqlite';
+import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
+import { GroupQuerySqlite } from './group-query/group-query.sqlite';
 import { SearchQueryAbstract } from './search-query/abstract';
 import { SearchQuerySqlite } from './search-query/search-query.sqlite';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
@@ -193,6 +195,15 @@ export class SqliteProvider implements IDbProvider {
     extra?: ISortQueryExtra
   ): ISortQueryInterface {
     return new SortQuerySqlite(this.knex, originQueryBuilder, fields, sortObjs, extra);
+  }
+
+  groupQuery(
+    originQueryBuilder: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    groupFieldIds?: string[],
+    extra?: IGroupQueryExtra
+  ): IGroupQueryInterface {
+    return new GroupQuerySqlite(this.knex, originQueryBuilder, fieldMap, groupFieldIds, extra);
   }
 
   searchQuery(

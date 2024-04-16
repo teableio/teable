@@ -6,6 +6,7 @@ import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
+import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
 
 export type IFilterQueryExtra = {
@@ -92,6 +93,13 @@ export interface IDbProvider {
     sortObjs?: ISortItem[],
     extra?: ISortQueryExtra
   ): ISortQueryInterface;
+
+  groupQuery(
+    originKnex: Knex.QueryBuilder,
+    fieldMap?: { [fieldId: string]: IFieldInstance },
+    groupFieldIds?: string[],
+    extra?: IGroupQueryExtra
+  ): IGroupQueryInterface;
 
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
