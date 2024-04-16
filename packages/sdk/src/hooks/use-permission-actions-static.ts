@@ -113,6 +113,18 @@ const actionsI18nMap: Record<
   'record|update': {
     description: 'permission.actionDescription.recordUpdate',
   },
+  'automation|create': {
+    description: 'permission.actionDescription.automationCreate',
+  },
+  'automation|delete': {
+    description: 'permission.actionDescription.automationDelete',
+  },
+  'automation|read': {
+    description: 'permission.actionDescription.automationRead',
+  },
+  'automation|update': {
+    description: 'permission.actionDescription.automationUpdate',
+  },
 };
 
 const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
@@ -133,6 +145,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   },
   [ActionPrefix.Record]: {
     title: 'noun.record',
+  },
+  [ActionPrefix.Automation]: {
+    title: 'noun.automation',
   },
 };
 

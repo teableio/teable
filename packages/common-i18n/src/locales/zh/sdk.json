@@ -139,7 +139,11 @@
       "recordComment": "对记录进行评论",
       "recordDelete": "删除记录",
       "recordRead": "查看记录",
-      "recordUpdate": "更新记录"
+      "recordUpdate": "更新记录",
+      "automationCreate": "创建自动化",
+      "automationDelete": "删除自动化",
+      "automationRead": "读取自动化",
+      "automationUpdate": "更新自动化"
     }
   },
   "noun": {
@@ -148,6 +152,7 @@
     "space": "空间",
     "base": "数据库",
     "field": "字段",
-    "record": "记录"
+    "record": "记录",
+    "automation": "自动化"
   }
 }
