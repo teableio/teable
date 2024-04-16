@@ -20,8 +20,8 @@
   <a aria-label="Codefactor grade" href="https://www.codefactor.io/repository/github/teableio/teable">
     <img alt="Codefactor" src="https://img.shields.io/codefactor/grade/github/teableio/teable?label=Codefactor&logo=codefactor&style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="CodeClimate maintainability" href="https://codeclimate.com/github/teableio/teable">
-    <img alt="Maintainability" src="https://img.shields.io/codeclimate/maintainability/teableio/teable?label=Maintainability&logo=code-climate&style=flat-quare&labelColor=000000" />
+  <a aria-label="Coverage Status" href="https://coveralls.io/github/teableio/teable?branch=develop">
+    <img alt="Coverage" src="https://coveralls.io/repos/github/teableio/teable/badge.svg?branch=develop" />
   </a>
   <a aria-label="CodeClimate technical debt" href="https://codeclimate.com/github/teableio/teable">
     <img alt="Techdebt" src="https://img.shields.io/codeclimate/tech-debt/teableio/teable?label=TechDebt&logo=code-climate&style=flat-quare&labelColor=000000" />
