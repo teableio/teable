@@ -23,7 +23,8 @@
     "space": "Space",
     "base": "Base",
     "field": "Field",
-    "record": "Record"
+    "record": "Record",
+    "automation": "Automation"
   },
   "editor": {
     "attachment": {
@@ -147,7 +148,11 @@
       "recordComment": "Comment on record",
       "recordDelete": "Delete record",
       "recordRead": "Read record",
-      "recordUpdate": "Update record"
+      "recordUpdate": "Update record",
+      "automationCreate": "Create automation",
+      "automationDelete": "Delete automation",
+      "automationRead": "Read automation",
+      "automationUpdate": "Update automation"
     }
   }
 }

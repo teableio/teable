@@ -230,68 +230,6 @@ model AttachmentsTable {
   @@map("attachments_table")
 }
 
-model AutomationWorkflow {
-  id               String    @id @default(cuid())
-  workflowId       String    @unique @map("workflow_id")
-  name             String    @map("name")
-  description      String?   @map("description")
-  deploymentStatus String    @default("undeployed") @map("deployment_status")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
-  deletedTime      DateTime? @map("deleted_time")
-  createdBy        String    @map("created_by")
-  lastModifiedBy   String?   @map("last_modified_by")
-
-  @@map("automation_workflow")
-}
-
-model AutomationWorkflowTrigger {
-  id               String    @id @default(cuid())
-  triggerId        String    @unique @map("trigger_id")
-  workflowId       String    @map("workflow_id")
-  description      String?   @map("description")
-  triggerType      String?   @map("trigger_type")
-  inputExpressions String?   @map("input_expressions")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
-  deletedTime      DateTime? @map("deleted_time")
-  createdBy        String    @map("created_by")
-  lastModifiedBy   String?   @map("last_modified_by")
-
-  @@index([workflowId])
-  @@map("automation_workflow_trigger")
-}
-
-model AutomationWorkflowAction {
-  id               String    @id @default(cuid())
-  actionId         String    @unique @map("action_id")
-  workflowId       String    @map("workflow_id")
-  description      String?   @map("description")
-  actionType       String?   @map("action_type")
-  inputExpressions String?   @map("input_expressions")
-  nextNodeId       String?   @map("next_node_id")
-  parentNodeId     String?   @map("parent_node_id")
-  createdTime      DateTime  @default(now()) @map("created_time")
-  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
-  deletedTime      DateTime? @map("deleted_time")
-  createdBy        String    @map("created_by")
-  lastModifiedBy   String?   @map("last_modified_by")
-
-  @@index([workflowId])
-  @@map("automation_workflow_action")
-}
-
-model AutomationWorkflowExecutionHistory {
-  id              String   @id @default(cuid())
-  workflowId      String   @map("workflow_id")
-  executionType   String   @map("execution_type")
-  executionResult String   @map("execution_result")
-  createdTime     DateTime @default(now()) @map("created_time")
-
-  @@index([workflowId])
-  @@map("automation_workflow_execution_history")
-}
-
 model Collaborator {
   id               String    @id @default(cuid())
   roleName         String    @map("role_name")
