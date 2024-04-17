@@ -36,7 +36,7 @@ export const GridToolBar: React.FC = () => {
   }, [router, table]);
 
   return (
-    <div className="z-49 flex items-center gap-2 border-t px-4 py-2 @container/toolbar">
+    <div className="flex items-center gap-2 border-t px-4 py-2 @container/toolbar">
       <Button
         className="size-6 shrink-0 rounded-full p-0 font-normal"
         size={'xs'}
