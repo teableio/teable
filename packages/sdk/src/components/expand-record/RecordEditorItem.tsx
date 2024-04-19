@@ -1,7 +1,7 @@
 import { cn } from '@teable/ui-lib';
 import { useFieldStaticGetter } from '../../hooks';
 import type { Field, Record } from '../../model';
-import { CellEditor } from '../cell-value-editor';
+import { CellEditorWrap } from './CellEditorWrap';
 
 export const RecordEditorItem = (props: {
   field: Field;
@@ -31,7 +31,7 @@ export const RecordEditorItem = (props: {
           {field.name}
         </div>
       </div>
-      <CellEditor
+      <CellEditorWrap
         wrapClassName="min-w-0 flex-1 p-0.5"
         cellValue={cellValue}
         onChange={onChangeInner}
