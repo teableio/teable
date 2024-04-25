@@ -70,7 +70,6 @@ All you want is here
 - Data Validation: Limit or validate data that are entered into cells. (coming soon)
 - Undo/Redo: Undo or redo recent changes. (coming soon)
 - Comments & Annotations: Attach comments to rows, providing explanations or feedback for other users. (coming soon)
-- Find & Replace: Search content within the table and replace it with new content. (coming soon)
 
 #### 🗂️ Multiple Views
 
@@ -78,7 +77,7 @@ Visualize and interact with data in various ways best suited for their specific 
 
 - Grid View: The default view of the table, which displays data in a spreadsheet-like format.
 - Form View: Input data in a form format, which is useful for collecting data.
-- Kanban View: Displays data in a Kanban board, which is a visual representation of data in columns and cards. (coming soon)
+- Kanban View: Displays data in a Kanban board, which is a visual representation of data in columns and cards.
 - Calendar View: Displays data in a calendar format, which is useful for tracking dates and events. (coming soon)
 - Gallery View: Displays data in a gallery format, which is useful for displaying images and other media. (coming soon)
 - Gantt View: Displays data in a Gantt chart, which is useful for tracking project schedules. (coming soon)
@@ -213,13 +212,7 @@ cd apps/nextjs-app
 copy .env.development .env.development.local
 ```
 
-#### 4. Build packages
-
-```sh
-pnpm g:build
-```
-
-#### 5. Run Dev Server
+#### 4. Run Dev Server
 
 you just need to start backend, it will start next server for frontend automatically, file change will be auto reload
 
