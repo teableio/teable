@@ -1,8 +1,10 @@
 import { ForbiddenException, NotFoundException, Injectable } from '@nestjs/common';
-import type { PermissionAction, SpaceRole } from '@teable/core';
-import { IdPrefix, checkPermissions, getPermissions } from '@teable/core';
+import type { BaseRole, PermissionAction, SpaceRole } from '@teable/core';
+import { IdPrefix, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { intersection } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { RoleType } from '../../../../../packages/core/src/auth/types';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()
@@ -44,50 +46,7 @@ export class PermissionService {
     if (!collaborator) {
       return null;
     }
-    return collaborator.roleName as SpaceRole;
-  }
-
-  async checkPermissionBySpaceId(spaceId: string, permissions: PermissionAction[]) {
-    const role = await this.getRoleBySpaceId(spaceId);
-    if (!checkPermissions(role, permissions)) {
-      throw new ForbiddenException(`not allowed to space ${spaceId}`);
-    }
-    return getPermissions(role);
-  }
-
-  async checkPermissionByBaseId(baseId: string, permissions: PermissionAction[]) {
-    const base = await this.prismaService.base.findFirst({
-      where: { id: baseId, deletedTime: null },
-      select: { spaceId: true },
-    });
-    if (!base) {
-      throw new NotFoundException(`not found ${baseId}`);
-    }
-    const baseRole = await this.getRoleByBaseId(baseId);
-    if (baseRole && checkPermissions(baseRole, permissions)) {
-      return getPermissions(baseRole);
-    }
-    const spaceRole = await this.getRoleBySpaceId(base.spaceId);
-    if (spaceRole && checkPermissions(spaceRole, permissions)) {
-      return getPermissions(spaceRole);
-    }
-    throw new ForbiddenException(`not allowed to base ${baseId}`);
-  }
-
-  async checkPermissionByTableId(tableId: string, permissions: PermissionAction[]) {
-    const table = await this.prismaService.tableMeta.findFirst({
-      where: {
-        id: tableId,
-        deletedTime: null,
-      },
-      select: {
-        base: true,
-      },
-    });
-    if (!table) {
-      throw new NotFoundException(`not found ${tableId}`);
-    }
-    return await this.checkPermissionByBaseId(table.base.id, permissions);
+    return collaborator.roleName as BaseRole;
   }
 
   async getAccessToken(accessTokenId: string) {
@@ -163,11 +122,7 @@ export class PermissionService {
     return spaceIds?.includes(spaceId) || baseIds?.includes(baseId);
   }
 
-  async checkPermissionByAccessToken(
-    resourceId: string,
-    accessTokenId: string,
-    permissions: PermissionAction[]
-  ) {
+  async getPermissionsByAccessToken(resourceId: string, accessTokenId: string) {
     const { scopes, spaceIds, baseIds } = await this.getAccessToken(accessTokenId);
 
     if (resourceId.startsWith(IdPrefix.Space) && !spaceIds?.includes(resourceId)) {
@@ -189,13 +144,63 @@ export class PermissionService {
       throw new ForbiddenException(`not allowed to table ${resourceId}`);
     }
 
-    const accessTokenPermissions = scopes;
-    if (permissions.some((permission) => !accessTokenPermissions.includes(permission))) {
-      throw new ForbiddenException(
-        `not allowed to operate ${permissions.join(', ')} on ${resourceId}`
-      );
-    }
-
     return scopes;
+  }
+
+  private async getPermissionBySpaceId(spaceId: string) {
+    const role = await this.getRoleBySpaceId(spaceId);
+    return getPermissions(RoleType.Space, role);
+  }
+
+  private async getPermissionByBaseId(baseId: string) {
+    const role = await this.getRoleByBaseId(baseId);
+    if (role) {
+      return getPermissions(RoleType.Base, role);
+    }
+    return this.getPermissionBySpaceId((await this.getUpperIdByBaseId(baseId)).spaceId);
+  }
+
+  private async getPermissionByTableId(tableId: string) {
+    const baseId = (await this.getUpperIdByTableId(tableId)).baseId;
+    return this.getPermissionByBaseId(baseId);
+  }
+
+  async getPermissionsByResourceId(resourceId: string) {
+    if (resourceId.startsWith(IdPrefix.Space)) {
+      return await this.getPermissionBySpaceId(resourceId);
+    } else if (resourceId.startsWith(IdPrefix.Base)) {
+      return await this.getPermissionByBaseId(resourceId);
+    } else if (resourceId.startsWith(IdPrefix.Table)) {
+      return await this.getPermissionByTableId(resourceId);
+    } else {
+      throw new ForbiddenException('request path is not valid');
+    }
+  }
+
+  async getPermissions(resourceId: string, accessTokenId?: string) {
+    const userPermissions = await this.getPermissionsByResourceId(resourceId);
+
+    if (accessTokenId) {
+      const accessTokenPermission = await this.getPermissionsByAccessToken(
+        resourceId,
+        accessTokenId
+      );
+      return intersection(userPermissions, accessTokenPermission);
+    }
+    return userPermissions;
+  }
+
+  async validPermissions(
+    resourceId: string,
+    permissions: PermissionAction[],
+    accessTokenId?: string
+  ) {
+    const ownPermissions = await this.getPermissions(resourceId, accessTokenId);
+    if (permissions.every((permission) => ownPermissions.includes(permission))) {
+      return ownPermissions;
+    }
+    throw new ForbiddenException(
+      `not allowed to operate ${permissions.join(', ')} on ${resourceId}`
+    );
   }
 }

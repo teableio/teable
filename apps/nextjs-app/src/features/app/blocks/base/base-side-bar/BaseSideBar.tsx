@@ -1,4 +1,4 @@
-import { Gauge, PackageCheck } from '@teable/icons';
+import { Gauge, Lock, PackageCheck } from '@teable/icons';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
@@ -29,12 +29,17 @@ export const BaseSideBar = () => {
       Icon: PackageCheck,
       disabled: true,
     },
+    {
+      href: `/base/${baseId}/authority-matrix`,
+      text: t('common:noun.authorityMatrix'),
+      Icon: Lock,
+    },
   ];
   return (
     <>
       <div className="flex flex-col gap-2 px-3">
         <div>
-          <QuickAction>{t('space:quickAction.title')}</QuickAction>
+          <QuickAction>{t('common:quickAction.title')}</QuickAction>
         </div>
         <ul>
           {pageRoutes.map(({ href, text, Icon, disabled }) => {
@@ -46,7 +51,7 @@ export const BaseSideBar = () => {
                   asChild
                   className={cn(
                     'w-full justify-start text-sm px-2 my-[2px]',
-                    href === router.pathname && 'bg-secondary'
+                    href === router.asPath && 'bg-secondary'
                   )}
                   disabled={disabled}
                 >

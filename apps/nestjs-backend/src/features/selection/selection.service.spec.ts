@@ -18,6 +18,7 @@ import {
   getPermissions,
   nullsToUndefined,
   SpaceRole,
+  RoleType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { RangeType } from '@teable/openapi';
@@ -145,7 +146,7 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
       );
@@ -156,7 +157,7 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
-          permissions: getPermissions(SpaceRole.Editor),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Editor),
         },
         async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
       );
@@ -576,7 +577,7 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () => await selectionService.paste(tableId, { viewId, ...pasteRo })
       );

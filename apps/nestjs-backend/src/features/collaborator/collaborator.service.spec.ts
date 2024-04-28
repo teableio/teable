@@ -1,6 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { SpaceRole, getPermissions } from '@teable/core';
+import { RoleType, SpaceRole, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { mockDeep } from 'vitest-mock-extended';
@@ -41,7 +41,7 @@ describe('CollaboratorService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () => {
           await collaboratorService.createSpaceCollaborator(

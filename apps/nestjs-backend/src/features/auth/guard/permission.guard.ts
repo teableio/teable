@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { IdPrefix, type PermissionAction } from '@teable/core';
+import { type PermissionAction } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
@@ -47,40 +47,20 @@ export class PermissionGuard {
     return true;
   }
 
-  private async resourcePermission(context: ExecutionContext, permissions: PermissionAction[]) {
-    const resourceId = this.getResourceId(context);
+  private async resourcePermission(
+    resourceId: string | undefined,
+    permissions: PermissionAction[]
+  ) {
     if (!resourceId) {
       throw new ForbiddenException('permission check ID does not exist');
     }
-    let permissionsByCheck: PermissionAction[] = [];
-    if (resourceId.startsWith(IdPrefix.Space)) {
-      permissionsByCheck = await this.permissionService.checkPermissionBySpaceId(
-        resourceId,
-        permissions
-      );
-    } else if (resourceId.startsWith(IdPrefix.Base)) {
-      permissionsByCheck = await this.permissionService.checkPermissionByBaseId(
-        resourceId,
-        permissions
-      );
-    } else if (resourceId.startsWith(IdPrefix.Table)) {
-      permissionsByCheck = await this.permissionService.checkPermissionByTableId(
-        resourceId,
-        permissions
-      );
-    } else {
-      throw new ForbiddenException('request path is not valid');
-    }
-
     const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId) {
-      permissionsByCheck = await this.permissionService.checkPermissionByAccessToken(
-        resourceId,
-        accessTokenId,
-        permissions
-      );
-    }
-    this.cls.set('permissions', permissionsByCheck);
+    const ownPermissions = await this.permissionService.validPermissions(
+      resourceId,
+      permissions,
+      accessTokenId
+    );
+    this.cls.set('permissions', ownPermissions);
     return true;
   }
 
@@ -135,6 +115,6 @@ export class PermissionGuard {
       return await this.permissionCreateSpace();
     }
     // resource permission check
-    return await this.resourcePermission(context, permissions);
+    return await this.resourcePermission(this.getResourceId(context), permissions);
   }
 }
