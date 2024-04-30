@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { keys } from 'lodash';
+import { keys, pickBy } from 'lodash';
 import type { FieldActions, RecordActions, ViewActions } from '../actions';
 
 export enum TableRole {
@@ -28,17 +28,17 @@ export const tablePermissions: Record<TableRole, Record<TablePermission, boolean
     'record|update': true,
   },
   [TableRole.Editor]: {
-    'view|create': false,
-    'view|delete': false,
+    'view|create': true,
+    'view|delete': true,
     'view|read': true,
-    'view|update': false,
+    'view|update': true,
     'field|create': false,
     'field|delete': false,
     'field|read': true,
     'field|update': false,
-    'record|create': false,
+    'record|create': true,
     'record|comment': true,
-    'record|delete': false,
+    'record|delete': true,
     'record|read': true,
     'record|update': true,
   },
@@ -75,3 +75,7 @@ export const tablePermissions: Record<TableRole, Record<TablePermission, boolean
 };
 
 export const TablePermissionActions = keys(tablePermissions.manager) as TablePermission[];
+
+export const DefaultEnableActions = keys(
+  pickBy(tablePermissions.editor, (value) => value === true)
+) as TablePermission[];
