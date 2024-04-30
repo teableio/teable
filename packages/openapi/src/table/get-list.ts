@@ -50,6 +50,6 @@ export const GetTableListRoute: RouteConfig = registerRoute({
   tags: ['table'],
 });
 
-export const getTableList = async (baseId: string) => {
-  return axios.get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }));
+export const getTableList = async (baseId: string, params?: IGetTableQuery) => {
+  return axios.get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }), { params });
 };
