@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
@@ -189,7 +190,7 @@ describe('PermissionService', () => {
 
       vi.spyOn(service as any, 'getUpperIdByTableId').mockResolvedValueOnce({
         spaceId: 'spc11111111',
-        baseId: 'bsexxxxxx',
+        baseId: 'bse1111111',
       });
 
       const result = await service['isTableIdAllowedForResource'](tableId, spaceIds, baseIds);
@@ -250,13 +251,15 @@ describe('PermissionService', () => {
     it('should throw ForbiddenException when resourceId is a valid baseId but not allowed', async () => {
       const resourceId = 'bsexxxxxx';
       const accessTokenId = 'validAccessTokenId';
-      const baseIds = ['bsexxxxxx'];
+      const baseIds = ['bsexxxxxx1'];
 
       vi.spyOn(service, 'getAccessToken').mockResolvedValueOnce({
         scopes: ['table|read'],
         baseIds,
         spaceIds: undefined,
       });
+
+      vi.spyOn(service as any, 'isBaseIdAllowedForResource').mockResolvedValueOnce(false);
 
       await expect(
         service.getPermissionsByAccessToken(resourceId, accessTokenId)
@@ -288,7 +291,7 @@ describe('PermissionService', () => {
         getPermissions(RoleType.Space, SpaceRole.Editor)
       );
       const result = await service.getPermissions(resourceId);
-      expect(result.includes('table|create')).toEqual(true);
+      expect(result.includes('view|create')).toEqual(true);
       expect(result.includes('space|create')).toEqual(false);
     });
 
@@ -310,12 +313,11 @@ describe('PermissionService', () => {
 
   describe('validPermissions', () => {
     it('should return true if user has all required permissions', async () => {
-      vi.spyOn(service, 'getPermissions').mockResolvedValue(
-        getPermissions(RoleType.Space, SpaceRole.Editor)
-      );
+      const permissions = getPermissions(RoleType.Space, SpaceRole.Creator);
+      vi.spyOn(service, 'getPermissions').mockResolvedValue(permissions);
       const resourceId = 'bsexxxxxx';
       const result = await service.validPermissions(resourceId, ['base|create']);
-      expect(result).toBe(true);
+      expect(result).toEqual(permissions);
     });
 
     it('should throw an error if user does not have all required permissions', async () => {
@@ -324,7 +326,7 @@ describe('PermissionService', () => {
       );
       const resourceId = 'bsexxxxxx';
       await expect(service.validPermissions(resourceId, ['space|create'])).rejects.toThrowError(
-        new ForbiddenException('User does not have required permissions: space|create')
+        new ForbiddenException(`not allowed to operate space|create on ${resourceId}`)
       );
     });
   });

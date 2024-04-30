@@ -125,13 +125,20 @@ export class PermissionService {
   async getPermissionsByAccessToken(resourceId: string, accessTokenId: string) {
     const { scopes, spaceIds, baseIds } = await this.getAccessToken(accessTokenId);
 
+    if (
+      !resourceId.startsWith(IdPrefix.Space) &&
+      !resourceId.startsWith(IdPrefix.Base) &&
+      !resourceId.startsWith(IdPrefix.Table)
+    ) {
+      throw new ForbiddenException(`${resourceId} is not valid`);
+    }
+
     if (resourceId.startsWith(IdPrefix.Space) && !spaceIds?.includes(resourceId)) {
       throw new ForbiddenException(`not allowed to space ${resourceId}`);
     }
 
     if (
       resourceId.startsWith(IdPrefix.Base) &&
-      !baseIds?.includes(resourceId) &&
       !(await this.isBaseIdAllowedForResource(resourceId, spaceIds, baseIds))
     ) {
       throw new ForbiddenException(`not allowed to base ${resourceId}`);
