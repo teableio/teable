@@ -56,6 +56,9 @@ const actionsI18nMap: Record<
   'base|table_export': {
     description: 'permission.actionDescription.tableExport',
   },
+  'base|authority_matrix_config': {
+    description: 'permission.actionDescription.baseAuthorityMatrixConfig',
+  },
   'table|create': {
     description: 'permission.actionDescription.tableCreate',
   },

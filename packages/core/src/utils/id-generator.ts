@@ -26,6 +26,9 @@ export enum IdPrefix {
   Notification = 'not',
 
   AccessToken = 'acc',
+
+  AuthorityMatrix = 'aut',
+  AuthorityMatrixRole = 'aur',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -116,4 +119,12 @@ export function generateAccessTokenId() {
 
 export function generateAccountId() {
   return IdPrefix.Account + getRandomString(16);
+}
+
+export function generateAuthorityMatrixId() {
+  return IdPrefix.AuthorityMatrix + getRandomString(16);
+}
+
+export function generateAuthorityMatrixRoleId() {
+  return IdPrefix.AuthorityMatrixRole + getRandomString(16);
 }

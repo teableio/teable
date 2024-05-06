@@ -22,6 +22,10 @@
     "deleteSucceed": "Delete Succeed!",
     "loading": "Loading..."
   },
+  "quickAction": {
+    "title": "Quick Actions...",
+    "placeHolder": "Type a command or search..."
+  },
   "settings": {
     "title": "Settings",
     "back": "Back to home",
@@ -92,7 +96,8 @@
     "field": "Field",
     "record": "Record",
     "dashboard": "Dashboard",
-    "automation": "Automation"
+    "automation": "Automation",
+    "authorityMatrix": "Authority Matrix"
   },
   "noResult": "No Result.",
   "untitled": "Untitled",

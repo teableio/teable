@@ -244,14 +244,12 @@ export class BaseService {
 
   private async checkBaseReadPermission(baseId: string) {
     // First check if the user has the base read permission
-    await this.permissionService.checkPermissionByBaseId(baseId, ['base|read']);
+    await this.permissionService.validPermissions(baseId, ['base|read']);
 
     // Then check the token permissions if the request was made with a token
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId) {
-      await this.permissionService.checkPermissionByAccessToken(baseId, accessTokenId, [
-        'base|read',
-      ]);
+      await this.permissionService.validPermissions(baseId, ['base|read'], accessTokenId);
     }
   }
 

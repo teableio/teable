@@ -22,6 +22,10 @@
     "deleteSucceed": "删除成功！",
     "loading": "加载中..."
   },
+  "quickAction": {
+    "title": "快捷搜索...",
+    "placeHolder": "输入命令或进行搜索..."
+  },
   "settings": {
     "title": "设置",
     "back": "返回主页",
@@ -92,7 +96,8 @@
     "field": "字段",
     "record": "记录",
     "dashboard": "仪表盘",
-    "automation": "自动化"
+    "automation": "自动化",
+    "authorityMatrix": "权限矩阵"
   },
   "noResult": "无结果。",
   "untitled": "未命名",

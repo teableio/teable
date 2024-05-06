@@ -1,7 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { FieldActions, RecordActions, ViewActions } from '../actions';
 
-export const shareViewPermission: Record<ViewActions | FieldActions | RecordActions, boolean> = {
+export type ShareViewPermission = ViewActions | FieldActions | RecordActions;
+
+export const shareViewPermissions: Record<ShareViewPermission, boolean> = {
   'view|create': false,
   'view|delete': false,
   'view|read': true,

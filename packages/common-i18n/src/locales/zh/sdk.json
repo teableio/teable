@@ -121,6 +121,7 @@
       "baseInviteLink": "通过链接邀请进入数据库",
       "baseTableImport": "导入到数据库",
       "baseTableExport": "导出数据库",
+      "baseAuthorityMatrixConfig": "配置权限矩阵",
       "tableCreate": "创建表格",
       "tableRead": "查看表格",
       "tableDelete": "删除表格",

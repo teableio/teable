@@ -53,7 +53,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
         </kbd>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder={t('space:quickAction.placeHolder')} />
+        <CommandInput placeholder={t('common:quickAction.placeHolder')} />
         <CommandList>
           <CommandEmpty>{t('common:noResult')}</CommandEmpty>
           <CommandGroup heading={t('common:noun.table')}>

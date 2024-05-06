@@ -12,7 +12,9 @@ export enum SpaceRole {
 
 export const spaceRolesSchema = z.nativeEnum(SpaceRole);
 
-export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = {
+export type SpacePermission = AllActions;
+
+export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean>> = {
   owner: {
     'space|create': true,
     'space|delete': true,
@@ -29,6 +31,7 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'base|invite_link': true,
     'base|table_import': true,
     'base|table_export': true,
+    'base|authority_matrix_config': true,
     'table|create': true,
     'table|read': true,
     'table|delete': true,
@@ -69,6 +72,7 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'base|invite_link': true,
     'base|table_import': true,
     'base|table_export': true,
+    'base|authority_matrix_config': false,
     'table|create': true,
     'table|read': true,
     'table|delete': true,
@@ -109,6 +113,7 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'base|invite_link': true,
     'base|table_import': true,
     'base|table_export': true,
+    'base|authority_matrix_config': false,
     'table|create': false,
     'table|read': true,
     'table|delete': false,
@@ -149,6 +154,7 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'base|invite_link': false,
     'base|table_import': false,
     'base|table_export': true,
+    'base|authority_matrix_config': false,
     'table|create': false,
     'table|read': true,
     'table|delete': false,
@@ -189,6 +195,7 @@ export const spacePermissions: Record<SpaceRole, Record<AllActions, boolean>> = 
     'base|invite_link': false,
     'base|table_import': false,
     'base|table_export': true,
+    'base|authority_matrix_config': false,
     'table|create': false,
     'table|read': true,
     'table|delete': false,

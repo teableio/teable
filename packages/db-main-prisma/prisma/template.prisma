@@ -25,19 +25,18 @@ model Space {
 }
 
 model Base {
-  id               String      @id @default(cuid())
-  spaceId          String      @map("space_id")
-  name             String
-  order            Float
-  icon             String?
-  schemaPass       String?     @map("schema_pass")
-  deletedTime      DateTime?   @map("deleted_time")
-  createdTime      DateTime    @default(now()) @map("created_time")
-  createdBy        String      @map("created_by")
-  lastModifiedBy   String?     @map("last_modified_by")
-  lastModifiedTime DateTime?   @updatedAt @map("last_modified_time")
-
-  space          Space       @relation(fields: [spaceId], references: [id])
+  id                         String      @id @default(cuid())
+  spaceId                    String      @map("space_id")
+  name                       String
+  order                      Float
+  icon                       String?
+  schemaPass                 String?     @map("schema_pass")
+  deletedTime                DateTime?   @map("deleted_time")
+  createdTime                DateTime    @default(now()) @map("created_time")
+  createdBy                  String      @map("created_by")
+  lastModifiedBy             String?     @map("last_modified_by")
+  lastModifiedTime           DateTime?   @updatedAt @map("last_modified_time")
+  space          Space                   @relation(fields: [spaceId], references: [id])
   tables         TableMeta[]
 
   @@index([order])

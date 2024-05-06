@@ -2,7 +2,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { getPermissions, SpaceRole } from '@teable/core';
+import { getPermissions, RoleType, SpaceRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
@@ -63,7 +63,7 @@ describe('InvitationService', () => {
       {
         user: mockUser,
         tx: {},
-        permissions: getPermissions(SpaceRole.Owner),
+        permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
       },
       async () => {
         await invitationService.generateInvitationBySpace('link', mockSpace.id, {
@@ -122,7 +122,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () =>
           await invitationService.emailInvitationBySpace(mockSpace.id, {
@@ -179,7 +179,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () =>
           await expect(() =>
@@ -194,7 +194,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () =>
           await expect(() =>
@@ -221,7 +221,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () =>
           await expect(() =>
@@ -249,7 +249,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
       );
@@ -262,7 +262,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
       );
@@ -290,7 +290,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(SpaceRole.Owner),
+          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
       );

@@ -20,7 +20,7 @@ export const spaceActionsSchema = defaultActionsSchema.or(
 export type SpaceActions = `${ActionPrefix.Space}|${z.infer<typeof spaceActionsSchema>}`;
 
 export const baseActionsSchema = defaultActionsSchema.or(
-  z.enum(['invite_email', 'invite_link', 'table_import', 'table_export'])
+  z.enum(['invite_email', 'invite_link', 'table_import', 'table_export', 'authority_matrix_config'])
 );
 
 export type BaseActions = `${ActionPrefix.Base}|${z.infer<typeof baseActionsSchema>}`;
