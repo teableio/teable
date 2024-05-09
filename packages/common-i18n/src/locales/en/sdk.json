@@ -131,6 +131,7 @@
       "baseTableImport": "Import data into base",
       "baseTableExport": "Export data from base",
       "baseAuthorityMatrixConfig": "Configure authority matrix",
+      "baseDbConnect": "Connect to database",
       "tableCreate": "Create table",
       "tableRead": "Read table",
       "tableDelete": "Delete table",

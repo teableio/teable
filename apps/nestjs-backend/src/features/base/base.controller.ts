@@ -107,19 +107,19 @@ export class BaseController {
     return await this.baseService.deleteBase(baseId);
   }
 
-  @Permissions('base|create')
+  @Permissions('base|db_connection')
   @Post(':baseId/connection')
   async createDbConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo> {
     return await this.dbConnectionService.create(baseId);
   }
 
-  @Permissions('base|create')
+  @Permissions('base|db_connection')
   @Get(':baseId/connection')
   async getDBConnection(@Param('baseId') baseId: string): Promise<IDbConnectionVo | null> {
     return await this.dbConnectionService.retrieve(baseId);
   }
 
-  @Permissions('base|create')
+  @Permissions('base|db_connection')
   @Delete(':baseId/connection')
   async deleteDbConnection(@Param('baseId') baseId: string) {
     await this.dbConnectionService.remove(baseId);

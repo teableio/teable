@@ -20,7 +20,14 @@ export const spaceActionsSchema = defaultActionsSchema.or(
 export type SpaceActions = `${ActionPrefix.Space}|${z.infer<typeof spaceActionsSchema>}`;
 
 export const baseActionsSchema = defaultActionsSchema.or(
-  z.enum(['invite_email', 'invite_link', 'table_import', 'table_export', 'authority_matrix_config'])
+  z.enum([
+    'invite_email',
+    'invite_link',
+    'table_import',
+    'table_export',
+    'authority_matrix_config',
+    'db_connection',
+  ])
 );
 
 export type BaseActions = `${ActionPrefix.Base}|${z.infer<typeof baseActionsSchema>}`;
@@ -74,6 +81,8 @@ export const actionPrefixMap: ActionPrefixMap = {
     'base|update',
     'base|table_import',
     'base|table_export',
+    'base|db_connection',
+    'base|authority_matrix_config',
   ],
   [ActionPrefix.Table]: ['table|create', 'table|delete', 'table|read', 'table|update'],
   [ActionPrefix.View]: ['view|create', 'view|delete', 'view|read', 'view|update'],
