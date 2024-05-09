@@ -59,6 +59,9 @@ const actionsI18nMap: Record<
   'base|authority_matrix_config': {
     description: 'permission.actionDescription.baseAuthorityMatrixConfig',
   },
+  'base|db_connection': {
+    description: 'permission.actionDescription.baseDbConnect',
+  },
   'table|create': {
     description: 'permission.actionDescription.tableCreate',
   },
