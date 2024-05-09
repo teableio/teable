@@ -20,12 +20,14 @@ import {
   symbols,
 } from './operator';
 
-const modesRequiringDays: string[] = [
+// eslint-disable-next-line @typescript-eslint/naming-convention
+export const modesRequiringDays: string[] = [
   daysAgo.value,
   daysFromNow.value,
   pastNumberOfDays.value,
   nextNumberOfDays.value,
 ];
+
 export const dateFilterSchema = z
   .object({
     mode: subOperators,
@@ -56,7 +58,7 @@ export type ILiteralValue = z.infer<typeof literalValueSchema>;
 export const literalValueListSchema = literalValueSchema.array().nonempty();
 export type ILiteralValueList = z.infer<typeof literalValueListSchema>;
 
-const filterValueSchema = z
+export const filterValueSchema = z
   .union([literalValueSchema, literalValueListSchema, dateFilterSchema])
   .nullable();
 export type IFilterValue = z.infer<typeof filterValueSchema>;
@@ -73,7 +75,8 @@ const operatorsExpectingArray: string[] = [
   hasNoneOf.value,
   isExactly.value,
 ];
-const filterOperatorSchema = z
+
+export const filterOperatorSchema = z
   .object({
     isSymbol: z.literal(false).optional(),
     fieldId: z.string(),
