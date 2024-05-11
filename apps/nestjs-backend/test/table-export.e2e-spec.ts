@@ -125,6 +125,45 @@ afterAll(async () => {
   await app.close();
 });
 
+const createRecordsWithLink = async (mainTableId: string, subTableId: string) => {
+  return apiCreateRecords(mainTableId, {
+    records: [
+      {
+        fields: {
+          ['Attachment field']: [{ ...txtFileData, id: 'actxxxxxx', name: 'test.txt' }],
+          ['Date field']: '2022-11-28T16:00:00.000Z',
+          ['Text field']: 'txt1',
+          ['Number field']: 1,
+          ['Checkbox field']: true,
+          ['Select field']: 'x',
+          ['Link field']: [
+            {
+              id: subTableId,
+            },
+          ],
+        },
+      },
+      {
+        fields: {
+          ['Date field']: '2022-11-28T16:00:00.000Z',
+          ['Text field']: 'txt2',
+          ['Select field']: 'y',
+          ['User Field']: {
+            title: 'test',
+            id: userId,
+          },
+        },
+      },
+      {
+        fields: {
+          ['Select field']: 'z',
+          ['Checkbox field']: true,
+        },
+      },
+    ],
+  });
+};
+
 describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from table (Get) ', () => {
   it(`should return a csv stream from table and compatible all fields`, async () => {
     const mainTable = await apiCreateTable(baseId, {
@@ -197,42 +236,7 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
       });
     }
 
-    await apiCreateRecords(mainTable.data.id, {
-      records: [
-        {
-          fields: {
-            ['Attachment field']: [{ ...txtFileData, id: 'actxxxxxx', name: 'test.txt' }],
-            ['Date field']: '2022-11-28T16:00:00.000Z',
-            ['Text field']: 'txt1',
-            ['Number field']: 1,
-            ['Checkbox field']: true,
-            ['Select field']: 'x',
-            ['Link field']: [
-              {
-                id: subTable.data.records[0].id,
-              },
-            ],
-          },
-        },
-        {
-          fields: {
-            ['Date field']: '2022-11-28T16:00:00.000Z',
-            ['Text field']: 'txt2',
-            ['Select field']: 'y',
-            ['User Field']: {
-              title: 'test',
-              id: userId,
-            },
-          },
-        },
-        {
-          fields: {
-            ['Select field']: 'z',
-            ['Checkbox field']: true,
-          },
-        },
-      ],
-    });
+    await createRecordsWithLink(mainTable.data.id, subTable.data.records[0].id);
 
     const exportRes = await apiExportCsvFromTable(mainTable.data.id);
     const disposition = exportRes?.headers['content-disposition'];
@@ -320,42 +324,7 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
       });
     }
 
-    await apiCreateRecords(mainTable.data.id, {
-      records: [
-        {
-          fields: {
-            ['Attachment field']: [{ ...txtFileData, id: 'actxxxxxx', name: 'test.txt' }],
-            ['Date field']: '2022-11-28T16:00:00.000Z',
-            ['Text field']: 'txt1',
-            ['Number field']: 1,
-            ['Checkbox field']: true,
-            ['Select field']: 'x',
-            ['Link field']: [
-              {
-                id: subTable.data.records[0].id,
-              },
-            ],
-          },
-        },
-        {
-          fields: {
-            ['Date field']: '2022-11-28T16:00:00.000Z',
-            ['Text field']: 'txt2',
-            ['Select field']: 'y',
-            ['User Field']: {
-              title: 'test',
-              id: userId,
-            },
-          },
-        },
-        {
-          fields: {
-            ['Select field']: 'z',
-            ['Checkbox field']: true,
-          },
-        },
-      ],
-    });
+    await createRecordsWithLink(mainTable.data.id, subTable.data.records[0].id);
 
     const exportRes = await apiExportCsvFromTable(mainTable.data.id);
     const disposition = exportRes?.headers['content-disposition'];
