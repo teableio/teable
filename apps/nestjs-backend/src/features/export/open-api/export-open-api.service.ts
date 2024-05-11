@@ -33,11 +33,10 @@ export class ExportOpenApiService {
         throw new BadRequestException('table is not found');
       });
 
+    const fileName = tableRaw?.name ? encodeURIComponent(tableRaw?.name) : 'export';
+
     response.setHeader('Content-Type', 'text/csv');
-    response.setHeader(
-      'Content-Disposition',
-      `attachment; filename=${tableRaw?.name || 'export'}.csv`
-    );
+    response.setHeader('Content-Disposition', `attachment; filename=${fileName}.csv`);
 
     csvStream.pipe(response);
 

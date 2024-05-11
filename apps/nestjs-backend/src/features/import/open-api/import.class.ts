@@ -51,6 +51,15 @@ export abstract class Importer {
 
   public static DEFAULT_COLUMN_TYPE: IValidateTypes = FieldType.SingleLineText;
 
+  // order make sence
+  public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
+    FieldType.Checkbox,
+    FieldType.Number,
+    FieldType.Date,
+    FieldType.LongText,
+    FieldType.SingleLineText,
+  ];
+
   constructor(public config: IImportConstructorParams) {}
 
   abstract parse(
@@ -63,8 +72,6 @@ export abstract class Importer {
       ) => Promise<void>,
     ]
   ): Promise<IParseResult>;
-
-  abstract getSupportedFieldTypes(): IValidateTypes[];
 
   async getFile() {
     const { url, type } = this.config;
@@ -93,7 +100,7 @@ export abstract class Importer {
   }
 
   async genColumns() {
-    const supportTypes = this.getSupportedFieldTypes();
+    const supportTypes = Importer.SUPPORTEDTYPE;
     const parseResult = await this.parse();
     const result: IAnalyzeVo['worksheets'] = {};
 
@@ -160,17 +167,6 @@ export abstract class Importer {
 export class CsvImporter extends Importer {
   public static readonly CHECK_LINES = 5000;
   public static readonly DEFAULT_SHEETKEY = 'Import Table';
-  // order make sence
-  public static readonly SUPPORTEDTYPE: IValidateTypes[] = [
-    FieldType.Checkbox,
-    FieldType.Number,
-    FieldType.Date,
-    FieldType.LongText,
-    FieldType.SingleLineText,
-  ];
-  getSupportedFieldTypes() {
-    return CsvImporter.SUPPORTEDTYPE;
-  }
 
   parse(): Promise<IParseResult>;
   parse(
@@ -329,9 +325,6 @@ export class ExcelImporter extends Importer {
     }
 
     return parseResult;
-  }
-  getSupportedFieldTypes() {
-    return CsvImporter.SUPPORTEDTYPE;
   }
 }
 
