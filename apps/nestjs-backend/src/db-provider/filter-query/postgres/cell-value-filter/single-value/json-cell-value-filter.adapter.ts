@@ -12,9 +12,9 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     const { type } = this.field;
 
     if (type === FieldType.Link || type === FieldType.User) {
-      builderClient.whereRaw(`??::jsonb @\\? '$.id \\? (@ == "${value}")'`, [this.columnName]);
+      builderClient.whereRaw(`??::jsonb @\\? '$.id \\? (@ == "${value}")'`, [this.tableColumnRef]);
     } else {
-      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [this.columnName]);
+      builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [this.tableColumnRef]);
     }
     return builderClient;
   }
@@ -28,11 +28,11 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
 
     if (type === FieldType.Link || type === FieldType.User) {
       builderClient.whereRaw(`NOT COALESCE(??, '{}')::jsonb @\\? '$.id \\? (@ == "${value}")'`, [
-        this.columnName,
+        this.tableColumnRef,
       ]);
     } else {
       builderClient.whereRaw(`NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [
-        this.columnName,
+        this.tableColumnRef,
       ]);
     }
     return builderClient;
@@ -48,11 +48,11 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     if (type === FieldType.Link || type === FieldType.User) {
       builderClient.whereRaw(
         `jsonb_extract_path_text(??::jsonb, 'id') IN (${this.createSqlPlaceholders(value)})`,
-        [this.columnName, ...value]
+        [this.tableColumnRef, ...value]
       );
     } else {
       builderClient.whereRaw(`??::jsonb \\?| ARRAY[${this.createSqlPlaceholders(value)}]`, [
-        this.columnName,
+        this.tableColumnRef,
         ...value,
       ]);
     }
@@ -71,12 +71,12 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
         `COALESCE(jsonb_extract_path_text(COALESCE(??, '{}')::jsonb, 'id'), '') NOT IN (${this.createSqlPlaceholders(
           value
         )})`,
-        [this.columnName, ...value]
+        [this.tableColumnRef, ...value]
       );
     } else {
       builderClient.whereRaw(
         `NOT COALESCE(??, '[]')::jsonb \\?| ARRAY[${this.createSqlPlaceholders(value)}]`,
-        [this.columnName, ...value]
+        [this.tableColumnRef, ...value]
       );
     }
     return builderClient;
@@ -91,11 +91,11 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
 
     if (type === FieldType.Link) {
       builderClient.whereRaw(`??::jsonb @\\? '$.title \\? (@ like_regex "${value}" flag "i")'`, [
-        this.columnName,
+        this.tableColumnRef,
       ]);
     } else {
       builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`, [
-        this.columnName,
+        this.tableColumnRef,
       ]);
     }
     return builderClient;
@@ -111,12 +111,12 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     if (type === FieldType.Link) {
       builderClient.whereRaw(
         `NOT COALESCE(??, '{}')::jsonb @\\? '$.title \\? (@ like_regex "${value}" flag "i")'`,
-        [this.columnName]
+        [this.tableColumnRef]
       );
     } else {
       builderClient.whereRaw(
         `NOT COALESCE(??, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${value}" flag "i")'`,
-        [this.columnName]
+        [this.tableColumnRef]
       );
     }
     return builderClient;

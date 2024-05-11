@@ -38,7 +38,6 @@ import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 
 export abstract class AbstractCellValueFilter implements ICellValueFilterInterface {
   protected tableColumnRef: string;
-  protected columnName: string;
 
   constructor(
     protected readonly dbTableName: string,
@@ -46,7 +45,6 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   ) {
     const { dbFieldName } = this.field;
 
-    this.columnName = dbFieldName;
     this.tableColumnRef = `${this.dbTableName}.${dbFieldName}`;
   }
 
@@ -90,7 +88,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   ): Knex.QueryBuilder {
     const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
 
-    builderClient.where(this.columnName, parseValue);
+    builderClient.where(this.tableColumnRef, parseValue);
     return builderClient;
   }
 
@@ -113,7 +111,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _operator: IFilterOperator,
     value: IFilterValue
   ): Knex.QueryBuilder {
-    builderClient.where(this.columnName, 'LIKE', `%${value}%`);
+    builderClient.where(this.tableColumnRef, 'LIKE', `%${value}%`);
     return builderClient;
   }
 
@@ -131,7 +129,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    builderClient.where(this.columnName, '>', parseValue);
+    builderClient.where(this.tableColumnRef, '>', parseValue);
     return builderClient;
   }
 
@@ -143,7 +141,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    builderClient.where(this.columnName, '>=', parseValue);
+    builderClient.where(this.tableColumnRef, '>=', parseValue);
     return builderClient;
   }
 
@@ -155,7 +153,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    builderClient.where(this.columnName, '<', parseValue);
+    builderClient.where(this.tableColumnRef, '<', parseValue);
     return builderClient;
   }
 
@@ -167,7 +165,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    builderClient.where(this.columnName, '<=', parseValue);
+    builderClient.where(this.tableColumnRef, '<=', parseValue);
     return builderClient;
   }
 
@@ -178,7 +176,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
   ): Knex.QueryBuilder {
     const valueList = literalValueListSchema.parse(value);
 
-    builderClient.whereIn(this.columnName, [...valueList]);
+    builderClient.whereIn(this.tableColumnRef, [...valueList]);
     return builderClient;
   }
 
@@ -209,7 +207,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _operator: IFilterOperator,
     _value: IFilterValue
   ): Knex.QueryBuilder {
-    builderClient.whereNull(this.columnName);
+    builderClient.whereNull(this.tableColumnRef);
     return builderClient;
   }
 
@@ -218,7 +216,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
     _operator: IFilterOperator,
     _value: IFilterValue
   ): Knex.QueryBuilder {
-    builderClient.whereNotNull(this.columnName);
+    builderClient.whereNotNull(this.tableColumnRef);
     return builderClient;
   }
 

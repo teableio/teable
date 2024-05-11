@@ -14,7 +14,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(
       `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [this.columnName]
+      [this.tableColumnRef]
     );
     return builderClient;
   }
@@ -29,7 +29,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(
       `NOT ??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [this.columnName]
+      [this.tableColumnRef]
     );
     return builderClient;
   }
@@ -43,7 +43,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ > "${dateTimeRange[1]}")'`, [
-      this.columnName,
+      this.tableColumnRef,
     ]);
     return builderClient;
   }
@@ -57,7 +57,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}")'`, [
-      this.columnName,
+      this.tableColumnRef,
     ]);
     return builderClient;
   }
@@ -71,7 +71,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ < "${dateTimeRange[0]}")'`, [
-      this.columnName,
+      this.tableColumnRef,
     ]);
     return builderClient;
   }
@@ -85,7 +85,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ <= "${dateTimeRange[1]}")'`, [
-      this.columnName,
+      this.tableColumnRef,
     ]);
     return builderClient;
   }
@@ -100,7 +100,7 @@ export class MultipleDatetimeCellValueFilterAdapter extends CellValueFilterPostg
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
     builderClient.whereRaw(
       `??::jsonb @\\? '$[*] \\? (@ >= "${dateTimeRange[0]}" && @ <= "${dateTimeRange[1]}")'`,
-      [this.columnName]
+      [this.tableColumnRef]
     );
     return builderClient;
   }
