@@ -34,6 +34,9 @@
     --ring: 217.9 10.6% 64.9%;
 
     --radius: 0.5rem;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
   }
 
   .dark {
@@ -65,6 +68,9 @@
     --destructive-foreground: 0 85.7% 97.3%;
 
     --ring: 215 27.9% 16.9%;
+
+    --warning: 48 96% 89%;
+    --warning-foreground: 38 92% 50%;
   }
 }
 

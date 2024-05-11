@@ -8,6 +8,16 @@ const filePath = join(__dirname, './src/**/*.{js,ts,jsx,tsx}');
 module.exports = {
   content: [filePath],
   darkMode: ['class'],
-  theme: deepMerge({}, shadcnuiConfig.theme),
+  theme: deepMerge(
+    {
+      extend: {
+        colors: {
+          warning: 'hsl(var(--warning))',
+          'warning-foreground': 'hsl(var(--warning-foreground))',
+        },
+      },
+    },
+    shadcnuiConfig.theme
+  ),
   plugins: [...shadcnuiConfig.plugins],
 };
