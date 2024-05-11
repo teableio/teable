@@ -1,13 +1,13 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { FieldKeyType } from '@teable/core';
+import { FieldType, FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
   IImportOptionRo,
   IInplaceImportOptionRo,
-  ITableFullVo,
   IImportColumn,
 } from '@teable/openapi';
+import { toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { NotificationService } from '../../notification/notification.service';
@@ -80,7 +80,7 @@ export class ImportOpenApiService {
           { skipFirstNLines: useFirstRowAsHeader ? 1 : 0, sheetKey, notification },
           {
             columnInfo,
-            fields,
+            fields: fields.map((f) => ({ id: f.id, type: f.type })),
           }
         );
     }
@@ -106,7 +106,15 @@ export class ImportOpenApiService {
         throw new BadRequestException('table is not found');
       });
 
-    if (!tableRaw) {
+    const fieldRaws = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null, hasError: null },
+      select: {
+        id: true,
+        type: true,
+      },
+    });
+
+    if (!tableRaw || !fieldRaws) {
       return;
     }
 
@@ -123,6 +131,7 @@ export class ImportOpenApiService {
       { skipFirstNLines: excludeFirstRow ? 1 : 0, sheetKey: sourceWorkSheetKey, notification },
       {
         sourceColumnMap,
+        fields: fieldRaws as { id: string; type: FieldType }[],
       }
     );
   }
@@ -135,12 +144,13 @@ export class ImportOpenApiService {
     options: { skipFirstNLines: number; sheetKey: string; notification: boolean },
     recordsCal: {
       columnInfo?: IImportColumn[];
-      fields?: ITableFullVo['fields'];
+      fields: { id: string; type: FieldType }[];
       sourceColumnMap?: Record<string, number | null>;
     }
   ) {
     const { skipFirstNLines, sheetKey, notification } = options;
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
+
     importer.parse(
       {
         skipFirstNLines,
@@ -154,16 +164,20 @@ export class ImportOpenApiService {
             fields: {},
           };
           // import new table
-          if (columnInfo && fields) {
+          if (columnInfo) {
             columnInfo.forEach((col, index) => {
-              res.fields[fields[index].id] = row[col.sourceColumnIndex];
+              const { sourceColumnIndex } = col;
+              const value = row[sourceColumnIndex];
+              res.fields[fields[index].id] = value;
             });
           }
           // inplace records
           if (sourceColumnMap) {
             for (const [key, value] of Object.entries(sourceColumnMap)) {
               if (value !== null) {
-                res.fields[key] = row[value];
+                const { type } = fields.find((f) => f.id === key) || {};
+                // link value should be string
+                res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
               }
             }
           }

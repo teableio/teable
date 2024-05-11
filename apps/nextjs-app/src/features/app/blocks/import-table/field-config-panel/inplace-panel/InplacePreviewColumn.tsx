@@ -25,7 +25,7 @@ interface IPreviewColumnProps {
   onChange: (columns: IInplaceImportOptionRo['insertConfig']['sourceColumnMap']) => void;
 }
 
-const UNSUPPORTFIELDTYPES = [FieldType.User, FieldType.Link, FieldType.Rollup, FieldType.Formula];
+const UNSUPPORTFIELDTYPES = [FieldType.User, FieldType.Rollup, FieldType.Formula];
 
 export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
   const { onChange, fields, workSheets, insertConfig } = props;
