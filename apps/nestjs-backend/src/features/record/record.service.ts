@@ -862,6 +862,12 @@ export class RecordService implements IAdapterService {
       fieldKeyType,
       projection
     );
+
+    const deniedRecordIds = await this.recordPermissionService.getDeniedReadRecordsPermission(
+      tableId,
+      recordIds
+    );
+
     const dbTableName = await this.getDbTableName(tableId);
 
     const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
@@ -901,6 +907,29 @@ export class RecordService implements IAdapterService {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
       })
       .map((record) => {
+        if (deniedRecordIds.includes(record.__id)) {
+          const recordPrimaryFields = this.dbRecord2RecordFields(
+            record,
+            [primaryField],
+            fieldKeyType,
+            cellFormat
+          );
+          const primaryFieldName = recordPrimaryFields[primaryField[fieldKeyType]];
+          return {
+            id: record.__id,
+            v: record.__version,
+            type: 'json0',
+            data: {
+              fields: recordPrimaryFields,
+              isDenied: true,
+              name:
+                cellFormat === CellFormat.Text
+                  ? (primaryFieldName as string)
+                  : primaryField.cellValue2String(primaryFieldName),
+              id: record.__id,
+            },
+          };
+        }
         const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
         const name = recordFields[primaryField[fieldKeyType]];
         return {
@@ -970,6 +999,8 @@ export class RecordService implements IAdapterService {
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
+
+    query = await this.recordPermissionService.getRecordQueryWithPermission(tableId, query);
 
     const {
       skip,

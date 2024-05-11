@@ -1,6 +1,7 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
 import type { IGetBaseVo } from '@teable/openapi';
 import { AnchorContext, FieldProvider, useTable, ViewProvider } from '@teable/sdk';
+import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -35,22 +36,24 @@ export const Table: React.FC<ITableProps> = ({
             : 'Teable'}
         </title>
       </Head>
-      <ViewProvider serverData={viewServerData}>
-        <div className="flex h-full grow basis-[500px] flex-col">
-          <TableHeader />
-          <FieldProvider serverSideData={fieldServerData}>
-            <ErrorBoundary
-              fallback={
-                <div className="flex size-full items-center justify-center">
-                  <FailAlert />
-                </div>
-              }
-            >
-              <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
-            </ErrorBoundary>
-          </FieldProvider>
-        </div>
-      </ViewProvider>
+      <TablePermissionProvider>
+        <ViewProvider serverData={viewServerData}>
+          <div className="flex h-full grow basis-[500px] flex-col">
+            <TableHeader />
+            <FieldProvider serverSideData={fieldServerData}>
+              <ErrorBoundary
+                fallback={
+                  <div className="flex size-full items-center justify-center">
+                    <FailAlert />
+                  </div>
+                }
+              >
+                <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
+              </ErrorBoundary>
+            </FieldProvider>
+          </div>
+        </ViewProvider>
+      </TablePermissionProvider>
     </AnchorContext.Provider>
   );
 };

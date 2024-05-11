@@ -2,30 +2,47 @@ import { ViewType } from '@teable/core';
 import { sortBy } from 'lodash';
 import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
+import { TablePermissionContext } from '../context/table-permission';
 import { useView } from './use-view';
 
-export function useFields(options: { withHidden?: boolean } = {}) {
-  const { withHidden } = options;
+export function useFields(options: { withHidden?: boolean; withDenied?: boolean } = {}) {
+  const { withHidden, withDenied } = options;
   const { fields: originFields } = useContext(FieldContext);
+  const {
+    field: { fields: fieldsPermission },
+  } = useContext(TablePermissionContext);
+
   const view = useView();
   const { type: viewType, columnMeta } = view ?? {};
 
   return useMemo(() => {
     const sortedFields = sortBy(originFields, (field) => columnMeta?.[field.id]?.order ?? Infinity);
 
-    if (withHidden || viewType == null) {
+    if ((withHidden && withDenied) || viewType == null) {
       return sortedFields;
     }
-    if (viewType === ViewType.Form) {
-      return sortedFields.filter(({ id }) => columnMeta?.[id]?.visible);
-    }
-    if (viewType === ViewType.Kanban) {
-      return sortedFields.filter(({ id, isPrimary }) => {
-        return isPrimary || columnMeta?.[id]?.visible;
-      });
-    }
 
-    return sortedFields.filter(({ id }) => !columnMeta?.[id]?.hidden);
+    return sortedFields.filter(({ id }) => {
+      const isHidden = () => {
+        if (withHidden) {
+          return true;
+        }
+        if (viewType === ViewType.Form) {
+          return columnMeta?.[id]?.visible;
+        }
+        if (viewType === ViewType.Kanban) {
+          return columnMeta?.[id]?.visible;
+        }
+        return !columnMeta?.[id]?.hidden;
+      };
+      const hasPermission = () => {
+        if (withDenied || fieldsPermission[id]?.['field|read']) {
+          return true;
+        }
+        return false;
+      };
+      return isHidden() && hasPermission();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originFields, withHidden, viewType, JSON.stringify(columnMeta)]);
+  }, [originFields, withHidden, viewType, fieldsPermission, JSON.stringify(columnMeta)]);
 }

@@ -8,11 +8,13 @@ import { ClsMiddleware, ClsModule } from 'nestjs-cls';
 import { CacheModule } from '../cache/cache.module';
 import { ConfigModule } from '../configs/config.module';
 import { X_REQUEST_ID } from '../const';
+import { DbProvider } from '../db-provider/db.provider';
 import { EventEmitterModule } from '../event-emitter/event-emitter.module';
 import { PermissionModule } from '../features/auth/permission.module';
 import { FieldPermissionService } from '../features/field/field-permission.service';
 import { MailSenderModule } from '../features/mail-sender/mail-sender.module';
 import { RecordPermissionService } from '../features/record/record-permission.service';
+import { TablePermissionService } from '../features/table/table-permission.service';
 import { ViewPermissionService } from '../features/view/view-permission.service';
 import { KnexModule } from './knex';
 
@@ -43,9 +45,21 @@ const globalModules = {
     PrismaModule,
     PermissionModule,
   ],
-  // for overriding the default FieldPermissionService, RecordPermissionService, and ViewPermissionService
-  providers: [FieldPermissionService, RecordPermissionService, ViewPermissionService],
-  exports: [FieldPermissionService, RecordPermissionService, ViewPermissionService],
+  // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
+  providers: [
+    DbProvider,
+    FieldPermissionService,
+    RecordPermissionService,
+    ViewPermissionService,
+    TablePermissionService,
+  ],
+  exports: [
+    DbProvider,
+    FieldPermissionService,
+    RecordPermissionService,
+    ViewPermissionService,
+    TablePermissionService,
+  ],
 };
 
 @Global()

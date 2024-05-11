@@ -15,6 +15,7 @@ import {
   useTableId,
   useGroupPoint,
   useTablePermission,
+  useFieldPermission,
 } from '@teable/sdk/hooks';
 import type {
   KanbanView,
@@ -41,7 +42,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const { id: baseId } = useBase() ?? {};
   const permission = useTablePermission();
   const fields = useFields();
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
@@ -63,6 +64,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
         id === stackFieldId && KANBAN_STACK_FIELD_TYPES.has(type) && !isMultipleCellValue
     ) as SingleSelectField | UserField | undefined;
   }, [stackFieldId, allFields]);
+  const fieldPermission = useFieldPermission(stackFieldId);
 
   const { type: stackFieldType, options: stackFieldOptions } = stackField ?? {};
 
@@ -77,16 +79,16 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
 
   const kanbanPermission = useMemo(() => {
     return {
-      stackCreatable: permission['field|update'],
-      stackEditable: permission['field|update'],
-      stackDeletable: permission['field|update'],
-      stackDraggable: permission['field|update'],
-      cardCreatable: permission['record|create'],
-      cardEditable: permission['record|update'],
-      cardDeletable: permission['record|delete'],
-      cardDraggable: permission['record|update'],
+      stackCreatable: Boolean(fieldPermission['field|update']),
+      stackEditable: Boolean(fieldPermission['field|update']),
+      stackDeletable: Boolean(fieldPermission['field|update']),
+      stackDraggable: Boolean(fieldPermission['field|update']),
+      cardCreatable: Boolean(permission['record|create']),
+      cardEditable: Boolean(permission['record|update']),
+      cardDeletable: Boolean(permission['record|delete']),
+      cardDraggable: Boolean(permission['record|update']),
     };
-  }, [permission]);
+  }, [permission, fieldPermission]);
 
   const groupPointMap = useMemo(() => {
     if (groupPoints == null || stackFieldType == null) return null;

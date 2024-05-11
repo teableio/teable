@@ -44,7 +44,7 @@ export const SocketRecordList = (props: ISocketRecordListProps) => {
         if (!record) {
           return;
         }
-        onClick?.(record);
+        onClick?.({ id: record.id, title: record.name });
         if (!selectedRecordIds?.includes(record.id)) {
           onSelected?.(record);
         }

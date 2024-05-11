@@ -79,11 +79,11 @@ export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.View]: ['view|create', 'view|delete', 'view|read', 'view|update'],
   [ActionPrefix.Field]: ['field|create', 'field|delete', 'field|read', 'field|update'],
   [ActionPrefix.Record]: [
-    'record|comment',
     'record|create',
     'record|delete',
     'record|read',
     'record|update',
+    'record|comment',
   ],
   [ActionPrefix.Automation]: [
     'automation|create',

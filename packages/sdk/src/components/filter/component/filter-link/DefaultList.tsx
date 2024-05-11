@@ -1,6 +1,7 @@
 import { AnchorProvider } from '../../../../context';
 import { useTranslation } from '../../../../context/app/i18n';
 import { SocketRecordList } from '../../../record-list';
+import { StorageLinkSelected } from './storage';
 import type { IFilterLinkSelectListProps } from './types';
 
 export const DefaultList = (props: IFilterLinkSelectListProps) => {
@@ -16,6 +17,7 @@ export const DefaultList = (props: IFilterLinkSelectListProps) => {
         selectedRecordIds={values || undefined}
         onClick={(value) => {
           onClick(value.id);
+          StorageLinkSelected.set(`${field.options.foreignTableId}-${value.id}`, value.title);
         }}
         primaryFieldId={field.options.lookupFieldId}
       />

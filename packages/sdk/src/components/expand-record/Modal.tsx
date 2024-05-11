@@ -21,7 +21,12 @@ export const Modal: FC<
         className={cn('h-full block p-0 max-w-3xl', showActivity && 'max-w-5xl', className)}
         style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
         onMouseDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            onClose?.();
+          }
+          e.stopPropagation();
+        }}
       >
         {children}
       </DialogContent>

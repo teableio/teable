@@ -13,7 +13,8 @@ export class PermissionService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>
   ) {}
-  private async getRoleBySpaceId(spaceId: string) {
+
+  async getRoleBySpaceId(spaceId: string) {
     const userId = this.cls.get('user.id');
 
     const collaborator = await this.prismaService.collaborator.findFirst({
@@ -31,7 +32,7 @@ export class PermissionService {
     return collaborator.roleName as SpaceRole;
   }
 
-  private async getRoleByBaseId(baseId: string) {
+  async getRoleByBaseId(baseId: string) {
     const userId = this.cls.get('user.id');
 
     const collaborator = await this.prismaService.collaborator.findFirst({
@@ -61,7 +62,7 @@ export class PermissionService {
     };
   }
 
-  private async getUpperIdByTableId(tableId: string): Promise<{ spaceId: string; baseId: string }> {
+  async getUpperIdByTableId(tableId: string): Promise<{ spaceId: string; baseId: string }> {
     const table = await this.prismaService.tableMeta.findFirst({
       where: {
         id: tableId,
@@ -72,23 +73,14 @@ export class PermissionService {
       },
     });
     const baseId = table?.base.id;
-    const space = await this.prismaService.base.findFirst({
-      where: {
-        id: baseId,
-        deletedTime: null,
-      },
-      select: {
-        spaceId: true,
-      },
-    });
-    const spaceId = space?.spaceId;
+    const spaceId = table?.base?.spaceId;
     if (!spaceId || !baseId) {
       throw new NotFoundException(`Invalid tableId: ${tableId}`);
     }
     return { baseId, spaceId };
   }
 
-  private async getUpperIdByBaseId(baseId: string): Promise<{ spaceId: string }> {
+  async getUpperIdByBaseId(baseId: string): Promise<{ spaceId: string }> {
     const space = await this.prismaService.base.findFirst({
       where: {
         id: baseId,

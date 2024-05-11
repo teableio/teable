@@ -60,7 +60,7 @@ export const FieldCreateOrSelectModal = forwardRef<
     getCreateBtnText,
   } = props;
   const tableId = useTableId();
-  const totalFields = useFields({ withHidden: true });
+  const totalFields = useFields({ withHidden: true, withDenied: true });
   const getFieldStatic = useFieldStaticGetter();
   const [newField, setNewField] = useState<IFieldRo>();
   const { t } = useTranslation();

@@ -1,4 +1,4 @@
-import type { FieldCore, SortFunc } from '@teable/core';
+import type { SortFunc } from '@teable/core';
 import { Checked, Square } from '@teable/icons';
 import {
   Select,
@@ -22,18 +22,14 @@ function OrderSelect(props: IOrderProps) {
   const { value, onSelect, fieldId } = props;
   const { t } = useTranslation();
 
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
 
   const field = useMemo(() => {
-    const map: Record<string, FieldCore> = {};
-    fields.forEach((field) => {
-      map[field.id] = field;
-    });
-    return map[fieldId];
+    return fields.find((field) => field.id === fieldId);
   }, [fieldId, fields]);
 
   const options = useMemo(() => {
-    const { cellValueType } = field;
+    const cellValueType = field?.cellValueType;
 
     const DEFAULTOPTIONS = [
       {

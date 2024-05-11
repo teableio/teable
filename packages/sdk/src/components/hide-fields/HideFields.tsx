@@ -9,7 +9,7 @@ export const HideFields: React.FC<{
   children: (text: string, isActive: boolean) => React.ReactNode;
 }> = ({ footer, children }) => {
   const activeViewId = useViewId();
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
   const view = useView() as GridView | undefined;
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>

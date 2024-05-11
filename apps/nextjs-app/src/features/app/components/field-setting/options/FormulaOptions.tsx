@@ -33,7 +33,7 @@ export const FormulaOptionsInner = (props: {
 }) => {
   const { options = {}, onChange } = props;
   const { expression, formatting, showAs } = options;
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
   const [visible, setVisible] = useState(false);
 
   const expressionByName = useMemo(() => {

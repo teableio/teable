@@ -25,6 +25,7 @@ import { BatchService } from '../calculation/batch.service';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
+import { TablePermissionService } from './table-permission.service';
 
 @Injectable()
 export class TableService implements IReadonlyAdapterService {
@@ -37,6 +38,7 @@ export class TableService implements IReadonlyAdapterService {
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
+    private readonly tablePermissionService: TablePermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -375,8 +377,17 @@ export class TableService implements IReadonlyAdapterService {
   }
 
   async getDocIdsByQuery(baseId: string, _query: unknown) {
+    const projectionTableIds = await this.tablePermissionService.getProjectionTableIds(baseId);
     const tables = await this.prismaService.txClient().tableMeta.findMany({
-      where: { deletedTime: null, baseId },
+      where: {
+        deletedTime: null,
+        baseId,
+        ...(projectionTableIds
+          ? {
+              id: { in: projectionTableIds },
+            }
+          : {}),
+      },
       select: { id: true },
       orderBy: { order: 'asc' },
     });

@@ -27,7 +27,7 @@ export class RecordPermissionService {
     return recordQuery;
   }
 
-  private async getRecordQueryWithSharePermission(tableId: string, recordQuery: IGetRecordsRo) {
+  protected async getRecordQueryWithSharePermission(tableId: string, recordQuery: IGetRecordsRo) {
     const { viewId } = recordQuery;
     const viewIdWithShare = await this.getViewIdByShare(tableId, viewId);
     return {
@@ -36,7 +36,7 @@ export class RecordPermissionService {
     };
   }
 
-  private async getViewIdByShare(tableId: string, viewId?: string) {
+  protected async getViewIdByShare(tableId: string, viewId?: string) {
     const shareId = this.cls.get('shareViewId');
     if (!shareId) {
       return viewId;
@@ -69,7 +69,7 @@ export class RecordPermissionService {
     return projection;
   }
 
-  private async getProjectionWithSharePermission(
+  protected async getProjectionWithSharePermission(
     tableId: string,
     fieldKeyType: FieldKeyType,
     projection?: { [fieldNameOrId: string]: boolean }
@@ -116,5 +116,9 @@ export class RecordPermissionService {
     if (!(await this.hasUpdateRecordPermission(tableId, recordId))) {
       throw new ForbiddenException(`no has update ${recordId} permission`);
     }
+  }
+
+  async getDeniedReadRecordsPermission(_tableId: string, _recordIds: string[]): Promise<string[]> {
+    return [];
   }
 }

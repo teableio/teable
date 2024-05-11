@@ -16,7 +16,7 @@ import { Sort } from '../../grid/toolbar/Sort';
 export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView() as KanbanView | undefined;
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { stackFieldId } = view?.options ?? {};
 

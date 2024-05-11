@@ -5,7 +5,7 @@ import { useFilterNode } from './useFilterNode';
 
 function Filter(props: IFilterProps) {
   const { onChange, filters, context, children, contentHeader, components } = props;
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
   const { text, isActive } = useFilterNode(filters, fields);
 
   return (

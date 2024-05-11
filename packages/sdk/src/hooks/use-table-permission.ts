@@ -1,7 +1,13 @@
-import { RoleType, getPermissionMap, spacePermissions } from '@teable/core';
-import { useBase } from './use-base';
+import { useContext, useMemo } from 'react';
+import { TablePermissionContext } from '../context/table-permission';
 
+export type IUseTablePermissionAction = keyof ReturnType<typeof useTablePermission>;
+
+// check table, view, record exclude field
 export const useTablePermission = () => {
-  const base = useBase();
-  return base ? getPermissionMap(RoleType.Base, base.role) : spacePermissions.viewer;
+  const { table, view, record, field } = useContext(TablePermissionContext) ?? {};
+
+  return useMemo(() => {
+    return { ...table, ...view, ...record, ['field|create']: field?.create };
+  }, [table, view, record, field?.create]);
 };

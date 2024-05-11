@@ -36,7 +36,7 @@ export const FormEditor = () => {
   const view = useView();
   const isHydrated = useIsHydrated();
   const visibleFields = useFields();
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const getFieldStatic = useFieldStaticGetter();
   const [innerVisibleFields, setInnerVisibleFields] = useState([...visibleFields]);
   const [activeField, setActiveField] = useState<IFieldInstance | null>(null);

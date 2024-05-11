@@ -26,7 +26,7 @@ const COVER_FIELD_EMPTY_ID = 'cover_field_empty_id';
 
 export const CoverFieldSelect = (props: ICoverFieldSelect) => {
   const { fieldId, isCoverFit, className, onCheckedChange, onSelectChange } = props;
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const filteredFields = useMemo(
