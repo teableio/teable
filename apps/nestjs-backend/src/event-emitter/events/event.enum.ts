@@ -7,6 +7,7 @@ export enum Events {
   BASE_CREATE = 'base.create',
   BASE_DELETE = 'base.delete',
   BASE_UPDATE = 'base.update',
+  BASE_PERMISSION_UPDATE = 'base.permission.update',
   // BASE_CLONE = 'base.clone',
   // BASE_MOVE = 'base.move',
 

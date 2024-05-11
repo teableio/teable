@@ -20,7 +20,8 @@
     "editSucceed": "Edit Succeed!",
     "updateSucceed": "Update Succeed!",
     "deleteSucceed": "Delete Succeed!",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "refreshPage": "Refresh Page"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -154,5 +155,6 @@
     "devDocs": "Developer Docs",
     "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/developer/api"
-  }
+  },
+  "pagePermissionChangeTip": "Page permissions have been updated. Please refresh the page to see the latest content."
 }

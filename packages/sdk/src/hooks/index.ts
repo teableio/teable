@@ -32,3 +32,4 @@ export * from './use-group-point';
 export * from './use-permission-actions-static';
 export * from './use-space-role-static';
 export * from './use-field-cell-editable';
+export * from './use-permission-update-listener';

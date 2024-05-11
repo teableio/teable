@@ -8,6 +8,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { SideBar } from '@/features/app/blocks/base/base-side-bar/SideBar';
 import { AppLayout } from '@/features/app/layouts';
+import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
 import { Pane } from '../components/toggle-side-bar/Pane';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 
@@ -36,6 +37,7 @@ export const BaseLayout: React.FC<{
               }}
             >
               <BaseProvider serverData={baseServerData}>
+                <BasePermissionListener />
                 <TableProvider serverData={tableServerData}>
                   <div id="portal" className="relative flex h-screen w-full items-start">
                     <Pane>

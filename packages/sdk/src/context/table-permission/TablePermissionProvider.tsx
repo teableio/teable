@@ -14,6 +14,7 @@ export const TablePermissionProvider = ({ children }: { children: React.ReactNod
     queryKey: ReactQueryKeys.getTablePermission(baseId, tableId!),
     queryFn: ({ queryKey }) => getTablePermission(queryKey[1], queryKey[2]).then((res) => res.data),
   });
+
   return (
     <TablePermissionContext.Provider value={tablePermission ?? TablePermissionContextDefaultValue}>
       {children}
