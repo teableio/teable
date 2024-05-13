@@ -45,7 +45,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { disabled } = props;
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();

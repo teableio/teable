@@ -10,7 +10,7 @@ import { statisticsValue2DisplayValue } from '../../../utils';
 
 export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   const viewId = useViewId();
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
   const remoteStatistics = useAggregation();
   const [columnStatistics, setColumnStatistics] = useState<IColumnStatistics>({});
   const columnsRef = useRef(columns);

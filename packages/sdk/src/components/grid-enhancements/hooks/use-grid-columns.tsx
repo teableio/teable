@@ -15,7 +15,7 @@ import {
   onMixedTextClick,
 } from '../..';
 import { ThemeKey } from '../../../context';
-import { useFields, useTablePermission, useTheme, useView } from '../../../hooks';
+import { useFields, useTheme, useView, useFieldCellEditable } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/utils';
@@ -155,7 +155,7 @@ const generateColumns = ({
 };
 
 export const createCellValue2GridDisplay =
-  (fields: IFieldInstance[], editable: boolean) =>
+  (fields: IFieldInstance[], editable: (field: IFieldInstance) => boolean) =>
   // eslint-disable-next-line sonarjs/cognitive-complexity
   (record: Record, col: number): ICell => {
     const field = fields[col];
@@ -167,8 +167,7 @@ export const createCellValue2GridDisplay =
     let cellValue = record.getCellValue(fieldId);
     const validateCellValue = field.validateCellValue(cellValue);
     cellValue = validateCellValue.success ? validateCellValue.data : undefined;
-
-    const readonly = isComputed || !editable;
+    const readonly = isComputed || !editable(field);
     const cellId = `${record.id}-${fieldId}`;
     const baseCellProps = { id: cellId, readonly };
 
@@ -460,10 +459,9 @@ export const createCellValue2GridDisplay =
 export function useGridColumns(hasMenu?: boolean) {
   const view = useView() as GridView | undefined;
   const fields = useFields();
-  const totalFields = useFields({ withHidden: true });
-  const permission = useTablePermission();
+  const totalFields = useFields({ withHidden: true, withDenied: true });
+  const fieldEditable = useFieldCellEditable();
   const { theme } = useTheme();
-  const editable = permission['record|update'];
   const sort = view?.sort;
   const group = view?.group;
   const filter = view?.filter;
@@ -503,8 +501,8 @@ export function useGridColumns(hasMenu?: boolean) {
         groupFieldIds,
         filterFieldIds,
       }),
-      cellValue2GridDisplay: createCellValue2GridDisplay(fields, editable),
+      cellValue2GridDisplay: createCellValue2GridDisplay(fields, fieldEditable),
     }),
-    [fields, view, hasMenu, editable, theme, sortFieldIds, groupFieldIds, filterFieldIds]
+    [fields, view, hasMenu, fieldEditable, theme, sortFieldIds, groupFieldIds, filterFieldIds]
   );
 }

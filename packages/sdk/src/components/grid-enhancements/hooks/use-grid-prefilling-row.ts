@@ -1,6 +1,6 @@
 import { isEqual, keyBy } from 'lodash';
 import { useCallback, useMemo, useState } from 'react';
-import { useFields, useRecord, useTablePermission, useView } from '../../../hooks';
+import { useFieldCellEditable, useFields, useRecord, useView } from '../../../hooks';
 import type { GridView } from '../../../model';
 import { getFilterFieldIds } from '../../filter/utils';
 import { CellType } from '../../grid/interface';
@@ -10,11 +10,10 @@ import { createCellValue2GridDisplay } from './use-grid-columns';
 export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) => {
   const view = useView() as GridView | undefined;
   const fields = useFields();
-  const totalFields = useFields({ withHidden: true });
-  const permission = useTablePermission();
+  const totalFields = useFields({ withHidden: true, withDenied: true });
   const sort = view?.sort;
   const isAutoSort = sort && !sort?.manualSort;
-  const editable = permission['record|update'];
+  const fieldEditable = useFieldCellEditable();
   const [prefillingRecordId, setPrefillingRecordId] = useState<string>();
   const [prefillingRowIndex, setPrefillingRowIndex] = useState<number>();
   const record = useRecord(prefillingRecordId);
@@ -22,7 +21,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
   const getPrefillingCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
       const [columnIndex] = cell;
-      const cellValue2GridDisplay = createCellValue2GridDisplay(fields, editable);
+      const cellValue2GridDisplay = createCellValue2GridDisplay(fields, fieldEditable);
       if (record != null) {
         const fieldId = columns[columnIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
@@ -30,7 +29,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       }
       return { type: CellType.Loading };
     },
-    [columns, editable, fields, record]
+    [columns, fieldEditable, fields, record]
   );
 
   const onPrefillingCellEdited = useCallback(

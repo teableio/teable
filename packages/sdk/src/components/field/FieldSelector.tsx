@@ -30,7 +30,7 @@ export function FieldSelector(props: IFieldSelector) {
 
   const [open, setOpen] = useState(false);
 
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
   const selectedField = useMemo(() => fields.find((f) => f.id === value), [fields, value]);
 
   const fieldStaticGetter = useFieldStaticGetter();

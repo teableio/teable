@@ -1,17 +1,17 @@
 import type { IRecord } from '@teable/core';
 import { Separator, Skeleton, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMeasure } from 'react-use';
 import {
+  useFieldCellEditable,
   useFields,
   useIsTouchDevice,
   useRecord,
-  useTablePermission,
   useViewId,
   useViews,
 } from '../../hooks';
-import type { GridView } from '../../model';
+import type { GridView, IFieldInstance } from '../../model';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordRight } from './ExpandRecordRight';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
@@ -52,12 +52,19 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const views = useViews() as (GridView | undefined)[];
   const defaultViewId = views?.[0]?.id;
   const viewId = useViewId() ?? defaultViewId;
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const showFields = useFields();
   const record = useRecord(recordId, serverData);
   const [containerRef, { width: containerWidth }] = useMeasure<HTMLDivElement>();
   const isTouchDevice = useIsTouchDevice();
-  const permission = useTablePermission();
+  const fieldCellEditable = useFieldCellEditable();
+
+  const fieldCellReadonly = useCallback(
+    (field: IFieldInstance) => {
+      return !fieldCellEditable(field);
+    },
+    [fieldCellEditable]
+  );
 
   const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
 
@@ -130,7 +137,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
                 fields={fields}
                 hiddenFields={hiddenFields}
                 onChange={onChange}
-                readonly={!permission['record|update']}
+                readonly={fieldCellReadonly}
               />
             ) : (
               <Skeleton className="h-10 w-full rounded" />

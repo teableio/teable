@@ -4,6 +4,7 @@ import { RowCountContext, RowCountProvider } from '../aggregation';
 import { FieldContext, FieldProvider } from '../field';
 import { SearchProvider } from '../query';
 import { RecordContext, RecordProvider } from '../record';
+import { TablePermissionProvider } from '../table-permission';
 import { ViewContext, ViewProvider } from '../view';
 import { AnchorContext } from './AnchorContext';
 
@@ -29,17 +30,19 @@ export const AnchorProvider: React.FC<IAnchorProvider> = ({
   return (
     <AnchorContext.Provider value={value}>
       {tableId ? (
-        <SearchProvider>
-          <ActionTriggerProvider>
-            <FieldProvider fallback={fallback}>
-              <ViewProvider>
-                <RecordProvider>
-                  <RowCountProvider>{children}</RowCountProvider>
-                </RecordProvider>
-              </ViewProvider>
-            </FieldProvider>
-          </ActionTriggerProvider>
-        </SearchProvider>
+        <TablePermissionProvider>
+          <SearchProvider>
+            <ActionTriggerProvider>
+              <FieldProvider fallback={fallback}>
+                <ViewProvider>
+                  <RecordProvider>
+                    <RowCountProvider>{children}</RowCountProvider>
+                  </RecordProvider>
+                </ViewProvider>
+              </FieldProvider>
+            </ActionTriggerProvider>
+          </SearchProvider>
+        </TablePermissionProvider>
       ) : (
         <FieldContext.Provider value={{ fields: [] }}>
           <ViewContext.Provider value={{ views: [] }}>

@@ -4,8 +4,14 @@
  */
 import { keys } from 'lodash';
 import type { AllActions } from './actions';
-import type { BaseRole, TableRole, SpaceRole } from './role';
-import { basePermissions, shareViewPermissions, spacePermissions, tablePermissions } from './role';
+import type { BaseRole, TableRole } from './role';
+import {
+  SpaceRole,
+  basePermissions,
+  shareViewPermissions,
+  spacePermissions,
+  tablePermissions,
+} from './role';
 import { RoleType } from './types';
 
 export type PermissionAction = AllActions;
@@ -42,4 +48,8 @@ export const getPermissionMap = (
 
 export const hasPermission = (role: SpaceRole, action: PermissionAction) => {
   return checkPermissions(role, [action]);
+};
+
+export const isUnrestrictedRole = (role: string) => {
+  return [SpaceRole.Owner].includes(role as SpaceRole);
 };

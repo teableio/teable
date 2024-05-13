@@ -53,7 +53,7 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
 export const useGridCollapsedGroup = (cacheKey: string, groupPoints: IGroupPointsVo) => {
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
-  const totalFields = useFields({ withHidden: true });
+  const totalFields = useFields({ withHidden: true, withDenied: true });
   const { collapsedGroupMap, setCollapsedGroupMap } = useGridCollapsedGroupStore();
 
   const group = view?.group;

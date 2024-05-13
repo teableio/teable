@@ -50,8 +50,12 @@ interface IFilterEditorProps<T = unknown, F = IFieldInstance> {
 }
 
 interface IFilterComponents {
-  [FieldType.User]: (props: IFilterEditorProps<string | string[] | null, UserField>) => JSX.Element;
-  [FieldType.Link]: (props: IFilterEditorProps<string | string[] | null, LinkField>) => JSX.Element;
+  [FieldType.User]?: (
+    props: IFilterEditorProps<string | string[] | null, UserField>
+  ) => JSX.Element;
+  [FieldType.Link]?: (
+    props: IFilterEditorProps<string | string[] | null, LinkField>
+  ) => JSX.Element;
 }
 
 interface IFilterContextMap {

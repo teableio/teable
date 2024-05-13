@@ -152,4 +152,10 @@ export class TableController {
   ) {
     return await this.tableOpenApiService.sqlQuery(tableId, query.viewId, query.sql);
   }
+
+  @Permissions('table|read')
+  @Get(':tableId/permission')
+  async getPermission(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    return await this.tableOpenApiService.getPermission(baseId, tableId);
+  }
 }

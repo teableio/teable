@@ -47,7 +47,8 @@
       "create": "Add Record",
       "selectRecord": "Select Record",
       "unselected": "Unselected",
-      "selected": "Selected"
+      "selected": "Selected",
+      "expandRecordError": "No permission to view this record."
     },
     "user": {
       "searchPlaceholder": "Find users by name"

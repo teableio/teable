@@ -22,7 +22,7 @@ export function FieldCommand(props: IFieldCommand) {
   const { placeholder, emptyHolder, onSelect, selectedIds } = props;
   const { t } = useTranslation();
 
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
 
   const fieldStaticGetter = useFieldStaticGetter();
 

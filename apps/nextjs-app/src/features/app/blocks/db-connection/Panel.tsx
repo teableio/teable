@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, Database, HelpCircle } from '@teable/icons';
 import { deleteDbConnection, getDbConnection, createDbConnection } from '@teable/openapi';
-import { useBase, useTablePermission } from '@teable/sdk/hooks';
+import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
   Button,
   Card,
@@ -152,7 +152,7 @@ const ContentCard = () => {
 
 export const DbConnectionPanel = ({ className }: { className?: string }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const permissions = useTablePermission();
+  const permissions = useBasePermission();
 
   return (
     <Card className={className}>

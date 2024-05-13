@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable/icons';
-import type { GridView } from '@teable/sdk';
+import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
 import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable/sdk';
+import { TablePermissionContext } from '@teable/sdk/context/table-permission';
 import { insertSingle } from '@teable/sdk/utils';
 import {
   cn,
@@ -14,8 +15,9 @@ import {
   SheetContent,
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
+import { merge } from 'lodash';
 import { useTranslation } from 'next-i18next';
-import { Fragment, useRef } from 'react';
+import { Fragment, useContext, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -40,10 +42,27 @@ export const FieldMenu = () => {
   const { headerMenu, closeHeaderMenu } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
   const permission = useTablePermission();
+  const fieldsPermission = useContext(TablePermissionContext)?.field.fields;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const fields = headerMenu?.fields;
+
+  const menuFieldPermission = useMemo(() => {
+    if (!fields?.length || !fieldsPermission) {
+      return {};
+    }
+    let permissions: Partial<Record<IUseFieldPermissionAction, boolean>> =
+      fieldsPermission[fields[0].id];
+    fields.slice(1).forEach((f) => {
+      permissions = merge(
+        permissions,
+        fieldsPermission[f.id],
+        (value1: boolean, value2: boolean) => value1 && value2
+      );
+    });
+    return permissions;
+  }, [fields, fieldsPermission]);
 
   useClickAway(fieldSettingRef, () => {
     closeHeaderMenu();
@@ -98,7 +117,7 @@ export const FieldMenu = () => {
         type: MenuItemType.Edit,
         name: t('table:menu.editField'),
         icon: <Edit className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['field|update'],
+        hidden: fieldIds.length !== 1 || !menuFieldPermission['field|update'],
         onClick: async () => {
           openSetting({
             fieldId: fieldIds[0],
@@ -155,7 +174,7 @@ export const FieldMenu = () => {
             ? t('table:menu.deleteAllSelectedFields')
             : t('table:menu.deleteField'),
         icon: <Trash className={iconClassName} />,
-        hidden: !permission['field|delete'],
+        hidden: !menuFieldPermission['field|delete'],
         disabled: fields.some((f) => f.isPrimary),
         className: 'text-red-500 aria-selected:text-red-500',
         onClick: async () => {

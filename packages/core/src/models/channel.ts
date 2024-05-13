@@ -13,3 +13,7 @@ export function getUserNotificationChannel(userId: string) {
 export function getActionTriggerChannel(table: string) {
   return `__action_trigger_${table}`;
 }
+
+export function getBasePermissionUpdateChannel(baseId: string) {
+  return `__base_permission_update_${baseId}`;
+}

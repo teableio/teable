@@ -71,7 +71,7 @@ export const FormSidebar = () => {
   const isHydrated = useIsHydrated();
   const view = useView() as FormView | undefined;
   const activeViewId = view?.id;
-  const allFields = useFields({ withHidden: true });
+  const allFields = useFields({ withHidden: true, withDenied: true });
   const getFieldStatic = useFieldStaticGetter();
   const { openSetting } = useFieldSettingStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);

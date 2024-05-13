@@ -12,7 +12,7 @@ const SelectFieldByTableId: React.FC<{
   selectedId?: string;
   onChange: (lookupField: IFieldInstance) => void;
 }> = ({ selectedId, onChange }) => {
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
   const table = useTable();
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -57,7 +57,7 @@ export const LookupOptions = (props: {
   ) => void;
 }) => {
   const { options = {}, onChange } = props;
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [innerOptions, setInnerOptions] = useState<Partial<ILookupOptionsRo>>({
     foreignTableId: options.foreignTableId,

@@ -7,6 +7,7 @@ import { Events } from '../event.enum';
 type IBaseCreatePayload = { base: ICreateBaseVo };
 type IBaseDeletePayload = { baseId: string };
 type IBaseUpdatePayload = IBaseCreatePayload;
+type IBasePermissionUpdatePayload = { baseId: string };
 
 export class BaseCreateEvent extends CoreEvent<IBaseCreatePayload> {
   public readonly name = Events.BASE_CREATE;
@@ -31,6 +32,14 @@ export class BaseUpdateEvent extends CoreEvent<IBaseUpdatePayload> {
   }
 }
 
+export class BasePermissionUpdateEvent extends CoreEvent<IBasePermissionUpdatePayload> {
+  public readonly name = Events.BASE_PERMISSION_UPDATE;
+
+  constructor(baseId: string, context: IEventContext) {
+    super({ baseId }, context);
+  }
+}
+
 export class BaseEventFactory {
   static create(
     name: string,
@@ -49,6 +58,10 @@ export class BaseEventFactory {
       .with(Events.BASE_UPDATE, () => {
         const { base } = payload as IBaseUpdatePayload;
         return new BaseUpdateEvent(base, context);
+      })
+      .with(Events.BASE_PERMISSION_UPDATE, () => {
+        const { baseId } = payload as IBasePermissionUpdatePayload;
+        return new BasePermissionUpdateEvent(baseId, context);
       })
       .otherwise(() => null);
   }

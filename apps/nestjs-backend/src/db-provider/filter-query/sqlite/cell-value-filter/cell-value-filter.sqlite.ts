@@ -19,7 +19,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     const { cellValueType } = this.field;
     const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
 
-    builderClient.whereRaw(`ifnull(${this.columnName}, '') != ?`, [parseValue]);
+    builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') != ?`, [parseValue]);
     return builderClient;
   }
 
@@ -28,7 +28,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
     _operator: IFilterOperator,
     value: IFilterValue
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(`ifnull(${this.columnName}, '') not like ?`, [`%${value}%`]);
+    builderClient.whereRaw(`ifnull(${this.tableColumnRef}, '') not like ?`, [`%${value}%`]);
     return builderClient;
   }
 
@@ -39,7 +39,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
   ): Knex.QueryBuilder {
     const valueList = literalValueListSchema.parse(value);
 
-    const sql = `ifnull(${this.columnName}, '') not in (${this.createSqlPlaceholders(valueList)})`;
+    const sql = `ifnull(${this.tableColumnRef}, '') not in (${this.createSqlPlaceholders(valueList)})`;
     builderClient.whereRaw(sql, [...valueList]);
     return builderClient;
   }

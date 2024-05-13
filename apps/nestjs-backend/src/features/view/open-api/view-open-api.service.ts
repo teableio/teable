@@ -595,6 +595,13 @@ export class ViewOpenApiService {
 
   async getFilterLinkRecords(tableId: string, viewId: string) {
     const view = await this.viewService.getViewById(viewId);
+    return this.getFilterLinkRecordsByTable(tableId, view.filter);
+  }
+
+  async getFilterLinkRecordsByTable(tableId: string, filter?: IFilter) {
+    if (!filter) {
+      return [];
+    }
     const linkFields = await this.prismaService.field.findMany({
       where: { tableId, deletedTime: null, type: FieldType.Link },
     });
@@ -606,7 +613,7 @@ export class ViewOpenApiService {
       },
       {} as Record<string, string>
     );
-    const tableRecordMap = await this.collectFilterLinkFieldRecords(linkFieldTableMap, view.filter);
+    const tableRecordMap = await this.collectFilterLinkFieldRecords(linkFieldTableMap, filter);
 
     if (!tableRecordMap) {
       return [];

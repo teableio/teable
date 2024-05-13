@@ -9,7 +9,7 @@ export const VisibleFields: React.FC<{
   children: (text: string, isActive: boolean) => React.ReactNode;
 }> = ({ footer, children }) => {
   const activeViewId = useViewId();
-  const totalFields = useFields({ withHidden: true });
+  const totalFields = useFields({ withHidden: true, withDenied: true });
   const view = useView() as KanbanView | undefined;
   const columnMeta = view?.columnMeta;
 

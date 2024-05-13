@@ -264,7 +264,7 @@ const generateGroupCellFn =
 export const useGridGroupCollection = () => {
   const view = useView();
   const group = view?.group;
-  const fields = useFields({ withHidden: true });
+  const fields = useFields({ withHidden: true, withDenied: true });
 
   const groupFields = useMemo(() => {
     if (!group?.length) return [];

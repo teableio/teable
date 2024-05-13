@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { type PermissionAction } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
+import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permisison.decorator';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { IResourceMeta } from '../decorators/resource_meta.decorator';
@@ -47,7 +48,7 @@ export class PermissionGuard {
     return true;
   }
 
-  private async resourcePermission(
+  protected async resourcePermission(
     resourceId: string | undefined,
     permissions: PermissionAction[]
   ) {
@@ -62,6 +63,33 @@ export class PermissionGuard {
     );
     this.cls.set('permissions', ownPermissions);
     return true;
+  }
+
+  protected async permissionCheck(context: ExecutionContext) {
+    const permissions = this.reflector.getAllAndOverride<PermissionAction[] | undefined>(
+      PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()]
+    );
+
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId && !permissions?.length) {
+      // Pre-checking of tokens
+      // The token can only access interfaces that are restricted by permissions or have a token access indicator.
+      return this.reflector.getAllAndOverride<boolean>(IS_TOKEN_ACCESS, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+    }
+
+    if (!permissions?.length) {
+      return true;
+    }
+    // space create permission check
+    if (permissions?.includes('space|create')) {
+      return await this.permissionCreateSpace();
+    }
+    // resource permission check
+    return await this.resourcePermission(this.getResourceId(context), permissions);
   }
 
   /**
@@ -92,29 +120,16 @@ export class PermissionGuard {
       return true;
     }
 
-    const permissions = this.reflector.getAllAndOverride<PermissionAction[] | undefined>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()]
-    );
+    // disabled check
+    const isDisabledPermission = this.reflector.getAllAndOverride<boolean>(IS_DISABLED_PERMISSION, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
-    const accessTokenId = this.cls.get('accessTokenId');
-    if (accessTokenId && !permissions?.length) {
-      // Pre-checking of tokens
-      // The token can only access interfaces that are restricted by permissions or have a token access indicator.
-      return this.reflector.getAllAndOverride<boolean>(IS_TOKEN_ACCESS, [
-        context.getHandler(),
-        context.getClass(),
-      ]);
-    }
-
-    if (!permissions?.length) {
+    if (isDisabledPermission) {
       return true;
     }
-    // space create permission check
-    if (permissions?.includes('space|create')) {
-      return await this.permissionCreateSpace();
-    }
-    // resource permission check
-    return await this.resourcePermission(this.getResourceId(context), permissions);
+
+    return this.permissionCheck(context);
   }
 }

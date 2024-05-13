@@ -20,7 +20,8 @@
     "editSucceed": "编辑成功！",
     "updateSucceed": "更新成功！",
     "deleteSucceed": "删除成功！",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "refreshPage": "刷新页面"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -153,5 +154,6 @@
     "devDocs": "开发者文档",
     "mainLink": "https://help.teable.cn",
     "apiLink": "https://help.teable.cn/gao-dai-ma-kai-fa/api"
-  }
+  },
+  "pagePermissionChangeTip": "页面权限已更新，请刷新页面以查看最新内容。"
 }

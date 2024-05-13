@@ -1,6 +1,9 @@
+import { useQuery } from '@tanstack/react-query';
 import type { ILinkFieldOptionsRo } from '@teable/core';
 import { Relationship } from '@teable/core';
-import { useTableId, useTables } from '@teable/sdk/hooks';
+import { getTablePermission } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { useBase, useTableId, useTables } from '@teable/sdk/hooks';
 import { Selector } from '@teable/ui-lib/base';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
@@ -14,11 +17,21 @@ export const LinkOptions = (props: {
   const { options, isLookup, onChange } = props;
   const tableId = useTableId();
   const tables = useTables();
+  const baseId = useBase().id;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const relationship = options?.relationship ?? Relationship.ManyOne;
   const foreignTableId = options?.foreignTableId;
   const isOneWay = options?.isOneWay;
+
+  const { data: tablePermission } = useQuery({
+    refetchOnWindowFocus: false,
+    queryKey: ReactQueryKeys.getTablePermission(baseId, foreignTableId!),
+    enabled: !!foreignTableId,
+    queryFn: ({ queryKey }) => getTablePermission(queryKey[1], queryKey[2]).then((res) => res.data),
+  });
+
+  const canCreateField = tablePermission?.field.create;
 
   const translation = {
     [Relationship.OneOne]: t('table:field.editor.oneToOne'),
@@ -79,6 +92,7 @@ export const LinkOptions = (props: {
               onCheckedChange={(checked) => {
                 onSelect('isOneWay', checked ? undefined : true);
               }}
+              disabled={!canCreateField}
             />
             <Label htmlFor="field-options-one-way-link" className="font-normal leading-tight">
               {t('table:field.editor.createSymmetricLink')}

@@ -104,7 +104,7 @@ function FieldValue(props: IFieldValue) {
         value: filter.value as string[],
         operator: filter.operator,
       };
-      if (components && FieldType.Link in components) {
+      if (components && components[FieldType.Link]) {
         const LinkComponents = components[FieldType.Link];
         return <LinkComponents {...linkProps} />;
       }
@@ -130,7 +130,7 @@ function FieldValue(props: IFieldValue) {
         value: filter.value as string[],
         operator: filter.operator,
       };
-      if (components && FieldType.User in components) {
+      if (components && components[FieldType.User]) {
         const UserComponents = components[FieldType.User];
         return <UserComponents {...props} />;
       }

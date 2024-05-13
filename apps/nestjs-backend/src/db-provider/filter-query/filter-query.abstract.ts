@@ -54,16 +54,17 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
       return queryBuilder;
     }
     const { filterSet, conjunction } = filter;
-
-    filterSet.forEach((filterItem) => {
-      if ('fieldId' in filterItem) {
-        this.parseFilter(queryBuilder, filterItem as IFilterItem, conjunction);
-      } else {
-        queryBuilder = queryBuilder[parentConjunction || conjunction];
-        queryBuilder.where((builder) => {
-          this.parseFilters(builder, filterItem as IFilterSet, conjunction);
-        });
-      }
+    queryBuilder.where((filterBuilder) => {
+      filterSet.forEach((filterItem) => {
+        if ('fieldId' in filterItem) {
+          this.parseFilter(filterBuilder, filterItem as IFilterItem, conjunction);
+        } else {
+          filterBuilder = filterBuilder[parentConjunction || conjunction];
+          filterBuilder.where((builder) => {
+            this.parseFilters(builder, filterItem as IFilterSet, conjunction);
+          });
+        }
+      });
     });
 
     return queryBuilder;

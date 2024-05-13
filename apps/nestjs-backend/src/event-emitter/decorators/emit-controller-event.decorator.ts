@@ -9,6 +9,7 @@ type OrdinaryEventName = Extract<
   | Events.BASE_CREATE
   | Events.BASE_DELETE
   | Events.BASE_UPDATE
+  | Events.BASE_PERMISSION_UPDATE
   | Events.SPACE_CREATE
   | Events.SPACE_DELETE
   | Events.SPACE_UPDATE

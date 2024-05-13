@@ -12,7 +12,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereBetween(this.columnName, dateTimeRange);
+    builderClient.whereBetween(this.tableColumnRef, dateTimeRange);
     return builderClient;
   }
 
@@ -24,7 +24,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereNotBetween(this.columnName, dateTimeRange);
+    builderClient.whereNotBetween(this.tableColumnRef, dateTimeRange);
     return builderClient;
   }
 
@@ -36,7 +36,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.columnName, '>', dateTimeRange[1]);
+    builderClient.where(this.tableColumnRef, '>', dateTimeRange[1]);
     return builderClient;
   }
 
@@ -48,7 +48,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.columnName, '>=', dateTimeRange[0]);
+    builderClient.where(this.tableColumnRef, '>=', dateTimeRange[0]);
     return builderClient;
   }
 
@@ -60,7 +60,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.columnName, '<', dateTimeRange[0]);
+    builderClient.where(this.tableColumnRef, '<', dateTimeRange[0]);
     return builderClient;
   }
 
@@ -72,7 +72,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.where(this.columnName, '<=', dateTimeRange[1]);
+    builderClient.where(this.tableColumnRef, '<=', dateTimeRange[1]);
     return builderClient;
   }
 
@@ -84,7 +84,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     const { options } = this.field;
 
     const dateTimeRange = this.getFilterDateTimeRange(options as IDateFieldOptions, value);
-    builderClient.whereBetween(this.columnName, dateTimeRange);
+    builderClient.whereBetween(this.tableColumnRef, dateTimeRange);
     return builderClient;
   }
 }

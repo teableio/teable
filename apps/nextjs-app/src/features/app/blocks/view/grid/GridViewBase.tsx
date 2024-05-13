@@ -1,4 +1,3 @@
-import type { PermissionAction } from '@teable/core';
 import { RowHeightLevel, contractColorForTheme } from '@teable/core';
 import type {
   IRectangle,
@@ -10,6 +9,7 @@ import type {
   Record,
   GridView,
   IGroupPoint,
+  IUseTablePermissionAction,
 } from '@teable/sdk';
 import {
   Grid,
@@ -39,6 +39,7 @@ import {
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import {
+  useFieldCellEditable,
   useFields,
   useGroupPoint,
   useIsTouchDevice,
@@ -111,6 +112,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const permission = useTablePermission();
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
+  const fieldEditable = useFieldCellEditable();
 
   const groupCollection = useGridGroupCollection();
 
@@ -325,11 +327,16 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const onColumnHeaderDblClick = useCallback(
     (colIndex: number) => {
+      if (!columns[colIndex]) return;
       const fieldId = columns[colIndex].id;
+      const selectedFields = fields.find((field) => field.id === fieldId);
+      if (!selectedFields || !fieldEditable(selectedFields)) {
+        return;
+      }
       gridRef.current?.setSelection(emptySelection);
       openSetting({ fieldId, operator: FieldOperator.Edit });
     },
-    [columns, openSetting]
+    [columns, fields, fieldEditable, openSetting]
   );
 
   const onColumnHeaderClick = useCallback(
@@ -566,7 +573,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     <T extends (...args: any[]) => any>(
       fn: T,
-      permissionAction: PermissionAction
+      permissionAction: IUseTablePermissionAction
     ): T | undefined => {
       return permission[permissionAction] ? fn : undefined;
     },
@@ -636,8 +643,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
             onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
             onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
-            onColumnResize={getAuthorizedFunction(onColumnResize, 'field|update')}
-            onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'field|update')}
+            onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
+            onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
             onContextMenu={onContextMenu}
             onColumnHeaderClick={onColumnHeaderClick}
             onColumnStatisticClick={getAuthorizedFunction(onColumnStatisticClick, 'view|update')}

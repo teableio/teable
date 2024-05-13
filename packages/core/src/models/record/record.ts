@@ -25,6 +25,8 @@ export class RecordCore {
 
   isDeleted = false;
 
+  isDenied = false;
+
   fields!: Record<string, unknown>;
 
   getCellValue(fieldId: string): unknown {

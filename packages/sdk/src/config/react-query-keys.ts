@@ -58,4 +58,7 @@ export const ReactQueryKeys = {
 
   shareViewLinkRecords: (shareId: string, fieldId: string, search?: string) =>
     ['share-link-records', shareId, fieldId, search] as const,
+
+  getTablePermission: (baseId: string, tableId: string) =>
+    ['table-permission', baseId, tableId] as const,
 };

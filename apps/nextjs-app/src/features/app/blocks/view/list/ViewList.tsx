@@ -25,7 +25,7 @@ export const ViewList = () => {
           >
             <ViewListItem
               view={view}
-              removable={permission['view|delete'] && views.length > 1}
+              removable={!!permission['view|delete'] && views.length > 1}
               isActive={view.id === activeViewId}
             />
           </div>
@@ -40,7 +40,7 @@ export const ViewList = () => {
         <ViewListItem
           key={view.id}
           view={view}
-          removable={permission['view|delete'] && views.length > 1}
+          removable={!!permission['view|delete'] && views.length > 1}
           isActive={view.id === activeViewId}
         />
       ))}
