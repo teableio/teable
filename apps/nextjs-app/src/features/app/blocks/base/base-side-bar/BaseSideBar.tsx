@@ -1,4 +1,5 @@
 import { Gauge, Lock, PackageCheck } from '@teable/icons';
+import { useBasePermission } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
@@ -12,6 +13,7 @@ export const BaseSideBar = () => {
   const router = useRouter();
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const basePermission = useBasePermission();
   const pageRoutes: {
     href: string;
     text: string;
@@ -29,11 +31,15 @@ export const BaseSideBar = () => {
       Icon: PackageCheck,
       disabled: true,
     },
-    {
-      href: `/base/${baseId}/authority-matrix`,
-      text: t('common:noun.authorityMatrix'),
-      Icon: Lock,
-    },
+    ...(basePermission?.['base|authority_matrix_config']
+      ? [
+          {
+            href: `/base/${baseId}/authority-matrix`,
+            text: t('common:noun.authorityMatrix'),
+            Icon: Lock,
+          },
+        ]
+      : []),
   ];
   return (
     <>

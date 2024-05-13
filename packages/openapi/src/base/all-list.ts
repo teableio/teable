@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import type { IGetBaseVo } from './get';
-import { getBaseVoSchema } from './get';
+import { getBaseItemSchema } from './get';
 
 export const GET_BASE_ALL = '/base/access/all';
 
@@ -17,7 +17,7 @@ export const GetBaseAllRoute: RouteConfig = registerRoute({
       description: 'Returns the list of base.',
       content: {
         'application/json': {
-          schema: z.array(getBaseVoSchema),
+          schema: z.array(getBaseItemSchema),
         },
       },
     },

@@ -356,6 +356,10 @@ export class TableService implements IReadonlyAdapterService {
       where: { baseId, id: { in: ids }, deletedTime: null },
       orderBy: { order: 'asc' },
     });
+    const tablePermissionMap = await this.tablePermissionService.getTablePermissionMapByBaseId(
+      baseId,
+      ids
+    );
     const tableTime = await this.getTableLastModifiedTime(ids);
     const tableDefaultViewIds = await this.getTableDefaultViewId(ids);
     return tables
@@ -371,6 +375,7 @@ export class TableService implements IReadonlyAdapterService {
             icon: table.icon ?? undefined,
             lastModifiedTime: tableTime[i] || table.createdTime.toISOString(),
             defaultViewId: tableDefaultViewIds[i],
+            permission: tablePermissionMap[table.id],
           },
         };
       });

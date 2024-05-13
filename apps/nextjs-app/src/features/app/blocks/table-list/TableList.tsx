@@ -1,6 +1,6 @@
 import { File, FileCsv, FileExcel } from '@teable/icons';
 import { SUPPORTEDTYPE } from '@teable/openapi';
-import { useConnection, useTablePermission } from '@teable/sdk';
+import { useBasePermission, useConnection } from '@teable/sdk';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,7 @@ import { useAddTable } from './useAddTable';
 export const TableList: React.FC = () => {
   const { connected } = useConnection();
   const addTable = useAddTable();
-  const permission = useTablePermission();
+  const permission = useBasePermission();
   const { t } = useTranslation(['table']);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [fileType, setFileType] = useState<SUPPORTEDTYPE>(SUPPORTEDTYPE.CSV);
@@ -36,7 +36,7 @@ export const TableList: React.FC = () => {
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <div className="px-3">
-            {permission['table|create'] && (
+            {permission?.['table|create'] && (
               <Button variant={'outline'} size={'xs'} className={`${GUIDE_CREATE_TABLE} w-full`}>
                 <AddBoldIcon />
               </Button>
@@ -84,7 +84,7 @@ export const TableList: React.FC = () => {
       )}
 
       <div className="overflow-y-auto px-3">
-        {connected && permission['table|update'] ? <DraggableList /> : <NoDraggableList />}
+        {connected && permission?.['table|update'] ? <DraggableList /> : <NoDraggableList />}
       </div>
     </div>
   );

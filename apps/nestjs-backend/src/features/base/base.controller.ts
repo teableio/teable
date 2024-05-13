@@ -15,6 +15,7 @@ import {
 import type {
   ICreateBaseVo,
   IDbConnectionVo,
+  IGetBasePermissionVo,
   IGetBaseVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
@@ -130,5 +131,11 @@ export class BaseController {
   @Get(':baseId/collaborators')
   async listCollaborator(@Param('baseId') baseId: string): Promise<ListBaseCollaboratorVo> {
     return await this.collaboratorService.getListByBase(baseId);
+  }
+
+  @Permissions('base|read')
+  @Get(':baseId/permission')
+  async getPermission(@Param('baseId') baseId: string): Promise<IGetBasePermissionVo> {
+    return await this.baseService.getPermission(baseId);
   }
 }

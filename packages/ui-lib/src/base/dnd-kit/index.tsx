@@ -19,6 +19,7 @@ type IProvidedProps = ReturnType<typeof useSortable> & {
 interface IDraggableContainerProps {
   id: string;
   style?: React.CSSProperties;
+  disabled?: boolean;
   children: (provided: IProvidedProps) => React.ReactElement;
 }
 
@@ -88,10 +89,10 @@ const Droppable = (props: SortableContextProps) => {
 };
 
 const Draggable = (props: IDraggableContainerProps) => {
-  const { id, children, style: injectStyle } = props;
-
+  const { id, disabled, children, style: injectStyle } = props;
   const sortProps = useSortable({
-    id: id,
+    id,
+    disabled,
   });
   const { transform, transition } = sortProps;
   const customTransform = transform ? { ...transform, scaleX: 1, scaleY: 1 } : null;

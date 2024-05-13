@@ -168,7 +168,7 @@ export const DbConnectionPanel = ({ className }: { className?: string }) => {
         <CardDescription>{t('table:connection.description')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col">
-        {permissions['base|db_connection'] ? <ContentCard /> : t('table:connection.noPermission')}
+        {permissions?.['base|db_connection'] ? <ContentCard /> : t('table:connection.noPermission')}
       </CardContent>
     </Card>
   );

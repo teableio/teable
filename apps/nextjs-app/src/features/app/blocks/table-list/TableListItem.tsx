@@ -1,5 +1,4 @@
 import { Table2 } from '@teable/icons';
-import { useTablePermission } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
@@ -22,7 +21,6 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
   const router = useRouter();
   const { baseId } = router.query;
   const viewId = router.query.viewId;
-  const permission = useTablePermission();
 
   const navigateHandler = () => {
     router.push(
@@ -66,7 +64,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
             <EmojiPicker
               className="flex size-5 items-center justify-center hover:bg-muted-foreground/60"
               onChange={(icon: string) => table.updateIcon(icon)}
-              disabled={!permission['table|update']}
+              disabled={!table.permission?.['table|update']}
             >
               {table.icon ? (
                 <Emoji emoji={table.icon} size={'1rem'} />
@@ -78,7 +76,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
           <p
             className="grow truncate"
             onDoubleClick={() => {
-              permission['table|update'] && setIsEditing(true);
+              table.permission?.['table|update'] && setIsEditing(true);
             }}
           >
             {' ' + table.name}

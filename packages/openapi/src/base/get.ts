@@ -6,13 +6,15 @@ import { z } from '../zod';
 
 export const GET_BASE = '/base/{baseId}';
 
-export const getBaseVoSchema = z.object({
+export const getBaseItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   spaceId: z.string(),
   icon: z.string().nullable(),
   role: spaceRolesSchema,
 });
+
+export const getBaseVoSchema = getBaseItemSchema;
 
 export type IGetBaseVo = z.infer<typeof getBaseVoSchema>;
 
