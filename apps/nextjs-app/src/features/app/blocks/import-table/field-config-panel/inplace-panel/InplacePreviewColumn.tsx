@@ -25,7 +25,7 @@ interface IPreviewColumnProps {
   onChange: (columns: IInplaceImportOptionRo['insertConfig']['sourceColumnMap']) => void;
 }
 
-const UNSUPPORTFIELDTYPES = [FieldType.User, FieldType.Link, FieldType.Rollup, FieldType.Formula];
+const UNSUPPORTFIELDTYPES = [FieldType.User, FieldType.Rollup, FieldType.Formula];
 
 export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
   const { onChange, fields, workSheets, insertConfig } = props;
@@ -57,7 +57,10 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     if (isEmptySourceColumnMap && analyzeColumns?.length) {
       columns.forEach((col, index) => {
         if (analyzeColumns[index] && !UNSUPPORTFIELDTYPES.includes(col.type)) {
-          initSourceColumnMap[col.id] = index;
+          const matchIndex = analyzeColumns.findIndex(
+            (c) => c.name.toLowerCase() === col.name.toLowerCase()
+          );
+          initSourceColumnMap[col.id] = matchIndex > -1 ? matchIndex : index;
         }
       });
       onChange(initSourceColumnMap);
