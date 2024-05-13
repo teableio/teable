@@ -1,7 +1,8 @@
-import { RoleType, getPermissionMap, spacePermissions } from '@teable/core';
-import { useBase } from './use-base';
+import { useContext } from 'react';
+import { BaseContext } from '../context';
 
 export const useBasePermission = () => {
-  const base = useBase();
-  return base ? getPermissionMap(RoleType.Base, base.role) : spacePermissions.viewer;
+  const { permission } = useContext(BaseContext);
+
+  return permission;
 };

@@ -1,10 +1,10 @@
-import {
-  ActionPrefix,
-  actionPrefixMap,
-  type FieldActions,
-  type RecordActions,
-  type TableActions,
-  type ViewActions,
+import { ActionPrefix, actionPrefixMap } from '@teable/core';
+import type {
+  ExcludeAction,
+  FieldActions,
+  RecordActions,
+  TableActions,
+  ViewActions,
 } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -12,9 +12,7 @@ import { z } from '../zod';
 
 export const GET_TABLE_PERMISSION = '/base/{baseId}/table/{tableId}/permission';
 
-type ExcludeFieldCreate<T extends string> = T extends `field|create` ? never : T;
-
-export type TablePermissionFieldActions = ExcludeFieldCreate<FieldActions>;
+export type TablePermissionFieldActions = ExcludeAction<FieldActions, 'field|create'>;
 
 export const FieldActionsExcludeCreate = actionPrefixMap[ActionPrefix.Field].filter(
   (action) => action !== 'field|create'

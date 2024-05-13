@@ -5,8 +5,7 @@ export type IUseTablePermissionAction = keyof ReturnType<typeof useTablePermissi
 
 // check table, view, record exclude field
 export const useTablePermission = () => {
-  const { table, view, record, field } = useContext(TablePermissionContext) ?? {};
-
+  const { table, view, record, field } = useContext(TablePermissionContext);
   return useMemo(() => {
     return { ...table, ...view, ...record, ['field|create']: field?.create };
   }, [table, view, record, field?.create]);

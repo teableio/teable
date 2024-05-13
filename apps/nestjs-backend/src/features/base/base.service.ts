@@ -1,5 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { generateBaseId } from '@teable/core';
+import {
+  ActionPrefix,
+  RoleType,
+  actionPrefixMap,
+  generateBaseId,
+  getPermissionMap,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateBaseFromTemplateRo,
@@ -8,6 +14,7 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
+import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -262,5 +269,14 @@ export class BaseService {
         withRecords,
       });
     });
+  }
+
+  async getPermission(baseId: string) {
+    const { role } = await this.getBaseById(baseId);
+    const permissionMap = getPermissionMap(RoleType.Base, role);
+    return pick(permissionMap, [
+      ...actionPrefixMap[ActionPrefix.Table],
+      ...actionPrefixMap[ActionPrefix.Base],
+    ]);
   }
 }

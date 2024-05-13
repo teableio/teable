@@ -11,12 +11,13 @@ import type {
   RecordUpdateEvent,
   ViewUpdateEvent,
   FieldUpdateEvent,
+  FieldCreateEvent,
 } from '../events';
 import { Events } from '../events';
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
-type IListenerEvent = IViewEvent | IRecordEvent | FieldUpdateEvent;
+type IListenerEvent = IViewEvent | IRecordEvent | FieldUpdateEvent | FieldCreateEvent;
 
 @Injectable()
 export class ActionTriggerListener {
@@ -26,6 +27,7 @@ export class ActionTriggerListener {
 
   @OnEvent(Events.TABLE_VIEW_UPDATE, { async: true })
   @OnEvent(Events.TABLE_FIELD_UPDATE, { async: true })
+  @OnEvent(Events.TABLE_FIELD_CREATE, { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
     // Handling table view update events
@@ -36,6 +38,11 @@ export class ActionTriggerListener {
     // Handling table field update events
     if (this.isTableFieldUpdateEvent(listenerEvent)) {
       await this.handleTableFieldUpdate(listenerEvent as FieldUpdateEvent);
+    }
+
+    // Handling table field create events
+    if (this.isTableFieldCreateEvent(listenerEvent)) {
+      await this.handleTableFieldCreate(listenerEvent as FieldCreateEvent);
     }
 
     // Handling table record events (create, delete, update)
@@ -100,6 +107,13 @@ export class ActionTriggerListener {
     });
   }
 
+  private async handleTableFieldCreate(event: FieldCreateEvent): Promise<void> {
+    const { tableId } = event.payload;
+    return this.emitActionTrigger(tableId, {
+      addField: [tableId],
+    });
+  }
+
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
     const { tableId } = event.payload;
 
@@ -121,6 +135,10 @@ export class ActionTriggerListener {
 
   private isTableFieldUpdateEvent(event: IListenerEvent): boolean {
     return Events.TABLE_FIELD_UPDATE === event.name;
+  }
+
+  private isTableFieldCreateEvent(event: IListenerEvent): boolean {
+    return Events.TABLE_FIELD_CREATE === event.name;
   }
 
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {

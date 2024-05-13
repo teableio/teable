@@ -5,6 +5,7 @@ export const actionTriggerBufferValue = z.object({
   setRecord: z.string().array().optional(),
   deleteRecord: z.string().array().optional(),
 
+  addField: z.string().array().optional(),
   setField: z.string().array().optional(),
 
   applyViewFilter: z.string().array().optional(),

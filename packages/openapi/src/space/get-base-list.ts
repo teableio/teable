@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import type { IGetBaseVo } from '../base';
-import { getBaseVoSchema } from '../base';
+import { getBaseItemSchema } from '../base';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
@@ -25,7 +25,7 @@ export const GetBaseListRoute: RouteConfig = registerRoute({
       description: 'Returns the list of base.',
       content: {
         'application/json': {
-          schema: z.array(getBaseVoSchema),
+          schema: z.array(getBaseItemSchema),
         },
       },
     },

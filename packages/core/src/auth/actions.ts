@@ -84,7 +84,14 @@ export const actionPrefixMap: ActionPrefixMap = {
     'base|db_connection',
     'base|authority_matrix_config',
   ],
-  [ActionPrefix.Table]: ['table|create', 'table|delete', 'table|read', 'table|update'],
+  [ActionPrefix.Table]: [
+    'table|create',
+    'table|delete',
+    'table|read',
+    'table|update',
+    'table|import',
+    'table|export',
+  ],
   [ActionPrefix.View]: ['view|create', 'view|delete', 'view|read', 'view|update'],
   [ActionPrefix.Field]: ['field|create', 'field|delete', 'field|read', 'field|update'],
   [ActionPrefix.Record]: [
