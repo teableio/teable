@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
 import { AppLayout } from '@/features/app/layouts';
 import { addQueryParamsToWebSocketUrl } from '@/features/app/utils/socket-url';
+import { ShareTablePermissionProvider } from './ShareTablePermissionProvider';
 import { ShareView } from './ShareView';
 import { ShareViewPageContext } from './ShareViewPageContext';
 import { ViewProxy } from './ViewProxy';
@@ -60,7 +61,9 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
               <ViewProvider serverData={[view]}>
                 <ViewProxy serverData={[view]}>
                   <FieldProvider serverSideData={fields}>
-                    <ShareView />
+                    <ShareTablePermissionProvider>
+                      <ShareView />
+                    </ShareTablePermissionProvider>
                   </FieldProvider>
                 </ViewProxy>
               </ViewProvider>
