@@ -90,10 +90,12 @@ export async function initApp() {
 
   await app.listen(0);
   const nestUrl = await app.getUrl();
-  const url = `http://127.0.0.1:${new URL(nestUrl).port}`;
+  const port = new URL(nestUrl).port;
+  const url = `http://127.0.0.1:${port}`;
 
   console.log('url', url);
 
+  process.env.PORT = port;
   process.env.STORAGE_PREFIX = url;
 
   axios.defaults.baseURL = url + '/api';

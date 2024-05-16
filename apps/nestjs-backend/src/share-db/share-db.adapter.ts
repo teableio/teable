@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IRecord } from '@teable/core';
 import { IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -26,6 +26,8 @@ type IProjection = { [fieldNameOrId: string]: boolean };
 
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
+  private logger = new Logger(ShareDbAdapter.name);
+
   closed: boolean;
 
   constructor(
@@ -109,6 +111,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         callback(null, queryResult.ids, queryResult.extra);
       });
     } catch (e) {
+      this.logger.error(e);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       callback(exceptionParse(e as Error), []);
     }
