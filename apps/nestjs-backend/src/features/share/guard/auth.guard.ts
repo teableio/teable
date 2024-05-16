@@ -1,8 +1,9 @@
 import type { ExecutionContext } from '@nestjs/common';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
-import { ANONYMOUS_USER_ID } from '@teable/core';
+import { ANONYMOUS_USER_ID, HttpErrorCode } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { ShareAuthService } from '../share-auth.service';
 import { SHARE_JWT_STRATEGY } from './constant';
@@ -33,7 +34,7 @@ export class AuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
       }
       return true;
     } catch (err) {
-      throw new UnauthorizedException();
+      throw new CustomHttpException('Unauthorized', HttpErrorCode.UNAUTHORIZED_SHARE);
     }
   }
 

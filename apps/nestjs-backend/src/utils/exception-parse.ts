@@ -1,10 +1,13 @@
 import { HttpException } from '@nestjs/common';
-import { HttpErrorCode } from '@teable/core';
+import { HttpErrorCode, HttpError } from '@teable/core';
 import { CustomHttpException, getDefaultCodeByStatus } from '../custom.exception';
 
 export const exceptionParse = (
-  exception: Error | HttpException | CustomHttpException
+  exception: Error | HttpException | CustomHttpException | HttpError
 ): CustomHttpException => {
+  if (exception instanceof HttpError) {
+    return new CustomHttpException(exception.message, exception.code);
+  }
   if (exception instanceof CustomHttpException) {
     return exception;
   }

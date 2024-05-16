@@ -3,9 +3,9 @@ import type { INestApplication } from '@nestjs/common';
 import { IdPrefix, ViewType } from '@teable/core';
 import { enableShareView as apiEnableShareView } from '@teable/openapi';
 import { map } from 'lodash';
-import { logger, type Doc } from 'sharedb/lib/client';
-import { vi } from 'vitest';
+import { type Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
+import { getError } from './utils/get-error';
 import { initApp, updateViewColumnMeta, createTable, deleteTable } from './utils/init-app';
 
 describe('Share (socket-e2e) (e2e)', () => {
@@ -86,17 +86,9 @@ describe('Share (socket-e2e) (e2e)', () => {
     expect(views[0].id).toEqual(viewId);
   });
 
-  it('shareId error', async () => {
+  it.only('shareId error', async () => {
     const collection = `${IdPrefix.View}_${tableId}`;
-    const consoleWarnSpy = vi.spyOn(logger, 'warn');
-    await expect(getQuery(collection, 'share')).rejects.toThrow();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Agent closed due to error',
-      expect.anything(),
-      expect.objectContaining({
-        message: 'Unauthorized',
-        code: 'unauthorized_share',
-      })
-    );
+    const error = await getError(() => getQuery(collection, 'error'));
+    expect(error?.code).toEqual('unauthorized_share');
   });
 });
