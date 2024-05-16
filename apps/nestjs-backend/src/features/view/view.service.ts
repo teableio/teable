@@ -34,7 +34,6 @@ import type { IClsStore } from '../../types/cls';
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
-import { ViewPermissionService } from './view-permission.service';
 
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
@@ -44,7 +43,6 @@ export class ViewService implements IReadonlyAdapterService {
     private readonly cls: ClsService<IClsStore>,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
-    private readonly viewPermissionService: ViewPermissionService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
@@ -391,10 +389,8 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IViewVo>[]> {
-    const viewQuery = await this.viewPermissionService.getViewQueryWithPermission();
-
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, id: { in: ids }, ...viewQuery },
+      where: { tableId, id: { in: ids } },
     });
 
     return views
@@ -409,11 +405,9 @@ export class ViewService implements IReadonlyAdapterService {
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   }
 
-  async getDocIdsByQuery(tableId: string, _query: unknown) {
-    const viewQuery = await this.viewPermissionService.getViewQueryWithPermission();
-
+  async getDocIdsByQuery(tableId: string, query?: { includeIds: string[] }) {
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null, ...viewQuery },
+      where: { tableId, deletedTime: null, id: { in: query?.includeIds } },
       select: { id: true },
       orderBy: { order: 'asc' },
     });

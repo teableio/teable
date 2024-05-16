@@ -12,7 +12,6 @@ import type {
   IGroup,
   ILinkCellValue,
   IRecord,
-  ISetRecordOpContext,
   ISnapshotBase,
   ISortItem,
 } from '@teable/core';
@@ -25,7 +24,6 @@ import {
   IdPrefix,
   mergeWithDefaultFilter,
   mergeWithDefaultSort,
-  OpName,
   parseGroup,
   Relationship,
 } from '@teable/core';
@@ -34,13 +32,12 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, IGetRecordQuery, IGetRecordsRo, IRecordsVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { keyBy } from 'lodash';
+import { difference, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import type { IAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { Timing } from '../../utils/timing';
@@ -52,12 +49,11 @@ import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
-import { RecordPermissionService } from './record-permission.service';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
 @Injectable()
-export class RecordService implements IAdapterService {
+export class RecordService {
   private logger = new Logger(RecordService.name);
 
   constructor(
@@ -65,7 +61,6 @@ export class RecordService implements IAdapterService {
     private readonly batchService: BatchService,
     private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly recordPermissionService: RecordPermissionService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -768,25 +763,6 @@ export class RecordService implements IAdapterService {
     await this.batchDel(tableId, [recordId]);
   }
 
-  async update(
-    version: number,
-    tableId: string,
-    recordId: string,
-    opContexts: ISetRecordOpContext[]
-  ) {
-    await this.recordPermissionService.hasUpdateRecordPermissionOrThrow(tableId, recordId);
-    const dbTableName = await this.getDbTableName(tableId);
-    if (opContexts[0].name === OpName.SetRecord) {
-      await this.setRecord(
-        version,
-        tableId,
-        dbTableName,
-        recordId,
-        opContexts as ISetRecordOpContext[]
-      );
-    }
-  }
-
   private async getFieldsByProjection(
     tableId: string,
     projection?: { [fieldNameOrId: string]: boolean },
@@ -857,20 +833,9 @@ export class RecordService implements IAdapterService {
     fieldKeyType: FieldKeyType = FieldKeyType.Id, // for convince of collaboration, getSnapshotBulk use id as field key by default.
     cellFormat = CellFormat.Json
   ): Promise<ISnapshotBase<IRecord>[]> {
-    const projectionInner = await this.recordPermissionService.getProjectionWithPermission(
-      tableId,
-      fieldKeyType,
-      projection
-    );
-
-    const deniedRecordIds = await this.recordPermissionService.getDeniedReadRecordsPermission(
-      tableId,
-      recordIds
-    );
-
     const dbTableName = await this.getDbTableName(tableId);
 
-    const fields = await this.getFieldsByProjection(tableId, projectionInner, fieldKeyType);
+    const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
     const fieldNames = fields.map((f) => f.dbFieldName).concat(Array.from(preservedDbFieldNames));
     const nativeQuery = this.knex(dbTableName)
       .select(fieldNames)
@@ -907,29 +872,6 @@ export class RecordService implements IAdapterService {
         return recordIdsMap[a.__id] - recordIdsMap[b.__id];
       })
       .map((record) => {
-        if (deniedRecordIds.includes(record.__id)) {
-          const recordPrimaryFields = this.dbRecord2RecordFields(
-            record,
-            [primaryField],
-            fieldKeyType,
-            cellFormat
-          );
-          const primaryFieldName = recordPrimaryFields[primaryField[fieldKeyType]];
-          return {
-            id: record.__id,
-            v: record.__version,
-            type: 'json0',
-            data: {
-              fields: recordPrimaryFields,
-              isDenied: true,
-              name:
-                cellFormat === CellFormat.Text
-                  ? (primaryFieldName as string)
-                  : primaryField.cellValue2String(primaryFieldName),
-              id: record.__id,
-            },
-          };
-        }
         const recordFields = this.dbRecord2RecordFields(record, fields, fieldKeyType, cellFormat);
         const name = recordFields[primaryField[fieldKeyType]];
         return {
@@ -961,12 +903,8 @@ export class RecordService implements IAdapterService {
     tableId: string,
     query: IGetRecordsRo
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
-    const recordQuery = await this.recordPermissionService.getRecordQueryWithPermission(
-      tableId,
-      query
-    );
+    const { skip, take = 100 } = query;
 
-    const { skip, take = 100 } = recordQuery;
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
@@ -975,7 +913,7 @@ export class RecordService implements IAdapterService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, recordQuery);
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, query);
 
     queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
 
@@ -999,8 +937,6 @@ export class RecordService implements IAdapterService {
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }
-
-    query = await this.recordPermissionService.getRecordQueryWithPermission(tableId, query);
 
     const {
       skip,
@@ -1069,5 +1005,19 @@ export class RecordService implements IAdapterService {
     const querySql = queryBuilder.toQuery();
 
     return this.prismaService.txClient().$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
+  }
+
+  async getDiffIdsByIdAndFilter(tableId: string, recordIds: string[], filter?: IFilter | null) {
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
+      filter,
+    });
+
+    queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
+    const ids = result.map((r) => r.__id);
+    return difference(recordIds, ids);
   }
 }

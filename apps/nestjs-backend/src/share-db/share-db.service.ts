@@ -12,11 +12,8 @@ import { EventEmitterService } from '../event-emitter/event-emitter.service';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
-import { derivateMiddleware } from './derivate.middleware';
 import type { IRawOpMap } from './interface';
-import { ShareDbPermissionService } from './share-db-permission.service';
 import { ShareDbAdapter } from './share-db.adapter';
-import { WsDerivateService } from './ws-derivate.service';
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
@@ -27,8 +24,6 @@ export class ShareDbService extends ShareDBClass {
     private readonly eventEmitterService: EventEmitterService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly wsDerivateService: WsDerivateService,
-    private readonly shareDbPermissionService: ShareDbPermissionService,
     @CacheConfig() private readonly cacheConfig: ICacheConfig
   ) {
     super({
@@ -48,10 +43,7 @@ export class ShareDbService extends ShareDBClass {
       this.pubsub = redisPubsub;
     }
 
-    // auth
-    authMiddleware(this, this.shareDbPermissionService);
-    derivateMiddleware(this, this.cls, this.wsDerivateService);
-
+    authMiddleware(this);
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client
@@ -77,10 +69,7 @@ export class ShareDbService extends ShareDBClass {
   }
 
   getConnection() {
-    const connection = this.connect();
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    connection.agent!.custom.isBackend = true;
-    return connection;
+    return this.connect();
   }
 
   @Timing()
@@ -88,6 +77,7 @@ export class ShareDbService extends ShareDBClass {
     if (!rawOpMaps?.length) {
       return;
     }
+
     for (const rawOpMap of rawOpMaps) {
       for (const collection in rawOpMap) {
         const data = rawOpMap[collection];

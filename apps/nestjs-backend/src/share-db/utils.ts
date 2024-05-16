@@ -28,3 +28,5 @@ export const getAction = (op: CreateOp | DeleteOp | EditOp) => {
   }
   return null;
 };
+
+export const getAxiosBaseUrl = () => `http://localhost:${process.env.PORT}/api`;

@@ -11,6 +11,7 @@ import {
   Body,
   Query,
 } from '@nestjs/common';
+import { IGetFieldsQuery, getFieldsQuerySchema } from '@teable/core';
 import {
   ShareViewFormSubmitRo,
   shareViewFormSubmitRoSchema,
@@ -26,6 +27,8 @@ import {
   IShareViewLinkRecordsRo,
   shareViewCollaboratorsRoSchema,
   IShareViewCollaboratorsRo,
+  getRecordsRoSchema,
+  IGetRecordsRo,
 } from '@teable/openapi';
 import type {
   IRecord,
@@ -44,6 +47,7 @@ import { TqlPipe } from '../record/open-api/tql.pipe';
 import { AuthGuard } from './guard/auth.guard';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
 import { ShareAuthService } from './share-auth.service';
+import { ShareSocketService } from './share-socket.service';
 import type { IShareViewInfo } from './share.service';
 import { ShareService } from './share.service';
 
@@ -52,7 +56,8 @@ import { ShareService } from './share.service';
 export class ShareController {
   constructor(
     private readonly shareService: ShareService,
-    private readonly shareAuthService: ShareAuthService
+    private readonly shareAuthService: ShareAuthService,
+    private readonly shareSocketService: ShareSocketService
   ) {}
 
   @HttpCode(200)
@@ -148,5 +153,54 @@ export class ShareController {
   ): Promise<IShareViewCollaboratorsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareService.getViewCollaborators(shareInfo, query);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/socket/view/snapshot-bulk')
+  async getViewSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareSocketService.getViewSnapshotBulk(shareInfo, ids);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/socket/view/doc-ids')
+  async getViewDocIds(@Request() req: any) {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareSocketService.getViewDocIdsByQuery(shareInfo);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/socket/field/snapshot-bulk')
+  async getFieldSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareSocketService.getFieldSnapshotBulk(shareInfo, ids);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/socket/field/doc-ids')
+  async getFieldDocIds(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
+  ) {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+
+    return this.shareSocketService.getFieldDocIdsByQuery(shareInfo, query);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/socket/record/snapshot-bulk')
+  async getRecordSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareSocketService.getRecordSnapshotBulk(shareInfo, ids);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('/:shareId/socket/record/doc-ids')
+  async getRecordDocIds(
+    @Request() req: any,
+    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+  ) {
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return this.shareSocketService.getRecordDocIdsByQuery(shareInfo, query);
   }
 }

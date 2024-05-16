@@ -1,28 +1,20 @@
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import type { IOtOperation, IRecord } from '@teable/core';
-import {
-  FieldOpBuilder,
-  IdPrefix,
-  RecordOpBuilder,
-  TableOpBuilder,
-  ViewOpBuilder,
-} from '@teable/core';
+import { Injectable } from '@nestjs/common';
+import type { IRecord } from '@teable/core';
+import { IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { groupBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDb from 'sharedb';
 import type { SnapshotMeta } from 'sharedb/lib/sharedb';
-import { FieldService } from '../features/field/field.service';
-import { RecordService } from '../features/record/record.service';
-import { TableService } from '../features/table/table.service';
-import { ViewService } from '../features/view/view.service';
 import type { IClsStore } from '../types/cls';
 import { exceptionParse } from '../utils/exception-parse';
-import type { IAdapterService, IReadonlyAdapterService } from './interface';
-import { WsAuthService } from './ws-auth.service';
+import type { IReadonlyAdapterService } from './interface';
+import { FieldReadonlyServiceAdapter } from './readonly/field-readonly.service';
+import { RecordReadonlyServiceAdapter } from './readonly/record-readonly.service';
+import { TableReadonlyServiceAdapter } from './readonly/table-readonly.service';
+import { ViewReadonlyServiceAdapter } from './readonly/view-readonly.service';
 
 export interface ICollectionSnapshot {
   type: string;
@@ -34,29 +26,19 @@ type IProjection = { [fieldNameOrId: string]: boolean };
 
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
-  private logger = new Logger(ShareDbAdapter.name);
-
   closed: boolean;
 
   constructor(
     private readonly cls: ClsService<IClsStore>,
-    private readonly tableService: TableService,
-    private readonly recordService: RecordService,
-    private readonly fieldService: FieldService,
-    private readonly viewService: ViewService,
+    private readonly tableService: TableReadonlyServiceAdapter,
+    private readonly recordService: RecordReadonlyServiceAdapter,
+    private readonly fieldService: FieldReadonlyServiceAdapter,
+    private readonly viewService: ViewReadonlyServiceAdapter,
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly wsAuthService: WsAuthService
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {
     super();
     this.closed = false;
-  }
-
-  getService(type: IdPrefix): IAdapterService {
-    if (IdPrefix.Record === type) {
-      return this.recordService;
-    }
-    throw new ForbiddenException(`QueryType: ${type} has no adapter service implementation`);
   }
 
   getReadonlyService(type: IdPrefix): IReadonlyAdapterService {
@@ -109,21 +91,15 @@ export class ShareDbAdapter extends ShareDb.DB {
   async queryPoll(
     collection: string,
     query: unknown,
-    _options: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (error: any | null, ids: string[], extra?: any) => void
   ) {
     try {
-      let currentUser = this.cls.get('user');
-      const { sessionTicket } = (query ?? {}) as { sessionTicket?: string };
-
-      if (!currentUser && sessionTicket) {
-        currentUser = await this.wsAuthService.checkSession(sessionTicket);
-      }
-
       await this.cls.runWith(this.cls.get(), async () => {
-        this.cls.set('user', currentUser);
-
+        this.cls.set('cookie', options.cookie);
+        this.cls.set('shareViewId', options.shareId);
         const [docType, collectionId] = collection.split('_');
 
         const queryResult = await this.getReadonlyService(docType as IdPrefix).getDocIdsByQuery(
@@ -160,121 +136,8 @@ export class ShareDbAdapter extends ShareDb.DB {
     if (callback) callback();
   }
 
-  private async updateSnapshot(
-    version: number,
-    collection: string,
-    docId: string,
-    ops: IOtOperation[]
-  ) {
-    const [docType, collectionId] = collection.split('_');
-    let opBuilder;
-    switch (docType as IdPrefix) {
-      case IdPrefix.View:
-        opBuilder = ViewOpBuilder;
-        break;
-      case IdPrefix.Field:
-        opBuilder = FieldOpBuilder;
-        break;
-      case IdPrefix.Record:
-        opBuilder = RecordOpBuilder;
-        break;
-      case IdPrefix.Table:
-        opBuilder = TableOpBuilder;
-        break;
-      default:
-        throw new Error(`UpdateSnapshot: ${docType} has no service implementation`);
-    }
-
-    const ops2Contexts = opBuilder.ops2Contexts(ops);
-    const service = this.getService(docType as IdPrefix);
-    // group by op name execute faster
-    const ops2ContextsGrouped = groupBy(ops2Contexts, 'name');
-    for (const opName in ops2ContextsGrouped) {
-      const opContexts = ops2ContextsGrouped[opName];
-      await service.update(version, collectionId, docId, opContexts);
-    }
-  }
-
-  private async createSnapshot(collection: string, _docId: string, snapshot: unknown) {
-    const [docType, collectionId] = collection.split('_');
-    await this.getService(docType as IdPrefix).create(collectionId, snapshot);
-  }
-
-  private async deleteSnapshot(version: number, collection: string, docId: string) {
-    const [docType, collectionId] = collection.split('_');
-    await this.getService(docType as IdPrefix).del(version, collectionId, docId);
-  }
-
-  // Persists an op and snapshot if it is for the next version. Calls back with
-  // callback(err, succeeded)
-  async commit(
-    collection: string,
-    id: string,
-    rawOp: CreateOp | DeleteOp | EditOp,
-    snapshot: ICollectionSnapshot,
-    options: unknown,
-    callback: (err: unknown, succeed?: boolean, complete?: boolean) => void
-  ) {
-    /*
-     * op: CreateOp {
-     *   src: '24545654654646',
-     *   seq: 1,
-     *   v: 0,
-     *   create: { type: 'http://sharejs.org/types/JSONv0', data: { ... } },
-     *   m: { ts: 12333456456 } }
-     * }
-     * snapshot: PostgresSnapshot
-     */
-
-    const [docType, collectionId] = collection.split('_');
-
-    try {
-      await this.prismaService.$tx(async (prisma) => {
-        const opsResult = await prisma.ops.aggregate({
-          _max: { version: true },
-          where: { collection: collectionId, docId: id },
-        });
-
-        if (opsResult._max.version != null) {
-          const maxVersion = opsResult._max.version + 1;
-
-          if (rawOp.v !== maxVersion) {
-            this.logger.log({ message: 'op crashed', crashed: rawOp.op });
-            throw new Error(`${id} version mismatch: maxVersion: ${maxVersion} rawOpV: ${rawOp.v}`);
-          }
-        }
-
-        // 1. save op in db;
-        await prisma.ops.create({
-          data: {
-            docId: id,
-            docType,
-            collection: collectionId,
-            version: rawOp.v,
-            operation: JSON.stringify(rawOp),
-            createdBy: this.cls.get('user.id'),
-          },
-        });
-
-        // create snapshot
-        if (rawOp.create) {
-          await this.createSnapshot(collection, id, rawOp.create.data);
-        }
-
-        // update snapshot
-        if (rawOp.op) {
-          await this.updateSnapshot(snapshot.v, collection, id, rawOp.op);
-        }
-
-        // delete snapshot
-        if (rawOp.del) {
-          await this.deleteSnapshot(snapshot.v, collection, id);
-        }
-      });
-      callback(null, true, true);
-    } catch (err) {
-      callback(exceptionParse(err as Error));
-    }
+  async commit() {
+    throw new Error('Method not implemented.');
   }
 
   private snapshots2Map<T>(snapshots: ({ id: string } & T)[]): Record<string, T> {
@@ -302,7 +165,6 @@ export class ShareDbAdapter extends ShareDb.DB {
         ids,
         projection && projection['$submit'] ? undefined : projection
       );
-
       if (snapshotData.length) {
         const snapshots = snapshotData.map(
           (snapshot) =>
@@ -372,10 +234,9 @@ export class ShareDbAdapter extends ShareDb.DB {
         .toSQL()
         .toNative();
 
-      const res = await this.prismaService.$queryRawUnsafe<{ operation: string }[]>(
-        nativeSql.sql,
-        ...nativeSql.bindings
-      );
+      const res = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ operation: string }[]>(nativeSql.sql, ...nativeSql.bindings);
 
       callback(
         null,

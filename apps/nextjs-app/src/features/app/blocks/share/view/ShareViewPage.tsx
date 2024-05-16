@@ -42,7 +42,13 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
         <title>{view?.name ?? 'Teable'}</title>
       </Head>
       <AppLayout>
-        <AppProvider lang={i18n.language} wsPath={wsPath} locale={sdkLocale} driver={props.driver}>
+        <AppProvider
+          lang={i18n.language}
+          shareId={shareId}
+          wsPath={wsPath}
+          locale={sdkLocale}
+          driver={props.driver}
+        >
           <SessionProvider
             user={{
               id: ANONYMOUS_USER_ID,

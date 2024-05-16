@@ -1,7 +1,6 @@
 import { isEqual } from 'lodash';
-import { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
 import type { Doc, Query } from 'sharedb/lib/client';
-import { useSession } from '../../hooks';
 import { AppContext } from '../app/AppContext';
 import { OpListenersManager } from './opListener';
 import type { IInstanceAction } from './reducer';
@@ -48,15 +47,6 @@ export function useInstances<T, R extends { id: string }>({
     (state: R[], action: IInstanceAction<T>) => instanceReducer(state, action, factory),
     initData && !connected ? initData.map((data) => factory(data)) : []
   );
-  const { user: sessionUser } = useSession();
-
-  const newQueryParams = useMemo(
-    () => ({
-      ...(queryParams || {}),
-      sessionTicket: (sessionUser as unknown as { _session_ticket?: string })?._session_ticket,
-    }),
-    [queryParams, sessionUser]
-  );
 
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
   const preQueryRef = useRef<Query<T>>();
@@ -65,8 +55,7 @@ export function useInstances<T, R extends { id: string }>({
     console.log(
       `${query.collection}:ready:`,
       (() => {
-        const { sessionTicket: _, ...logQuery } = query.query;
-        return logQuery;
+        return query.query;
       })()
     );
     if (!query.results) {
@@ -75,7 +64,7 @@ export function useInstances<T, R extends { id: string }>({
     dispatch({ type: 'ready', results: query.results });
     query.results.forEach((doc) => {
       opListeners.current.add(doc, (op) => {
-        console.log(`${query.collection} on op:`, op);
+        console.log(`${query.collection} on op:`, op, doc);
         dispatch({ type: 'update', doc });
       });
     });
@@ -124,16 +113,16 @@ export function useInstances<T, R extends { id: string }>({
       if (!collection || !connection) {
         return undefined;
       }
-      if (query && isEqual(newQueryParams, query.query) && collection === query.collection) {
+      if (query && isEqual(queryParams, query.query) && collection === query.collection) {
         return query;
       }
 
       queryDestroy(preQueryRef.current);
-      const newQuery = connection.createSubscribeQuery<T>(collection, newQueryParams);
+      const newQuery = connection.createSubscribeQuery<T>(collection, queryParams);
       preQueryRef.current = newQuery;
       return newQuery;
     });
-  }, [connection, collection, newQueryParams]);
+  }, [connection, collection, queryParams]);
 
   useEffect(() => {
     return () => {

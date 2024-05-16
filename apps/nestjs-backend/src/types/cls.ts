@@ -19,4 +19,6 @@ export interface IClsStore extends ClsStore {
   };
   shareViewId?: string;
   permissions: PermissionAction[];
+  // for share db adapter
+  cookie?: string;
 }
