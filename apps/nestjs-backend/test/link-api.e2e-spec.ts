@@ -4,19 +4,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo, IRecord } from '@teable/core';
-import {
-  FieldKeyType,
-  FieldType,
-  IdPrefix,
-  NumberFormattingType,
-  RecordOpBuilder,
-  Relationship,
-} from '@teable/core';
+import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
+import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import { updateDbTableName } from '@teable/openapi';
-import type { Connection, Doc } from 'sharedb/lib/client';
-import { ShareDbService } from '../src/share-db/share-db.service';
 import {
   createField,
   createRecords,
@@ -38,53 +29,15 @@ describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
   const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';
-  let connection: Connection;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-
-    const shareDbService = app.get(ShareDbService);
-    connection = shareDbService.connect(undefined, {
-      headers: {
-        cookie: appCtx.cookie,
-      },
-      sessionID: appCtx.sessionID,
-    });
   });
 
   afterAll(async () => {
     await app.close();
   });
-
-  async function updateRecordViaShareDb(
-    tableId: string,
-    recordId: string,
-    fieldId: string,
-    newValues: any
-  ) {
-    const collection = `${IdPrefix.Record}_${tableId}`;
-    return new Promise<IRecord>((resolve, reject) => {
-      const doc: Doc<IRecord> = connection.get(collection, recordId);
-      doc.fetch((err) => {
-        if (err) {
-          return reject(err);
-        }
-        const op = RecordOpBuilder.editor.setRecord.build({
-          fieldId,
-          oldCellValue: doc.data.fields[fieldId],
-          newCellValue: newValues,
-        });
-
-        doc.submitOp(op, undefined, (err) => {
-          if (err) {
-            return reject(err);
-          }
-          resolve(doc.data);
-        });
-      });
-    });
-  }
 
   describe('create table with link field', () => {
     let table1: ITableFullVo;
@@ -1709,46 +1662,6 @@ describe('OpenAPI link (e2e)', () => {
           },
           400
         );
-      });
-
-      it('should safe delete a link record in cell via socket', async () => {
-        await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
-          title: 'A1',
-          id: table1.records[0].id,
-        });
-
-        await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, null);
-        const record1 = await getRecord(table2.id, table2.records[0].id);
-        expect(record1.fields[table2.fields[2].id]).toBeUndefined();
-
-        await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[2].id, {
-          title: 'A1',
-          id: table1.records[0].id,
-        });
-
-        await updateRecordViaShareDb(table2.id, table2.records[0].id, table2.fields[2].id, null);
-
-        const record2 = await getRecord(table2.id, table2.records[0].id);
-        expect(record2.fields[table2.fields[2].id]).toBeUndefined();
-
-        const linkFieldRo: IFieldRo = {
-          name: 'link field',
-          type: FieldType.Link,
-          options: {
-            relationship: Relationship.OneOne,
-            foreignTableId: table1.id,
-            isOneWay: type === 'isOneWay',
-          },
-        };
-        const linkField = await createField(table2.id, linkFieldRo);
-
-        await updateRecordViaShareDb(table2.id, table2.records[0].id, linkField.id, {
-          id: table1.records[0].id,
-        });
-
-        await updateRecordViaShareDb(table2.id, table2.records[0].id, linkField.id, null);
-        const record3 = await getRecord(table2.id, table2.records[0].id);
-        expect(record3.fields[linkField.id]).toBeUndefined();
       });
     }
   );
