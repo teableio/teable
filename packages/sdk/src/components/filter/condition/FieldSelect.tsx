@@ -42,6 +42,16 @@ function FieldSelect(props: IFieldSelectProps) {
       className="w-40 shrink-0"
       popoverClassName="w-fit"
       optionRender={optionRender}
+      displayRender={(selectedField) => {
+        const { type, isLookup, label } = selectedField;
+        const { Icon } = fieldStaticGetter(type, isLookup);
+        return (
+          <div className="flex flex-1 items-center truncate">
+            <Icon className="shrink-0" />
+            <span className="truncate pl-1">{label}</span>
+          </div>
+        );
+      }}
     />
   );
 }
