@@ -104,4 +104,19 @@ export class FieldOpenApiController {
   async deleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
     await this.fieldOpenApiService.deleteField(tableId, fieldId);
   }
+
+  @Permissions('field|read')
+  @Get('/socket/snapshot-bulk')
+  async getSnapshotBulk(@Param('tableId') tableId: string, @Query('ids') ids: string[]) {
+    return this.fieldService.getSnapshotBulk(tableId, ids);
+  }
+
+  @Permissions('field|read')
+  @Get('/socket/doc-ids')
+  async getDocIds(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(getFieldsQuerySchema)) query: IGetFieldsQuery
+  ) {
+    return this.fieldService.getDocIdsByQuery(tableId, query);
+  }
 }

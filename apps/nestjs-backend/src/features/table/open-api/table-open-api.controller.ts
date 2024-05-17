@@ -23,6 +23,7 @@ import {
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { TablePermissionService } from '../table-permission.service';
 import { TableService } from '../table.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
@@ -31,7 +32,8 @@ import { TablePipe } from './table.pipe';
 export class TableController {
   constructor(
     private readonly tableService: TableService,
-    private readonly tableOpenApiService: TableOpenApiService
+    private readonly tableOpenApiService: TableOpenApiService,
+    private readonly tablePermissionService: TablePermissionService
   ) {}
 
   @Permissions('table|read')
@@ -157,5 +159,27 @@ export class TableController {
   @Get(':tableId/permission')
   async getPermission(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return await this.tableOpenApiService.getPermission(baseId, tableId);
+  }
+
+  @Permissions('table|read')
+  @Get('/socket/snapshot-bulk')
+  async getSnapshotBulk(@Param('baseId') baseId: string, @Query('ids') ids: string[]) {
+    const permissionMap = await this.tablePermissionService.getTablePermissionMapByBaseId(
+      baseId,
+      ids
+    );
+    const snapshotBulk = await this.tableService.getSnapshotBulk(baseId, ids);
+    return snapshotBulk.map((snapshot) => {
+      return {
+        ...snapshot,
+        permission: permissionMap[snapshot.id],
+      };
+    });
+  }
+
+  @Permissions('table|read')
+  @Get('/socket/doc-ids')
+  async getDocIds(@Param('baseId') baseId: string) {
+    return this.tableService.getDocIdsByQuery(baseId, undefined);
   }
 }

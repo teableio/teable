@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import type { IViewVo } from '@teable/core';
 import {
   viewRoSchema,
@@ -260,5 +260,17 @@ export class ViewOpenApiController {
     @Param('viewId') viewId: string
   ): Promise<IGetViewFilterLinkRecordsVo> {
     return this.viewOpenApiService.getFilterLinkRecords(tableId, viewId);
+  }
+
+  @Permissions('view|read')
+  @Get('/socket/snapshot-bulk')
+  async getSnapshotBulk(@Param('tableId') tableId: string, @Query('ids') ids: string[]) {
+    return this.viewService.getSnapshotBulk(tableId, ids);
+  }
+
+  @Permissions('view|read')
+  @Get('/socket/doc-ids')
+  async getDocIds(@Param('tableId') tableId: string) {
+    return this.viewService.getDocIdsByQuery(tableId, undefined);
   }
 }

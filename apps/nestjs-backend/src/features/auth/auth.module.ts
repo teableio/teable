@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
 import { PassportModule } from '@nestjs/passport';
 import { AccessTokenModule } from '../access-token/access-token.module';
 import { UserModule } from '../user/user.module';
@@ -26,10 +25,6 @@ import { SessionStrategy } from './strategies/session.strategy';
     AuthService,
     LocalStrategy,
     SessionStrategy,
-    {
-      provide: APP_GUARD,
-      useClass: AuthGuard,
-    },
     AuthGuard,
     SessionSerializer,
     SessionStoreService,

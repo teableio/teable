@@ -1,5 +1,6 @@
 import type { DynamicModule, MiddlewareConsumer, ModuleMetadata, NestModule } from '@nestjs/common';
 import { Global, Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { context, trace } from '@opentelemetry/api';
 import { PrismaModule } from '@teable/db-main-prisma';
 import type { Request } from 'express';
@@ -10,12 +11,10 @@ import { ConfigModule } from '../configs/config.module';
 import { X_REQUEST_ID } from '../const';
 import { DbProvider } from '../db-provider/db.provider';
 import { EventEmitterModule } from '../event-emitter/event-emitter.module';
+import { AuthGuard } from '../features/auth/guard/auth.guard';
+import { PermissionGuard } from '../features/auth/guard/permission.guard';
 import { PermissionModule } from '../features/auth/permission.module';
-import { FieldPermissionService } from '../features/field/field-permission.service';
 import { MailSenderModule } from '../features/mail-sender/mail-sender.module';
-import { RecordPermissionService } from '../features/record/record-permission.service';
-import { TablePermissionService } from '../features/table/table-permission.service';
-import { ViewPermissionService } from '../features/view/view-permission.service';
 import { KnexModule } from './knex';
 
 const globalModules = {
@@ -48,18 +47,16 @@ const globalModules = {
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
     DbProvider,
-    FieldPermissionService,
-    RecordPermissionService,
-    ViewPermissionService,
-    TablePermissionService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionGuard,
+    },
   ],
-  exports: [
-    DbProvider,
-    FieldPermissionService,
-    RecordPermissionService,
-    ViewPermissionService,
-    TablePermissionService,
-  ],
+  exports: [DbProvider],
 };
 
 @Global()

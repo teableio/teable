@@ -25,7 +25,6 @@ import { BatchService } from '../calculation/batch.service';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
-import { TablePermissionService } from './table-permission.service';
 
 @Injectable()
 export class TableService implements IReadonlyAdapterService {
@@ -38,7 +37,6 @@ export class TableService implements IReadonlyAdapterService {
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
-    private readonly tablePermissionService: TablePermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -356,10 +354,6 @@ export class TableService implements IReadonlyAdapterService {
       where: { baseId, id: { in: ids }, deletedTime: null },
       orderBy: { order: 'asc' },
     });
-    const tablePermissionMap = await this.tablePermissionService.getTablePermissionMapByBaseId(
-      baseId,
-      ids
-    );
     const tableTime = await this.getTableLastModifiedTime(ids);
     const tableDefaultViewIds = await this.getTableDefaultViewId(ids);
     return tables
@@ -375,14 +369,13 @@ export class TableService implements IReadonlyAdapterService {
             icon: table.icon ?? undefined,
             lastModifiedTime: tableTime[i] || table.createdTime.toISOString(),
             defaultViewId: tableDefaultViewIds[i],
-            permission: tablePermissionMap[table.id],
           },
         };
       });
   }
 
-  async getDocIdsByQuery(baseId: string, _query: unknown) {
-    const projectionTableIds = await this.tablePermissionService.getProjectionTableIds(baseId);
+  async getDocIdsByQuery(baseId: string, query: { projectionTableIds?: string[] } = {}) {
+    const { projectionTableIds } = query;
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: {
         deletedTime: null,

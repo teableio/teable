@@ -55,7 +55,7 @@ export class AuthController {
 
   @Get('/user/me')
   async me(@Req() request: Express.Request) {
-    return { ...request.user!, _session_ticket: request.sessionID };
+    return request.user;
   }
 
   @Patch('/change-password')

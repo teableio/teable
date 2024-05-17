@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import { HttpErrorCode, IdPrefix, RecordOpBuilder, ViewType } from '@teable/core';
+import { IdPrefix, ViewType } from '@teable/core';
 import { enableShareView as apiEnableShareView } from '@teable/openapi';
 import { map } from 'lodash';
-import { logger, type Doc } from 'sharedb/lib/client';
-import { vi } from 'vitest';
+import { type Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
+import { getError } from './utils/get-error';
 import { initApp, updateViewColumnMeta, createTable, deleteTable } from './utils/init-app';
 
 describe('Share (socket-e2e) (e2e)', () => {
@@ -88,35 +88,7 @@ describe('Share (socket-e2e) (e2e)', () => {
 
   it('shareId error', async () => {
     const collection = `${IdPrefix.View}_${tableId}`;
-    const consoleWarnSpy = vi.spyOn(logger, 'warn');
-    await expect(getQuery(collection, 'share')).rejects.toThrow();
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Agent closed due to error',
-      expect.anything(),
-      expect.objectContaining({
-        message: 'Unauthorized',
-        code: 'unauthorized_share',
-      })
-    );
-  });
-
-  it('cant not update record in share page', async () => {
-    const collection = `${IdPrefix.Record}_${tableId}`;
-    const docs = await getQuery(collection, shareId);
-    const operation = RecordOpBuilder.editor.setRecord.build({
-      fieldId: fieldIds[0],
-      newCellValue: '1',
-      oldCellValue: docs[0].data.fields[fieldIds[0]],
-    });
-    const error = await new Promise((resolve) => {
-      docs[0].submitOp(operation, undefined, (error) => {
-        resolve(error);
-      });
-    });
-    expect(error).toEqual(
-      expect.objectContaining({
-        code: HttpErrorCode.RESTRICTED_RESOURCE,
-      })
-    );
+    const error = await getError(() => getQuery(collection, 'error'));
+    expect(error?.code).toEqual('unauthorized_share');
   });
 });

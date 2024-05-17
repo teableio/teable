@@ -81,4 +81,23 @@ export class RecordOpenApiController {
   ): Promise<void> {
     return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds);
   }
+
+  @Permissions('record|read')
+  @Get('/socket/snapshot-bulk')
+  async getSnapshotBulk(
+    @Param('tableId') tableId: string,
+    @Query('ids') ids: string[],
+    @Query('projection') projection?: { [fieldNameOrId: string]: boolean }
+  ) {
+    return this.recordService.getSnapshotBulk(tableId, ids, projection);
+  }
+
+  @Permissions('record|read')
+  @Get('/socket/doc-ids')
+  async getDocIds(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+  ) {
+    return this.recordService.getDocIdsByQuery(tableId, query);
+  }
 }

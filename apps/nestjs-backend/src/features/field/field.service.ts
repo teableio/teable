@@ -25,7 +25,6 @@ import type { IClsStore } from '../../types/cls';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
-import { FieldPermissionService } from './field-permission.service';
 import type { IFieldInstance } from './model/factory';
 import { createFieldInstanceByVo, rawField2FieldObj } from './model/factory';
 import { dbType2knexFormat } from './util';
@@ -38,7 +37,6 @@ export class FieldService implements IReadonlyAdapterService {
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly fieldPermissionService: FieldPermissionService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -494,12 +492,7 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   async getDocIdsByQuery(tableId: string, query: IGetFieldsQuery) {
-    const fieldsQuery = await this.fieldPermissionService.getFieldsQueryWithPermission(
-      tableId,
-      query
-    );
-    const result = await this.getFieldsByQuery(tableId, fieldsQuery);
-
+    const result = await this.getFieldsByQuery(tableId, query);
     return {
       ids: result.map((field) => field.id),
     };
