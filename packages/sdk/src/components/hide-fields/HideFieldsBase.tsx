@@ -226,7 +226,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   );
 
   return (
-    <Popover>
+    <Popover modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="p-0">
         {content()}
