@@ -79,6 +79,9 @@ export class ShareDbAdapter extends ShareDb.DB {
         projection,
         undefined,
         (error, snapshots) => {
+          if (error) {
+            return callback(error, []);
+          }
           callback(
             error,
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
