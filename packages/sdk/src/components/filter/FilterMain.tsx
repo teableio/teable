@@ -66,9 +66,9 @@ export const FilterMain = (props: IFilterMainProps) => {
   // use the primary to be default metadata
   const defaultIFilterItem = useMemo<IFilterItem>(() => {
     const defaultField = fields.find((field) => field.isPrimary);
-    const defaultOpertor = defaultField && getValidFilterOperators(defaultField);
+    const defaultOperator = defaultField && getValidFilterOperators(defaultField);
     return {
-      operator: defaultOpertor?.[0],
+      operator: defaultOperator?.[0],
       value: null,
       fieldId: defaultField?.id,
     } as IFilterItem;
