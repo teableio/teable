@@ -110,7 +110,7 @@ const Draggable = (props: IDraggableContainerProps) => {
   return <>{children(provided)}</>;
 };
 
-export { DndKitContext as DndKitContext, Droppable, Draggable };
+export { DndKitContext, Droppable, Draggable };
 
 export * from '@dnd-kit/core';
 

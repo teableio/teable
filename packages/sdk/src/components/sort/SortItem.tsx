@@ -15,7 +15,7 @@ enum ISortKey {
 }
 
 function SortItem(props: ISortItemProps) {
-  const { index, value, onSelect, ...restProps } = props;
+  const { index, value, onSelect, selectedFields, ...restProps } = props;
 
   const { fieldId, order } = value;
 
@@ -28,6 +28,7 @@ function SortItem(props: ISortItemProps) {
       <FieldSelector
         value={fieldId}
         onSelect={(value) => selectHandler(ISortKey.FieldId, value)}
+        excludedIds={selectedFields}
         {...restProps}
       />
 
