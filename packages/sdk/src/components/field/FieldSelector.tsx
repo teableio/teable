@@ -20,7 +20,7 @@ interface IFieldSelector {
 export function FieldSelector(props: IFieldSelector) {
   const {
     value,
-    className: className,
+    className,
     excludedIds: selectedIds,
     placeholder,
     emptyHolder,
@@ -40,8 +40,13 @@ export function FieldSelector(props: IFieldSelector) {
     selectedField?.isLookup
   );
 
+  const selectHandler = (value: string) => {
+    setOpen(false);
+    onSelect?.(value);
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         {children ? (
           children
@@ -53,8 +58,10 @@ export function FieldSelector(props: IFieldSelector) {
             aria-expanded={open}
             className={cn('h-8 w-[200px] flex items-center', className)}
           >
-            <Icon className="size-4 shrink-0 p-0.5 opacity-50" />
-            <span className="min-w-8 truncate">{selectedField?.name}</span>
+            <div className="flex flex-1 items-center truncate">
+              <Icon className="size-4 shrink-0 p-0.5 opacity-50" />
+              <span className="min-w-8 truncate pl-1 text-left">{selectedField?.name}</span>
+            </div>
             <ChevronsUpDown className="size-4 shrink-0 p-0.5 opacity-50" />
           </Button>
         )}
@@ -65,7 +72,7 @@ export function FieldSelector(props: IFieldSelector) {
           selectedIds={selectedIds}
           placeholder={placeholder}
           emptyHolder={emptyHolder}
-          onSelect={onSelect}
+          onSelect={selectHandler}
         />
       </PopoverContent>
     </Popover>

@@ -43,7 +43,13 @@ export function FieldCommand(props: IFieldCommand) {
           {mergeFields?.map((field) => {
             const { Icon } = fieldStaticGetter(field.type, field.isLookup);
             return (
-              <CommandItem key={field.id} onSelect={() => onSelect?.(field.id)} className="flex">
+              <CommandItem
+                key={field.id}
+                onSelect={() => {
+                  onSelect?.(field.id);
+                }}
+                className="flex"
+              >
                 <Icon className="shrink-0"></Icon>
                 <span className="truncate pl-3">{field.name}</span>
               </CommandItem>
