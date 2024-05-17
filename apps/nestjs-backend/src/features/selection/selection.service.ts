@@ -90,10 +90,11 @@ export class SelectionService {
   }
 
   private async columnSelectionToIds(tableId: string, query: IRangesToIdQuery): Promise<string[]> {
-    const { type, viewId, ranges } = query;
+    const { type, viewId, ranges, excludeFieldIds } = query;
     const result = await this.fieldService.getDocIdsByQuery(tableId, {
       viewId,
       filterHidden: true,
+      excludeFieldIds,
     });
 
     if (type === RangeType.Rows) {
@@ -657,6 +658,7 @@ export class SelectionService {
     const fields = await this.fieldService.getFieldInstances(tableId, {
       viewId,
       filterHidden: true,
+      excludeFieldIds: rangesRo.excludeFieldIds,
     });
 
     const tableSize: [number, number] = [fields.length, rowCountInView];
