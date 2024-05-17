@@ -27,6 +27,7 @@ export type IUserFieldOptions = z.infer<typeof userFieldOptionsSchema>;
 export const userCellValueSchema = z.object({
   id: z.string().startsWith(IdPrefix.User),
   title: z.string(),
+  email: z.string(),
   avatarUrl: z.string().optional().nullable(),
 });
 
@@ -104,7 +105,7 @@ export class UserFieldCore extends FieldCore {
         foundUser = user;
       }
     }
-    return foundUser ? { id: foundUser.id, title: foundUser.name } : null;
+    return foundUser ? { id: foundUser.id, title: foundUser.name, email: foundUser.email } : null;
   }
 
   repair(value: unknown) {

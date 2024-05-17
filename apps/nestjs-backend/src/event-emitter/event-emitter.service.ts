@@ -63,7 +63,7 @@ export class EventEmitterService {
   };
 
   constructor(
-    private readonly eventEmitter: EventEmitter2,
+    public readonly eventEmitter: EventEmitter2,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
