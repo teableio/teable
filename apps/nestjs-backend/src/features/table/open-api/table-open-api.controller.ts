@@ -172,7 +172,10 @@ export class TableController {
     return snapshotBulk.map((snapshot) => {
       return {
         ...snapshot,
-        permission: permissionMap[snapshot.id],
+        data: {
+          ...snapshot.data,
+          permission: permissionMap[snapshot.id],
+        },
       };
     });
   }
