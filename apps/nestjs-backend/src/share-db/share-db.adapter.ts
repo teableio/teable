@@ -79,6 +79,9 @@ export class ShareDbAdapter extends ShareDb.DB {
         projection,
         undefined,
         (error, snapshots) => {
+          if (error) {
+            return callback(error, []);
+          }
           callback(
             error,
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -185,6 +188,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         callback(null, this.snapshots2Map(snapshots));
       }
     } catch (err) {
+      this.logger.error(err);
       callback(exceptionParse(err as Error));
     }
   }
@@ -193,16 +197,21 @@ export class ShareDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     projection: IProjection | undefined,
-    options: unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-    this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
-      if (err) {
-        callback(err);
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        callback(null, data![id]);
-      }
+    await this.cls.runWith(this.cls.get(), async () => {
+      this.cls.set('cookie', options.cookie);
+      this.cls.set('shareViewId', options.shareId);
+      this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
+        if (err) {
+          callback(err);
+        } else {
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+          callback(null, data![id]);
+        }
+      });
     });
   }
 

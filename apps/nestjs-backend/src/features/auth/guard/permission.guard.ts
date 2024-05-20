@@ -4,7 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { type PermissionAction } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
-import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permisison.decorator';
+import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { IResourceMeta } from '../decorators/resource_meta.decorator';
