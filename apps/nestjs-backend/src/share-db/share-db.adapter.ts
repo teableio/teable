@@ -202,8 +202,8 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (err: unknown, data?: Snapshot) => void
   ) {
     await this.cls.runWith(this.cls.get(), async () => {
-      this.cls.set('cookie', options.cookie);
-      this.cls.set('shareViewId', options.shareId);
+      this.cls.set('cookie', options.agentCustom.cookie);
+      this.cls.set('shareViewId', options.agentCustom.shareId);
       this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
         if (err) {
           callback(err);
