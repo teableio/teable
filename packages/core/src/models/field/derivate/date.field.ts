@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import {
+  TimeFormatting,
   datetimeFormattingSchema,
   defaultDatetimeFormatting,
   formatDateToString,
@@ -72,9 +73,7 @@ export class DateFieldCore extends FieldCore {
 
     const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
 
-    const format =
-      this.options.formatting.date +
-      (hasTime && this.options.formatting.time ? ' ' + this.options.formatting.time : '');
+    const format = `${this.options.formatting.date}${hasTime && this.options.formatting.time !== TimeFormatting.None ? ' ' + this.options.formatting.time : ''}`;
 
     try {
       const formatValue = dayjs.tz(value, format, this.options.formatting.timeZone);
