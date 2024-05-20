@@ -19,6 +19,8 @@ import {
   nullsToUndefined,
   SpaceRole,
   RoleType,
+  DateFormattingPreset,
+  TimeFormatting,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { RangeType } from '@teable/openapi';
@@ -363,6 +365,7 @@ describe('selectionService', () => {
       const updateRecordsRo = await selectionService['fillCells']({
         tableId,
         tableData,
+        headerFields: undefined,
         fields,
         records,
       });
@@ -382,6 +385,72 @@ describe('selectionService', () => {
           {
             id: records[2].id,
             fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
+          },
+        ],
+      });
+    });
+
+    it('date field with European and US', async () => {
+      const europeanField = {
+        id: 'europeanField',
+        name: 'European Field',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.European,
+            time: TimeFormatting.Hour24,
+            timeZone: 'utc',
+          },
+        },
+        dbFieldName: 'European Field',
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        columnMeta: {},
+      };
+      const usField = {
+        id: 'usField',
+        name: 'US Field',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.US,
+            time: TimeFormatting.Hour24,
+            timeZone: 'utc',
+          },
+        },
+        dbFieldName: 'US Field',
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        columnMeta: {},
+      };
+
+      const tableData = [['5/1/2024', '1/5/2024']];
+      const fields = [europeanField, usField].map(createFieldInstanceByVo);
+      const records = [
+        {
+          id: 'record1',
+          fields: {},
+        },
+      ];
+
+      const updateRecordsRo = await selectionService['fillCells']({
+        tableId,
+        tableData,
+        headerFields: fields,
+        fields,
+        records,
+      });
+
+      expect(updateRecordsRo).toEqual({
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          {
+            id: records[0].id,
+            fields: {
+              europeanField: '2024-01-05T00:00:00.000Z',
+              usField: '2024-01-05T00:00:00.000Z',
+            },
           },
         ],
       });
