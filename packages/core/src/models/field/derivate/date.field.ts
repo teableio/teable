@@ -1,15 +1,20 @@
 import dayjs, { extend } from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import {
+  TimeFormatting,
   datetimeFormattingSchema,
   defaultDatetimeFormatting,
   formatDateToString,
 } from '../formatting';
 
 extend(timezone);
+extend(customParseFormat);
+extend(utc);
 
 export const dateFieldOptionsSchema = z.object({
   formatting: datetimeFormattingSchema,
@@ -49,6 +54,15 @@ export class DateFieldCore extends FieldCore {
 
     return this.item2String(cellValue as string);
   }
+  private defaultTzFormat(value: string) {
+    try {
+      const formatValue = dayjs.tz(value, this.options.formatting.timeZone);
+      if (!formatValue.isValid()) return null;
+      return formatValue.toISOString();
+    } catch (e) {
+      return null;
+    }
+  }
 
   convertStringToCellValue(value: string): string | null {
     if (this.isLookup) {
@@ -57,12 +71,16 @@ export class DateFieldCore extends FieldCore {
 
     if (value === '' || value == null) return null;
 
+    const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
+
+    const format = `${this.options.formatting.date}${hasTime && this.options.formatting.time !== TimeFormatting.None ? ' ' + this.options.formatting.time : ''}`;
+
     try {
-      const formatValue = dayjs.tz(value, this.options.formatting.timeZone);
+      const formatValue = dayjs.tz(value, format, this.options.formatting.timeZone);
       if (!formatValue.isValid()) return null;
       return formatValue.toISOString();
     } catch (e) {
-      return null;
+      return this.defaultTzFormat(value);
     }
   }
 

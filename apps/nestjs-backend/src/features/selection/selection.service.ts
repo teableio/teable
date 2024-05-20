@@ -491,11 +491,13 @@ export class SelectionService {
   private async fillCells({
     tableId,
     tableData,
+    headerFields,
     fields,
     records,
   }: {
     tableId: string;
     tableData: string[][];
+    headerFields: IFieldInstance[] | undefined;
     fields: IFieldInstance[];
     records: Pick<IRecord, 'id' | 'fields'>[];
   }) {
@@ -534,6 +536,11 @@ export class SelectionService {
               recordField[field.id] = field.convertStringToCellValue(stringValue, {
                 userSets: fieldConvertContext?.userSets,
               });
+              break;
+            case FieldType.Date:
+              recordField[field.id] = (headerFields?.[col] || field).convertStringToCellValue(
+                stringValue
+              );
               break;
             default:
               recordField[field.id] = field.convertStringToCellValue(stringValue);
@@ -717,6 +724,7 @@ export class SelectionService {
       const updateRecordsRo = await this.fillCells({
         tableId,
         tableData,
+        headerFields: header.map(createFieldInstanceByVo),
         fields: updateFields,
         records: updateRecords,
       });
@@ -734,6 +742,7 @@ export class SelectionService {
     const updateRecordsRo = await this.fillCells({
       tableId,
       tableData: [],
+      headerFields: undefined,
       fields: fieldInstances,
       records,
     });

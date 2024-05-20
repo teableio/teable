@@ -70,6 +70,31 @@ describe('DateFieldCore', () => {
     expect(field.convertStringToCellValue('abc')).toBeNull();
     expect(lookupField.convertStringToCellValue('2023/06/19 06:50')).toBeNull();
     expect(lookupField.convertStringToCellValue('abc')).toBeNull();
+    // european and us date format
+    const europeanField = plainToInstance(DateFieldCore, {
+      ...json,
+      options: {
+        formatting: {
+          date: DateFormattingPreset.European,
+          time: TimeFormatting.Hour24,
+          timeZone: DEFAULT_TIME_ZONE,
+        },
+        defaultValue: 'now',
+      },
+    });
+    expect(europeanField.convertStringToCellValue('5/1/2024')).toBe('2024-01-05T00:00:00.000Z');
+    const usField = plainToInstance(DateFieldCore, {
+      ...json,
+      options: {
+        formatting: {
+          date: DateFormattingPreset.US,
+          time: TimeFormatting.Hour24,
+          timeZone: DEFAULT_TIME_ZONE,
+        },
+        defaultValue: 'now',
+      },
+    });
+    expect(usField.convertStringToCellValue('5/1/2024 06:50')).toBe('2024-05-01T06:50:00.000Z');
   });
 
   it('should repair invalid value', () => {
