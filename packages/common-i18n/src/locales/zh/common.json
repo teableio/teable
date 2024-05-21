@@ -21,7 +21,8 @@
     "updateSucceed": "更新成功！",
     "deleteSucceed": "删除成功！",
     "loading": "加载中...",
-    "refreshPage": "刷新页面"
+    "refreshPage": "刷新页面",
+    "yesDelete": "是，删除"
   },
   "quickAction": {
     "title": "快捷搜索...",
