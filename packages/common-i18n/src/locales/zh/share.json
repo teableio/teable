@@ -6,5 +6,6 @@
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "请选择..."
-  }
+  },
+  "errorTips": "分享来源已启用权限矩阵，无法查看"
 }
