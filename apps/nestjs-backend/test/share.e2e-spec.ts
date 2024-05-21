@@ -12,10 +12,13 @@ import {
   getShareViewCollaborators as apiGetShareViewCollaborators,
   getBaseCollaboratorList as apiGetBaseCollaboratorList,
   updateViewColumnMeta as apiUpdateViewColumnMeta,
+  updateViewShareMeta as apiUpdateViewShareMeta,
+  SHARE_VIEW_COPY,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
+import { getError } from './utils/get-error';
 import {
   createTable,
   createView,
@@ -74,12 +77,27 @@ describe('OpenAPI ShareController (e2e)', () => {
     await app.close();
   });
 
-  it('api/:shareId/view (GET)', async () => {
-    const result = await anonymousUser.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }));
-    const shareViewData = result.data;
-    // filter hidden field
-    expect(shareViewData.fields.length).toEqual(fieldIds.length - 1);
-    expect(shareViewData.viewId).toEqual(viewId);
+  describe('api/:shareId/view (GET)', async () => {
+    it('should return view', async () => {
+      const result = await anonymousUser.get<ShareViewGetVo>(
+        urlBuilder(SHARE_VIEW_GET, { shareId })
+      );
+      const shareViewData = result.data;
+      // filter hidden field
+      expect(shareViewData.fields.length).toEqual(fieldIds.length - 1);
+      expect(shareViewData.viewId).toEqual(viewId);
+    });
+
+    it('records return [] in form view', async () => {
+      const result = await createView(tableId, formViewRo);
+      const formViewId = result.id;
+      const shareResult = await apiEnableShareView({ tableId, viewId: formViewId });
+      const formViewShareId = shareResult.data.shareId;
+      const resultData = await anonymousUser.get<ShareViewGetVo>(
+        urlBuilder(SHARE_VIEW_GET, { shareId: formViewShareId })
+      );
+      expect(resultData.data.records).toEqual([]);
+    });
   });
 
   describe('api/:shareId/view/form-submit (POST)', () => {
@@ -103,6 +121,34 @@ describe('OpenAPI ShareController (e2e)', () => {
       );
       const record = result.data as IRecord;
       expect(record.createdBy).toEqual(ANONYMOUS_USER_ID);
+    });
+
+    it('submit exclude form view', async () => {
+      const result = await createView(tableId, gridViewRo);
+      const gridViewId = result.id;
+      const shareResult = await apiEnableShareView({ tableId, viewId: gridViewId });
+      const gridViewShareId = shareResult.data.shareId;
+      const error = await getError(() =>
+        anonymousUser.post(urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId: gridViewShareId }), {
+          fields: {},
+        })
+      );
+      expect(error?.status).toEqual(403);
+    });
+
+    it('submit include hidden field', async () => {
+      const hiddenFieldId = fieldIds[fieldIds.length - 1];
+      await updateViewColumnMeta(tableId, formViewId, [
+        { fieldId: fieldIds[fieldIds.length - 1], columnMeta: { visible: false } },
+      ]);
+      const error = await getError(() =>
+        anonymousUser.post(urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId: fromViewShareId }), {
+          fields: {
+            [hiddenFieldId]: null,
+          },
+        })
+      );
+      expect(error?.status).toEqual(403);
     });
   });
 
@@ -346,6 +392,54 @@ describe('OpenAPI ShareController (e2e)', () => {
           },
         ]);
       });
+    });
+  });
+
+  describe('api/:shareId/view/copy (PATCH)', () => {
+    let gridViewId: string;
+    let gridViewShareId: string;
+
+    beforeEach(async () => {
+      const result = await createView(tableId, gridViewRo);
+      gridViewId = result.id;
+
+      const shareResult = await apiEnableShareView({ tableId, viewId: gridViewId });
+      await apiUpdateViewShareMeta(tableId, gridViewId, { allowCopy: true });
+      gridViewShareId = shareResult.data.shareId;
+    });
+
+    it('should return 200', async () => {
+      const result = await anonymousUser.get(
+        urlBuilder(SHARE_VIEW_COPY, { shareId: gridViewShareId }),
+        {
+          params: {
+            ranges: JSON.stringify([
+              [0, 0],
+              [1, 1],
+            ]),
+          },
+        }
+      );
+      expect(result.status).toEqual(200);
+    });
+
+    it('share not allow copy', async () => {
+      const result = await createView(tableId, gridViewRo);
+      const gridViewId = result.id;
+
+      const shareResult = await apiEnableShareView({ tableId, viewId: gridViewId });
+      const gridViewShareId = shareResult.data.shareId;
+      const error = await getError(() =>
+        anonymousUser.get(urlBuilder(SHARE_VIEW_COPY, { shareId: gridViewShareId }), {
+          params: {
+            ranges: JSON.stringify([
+              [0, 0],
+              [1, 1],
+            ]),
+          },
+        })
+      );
+      expect(error?.status).toEqual(403);
     });
   });
 });

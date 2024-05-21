@@ -21,7 +21,8 @@
     "updateSucceed": "Update Succeed!",
     "deleteSucceed": "Delete Succeed!",
     "loading": "Loading...",
-    "refreshPage": "Refresh Page"
+    "refreshPage": "Refresh Page",
+    "yesDelete": "Yes, delete"
   },
   "quickAction": {
     "title": "Quick Actions...",

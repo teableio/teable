@@ -30,7 +30,6 @@ export const TablePermissionProvider = ({ children }: { children: React.ReactNod
 
     const receiveHandler = (_id: string, context: IActionTriggerBuffer) => {
       if (context.addField) {
-        console.log('receiveHandler');
         refetch();
       }
     };

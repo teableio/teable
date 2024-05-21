@@ -8,7 +8,10 @@ import {
   updateViewName,
   getViewFilterLinkRecords,
   getTableById,
+  updateViewShareMeta,
+  enableShareView,
 } from '@teable/openapi';
+import { getError } from './utils/get-error';
 import {
   createField,
   getFields,
@@ -304,6 +307,47 @@ describe('OpenAPI ViewController (e2e)', () => {
           ],
         },
       ]);
+    });
+  });
+
+  describe('/api/table/{tableId}/view/:viewId/column-meta (PUT)', () => {
+    let tableId: string;
+    let gridViewId: string;
+    let formViewId: string;
+    beforeAll(async () => {
+      const table = await createTable(baseId, { name: 'table' });
+      tableId = table.id;
+      const gridView = await createView(table.id, {
+        name: 'Grid view',
+        type: ViewType.Grid,
+      });
+      gridViewId = gridView.id;
+      const formView = await createView(table.id, {
+        name: 'Form view',
+        type: ViewType.Form,
+      });
+      formViewId = formView.id;
+      await enableShareView({ tableId, viewId: formViewId });
+      await enableShareView({ tableId, viewId: gridViewId });
+    });
+
+    afterAll(async () => {
+      await deleteTable(baseId, tableId);
+    });
+
+    it('update allowCopy success', async () => {
+      await updateViewShareMeta(tableId, gridViewId, { allowCopy: true });
+      const view = await getView(tableId, gridViewId);
+      expect(view.shareMeta?.allowCopy).toBe(true);
+    });
+
+    it('update allowCopy with disallowed view types', async () => {
+      const error = await getError(() =>
+        updateViewShareMeta(tableId, formViewId, { allowCopy: true })
+      );
+
+      expect(error?.status).toEqual(400);
+      expect(error?.message).toEqual(`View type(${ViewType.Form}) not support copy`);
     });
   });
 });

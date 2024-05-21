@@ -6,5 +6,6 @@
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Select..."
-  }
+  },
+  "errorTips": "Sharing source has enabled a Authority Matrix, viewing is not allowed"
 }

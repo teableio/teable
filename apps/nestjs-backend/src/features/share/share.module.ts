@@ -25,6 +25,6 @@ import { ShareService } from './share.service';
   ],
   providers: [ShareService, DbProvider, ShareSocketService],
   controllers: [ShareController],
-  exports: [ShareService],
+  exports: [ShareService, ShareSocketService],
 })
 export class ShareModule {}

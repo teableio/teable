@@ -107,12 +107,7 @@ export class ViewOpenApiController {
     @Body(new ZodValidationPipe(viewShareMetaRoSchema))
     viewShareMetaRo: IViewShareMetaRo
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewProperty(
-      tableId,
-      viewId,
-      'shareMeta',
-      viewShareMetaRo
-    );
+    return await this.viewOpenApiService.updateShareMeta(tableId, viewId, viewShareMetaRo);
   }
 
   @Permissions('view|update')

@@ -36,7 +36,6 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async
       };
     }
     return {
-      err: error,
       notFound: true,
     };
   }
