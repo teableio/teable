@@ -76,7 +76,10 @@ export class ShareController {
 
   @UseGuards(AuthGuard)
   @Get('/:shareId/view')
-  async getShareView(@Param('shareId') shareId: string): Promise<ShareViewGetVo> {
+  async getShareView(
+    @Param('shareId') shareId: string,
+    @Request() _req?: any
+  ): Promise<ShareViewGetVo> {
     return await this.shareService.getShareView(shareId);
   }
 
