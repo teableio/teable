@@ -140,8 +140,11 @@ export class ShareService {
   }
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
-    const { tableId } = shareInfo;
+    const { tableId, view } = shareInfo;
     const { fields } = shareViewFormSubmitRo;
+    if (view.type !== ViewType.Form) {
+      throw new ForbiddenException('view type is not form');
+    }
     const { records } = await this.prismaService.$tx(async () => {
       return await this.recordOpenApiService.createRecords(tableId, {
         records: [{ fields }],
@@ -155,6 +158,9 @@ export class ShareService {
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
+    if (!shareInfo.view.shareMeta?.allowCopy) {
+      throw new ForbiddenException('not allowed to copy');
+    }
     return this.selectionService.copy(shareInfo.tableId, {
       viewId: shareInfo.view.id,
       ...shareViewCopyRo,
