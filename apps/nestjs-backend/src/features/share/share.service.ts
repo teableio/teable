@@ -29,7 +29,7 @@ import type {
   IShareViewCollaboratorsRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
-import { pick } from 'lodash';
+import { isEmpty, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -83,13 +83,19 @@ export class ShareService {
       viewId: view.id,
       filterHidden: !shareMeta?.includeHiddenField,
     });
-    const { records } = await this.recordService.getRecords(tableId, {
-      viewId,
-      skip: 0,
-      take: 50,
-      fieldKeyType: FieldKeyType.Id,
-      projection: fields.map((f) => f.id),
-    });
+
+    let records: IRecordsVo['records'] = [];
+    if (view.type !== ViewType.Form) {
+      const recordsData = await this.recordService.getRecords(tableId, {
+        viewId,
+        skip: 0,
+        take: 50,
+        fieldKeyType: FieldKeyType.Id,
+        projection: fields.map((f) => f.id),
+      });
+      records = recordsData.records;
+    }
+
     return {
       shareMeta,
       shareId,
@@ -145,6 +151,19 @@ export class ShareService {
     if (view.type !== ViewType.Form) {
       throw new ForbiddenException('view type is not form');
     }
+    // check field hidden
+    const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
+      viewId: view.id,
+      filterHidden: !view.shareMeta?.includeHiddenField,
+    });
+
+    if (
+      (!visibleFields.length && !isEmpty(fields)) ||
+      visibleFields.some((field) => !(field.id in fields))
+    ) {
+      throw new ForbiddenException('field is hidden, not allowed');
+    }
+
     const { records } = await this.prismaService.$tx(async () => {
       return await this.recordOpenApiService.createRecords(tableId, {
         records: [{ fields }],
@@ -161,6 +180,7 @@ export class ShareService {
     if (!shareInfo.view.shareMeta?.allowCopy) {
       throw new ForbiddenException('not allowed to copy');
     }
+
     return this.selectionService.copy(shareInfo.tableId, {
       viewId: shareInfo.view.id,
       ...shareViewCopyRo,

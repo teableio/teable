@@ -33,6 +33,7 @@ import type {
   IGetViewFilterLinkRecordsVo,
   IUpdateOrderRo,
   IUpdateRecordOrdersRo,
+  IViewShareMetaRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -203,6 +204,26 @@ export class ViewOpenApiService {
     await this.prismaService.$tx(async () => {
       await this.viewService.updateViewByOps(tableId, viewId, ops);
     });
+  }
+
+  async updateShareMeta(tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) {
+    const curView = await this.prismaService.view
+      .findFirstOrThrow({
+        select: { type: true },
+        where: { tableId, id: viewId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new BadRequestException('View not found');
+      });
+
+    // allow copy view type
+    if (
+      'allowCopy' in viewShareMetaRo &&
+      ![ViewType.Grid, ViewType.Gantt].includes(curView.type as ViewType)
+    ) {
+      throw new BadRequestException(`View type(${curView.type}) not support copy`);
+    }
+    return await this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
   }
 
   async setViewProperty(
