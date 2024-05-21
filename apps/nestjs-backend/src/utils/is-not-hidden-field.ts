@@ -12,12 +12,12 @@ export const isNotHiddenField = (
     const { stackFieldId, coverFieldId } = (options ?? {}) as IKanbanViewOptions;
     return (
       [stackFieldId, coverFieldId].includes(fieldId) ||
-      Boolean((columnMeta[fieldId] as { visible?: boolean }).visible)
+      Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
     );
   }
 
   if ([ViewType.Form].includes(viewType)) {
-    return Boolean((columnMeta[fieldId] as { visible?: boolean }).visible);
+    return Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible);
   }
-  return !(columnMeta[fieldId] as { hidden?: boolean }).hidden;
+  return !(columnMeta[fieldId] as { hidden?: boolean })?.hidden;
 };
