@@ -33,6 +33,16 @@ export const authConfig = registerAs('auth', () => ({
     clientSecret: process.env.BACKEND_GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.BACKEND_GOOGLE_CALLBACK_URL,
   },
+  oidc: {
+    issuer: process.env.BACKEND_OIDC_ISSUER,
+    authorizationURL: process.env.BACKEND_OIDC_AUTHORIZATION_URL,
+    tokenURL: process.env.BACKEND_OIDC_TOKEN_URL,
+    userInfoURL: process.env.BACKEND_OIDC_USER_INFO_URL,
+    clientID: process.env.BACKEND_OIDC_CLIENT_ID,
+    clientSecret: process.env.BACKEND_OIDC_CLIENT_SECRET,
+    callbackURL: process.env.BACKEND_OIDC_CALLBACK_URL,
+    other: process.env.BACKEND_OIDC_OTHER ? JSON.parse(process.env.BACKEND_OIDC_OTHER) : {},
+  },
 }));
 
 export const AuthConfig = () => Inject(authConfig.KEY);
