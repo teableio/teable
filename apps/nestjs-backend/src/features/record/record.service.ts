@@ -1012,8 +1012,8 @@ export class RecordService {
       filter,
     });
 
+    queryBuilder.whereIn(`${dbTableName}.__id`, recordIds);
     queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
-
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
