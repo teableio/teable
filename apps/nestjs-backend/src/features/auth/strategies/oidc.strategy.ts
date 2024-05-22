@@ -17,7 +17,6 @@ export class OIDCStrategy extends PassportStrategy(Strategy, 'openidconnect') {
     oauthStoreService: OauthStoreService
   ) {
     const { other, ...rest } = config.oidc;
-    console.log('OIDCStrategy', other);
     super({
       ...rest,
       state: true,
@@ -30,7 +29,7 @@ export class OIDCStrategy extends PassportStrategy(Strategy, 'openidconnect') {
     const { id, emails, displayName, photos } = profile;
     const email = emails?.[0].value;
     if (!email) {
-      throw new UnauthorizedException('No email provided from Google');
+      throw new UnauthorizedException('No email provided from OIDC');
     }
     const user = await this.usersService.findOrCreateUser({
       name: displayName,
@@ -41,7 +40,7 @@ export class OIDCStrategy extends PassportStrategy(Strategy, 'openidconnect') {
       avatarUrl: photos?.[0].value,
     });
     if (!user) {
-      throw new UnauthorizedException('Failed to create user from Google profile');
+      throw new UnauthorizedException('Failed to create user from OIDC profile');
     }
     return pickUserMe(user);
   }
