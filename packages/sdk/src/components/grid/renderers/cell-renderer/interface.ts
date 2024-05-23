@@ -105,17 +105,24 @@ export interface IRatingCell extends IEditableCell {
 }
 
 export interface ISelectChoice {
-  id?: string;
+  id: string;
   name: string;
-  bgColor?: string;
-  textColor?: string;
+  color?: string;
+  backgroundColor?: string;
+}
+
+export interface ISelectChoiceSorted {
+  id: string;
+  name: string;
+  [key: string]: unknown;
 }
 
 export interface ISelectCell extends IEditableCell {
   type: CellType.Select;
   data: (string | { title: string; id: string })[];
   displayData: string[];
-  choices?: ISelectChoice[];
+  choiceMap?: Record<string, ISelectChoice>;
+  choiceSorted?: ISelectChoiceSorted[];
   isMultiple?: boolean;
   isEditingOnClick?: boolean;
 }

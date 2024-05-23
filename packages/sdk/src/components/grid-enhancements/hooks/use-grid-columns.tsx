@@ -329,19 +329,13 @@ export const createCellValue2GridDisplay =
       case FieldType.MultipleSelect:
       case FieldType.SingleSelect: {
         const data = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        const choices = field.options.choices.map(({ name, color }) => {
-          return {
-            name,
-            bgColor: ColorUtils.getHexForColor(color),
-            textColor: ColorUtils.shouldUseLightTextOnColor(color) ? '#FFFFFF' : '#000000',
-          };
-        });
         return {
           ...baseCellProps,
           type: CellType.Select,
           data,
           displayData: data,
-          choices,
+          choiceSorted: field.options.choices,
+          choiceMap: field.displayChoiceMap,
           isMultiple,
           editorWidth: 220,
           isEditingOnClick: true,
@@ -359,7 +353,7 @@ export const createCellValue2GridDisplay =
           type: CellType.Select,
           data: cv,
           displayData,
-          choices,
+          choiceSorted: choices,
           isMultiple,
           customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
         };
