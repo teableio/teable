@@ -48,7 +48,7 @@ export const useColumnFreeze = (coordInstance: CoordinateManager, scrollState: I
     const { targetIndex, isFreezing } = columnFreezeState;
     if (!isFreezing) return;
     setColumnFreezeState(() => DEFAULT_FREEZE_COLUMN_STATE);
-    callbackFn?.(targetIndex + 1);
+    callbackFn?.(Math.max(targetIndex + 1, 0));
   };
 
   return {
