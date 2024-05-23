@@ -7,7 +7,9 @@ import type {
 import { FieldType, ColorUtils } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
+import colors from 'tailwindcss/colors';
 import { useTableId } from '../../../hooks';
+import type { MultipleSelectField, SingleSelectField } from '../../../model';
 import { Field } from '../../../model';
 import { SelectEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
@@ -23,7 +25,12 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   const tableId = useTableId();
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
-  const { id: fieldId, type: fieldType, options } = field;
+  const {
+    id: fieldId,
+    type: fieldType,
+    options,
+    displayChoiceMap,
+  } = field as SingleSelectField | MultipleSelectField;
   const isMultiple = fieldType === FieldType.MultipleSelect;
   const cellValue = record.getCellValue(field.id) as
     | ISingleSelectCellValue
@@ -43,10 +50,13 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
     return choices.map(({ name, color }) => ({
       label: name,
       value: name,
-      color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
-      backgroundColor: ColorUtils.getHexForColor(color),
+      color:
+        displayChoiceMap[name]?.color ?? ColorUtils.shouldUseLightTextOnColor(color)
+          ? colors.white
+          : colors.black,
+      backgroundColor: displayChoiceMap[name]?.backgroundColor ?? ColorUtils.getHexForColor(color),
     }));
-  }, [options]);
+  }, [options, displayChoiceMap]);
 
   const onChange = (value?: string[] | string) => {
     record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value);

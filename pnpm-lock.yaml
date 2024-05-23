@@ -686,8 +686,8 @@ importers:
         specifier: 17.5.0
         version: 17.5.0(react-dom@18.2.0)(react@18.2.0)
       react-virtuoso:
-        specifier: 4.7.7
-        version: 4.7.7(react-dom@18.2.0)(react@18.2.0)
+        specifier: 4.7.10
+        version: 4.7.10(react-dom@18.2.0)(react@18.2.0)
       recharts:
         specifier: 2.12.3
         version: 2.12.3(react-dom@18.2.0)(react@18.2.0)
@@ -22709,8 +22709,8 @@ packages:
       tslib: 2.6.2
     dev: false
 
-  /react-virtuoso@4.7.7(react-dom@18.2.0)(react@18.2.0):
-    resolution: {integrity: sha512-n9NdMNaAtxHYH6e3H6zr1Kb08sp+1XPVnfE4cEMgrvmPBLugd9eeJtQo/1uA+SHhGaPX3uqZOuQsfKbX1r8P/A==}
+  /react-virtuoso@4.7.10(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-l+fnBf/G1Fp6pHCnhFq2Ra4lkZtT6c5XrS9rCS0OA6de7WGLZviCo0y61CUZZG79TeAw3L7O4czeNPiqh9CIrg==}
     engines: {node: '>=10'}
     peerDependencies:
       react: '>=16 || >=17 || >= 18'

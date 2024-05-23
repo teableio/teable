@@ -1,29 +1,15 @@
-import { Check, Plus } from '@teable/icons';
-import {
-  Button,
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  cn,
-  useCommandState,
-} from '@teable/ui-lib';
+import { Plus } from '@teable/icons';
+import { Command, CommandInput, CommandItem, cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
-import { SelectTag } from '../../cell-value/cell-select/SelectTag';
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import type { ISelectOption } from '../../cell-value';
 import type { ICellEditor, IEditorRef } from '../type';
+import { OptionList } from './components';
 
 export type ISelectValue<T extends boolean> = T extends true ? string[] : string;
 
 export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelectValue<T>> {
-  options?: {
-    label: string;
-    value: string;
-    color?: string;
-    backgroundColor?: string;
-  }[];
+  options?: ISelectOption[];
   isMultiple?: T;
   style?: React.CSSProperties;
   className?: string;
@@ -64,6 +50,12 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
     },
   }));
 
+  const filteredOptions = useMemo(() => {
+    if (!searchValue) return options;
+
+    return options.filter((v) => v.label.toLowerCase().includes(searchValue.toLowerCase()));
+  }, [options, searchValue]);
+
   const onSelect = (val: string) => {
     setSearchValue('');
     if (isMultiple) {
@@ -93,80 +85,35 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
     onChange?.(searchValue);
   };
 
-  const addOptionText = `Add an option '${searchValue}'`;
-  const optionAddable = searchValue && options.findIndex((v) => v.value === searchValue) === -1;
+  const optionAddable =
+    searchValue && filteredOptions.findIndex((v) => v.value === searchValue) === -1;
 
   return (
-    <Command className={className} style={style}>
-      <SearchInput
-        reRef={inputRef}
-        searchValue={searchValue}
-        setSearchValue={setSearchValue}
-        onOptionAdd={onOptionAddInner}
+    <Command className={className} style={style} shouldFilter={false}>
+      <CommandInput
+        ref={inputRef}
+        placeholder="Search option"
+        value={searchValue}
+        onValueChange={(value) => setSearchValue(value)}
+        onKeyDown={async (e) => {
+          if (e.key === 'Enter' && filteredOptions.length === 0) {
+            e.stopPropagation();
+            await onOptionAddInner();
+          }
+        }}
       />
-      <CommandList>
-        <CommandEmpty className="p-2">
-          <Button variant={'ghost'} size={'sm'} className="w-full text-sm">
-            <Plus className="size-4" />
-            <span className="ml-2">{addOptionText}</span>
-          </Button>
-        </CommandEmpty>
-        <CommandGroup aria-valuetext="name">
-          {options.map(({ label, value, backgroundColor, color }) => (
-            <CommandItem
-              className="justify-between"
-              key={value}
-              value={value}
-              onSelect={() => onSelect(value)}
-            >
-              <SelectTag
-                label={label || 'Untitled'}
-                backgroundColor={backgroundColor}
-                color={color}
-              />
-              {checkIsActive(value) && <Check className={'ml-2 size-4'} />}
-            </CommandItem>
-          ))}
-          <CommandItem
-            className={cn('items-center justify-center', !optionAddable && 'opacity-0 h-0 p-0')}
-            onSelect={onOptionAddInner}
-          >
-            <Plus className="size-4 shrink-0" />
-            <span className="ml-2 truncate">{addOptionText}</span>
-          </CommandItem>
-        </CommandGroup>
-      </CommandList>
+      <OptionList options={filteredOptions} onSelect={onSelect} checkIsActive={checkIsActive} />
+      {(filteredOptions.length === 0 || optionAddable) && (
+        <CommandItem
+          className={cn('items-center justify-center', !optionAddable && 'opacity-0 h-0 p-0')}
+          onSelect={onOptionAddInner}
+        >
+          <Plus className="size-4 shrink-0" />
+          <span className="ml-2 truncate">{`Add an option '${searchValue}'`}</span>
+        </CommandItem>
+      )}
     </Command>
   );
 };
 
 export const SelectEditorMain = forwardRef(SelectEditorMainBase);
-
-const SearchInput = ({
-  reRef,
-  searchValue,
-  setSearchValue,
-  onOptionAdd,
-}: {
-  reRef: React.Ref<HTMLInputElement>;
-  searchValue: string;
-  setSearchValue: (value: string) => void;
-  onOptionAdd: () => Promise<void>;
-}) => {
-  const isEmpty = useCommandState((state) => state.filtered.count === 1);
-
-  return (
-    <CommandInput
-      ref={reRef}
-      placeholder="Search option"
-      value={searchValue}
-      onValueChange={(value) => setSearchValue(value)}
-      onKeyDown={async (e) => {
-        if (e.key === 'Enter' && isEmpty) {
-          e.stopPropagation();
-          await onOptionAdd();
-        }
-      }}
-    />
-  );
-};

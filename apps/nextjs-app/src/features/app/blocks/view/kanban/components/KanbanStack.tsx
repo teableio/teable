@@ -27,7 +27,7 @@ const LOAD_COUNT = 100;
 const TAKE_COUNT = 200;
 
 // @ts-ignore
-const HeightPreservingItem = ({ children, ...props }) => {
+export const HeightPreservingItem = ({ children, ...props }) => {
   const [size, setSize] = useState(0);
   const knownSize = props['data-known-size'];
 
