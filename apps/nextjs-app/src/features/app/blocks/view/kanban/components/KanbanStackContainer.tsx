@@ -1,20 +1,18 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
 import { Draggable } from '@hello-pangea/dnd';
-import { FieldKeyType } from '@teable/core';
 import { Plus } from '@teable/icons';
-import { createRecords } from '@teable/openapi';
 import { generateLocalId } from '@teable/sdk/components';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib';
 import { useRef, useState } from 'react';
 import type { VirtuosoHandle } from 'react-virtuoso';
+import { AddRecordModal } from '../../AddRecordModal';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IKanbanContext } from '../context';
 import { useInView, useKanban } from '../hooks';
 import { useKanbanStackCollapsedStore } from '../store';
 import type { IStackData } from '../type';
-import { getCellValueByStack } from '../utils';
 import type { ICardMap } from './interface';
 import { KanbanStack } from './KanbanStack';
 import { KanbanStackHeader } from './KanbanStackHeader';
@@ -34,34 +32,17 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
   const tableId = useTableId();
   const viewId = useViewId();
   const { collapsedStackMap, setCollapsedStackMap } = useKanbanStackCollapsedStore();
-  const { permission, stackField, setExpandRecordId } = useKanban() as Required<IKanbanContext>;
+  const { permission } = useKanban() as Required<IKanbanContext>;
   const [ref, isInView] = useInView();
   const [editMode, setEditMode] = useState(false);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   const { id: stackId } = stack;
-  const { id: fieldId, type: fieldType } = stackField;
   const { stackDraggable, cardCreatable } = permission;
   const isUncategorized = stackId === UNCATEGORIZED_STACK_ID;
   const draggable = stackDraggable && !disabled && !editMode && !isUncategorized;
 
-  const onAppend = async () => {
-    if (tableId == null) return;
-    const cellValue = getCellValueByStack(fieldType, stack);
-    const res = await createRecords(tableId, {
-      fieldKeyType: FieldKeyType.Id,
-      records: [
-        {
-          fields: { [fieldId]: cellValue },
-        },
-      ],
-    });
-    const record = res.data.records[0];
-
-    if (record != null) {
-      setExpandRecordId(record.id);
-    }
-
+  const onAppendCallback = () => {
     setTimeout(() => {
       virtuosoRef.current?.scrollToIndex({
         index: 'LAST',
@@ -130,11 +111,13 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
                   </div>
 
                   {cardCreatable && (
-                    <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
-                      <Button variant="outline" className="w-full shadow-none" onClick={onAppend}>
-                        <Plus className="size-5" />
-                      </Button>
-                    </div>
+                    <AddRecordModal callback={onAppendCallback}>
+                      <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
+                        <Button variant="outline" className="w-full shadow-none">
+                          <Plus className="size-5" />
+                        </Button>
+                      </div>
+                    </AddRecordModal>
                   )}
                 </div>
               </div>
