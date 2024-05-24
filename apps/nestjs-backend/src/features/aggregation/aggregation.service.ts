@@ -489,8 +489,6 @@ export class AggregationService {
   public async getGroupPoints(tableId: string, query?: IGroupPointsRo) {
     const { viewId, groupBy: extraGroupBy, filter, search } = query || {};
 
-    if (!viewId) return null;
-
     const groupBy = parseGroup(extraGroupBy);
 
     if (!groupBy?.length) return null;
