@@ -132,7 +132,7 @@ export const SelectOptions = (props: {
               );
             }}
           >
-            {(provided, _snapshot) => (
+            {(provided) => (
               <Virtuoso
                 ref={virtuosoRef}
                 scrollerRef={provided.innerRef as never}
