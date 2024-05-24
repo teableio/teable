@@ -160,7 +160,7 @@
     "react-syntax-highlighter": "15.5.0",
     "react-textarea-autosize": "8.5.3",
     "react-use": "17.5.0",
-    "react-virtuoso": "4.7.7",
+    "react-virtuoso": "4.7.10",
     "recharts": "2.12.3",
     "reconnecting-websocket": "4.4.0",
     "reflect-metadata": "0.2.1",

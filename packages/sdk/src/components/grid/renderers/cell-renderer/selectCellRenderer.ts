@@ -11,7 +11,6 @@ import type {
   IInternalCellRenderer,
   ICellRenderProps,
   ISelectCell,
-  ISelectChoice,
   ICellMeasureProps,
   ICellClickProps,
   ICellClickCallback,
@@ -143,7 +142,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   },
   draw: (cell: ISelectCell, props: ICellRenderProps) => {
     const { ctx, rect, theme, isActive, spriteManager } = props;
-    const { displayData, choices, readonly } = cell;
+    const { displayData, choiceMap, readonly } = cell;
     const { x: _x, y: _y, width, height } = rect;
     const clipEnable = !isActive && displayData.length;
     const { fontSizeXS, fontFamily, iconSizeXS, iconSizeSM, cellOptionBg, cellOptionTextColor } =
@@ -168,15 +167,6 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     let row = 1;
     let x = drawArea.x;
     let y = drawArea.y;
-    const choiceMap: Record<string, ISelectChoice> = {};
-    choices?.forEach(({ id, name, bgColor, textColor }) => {
-      choiceMap[id || name] = {
-        id,
-        name,
-        bgColor,
-        textColor,
-      };
-    });
 
     ctx.save();
     ctx.beginPath();
@@ -189,9 +179,9 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     ctx.font = `${fontSizeXS}px ${fontFamily}`;
 
     for (const text of displayData) {
-      const choice = choiceMap[text];
-      const bgColor = choice?.bgColor || cellOptionBg;
-      const textColor = choice?.textColor || cellOptionTextColor;
+      const choice = choiceMap?.[text];
+      const bgColor = choice?.backgroundColor || cellOptionBg;
+      const textColor = choice?.color || cellOptionTextColor;
 
       const { width: displayWidth, text: displayText } = drawSingleLineText(ctx, {
         text,

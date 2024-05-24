@@ -178,18 +178,12 @@ const generateGroupCellFn =
       case FieldType.MultipleSelect:
       case FieldType.SingleSelect: {
         const data = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        const choices = field.options.choices.map(({ name, color }) => {
-          return {
-            name,
-            bgColor: ColorUtils.getHexForColor(color),
-            textColor: ColorUtils.shouldUseLightTextOnColor(color) ? '#FFFFFF' : '#000000',
-          };
-        });
         return {
           type: CellType.Select,
           data,
           displayData: data,
-          choices,
+          choiceSorted: field.options.choices,
+          choiceMap: field.displayChoiceMap,
           isMultiple,
         };
       }
@@ -201,7 +195,7 @@ const generateGroupCellFn =
           type: CellType.Select,
           data: cv,
           displayData,
-          choices,
+          choiceSorted: choices,
           isMultiple,
         };
       }

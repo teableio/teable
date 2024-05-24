@@ -102,71 +102,66 @@ export const FieldEditor = (props: {
   };
 
   return (
-    <div className="w-full flex-1 gap-2 overflow-y-auto px-2 text-sm">
-      {/* General */}
-      <div className="flex flex-col gap-2">
-        <div className="relative flex w-full flex-col gap-2">
-          <div>
-            <p className="label-text mb-2">{t('common:name')}</p>
-          </div>
-          <Input
-            placeholder="Field name (optional)"
-            className="h-8"
-            value={field['name'] || ''}
-            onChange={updateFieldName}
-          />
-          {/* should place after the name input to make sure tab index correct */}
-          <SystemInfo field={field as IFieldVo} />
-          {!showDescription && (
-            <p className="text-left text-xs font-medium text-slate-500">
-              <span
-                onClick={() => {
+    <div className="flex w-full flex-1 flex-col gap-2 overflow-y-auto px-2 text-sm">
+      <div className="relative flex w-full flex-col gap-2">
+        <p className="label-text">{t('common:name')}</p>
+        <Input
+          placeholder="Field name (optional)"
+          className="h-8"
+          value={field['name'] || ''}
+          onChange={updateFieldName}
+        />
+        {/* should place after the name input to make sure tab index correct */}
+        <SystemInfo field={field as IFieldVo} />
+        {!showDescription && (
+          <p className="text-left text-xs font-medium text-slate-500">
+            <span
+              onClick={() => {
+                setShowDescription(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
                   setShowDescription(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    setShowDescription(true);
-                  }
-                }}
-                tabIndex={0}
-                role={'button'}
-                className="cursor-pointer border-b border-solid border-slate-500 "
-              >
-                {t('table:field.editor.addDescription')}
-              </span>
-            </p>
-          )}
-        </div>
-        {showDescription && (
-          <div className="flex w-full flex-col gap-2">
-            <div>
-              <span className="label-text mb-2">{t('common:description')}</span>
-            </div>
-            <Textarea
-              className="h-12 resize-none"
-              value={field['description'] || undefined}
-              placeholder={t('table:field.editor.descriptionPlaceholder')}
-              onChange={updateFieldDesc}
-            />
-          </div>
+                }
+              }}
+              tabIndex={0}
+              role={'button'}
+              className="cursor-pointer border-b border-solid border-slate-500 "
+            >
+              {t('table:field.editor.addDescription')}
+            </span>
+          </p>
         )}
+      </div>
+      {showDescription && (
         <div className="flex w-full flex-col gap-2">
           <div>
-            <span className="label-text mb-2">{t('table:field.editor.type')}</span>
+            <span className="label-text mb-2">{t('common:description')}</span>
           </div>
-          <SelectFieldType
-            value={field.isLookup ? 'lookup' : field.type}
-            onChange={updateFieldTypeWithLookup}
+          <Textarea
+            className="h-12 resize-none"
+            value={field['description'] || undefined}
+            placeholder={t('table:field.editor.descriptionPlaceholder')}
+            onChange={updateFieldDesc}
           />
-          <p className="text-left text-xs font-medium text-slate-500">
-            {field.isLookup
-              ? t('table:field.subTitle.lookup')
-              : getFieldSubtitle(field.type as FieldType)}
-          </p>
         </div>
-        <hr className="border-slate-200" />
-        {getUnionOptions()}
+      )}
+      <div className="flex w-full flex-col gap-2">
+        <div>
+          <span className="label-text mb-2">{t('table:field.editor.type')}</span>
+        </div>
+        <SelectFieldType
+          value={field.isLookup ? 'lookup' : field.type}
+          onChange={updateFieldTypeWithLookup}
+        />
+        <p className="text-left text-xs font-medium text-slate-500">
+          {field.isLookup
+            ? t('table:field.subTitle.lookup')
+            : getFieldSubtitle(field.type as FieldType)}
+        </p>
       </div>
+      <hr className="border-slate-200" />
+      {getUnionOptions()}
     </div>
   );
 };

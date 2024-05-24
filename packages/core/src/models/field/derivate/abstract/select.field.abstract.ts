@@ -26,6 +26,8 @@ export type ISelectFieldOptions = z.infer<typeof selectFieldOptionsSchema>;
 export type ISelectFieldOptionsRo = z.infer<typeof selectFieldOptionsRoSchema>;
 
 export abstract class SelectFieldCore extends FieldCore {
+  private _innerChoicesMap: Record<string, ISelectFieldChoice> = {};
+
   static defaultOptions(): ISelectFieldOptions {
     return {
       choices: [],
@@ -36,8 +38,11 @@ export abstract class SelectFieldCore extends FieldCore {
 
   // For validate cellValue,
   // avoiding choice and checking too many rows has a complexity of m(choice.length) x n(rows.length)
-  get choicesMap() {
-    return keyBy(this.options.choices, 'name');
+  get innerChoicesMap() {
+    if (Object.keys(this._innerChoicesMap).length === 0) {
+      this._innerChoicesMap = keyBy(this.options.choices, 'name');
+    }
+    return this._innerChoicesMap;
   }
 
   validateOptions() {
@@ -72,7 +77,7 @@ export abstract class SelectFieldCore extends FieldCore {
   validateCellValue(cellValue: unknown) {
     const nameSchema = z.string().refine(
       (value) => {
-        return value == null || this.choicesMap[value];
+        return value == null || this.innerChoicesMap[value];
       },
       { message: `${cellValue} is not one of the choice names` }
     );

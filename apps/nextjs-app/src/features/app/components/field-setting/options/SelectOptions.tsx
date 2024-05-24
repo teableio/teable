@@ -1,14 +1,16 @@
+import type { DropResult } from '@hello-pangea/dnd';
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
 import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable/core';
 import { COLOR_PALETTE, ColorUtils } from '@teable/core';
 import { DraggableHandle, Plus, Trash } from '@teable/icons';
-import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base/dnd-kit';
-import type { DragEndEvent } from '@teable/ui-lib/base/dnd-kit';
-
 import { Input, cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn/ui/popover';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
+import type { VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
+import { HeightPreservingItem } from '@/features/app/blocks/view/kanban/components/KanbanStack';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface IOptionItemProps {
@@ -30,14 +32,11 @@ export const SelectOptions = (props: {
   onChange?: (options: Partial<ISelectFieldOptions>) => void;
 }) => {
   const { options, isLookup, onChange } = props;
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const choices = useMemo(() => options?.choices ?? [], [options?.choices]);
-  const choiceIds = useMemo(
-    () => choices.map((choice, index) => getChoiceId(choice, index)),
-    [choices]
-  );
 
   const updateOptionChange = (index: number, key: keyof ISelectFieldChoice, value: string) => {
     const newChoice = choices.map((v, i) => {
@@ -68,7 +67,8 @@ export const SelectOptions = (props: {
     const newChoices = [...choices, choice];
     onChange?.({ choices: newChoices });
     setTimeout(() => {
-      inputRefs.current[choices.length]?.focus();
+      virtuosoRef.current?.scrollToIndex({ index: 'LAST' });
+      setTimeout(() => inputRefs.current[choices.length]?.focus(), 150);
     });
   };
 
@@ -78,13 +78,13 @@ export const SelectOptions = (props: {
     }
   };
 
-  const onDragEnd = async (event: DragEndEvent) => {
-    const { over, active } = event;
+  const onDragEnd = async (result: DropResult) => {
+    const { source, destination } = result;
 
-    if (!over) return;
+    if (!destination) return;
 
-    const from = active?.data?.current?.sortable?.index;
-    const to = over?.data?.current?.sortable?.index;
+    const { index: from } = source;
+    const { index: to } = destination;
     const list = [...choices];
     const [choice] = list.splice(from, 1);
 
@@ -94,50 +94,110 @@ export const SelectOptions = (props: {
   };
 
   return (
-    <ul className="space-y-2">
-      <DndKitContext onDragEnd={onDragEnd}>
-        <Droppable items={choiceIds}>
-          {choices.map((choice, i) => {
-            const { name } = choice;
-            return (
-              <Draggable key={`${name}-${i}`} id={getChoiceId(choice, i)}>
-                {({ setNodeRef, style, attributes, listeners, isDragging }) => (
-                  <div
-                    ref={setNodeRef}
-                    style={style}
-                    {...attributes}
-                    className={cn(isDragging ? 'opacity-60' : null, isLookup && 'cursor-default')}
-                  >
-                    <div className="flex items-center">
-                      {!isLookup && (
-                        <DraggableHandle {...listeners} className="mr-1 size-4 cursor-grabbing" />
-                      )}
-                      <ChoiceItem
-                        choice={choice}
-                        readonly={isLookup}
-                        onChange={(key, value) => updateOptionChange(i, key, value)}
-                        onKeyDown={onKeyDown}
-                        onInputRef={(el) => (inputRefs.current[i] = el)}
-                      />
-                      {!isLookup && (
-                        <Button
-                          variant={'ghost'}
-                          className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
-                          onClick={() => deleteChoice(i)}
-                        >
-                          <Trash className="size-4" />
-                        </Button>
-                      )}
-                    </div>
+    <div className="flex grow flex-col space-y-2">
+      <div className="grow">
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable
+            droppableId={'select-choice-container'}
+            mode="virtual"
+            renderClone={(provided, snapshot, rubric) => {
+              const choice = choices[rubric.source.index];
+              const { draggableProps } = provided;
+              return (
+                <div
+                  ref={provided.innerRef}
+                  {...draggableProps}
+                  className={cn('py-1', isLookup && 'cursor-default')}
+                >
+                  <div className="flex items-center">
+                    {!isLookup && <DraggableHandle className="mr-1 size-4 cursor-grabbing" />}
+                    <ChoiceItem
+                      choice={choice}
+                      readonly={isLookup}
+                      onChange={(key, value) => updateOptionChange(0, key, value)}
+                      onKeyDown={onKeyDown}
+                      onInputRef={(el) => (inputRefs.current[0] = el)}
+                    />
+                    {!isLookup && (
+                      <Button
+                        variant={'ghost'}
+                        className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                        onClick={() => deleteChoice(0)}
+                      >
+                        <Trash className="size-4" />
+                      </Button>
+                    )}
                   </div>
-                )}
-              </Draggable>
-            );
-          })}
-        </Droppable>
-      </DndKitContext>
+                </div>
+              );
+            }}
+          >
+            {(provided) => (
+              <Virtuoso
+                ref={virtuosoRef}
+                scrollerRef={provided.innerRef as never}
+                className="size-full"
+                totalCount={choices.length}
+                overscan={5}
+                components={{
+                  Item: HeightPreservingItem as never,
+                }}
+                itemContent={(index) => {
+                  const choice = choices[index];
+                  if (choice == null) {
+                    return null;
+                  }
+                  return (
+                    <Draggable
+                      draggableId={getChoiceId(choice, index)}
+                      index={index}
+                      key={getChoiceId(choice, index)}
+                    >
+                      {(draggableProvided) => {
+                        const { draggableProps, dragHandleProps } = draggableProvided;
+
+                        return (
+                          <div
+                            ref={draggableProvided.innerRef}
+                            {...draggableProps}
+                            className={cn('py-1', isLookup && 'cursor-default')}
+                          >
+                            <div className="flex items-center">
+                              {!isLookup && (
+                                <div {...dragHandleProps} className="mr-1 size-4">
+                                  <DraggableHandle className="size-4 cursor-grabbing" />
+                                </div>
+                              )}
+                              <ChoiceItem
+                                choice={choice}
+                                readonly={isLookup}
+                                onChange={(key, value) => updateOptionChange(index, key, value)}
+                                onKeyDown={onKeyDown}
+                                onInputRef={(el) => (inputRefs.current[index] = el)}
+                              />
+                              {!isLookup && (
+                                <Button
+                                  variant={'ghost'}
+                                  className="size-6 rounded-full p-0 focus-visible:ring-transparent focus-visible:ring-offset-0"
+                                  onClick={() => deleteChoice(index)}
+                                >
+                                  <Trash className="size-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }}
+                    </Draggable>
+                  );
+                }}
+              />
+            )}
+          </Droppable>
+        </DragDropContext>
+      </div>
       {!isLookup && (
-        <li className="mt-1">
+        <div className="mt-1 shrink-0">
           <Button
             className="w-full gap-2 text-sm font-normal"
             size={'sm'}
@@ -147,9 +207,9 @@ export const SelectOptions = (props: {
             <Plus className="size-4" />
             {t('table:field.editor.addOption')}
           </Button>
-        </li>
+        </div>
       )}
-    </ul>
+    </div>
   );
 };
 

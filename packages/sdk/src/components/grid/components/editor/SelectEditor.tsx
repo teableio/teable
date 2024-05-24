@@ -17,10 +17,11 @@ const SelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<ISelectCell>,
   IEditorProps<ISelectCell>
 > = (props, ref) => {
-  const { cell, isEditing, style, onChange, setEditing } = props;
-  const { data, isMultiple, choices = [] } = cell;
+  const { cell, isEditing, style, onChange, setEditing, theme } = props;
+  const { data, isMultiple, choiceSorted = [], choiceMap = {} } = cell;
   const [values, setValues] = useState(data);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { cellOptionBg, cellOptionTextColor } = theme;
 
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
@@ -55,7 +56,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
         <CommandEmpty>No found.</CommandEmpty>
         <CommandGroup aria-valuetext="name">
           {isEditing &&
-            choices.map(({ bgColor, textColor, name, id }) => (
+            choiceSorted.map(({ name, id }) => (
               <CommandItem
                 className="justify-between"
                 key={name}
@@ -65,8 +66,9 @@ const SelectEditorBase: ForwardRefRenderFunction<
                 <div
                   className="text-ellipsis whitespace-nowrap rounded-[6px] px-2 text-[12px]"
                   style={{
-                    backgroundColor: bgColor,
-                    color: textColor,
+                    backgroundColor:
+                      (choiceMap?.[id] ?? choiceMap?.[name])?.backgroundColor ?? cellOptionBg,
+                    color: (choiceMap?.[id] ?? choiceMap?.[name])?.color ?? cellOptionTextColor,
                   }}
                 >
                   {name}

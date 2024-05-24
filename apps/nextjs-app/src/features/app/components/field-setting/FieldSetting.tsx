@@ -247,7 +247,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
             {/* Content Form */}
             {<DynamicFieldEditor field={field} onChange={onFieldEditorChange} />}
             {/* Footer */}
-            <div className="flex w-full justify-between p-2">
+            <div className="flex w-full shrink-0 justify-between p-2">
               <div>
                 {showGraphButton && (
                   <Dialog>

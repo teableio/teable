@@ -20,6 +20,7 @@ export const gridViewOptionSchema = z
       .openapi({ description: 'The row height level of row in view' }),
     frozenColumnCount: z
       .number()
+      .min(0)
       .optional()
       .openapi({ description: 'The frozen column count in view' }),
   })

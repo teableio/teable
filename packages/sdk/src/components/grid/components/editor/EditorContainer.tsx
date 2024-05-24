@@ -115,7 +115,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   useEffect(() => {
     if ((cellContent as ICell).type === CellType.Loading) return;
-    if (!activeCell) return;
+    if (!activeCell || isEditing) return;
     editorRef.current?.setValue?.(cellContent.data);
     requestAnimationFrame(() => (editorRef.current || defaultFocusRef.current)?.focus?.());
   }, [cellContent, activeCell, isEditing]);
