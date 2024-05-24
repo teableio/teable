@@ -65,7 +65,6 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   const onOptionAdd = useCallback(
     async (name: string) => {
       if (!tableId) return;
-      if (fieldType !== FieldType.SingleSelect && fieldType !== FieldType.MultipleSelect) return;
 
       const { choices = [] } = options as ISelectFieldOptions;
       const existColors = choices.map((v) => v.color);
