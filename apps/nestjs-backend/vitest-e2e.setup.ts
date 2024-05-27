@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import type { INestApplication } from '@nestjs/common';
 import { DriverClient, getRandomString, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
 
@@ -16,6 +17,8 @@ interface ITestConfig {
 declare global {
   // eslint-disable-next-line no-var
   var testConfig: ITestConfig;
+  // eslint-disable-next-line no-var
+  var getApp: undefined | (() => Promise<INestApplication<unknown>>);
 }
 
 // Set global variables (if needed)
