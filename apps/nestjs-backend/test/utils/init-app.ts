@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -60,22 +61,28 @@ import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 import { TestingLogger } from './testing-logger';
 
 export async function initApp() {
-  const moduleFixture: TestingModule = await Test.createTestingModule({
-    imports: [AppModule],
-  })
-    .overrideProvider(NextService)
-    .useValue({
-      onModuleInit: () => {
-        return;
-      },
+  let app: INestApplication<unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  if (globalThis.getApp) {
+    app = await globalThis.getApp();
+  } else {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
     })
-    .overrideProvider(DevWsGateway)
-    .useClass(WsGateway)
-    .compile();
+      .overrideProvider(NextService)
+      .useValue({
+        onModuleInit: () => {
+          return;
+        },
+      })
+      .overrideProvider(DevWsGateway)
+      .useClass(WsGateway)
+      .compile();
 
-  const app = moduleFixture.createNestApplication({
-    logger: new TestingLogger(),
-  });
+    app = moduleFixture.createNestApplication({
+      logger: new TestingLogger(),
+    });
+  }
 
   const configService = app.get(ConfigService);
 
