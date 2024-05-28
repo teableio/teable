@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import type { HttpError } from '@teable/core';
 import { changePassword, changePasswordRoSchema } from '@teable/openapi';
+import { useSession } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
@@ -28,6 +29,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   const { children } = props;
   const { t } = useTranslation('common');
   const router = useRouter();
+  const { user } = useSession();
   const { toast } = useToast();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -98,6 +100,14 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
         </DialogHeader>
         <div className="space-y-2">
           <div className="space-y-1">
+            <Input
+              className="visible m-0 h-0 border-0 p-0 text-[0]"
+              type="text"
+              name="email"
+              autoComplete="email"
+              readOnly
+              value={user.email}
+            />
             <Label className="text-xs text-muted-foreground" htmlFor="currentPassword">
               {t('settings.account.changePassword.current')}
             </Label>
