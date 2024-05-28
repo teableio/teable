@@ -23,8 +23,8 @@ export const SpacePage: FC = () => {
     queryFn: getSpaceList,
   });
   const { data: baseList } = useQuery({
-    queryKey: ['base-all'],
-    queryFn: () => getBaseAll(),
+    queryKey: ReactQueryKeys.baseAll(),
+    queryFn: getBaseAll,
   });
 
   const { mutate: createSpaceMutator, isLoading } = useMutation({
@@ -41,7 +41,7 @@ export const SpacePage: FC = () => {
   });
 
   return (
-    <div ref={ref} className="flex h-screen w-full flex-col py-8">
+    <div ref={ref} className="flex h-screen flex-1 flex-col overflow-hidden py-8">
       <div className="flex items-center justify-between px-12">
         <h1 className="text-2xl font-semibold">{t('space:allSpaces')}</h1>
         <Button

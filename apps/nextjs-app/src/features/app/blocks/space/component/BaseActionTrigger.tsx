@@ -38,6 +38,13 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     return null;
   }
 
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete();
+    }
+    setDeleteConfirm(false);
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -77,7 +84,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         cancelText="Cancel"
         confirmText="Continue"
         onCancel={() => setDeleteConfirm(false)}
-        onConfirm={onDelete}
+        onConfirm={handleDelete}
       />
     </>
   );

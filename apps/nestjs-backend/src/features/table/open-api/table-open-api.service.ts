@@ -415,7 +415,7 @@ export class TableOpenApiService {
       });
 
     await updateOrder({
-      parentId: baseId,
+      query: baseId,
       position,
       item: table,
       anchorItem: anchorTable,

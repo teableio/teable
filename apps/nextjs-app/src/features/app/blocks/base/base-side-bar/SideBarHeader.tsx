@@ -67,7 +67,8 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
 
   const backSpace = () => {
     router.push({
-      pathname: '/space',
+      pathname: '/space/[spaceId]',
+      query: { spaceId: base.spaceId },
     });
   };
 

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
-import { deleteSpace, updateSpace } from '@teable/openapi';
+import { PinType, deleteSpace, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -9,6 +9,7 @@ import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { DraggableBaseGrid } from './DraggableBaseGrid';
+import { StarButton } from './space-side-bar/StarButton';
 
 interface ISpaceCard {
   space: IGetSpaceVo;
@@ -55,22 +56,25 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
   return (
     <Card className="w-full">
       <CardHeader className="pt-5">
-        <div className="flex items-center justify-between gap-3">
-          <SpaceRenaming
-            spaceName={spaceName!}
-            isRenaming={renaming}
-            onChange={(e) => setSpaceName(e.target.value)}
-            onBlur={(e) => toggleUpdateSpace(e)}
-          >
-            <CardTitle className="truncate" title={space.name}>
-              {space.name}
-            </CardTitle>
-          </SpaceRenaming>
+        <div className="flex w-full items-center justify-between gap-3">
+          <div className="group flex flex-1 items-center gap-2 overflow-hidden">
+            <SpaceRenaming
+              spaceName={spaceName!}
+              isRenaming={renaming}
+              onChange={(e) => setSpaceName(e.target.value)}
+              onBlur={(e) => toggleUpdateSpace(e)}
+            >
+              <CardTitle className="truncate" title={space.name}>
+                {space.name}
+              </CardTitle>
+            </SpaceRenaming>
+            <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
+          </div>
           <SpaceActionBar
             className="flex shrink-0 items-center gap-3"
             buttonSize="xs"
             space={space}
-            invQueryFilters={['base-all']}
+            invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
           />

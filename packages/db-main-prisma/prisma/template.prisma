@@ -24,6 +24,19 @@ model Space {
   @@map("space")
 }
 
+model PinResource {
+  id               String    @id @default(cuid())
+  type             String    @map("type")
+  resourceId       String    @map("resource_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  order            Float    @map("order")
+
+  @@index([order])
+  @@unique([createdBy, resourceId])
+  @@map("pin_resource")
+}
+
 model Base {
   id                         String      @id @default(cuid())
   spaceId                    String      @map("space_id")

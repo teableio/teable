@@ -1,9 +1,10 @@
 import { Component } from '@teable/icons';
-import type { IGetSpaceVo } from '@teable/openapi';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import { PinType, type IGetSpaceVo } from '@teable/openapi';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { useMount } from 'react-use';
+import { ItemButton } from './ItemButton';
+import { StarButton } from './StarButton';
 
 interface IProps {
   space: IGetSpaceVo;
@@ -19,15 +20,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
   });
 
   return (
-    <Button
-      ref={ref}
-      variant={'ghost'}
-      size={'xs'}
-      asChild
-      className={cn('my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group', {
-        'bg-secondary': isActive,
-      })}
-    >
+    <ItemButton className="group" isActive={isActive} ref={ref}>
       <Link
         href={{
           pathname: '/space/[spaceId]',
@@ -39,7 +32,8 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
       >
         <Component className="size-4 shrink-0" />
         <p className="grow truncate">{' ' + name}</p>
+        <StarButton id={id} type={PinType.Space} />
       </Link>
-    </Button>
+    </ItemButton>
   );
 };

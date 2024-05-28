@@ -31,7 +31,7 @@ export const SpaceList: FC = () => {
   });
 
   return (
-    <div className="flex flex-col gap-2 overflow-hidden pt-4">
+    <div className="flex flex-col gap-2 overflow-hidden">
       <div className="px-3">
         <Button
           variant={'outline'}

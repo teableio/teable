@@ -39,7 +39,7 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
     const to = over?.data?.current?.sortable?.index;
     const from = active?.data?.current?.sortable?.index;
 
-    if (!over || !innerBases) {
+    if (!over || !innerBases || from === to) {
       return;
     }
 

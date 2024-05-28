@@ -24,20 +24,32 @@ model Space {
   @@map("space")
 }
 
-model Base {
-  id               String      @id @default(cuid())
-  spaceId          String      @map("space_id")
-  name             String
-  order            Float
-  icon             String?
-  schemaPass       String?     @map("schema_pass")
-  deletedTime      DateTime?   @map("deleted_time")
-  createdTime      DateTime    @default(now()) @map("created_time")
-  createdBy        String      @map("created_by")
-  lastModifiedBy   String?     @map("last_modified_by")
-  lastModifiedTime DateTime?   @updatedAt @map("last_modified_time")
+model PinResource {
+  id               String    @id @default(cuid())
+  type             String    @map("type")
+  resourceId       String    @map("resource_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  order            Float    @map("order")
 
-  space          Space       @relation(fields: [spaceId], references: [id])
+  @@index([order])
+  @@unique([createdBy, resourceId])
+  @@map("pin_resource")
+}
+
+model Base {
+  id                         String      @id @default(cuid())
+  spaceId                    String      @map("space_id")
+  name                       String
+  order                      Float
+  icon                       String?
+  schemaPass                 String?     @map("schema_pass")
+  deletedTime                DateTime?   @map("deleted_time")
+  createdTime                DateTime    @default(now()) @map("created_time")
+  createdBy                  String      @map("created_by")
+  lastModifiedBy             String?     @map("last_modified_by")
+  lastModifiedTime           DateTime?   @updatedAt @map("last_modified_time")
+  space          Space                   @relation(fields: [spaceId], references: [id])
   tables         TableMeta[]
 
   @@index([order])

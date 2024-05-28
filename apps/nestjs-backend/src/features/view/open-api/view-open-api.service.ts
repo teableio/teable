@@ -334,7 +334,7 @@ export class ViewOpenApiService {
       });
 
     await updateOrder({
-      parentId: tableId,
+      query: tableId,
       position,
       item: view,
       anchorItem: anchorView,

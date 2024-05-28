@@ -24,5 +24,10 @@
     "howToCreate": "如何创建一个数据库?",
     "fromScratch": "空白数据库",
     "fromTemplate": "从模板创建"
+  },
+  "pin": {
+    "add": "添加到收藏",
+    "remove": "从收藏中移除",
+    "pin": "收藏"
   }
 }

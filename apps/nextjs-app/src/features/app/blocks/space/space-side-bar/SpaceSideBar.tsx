@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { PinList } from './PinList';
 import { SpaceList } from './SpaceList';
 
 export const SpaceSideBar = () => {
@@ -49,7 +50,10 @@ export const SpaceSideBar = () => {
           })}
         </ul>
       </div>
-      <SpaceList />
+      <div>
+        <PinList />
+        <SpaceList />
+      </div>
     </>
   );
 };
