@@ -34,16 +34,18 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [error, setError] = useState('');
 
-  const { mutate: changePasswordMutate, isLoading } = useMutation(changePassword, {
+  const {
+    mutate: changePasswordMutate,
+    isLoading,
+    isSuccess,
+  } = useMutation(changePassword, {
     onSuccess: () => {
       toast({
         title: t('settings.account.changePasswordSuccess.title'),
         description: t('settings.account.changePasswordSuccess.desc'),
       });
       setTimeout(() => {
-        router.push('/auth/login', {
-          query: { redirect: router.asPath },
-        });
+        router.reload();
       }, 2000);
     },
     onError: (err: HttpError) => {
@@ -148,7 +150,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
             size={'sm'}
             className="w-full"
             type="submit"
-            disabled={disableSubmitBtn}
+            disabled={disableSubmitBtn || isSuccess || isLoading}
             onClick={handleSubmit}
           >
             {isLoading && <Spin className="mr-1 size-4" />}
