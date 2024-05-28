@@ -19,7 +19,11 @@ export const ResetPasswordPage = () => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const { toast } = useToast();
 
-  const { mutateAsync: resetPasswordMutate, isLoading } = useMutation({
+  const {
+    mutate: resetPasswordMutate,
+    isLoading,
+    isSuccess,
+  } = useMutation({
     mutationFn: resetPassword,
     onSuccess: () => {
       toast({
@@ -70,7 +74,7 @@ export const ResetPasswordPage = () => {
         <Separator className="my-2" />
         <Button
           onClick={() => {
-            if (error || isLoading || !password) return;
+            if (error || isLoading || !password || isSuccess) return;
             resetPasswordMutate({ code, password });
           }}
         >
