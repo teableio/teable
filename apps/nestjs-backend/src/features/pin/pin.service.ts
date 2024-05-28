@@ -32,12 +32,6 @@ export class PinService {
     const maxOrder = await this.getMaxOrder({
       createdBy: this.cls.get('user.id'),
     });
-    console.log('data', {
-      type,
-      resourceId: id,
-      createdBy: this.cls.get('user.id'),
-      order: maxOrder + 1,
-    });
     return this.prismaService.pinResource
       .create({
         data: {
