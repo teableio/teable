@@ -29,6 +29,7 @@ import { useContext, useMemo, useState } from 'react';
 import { ShareViewPageContext } from '../../../share/view/ShareViewPageContext';
 import {
   KANBAN_STACK_FIELD_TYPES,
+  UNCATEGORIZED_STACK_EMAIL,
   UNCATEGORIZED_STACK_ID,
   UNCATEGORIZED_STACK_NAME,
 } from '../constant';
@@ -131,13 +132,14 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       const users = userList?.data;
       if (!users?.length) return;
 
-      const stacks = users.map(({ userId, userName, avatar }) => {
+      const stacks = users.map(({ userId, userName, avatar, email }) => {
         const data = groupPointMap[userId];
         return {
           id: userId,
           data: {
             id: userId,
             title: userName,
+            email,
             avatarUrl: avatar,
           },
           count: data?.count ?? 0,
@@ -149,6 +151,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
         data: {
           id: UNCATEGORIZED_STACK_ID,
           title: UNCATEGORIZED_STACK_NAME,
+          email: UNCATEGORIZED_STACK_EMAIL,
           avatarUrl: null,
         },
         count: groupPointMap[UNCATEGORIZED_STACK_ID]?.count ?? 0,
