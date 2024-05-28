@@ -27,7 +27,7 @@ export type IUserFieldOptions = z.infer<typeof userFieldOptionsSchema>;
 export const userCellValueSchema = z.object({
   id: z.string().startsWith(IdPrefix.User),
   title: z.string(),
-  email: z.string(),
+  email: z.string().optional(),
   avatarUrl: z.string().optional().nullable(),
 });
 
