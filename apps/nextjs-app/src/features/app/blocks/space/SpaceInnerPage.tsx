@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PinType, deleteSpace, getBaseAll, getSpaceById, updateSpace } from '@teable/openapi';
+import { PinType, deleteSpace, getSpaceById, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { DraggableBaseGrid } from './DraggableBaseGrid';
 import { StarButton } from './space-side-bar/StarButton';
+import { useBaseList } from './useBaseList';
 
 export const SpaceInnerPage: React.FC = () => {
   const router = useRouter();
@@ -26,10 +27,11 @@ export const SpaceInnerPage: React.FC = () => {
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then(({ data }) => data),
   });
 
-  const { data: bases } = useQuery({
-    queryKey: ReactQueryKeys.baseAll(),
-    queryFn: getBaseAll,
-  });
+  const bases = useBaseList();
+
+  const basesInSpace = useMemo(() => {
+    return bases?.filter((base) => base.spaceId === spaceId);
+  }, [bases, spaceId]);
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
@@ -68,7 +70,7 @@ export const SpaceInnerPage: React.FC = () => {
 
   return (
     space && (
-      <div ref={ref} className="flex size-full min-w-[760px] px-12 pt-8">
+      <div ref={ref} className="flex size-full min-w-[760px] overflow-y-auto px-12 pt-8">
         <div className="w-full flex-1 space-y-6">
           <div className="flex items-center gap-2 pb-6">
             <SpaceRenaming
@@ -82,8 +84,8 @@ export const SpaceInnerPage: React.FC = () => {
             <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
           </div>
 
-          {bases?.data?.length ? (
-            <DraggableBaseGrid bases={bases?.data} />
+          {basesInSpace?.length ? (
+            <DraggableBaseGrid bases={basesInSpace} />
           ) : (
             <div className="flex items-center justify-center">
               <h1>{t('space:spaceIsEmpty')}</h1>

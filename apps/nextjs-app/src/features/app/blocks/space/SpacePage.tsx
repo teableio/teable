@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createSpace, getBaseAll, getSpaceList } from '@teable/openapi';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
@@ -10,6 +10,8 @@ import { GUIDE_CREATE_SPACE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { SpaceCard } from './SpaceCard';
+import { useBaseList } from './useBaseList';
+import { useSpaceListOrdered } from './useSpaceListOrdered';
 
 export const SpacePage: FC = () => {
   const queryClient = useQueryClient();
@@ -18,14 +20,9 @@ export const SpacePage: FC = () => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   useTemplateMonitor();
 
-  const { data: spaceList } = useQuery({
-    queryKey: ReactQueryKeys.spaceList(),
-    queryFn: getSpaceList,
-  });
-  const { data: baseList } = useQuery({
-    queryKey: ReactQueryKeys.baseAll(),
-    queryFn: getBaseAll,
-  });
+  const orderedSpaceList = useSpaceListOrdered();
+
+  const baseList = useBaseList();
 
   const { mutate: createSpaceMutator, isLoading } = useMutation({
     mutationFn: createSpace,
@@ -55,11 +52,11 @@ export const SpacePage: FC = () => {
         </Button>
       </div>
       <div className="flex-1 space-y-8 overflow-y-auto px-8 pt-8 sm:px-12">
-        {spaceList?.data.map((space) => (
+        {orderedSpaceList.map((space) => (
           <SpaceCard
             key={space.id}
             space={space}
-            bases={baseList?.data.filter(({ spaceId }) => spaceId === space.id)}
+            bases={baseList?.filter(({ spaceId }) => spaceId === space.id)}
           />
         ))}
       </div>
