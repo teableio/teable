@@ -17,6 +17,11 @@ const providersAll = [
     Icon: GoogleLogo,
     authUrl: '/api/auth/google',
   },
+  {
+    id: 'oidc',
+    text: 'OIDC',
+    authUrl: '/api/auth/oidc',
+  },
 ];
 
 export const SocialAuth = () => {
@@ -45,7 +50,7 @@ export const SocialAuth = () => {
       <div className="space-y-2">
         {providers.map(({ id, text, Icon, authUrl }) => (
           <Button key={id} className="w-full" variant="outline" onClick={() => onClick(authUrl)}>
-            <Icon className="size-4" />
+            {Icon && <Icon className="size-4" />}
             {text}
           </Button>
         ))}

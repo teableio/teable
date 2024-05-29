@@ -11,7 +11,10 @@ export class OauthStoreService {
 
   constructor(private readonly cacheService: CacheService) {}
 
-  async store(req: Request, callback: (err: unknown, stateId: string) => void) {
+  async store(req: Request, callback: (err: unknown, stateId: string) => void, ...args: unknown[]) {
+    if (args.length === 3 && typeof args[2] === 'function') {
+      callback = args[2] as (err: unknown, stateId: string) => void;
+    }
     const random = getRandomString(16);
     await this.cacheService.set(
       `oauth2:${random}`,
