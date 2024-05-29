@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { plainToInstance } from 'class-transformer';
 import { CellValueType, DbFieldType, FieldType } from '../constant';
@@ -62,6 +63,7 @@ describe('UserFieldCore', () => {
     const cellValue: IUserCellValue = {
       id: 'usrxxxxxxxxx',
       title: 'anonymous',
+      email: 'anonymous@teable.io',
     };
 
     expect(field.cellValue2String(null as any)).toBe('');
@@ -95,10 +97,12 @@ describe('UserFieldCore', () => {
     expect(field.convertStringToCellValue('anonymous', ctx)).toEqual({
       id: 'usr1234567',
       title: 'anonymous',
+      email: 'anonymous@teable.io',
     });
     expect(field.convertStringToCellValue('anonymous@teable.io', ctx)).toEqual({
       id: 'usr1234567',
       title: 'anonymous',
+      email: 'anonymous@teable.io',
     });
 
     ctx.userSets.push({
@@ -120,6 +124,7 @@ describe('UserFieldCore', () => {
     const cellValue: IUserCellValue = {
       id: 'usr',
       title: 'anonymous',
+      email: 'anonymous@teable.io',
     };
     expect(field.repair(cellValue)).toEqual(cellValue);
     expect(field.repair([{ id: 'usr' }])).toEqual(null);
@@ -138,11 +143,14 @@ describe('UserFieldCore', () => {
     const cellValue: IUserCellValue = {
       id: 'usr',
       title: 'anonymous',
+      email: 'anonymous@teable.io',
     };
 
     expect(field.validateCellValue(null as any).success).toBe(true);
     expect(field.validateCellValue(cellValue).success).toBe(true);
-    expect(field.validateCellValue({ id: 'usrxxxxxx ', title: '' }).success).toBe(true);
+    expect(
+      field.validateCellValue({ id: 'usrxxxxxx ', title: '', email: 'anonymous@teable.io' }).success
+    ).toBe(true);
     expect(field.validateCellValue({ id: 'xxxxxxxxxxx ', title: '' }).success).toBe(false);
     expect(field.validateCellValue([cellValue]).success).toBe(false);
   });

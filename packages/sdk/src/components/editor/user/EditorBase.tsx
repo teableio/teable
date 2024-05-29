@@ -88,7 +88,7 @@ const UserEditorBaseRef: ForwardRefRenderFunction<IUserEditorRef, IUserEditorBas
               <CommandItem
                 key={userId}
                 value={userName}
-                onSelect={() => onSelect({ id: userId, title: userName, avatarUrl: avatar })}
+                onSelect={() => onSelect({ id: userId, title: userName, avatarUrl: avatar, email })}
                 className="flex justify-between"
               >
                 <UserOption name={userName} email={email} avatar={avatar} />
