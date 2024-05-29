@@ -98,7 +98,11 @@ export const PinList = () => {
   };
 
   return (
-    <Accordion type="single" collapsible className="w-full px-3">
+    <Accordion
+      type="single"
+      collapsible
+      className="max-h-[50%] w-full shrink-0 overflow-y-auto px-3"
+    >
       <AccordionItem className="border-0" value="item-1">
         <AccordionTrigger className="hover:no-underline">
           <div className=" flex items-center gap-1">
