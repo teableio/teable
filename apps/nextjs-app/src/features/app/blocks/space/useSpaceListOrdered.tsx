@@ -20,7 +20,7 @@ export const useSpaceListOrdered = () => {
       const aPin = pinMap[a.id];
       const bPin = pinMap[b.id];
       if (!bPin) {
-        return -1;
+        return 1;
       }
       if (!aPin && bPin) {
         return 1;
