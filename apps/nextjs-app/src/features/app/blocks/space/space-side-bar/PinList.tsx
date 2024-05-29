@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DraggableHandle, Star } from '@teable/icons';
 import type { GetPinListVo, IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
-import { getBaseAll, getPinList, getSpaceList, updatePinOrder } from '@teable/openapi';
+import { getPinList, getSpaceList, updatePinOrder } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { DragEndEvent } from '@teable/ui-lib/base';
 import { DndKitContext, Draggable, Droppable } from '@teable/ui-lib/base';
@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { useBaseList } from '../useBaseList';
 import { PinItem } from './PinItem';
 import { StarButton } from './StarButton';
 
@@ -38,10 +39,7 @@ export const PinList = () => {
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: getSpaceList,
   });
-  const { data: baseList } = useQuery({
-    queryKey: ReactQueryKeys.baseAll(),
-    queryFn: getBaseAll,
-  });
+  const baseList = useBaseList();
 
   const { mutate: updateOrder } = useMutation({
     mutationFn: updatePinOrder,
@@ -63,11 +61,11 @@ export const PinList = () => {
 
   const baseMap = useMemo(() => {
     const map: { [key in string]: IGetBaseVo } = {};
-    baseList?.data.forEach((base) => {
+    baseList?.forEach((base) => {
       map[base.id] = base;
     });
     return map;
-  }, [baseList?.data]);
+  }, [baseList]);
 
   const onDragEndHandler = async (event: DragEndEvent) => {
     const { over, active } = event;

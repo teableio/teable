@@ -20,8 +20,8 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   });
 
   await queryClient.fetchQuery({
-    queryKey: ['base-list', spaceId as string],
-    queryFn: ({ queryKey }) => ssrApi.getBaseListBySpaceId(queryKey[1]),
+    queryKey: ReactQueryKeys.baseAll(),
+    queryFn: () => ssrApi.getBaseList(),
   });
 
   await queryClient.fetchQuery({

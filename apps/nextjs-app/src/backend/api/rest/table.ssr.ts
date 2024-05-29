@@ -15,7 +15,7 @@ import type {
 import {
   ACCEPT_INVITATION_LINK,
   GET_BASE,
-  GET_BASE_LIST,
+  GET_BASE_ALL,
   GET_DEFAULT_VIEW_ID,
   GET_FIELD_LIST,
   GET_RECORD_URL,
@@ -88,10 +88,8 @@ export class SsrApi {
       .then(({ data }) => data);
   }
 
-  async getBaseListBySpaceId(spaceId: string) {
-    return await this.axios
-      .get<IGetBaseVo[]>(urlBuilder(GET_BASE_LIST, { spaceId }))
-      .then(({ data }) => data);
+  async getBaseList() {
+    return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL).then(({ data }) => data);
   }
 
   async getSpaceCollaboratorList(spaceId: string) {
