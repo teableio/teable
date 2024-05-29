@@ -107,7 +107,12 @@ export const PinList = () => {
           </div>
         </AccordionTrigger>
         <AccordionContent>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
+            {pinList.length === 0 && (
+              <div className="text-center text-xs text-muted-foreground">
+                {t('space:pin.empty')}
+              </div>
+            )}
             <DndKitContext onDragEnd={onDragEndHandler}>
               <Droppable
                 items={pinList.map(({ id }) => id)}

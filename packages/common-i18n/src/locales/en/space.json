@@ -28,6 +28,7 @@
   "pin": {
     "add": "Add to pin",
     "remove": "Remove from pin",
-    "pin": "Pin"
+    "pin": "Pin",
+    "empty": "Your pined bases and space will appear here"
   }
 }
