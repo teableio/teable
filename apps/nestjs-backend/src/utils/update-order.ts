@@ -13,8 +13,8 @@
  * orderBy asc, we have [4, 5]
  * pick the first one, we have 4
  */
-export async function updateOrder(params: {
-  parentId: string;
+export async function updateOrder<T>(params: {
+  query: T;
   position: 'before' | 'after';
   item: { id: string; order: number };
   anchorItem: { id: string; order: number };
@@ -22,14 +22,10 @@ export async function updateOrder(params: {
     whereOrder: { lt?: number; gt?: number },
     align: 'desc' | 'asc'
   ) => Promise<{ id: string; order: number } | null>;
-  update: (
-    parentId: string,
-    id: string,
-    data: { newOrder: number; oldOrder: number }
-  ) => Promise<void>;
-  shuffle: (parentId: string) => Promise<void>;
+  update: (query: T, id: string, data: { newOrder: number; oldOrder: number }) => Promise<void>;
+  shuffle: (query: T) => Promise<void>;
 }) {
-  const { parentId, position, item, anchorItem, getNextItem, update, shuffle } = params;
+  const { query, position, item, anchorItem, getNextItem, update, shuffle } = params;
   const nextView = await getNextItem(
     { [position === 'before' ? 'lt' : 'gt']: anchorItem.order },
     position === 'before' ? 'desc' : 'asc'
@@ -42,12 +38,12 @@ export async function updateOrder(params: {
   const { id, order: oldOrder } = item;
 
   if (Math.abs(order - anchorItem.order) < Number.EPSILON * 2) {
-    await shuffle(parentId);
+    await shuffle(query);
     // recursive call
     await updateOrder(params);
     return;
   }
-  await update(parentId, id, { newOrder: order, oldOrder });
+  await update(query, id, { newOrder: order, oldOrder });
 }
 
 /**

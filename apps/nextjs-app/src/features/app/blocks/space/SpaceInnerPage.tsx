@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { deleteSpace, getBaseList, getSpaceById, updateSpace } from '@teable/openapi';
+import { PinType, deleteSpace, getBaseAll, getSpaceById, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -9,6 +9,7 @@ import { Collaborators } from '../../components/collaborator-manage/space-inner/
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { DraggableBaseGrid } from './DraggableBaseGrid';
+import { StarButton } from './space-side-bar/StarButton';
 
 export const SpaceInnerPage: React.FC = () => {
   const router = useRouter();
@@ -26,8 +27,8 @@ export const SpaceInnerPage: React.FC = () => {
   });
 
   const { data: bases } = useQuery({
-    queryKey: ['base-list', spaceId],
-    queryFn: ({ queryKey }) => getBaseList({ spaceId: queryKey[1] }).then(({ data }) => data),
+    queryKey: ReactQueryKeys.baseAll(),
+    queryFn: getBaseAll,
   });
 
   const { mutate: deleteSpaceMutator } = useMutation({
@@ -69,7 +70,7 @@ export const SpaceInnerPage: React.FC = () => {
     space && (
       <div ref={ref} className="flex size-full min-w-[760px] px-12 pt-8">
         <div className="w-full flex-1 space-y-6">
-          <div className="pb-6">
+          <div className="flex items-center gap-2 pb-6">
             <SpaceRenaming
               spaceName={spaceName!}
               isRenaming={renaming}
@@ -78,10 +79,11 @@ export const SpaceInnerPage: React.FC = () => {
             >
               <h1 className="text-2xl font-semibold">{space.name}</h1>
             </SpaceRenaming>
+            <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
           </div>
 
-          {bases?.length ? (
-            <DraggableBaseGrid bases={bases} />
+          {bases?.data?.length ? (
+            <DraggableBaseGrid bases={bases?.data} />
           ) : (
             <div className="flex items-center justify-center">
               <h1>{t('space:spaceIsEmpty')}</h1>
@@ -94,7 +96,7 @@ export const SpaceInnerPage: React.FC = () => {
             className="flex shrink-0 items-center justify-end gap-3 pb-8"
             space={space}
             buttonSize={'xs'}
-            invQueryFilters={['base-list', space.id]}
+            invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
           />

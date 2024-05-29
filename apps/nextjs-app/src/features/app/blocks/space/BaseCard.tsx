@@ -2,13 +2,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { Database, MoreHorizontal } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
-import { deleteBase, updateBase } from '@teable/openapi';
+import { PinType, deleteBase, updateBase } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button, Card, CardContent, cn, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
+import { StarButton } from './space-side-bar/StarButton';
 
 interface IBaseCard {
   base: IGetBaseVo;
@@ -19,7 +21,6 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const { base, className } = props;
   const router = useRouter();
   const queryClient = useQueryClient();
-  const routerSpaceId = router.query.spaceId;
   const [renaming, setRenaming] = useState<boolean>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [baseName, setBaseName] = useState<string>(base.name);
@@ -28,7 +29,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     mutationFn: updateBase,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-all'],
+        queryKey: ReactQueryKeys.baseAll(),
       });
     },
   });
@@ -37,7 +38,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     mutationFn: deleteBase,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: routerSpaceId ? ['base-list', routerSpaceId] : ['base-all'],
+        queryKey: ReactQueryKeys.baseAll(),
       });
     },
   });
@@ -121,6 +122,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 {base.name}
               </h3>
             )}
+            <StarButton className="size-4" id={base.id} type={PinType.Base} />
             <div className="shrink-0">
               <BaseActionTrigger
                 base={base}

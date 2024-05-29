@@ -11,6 +11,10 @@ import type {
 export const ReactQueryKeys = {
   base: (baseId: string) => ['base', baseId] as const,
 
+  baseAll: () => ['base-all'] as const,
+
+  pinList: () => ['pin-list'] as const,
+
   spaceList: () => ['space-list'] as const,
 
   spaceCollaboratorList: (spaceId: string) => ['space-collaborator-list', spaceId] as const,

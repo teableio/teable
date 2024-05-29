@@ -43,13 +43,13 @@ export const SettingDialog = () => {
               {t('settings.notify.title')}
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="profile" className="mt-0 w-full">
+          <TabsContent tabIndex={-1} value="profile" className="mt-0 w-full">
             <Account />
           </TabsContent>
-          <TabsContent value="system" className="mt-0 w-full">
+          <TabsContent tabIndex={-1} value="system" className="mt-0 w-full">
             <System />
           </TabsContent>
-          <TabsContent value="notifications" className="mt-0 w-full">
+          <TabsContent tabIndex={-1} value="notifications" className="mt-0 w-full">
             <Notifications />
           </TabsContent>
         </Tabs>

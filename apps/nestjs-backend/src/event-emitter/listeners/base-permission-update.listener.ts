@@ -16,7 +16,6 @@ export class BasePermissionUpdateListener {
       payload: { baseId },
     } = listenerEvent;
     const channel = getBasePermissionUpdateChannel(baseId);
-    console.log('basePermissionUpdateListener trigger');
     const presence = this.shareDbService.connect().getPresence(channel);
     const localPresence = presence.create();
 

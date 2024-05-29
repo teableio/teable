@@ -1,3 +1,4 @@
+import type { Active } from '@dnd-kit/core';
 import {
   DndContext,
   useSensors,
@@ -44,9 +45,12 @@ const DndKitContext = (props: React.ComponentProps<typeof DndContext>) => {
   );
 };
 
-const Droppable = (props: SortableContextProps) => {
+const Droppable = (
+  props: SortableContextProps & { overlayRender?: (active: Active | null) => JSX.Element }
+) => {
   const context = useDndContext();
-  const { children } = props;
+  const { overlayRender, ...rest } = props;
+  const children = props.children;
   const { active } = context;
 
   const customerOverLay = useMemo(() => {
@@ -63,7 +67,9 @@ const Droppable = (props: SortableContextProps) => {
     if (active?.id) {
       // customer dragoverlay
       const listChildren = customerOverLay ? (children[0] as React.ReactElement[]) : children;
-      const draggingOverLayElement = listChildren.find(({ props: { id } }) => id === active.id);
+      const draggingOverLayElement = overlayRender
+        ? overlayRender(active)
+        : listChildren.find(({ props: { id } }) => id === active.id);
       const defaultDragOverLay = (
         <div
           style={{
@@ -78,11 +84,11 @@ const Droppable = (props: SortableContextProps) => {
       return customerOverLay ? null : defaultDragOverLay;
     }
     return null;
-  }, [active?.id, children, customerOverLay]);
+  }, [active, children, customerOverLay, overlayRender]);
 
   return (
-    <SortableContext {...props}>
-      {props.children}
+    <SortableContext {...rest}>
+      {children}
       {!customerOverLay && createPortal(<DragOverlay>{dragOverRender}</DragOverlay>, document.body)}
     </SortableContext>
   );

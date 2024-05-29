@@ -14,7 +14,7 @@ describe('updateOrder', () => {
     // Setup for case 1
     getNextItemMock.mockResolvedValueOnce({ id: '2', order: 2 });
     const params = {
-      parentId: 'parent1',
+      query: 'parent1',
       position: 'before' as const,
       item: { id: 'item1', order: 4 },
       anchorItem: { id: 'anchor', order: 3 },
@@ -40,7 +40,7 @@ describe('updateOrder', () => {
     // Setup for case 2
     getNextItemMock.mockResolvedValueOnce({ id: '4', order: 4 });
     const params = {
-      parentId: 'parent1',
+      query: 'parent1',
       position: 'after' as const,
       item: { id: 'item1', order: 2 },
       anchorItem: { id: 'anchor', order: 3 },
@@ -66,7 +66,7 @@ describe('updateOrder', () => {
     // Setup: getNextItem returns null
     getNextItemMock.mockResolvedValueOnce(null);
     const params = {
-      parentId: 'parent1',
+      query: 'parent1',
       position: 'after' as const, // Can test 'before' in a similar manner with adjusted logic
       item: { id: 'item1', order: 4 },
       anchorItem: { id: 'anchor', order: 5 },
@@ -86,7 +86,7 @@ describe('updateOrder', () => {
     // Setup: getNextItem returns a value that would cause a shuffle due to close orders
     getNextItemMock.mockResolvedValueOnce({ id: 'anchor', order: 3 - Number.EPSILON });
     const params = {
-      parentId: 'parent1',
+      query: 'parent1',
       position: 'before' as const,
       item: { id: 'item1', order: 4 },
       anchorItem: { id: 'anchor', order: 3 },

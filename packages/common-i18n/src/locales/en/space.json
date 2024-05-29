@@ -24,5 +24,10 @@
     "howToCreate": "How do you want to start?",
     "fromScratch": "From scratch",
     "fromTemplate": "From template"
+  },
+  "pin": {
+    "add": "Add to pin",
+    "remove": "Remove from pin",
+    "pin": "Pin"
   }
 }

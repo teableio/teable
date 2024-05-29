@@ -204,7 +204,7 @@ export class BaseService {
       });
 
     await updateOrder({
-      parentId: base.spaceId,
+      query: base.spaceId,
       position,
       item: base,
       anchorItem: anchorBase,
