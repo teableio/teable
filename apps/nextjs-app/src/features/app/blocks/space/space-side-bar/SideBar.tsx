@@ -15,10 +15,9 @@ const SiderContent = (props: ISideBarInteractionProps) => {
   return (
     <div className="flex size-full flex-col overflow-hidden bg-popover">
       <SideBarHeader {...props} />
-      <div className="flex flex-col gap-2 divide-y divide-solid overflow-hidden py-2">
+      <div className="flex flex-1 flex-col gap-2 divide-y divide-solid overflow-hidden py-2">
         <SpaceSideBar />
       </div>
-      <div className="grow basis-0"></div>
       <SideBarFooter />
     </div>
   );

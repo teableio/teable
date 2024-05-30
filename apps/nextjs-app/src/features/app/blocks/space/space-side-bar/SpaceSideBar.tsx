@@ -50,7 +50,7 @@ export const SpaceSideBar = () => {
           })}
         </ul>
       </div>
-      <div>
+      <div className="flex flex-col overflow-hidden">
         <PinList />
         <SpaceList />
       </div>
