@@ -14,16 +14,21 @@ export class MailSenderService {
     @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
 
-  async sendMail(mailOptions: ISendMailOptions): Promise<boolean> {
-    return this.mailService
-      .sendMail(mailOptions)
-      .then(() => true)
-      .catch((reason) => {
-        if (reason) {
-          this.logger.error(`Mail sending failed: ${reason.message}`, reason.stack);
-        }
-        return false;
-      });
+  async sendMail(
+    mailOptions: ISendMailOptions,
+    extra?: { shouldThrow?: boolean }
+  ): Promise<boolean> {
+    const sender = this.mailService.sendMail(mailOptions).then(() => true);
+    if (extra?.shouldThrow) {
+      return sender;
+    }
+
+    return sender.catch((reason) => {
+      if (reason) {
+        this.logger.error(`Mail sending failed: ${reason.message}`, reason.stack);
+      }
+      return false;
+    });
   }
 
   inviteEmailOptions(info: { name: string; email: string; spaceName: string; inviteUrl: string }) {

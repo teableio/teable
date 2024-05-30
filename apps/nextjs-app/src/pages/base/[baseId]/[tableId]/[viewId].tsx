@@ -65,17 +65,16 @@ export const getServerSideProps = withAuthSSR<IViewPageProps>(async (context, ss
       };
     }
     return {
-      err: '',
       notFound: true,
     };
   } catch (e) {
     const error = e as IHttpError;
-    if (error.status !== 401) {
+    if (error.status < 500) {
       return {
-        err: '',
         notFound: true,
       };
     }
+    console.error(error);
     throw error;
   }
 });

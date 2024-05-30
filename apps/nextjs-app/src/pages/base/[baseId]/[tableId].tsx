@@ -20,11 +20,12 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
     };
   } catch (e) {
     const error = e as IHttpError;
-    if (error.status !== 401) {
+    if (error.status < 500) {
       return {
         notFound: true,
       };
     }
+    console.error(error);
     throw error;
   }
 });
