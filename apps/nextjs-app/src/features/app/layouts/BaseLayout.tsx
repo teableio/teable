@@ -10,7 +10,6 @@ import { AppLayout } from '@/features/app/layouts';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
-import { UpgradeModal } from '../components/billing/UpgradeModal';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
 import { useSdkLocale } from '../hooks/useSdkLocale';
@@ -54,7 +53,6 @@ export const BaseLayout: React.FC<{
                     </Sidebar>
                     {children}
                   </div>
-                  <UpgradeModal />
                 </TableProvider>
               </BaseProvider>
             </AnchorContext.Provider>
