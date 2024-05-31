@@ -51,7 +51,7 @@ export class AuthService {
 
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);
-    if (!user || user.lastSignTime === null) {
+    if (!user || (user.accounts.length === 0 && user.password == null)) {
       throw new BadRequestException(`${email} not registered`);
     }
 
@@ -65,7 +65,7 @@ export class AuthService {
 
   async signup(email: string, password: string) {
     const user = await this.userService.getUserByEmail(email);
-    if (user && user.lastSignTime !== null) {
+    if (user && (user.password !== null || user.accounts.length > 0)) {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
     }
     const { salt, hashPassword } = await this.encodePassword(password);
@@ -126,9 +126,10 @@ export class AuthService {
 
   async sendResetPasswordEmail(email: string) {
     const user = await this.userService.getUserByEmail(email);
-    if (!user) {
-      throw new BadRequestException('Email is not registered');
+    if (!user || (user.accounts.length === 0 && user.password == null)) {
+      throw new BadRequestException(`${email} not registered`);
     }
+
     const resetPasswordCode = getRandomString(30);
 
     const url = `${this.mailConfig.origin}/auth/reset-password?code=${resetPasswordCode}`;

@@ -43,7 +43,7 @@ export class UserService {
   async getUserByEmail(email: string) {
     return await this.prismaService
       .txClient()
-      .user.findUnique({ where: { email, deletedTime: null } });
+      .user.findUnique({ where: { email, deletedTime: null }, include: { accounts: true } });
   }
 
   async createSpaceBySignup(createSpaceRo: ICreateSpaceRo) {
