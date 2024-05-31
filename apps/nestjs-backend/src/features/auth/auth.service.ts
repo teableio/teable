@@ -51,20 +51,35 @@ export class AuthService {
 
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);
-    if (!user) {
+    if (!user || user.lastSignTime === null) {
       throw new BadRequestException(`${email} not registered`);
     }
+
+    if (!user.password) {
+      throw new BadRequestException('Password is not set');
+    }
+
     const { password, salt, ...result } = user;
     return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
   }
 
   async signup(email: string, password: string) {
     const user = await this.userService.getUserByEmail(email);
-    if (user) {
+    if (user && user.lastSignTime !== null) {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
     }
     const { salt, hashPassword } = await this.encodePassword(password);
     return await this.prismaService.$tx(async () => {
+      if (user) {
+        return await this.prismaService.user.update({
+          where: { id: user.id, deletedTime: null },
+          data: {
+            salt,
+            password: hashPassword,
+            lastSignTime: new Date().toISOString(),
+          },
+        });
+      }
       return await this.userService.createUser({
         id: generateUserId(),
         name: email.split('@')[0],
@@ -107,13 +122,6 @@ export class AuthService {
     });
     // clear session
     await this.sessionStoreService.clearByUserId(userId);
-  }
-
-  async refreshLastSignTime(userId: string) {
-    await this.prismaService.user.update({
-      where: { id: userId, deletedTime: null },
-      data: { lastSignTime: new Date().toISOString() },
-    });
   }
 
   async sendResetPasswordEmail(email: string) {

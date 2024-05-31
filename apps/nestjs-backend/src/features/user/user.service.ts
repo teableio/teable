@@ -73,7 +73,7 @@ export class UserService {
   }
 
   async createUser(
-    user: Prisma.UserCreateInput,
+    user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>
   ) {
     // defaults
@@ -95,7 +95,12 @@ export class UserService {
       };
     }
     // default space created
-    const newUser = await this.prismaService.txClient().user.create({ data: user });
+    const newUser = await this.prismaService.txClient().user.create({
+      data: {
+        ...user,
+        name: user.name ?? user.email.split('@')[0],
+      },
+    });
     const { id, name } = newUser;
     if (account) {
       await this.prismaService.txClient().account.create({
@@ -274,6 +279,13 @@ export class UserService {
         data: { id: generateAccountId(), provider, providerId, type, userId: existUser.id },
       });
       return existUser;
+    });
+  }
+
+  async refreshLastSignTime(userId: string) {
+    await this.prismaService.txClient().user.update({
+      where: { id: userId, deletedTime: null },
+      data: { lastSignTime: new Date().toISOString() },
     });
   }
 }

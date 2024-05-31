@@ -13,7 +13,7 @@ import { pickUserMe } from '../utils';
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
-    private usersService: UserService,
+    private userService: UserService,
     oauthStoreService: OauthStoreService
   ) {
     const { clientID, clientSecret, callbackURL } = config.google;
@@ -33,7 +33,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     if (!email) {
       throw new UnauthorizedException('No email provided from Google');
     }
-    const user = await this.usersService.findOrCreateUser({
+    const user = await this.userService.findOrCreateUser({
       name: displayName,
       email,
       provider: 'google',
@@ -44,6 +44,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     if (!user) {
       throw new UnauthorizedException('Failed to create user from Google profile');
     }
+    await this.userService.refreshLastSignTime(user.id);
     return pickUserMe(user);
   }
 }
