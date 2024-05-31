@@ -1,16 +1,16 @@
 import { cn } from '@teable/ui-lib/shadcn';
 import React, { useState } from 'react';
 
-interface IHoverWraperProps {
+interface IHoverWrapperProps {
   children: React.ReactElement[];
   size: number;
 }
 
-interface IHoverWraperTag {
+interface IHoverWrapperTag {
   children: React.ReactElement;
 }
 
-export const HoverWraper = (props: IHoverWraperProps) => {
+export const HoverWrapper = (props: IHoverWrapperProps) => {
   const { children, size = 240 } = props;
   const [trigger, content] = children;
   const [hover, setHover] = useState(false);
@@ -55,18 +55,18 @@ export const HoverWraper = (props: IHoverWraperProps) => {
   );
 };
 
-export const HoverWraperTrigger = ({ children }: IHoverWraperTag) => {
+export const HoverWrapperTrigger = ({ children }: IHoverWrapperTag) => {
   return <>{children}</>;
 };
 
-HoverWraperTrigger.displayName = 'HoverWraper.trigger';
+HoverWrapperTrigger.displayName = 'HoverWrapper.trigger';
 
-HoverWraper.Trigger = HoverWraperTrigger;
+HoverWrapper.Trigger = HoverWrapperTrigger;
 
-export const HoverWraperContent = ({ children }: IHoverWraperTag) => {
+export const HoverWrapperContent = ({ children }: IHoverWrapperTag) => {
   return <>{children}</>;
 };
 
-HoverWraperContent.displayName = 'HoverWraper.content';
+HoverWrapperContent.displayName = 'HoverWrapper.content';
 
-HoverWraper.content = HoverWraperContent;
+HoverWrapper.content = HoverWrapperContent;

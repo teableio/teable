@@ -18,10 +18,11 @@ interface ActionBarProps {
   buttonSize?: ButtonProps['size'];
   onRename?: () => void;
   onDelete?: () => void;
+  onSpaceSetting?: () => void;
 }
 
 export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
-  const { space, className, buttonSize = 'default', onRename, onDelete } = props;
+  const { space, className, buttonSize = 'default', onRename, onDelete, onSpaceSetting } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   return (
@@ -42,8 +43,10 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         space={space}
         showRename={hasPermission(space.role, 'space|update')}
         showDelete={hasPermission(space.role, 'space|delete')}
+        showSpaceSetting={hasPermission(space.role, 'space|update')}
         onDelete={onDelete}
         onRename={onRename}
+        onSpaceSetting={onSpaceSetting}
       >
         <Button variant={'outline'} size={buttonSize}>
           <MoreHorizontal />

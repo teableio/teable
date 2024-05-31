@@ -19,8 +19,9 @@ import {
 } from '@teable/ui-lib';
 import dayjs, { extend } from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import { throttle } from 'lodash';
+import { debounce } from 'lodash';
 import { useTranslation } from 'next-i18next';
+import type { FC, PropsWithChildren } from 'react';
 import React, { useMemo, useState } from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { RoleSelect } from './RoleSelect';
@@ -32,18 +33,20 @@ interface ICollaborators {
   role: SpaceRole;
 }
 
-const filterCollaborators = throttle((search: string, collaborators?: ListSpaceCollaboratorVo) => {
+const filterCollaborators = (search: string, collaborators?: ListSpaceCollaboratorVo) => {
+  if (!search) return collaborators;
   return collaborators?.filter(({ userName, email }) => {
     const searchLower = search.toLowerCase();
     const usernameLower = userName.toLowerCase();
     const emailLower = email.toLowerCase();
     return !search || usernameLower.includes(searchLower) || emailLower.includes(searchLower);
   });
-}, 200);
+};
 
-export const Collaborators: React.FC<ICollaborators> = (props) => {
-  const { spaceId, role } = props;
+export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
+  const { spaceId, role, children } = props;
   const [search, setSearch] = useState<string>('');
+  const [applySearch, setApplySearch] = useState<string>(search);
   const queryClient = useQueryClient();
   const { user } = useSession();
   const { t } = useTranslation('common');
@@ -68,24 +71,34 @@ export const Collaborators: React.FC<ICollaborators> = (props) => {
   });
 
   const collaboratorsFiltered = useMemo(() => {
-    return filterCollaborators(search, collaborators);
-  }, [search, collaborators]);
+    return filterCollaborators(applySearch, collaborators);
+  }, [applySearch, collaborators]);
 
   const hasGrantRolePermission = hasPermission(role, 'space|grant_role');
 
+  const setApplySearchDebounced = useMemo(() => {
+    return debounce(setApplySearch, 200);
+  }, []);
+
   return (
     <div>
-      <div className="text-sm text-muted-foreground">{t('invite.dialog.spaceTitle')}</div>
-      <Input
-        className="mb-5 mt-3 h-8"
-        type="search"
-        placeholder={t('invite.dialog.collaboratorSearchPlaceholder')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="mb-6 flex items-center gap-x-4">
+        <Input
+          className="h-8"
+          type="search"
+          placeholder={t('invite.dialog.collaboratorSearchPlaceholder')}
+          value={search}
+          onChange={(e) => {
+            const value = e.target.value;
+            setSearch(value);
+            setApplySearchDebounced(value);
+          }}
+        />
+        {children}
+      </div>
       <div className="space-y-5">
         {collaboratorsFiltered?.map(({ userId, userName, email, role, avatar, createdTime }) => (
-          <div key={userId} className="relative flex items-center gap-3 pr-7">
+          <div key={userId} className="relative flex items-center gap-3 pr-6">
             <div className="flex flex-1">
               <UserAvatar user={{ name: userName, avatar }} />
               <div className="ml-2 flex flex-1 flex-col space-y-1">

@@ -1,16 +1,20 @@
-import { TeableNew, Sidebar } from '@teable/icons';
+import { Sidebar } from '@teable/icons';
 import { Button, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@teable/ui-lib';
-import type { ISideBarInteractionProps } from '../../../blocks/base/base-side-bar/SideBar';
+import type { ReactNode } from 'react';
 
-export const SideBarHeader = (prop: ISideBarInteractionProps) => {
-  const { expandSideBar } = prop;
+export interface ISidebarHeaderProps {
+  headerLeft: ReactNode;
+  onExpand?: () => void;
+}
+
+export const SidebarHeader = (prop: ISidebarHeaderProps) => {
+  const { headerLeft, onExpand } = prop;
 
   return (
     <div className="m-2 flex items-center gap-1">
-      <TeableNew className="size-6 shrink-0 text-black" />
-      <p className="truncate text-sm">Teable</p>
-      <div className="grow basis-0"></div>
-      {expandSideBar && (
+      {headerLeft}
+      <div className="grow basis-0" />
+      {onExpand && (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -18,7 +22,7 @@ export const SideBarHeader = (prop: ISideBarInteractionProps) => {
                 className="w-6 shrink-0 px-0"
                 variant="ghost"
                 size="xs"
-                onClick={() => expandSideBar?.()}
+                onClick={() => onExpand?.()}
               >
                 <Sidebar className="size-4"></Sidebar>
               </Button>

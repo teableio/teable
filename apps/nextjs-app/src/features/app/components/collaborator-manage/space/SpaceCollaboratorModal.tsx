@@ -39,7 +39,10 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
       <div className="space-y-8">
         <Invite spaceId={spaceId} role={role} />
         {hasPermission(role, 'space|invite_link') && <InviteLink spaceId={spaceId} role={role} />}
-        <Collaborators spaceId={spaceId} role={role} />
+        <div className="w-full">
+          <div className="mb-3 text-sm text-muted-foreground">{t('invite.dialog.spaceTitle')}</div>
+          <Collaborators spaceId={spaceId} role={role} />
+        </div>
       </div>
     </div>
   );

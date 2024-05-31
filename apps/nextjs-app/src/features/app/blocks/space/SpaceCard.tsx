@@ -3,6 +3,7 @@ import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
 import { PinType, deleteSpace, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { type FC, useEffect, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
@@ -17,6 +18,7 @@ interface ISpaceCard {
 }
 export const SpaceCard: FC<ISpaceCard> = (props) => {
   const { space, bases } = props;
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>(space.name);
@@ -53,6 +55,13 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
     setRenaming(false);
   };
 
+  const onSpaceSetting = () => {
+    router.push({
+      pathname: '/space/[spaceId]/setting/general',
+      query: { spaceId: space.id },
+    });
+  };
+
   return (
     <Card className="w-full">
       <CardHeader className="pt-5">
@@ -77,6 +86,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
+            onSpaceSetting={onSpaceSetting}
           />
         </div>
       </CardHeader>

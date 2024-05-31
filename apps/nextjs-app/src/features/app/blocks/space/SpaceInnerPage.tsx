@@ -68,6 +68,13 @@ export const SpaceInnerPage: React.FC = () => {
     setRenaming(false);
   };
 
+  const onSpaceSetting = () => {
+    router.push({
+      pathname: '/space/[spaceId]/setting/general',
+      query: { spaceId },
+    });
+  };
+
   return (
     space && (
       <div ref={ref} className="flex size-full min-w-[760px] overflow-y-auto px-12 py-8">
@@ -101,6 +108,7 @@ export const SpaceInnerPage: React.FC = () => {
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
+            onSpaceSetting={onSpaceSetting}
           />
           <div className="text-left">
             <Collaborators spaceId={spaceId} />
