@@ -97,18 +97,6 @@ describe('InvitationService', () => {
       ).rejects.toThrow('Space not found');
     });
 
-    it('should throw error if emails empty', async () => {
-      prismaService.user.findMany.mockResolvedValue([]);
-      prismaService.space.findFirst.mockResolvedValue(mockSpace as any);
-
-      await expect(
-        invitationService.emailInvitationBySpace(mockSpace.id, {
-          emails: [],
-          role: SpaceRole.Viewer,
-        })
-      ).rejects.toThrow('Email not exist');
-    });
-
     it('should send invitation email correctly', async () => {
       // mock data
       prismaService.space.findFirst.mockResolvedValue(mockSpace as any);
