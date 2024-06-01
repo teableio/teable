@@ -22,7 +22,8 @@
     "deleteSucceed": "Delete Succeed!",
     "loading": "Loading...",
     "refreshPage": "Refresh Page",
-    "yesDelete": "Yes, delete"
+    "yesDelete": "Yes, delete",
+    "rename": "Rename"
   },
   "quickAction": {
     "title": "Quick Actions...",

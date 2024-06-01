@@ -25,10 +25,22 @@
     "fromScratch": "From scratch",
     "fromTemplate": "From template"
   },
+  "spaceSetting": {
+    "title": "Space settings",
+    "general": "General",
+    "collaborators": "Collaborators",
+    "generalDescription": "Change the settings for your current space here",
+    "collaboratorDescription": "Manage collaborators of your space and set their access permission",
+    "spaceName": "Space Name",
+    "spaceId": "Space ID"
+  },
   "pin": {
     "add": "Add to pin",
     "remove": "Remove from pin",
     "pin": "Pin",
     "empty": "Your pined bases and space will appear here"
+  },
+  "tip": {
+    "delete": "Are you sure you want to delete <0/>?"
   }
 }

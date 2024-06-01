@@ -1,25 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { ChevronsLeft, TeableNew, Sidebar, ChevronDown } from '@teable/icons';
+import { ChevronsLeft, TeableNew, ChevronDown } from '@teable/icons';
 import { deleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  Button,
-  Input,
-} from '@teable/ui-lib';
+import { Button, Input } from '@teable/ui-lib';
 import { useRouter } from 'next/router';
 import { useRef, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { BaseActionTrigger } from '../../space/component/BaseActionTrigger';
-import type { ISideBarInteractionProps } from './SideBar';
 
-export const SideBarHeader = (props: ISideBarInteractionProps) => {
-  const { expandSideBar } = props;
+export const BaseSidebarHeaderLeft = () => {
   const base = useBase();
   const router = useRouter();
   const [renaming, setRenaming] = useState<boolean>();
@@ -73,7 +64,7 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
   };
 
   return (
-    <div className="group/header m-2 flex items-center gap-1">
+    <>
       <div
         className="group relative size-6 shrink-0 cursor-pointer"
         onClick={backSpace}
@@ -127,26 +118,6 @@ export const SideBarHeader = (props: ISideBarInteractionProps) => {
           <ChevronDown className="size-4" />
         </Button>
       </BaseActionTrigger>
-      <div className="grow basis-0"></div>
-      {expandSideBar && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className="w-6 shrink-0 px-0"
-                variant="ghost"
-                size="xs"
-                onClick={() => expandSideBar?.()}
-              >
-                <Sidebar className="size-4"></Sidebar>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent hideWhenDetached={true}>
-              <p>Collapse SideBar ⌘+B</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-    </div>
+    </>
   );
 };
