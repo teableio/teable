@@ -156,8 +156,6 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     let loadingInProgress = false;
     const rowIndexList = selection.flatten();
 
-    if (isSelectedType && rowIndexList.length === rowCount) return;
-
     const newValues = rowIndexList
       .map((rowIndex) => {
         const record = recordMap[rowIndex];

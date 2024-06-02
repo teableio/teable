@@ -22,7 +22,7 @@ interface ILinkEditorProps {
   className?: string;
   cellValue?: ILinkCellValue | ILinkCellValue[];
   displayType?: LinkDisplayType;
-  onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
+  onChange?: (value: ILinkCellValue | ILinkCellValue[] | null) => void;
 }
 
 export enum LinkDisplayType {
@@ -51,9 +51,15 @@ export const LinkEditor = (props: ILinkEditorProps) => {
 
   const { foreignTableId, relationship } = options;
   const isMultiple = isMultiValueLink(relationship);
-  const cvArray = Array.isArray(cellValue) || !cellValue ? cellValue : [cellValue];
+  const cvArray = useMemo(() => {
+    return Array.isArray(cellValue) || !cellValue ? cellValue : [cellValue];
+  }, [cellValue]);
   const recordIds = cvArray?.map((cv) => cv.id);
   const selectedRowCount = recordIds?.length ?? 0;
+
+  const isEqualPrevValue = useMemo(() => {
+    return JSON.stringify(values) === JSON.stringify(cellValue);
+  }, [cellValue, values]);
 
   const recordQuery = useMemo((): IGetRecordsRo => {
     return {
@@ -83,7 +89,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
 
   const onRecordDelete = (recordId: string) => {
     onChange?.(
-      isMultiple ? (cellValue as ILinkCellValue[])?.filter((cv) => cv.id !== recordId) : undefined
+      isMultiple ? (cellValue as ILinkCellValue[])?.filter((cv) => cv.id !== recordId) : null
     );
   };
 
@@ -101,7 +107,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   };
 
   const onConfirm = () => {
-    if (values == null) return onChange?.(undefined);
+    if (values == null) return onChange?.(null);
     onChange?.(isMultiple ? values : values[0]);
   };
 
@@ -155,11 +161,13 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                 />
               </DialogContent>
             </Dialog>
-            {Boolean(selectedRowCount) && displayType === LinkDisplayType.Grid && (
-              <Button size={'sm'} onClick={onConfirm}>
-                {t('common.confirm')}
-              </Button>
-            )}
+            {Boolean(selectedRowCount) &&
+              !isEqualPrevValue &&
+              displayType === LinkDisplayType.Grid && (
+                <Button size={'sm'} onClick={onConfirm}>
+                  {t('common.confirm')}
+                </Button>
+              )}
           </div>
           <ExpandRecorder
             tableId={foreignTableId}

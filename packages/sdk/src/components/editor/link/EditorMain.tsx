@@ -30,7 +30,7 @@ export interface ILinkEditorMainProps {
   cellValue?: ILinkCellValue | ILinkCellValue[];
   isEditing?: boolean;
   setEditing?: (isEditing: boolean) => void;
-  onChange?: (value?: ILinkCellValue | ILinkCellValue[]) => void;
+  onChange?: (value: ILinkCellValue | ILinkCellValue[] | null) => void;
   onExpandRecord?: (recordId: string) => void;
 }
 
@@ -128,7 +128,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
 
   const onConfirm = () => {
     onReset();
-    if (values == null) return onChange?.(undefined);
+    if (values == null) return onChange?.(null);
     onChange?.(isMultiple ? values : values[0]);
   };
 
