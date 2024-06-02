@@ -28,7 +28,7 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
     return linkEditorMainRef.current?.onReset();
   };
 
-  const onChange = (value?: ILinkCellValue | ILinkCellValue[]) => {
+  const onChange = (value: ILinkCellValue | ILinkCellValue[] | null) => {
     record.updateCell(fieldId, value);
   };
 
