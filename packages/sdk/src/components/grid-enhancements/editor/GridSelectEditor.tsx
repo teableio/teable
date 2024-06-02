@@ -51,9 +51,8 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
       label: name,
       value: name,
       color:
-        displayChoiceMap[name]?.color ?? ColorUtils.shouldUseLightTextOnColor(color)
-          ? colors.white
-          : colors.black,
+        displayChoiceMap[name]?.color ??
+        (ColorUtils.shouldUseLightTextOnColor(color) ? colors.white : colors.black),
       backgroundColor: displayChoiceMap[name]?.backgroundColor ?? ColorUtils.getHexForColor(color),
     }));
   }, [options, displayChoiceMap]);
