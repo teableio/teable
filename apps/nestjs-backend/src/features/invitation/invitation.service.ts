@@ -17,12 +17,14 @@ import type {
   UpdateSpaceInvitationLinkRo,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
+import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IMailConfig } from '../../configs/mail.config';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
+import { UserService } from '../user/user.service';
 
 @Injectable()
 export class InvitationService {
@@ -31,12 +33,22 @@ export class InvitationService {
     private readonly cls: ClsService<IClsStore>,
     private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
-    private readonly collaboratorService: CollaboratorService
+    private readonly collaboratorService: CollaboratorService,
+    private readonly userService: UserService
   ) {}
 
   private generateInviteUrl(invitationId: string, invitationCode: string) {
     const mailConfig = this.configService.get<IMailConfig>('mail');
     return `${mailConfig?.origin}/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
+  }
+
+  private async createNotExistedUser(emails: string[]) {
+    const users: { email: string; name: string; id: string }[] = [];
+    for (const email of emails) {
+      const user = await this.userService.createUser({ email });
+      users.push(pick(user, 'id', 'name', 'email'));
+    }
+    return users;
   }
 
   async emailInvitationBySpace(spaceId: string, data: EmailSpaceInvitationRo) {
@@ -53,11 +65,14 @@ export class InvitationService {
       select: { id: true, name: true, email: true },
       where: { email: { in: data.emails } },
     });
-    if (sendUsers.length === 0) {
-      throw new BadRequestException('Email not exist');
-    }
+
+    const noExistEmails = data.emails.filter((email) => !sendUsers.find((u) => u.email === email));
 
     return await this.prismaService.$tx(async () => {
+      // create user if not exist
+      const newUsers = await this.createNotExistedUser(noExistEmails);
+      sendUsers.push(...newUsers);
+
       const { role } = data;
       const result: EmailInvitationVo = {};
       for (const sendUser of sendUsers) {

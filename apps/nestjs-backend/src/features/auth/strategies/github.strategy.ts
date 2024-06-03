@@ -13,7 +13,7 @@ import { pickUserMe } from '../utils';
 export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
-    private usersService: UserService,
+    private userService: UserService,
     oauthStoreService: OauthStoreService
   ) {
     const { clientID, clientSecret } = config.github;
@@ -31,7 +31,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     if (!email) {
       throw new UnauthorizedException('No email provided from GitHub');
     }
-    const user = await this.usersService.findOrCreateUser({
+    const user = await this.userService.findOrCreateUser({
       name: displayName,
       email,
       provider: 'github',
@@ -42,6 +42,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     if (!user) {
       throw new UnauthorizedException('Failed to create user from GitHub profile');
     }
+    await this.userService.refreshLastSignTime(user.id);
     return pickUserMe(user);
   }
 }
