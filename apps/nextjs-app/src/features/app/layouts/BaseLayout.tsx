@@ -1,6 +1,6 @@
 import type { DriverClient } from '@teable/core';
 import type { IGetBaseVo, ITableVo } from '@teable/openapi';
-import { NotificationProvider, SessionProvider } from '@teable/sdk';
+import { NotificationProvider, SessionProvider, useIsHydrated } from '@teable/sdk';
 import type { IUser } from '@teable/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
 import { useRouter } from 'next/router';
@@ -25,6 +25,7 @@ export const BaseLayout: React.FC<{
   const { baseId, tableId, viewId } = router.query;
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
+  const isHydrated = useIsHydrated();
 
   return (
     <AppLayout>
@@ -42,16 +43,18 @@ export const BaseLayout: React.FC<{
                 <BasePermissionListener />
                 <TableProvider serverData={tableServerData}>
                   <div id="portal" className="relative flex h-screen w-full items-start">
-                    <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
-                      <Fragment>
-                        <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
-                          <BaseSideBar />
-                        </div>
-                        <div className="grow basis-0" />
-                        <SideBarFooter />
-                      </Fragment>
-                    </Sidebar>
-                    {children}
+                    <div className="flex h-screen w-full">
+                      <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
+                        <Fragment>
+                          <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
+                            <BaseSideBar />
+                          </div>
+                          <div className="grow basis-0" />
+                          <SideBarFooter />
+                        </Fragment>
+                      </Sidebar>
+                      {isHydrated && <div className="min-w-80 flex-1">{children}</div>}
+                    </div>
                   </div>
                 </TableProvider>
               </BaseProvider>
