@@ -19,6 +19,13 @@ export const useActionPresence = (tableIdOrViewId: string | undefined) => {
     }
 
     setPresence(remotePresence);
+
+    return () => {
+      if (remotePresence.listenerCount('receive') === 0) {
+        remotePresence.unsubscribe();
+        remotePresence.destroy();
+      }
+    };
   }, [tableIdOrViewId, connection]);
 
   return presence;

@@ -31,7 +31,10 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   });
 
   const updateRowCount = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.rowCount(tableId as string, rowCountQuery)),
+    (cleanAll?: boolean) =>
+      queryClient.invalidateQueries(
+        ReactQueryKeys.rowCount(tableId as string, rowCountQuery).slice(0, cleanAll ? 2 : 3)
+      ),
     [queryClient, tableId, rowCountQuery]
   );
 
@@ -44,7 +47,8 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
         'updateRowCount',
         res.some((action) => relevantProps.has(action))
       );
-      res.some((action) => relevantProps.has(action)) && updateRowCount();
+      // clean row count for all views in this table
+      res.some((action) => relevantProps.has(action)) && updateRowCount(true);
     };
 
     tablePresence.addListener('receive', cb);

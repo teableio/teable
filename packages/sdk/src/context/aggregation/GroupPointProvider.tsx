@@ -51,7 +51,10 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   });
 
   const updateGroupPoints = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.groupPoints(tableId as string, query)),
+    (cleanAll?: boolean) =>
+      queryClient.invalidateQueries(
+        ReactQueryKeys.groupPoints(tableId as string, query).slice(0, cleanAll ? 2 : 3)
+      ),
     [query, queryClient, tableId]
   );
 
@@ -65,7 +68,7 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
       'setField',
     ]);
     const cb = (_id: string, res: ITableActionKey[]) =>
-      res.some((action) => relevantProps.has(action)) && updateGroupPoints();
+      res.some((action) => relevantProps.has(action)) && updateGroupPoints(true);
 
     tablePresence.addListener('receive', cb);
 

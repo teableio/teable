@@ -28,7 +28,10 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   });
 
   const updateAggregations = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.aggregations(tableId as string, aggQuery)),
+    (cleanAll?: boolean) =>
+      queryClient.invalidateQueries(
+        ReactQueryKeys.aggregations(tableId as string, aggQuery).slice(0, cleanAll ? 2 : 3)
+      ),
     [aggQuery, queryClient, tableId]
   );
 
@@ -37,7 +40,7 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
 
     const relevantProps = new Set<ITableActionKey>(['setRecord', 'addRecord', 'deleteRecord']);
     const cb = (_id: string, res: ITableActionKey[]) =>
-      res.some((action) => relevantProps.has(action)) && updateAggregations();
+      res.some((action) => relevantProps.has(action)) && updateAggregations(true);
 
     tablePresence.addListener('receive', cb);
 
