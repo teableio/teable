@@ -1,6 +1,6 @@
 import { ViewType } from '@teable/core';
 import { ArrowUpRight, Code2, Component, Database, MoreHorizontal, Share2 } from '@teable/icons';
-import { useDriver, useView } from '@teable/sdk/hooks';
+import { useDriver, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
@@ -20,6 +20,7 @@ const OthersList = ({
   const { toggleGraph } = useCellGraphStore();
   const view = useView();
   const driver = useDriver();
+  const permission = useTablePermission();
 
   return (
     <div className={className}>
@@ -30,6 +31,7 @@ const OthersList = ({
             text={text}
             textClassName={classNames?.textClassName}
             className={classNames?.buttonClassName}
+            disabled={!permission['view|update']}
           >
             <ArrowUpRight className="size-4" />
           </ToolBarButton>

@@ -80,10 +80,10 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   };
 
   useEffect(() => {
-    if (stackFieldId == null) {
+    if (stackFieldId == null && !disabled) {
       dialogRef.current?.onOpen();
     }
-  }, [stackFieldId]);
+  }, [disabled, stackFieldId]);
 
   const stackFieldName = useMemo(() => {
     if (stackFieldId == null) return '';
