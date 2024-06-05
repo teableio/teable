@@ -39,8 +39,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   };
   const ViewIcon = VIEW_ICON_MAP[view.type];
 
-  const showViewMenu =
-    permission['view|delete'] || permission['view|update'] || permission['view|create'];
+  const showViewMenu = permission['view|delete'] || permission['view|update'];
 
   const commonPart = (
     <div className="relative flex w-full items-center overflow-hidden px-0.5">

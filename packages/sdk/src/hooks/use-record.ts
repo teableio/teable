@@ -42,7 +42,7 @@ export const useRecord = (recordId: string | undefined, initData?: IRecord) => {
 
     return () => {
       doc.removeListener('op', listeners);
-      doc.unsubscribe();
+      doc.listenerCount('op') === 0 && doc.unsubscribe();
       doc.listenerCount('op') === 0 && doc.destroy();
     };
   }, [connection, recordId, tableId]);

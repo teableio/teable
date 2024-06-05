@@ -87,7 +87,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       cardCreatable: Boolean(permission['record|create']),
       cardEditable: Boolean(permission['record|update']),
       cardDeletable: Boolean(permission['record|delete']),
-      cardDraggable: Boolean(permission['record|update']),
+      cardDraggable: Boolean(permission['record|update'] && permission['view|update']),
     };
   }, [permission, fieldPermission]);
 

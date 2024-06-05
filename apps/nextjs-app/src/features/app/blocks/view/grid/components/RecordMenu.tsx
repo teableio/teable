@@ -142,6 +142,10 @@ export const RecordMenu = () => {
     ],
   ].map((items) => (items as IMenuItemProps<MenuItemType>[]).filter(({ hidden }) => !hidden));
 
+  if (menuItemGroups.every((menuItemGroup) => menuItemGroup.length === 0)) {
+    return null;
+  }
+
   return (
     <Command
       ref={recordMenuRef}

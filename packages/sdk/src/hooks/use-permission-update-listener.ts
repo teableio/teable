@@ -22,8 +22,8 @@ export const usePermissionUpdateListener = (baseId: string | undefined, trigger:
 
     return () => {
       remotePresence?.removeListener('receive', receiveHandler);
-      remotePresence?.unsubscribe();
-      remotePresence?.destroy();
+      remotePresence?.listenerCount('receive') === 0 && remotePresence?.unsubscribe();
+      remotePresence?.listenerCount('receive') === 0 && remotePresence?.destroy();
     };
   }, [baseId, connection, remotePresence, trigger]);
 };
