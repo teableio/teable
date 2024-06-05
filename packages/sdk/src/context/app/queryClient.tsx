@@ -24,6 +24,10 @@ export const createQueryClient = () => {
         // above 0 to avoid refetching immediately on the client
         staleTime: 10 * 1000,
         retry: false,
+        networkMode: 'always',
+      },
+      mutations: {
+        networkMode: 'always',
       },
     },
     queryCache: new QueryCache({
