@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import type { IActionTriggerBuffer } from '@teable/core';
-import { getActionTriggerChannel } from '@teable/core';
+import type { ITableActionKey } from '@teable/core';
 import { getTablePermission } from '@teable/openapi';
 import { useEffect } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useBase, useConnection, useTableId } from '../../hooks';
+import { useBase, useTableId } from '../../hooks';
+import { useActionPresence } from '../../hooks/use-presence';
 import {
   TablePermissionContext,
   TablePermissionContextDefaultValue,
@@ -13,7 +13,7 @@ import {
 export const TablePermissionProvider = ({ children }: { children: React.ReactNode }) => {
   const baseId = useBase().id;
   const tableId = useTableId();
-  const { connection } = useConnection();
+  const presence = useActionPresence(tableId);
 
   const { data: tablePermission, refetch } = useQuery({
     queryKey: ReactQueryKeys.getTablePermission(baseId, tableId!),
@@ -22,25 +22,20 @@ export const TablePermissionProvider = ({ children }: { children: React.ReactNod
   });
 
   useEffect(() => {
-    if (tableId == null || connection == null) return;
+    if (tableId == null || !presence) return;
 
-    const channel = getActionTriggerChannel(tableId);
-    const remotePresence = connection.getPresence(channel);
-    remotePresence?.subscribe((err) => err && console.error);
-
-    const receiveHandler = (_id: string, context: IActionTriggerBuffer) => {
-      if (context.addField) {
+    const cb = (_id: string, res: ITableActionKey[]) => {
+      if (res.some((action) => action === 'addField')) {
         refetch();
       }
     };
 
-    remotePresence.on('receive', receiveHandler);
+    presence.addListener('receive', cb);
+
     return () => {
-      remotePresence?.removeListener('receive', receiveHandler);
-      remotePresence?.unsubscribe();
-      remotePresence?.destroy();
+      presence.removeListener('receive', cb);
     };
-  }, [connection, refetch, tableId]);
+  }, [presence, refetch, tableId]);
 
   return (
     <TablePermissionContext.Provider value={tablePermission ?? TablePermissionContextDefaultValue}>

@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { IViewActionKey } from '@teable/core';
 import { getViewFilterLinkRecords } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useActionTrigger } from '@teable/sdk/hooks';
+import { useActionPresence } from '@teable/sdk/hooks/use-presence';
 import { useCallback, useEffect } from 'react';
 
 export const useViewFilterLinkContext = (
@@ -13,7 +14,7 @@ export const useViewFilterLinkContext = (
   const queryClient = useQueryClient();
   const enabledQuery = Boolean(!disabled && tableId && viewId);
 
-  const { listener } = useActionTrigger();
+  const viewPresence = useActionPresence(viewId);
 
   const { isLoading, data: queryData } = useQuery({
     queryKey: ReactQueryKeys.getViewFilterLinkRecords(tableId!, viewId!),
@@ -30,10 +31,17 @@ export const useViewFilterLinkContext = (
   }, [enabledQuery, queryClient, tableId, viewId]);
 
   useEffect(() => {
-    if (!tableId || !viewId || !enabledQuery) return;
+    if (viewId == null || !viewPresence || !enabledQuery) return;
 
-    listener?.(['applyViewFilter'], () => updateContext(), [tableId, viewId]);
-  }, [enabledQuery, listener, tableId, updateContext, viewId]);
+    const cb = (_id: string, res: IViewActionKey[]) =>
+      res.some((action) => action === 'applyViewFilter') && updateContext();
+
+    viewPresence.addListener('receive', cb);
+
+    return () => {
+      viewPresence.removeListener('receive', cb);
+    };
+  }, [viewPresence, viewId, updateContext, enabledQuery]);
 
   return {
     isLoading,

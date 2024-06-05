@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import { getRowCount } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useActionTrigger, useIsHydrated, useSearch } from '../../hooks';
-import type { PropKeys } from '../action-trigger';
+import { useIsHydrated, useSearch } from '../../hooks';
+import { useActionPresence } from '../../hooks/use-presence';
 import { AnchorContext } from '../anchor';
 import { RowCountContext } from './RowCountContext';
 
@@ -15,7 +16,8 @@ interface RowCountProviderProps {
 export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
-  const { listener } = useActionTrigger();
+  const tablePresence = useActionPresence(tableId);
+  const viewPresence = useActionPresence(viewId);
   const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
 
@@ -34,12 +36,36 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   );
 
   useEffect(() => {
-    if (tableId == null) return;
+    if (tableId == null || !tablePresence) return;
 
-    const relevantProps: PropKeys[] = ['setRecord', 'addRecord', 'deleteRecord', 'applyViewFilter'];
+    const relevantProps = new Set<ITableActionKey>(['setRecord', 'addRecord', 'deleteRecord']);
+    const cb = (_id: string, res: ITableActionKey[]) => {
+      console.log(
+        'updateRowCount',
+        res.some((action) => relevantProps.has(action))
+      );
+      res.some((action) => relevantProps.has(action)) && updateRowCount();
+    };
 
-    listener?.(relevantProps, () => updateRowCount(), [tableId, viewId]);
-  }, [listener, tableId, updateRowCount, viewId]);
+    tablePresence.addListener('receive', cb);
+
+    return () => {
+      tablePresence.removeListener('receive', cb);
+    };
+  }, [tablePresence, tableId, updateRowCount]);
+
+  useEffect(() => {
+    if (viewId == null || !viewPresence) return;
+
+    const cb = (_id: string, res: IViewActionKey[]) =>
+      res.some((action) => action === 'applyViewFilter') && updateRowCount();
+
+    viewPresence.addListener('receive', cb);
+
+    return () => {
+      viewPresence.removeListener('receive', cb);
+    };
+  }, [viewPresence, viewId, updateRowCount]);
 
   const rowCount = useMemo(() => {
     if (!resRowCount) return 0;

@@ -8,4 +8,3 @@ export * from './aggregation';
 export * from './session';
 export * from './base';
 export * from './notification';
-export * from './action-trigger';

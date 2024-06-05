@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import type { IShareViewRowCountRo } from '@teable/openapi';
 import { getShareViewRowCount } from '@teable/openapi';
-import type { PropKeys } from '@teable/sdk';
-import { RowCountContext, ReactQueryKeys, useActionTrigger } from '@teable/sdk';
+import { RowCountContext, ReactQueryKeys } from '@teable/sdk';
 import { useSearch, useView } from '@teable/sdk/hooks';
+import { useActionPresence } from '@teable/sdk/hooks/use-presence';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
@@ -23,7 +24,8 @@ const useRowCountQuery = (): IShareViewRowCountRo => {
 
 export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
   const { tableId, viewId, shareId } = useContext(ShareViewPageContext);
-  const { listener } = useActionTrigger();
+  const tablePresence = useActionPresence(tableId);
+  const viewPresence = useActionPresence(viewId);
   const queryClient = useQueryClient();
   const query = useRowCountQuery();
 
@@ -39,10 +41,31 @@ export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
   );
 
   useEffect(() => {
-    const relevantProps: PropKeys[] = ['setRecord', 'addRecord', 'deleteRecord', 'applyViewFilter'];
+    if (tableId == null || !tablePresence) return;
 
-    listener?.(relevantProps, () => updateViewRowCount(), [tableId, viewId]);
-  }, [listener, tableId, updateViewRowCount, viewId]);
+    const relevantProps = new Set<ITableActionKey>(['setRecord', 'addRecord', 'deleteRecord']);
+    const cb = (_id: string, res: ITableActionKey[]) =>
+      res.some((action) => relevantProps.has(action)) && updateViewRowCount();
+
+    tablePresence.addListener('receive', cb);
+
+    return () => {
+      tablePresence.removeListener('receive', cb);
+    };
+  }, [tablePresence, tableId, updateViewRowCount]);
+
+  useEffect(() => {
+    if (viewId == null || !viewPresence) return;
+
+    const cb = (_id: string, res: IViewActionKey[]) =>
+      res.some((action) => action === 'applyViewFilter') && updateViewRowCount();
+
+    viewPresence.addListener('receive', cb);
+
+    return () => {
+      viewPresence.removeListener('receive', cb);
+    };
+  }, [viewPresence, viewId, updateViewRowCount]);
 
   const rowCount = useMemo(() => {
     if (!shareViewRowCount) {
