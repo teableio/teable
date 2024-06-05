@@ -553,6 +553,54 @@ describe('OpenAPI link (e2e)', () => {
       });
     });
 
+    it('should create two way, many many link to self', async () => {
+      // create link field
+      const Link1FieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table1.id,
+        },
+      };
+
+      const linkField1 = await createField(table1.id, Link1FieldRo);
+      const fkHostTableName = `${baseId}${split}junction_${linkField1.id}_${
+        (linkField1.options as ILinkFieldOptions).symmetricFieldId
+      }`;
+
+      const newFields = await getFields(table1.id, table1.views[0].id);
+      const linkField2 = newFields[3];
+
+      // console.log('linkField1', linkField1);
+      // console.log('linkField2', linkField2);
+
+      expect(linkField1).toMatchObject({
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+          fkHostTableName: fkHostTableName,
+          selfKeyName: '__fk_' + linkField2.id,
+          foreignKeyName: '__fk_' + linkField1.id,
+          symmetricFieldId: linkField2.id,
+        },
+      });
+
+      expect(linkField2).toMatchObject({
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+          fkHostTableName: fkHostTableName,
+          selfKeyName: '__fk_' + linkField1.id,
+          foreignKeyName: '__fk_' + linkField2.id,
+          symmetricFieldId: linkField1.id,
+        },
+      });
+    });
+
     it('should create one way, many many link', async () => {
       // create link field
       const Link1FieldRo: IFieldRo = {
