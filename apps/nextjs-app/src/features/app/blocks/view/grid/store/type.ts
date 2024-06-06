@@ -4,6 +4,7 @@ import type { IFieldInstance, Record } from '@teable/sdk/model';
 export interface IHeaderMenu {
   fields: IFieldInstance[];
   position: IPosition;
+  onSelectionClear?: () => void;
 }
 
 export interface IRecordMenu {

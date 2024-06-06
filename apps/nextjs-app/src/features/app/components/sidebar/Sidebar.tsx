@@ -42,7 +42,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         >
           <div className="flex size-full flex-col overflow-hidden bg-popover">
             <SidebarHeader headerLeft={headerLeft} onExpand={() => setLeftVisible(!leftVisible)} />
-            {children}
+            {leftVisible && children}
           </div>
         </div>
       )}

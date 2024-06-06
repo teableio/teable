@@ -12,7 +12,7 @@ interface ITextEditor extends ICellEditor<string | null> {
 }
 
 const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> = (props, ref) => {
-  const { value, options, onChange, className, readonly, style } = props;
+  const { value, options, onChange, className, readonly, style, saveOnBlur = true } = props;
   const [text, setText] = useState<string>(value || '');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const showAs = options.showAs;
@@ -56,7 +56,7 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
         className={cn('h-10 sm:h-8', className)}
         value={text}
         onChange={onChangeInner}
-        onBlur={saveValue}
+        onBlur={() => saveOnBlur && saveValue()}
         disabled={readonly}
       />
       {showAs && (
