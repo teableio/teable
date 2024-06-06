@@ -55,7 +55,7 @@ export function useInstances<T, R extends { id: string }>({
     console.log(
       `${query.collection}:ready:`,
       query.query,
-      query.results.map((doc) => doc.data)
+      localStorage.getItem('debug') && query.results.map((doc) => doc.data)
     );
     if (!query.results) {
       return;

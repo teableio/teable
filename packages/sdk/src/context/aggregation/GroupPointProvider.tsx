@@ -3,10 +3,9 @@ import type { IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teabl
 import { SortFunc, ViewType } from '@teable/core';
 import { getGroupPoints } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
-import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useIsHydrated, useSearch, useView } from '../../hooks';
-import { useActionPresence } from '../../hooks/use-presence';
+import { useIsHydrated, useSearch, useTableListener, useView, useViewListener } from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { GroupPointContext } from './GroupPointContext';
 
@@ -17,8 +16,6 @@ interface GroupPointProviderProps {
 export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
-  const tablePresence = useActionPresence(tableId);
-  const viewPresence = useActionPresence(viewId);
   const queryClient = useQueryClient();
   const view = useView(viewId);
   const { searchQuery } = useSearch();
@@ -58,37 +55,16 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
     [query, queryClient, tableId]
   );
 
-  useEffect(() => {
-    if (tableId == null || !tablePresence) return;
+  const updateGroupPointsForTable = useCallback(() => updateGroupPoints(true), [updateGroupPoints]);
 
-    const relevantProps = new Set<ITableActionKey>([
-      'setRecord',
-      'addRecord',
-      'deleteRecord',
-      'setField',
-    ]);
-    const cb = (_id: string, res: ITableActionKey[]) =>
-      res.some((action) => relevantProps.has(action)) && updateGroupPoints(true);
+  const tableMatches = useMemo<ITableActionKey[]>(
+    () => ['setRecord', 'addRecord', 'deleteRecord', 'setField'],
+    []
+  );
+  useTableListener(tableId, tableMatches, updateGroupPointsForTable);
 
-    tablePresence.addListener('receive', cb);
-
-    return () => {
-      tablePresence.removeListener('receive', cb);
-    };
-  }, [tablePresence, tableId, updateGroupPoints]);
-
-  useEffect(() => {
-    if (viewId == null || !viewPresence) return;
-
-    const cb = (_id: string, res: IViewActionKey[]) =>
-      res.some((action) => action === 'applyViewFilter') && updateGroupPoints();
-
-    viewPresence.addListener('receive', cb);
-
-    return () => {
-      viewPresence.removeListener('receive', cb);
-    };
-  }, [viewPresence, viewId, updateGroupPoints]);
+  const viewMatches = useMemo<IViewActionKey[]>(() => ['applyViewFilter'], []);
+  useViewListener(viewId, viewMatches, updateGroupPoints);
 
   const groupPoints = useMemo(() => resGroupPoints?.data || null, [resGroupPoints]);
 

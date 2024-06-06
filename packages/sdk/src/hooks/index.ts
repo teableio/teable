@@ -33,3 +33,5 @@ export * from './use-space-role-static';
 export * from './use-field-cell-editable';
 export * from './use-permission-update-listener';
 export * from './use-presence';
+export * from './use-table-listener';
+export * from './use-view-listener';

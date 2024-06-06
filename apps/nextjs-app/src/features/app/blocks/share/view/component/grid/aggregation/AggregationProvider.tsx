@@ -2,10 +2,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IGridColumnMeta, ITableActionKey, IViewActionKey } from '@teable/core';
 import type { IAggregationRo, IShareViewAggregationsRo } from '@teable/openapi';
 import { getShareViewAggregations } from '@teable/openapi';
-import { useView, ReactQueryKeys, AggregationContext, useSearch } from '@teable/sdk';
-import { useActionPresence } from '@teable/sdk/hooks/use-presence';
+import {
+  useView,
+  ReactQueryKeys,
+  AggregationContext,
+  useSearch,
+  useViewListener,
+  useTableListener,
+} from '@teable/sdk';
 import type { ReactNode } from 'react';
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
 
 interface IAggregationProviderProps {
@@ -38,9 +44,7 @@ const useAggregationQuery = (): IShareViewAggregationsRo => {
 };
 
 export const AggregationProvider = ({ children }: IAggregationProviderProps) => {
-  const { tableId, viewId, shareId } = useContext(ShareViewPageContext);
-  const tablePresence = useActionPresence(tableId);
-  const viewPresence = useActionPresence(viewId);
+  const { tableId, shareId } = useContext(ShareViewPageContext);
   const queryClient = useQueryClient();
   const query = useAggregationQuery();
   const queryRef = useRef(query);
@@ -57,38 +61,17 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
     [query, queryClient, shareId]
   );
 
-  useEffect(() => {
-    if (tableId == null || !tablePresence) return;
+  const tableMatches = useMemo<ITableActionKey[]>(
+    () => ['setRecord', 'addRecord', 'deleteRecord'],
+    []
+  );
+  useTableListener(tableId, tableMatches, updateViewAggregations);
 
-    const relevantProps = new Set<ITableActionKey>(['setRecord', 'addRecord', 'deleteRecord']);
-    const cb = (_id: string, res: ITableActionKey[]) =>
-      res.some((action) => relevantProps.has(action)) && updateViewAggregations();
-
-    tablePresence.addListener('receive', cb);
-
-    return () => {
-      tablePresence.removeListener('receive', cb);
-    };
-  }, [tablePresence, tableId, updateViewAggregations]);
-
-  useEffect(() => {
-    if (viewId == null || !viewPresence) return;
-
-    const relevantProps = new Set<IViewActionKey>([
-      'applyViewFilter',
-      'showViewField',
-      'applyViewStatisticFunc',
-    ]);
-
-    const cb = (_id: string, res: IViewActionKey[]) =>
-      res.some((action) => relevantProps.has(action)) && updateViewAggregations();
-
-    viewPresence.addListener('receive', cb);
-
-    return () => {
-      viewPresence.removeListener('receive', cb);
-    };
-  }, [viewPresence, viewId, updateViewAggregations]);
+  const viewMatches = useMemo<IViewActionKey[]>(
+    () => ['applyViewFilter', 'showViewField', 'applyViewStatisticFunc'],
+    []
+  );
+  useViewListener(tableId, viewMatches, updateViewAggregations);
 
   const viewAggregation = useMemo(() => {
     if (!shareViewAggregations) {
