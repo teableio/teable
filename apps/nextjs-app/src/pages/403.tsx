@@ -1,4 +1,4 @@
-import type { GetStaticPropsContext, InferGetStaticPropsType } from 'next';
+import type { GetStaticPropsContext } from 'next';
 import { systemConfig } from '@/features/i18n/system.config';
 import { ForbiddenPage } from '@/features/system/pages';
 import { getServerSideTranslations } from '@/lib/i18n';
@@ -16,6 +16,6 @@ export const getStaticProps = async (context: GetStaticPropsContext) => {
   };
 };
 
-export default function Custom403(_props: InferGetStaticPropsType<typeof getStaticProps>) {
+export default function Custom403() {
   return <ForbiddenPage />;
 }
