@@ -46,7 +46,7 @@ export const FieldMenu = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
-  const fields = headerMenu?.fields;
+  const { fields, onSelectionClear } = headerMenu ?? {};
 
   const menuFieldPermission = useMemo(() => {
     if (!fields?.length || !fieldsPermission) {
@@ -210,6 +210,7 @@ export const FieldMenu = () => {
                       return;
                     }
                     await onClick();
+                    onSelectionClear?.();
                     closeHeaderMenu();
                   }}
                 >
@@ -249,6 +250,7 @@ export const FieldMenu = () => {
                             return;
                           }
                           await onClick();
+                          onSelectionClear?.();
                           closeHeaderMenu();
                         }}
                       >

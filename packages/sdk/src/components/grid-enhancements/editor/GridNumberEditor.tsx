@@ -50,6 +50,7 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
       style={{ border: `2px solid ${cellLineColorActived}`, ...style, ...attachStyle }}
       options={options}
       onChange={saveValue}
+      saveOnBlur={false}
     />
   );
 };

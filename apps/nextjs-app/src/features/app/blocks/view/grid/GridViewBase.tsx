@@ -57,6 +57,7 @@ import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useHotkeys } from 'react-hotkeys-hook';
 import { usePrevious, useMount, useClickAway } from 'react-use';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
@@ -301,7 +302,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         const selectColumns = extract(start, end, columns);
         const indexedColumns = keyBy(selectColumns, 'id');
         const selectFields = fields.filter((field) => indexedColumns[field.id]);
-        openHeaderMenu({ position, fields: selectFields });
+        const onSelectionClear = () => gridRef.current?.setSelection(emptySelection);
+        openHeaderMenu({ position, fields: selectFields, onSelectionClear });
       }
     },
     [
@@ -613,6 +615,16 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   });
 
   useScrollFrameRate(gridRef.current?.scrollBy);
+
+  useHotkeys(
+    ['mod+f', 'mod+k'],
+    () => {
+      gridRef.current?.setSelection(emptySelection);
+    },
+    {
+      enableOnFormTags: ['input', 'select', 'textarea'],
+    }
+  );
 
   return (
     <div ref={containerRef} className="relative size-full overflow-hidden">

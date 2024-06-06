@@ -5,9 +5,10 @@ export interface ICellEditor<T> {
   className?: string;
   style?: React.CSSProperties;
   value?: T;
-  onChange?: (value?: T) => void;
   readonly?: boolean;
+  saveOnBlur?: boolean;
   context?: ICellEditorContext;
+  onChange?: (value?: T) => void;
 }
 
 export interface IEditorRef<T> {
