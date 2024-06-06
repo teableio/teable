@@ -2,6 +2,7 @@ import { is, or, and, isNot, hasNoneOf, isNotEmpty, FieldType, exactDate } from 
 import type { IFilter, IFilterSet, ILinkCellValue, IOperator, IUserCellValue } from '@teable/core';
 import { GroupPointType } from '@teable/openapi';
 import type { IGetRecordsRo, IGroupHeaderPoint, IGroupPointsVo } from '@teable/openapi';
+import { zonedTimeToUtc } from 'date-fns-tz';
 import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
 import type { GridView, IFieldInstance } from '../../../model';
@@ -27,7 +28,7 @@ export const cellValue2FilterValue = (cellValue: unknown, field: IFieldInstance)
 
 export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
   let operator: IOperator = isNot.value;
-  const { id: fieldId, type, isMultipleCellValue } = field;
+  const { id: fieldId, type, isMultipleCellValue, options } = field;
 
   if (shouldFilterByDefaultValue(field)) {
     operator = is.value;
@@ -35,10 +36,13 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
   } else if (value == null) {
     operator = isNotEmpty.value;
   } else if (type === FieldType.Date) {
+    const timeZone =
+      options?.formatting?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const dateStr = zonedTimeToUtc(value as string, timeZone).toISOString();
     value = {
-      exactDate: value,
+      exactDate: dateStr,
       mode: exactDate.value,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timeZone,
     };
   } else if (FILTER_RELATED_FILED_TYPE_SET.has(type) && isMultipleCellValue) {
     operator = hasNoneOf.value;
