@@ -18,6 +18,7 @@ export class NextController {
     'images/*',
     'home',
     '404/*',
+    '403/?*',
     'api/((?!table).)*',
     'space/?*',
     'auth/?*',
