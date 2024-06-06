@@ -54,9 +54,8 @@ export function useInstances<T, R extends { id: string }>({
   const handleReady = useCallback((query: Query<T>) => {
     console.log(
       `${query.collection}:ready:`,
-      (() => {
-        return query.query;
-      })()
+      query.query,
+      localStorage.getItem('debug') && query.results.map((doc) => doc.data)
     );
     if (!query.results) {
       return;

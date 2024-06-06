@@ -2,7 +2,6 @@ import {
   AggregationProvider,
   RecordProvider,
   RowCountProvider,
-  ActionTriggerProvider,
   GroupPointProvider,
 } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
@@ -20,21 +19,19 @@ export const GridView = (props: IViewBaseProps) => {
 
   return (
     <SearchProvider>
-      <ActionTriggerProvider>
-        <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
-          <AggregationProvider>
-            <RowCountProvider>
-              <GroupPointProvider>
-                <GridToolBar />
-                <div className="w-full grow overflow-hidden sm:pl-2">
-                  {isHydrated && <GridViewBase />}
-                  {graphOpen && <DynamicCellGraph />}
-                </div>
-              </GroupPointProvider>
-            </RowCountProvider>
-          </AggregationProvider>
-        </RecordProvider>
-      </ActionTriggerProvider>
+      <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
+        <AggregationProvider>
+          <RowCountProvider>
+            <GroupPointProvider>
+              <GridToolBar />
+              <div className="w-full grow overflow-hidden sm:pl-2">
+                {isHydrated && <GridViewBase />}
+                {graphOpen && <DynamicCellGraph />}
+              </div>
+            </GroupPointProvider>
+          </RowCountProvider>
+        </AggregationProvider>
+      </RecordProvider>
     </SearchProvider>
   );
 };

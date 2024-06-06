@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { ActionTriggerProvider } from '../action-trigger';
 import { RowCountContext, RowCountProvider } from '../aggregation';
 import { FieldContext, FieldProvider } from '../field';
 import { SearchProvider } from '../query';
@@ -32,15 +31,13 @@ export const AnchorProvider: React.FC<IAnchorProvider> = ({
       {tableId ? (
         <TablePermissionProvider>
           <SearchProvider>
-            <ActionTriggerProvider>
-              <FieldProvider fallback={fallback}>
-                <ViewProvider>
-                  <RecordProvider>
-                    <RowCountProvider>{children}</RowCountProvider>
-                  </RecordProvider>
-                </ViewProvider>
-              </FieldProvider>
-            </ActionTriggerProvider>
+            <FieldProvider fallback={fallback}>
+              <ViewProvider>
+                <RecordProvider>
+                  <RowCountProvider>{children}</RowCountProvider>
+                </RecordProvider>
+              </ViewProvider>
+            </FieldProvider>
           </SearchProvider>
         </TablePermissionProvider>
       ) : (

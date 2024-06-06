@@ -10,8 +10,8 @@ export function getUserNotificationChannel(userId: string) {
   return `__notification_user_${userId}`;
 }
 
-export function getActionTriggerChannel(table: string) {
-  return `__action_trigger_${table}`;
+export function getActionTriggerChannel(tableIdOrViewId: string) {
+  return `__action_trigger_${tableIdOrViewId}`;
 }
 
 export function getBasePermissionUpdateChannel(baseId: string) {

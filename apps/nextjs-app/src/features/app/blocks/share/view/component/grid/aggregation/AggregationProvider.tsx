@@ -1,17 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IGridColumnMeta } from '@teable/core';
+import type { IGridColumnMeta, ITableActionKey, IViewActionKey } from '@teable/core';
 import type { IAggregationRo, IShareViewAggregationsRo } from '@teable/openapi';
 import { getShareViewAggregations } from '@teable/openapi';
-import type { PropKeys } from '@teable/sdk';
 import {
   useView,
   ReactQueryKeys,
   AggregationContext,
-  useActionTrigger,
   useSearch,
+  useViewListener,
+  useTableListener,
 } from '@teable/sdk';
 import type { ReactNode } from 'react';
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
 
 interface IAggregationProviderProps {
@@ -44,8 +44,7 @@ const useAggregationQuery = (): IShareViewAggregationsRo => {
 };
 
 export const AggregationProvider = ({ children }: IAggregationProviderProps) => {
-  const { tableId, viewId, shareId } = useContext(ShareViewPageContext);
-  const { listener } = useActionTrigger();
+  const { tableId, shareId } = useContext(ShareViewPageContext);
   const queryClient = useQueryClient();
   const query = useAggregationQuery();
   const queryRef = useRef(query);
@@ -62,18 +61,17 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
     [query, queryClient, shareId]
   );
 
-  useEffect(() => {
-    const relevantProps: PropKeys[] = [
-      'addRecord',
-      'setRecord',
-      'deleteRecord',
-      'applyViewFilter',
-      'showViewField',
-      'applyViewStatisticFunc',
-    ];
+  const tableMatches = useMemo<ITableActionKey[]>(
+    () => ['setRecord', 'addRecord', 'deleteRecord'],
+    []
+  );
+  useTableListener(tableId, tableMatches, updateViewAggregations);
 
-    listener?.(relevantProps, () => updateViewAggregations(), [tableId, viewId]);
-  }, [listener, tableId, updateViewAggregations, viewId]);
+  const viewMatches = useMemo<IViewActionKey[]>(
+    () => ['applyViewFilter', 'showViewField', 'applyViewStatisticFunc'],
+    []
+  );
+  useViewListener(tableId, viewMatches, updateViewAggregations);
 
   const viewAggregation = useMemo(() => {
     if (!shareViewAggregations) {

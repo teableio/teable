@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { IActionTriggerBuffer, IGridColumn } from '@teable/core';
+import type { ITableActionKey, IGridColumn, IViewActionKey } from '@teable/core';
 import { getActionTriggerChannel, OpName } from '@teable/core';
 import { isEmpty } from 'lodash';
 import { match } from 'ts-pattern';
@@ -51,24 +51,20 @@ export class ActionTriggerListener {
     }
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async handleTableViewUpdate(event: ViewUpdateEvent): Promise<void> {
     if (!this.isValidViewUpdateOperation(event)) {
       return;
     }
 
-    const { tableId, view } = event.payload;
+    const { view } = event.payload;
     const { id: viewId, filter, columnMeta, group } = view;
 
-    const buffer: IActionTriggerBuffer = {
-      applyViewFilter: filter ? [tableId, viewId] : undefined,
-      applyViewGroup: group ? [tableId, viewId] : undefined,
-      applyViewStatisticFunc: columnMeta ? [tableId, viewId] : undefined,
-      showViewField: columnMeta ? [tableId, viewId] : undefined,
-    };
+    const buffer: IViewActionKey[] = [];
+    filter && buffer.push('applyViewFilter');
+    group && buffer.push('applyViewGroup');
 
     if (columnMeta != null) {
-      Object.entries(columnMeta)?.forEach(([fieldId, { oldValue, newValue }]) => {
+      Object.entries(columnMeta)?.forEach(([_fieldId, { oldValue, newValue }]) => {
         const oldColumn = oldValue as IGridColumn;
         const newColumn = newValue as IGridColumn;
 
@@ -76,23 +72,16 @@ export class ActionTriggerListener {
         const shouldApplyStatFunc = oldColumn?.statisticFunc !== newColumn?.statisticFunc;
 
         if (shouldShow) {
-          buffer.showViewField!.push(fieldId);
+          buffer.push('showViewField');
         }
         if (shouldApplyStatFunc) {
-          buffer.applyViewStatisticFunc!.push(fieldId);
+          buffer.push('applyViewStatisticFunc');
         }
       });
-
-      if (buffer.showViewField!.length <= 2) {
-        delete buffer.showViewField;
-      }
-      if (buffer.applyViewStatisticFunc!.length <= 2) {
-        delete buffer.applyViewStatisticFunc;
-      }
     }
 
     if (!isEmpty(buffer)) {
-      this.emitActionTrigger(tableId, buffer);
+      this.emitActionTrigger(viewId, buffer);
     }
   }
 
@@ -102,27 +91,23 @@ export class ActionTriggerListener {
     }
 
     const { tableId } = event.payload;
-    return this.emitActionTrigger(tableId, {
-      setField: [tableId],
-    });
+    return this.emitActionTrigger(tableId, ['setField']);
   }
 
   private async handleTableFieldCreate(event: FieldCreateEvent): Promise<void> {
     const { tableId } = event.payload;
-    return this.emitActionTrigger(tableId, {
-      addField: [tableId],
-    });
+    return this.emitActionTrigger(tableId, ['addField']);
   }
 
   private async handleTableRecordEvent(event: IRecordEvent): Promise<void> {
     const { tableId } = event.payload;
 
     const buffer = match(event)
-      .returnType<IActionTriggerBuffer>()
-      .with({ name: Events.TABLE_RECORD_CREATE }, () => ({ addRecord: [tableId] }))
-      .with({ name: Events.TABLE_RECORD_UPDATE }, () => ({ setRecord: [tableId] }))
-      .with({ name: Events.TABLE_RECORD_DELETE }, () => ({ deleteRecord: [tableId] }))
-      .otherwise(() => ({}));
+      .returnType<ITableActionKey[]>()
+      .with({ name: Events.TABLE_RECORD_CREATE }, () => ['addRecord'])
+      .with({ name: Events.TABLE_RECORD_UPDATE }, () => ['setRecord'])
+      .with({ name: Events.TABLE_RECORD_DELETE }, () => ['deleteRecord'])
+      .otherwise(() => []);
 
     if (!isEmpty(buffer)) {
       this.emitActionTrigger(tableId, buffer);
@@ -162,12 +147,12 @@ export class ActionTriggerListener {
     return recordEvents.includes(event.name);
   }
 
-  private emitActionTrigger(tableId: string, data: IActionTriggerBuffer) {
-    const channel = getActionTriggerChannel(tableId);
+  private emitActionTrigger(tableIdOrViewId: string, data: ITableActionKey[] | IViewActionKey[]) {
+    const channel = getActionTriggerChannel(tableIdOrViewId);
 
     const presence = this.shareDbService.connect().getPresence(channel);
-    const localPresence = presence.create(tableId);
-    localPresence.submit({ ...data, t: new Date().getTime() }, (error) => {
+    const localPresence = presence.create(tableIdOrViewId);
+    localPresence.submit(data, (error) => {
       error && this.logger.error(error);
     });
   }

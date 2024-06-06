@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 import { TeableNew } from '@teable/icons';
-import { ActionTriggerProvider, RecordProvider } from '@teable/sdk/context';
+import { RecordProvider } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { useContext } from 'react';
@@ -24,20 +24,18 @@ export const GridView = () => {
       </div>
       <div className="flex w-full grow flex-col overflow-hidden border md:rounded md:shadow-md">
         <SearchProvider>
-          <ActionTriggerProvider>
-            <RecordProvider serverRecords={records}>
-              <AggregationProvider>
-                <RowCountProvider>
-                  <GroupPointProvider>
-                    <Toolbar />
-                    <div className="w-full grow overflow-hidden">
-                      {isHydrated && <GridViewBase />}
-                    </div>
-                  </GroupPointProvider>
-                </RowCountProvider>
-              </AggregationProvider>
-            </RecordProvider>
-          </ActionTriggerProvider>
+          <RecordProvider serverRecords={records}>
+            <AggregationProvider>
+              <RowCountProvider>
+                <GroupPointProvider>
+                  <Toolbar />
+                  <div className="w-full grow overflow-hidden">
+                    {isHydrated && <GridViewBase />}
+                  </div>
+                </GroupPointProvider>
+              </RowCountProvider>
+            </AggregationProvider>
+          </RecordProvider>
         </SearchProvider>
       </div>
     </div>

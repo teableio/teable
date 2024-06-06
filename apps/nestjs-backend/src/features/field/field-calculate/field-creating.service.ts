@@ -36,6 +36,9 @@ export class FieldCreatingService {
     const newFields: { tableId: string; field: IFieldInstance }[] = [];
     if (field.type === FieldType.Link && !field.isLookup) {
       await this.fieldSupplementService.createForeignKey(field.options);
+      await this.createFieldItem(tableId, field);
+      newFields.push({ tableId, field });
+
       if (field.options.symmetricFieldId) {
         const symmetricField = await this.fieldSupplementService.generateSymmetricField(
           tableId,
@@ -45,8 +48,7 @@ export class FieldCreatingService {
         await this.createFieldItem(field.options.foreignTableId, symmetricField);
         newFields.push({ tableId: field.options.foreignTableId, field: symmetricField });
       }
-      await this.createFieldItem(tableId, field);
-      newFields.push({ tableId, field });
+
       return newFields;
     }
 

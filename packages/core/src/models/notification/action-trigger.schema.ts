@@ -1,19 +1,22 @@
 import { z } from 'zod';
 
-export const actionTriggerBufferValue = z.object({
-  addRecord: z.string().array().optional(),
-  setRecord: z.string().array().optional(),
-  deleteRecord: z.string().array().optional(),
+export const tableActionKeys = z.enum([
+  'addRecord',
+  'setRecord',
+  'deleteRecord',
+  'addField',
+  'setField',
+]);
 
-  addField: z.string().array().optional(),
-  setField: z.string().array().optional(),
+export const viewActionKeys = z.enum([
+  'applyViewFilter',
+  'applyViewGroup',
+  'applyViewStatisticFunc',
+  'showViewField',
+]);
 
-  applyViewFilter: z.string().array().optional(),
-  applyViewGroup: z.string().array().optional(),
-  applyViewStatisticFunc: z.string().array().optional(),
-  showViewField: z.string().array().optional(),
-});
+export const actionTriggerBufferSchema = tableActionKeys;
 
-export const actionTriggerBufferSchema = actionTriggerBufferValue;
+export type ITableActionKey = z.infer<typeof actionTriggerBufferSchema>;
 
-export type IActionTriggerBuffer = z.infer<typeof actionTriggerBufferSchema>;
+export type IViewActionKey = z.infer<typeof viewActionKeys>;

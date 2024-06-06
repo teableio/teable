@@ -1,17 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IKanbanViewOptions } from '@teable/core';
+import type { IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teable/core';
 import { SortFunc, ViewType } from '@teable/core';
 import { getShareViewGroupPoints } from '@teable/openapi';
-import type { PropKeys } from '@teable/sdk';
 import {
   ReactQueryKeys,
-  useActionTrigger,
   GroupPointContext,
   useView,
   useSearch,
+  useTableListener,
+  useViewListener,
 } from '@teable/sdk';
 import type { ReactNode } from 'react';
-import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
 
 interface GroupPointProviderProps {
@@ -20,7 +20,6 @@ interface GroupPointProviderProps {
 
 export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
   const { tableId, viewId, shareId } = useContext(ShareViewPageContext);
-  const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
   const view = useView(viewId);
   const { searchQuery } = useSearch();
@@ -57,19 +56,14 @@ export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
     [query, queryClient, shareId]
   );
 
-  useEffect(() => {
-    if (tableId == null) return;
+  const tableMatches = useMemo<ITableActionKey[]>(
+    () => ['setRecord', 'addRecord', 'deleteRecord', 'setField'],
+    []
+  );
+  useTableListener(tableId, tableMatches, updateGroupPoints);
 
-    const relevantProps: PropKeys[] = [
-      'addRecord',
-      'deleteRecord',
-      'setRecord',
-      'setField',
-      'applyViewFilter',
-    ];
-
-    listener?.(relevantProps, () => updateGroupPoints(), [tableId, viewId]);
-  }, [listener, tableId, updateGroupPoints, viewId]);
+  const viewMatches = useMemo<IViewActionKey[]>(() => ['applyViewFilter'], []);
+  useViewListener(viewId, viewMatches, updateGroupPoints);
 
   const groupPoints = useMemo(() => resGroupPoints?.data || null, [resGroupPoints]);
 

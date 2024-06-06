@@ -1,12 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IKanbanViewOptions } from '@teable/core';
+import type { IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teable/core';
 import { SortFunc, ViewType } from '@teable/core';
 import { getGroupPoints } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
-import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useActionTrigger, useIsHydrated, useSearch, useView } from '../../hooks';
-import type { PropKeys } from '../action-trigger';
+import { useIsHydrated, useSearch, useTableListener, useView, useViewListener } from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { GroupPointContext } from './GroupPointContext';
 
@@ -17,7 +16,6 @@ interface GroupPointProviderProps {
 export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
-  const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
   const view = useView(viewId);
   const { searchQuery } = useSearch();
@@ -50,23 +48,23 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children }) =>
   });
 
   const updateGroupPoints = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.groupPoints(tableId as string, query)),
+    (cleanAll?: boolean) =>
+      queryClient.invalidateQueries(
+        ReactQueryKeys.groupPoints(tableId as string, query).slice(0, cleanAll ? 2 : 3)
+      ),
     [query, queryClient, tableId]
   );
 
-  useEffect(() => {
-    if (tableId == null) return;
+  const updateGroupPointsForTable = useCallback(() => updateGroupPoints(true), [updateGroupPoints]);
 
-    const relevantProps: PropKeys[] = [
-      'addRecord',
-      'deleteRecord',
-      'setRecord',
-      'setField',
-      'applyViewFilter',
-    ];
+  const tableMatches = useMemo<ITableActionKey[]>(
+    () => ['setRecord', 'addRecord', 'deleteRecord', 'setField'],
+    []
+  );
+  useTableListener(tableId, tableMatches, updateGroupPointsForTable);
 
-    listener?.(relevantProps, () => updateGroupPoints(), [tableId, viewId]);
-  }, [listener, tableId, updateGroupPoints, viewId]);
+  const viewMatches = useMemo<IViewActionKey[]>(() => ['applyViewFilter'], []);
+  useViewListener(viewId, viewMatches, updateGroupPoints);
 
   const groupPoints = useMemo(() => resGroupPoints?.data || null, [resGroupPoints]);
 

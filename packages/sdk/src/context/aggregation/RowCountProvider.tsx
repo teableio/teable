@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ITableActionKey, IViewActionKey } from '@teable/core';
 import { getRowCount } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
-import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useActionTrigger, useIsHydrated, useSearch } from '../../hooks';
-import type { PropKeys } from '../action-trigger';
+import { useIsHydrated, useSearch, useTableListener, useViewListener } from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { RowCountContext } from './RowCountContext';
 
@@ -15,7 +15,6 @@ interface RowCountProviderProps {
 export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
-  const { listener } = useActionTrigger();
   const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
 
@@ -29,17 +28,26 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   });
 
   const updateRowCount = useCallback(
-    () => queryClient.invalidateQueries(ReactQueryKeys.rowCount(tableId as string, rowCountQuery)),
+    (cleanAll?: boolean) =>
+      queryClient.invalidateQueries(
+        ReactQueryKeys.rowCount(tableId as string, rowCountQuery).slice(0, cleanAll ? 2 : 3)
+      ),
     [queryClient, tableId, rowCountQuery]
   );
 
-  useEffect(() => {
-    if (tableId == null) return;
+  const updateRowCountForTable = useCallback(() => {
+    console.log('updateRowCountForTable');
+    updateRowCount(true);
+  }, [updateRowCount]);
 
-    const relevantProps: PropKeys[] = ['setRecord', 'addRecord', 'deleteRecord', 'applyViewFilter'];
+  const tableMatches = useMemo<ITableActionKey[]>(
+    () => ['setRecord', 'addRecord', 'deleteRecord'],
+    []
+  );
+  useTableListener(tableId, tableMatches, updateRowCountForTable);
 
-    listener?.(relevantProps, () => updateRowCount(), [tableId, viewId]);
-  }, [listener, tableId, updateRowCount, viewId]);
+  const viewMatches = useMemo<IViewActionKey[]>(() => ['applyViewFilter'], []);
+  useViewListener(viewId, viewMatches, updateRowCount);
 
   const rowCount = useMemo(() => {
     if (!resRowCount) return 0;

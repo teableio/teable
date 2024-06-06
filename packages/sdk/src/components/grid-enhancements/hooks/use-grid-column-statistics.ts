@@ -1,7 +1,7 @@
 import { statisticFunc2NameMap } from '@teable/core';
 import type { IAggregationVo } from '@teable/openapi';
 import { isEmpty, keyBy } from 'lodash';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { IColumnStatistics, IGridColumn } from '../..';
 import { useAggregation } from '../../../hooks/use-aggregation';
 import { useFields } from '../../../hooks/use-fields';
@@ -13,43 +13,42 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
   const fields = useFields({ withHidden: true, withDenied: true });
   const remoteStatistics = useAggregation();
   const [columnStatistics, setColumnStatistics] = useState<IColumnStatistics>({});
-  const columnsRef = useRef(columns);
-  const fieldsRef = useRef(keyBy(fields, 'id'));
-  columnsRef.current = columns;
 
-  fieldsRef.current = useMemo(() => keyBy(fields, 'id'), [fields]);
+  const getColumnStatistics = useCallback(
+    (source: IAggregationVo | null) => {
+      if (source == null) return {};
+      const { aggregations } = source;
+      if (isEmpty(aggregations)) return {};
+      const aggregationMap = keyBy(aggregations, 'fieldId');
+      const fieldMap = keyBy(fields, 'id');
 
-  const getColumnStatistics = (source: IAggregationVo | null) => {
-    if (source == null) return {};
-    const { aggregations } = source;
-    if (isEmpty(aggregations)) return {};
-    const aggregationMap = keyBy(aggregations, 'fieldId');
+      return columns.reduce((acc, column) => {
+        const { id: columnId } = column;
 
-    return columnsRef.current?.reduce((acc, column) => {
-      const { id: columnId } = column;
+        const columnAggregations = aggregationMap[columnId];
 
-      const columnAggregations = aggregationMap[columnId];
+        const { total } = columnAggregations ?? {};
 
-      const { total } = columnAggregations ?? {};
+        if (columnAggregations === null || total === null) {
+          acc[columnId] = null;
+          return acc;
+        }
 
-      if (columnAggregations === null || total === null) {
-        acc[columnId] = null;
+        const field = fieldMap[columnId];
+
+        if (total != null && field != null) {
+          const { aggFunc, value } = total;
+
+          const displayValue = statisticsValue2DisplayValue(aggFunc, value, field);
+          acc[columnId] = {
+            total: `${statisticFunc2NameMap[aggFunc]} ${displayValue}`,
+          };
+        }
         return acc;
-      }
-
-      const field = fieldsRef.current[columnId];
-
-      if (total != null && field != null) {
-        const { aggFunc, value } = total;
-
-        const displayValue = statisticsValue2DisplayValue(aggFunc, value, field);
-        acc[columnId] = {
-          total: `${statisticFunc2NameMap[aggFunc]} ${displayValue}`,
-        };
-      }
-      return acc;
-    }, {} as IColumnStatistics);
-  };
+      }, {} as IColumnStatistics);
+    },
+    [columns, fields]
+  );
 
   useEffect(() => {
     if (remoteStatistics == null || viewId == null) return;
@@ -58,7 +57,7 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
     if (partialColumnStatistics == null) return;
 
     setColumnStatistics(partialColumnStatistics);
-  }, [remoteStatistics, viewId]);
+  }, [getColumnStatistics, remoteStatistics, viewId]);
 
   return { columnStatistics };
 }
