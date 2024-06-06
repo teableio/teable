@@ -9,7 +9,7 @@ export const CellEditor = (props: ICellValueEditor) => {
   return (
     <div style={wrapStyle} className={wrapClassName}>
       {isComputed ? (
-        <ComputedEditor cellValueString={field.cellValue2String(cellValue)} />
+        <ComputedEditor field={field} cellValue={cellValue} />
       ) : (
         <CellEditorMain {...props} />
       )}

@@ -13,6 +13,6 @@ export class TypedValue<T = any> {
   ) {}
 
   toPlain(): any {
-    return this.value;
+    return this.value === false ? null : this.value;
   }
 }

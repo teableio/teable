@@ -197,4 +197,9 @@ describe('EvalVisitor', () => {
   it('should calculate multiple link field', () => {
     expect(evalFormula('{fldMultipleLink} & "x"', fieldContext, record)).toEqual(',A2x');
   });
+
+  it('should return null when the value is false', () => {
+    const result = evaluate('1 > 2', {});
+    expect(result.toPlain()).toEqual(null);
+  });
 });

@@ -5,6 +5,7 @@ import type { IGetRecordsRo, IGroupHeaderPoint, IGroupPointsVo } from '@teable/o
 import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
 import type { GridView, IFieldInstance } from '../../../model';
+import { shouldFilterByDefaultValue } from '../../filter/utils';
 import { useGridCollapsedGroupStore } from '../store';
 
 const FILTER_RELATED_FILED_TYPE_SET = new Set([
@@ -28,7 +29,7 @@ export const generateFilterItem = (field: IFieldInstance, value: unknown) => {
   let operator: IOperator = isNot.value;
   const { id: fieldId, type, isMultipleCellValue } = field;
 
-  if (type === FieldType.Checkbox) {
+  if (shouldFilterByDefaultValue(field)) {
     operator = is.value;
     value = !value || null;
   } else if (value == null) {

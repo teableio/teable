@@ -182,6 +182,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
     return (
       value !== null ||
       field.type === FieldType.Checkbox ||
+      (field.type === FieldType.Formula && field.cellValueType === CellValueType.Boolean) ||
       ([isEmpty.value, isNotEmpty.value] as string[]).includes(operator)
     );
   }
