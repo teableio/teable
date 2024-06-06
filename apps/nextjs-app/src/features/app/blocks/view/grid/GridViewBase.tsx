@@ -108,7 +108,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const group = view?.group;
   const isAutoSort = sort && !sort?.manualSort;
   const frozenColumnCount = isTouchDevice ? 0 : view?.options?.frozenColumnCount ?? 1;
-  const isLoading = !view;
+  const isLoading = !view || !columns.length;
   const permission = useTablePermission();
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
@@ -697,9 +697,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       ) : (
         <div className="flex w-full items-center space-x-4">
           <div className="w-full space-y-3 px-2">
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
           </div>
         </div>
       )}
