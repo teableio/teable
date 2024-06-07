@@ -1,4 +1,3 @@
-import type { IHttpError } from '@teable/core';
 import type { ReactElement } from 'react';
 import { Design } from '@/features/app/blocks/design/Design';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
@@ -16,30 +15,19 @@ const Node: NextPageWithLayout<IDesignPageProps> = (props) => {
 
 export const getServerSideProps = withAuthSSR<IDesignPageProps>(async (context, ssrApi) => {
   const { tableId, baseId } = context.query;
-  try {
-    const pageData = await getDesignPageServerData(ssrApi, baseId as string, tableId as string);
-    if (pageData) {
-      const { i18nNamespaces } = tableConfig;
-      return {
-        props: {
-          ...pageData,
-          ...(await getTranslationsProps(context, i18nNamespaces)),
-        },
-      };
-    }
+  const pageData = await getDesignPageServerData(ssrApi, baseId as string, tableId as string);
+  if (pageData) {
+    const { i18nNamespaces } = tableConfig;
     return {
-      notFound: true,
+      props: {
+        ...pageData,
+        ...(await getTranslationsProps(context, i18nNamespaces)),
+      },
     };
-  } catch (e) {
-    const error = e as IHttpError;
-    if (error.status < 500) {
-      return {
-        notFound: true,
-      };
-    }
-    console.error(error);
-    throw error;
   }
+  return {
+    notFound: true,
+  };
 });
 
 Node.getLayout = function getLayout(page: ReactElement, pageProps: IViewPageProps) {

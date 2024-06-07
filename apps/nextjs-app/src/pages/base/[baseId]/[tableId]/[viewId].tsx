@@ -1,4 +1,3 @@
-import type { IHttpError } from '@teable/core';
 import type { ReactElement } from 'react';
 import type { ITableProps } from '@/features/app/blocks/table/Table';
 import { Table } from '@/features/app/blocks/table/Table';
@@ -30,53 +29,42 @@ const Node: NextPageWithLayout<ITableProps> = ({
 
 export const getServerSideProps = withAuthSSR<IViewPageProps>(async (context, ssrApi) => {
   const { tableId, viewId, baseId, recordId, fromNotify: notifyId } = context.query;
-  try {
-    let recordServerData;
-    if (recordId) {
-      if (notifyId) {
-        await ssrApi.updateNotificationStatus(notifyId as string, { isRead: true });
-      }
-
-      recordServerData = await ssrApi.getRecord(tableId as string, recordId as string);
-
-      if (!recordServerData) {
-        return {
-          redirect: {
-            destination: `/base/${baseId}/${tableId}/${viewId}`,
-            permanent: false,
-          },
-        };
-      }
+  let recordServerData;
+  if (recordId) {
+    if (notifyId) {
+      await ssrApi.updateNotificationStatus(notifyId as string, { isRead: true });
     }
-    const serverData = await getViewPageServerData(
-      ssrApi,
-      baseId as string,
-      tableId as string,
-      viewId as string
-    );
-    if (serverData) {
-      const { i18nNamespaces } = tableConfig;
+
+    recordServerData = await ssrApi.getRecord(tableId as string, recordId as string);
+
+    if (!recordServerData) {
       return {
-        props: {
-          ...serverData,
-          ...(recordServerData ? { recordServerData } : {}),
-          ...(await getTranslationsProps(context, i18nNamespaces)),
+        redirect: {
+          destination: `/base/${baseId}/${tableId}/${viewId}`,
+          permanent: false,
         },
       };
     }
-    return {
-      notFound: true,
-    };
-  } catch (e) {
-    const error = e as IHttpError;
-    if (error.status < 500) {
-      return {
-        notFound: true,
-      };
-    }
-    console.error(error);
-    throw error;
   }
+  const serverData = await getViewPageServerData(
+    ssrApi,
+    baseId as string,
+    tableId as string,
+    viewId as string
+  );
+  if (serverData) {
+    const { i18nNamespaces } = tableConfig;
+    return {
+      props: {
+        ...serverData,
+        ...(recordServerData ? { recordServerData } : {}),
+        ...(await getTranslationsProps(context, i18nNamespaces)),
+      },
+    };
+  }
+  return {
+    notFound: true,
+  };
 });
 
 Node.getLayout = function getLayout(page: ReactElement, pageProps: IViewPageProps) {
