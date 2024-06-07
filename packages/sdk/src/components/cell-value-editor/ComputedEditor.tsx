@@ -1,7 +1,7 @@
 import { CellValueType } from '@teable/core';
 import { Input } from '@teable/ui-lib';
 import type { Field } from '../../model';
-import { CheckboxEditor } from '../editor';
+import { CellCheckbox } from '../cell-value/cell-checkbox';
 
 interface IComputedEditorProps {
   field: Field;
@@ -13,7 +13,7 @@ export const ComputedEditor = (props: IComputedEditorProps) => {
   const { cellValueType } = field;
 
   if (cellValueType === CellValueType.Boolean) {
-    return <CheckboxEditor value={cellValue as boolean} readonly />;
+    return <CellCheckbox value={cellValue as boolean | boolean[]} itemClassName="size-6" />;
   }
 
   return (

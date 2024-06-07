@@ -23,7 +23,7 @@ export const RecordEditorItem = (props: {
 
   return (
     <div className={vertical ? 'flex space-x-2' : 'space-y-2'}>
-      <div className={cn('w-36 flex items-top space-x-1', vertical ? 'pt-2' : 'w-full')}>
+      <div className={cn('w-36 flex items-top space-x-1', vertical ? 'pt-1' : 'w-full')}>
         <div className="flex size-5 items-center">
           <Icon />
         </div>
