@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
-import type { ICopyVo, IRangesToIdVo, IPasteVo } from '@teable/openapi';
+import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
+import type { ICopyVo, IRangesToIdVo, IPasteVo, IDeleteVo } from '@teable/openapi';
 import {
   IRangesToIdQuery,
   rangesToIdQuerySchema,
@@ -56,5 +56,14 @@ export class SelectionController {
   ) {
     await this.selectionService.clear(tableId, rangesRo);
     return null;
+  }
+
+  @Permissions('record|delete')
+  @Delete('/delete')
+  async delete(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
+  ): Promise<IDeleteVo> {
+    return this.selectionService.delete(tableId, rangesRo);
   }
 }

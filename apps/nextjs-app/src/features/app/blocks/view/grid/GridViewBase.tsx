@@ -127,7 +127,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     viewGroupQuery
   );
 
-  const { copy, paste, clear } = useSelectionOperation({ filter: viewGroupQuery?.filter });
+  const { copy, paste, clear, deleteRecords } = useSelectionOperation({
+    filter: viewGroupQuery?.filter,
+  });
 
   const {
     prefillingRowIndex,
@@ -287,11 +289,20 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
         }
 
+        const selectedRecordCount = isCellSelection
+          ? rowEnd - rowStart + 1
+          : ranges.reduce((acc, cur) => acc + cur[1] - cur[0] + 1, 0);
+
         openRecordMenu({
           position,
           records,
           fields: selectFields,
           neighborRecords,
+          selectedRecordCount,
+          deleteRecords: async (selection) => {
+            deleteRecords(selection);
+            gridRef.current?.setSelection(emptySelection);
+          },
           onAfterInsertCallback: callbackForPrefilling,
         });
       }
@@ -308,10 +319,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       columns,
       recordMap,
       fields,
-      realRowCount,
       openRecordMenu,
-      openHeaderMenu,
+      deleteRecords,
       callbackForPrefilling,
+      realRowCount,
+      openHeaderMenu,
     ]
   );
 

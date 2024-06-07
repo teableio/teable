@@ -6,6 +6,7 @@ import {
   FieldType,
   MultiNumberDisplayType,
   Relationship,
+  SortFunc,
   defaultNumberFormatting,
 } from '@teable/core';
 import type { IFieldRo } from '@teable/core';
@@ -17,6 +18,8 @@ import {
   copy as apiCopy,
   paste as apiPaste,
   getFields,
+  deleteSelection,
+  updateViewFilter,
 } from '@teable/openapi';
 import { createField, getRecord, initApp, createTable, deleteTable } from './utils/init-app';
 
@@ -381,6 +384,113 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const fields = (await getFields(table1.id, { viewId: table1.views[0].id })).data;
       expect(fields[4].type).toEqual(numberField.type);
       expect(fields[4].options).toEqual(numberField.options);
+    });
+  });
+
+  describe('api/table/:tableId/selection/delete (DELETE)', () => {
+    let table: ITableFullVo;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'table2',
+        fields: [
+          {
+            name: 'name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'number',
+            type: FieldType.Number,
+          },
+        ],
+        records: [
+          { fields: { name: 'test', number: 1 } },
+          { fields: { name: 'test2', number: 2 } },
+          { fields: { name: 'test', number: 1 } },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, table.id);
+    });
+
+    it('should delete selected data', async () => {
+      const viewId = table.views[0].id;
+      const result = await deleteSelection(table.id, {
+        viewId,
+        type: RangeType.Rows,
+        ranges: [
+          [0, 0],
+          [2, 2],
+        ],
+      });
+      console.log('result.data.ids', result.data.ids, table.records[0].id, table.records[2].id);
+      expect(result.data.ids).toEqual([table.records[0].id, table.records[2].id]);
+    });
+
+    it('should delete selected data with filter', async () => {
+      const viewId = table.views[0].id;
+      const result = await deleteSelection(table.id, {
+        viewId,
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'test',
+              operator: 'is',
+            },
+          ],
+        },
+      });
+      expect(result.data.ids).toEqual([table.records[0].id, table.records[2].id]);
+    });
+
+    it('should delete selected data with orderBy', async () => {
+      const viewId = table.views[0].id;
+      const result = await deleteSelection(table.id, {
+        viewId,
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+        orderBy: [
+          {
+            fieldId: table.fields[0].id,
+            order: SortFunc.Desc,
+          },
+        ],
+      });
+      expect(result.data.ids).toEqual([table.records[1].id, table.records[0].id]);
+    });
+
+    it('should delete selected data with view filter', async () => {
+      const viewId = table.views[0].id;
+      await updateViewFilter(table.id, viewId, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'test',
+              operator: 'is',
+            },
+          ],
+        },
+      });
+      const result = await deleteSelection(table.id, {
+        viewId,
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+      });
+      expect(result.data.ids).toEqual([table.records[0].id, table.records[2].id]);
     });
   });
 });

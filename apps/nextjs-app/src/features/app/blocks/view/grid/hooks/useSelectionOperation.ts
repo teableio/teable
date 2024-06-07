@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { IAttachmentCellValue, IFilter } from '@teable/core';
 import { AttachmentFieldCore } from '@teable/core';
 import type { ICopyVo, IPasteRo, IRangesRo } from '@teable/openapi';
-import { clear, copy, paste, RangeType } from '@teable/openapi';
+import { clear, copy, deleteSelection, paste, RangeType } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
 import {
   SelectionRegionType,
@@ -112,6 +112,11 @@ export const useSelectionOperation = (props?: {
   const { mutateAsync: clearReq } = useMutation({
     mutationFn: (clearRo: IRangesRo) =>
       clear(tableId!, { ...clearRo, viewId, groupBy, filter, search }),
+  });
+
+  const { mutateAsync: deleteReq } = useMutation({
+    mutationFn: (deleteRo: IRangesRo) =>
+      deleteSelection(tableId!, { ...deleteRo, viewId, groupBy, filter, search }),
   });
 
   const { toast } = useToast();
@@ -277,5 +282,26 @@ export const useSelectionOperation = (props?: {
     [tableId, toast, viewId, clearReq]
   );
 
-  return { copy: doCopy, paste: doPaste, clear: doClear };
+  const doDelete = useCallback(
+    async (selection: CombinedSelection) => {
+      if (!viewId || !tableId) {
+        return;
+      }
+      const toaster = toast({
+        title: 'Deleting...',
+      });
+      const ranges = selection.serialize();
+      const type = rangeTypes[selection.type];
+
+      await deleteReq({
+        ranges,
+        ...(type ? { type } : {}),
+      });
+
+      toaster.update({ id: toaster.id, title: 'Delete success!' });
+    },
+    [deleteReq, tableId, toast, viewId]
+  );
+
+  return { copy: doCopy, paste: doPaste, clear: doClear, deleteRecords: doDelete };
 };

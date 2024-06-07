@@ -1,6 +1,5 @@
 import { FieldKeyType } from '@teable/core';
 import { Trash, ArrowUp, ArrowDown } from '@teable/icons';
-import { deleteRecords } from '@teable/openapi';
 import { SelectionRegionType } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Record } from '@teable/sdk/model';
@@ -56,11 +55,12 @@ export const RecordMenu = () => {
 
   if (recordMenu == null) return null;
 
-  const { records, onAfterInsertCallback } = recordMenu;
-  if (!records?.length) return null;
+  const { records, selectedRecordCount, onAfterInsertCallback } = recordMenu;
+  if (!records?.length && selectedRecordCount === 0) return null;
 
   const visible = Boolean(recordMenu);
   const position = recordMenu?.position;
+  const isMultipleSelected = selectedRecordCount > 1;
   const isAutoSort = Boolean(view?.sort && !view.sort?.manualSort);
   const style = position
     ? {
@@ -105,7 +105,7 @@ export const RecordMenu = () => {
         type: MenuItemType.InsertAbove,
         name: t('table:menu.insertRecordAbove'),
         icon: <ArrowUp className={iconClassName} />,
-        hidden: records.length !== 1 || !permission['record|create'],
+        hidden: isMultipleSelected || !permission['record|create'],
         disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId) return;
@@ -116,7 +116,7 @@ export const RecordMenu = () => {
         type: MenuItemType.InsertBelow,
         name: t('table:menu.insertRecordBelow'),
         icon: <ArrowDown className={iconClassName} />,
-        hidden: records.length !== 1 || !permission['record|create'],
+        hidden: isMultipleSelected || !permission['record|create'],
         disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId) return;
@@ -127,16 +127,16 @@ export const RecordMenu = () => {
     [
       {
         type: MenuItemType.Delete,
-        name:
-          records.length > 1
-            ? t('table:menu.deleteAllSelectedRecords')
-            : t('table:menu.deleteRecord'),
+        name: isMultipleSelected
+          ? t('table:menu.deleteAllSelectedRecords')
+          : t('table:menu.deleteRecord'),
         icon: <Trash className={iconClassName} />,
         hidden: !permission['record|delete'],
         className: 'text-red-500 aria-selected:text-red-500',
         onClick: async () => {
-          const recordIds = records.map((r) => r.id);
-          tableId && (await deleteRecords(tableId, recordIds));
+          if (recordMenu && tableId && recordMenu.deleteRecords && selection) {
+            await recordMenu.deleteRecords(selection);
+          }
         },
       },
     ],
