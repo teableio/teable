@@ -26,19 +26,17 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     <>
       {isMobile ? (
         <SheetWrapper>
-          <div className="flex size-full flex-col overflow-hidden bg-popover">
+          <div className="flex size-full flex-col overflow-hidden bg-popover p-5">
             <SidebarHeader headerLeft={headerLeft} />
             {children}
           </div>
         </SheetWrapper>
       ) : (
         <div
-          className={cn('transition-all flex w-0 border-r will-change-auto flex-shrink-0 h-full', {
+          className={cn('flex w-0 border-r flex-shrink-0 h-full', {
             'overflow-hidden': !leftVisible,
+            'w-72': leftVisible,
           })}
-          style={{
-            width: leftVisible ? `${SIDE_BAR_WIDTH}px` : '',
-          }}
         >
           <div className="flex size-full flex-col overflow-hidden bg-popover">
             <SidebarHeader headerLeft={headerLeft} onExpand={() => setLeftVisible(!leftVisible)} />
