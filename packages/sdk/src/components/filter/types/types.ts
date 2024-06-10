@@ -32,6 +32,10 @@ interface IConditionCommon {
   conjunction: IConjunction;
   level: number;
   path: IFiltersPath;
+  customFieldValue?: (
+    filter: IFilterItem,
+    onSelect: (value: IFilterItem['value']) => void
+  ) => JSX.Element;
 }
 
 interface IConditionProps extends IConditionCommon {
