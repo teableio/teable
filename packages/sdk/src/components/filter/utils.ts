@@ -1,5 +1,5 @@
 import type { IFilter } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { CellValueType, FieldType } from '@teable/core';
 import { cloneDeep } from 'lodash';
 import type { IFieldInstance } from '../../model';
 import { operatorLabelMapping, fieldNumberLabelMap, EMPTY_OPERATORS } from './constant';
@@ -13,6 +13,16 @@ export const getFieldOperatorMapping = (type?: FieldType) => {
   return mergedMapping;
 };
 
+export const shouldFilterByDefaultValue = (field: IFieldInstance | undefined) => {
+  if (!field) return false;
+
+  const { type, cellValueType } = field;
+  return (
+    type === FieldType.Checkbox ||
+    (type === FieldType.Formula && cellValueType === CellValueType.Boolean)
+  );
+};
+
 export const getFilterFieldIds = (
   filter: NonNullable<IFilter>['filterSet'],
   fieldMap: Record<string, IFieldInstance>
@@ -21,12 +31,13 @@ export const getFilterFieldIds = (
 
   filter.forEach((item) => {
     if (isFilterItem(item)) {
-      // checkbox's default value is null, but it does work
+      // The checkbox field and the formula field, when the cellValueType is Boolean, have a default value of null, but they can still work
+      const field = fieldMap[item.fieldId];
       if (
         item.value === 0 ||
         item.value ||
         EMPTY_OPERATORS.includes(item.operator) ||
-        fieldMap[item.fieldId]?.type === FieldType.Checkbox
+        shouldFilterByDefaultValue(field)
       ) {
         filterIds.add(item.fieldId);
       }

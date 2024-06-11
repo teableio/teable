@@ -3,7 +3,7 @@ import { getValidFilterOperators } from '@teable/core';
 import { useMemo, useContext } from 'react';
 import { BaseSingleSelect } from '../component';
 import { FilterContext } from '../context';
-import { getFieldOperatorMapping } from '../utils';
+import { getFieldOperatorMapping, shouldFilterByDefaultValue } from '../utils';
 
 interface IOperatorOptions {
   value: IFilterOperator;
@@ -30,9 +30,8 @@ function OperatorSelect(props: IOperatorSelectProps) {
     }
     return [] as IOperatorOptions[];
   }, [field, labelMapping]);
-  const shouldDisabled = useMemo(() => {
-    return field?.type === 'checkbox';
-  }, [field]);
+
+  const shouldDisabled = useMemo(() => shouldFilterByDefaultValue(field), [field]);
 
   return (
     <BaseSingleSelect

@@ -16,7 +16,7 @@ export const CellCheckbox = (props: ICellCheckbox) => {
   }, [value]);
 
   return (
-    <div className={cn('flex', className)} style={style}>
+    <div className={cn('flex gap-x-1', className)} style={style}>
       {innerValue?.map((val, index) => {
         return (
           <Checkbox key={index} className={cn('size-5', itemClassName)} checked={Boolean(val)} />

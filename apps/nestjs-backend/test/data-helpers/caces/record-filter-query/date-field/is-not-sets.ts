@@ -21,7 +21,7 @@ export const IS_NOT_SETS = [
       mode: today.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -30,7 +30,7 @@ export const IS_NOT_SETS = [
       mode: tomorrow.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -39,7 +39,7 @@ export const IS_NOT_SETS = [
       mode: yesterday.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -48,7 +48,7 @@ export const IS_NOT_SETS = [
       mode: oneWeekAgo.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -57,7 +57,7 @@ export const IS_NOT_SETS = [
       mode: oneWeekFromNow.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -66,7 +66,7 @@ export const IS_NOT_SETS = [
       mode: oneMonthAgo.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -75,7 +75,7 @@ export const IS_NOT_SETS = [
       mode: oneMonthFromNow.value,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -85,7 +85,7 @@ export const IS_NOT_SETS = [
       numberOfDays: 1,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -95,7 +95,7 @@ export const IS_NOT_SETS = [
       numberOfDays: 1,
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
   {
     fieldIndex: 3,
@@ -105,6 +105,6 @@ export const IS_NOT_SETS = [
       exactDate: '2019-12-31T16:00:00.000Z',
       timeZone: 'Asia/Singapore',
     },
-    expectResultLength: 16,
+    expectResultLength: 22,
   },
 ];

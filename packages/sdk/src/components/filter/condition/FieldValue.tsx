@@ -1,5 +1,5 @@
 import type { IDateFilter, IFilterItem } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { CellValueType, FieldType } from '@teable/core';
 
 import { Input } from '@teable/ui-lib';
 import { useContext, useMemo } from 'react';
@@ -134,6 +134,12 @@ function FieldValue(props: IFieldValue) {
         return <UserComponents {...props} />;
       }
       return <FilterUserSelect {...props} />;
+    }
+    case FieldType.Formula: {
+      if (field.cellValueType === CellValueType.Boolean) {
+        return <FilterCheckbox value={filter.value as boolean} onChange={onSelect} />;
+      }
+      return InputComponent;
     }
     default:
       return InputComponent;

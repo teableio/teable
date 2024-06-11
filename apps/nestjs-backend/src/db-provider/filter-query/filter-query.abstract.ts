@@ -181,7 +181,7 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   private shouldKeepFilterItem(value: unknown, field: IFieldInstance, operator: string): boolean {
     return (
       value !== null ||
-      field.type === FieldType.Checkbox ||
+      field.cellValueType === CellValueType.Boolean ||
       ([isEmpty.value, isNotEmpty.value] as string[]).includes(operator)
     );
   }
