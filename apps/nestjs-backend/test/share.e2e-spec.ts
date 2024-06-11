@@ -14,8 +14,9 @@ import {
   updateViewColumnMeta as apiUpdateViewColumnMeta,
   updateViewShareMeta as apiUpdateViewShareMeta,
   SHARE_VIEW_COPY,
+  SHARE_VIEW_AUTH,
 } from '@teable/openapi';
-import type { ITableFullVo, ShareViewGetVo } from '@teable/openapi';
+import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
 import { getError } from './utils/get-error';
@@ -97,6 +98,41 @@ describe('OpenAPI ShareController (e2e)', () => {
         urlBuilder(SHARE_VIEW_GET, { shareId: formViewShareId })
       );
       expect(resultData.data.records).toEqual([]);
+    });
+
+    it('password in grid view', async () => {
+      const result = await createView(tableId, gridViewRo);
+      const gridViewId = result.id;
+      const shareResult = await apiEnableShareView({ tableId, viewId: gridViewId });
+      const gridViewShareId = shareResult.data.shareId;
+      await apiUpdateViewShareMeta(tableId, gridViewId, { password: '123123123' });
+      const error = await getError(() =>
+        anonymousUser.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId: gridViewShareId }))
+      );
+      expect(error?.status).toEqual(401);
+    });
+
+    it('password in grid view had auth', async () => {
+      const result = await createView(tableId, gridViewRo);
+      const gridViewId = result.id;
+      const shareResult = await apiEnableShareView({ tableId, viewId: gridViewId });
+      const gridViewShareId = shareResult.data.shareId;
+      await apiUpdateViewShareMeta(tableId, gridViewId, { password: '123123123' });
+      const res = await anonymousUser.post<ShareViewAuthVo>(
+        urlBuilder(SHARE_VIEW_AUTH, { shareId: gridViewShareId }),
+        {
+          password: '123123123',
+        }
+      );
+      const resultData = await anonymousUser.get<ShareViewGetVo>(
+        urlBuilder(SHARE_VIEW_GET, { shareId: gridViewShareId }),
+        {
+          headers: {
+            cookie: res.headers['set-cookie'],
+          },
+        }
+      );
+      expect(resultData.data.viewId).toEqual(gridViewId);
     });
   });
 

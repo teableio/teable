@@ -9,7 +9,6 @@ export const createAnonymousUserAxios = (appUrl: string) => {
   });
 
   anonymousAxios.interceptors.request.use((config) => {
-    config.headers.Cookie = undefined;
     config.headers['X-Anonymous-User'] = true;
     return config;
   });
