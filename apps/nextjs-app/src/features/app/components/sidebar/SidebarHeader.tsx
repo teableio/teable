@@ -11,7 +11,7 @@ export const SidebarHeader = (prop: ISidebarHeaderProps) => {
   const { headerLeft, onExpand } = prop;
 
   return (
-    <div className="m-2 flex items-center gap-1">
+    <div className="m-2 flex h-7 items-center gap-1">
       {headerLeft}
       <div className="grow basis-0" />
       {onExpand && (

@@ -16,7 +16,7 @@ import { FieldValue } from './FieldValue';
 import { OperatorSelect } from './OperatorSelect';
 
 function Condition(props: IConditionProps) {
-  const { index, filter, path, conjunction } = props;
+  const { index, filter, path, conjunction, customFieldValue } = props;
   const { fieldId, value, operator } = filter;
   const context = useContext(FilterContext);
   const { setFilters, deleteCondition, fields } = context;
@@ -94,7 +94,11 @@ function Condition(props: IConditionProps) {
 
         <OperatorSelect value={operator} fieldId={fieldId} onSelect={operatorHandler} />
 
-        <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
+        {customFieldValue ? (
+          customFieldValue(filter, (value) => fieldValueHandler(value))
+        ) : (
+          <FieldValue filter={filter} onSelect={fieldValueHandler}></FieldValue>
+        )}
 
         <Button
           variant="outline"

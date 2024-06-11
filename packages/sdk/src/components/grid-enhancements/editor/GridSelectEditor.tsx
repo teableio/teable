@@ -21,7 +21,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<string | string[] | undefined>,
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
-  const { field, record, rect, style, isEditing } = props;
+  const { field, record, rect, style, isEditing, setEditing } = props;
   const tableId = useTableId();
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
@@ -59,6 +59,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 
   const onChange = (value?: string[] | string) => {
     record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value);
+    if (!isMultiple) setEditing?.(false);
   };
 
   const onOptionAdd = useCallback(

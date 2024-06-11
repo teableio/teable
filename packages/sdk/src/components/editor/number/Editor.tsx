@@ -13,7 +13,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INum
   props,
   ref
 ) => {
-  const { value, options, onChange, className, readonly, style } = props;
+  const { value, options, onChange, className, readonly, style, saveOnBlur = true } = props;
   const { formatting } = options;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [formatStr, setFormatStr] = useState<string | null>(
@@ -47,7 +47,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INum
       className={cn('h-10 sm:h-8', className)}
       value={formatStr || ''}
       onChange={onChangeInner}
-      onBlur={saveValue}
+      onBlur={() => saveOnBlur && saveValue()}
       disabled={readonly}
     />
   );

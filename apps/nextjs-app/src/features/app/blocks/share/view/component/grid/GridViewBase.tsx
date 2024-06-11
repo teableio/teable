@@ -57,7 +57,6 @@ export const GridViewBase = () => {
   const router = useRouter();
   const isHydrated = useIsHydrated();
   const groupPoints = useGroupPoint();
-  const prepare = isHydrated && view;
   const gridRef = useRef<IGridRef>(null);
   const container = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
@@ -76,6 +75,7 @@ export const GridViewBase = () => {
   const hiddenFields = useHiddenFields();
   const customIcons = useGridIcons();
 
+  const prepare = isHydrated && view && columns.length;
   const { filter, sort, group } = view ?? {};
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
@@ -242,9 +242,9 @@ export const GridViewBase = () => {
       ) : (
         <div className="flex w-full items-center space-x-4">
           <div className="w-full space-y-3 px-2">
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
           </div>
         </div>
       )}

@@ -17,8 +17,6 @@ interface ISelectionKeyboardProps
   editorRef: React.MutableRefObject<IEditorRef | null>;
 }
 
-export const GRID_HOTKEY_SCOPE = 'grid-hotkey-scope';
-
 export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   const {
     isEditing,
@@ -44,7 +42,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: !isEditing && selection.type !== SelectionRegionType.None,
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
@@ -105,7 +102,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: Boolean(activeCell && !isEditing),
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
@@ -126,7 +122,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: Boolean(activeCell),
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
@@ -142,7 +137,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: Boolean(activeCell && !isEditing),
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
@@ -159,7 +153,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: Boolean(activeCell && !isEditing),
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
@@ -192,7 +185,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: Boolean(activeCell),
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
@@ -204,7 +196,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: Boolean(activeCell),
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );
@@ -217,7 +208,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: Boolean(activeCell && !isEditing),
-      scopes: GRID_HOTKEY_SCOPE,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );

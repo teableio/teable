@@ -25,11 +25,16 @@ const defaultGroupFilter: NonNullable<IFilter> = {
   conjunction: 'or',
 };
 
-interface IFilterMainProps
-  extends Pick<IFilterBaseProps, 'filters' | 'fields' | 'components' | 'context' | 'onChange'> {}
+export interface IFilterMainProps
+  extends Pick<IFilterBaseProps, 'filters' | 'fields' | 'components' | 'context' | 'onChange'> {
+  customFieldValue?: (
+    filter: IFilterItem,
+    onSelect: (value: IFilterItem['value']) => void
+  ) => JSX.Element;
+}
 
 export const FilterMain = (props: IFilterMainProps) => {
-  const { filters: initFilter, fields, components, context, onChange } = props;
+  const { filters: initFilter, fields, components, context, onChange, customFieldValue } = props;
 
   const { t } = useTranslation();
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
@@ -134,7 +139,7 @@ export const FilterMain = (props: IFilterMainProps) => {
     const initLevel = 0;
 
     return (
-      <div className="max-h-96 overflow-auto ">
+      <div className="max-h-96 overflow-auto">
         {filters?.filterSet?.map((filterItem, index) =>
           isFilterItem(filterItem) ? (
             <Condition
@@ -144,6 +149,7 @@ export const FilterMain = (props: IFilterMainProps) => {
               conjunction={filters.conjunction}
               level={initLevel}
               path={['filterSet', index]}
+              customFieldValue={customFieldValue}
             />
           ) : (
             <ConditionGroup
@@ -153,12 +159,13 @@ export const FilterMain = (props: IFilterMainProps) => {
               conjunction={filters.conjunction}
               level={initLevel}
               path={['filterSet', index]}
+              customFieldValue={customFieldValue}
             />
           )
         )}
       </div>
     );
-  }, [filters?.conjunction, filters?.filterSet]);
+  }, [filters?.conjunction, filters?.filterSet, customFieldValue]);
 
   return (
     <FilterContext.Provider

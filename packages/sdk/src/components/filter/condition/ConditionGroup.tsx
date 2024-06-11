@@ -22,7 +22,7 @@ import { Condition } from './Condition';
 import { Conjunction } from './Conjunction';
 
 function ConditionGroup(props: IConditionGroupProps) {
-  const { index, filter, level, path, conjunction } = props;
+  const { index, filter, level, path, conjunction, ...restProp } = props;
   const { filterSet } = filter;
   const context = useContext(FilterContext);
   const { t } = useTranslation();
@@ -40,18 +40,13 @@ function ConditionGroup(props: IConditionGroupProps) {
             setFilters(newPath, value);
           }}
         ></Conjunction>
-        <div
-          className={cn(
-            'm-h-20 w-full rounded-sm border ml-2'
-            // level > 0 ? 'bg-secondary' : 'bg-secondary/2'
-          )}
-        >
-          <div className="flex justify-between p-1">
-            <span className="rounded pl-2 text-[13px] leading-10 text-muted-foreground">
+        <div className={cn('m-h-20 flex-1 rounded-sm border ml-2')}>
+          <div className="flex items-center justify-between p-1">
+            <span className="text-nowrap rounded pl-2 text-[13px] leading-10 text-muted-foreground">
               {t('filter.groupDescription')}
             </span>
 
-            <div>
+            <div className="flex">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">
@@ -106,6 +101,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                   level={level + 1}
                   conjunction={filter.conjunction}
                   path={[...path, 'filterSet', index]}
+                  {...restProp}
                 />
               ) : (
                 <ConditionGroup
@@ -115,6 +111,7 @@ function ConditionGroup(props: IConditionGroupProps) {
                   level={level + 1}
                   conjunction={filter.conjunction}
                   path={[...path, 'filterSet', index]}
+                  {...restProp}
                 />
               )
             )}

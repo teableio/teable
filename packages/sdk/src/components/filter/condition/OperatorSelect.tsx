@@ -1,8 +1,8 @@
 import type { IFilterOperator } from '@teable/core';
 import { getValidFilterOperators } from '@teable/core';
-import { useMemo } from 'react';
-import { useField } from '../../../hooks';
+import { useMemo, useContext } from 'react';
 import { BaseSingleSelect } from '../component';
+import { FilterContext } from '../context';
 import { getFieldOperatorMapping, shouldFilterByDefaultValue } from '../utils';
 
 interface IOperatorOptions {
@@ -18,7 +18,8 @@ interface IOperatorSelectProps {
 
 function OperatorSelect(props: IOperatorSelectProps) {
   const { onSelect, fieldId, value } = props;
-  const field = useField(fieldId);
+  const { fields } = useContext(FilterContext);
+  const field = fields.find((f) => f.id === fieldId);
   const labelMapping = useMemo(() => getFieldOperatorMapping(field?.type), [field]);
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
     if (field) {
