@@ -276,8 +276,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       if (isCellSelection || isRowSelection) {
         const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
         const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
-
-        const isMultipleSelected = ranges.length > 1 || Math.abs(rowEnd - rowStart) > 0;
+        const isMultipleSelected =
+          (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
 
         if (isMultipleSelected) {
           openRecordMenu({
