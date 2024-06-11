@@ -7,11 +7,11 @@ export interface IHeaderMenu {
 }
 
 export interface IRecordMenu {
-  fields: IFieldInstance[];
-  records: Record[];
-  neighborRecords: (Record | null)[];
+  // only single select record
+  record?: Record;
+  neighborRecords?: (Record | null)[];
+  isMultipleSelected?: boolean;
   position: IPosition;
-  selectedRecordCount: number;
   deleteRecords?: (selection: CombinedSelection) => Promise<void>;
   onAfterInsertCallback?: (recordId: string, targetIndex?: number) => void;
 }

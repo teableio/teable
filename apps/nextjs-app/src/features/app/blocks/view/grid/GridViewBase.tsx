@@ -276,35 +276,37 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       if (isCellSelection || isRowSelection) {
         const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
         const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
-        const colStart = isCellSelection ? ranges[0][0] : 0;
-        const colEnd = isCellSelection ? ranges[1][0] : columns.length - 1;
-        const records = extract(rowStart, rowEnd, recordMap);
-        const selectColumns = extract(colStart, colEnd, columns);
-        const indexedColumns = keyBy(selectColumns, 'id');
-        const selectFields = fields.filter((field) => indexedColumns[field.id]);
-        const neighborRecords: Array<Record | null> = [];
 
-        if (records.length === 1) {
+        const isMultipleSelected = ranges.length > 1 || Math.abs(rowEnd - rowStart) > 0;
+
+        if (isMultipleSelected) {
+          openRecordMenu({
+            position,
+            isMultipleSelected,
+            deleteRecords: async (selection) => {
+              deleteRecords(selection);
+              gridRef.current?.setSelection(emptySelection);
+            },
+            onAfterInsertCallback: callbackForPrefilling,
+          });
+        } else {
+          const record = recordMap[rowStart];
+          const neighborRecords: Array<Record | null> = [];
           neighborRecords[0] = rowStart === 0 ? null : recordMap[rowStart - 1];
           neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
+
+          openRecordMenu({
+            position,
+            record,
+            neighborRecords,
+            deleteRecords: async (selection) => {
+              deleteRecords(selection);
+              gridRef.current?.setSelection(emptySelection);
+            },
+            onAfterInsertCallback: callbackForPrefilling,
+            isMultipleSelected: false,
+          });
         }
-
-        const selectedRecordCount = isCellSelection
-          ? rowEnd - rowStart + 1
-          : ranges.reduce((acc, cur) => acc + cur[1] - cur[0] + 1, 0);
-
-        openRecordMenu({
-          position,
-          records,
-          fields: selectFields,
-          neighborRecords,
-          selectedRecordCount,
-          deleteRecords: async (selection) => {
-            deleteRecords(selection);
-            gridRef.current?.setSelection(emptySelection);
-          },
-          onAfterInsertCallback: callbackForPrefilling,
-        });
       }
 
       if (isColumnSelection) {

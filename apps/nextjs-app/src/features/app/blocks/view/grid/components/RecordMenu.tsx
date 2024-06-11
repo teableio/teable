@@ -55,12 +55,11 @@ export const RecordMenu = () => {
 
   if (recordMenu == null) return null;
 
-  const { records, selectedRecordCount, onAfterInsertCallback } = recordMenu;
-  if (!records?.length && selectedRecordCount === 0) return null;
+  const { record, isMultipleSelected, onAfterInsertCallback } = recordMenu;
+  if (!record && !isMultipleSelected) return null;
 
   const visible = Boolean(recordMenu);
   const position = recordMenu?.position;
-  const isMultipleSelected = selectedRecordCount > 1;
   const isAutoSort = Boolean(view?.sort && !view.sort?.manualSort);
   const style = position
     ? {
@@ -108,8 +107,8 @@ export const RecordMenu = () => {
         hidden: isMultipleSelected || !permission['record|create'],
         disabled: isAutoSort,
         onClick: async () => {
-          if (!tableId || !viewId) return;
-          await onInsertRecord(records[0].id, 'before');
+          if (!tableId || !viewId || !record) return;
+          await onInsertRecord(record.id, 'before');
         },
       },
       {
@@ -119,8 +118,8 @@ export const RecordMenu = () => {
         hidden: isMultipleSelected || !permission['record|create'],
         disabled: isAutoSort,
         onClick: async () => {
-          if (!tableId || !viewId) return;
-          await onInsertRecord(records[0].id, 'after');
+          if (!tableId || !viewId || !record) return;
+          await onInsertRecord(record.id, 'after');
         },
       },
     ],
