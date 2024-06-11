@@ -3,7 +3,6 @@ import { FieldType } from '@teable/core';
 
 import { Input } from '@teable/ui-lib';
 import { useContext, useMemo } from 'react';
-import { useField } from '../../../hooks';
 
 import type { DateField } from '../../../model';
 import { NumberEditor, RatingEditor } from '../../editor';
@@ -27,8 +26,8 @@ interface IFieldValue {
 
 function FieldValue(props: IFieldValue) {
   const { filter, onSelect } = props;
-  const field = useField(filter.fieldId);
-  const { components } = useContext(FilterContext);
+  const { components, fields } = useContext(FilterContext);
+  const field = fields.find((f) => f.id === filter.fieldId);
 
   const emptyComponent = <Input className="m-1 h-8 w-40 placeholder:text-[13px]" disabled />;
   const showEmptyComponent = useMemo(() => {
