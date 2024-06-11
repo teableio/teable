@@ -1,4 +1,4 @@
-import type { IPosition, IRectangle } from '@teable/sdk/components';
+import type { CombinedSelection, IPosition, IRectangle } from '@teable/sdk/components';
 import type { IFieldInstance, Record } from '@teable/sdk/model';
 
 export interface IHeaderMenu {
@@ -8,10 +8,12 @@ export interface IHeaderMenu {
 }
 
 export interface IRecordMenu {
-  fields: IFieldInstance[];
-  records: Record[];
-  neighborRecords: (Record | null)[];
+  // only single select record
+  record?: Record;
+  neighborRecords?: (Record | null)[];
+  isMultipleSelected?: boolean;
   position: IPosition;
+  deleteRecords?: (selection: CombinedSelection) => Promise<void>;
   onAfterInsertCallback?: (recordId: string, targetIndex?: number) => void;
 }
 

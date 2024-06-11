@@ -33,6 +33,7 @@ import type {
   IPasteRo,
   IPasteVo,
   IRangesRo,
+  IDeleteVo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
@@ -748,5 +749,12 @@ export class SelectionService {
     });
 
     await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+  }
+
+  async delete(tableId: string, rangesRo: IRangesRo): Promise<IDeleteVo> {
+    const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
+    const recordIds = records.map(({ id }) => id);
+    await this.recordOpenApiService.deleteRecords(tableId, recordIds);
+    return { ids: recordIds };
   }
 }

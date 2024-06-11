@@ -128,7 +128,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     viewGroupQuery
   );
 
-  const { copy, paste, clear } = useSelectionOperation({ filter: viewGroupQuery?.filter });
+  const { copy, paste, clear, deleteRecords } = useSelectionOperation({
+    filter: viewGroupQuery?.filter,
+  });
 
   const {
     prefillingRowIndex,
@@ -275,26 +277,37 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       if (isCellSelection || isRowSelection) {
         const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
         const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
-        const colStart = isCellSelection ? ranges[0][0] : 0;
-        const colEnd = isCellSelection ? ranges[1][0] : columns.length - 1;
-        const records = extract(rowStart, rowEnd, recordMap);
-        const selectColumns = extract(colStart, colEnd, columns);
-        const indexedColumns = keyBy(selectColumns, 'id');
-        const selectFields = fields.filter((field) => indexedColumns[field.id]);
-        const neighborRecords: Array<Record | null> = [];
+        const isMultipleSelected =
+          (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
 
-        if (records.length === 1) {
+        if (isMultipleSelected) {
+          openRecordMenu({
+            position,
+            isMultipleSelected,
+            deleteRecords: async (selection) => {
+              deleteRecords(selection);
+              gridRef.current?.setSelection(emptySelection);
+            },
+            onAfterInsertCallback: callbackForPrefilling,
+          });
+        } else {
+          const record = recordMap[rowStart];
+          const neighborRecords: Array<Record | null> = [];
           neighborRecords[0] = rowStart === 0 ? null : recordMap[rowStart - 1];
           neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
-        }
 
-        openRecordMenu({
-          position,
-          records,
-          fields: selectFields,
-          neighborRecords,
-          onAfterInsertCallback: callbackForPrefilling,
-        });
+          openRecordMenu({
+            position,
+            record,
+            neighborRecords,
+            deleteRecords: async (selection) => {
+              deleteRecords(selection);
+              gridRef.current?.setSelection(emptySelection);
+            },
+            onAfterInsertCallback: callbackForPrefilling,
+            isMultipleSelected: false,
+          });
+        }
       }
 
       if (isColumnSelection) {
@@ -310,10 +323,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       columns,
       recordMap,
       fields,
-      realRowCount,
       openRecordMenu,
-      openHeaderMenu,
+      deleteRecords,
       callbackForPrefilling,
+      realRowCount,
+      openHeaderMenu,
     ]
   );
 
