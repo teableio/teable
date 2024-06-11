@@ -1,6 +1,11 @@
 import type { ParsedUrlQuery } from 'querystring';
 import type { IHttpError } from '@teable/core';
-import type { GetServerSidePropsContext, GetServerSidePropsResult, PreviewData } from 'next';
+import type {
+  GetServerSidePropsContext,
+  GetServerSidePropsResult,
+  PreviewData,
+  GetServerSideProps as NextGetServerSideProps,
+} from 'next';
 import { SsrApi } from '@/backend/api/rest/table.ssr';
 
 export type GetServerSideProps<
@@ -16,7 +21,7 @@ export type GetServerSideProps<
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function withAuthSSR<P extends { [key: string]: any }>(
   handler: GetServerSideProps<P>
-) {
+): NextGetServerSideProps {
   return async (context: GetServerSidePropsContext) => {
     const req = context.req;
     try {
@@ -42,6 +47,12 @@ export default function withAuthSSR<P extends { [key: string]: any }>(
           },
         };
       }
+      if (error.status == 404) {
+        return {
+          notFound: true,
+        };
+      }
+      console.error(error);
       throw error;
     }
   };
