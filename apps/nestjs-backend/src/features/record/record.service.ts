@@ -1007,7 +1007,11 @@ export class RecordService {
     return this.prismaService.txClient().$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
   }
 
-  async getDiffIdsByIdAndFilter(tableId: string, recordIds: string[], filter?: IFilter | null) {
+  async filterRecordIdsByFilter(
+    tableId: string,
+    recordIds: string[],
+    filter?: IFilter | null
+  ): Promise<string[]> {
     const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
       filter,
     });
@@ -1017,7 +1021,11 @@ export class RecordService {
     const result = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
-    const ids = result.map((r) => r.__id);
+    return result.map((r) => r.__id);
+  }
+
+  async getDiffIdsByIdAndFilter(tableId: string, recordIds: string[], filter?: IFilter | null) {
+    const ids = await this.filterRecordIdsByFilter(tableId, recordIds, filter);
     return difference(recordIds, ids);
   }
 }

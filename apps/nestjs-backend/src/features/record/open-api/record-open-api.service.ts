@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -129,7 +129,11 @@ export class RecordOpenApiService {
     });
 
     if (usedFields.length !== usedFieldIdsOrNames.length) {
-      throw new BadRequestException('some fields not found');
+      const usedSet = new Set(map(usedFields, fieldKeyType));
+      const missedFields = usedFieldIdsOrNames.filter(
+        (fieldIdOrName) => !usedSet.has(fieldIdOrName)
+      );
+      throw new NotFoundException(`Field ${fieldKeyType}: ${missedFields.join()} not found`);
     }
     return map(usedFields, createFieldInstanceByRaw);
   }
