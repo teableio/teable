@@ -31,8 +31,10 @@ import type {
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IClsStore } from '../../types/cls';
 import { getFullStorageUrl } from '../../utils/full-storage-url';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { AggregationService } from '../aggregation/aggregation.service';
@@ -66,6 +68,7 @@ export class ShareService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly selectionService: SelectionService,
     private readonly collaboratorService: CollaboratorService,
+    private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -165,6 +168,7 @@ export class ShareService {
     }
 
     const { records } = await this.prismaService.$tx(async () => {
+      this.cls.set('entry', { type: 'form', id: view.id });
       return await this.recordOpenApiService.createRecords(tableId, {
         records: [{ fields }],
         fieldKeyType: FieldKeyType.Id,

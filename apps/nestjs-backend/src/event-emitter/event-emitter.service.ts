@@ -198,6 +198,7 @@ export class EventEmitterService {
 
   private createExtendPlainContext(docId: string, id: string) {
     const user = this.cls.get('user');
+    const entry = this.cls.get('entry');
     return {
       baseId: docId,
       tableId: docId,
@@ -205,7 +206,8 @@ export class EventEmitterService {
       fieldId: id,
       recordId: id,
       context: {
-        user: user,
+        user,
+        entry,
       },
     };
   }
