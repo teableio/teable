@@ -1,8 +1,9 @@
 {
   "name": "@teable/db-main-prisma",
-  "version": "1.0.0",
+  "version": "1.2.0-beta",
   "license": "AGPL-3.0",
   "homepage": "https://github.com/teableio/teable",
+  "private": true,
   "publishConfig": {
     "access": "public"
   },
