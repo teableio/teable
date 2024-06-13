@@ -9,6 +9,10 @@ export interface IEventContext {
     name: string;
     email: string;
   };
+  entry?: {
+    type: string;
+    id: string;
+  };
   headers?: Record<string, string | undefined> | IncomingHttpHeaders;
   opMeta?: {
     name: OpName;

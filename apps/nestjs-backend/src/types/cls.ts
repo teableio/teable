@@ -10,12 +10,15 @@ export interface IClsStore extends ClsStore {
     email: string;
   };
   accessTokenId?: string;
+  entry?: {
+    type: string;
+    id: string;
+  };
   tx: {
     client?: Prisma.TransactionClient;
     timeStr?: string;
     id?: string;
     rawOpMaps?: IRawOpMap[];
-    stashOpMap?: IRawOpMap;
   };
   shareViewId?: string;
   permissions: PermissionAction[];
