@@ -43,6 +43,7 @@
     "install:playwright": "playwright install",
     "install:husky": "node .husky/install.mjs",
     "nuke:node_modules": "pnpm -r exec -- rm -fr node_modules",
+    "publish:beta": "pnpm -r publish --dry-run --tag beta",
     "prepare": "run-s install:husky"
   },
   "dependencies": {
