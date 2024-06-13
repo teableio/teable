@@ -5,7 +5,10 @@
     "target": "esnext",
     "module": "esnext",
     "jsx": "react-jsx",
-    "sourceMap": false
+    "sourceMap": false,
+    "rootDir": "src",
+    "paths": {}
   },
-  "exclude": ["dist", "**/__tests__/*", "**/*spec.ts", "**/*spec.tsx"]
+  "exclude": ["dist", "**/__tests__/*", "**/*spec.ts", "**/*spec.tsx"],
+  "include": ["src"]
 }

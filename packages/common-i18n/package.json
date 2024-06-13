@@ -23,15 +23,10 @@
     "src"
   ],
   "exports": {
-    "./locales/*.json": {
-      "require": "./src/locales/*.json",
-      "import": "./src/locales/*.json"
-    },
-    "./src/locales/en/sdk.json": {
-      "require": "./src/locales/en/sdk.json",
-      "import": "./src/locales/en/sdk.json"
-    },
-    "./package.json": "./package.json"
+    "./src/locales/*": {
+      "require": "./src/locales/*",
+      "import": "./src/locales/*"
+    }
   },
   "scripts": {
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo",

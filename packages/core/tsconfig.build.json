@@ -9,5 +9,5 @@
     "incremental": true,
     "tsBuildInfoFile": "./tsconfig.build.tsbuildinfo" // for tsup rollup dts tsBuildInfoFile is required when using incremental
   },
-  "exclude": ["dist", "**/__tests__/*", "*.spec.ts"]
+  "exclude": ["dist", "**/__tests__/*", "**/*.spec.ts"]
 }

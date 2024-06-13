@@ -5,6 +5,6 @@
     "rootDir": "src",
     "paths": {}
   },
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "exclude": ["**/node_modules", "**/.*/", "**/*spec.ts", "./dist", "./coverage"],
   "include": ["src"]
 }
