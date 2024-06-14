@@ -30,6 +30,6 @@ const result = execSync('pnpm version --json', { encoding: 'utf-8' });
 execSync('git add .', { stdio: 'inherit' });
 
 execSync(
-  `git commit -m "chore(@teable): publish ${JSON.parse(result)['@teable/teable']} release" --no-verify`,
+  `git commit -m "chore: publish ${JSON.parse(result)['@teable/teable']} release" --no-verify`,
   { stdio: 'inherit' }
 );
