@@ -1,9 +1,9 @@
 {
   "name": "@teable/common-i18n",
-  "version": "1.2.0-beta",
+  "version": "1.1.1-beta.0",
   "license": "AGPL-3.0",
   "homepage": "https://github.com/teableio/teable",
-  "private": true,
+  "private": false,
   "publishConfig": {
     "access": "public"
   },

@@ -1,6 +1,6 @@
 {
   "name": "@teable/core",
-  "version": "1.2.0-beta",
+  "version": "1.1.1-beta.0",
   "license": "AGPL-3.0",
   "homepage": "https://github.com/teableio/teable",
   "publishConfig": {
@@ -23,9 +23,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --project ./tsconfig.build.json",
     "dev": "tsc --watch",
-    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./.eslintcache",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
     "antlr4ts": "antlr4ts -visitor -no-listener src/formula/parser/*.g4",
     "antlr4ts-tql": "antlr4ts -visitor -no-listener src/query/parser/*.g4",
