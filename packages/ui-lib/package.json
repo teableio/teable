@@ -25,16 +25,18 @@
     "dist",
     "tailwind.config.js",
     "tailwind.shadcnui.config.js",
-    "ui.config.js"
+    "ui.config.js",
+    "ui.config.d.ts"
   ],
   "export": {
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
-    "./config": {
+    "./ui.config": {
       "import": "./ui.config.js",
-      "require": "./ui.config.js"
+      "require": "./ui.config.js",
+      "types": "./ui.config.d.ts"
     }
   },
   "scripts": {
