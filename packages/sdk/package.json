@@ -69,7 +69,6 @@
     "dequal": "2.0.3",
     "fuse.js": "7.0.0",
     "immer": "10.0.4",
-    "knex": "3.1.0",
     "lodash": "4.17.21",
     "lru-cache": "10.2.0",
     "lucide-react": "0.363.0",

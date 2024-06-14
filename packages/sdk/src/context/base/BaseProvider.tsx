@@ -5,7 +5,6 @@ import type { FC, ReactNode } from 'react';
 import { useContext, useMemo } from 'react';
 import { Base } from '../../model';
 import { AnchorContext } from '../anchor';
-import { AppContext } from '../app';
 import { BaseContext } from './BaseContext';
 
 interface IBaseProviderProps {
@@ -15,7 +14,6 @@ interface IBaseProviderProps {
 
 export const BaseProvider: FC<IBaseProviderProps> = ({ children, serverData }) => {
   const { baseId } = useContext(AnchorContext);
-  const { driver } = useContext(AppContext);
   const { data: baseData, isLoading } = useQuery({
     queryKey: ['base', baseId],
     queryFn: ({ queryKey }) => (queryKey[1] ? getBaseById(queryKey[1]) : undefined),
@@ -29,10 +27,10 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, serverData }) =
   const value = useMemo(() => {
     const base = isLoading ? serverData : baseData?.data;
     return {
-      base: base ? new Base(base, driver) : undefined,
+      base: base ? new Base(base) : undefined,
       permission: basePermissionData?.data,
     };
-  }, [isLoading, serverData, baseData?.data, basePermissionData?.data, driver]);
+  }, [isLoading, serverData, baseData?.data, basePermissionData?.data]);
 
   return <BaseContext.Provider value={value}>{children}</BaseContext.Provider>;
 };

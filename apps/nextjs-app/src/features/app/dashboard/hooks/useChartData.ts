@@ -1,6 +1,7 @@
 import type { ISelectFieldOptions } from '@teable/core';
 import { Colors, ColorUtils, CellValueType, FieldType } from '@teable/core';
-import { useBase, useFields, useTable, useView } from '@teable/sdk/hooks';
+import { useBase, useDriver, useFields, useTable, useView } from '@teable/sdk/hooks';
+import { knex } from 'knex';
 import { useEffect, useMemo, useState } from 'react';
 
 interface IData {
@@ -14,6 +15,7 @@ export function useChartData() {
   const table = useTable();
   const view = useView();
   const base = useBase();
+  const driver = useDriver();
   const [data, setData] = useState<{ list: IData[]; title: string }>({ title: '', list: [] });
   const groupingField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
@@ -34,8 +36,7 @@ export function useChartData() {
       return;
     }
 
-    const nativeSql = base
-      .knex(table.dbTableName)
+    const nativeSql = knex({ client: driver })(table.dbTableName)
       .select(`${groupingField.dbFieldName} as name`)
       .sum(`${numberField.dbFieldName} as total`)
       .groupBy(groupingField.dbFieldName)
@@ -57,6 +58,6 @@ export function useChartData() {
         })),
       });
     });
-  }, [base, fields, groupingField, numberField, table, view]);
+  }, [base, driver, fields, groupingField, numberField, table, view]);
   return data;
 }

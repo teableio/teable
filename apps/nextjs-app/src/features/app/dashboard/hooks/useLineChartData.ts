@@ -1,5 +1,6 @@
 import { CellValueType, FieldType } from '@teable/core';
-import { useBase, useFields, useTable, useViewId } from '@teable/sdk/hooks';
+import { useBase, useDriver, useFields, useTable, useViewId } from '@teable/sdk/hooks';
+import { knex } from 'knex';
 import { useEffect, useMemo, useState } from 'react';
 
 interface IData {
@@ -12,6 +13,7 @@ export function useLineChartData() {
   const base = useBase();
   const table = useTable();
   const viewId = useViewId();
+  const driver = useDriver();
   const [data, setData] = useState<{ list: IData[]; title: string }>({ title: '', list: [] });
   const selectField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
@@ -34,8 +36,7 @@ export function useLineChartData() {
 
     const nameColumn = selectField.dbFieldName;
     const numberColumn = numberField.dbFieldName;
-    const nativeSql = base
-      .knex(table.dbTableName)
+    const nativeSql = knex({ client: driver })(table.dbTableName)
       .select(nameColumn)
       .min(numberColumn + ' as total')
       .avg(numberColumn + ' as average')
@@ -53,6 +54,6 @@ export function useLineChartData() {
         })),
       });
     });
-  }, [fields, selectField, numberField, table, viewId, base]);
+  }, [fields, selectField, numberField, table, viewId, base, driver]);
   return data;
 }
