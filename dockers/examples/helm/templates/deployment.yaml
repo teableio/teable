@@ -1,59 +1,68 @@
+{{- $envVars := include "common.env.transformDict" .Values.envVars -}}
+{{- $fullName := include "common.fullname" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "teable.fullname" . }}
+  name: {{ $fullName }}
   labels:
-    {{- include "teable.labels" . | nindent 4 }}
+    {{- include "common.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
+{{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
-  {{- end }}
+{{- end }}
   selector:
     matchLabels:
-      {{- include "teable.selectorLabels" . | nindent 6 }}
+      {{- include "common.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        checksum/secrets: {{ include (print .Template.BasePath "/backend-secrets.yaml") . | sha256sum }}
+    {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+    {{- end }}
       labels:
-        {{- include "teable.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- include "common.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- if $.Values.image.credentials }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      serviceAccountName: {{ include "teable.serviceAccountName" . }}
-      securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        - name: {{ include "common.secret.dockerconfigjson.name" (dict "fullname" $fullName "imageCredentials" $.Values.image.credentials) }}
+      {{- end}}
+      serviceAccountName: {{ include "common.serviceAccountName" . }}
       containers:
         - name: {{ .Chart.Name }}
-          securityContext:
-            {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            {{- include "teable.env.shared" $ | nindent 12 }}
+            {{- include "teable.env.backend" $ | nindent 12 }}
+            {{- include "teable.env.mail" $ | nindent 12 }}
+            {{- include "teable.env.storage" $ | nindent 12 }}
+            {{- $envVars | indent 12 }}
           ports:
             - name: http
-              containerPort: {{ .Values.service.port }}
+              containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          {{- if .Values.probes.liveness }}
           livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
+            {{- include "common.probes.abstract" (merge .Values.probes.liveness (dict "targetPort" .Values.service.targetPort )) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probes.readiness }}
           readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+            {{- include "common.probes.abstract" (merge .Values.probes.readiness (dict "targetPort" .Values.service.targetPort )) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.probes.startup }}
+          startupProbe:
+            {{- include "common.probes.abstract" (merge .Values.probes.startup (dict "targetPort" .Values.service.targetPort )) | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-          {{- with .Values.volumeMounts }}
+          {{- if .Values.persistence }}
           volumeMounts:
-            {{- toYaml . | nindent 12 }}
+            {{- range $name, $volume := .Values.persistence }}
+            - name: "{{ $name }}"
+              mountPath: "{{ $volume.mountPath }}"
+            {{- end }}
           {{- end }}
-      {{- with .Values.volumes }}
-      volumes:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -65,4 +74,12 @@ spec:
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.persistence }}
+      volumes:
+        {{- range $name, $volume := .Values.persistence }}
+        - name: "{{ $name }}"
+          persistentVolumeClaim:
+            claimName: "{{ $fullName }}-{{ $name }}"
+        {{- end }}
       {{- end }}

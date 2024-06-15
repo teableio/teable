@@ -1,9 +1,10 @@
+{{- $fullName := include "common.fullname" . -}}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "teable.fullname" . }}-test-connection"
+  name: "{{ $fullName }}-test-connection"
   labels:
-    {{- include "teable.labels" . | nindent 4 }}
+    {{- include "common.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
@@ -11,5 +12,5 @@ spec:
     - name: wget
       image: busybox
       command: ['wget']
-      args: ['{{ include "teable.fullname" . }}:{{ .Values.service.port }}']
+      args: ['{{ include "common.fullname" . }}:{{ .Values.service.port }}']
   restartPolicy: Never
