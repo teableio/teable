@@ -1,4 +1,3 @@
-import type { DriverClient } from '@teable/core';
 import React from 'react';
 import type { Connection } from 'sharedb/lib/client';
 import type { ILocale } from './i18n';
@@ -10,7 +9,6 @@ export enum ThemeKey {
 
 export interface IAppContext {
   connection?: Connection;
-  driver: DriverClient;
   connected: boolean;
   theme: ThemeKey;
   isAutoTheme: boolean;

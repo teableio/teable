@@ -1,7 +1,8 @@
 import { CellValueType, FieldType } from '@teable/core';
-import { useBase, useDriver, useFields, useTable, useViewId } from '@teable/sdk/hooks';
+import { useBase, useFields, useTable, useViewId } from '@teable/sdk/hooks';
 import { knex } from 'knex';
 import { useEffect, useMemo, useState } from 'react';
+import { useEnv } from '../../hooks/useEnv';
 
 interface IData {
   total: number;
@@ -13,8 +14,10 @@ export function useLineChartData() {
   const base = useBase();
   const table = useTable();
   const viewId = useViewId();
-  const driver = useDriver();
   const [data, setData] = useState<{ list: IData[]; title: string }>({ title: '', list: [] });
+
+  const { driver } = useEnv();
+
   const selectField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
     [fields]
@@ -27,7 +30,7 @@ export function useLineChartData() {
     [fields]
   );
   useEffect(() => {
-    if (!base || !table || !selectField || !numberField || !viewId) {
+    if (!base || !table || !selectField || !numberField || !viewId || !driver) {
       return;
     }
     if (table.id !== selectField.tableId) {

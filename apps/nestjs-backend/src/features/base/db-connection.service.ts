@@ -113,7 +113,7 @@ export class DbConnectionService {
 
   async retrieve(baseId: string): Promise<IDbConnectionVo | null> {
     if (this.dbProvider.driver !== DriverClient.Pg) {
-      throw new BadRequestException(`Unsupported database driver: ${this.dbProvider.driver}`);
+      return null;
     }
 
     const readOnlyRole = `read_only_role_${baseId}`;

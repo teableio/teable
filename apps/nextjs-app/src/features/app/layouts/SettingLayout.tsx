@@ -17,7 +17,7 @@ export const SettingLayout: React.FC<{
   user?: IUser;
   driver: DriverClient;
   dehydratedState?: unknown;
-}> = ({ children, user, driver, dehydratedState }) => {
+}> = ({ children, user, dehydratedState }) => {
   const router = useRouter();
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
@@ -40,12 +40,7 @@ export const SettingLayout: React.FC<{
 
   return (
     <AppLayout>
-      <AppProvider
-        lang={i18n.language}
-        locale={sdkLocale}
-        dehydratedState={dehydratedState}
-        driver={driver}
-      >
+      <AppProvider lang={i18n.language} locale={sdkLocale} dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
           <div id="portal" className="relative flex h-screen w-full items-start">
             <Sidebar headerLeft={<SidebarHeaderLeft title={t('settings.title')} onBack={onBack} />}>
