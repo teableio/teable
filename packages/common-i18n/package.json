@@ -1,8 +1,9 @@
 {
   "name": "@teable/common-i18n",
-  "version": "1.0.0",
+  "version": "1.2.0-beta.0",
   "license": "AGPL-3.0",
   "homepage": "https://github.com/teableio/teable",
+  "private": false,
   "publishConfig": {
     "access": "public"
   },
@@ -22,15 +23,10 @@
     "src"
   ],
   "exports": {
-    "./locales/*.json": {
-      "require": "./src/locales/*.json",
-      "import": "./src/locales/*.json"
-    },
-    "./src/locales/en/sdk.json": {
-      "require": "./src/locales/en/sdk.json",
-      "import": "./src/locales/en/sdk.json"
-    },
-    "./package.json": "./package.json"
+    "./src/locales/*": {
+      "require": "./src/locales/*",
+      "import": "./src/locales/*"
+    }
   },
   "scripts": {
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo",

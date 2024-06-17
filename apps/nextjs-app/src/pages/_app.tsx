@@ -44,7 +44,6 @@ export type AppProps = NextAppProps & {
 type AppPropsWithLayout = AppProps & {
   Component: NextPageWithLayout;
   user?: IUser;
-  driver: string;
   env: IServerEnv;
 };
 
@@ -52,7 +51,7 @@ type AppPropsWithLayout = AppProps & {
  * @link https://nextjs.org/docs/advanced-features/custom-app
  */
 const MyApp = (appProps: AppPropsWithLayout) => {
-  const { Component, pageProps, err, user, driver, env } = appProps;
+  const { Component, pageProps, err, user, env } = appProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
 
@@ -82,7 +81,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           }}
         />
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user, driver })}
+        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
       </AppProviders>
       <Guide user={user} />
       <RouterProgressBar />
@@ -105,12 +104,12 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
 
   const isLoginPage = appContext.ctx.pathname === '/auth/login';
   const needLoginPage = isAuthLoginPage(appContext.ctx.pathname);
-
   const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
+
   const initialProps = {
     ...appProps,
-    driver,
     env: {
+      driver,
       templateSiteLink: process.env.TEMPLATE_SITE_LINK,
       microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
       sentryDsn: process.env.SENTRY_DSN,

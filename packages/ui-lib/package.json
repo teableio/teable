@@ -1,6 +1,6 @@
 {
   "name": "@teable/ui-lib",
-  "version": "1.0.0",
+  "version": "1.2.0-beta.0",
   "license": "AGPL-3.0",
   "homepage": "https://github.com/teableio/teable",
   "publishConfig": {
@@ -20,21 +20,23 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "commonjs",
+  "type": "module",
   "files": [
     "dist",
     "tailwind.config.js",
     "tailwind.shadcnui.config.js",
-    "ui.config.js"
+    "ui.config.js",
+    "ui.config.d.ts"
   ],
   "export": {
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
-    "./config": {
+    "./ui.config": {
       "import": "./ui.config.js",
-      "require": "./ui.config.js"
+      "require": "./ui.config.js",
+      "types": "./ui.config.d.ts"
     }
   },
   "scripts": {

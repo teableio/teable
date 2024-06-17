@@ -1,5 +1,5 @@
-import type { ITableVo } from '@teable/openapi';
-import { useDriver, useTable } from '@teable/sdk/hooks';
+import { type ITableVo } from '@teable/openapi';
+import { useTable } from '@teable/sdk/hooks';
 import {
   Card,
   CardHeader,
@@ -11,6 +11,7 @@ import {
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from 'next-i18next';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { DbTableName } from '../components/DbTableName';
 import { TableDescription } from '../components/TableDescription';
 import { TableName } from '../components/TableName';
@@ -18,9 +19,10 @@ dayjs.extend(relativeTime);
 
 export const TableDetail = () => {
   const table = useTable() as ITableVo;
-  const driver = useDriver();
   const [dbSchemaName] = table.dbTableName.split('.');
   const { t } = useTranslation(['table']);
+
+  const { driver } = useEnv();
 
   return (
     <Card>

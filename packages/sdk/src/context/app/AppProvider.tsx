@@ -1,5 +1,4 @@
 import { Hydrate, QueryClientProvider } from '@tanstack/react-query';
-import type { DriverClient } from '@teable/core';
 import { isObject, merge } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import { AppContext } from '../app/AppContext';
@@ -16,12 +15,11 @@ interface IAppProviderProps {
   wsPath?: string;
   lang?: string;
   locale?: ILocalePartial;
-  driver: DriverClient;
   dehydratedState?: unknown;
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { children, wsPath, lang, locale, driver, dehydratedState } = props;
+  const { children, wsPath, lang, locale, dehydratedState } = props;
 
   const { connected, connection } = useConnection(wsPath);
   const themeProps = useTheme();
@@ -36,12 +34,11 @@ export const AppProvider = (props: IAppProviderProps) => {
     return {
       connection,
       connected,
-      driver,
       lang,
       locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
       ...themeProps,
     };
-  }, [connection, connected, driver, lang, locale, themeProps]);
+  }, [connection, connected, lang, locale, themeProps]);
 
   return (
     <AppContext.Provider value={value}>

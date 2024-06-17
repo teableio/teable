@@ -116,6 +116,12 @@ export function useInstances<T, R extends { id: string }>({
         return query;
       }
 
+      // Avoid executing setQuery twice for the first rendering in react strict mode,
+      // which will result in query being undefined but preQueryRef.current is already initialized
+      if (!query && preQueryRef.current) {
+        return preQueryRef.current;
+      }
+
       queryDestroy(preQueryRef.current);
       const newQuery = connection.createSubscribeQuery<T>(collection, queryParams);
       preQueryRef.current = newQuery;

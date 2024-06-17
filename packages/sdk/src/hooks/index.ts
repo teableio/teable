@@ -20,7 +20,6 @@ export * from './use-aggregation';
 export * from './use-field-static-getter';
 export * from './use-is-hydrated';
 export * from './use-session';
-export * from './use-driver';
 export * from './use-is-mobile';
 export * from './use-is-touch-device';
 export * from './use-table-permission';

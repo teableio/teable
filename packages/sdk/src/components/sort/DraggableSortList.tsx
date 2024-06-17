@@ -1,12 +1,11 @@
 import type { ISort, ISortItem } from '@teable/core';
 import { DraggableHandle, Trash2 } from '@teable/icons';
-import { Button, cn } from '@teable/ui-lib';
+import { Button, cn, DndKitContext, Droppable, Draggable } from '@teable/ui-lib';
 import type {
   DraggableAttributes,
   SyntheticListenerMap,
   DragEndEvent,
 } from '@teable/ui-lib/src/base/dnd-kit';
-import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/src/base/dnd-kit';
 import { useIsHydrated } from '../../hooks';
 import { SortItem } from './SortItem';
 import type { ISortItemProps } from './SortItem';

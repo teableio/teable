@@ -1,6 +1,8 @@
 import { CellValueType, FieldType } from '@teable/core';
 import { useBase, useFields, useTable, useViewId } from '@teable/sdk/hooks';
+import { knex } from 'knex';
 import { useEffect, useMemo, useState } from 'react';
+import { useEnv } from '../../hooks/useEnv';
 
 interface IData {
   total: number;
@@ -13,6 +15,9 @@ export function useLineChartData() {
   const table = useTable();
   const viewId = useViewId();
   const [data, setData] = useState<{ list: IData[]; title: string }>({ title: '', list: [] });
+
+  const { driver } = useEnv();
+
   const selectField = useMemo(
     () => fields.find((field) => field.type === FieldType.SingleSelect),
     [fields]
@@ -25,7 +30,7 @@ export function useLineChartData() {
     [fields]
   );
   useEffect(() => {
-    if (!base || !table || !selectField || !numberField || !viewId) {
+    if (!base || !table || !selectField || !numberField || !viewId || !driver) {
       return;
     }
     if (table.id !== selectField.tableId) {
@@ -34,8 +39,7 @@ export function useLineChartData() {
 
     const nameColumn = selectField.dbFieldName;
     const numberColumn = numberField.dbFieldName;
-    const nativeSql = base
-      .knex(table.dbTableName)
+    const nativeSql = knex({ client: driver })(table.dbTableName)
       .select(nameColumn)
       .min(numberColumn + ' as total')
       .avg(numberColumn + ' as average')
@@ -53,6 +57,6 @@ export function useLineChartData() {
         })),
       });
     });
-  }, [fields, selectField, numberField, table, viewId, base]);
+  }, [fields, selectField, numberField, table, viewId, base, driver]);
   return data;
 }

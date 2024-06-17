@@ -1,5 +1,6 @@
 {
   "name": "@teable/teable",
+  "version": "1.2.0-beta.0",
   "license": "AGPL-3.0",
   "private": true,
   "homepage": "https://github.com/teableio/teable",
@@ -42,6 +43,13 @@
     "install:playwright": "playwright install",
     "install:husky": "node .husky/install.mjs",
     "nuke:node_modules": "pnpm -r exec -- rm -fr node_modules",
+    "publish:beta:prerelease": "node ./scripts/publish.mjs prerelease beta",
+    "publish:beta:patch": "node ./scripts/publish.mjs prepatch beta",
+    "publish:beta:minor": "node ./scripts/publish.mjs preminor beta",
+    "publish:beta:major": "node ./scripts/publish.mjs premajor beta",
+    "publish:next:patch": "node ./scripts/publish.mjs patch next",
+    "publish:next:minor": "node ./scripts/publish.mjs minor next",
+    "publish:next:major": "node ./scripts/publish.mjs major next",
     "prepare": "run-s install:husky"
   },
   "dependencies": {

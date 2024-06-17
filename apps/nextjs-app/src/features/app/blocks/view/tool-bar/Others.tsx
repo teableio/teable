@@ -1,6 +1,6 @@
 import { ViewType } from '@teable/core';
 import { ArrowUpRight, Code2, Component, Database, MoreHorizontal, Share2 } from '@teable/icons';
-import { useDriver, useTablePermission, useView } from '@teable/sdk/hooks';
+import { useTablePermission, useView } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
@@ -19,7 +19,6 @@ const OthersList = ({
 }) => {
   const { toggleGraph } = useCellGraphStore();
   const view = useView();
-  const driver = useDriver();
   const permission = useTablePermission();
 
   return (
@@ -88,7 +87,7 @@ const OthersList = ({
           <DbConnectionPanelTrigger>
             <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">
               <Database className="pr-1 text-lg" />
-              <span className="capitalize">{driver}</span>Connection
+              Database Connection
             </Button>
           </DbConnectionPanelTrigger>
         </PopoverContent>

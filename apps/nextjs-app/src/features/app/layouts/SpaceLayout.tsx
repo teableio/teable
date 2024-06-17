@@ -1,5 +1,4 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import type { DriverClient } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import { AppProvider } from '@teable/sdk/context';
@@ -17,20 +16,14 @@ export const SpaceLayout: React.FC<{
   children: React.ReactNode;
   user?: IUser;
   dehydratedState?: DehydratedState;
-  driver: DriverClient;
-}> = ({ children, user, driver, dehydratedState }) => {
+}> = ({ children, user, dehydratedState }) => {
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
 
   return (
     <AppLayout>
       <SpacePageTitle dehydratedState={dehydratedState} />
-      <AppProvider
-        locale={sdkLocale}
-        lang={i18n.language}
-        dehydratedState={dehydratedState}
-        driver={driver}
-      >
+      <AppProvider locale={sdkLocale} lang={i18n.language} dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
           <NotificationProvider>
             <div id="portal" className="relative flex h-screen w-full items-start">

@@ -1321,6 +1321,9 @@ importers:
       dayjs:
         specifier: 1.11.10
         version: 1.11.10
+      deepmerge:
+        specifier: 4.3.1
+        version: 4.3.1
       dequal:
         specifier: 2.0.3
         version: 2.0.3
@@ -1330,9 +1333,6 @@ importers:
       immer:
         specifier: 10.0.4
         version: 10.0.4
-      knex:
-        specifier: 3.1.0
-        version: 3.1.0
       lodash:
         specifier: 4.17.21
         version: 4.17.21
@@ -24065,6 +24065,9 @@ packages:
   /sqlite3@5.1.7:
     resolution: {integrity: sha512-GGIyOiFaG+TUra3JIfkI/zGP8yZYLPQ0pl1bH+ODjiX57sPhrLU5sQJn1y9bDKZUFYkX1crlrPfSYt0BKKdkog==}
     requiresBuild: true
+    peerDependenciesMeta:
+      node-gyp:
+        optional: true
     dependencies:
       bindings: 1.5.0
       node-addon-api: 7.1.0
