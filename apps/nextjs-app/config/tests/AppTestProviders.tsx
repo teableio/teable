@@ -1,4 +1,3 @@
-import type { DriverClient } from '@teable/core';
 import type { IAppContext } from '@teable/sdk/context';
 import { AppContext, FieldContext, ThemeKey, ViewContext } from '@teable/sdk/context';
 import { defaultLocale } from '@teable/sdk/context/app/i18n';
@@ -9,7 +8,6 @@ import { I18nextTestStubProvider } from './I18nextTestStubProvider';
 
 export const createAppContext = (context: Partial<IAppContext> = {}) => {
   const defaultContext: IAppContext = {
-    driver: 'sqlite3' as DriverClient,
     connected: false,
     theme: ThemeKey.Dark,
     isAutoTheme: false,
