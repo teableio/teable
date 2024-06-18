@@ -5,14 +5,14 @@
 {{- end }}
 
 {{/*
-Usage : {{ include "common.secret.dockerconfigjson.name" (dict "fullname" (include "common.fullname" .) "imageCredentials" .Values.path.to.the.image1) }}
+Usage : {{ include "common.secret.dockerconfigjson.name" (dict "fullname" (include "teable.nameBuilder" .) "imageCredentials" .Values.path.to.the.image1) }}
 */}}
 {{- define "common.secret.dockerconfigjson.name" }}
 {{- if (default (dict) .imageCredentials).name }}{{ .imageCredentials.name }}{{ else }}{{ .fullname | trunc 63 | trimSuffix "-" }}-dockerconfig{{ end -}}
 {{- end }}
 
 {{/*
-Usage : {{ include "common.secret.dockerconfigjson" (dict "fullname" (include "common.fullname" .) "imageCredentials" .Values.path.to.the.image1) }}
+Usage : {{ include "common.secret.dockerconfigjson" (dict "fullname" (include "teable.nameBuilder" .) "imageCredentials" .Values.path.to.the.image1) }}
 */}}
 {{- define "common.secret.dockerconfigjson" }}
 {{- if .imageCredentials -}}

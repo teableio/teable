@@ -1,10 +1,11 @@
 {{- $envVars := include "common.env.transformDict" .Values.envVars -}}
+{{- $secret := include "teable.nameBuilder" . }}
 {{- $root := .Values.migrationJob }}
 {{- if $root.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "teable.nameBuilder" (list $ "migration") }}
+  name: {{ include "teable.nameBuilder" . }}
   labels:
     {{- include "common.labels" $ | nindent 4 }}
     app.kubernetes.io/part: migration
@@ -15,7 +16,7 @@ metadata:
 spec:
   template:
     metadata:
-      name: {{ include "teable.nameBuilder" (list $ "migration") }}
+      name: {{ include "teable.nameBuilder" . }}
       {{- with $root.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
@@ -29,8 +30,12 @@ spec:
         - name: {{ .Chart.Name }}
           {{- include "teable.shared.image" (list $ "migrationJob") | nindent 10 }}
           env:
-            {{- include "teable.env.shared" $ | nindent 12 }}
-            {{- $envVars | indent 12 }}
+            - name: PRISMA_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: database-url
+            {{- $envVars | nindent 12 }}
           resources:
             {{- toYaml $root.resources | nindent 12 }}
 {{- end }}

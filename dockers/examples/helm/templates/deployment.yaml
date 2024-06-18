@@ -1,5 +1,5 @@
 {{- $envVars := include "common.env.transformDict" .Values.envVars -}}
-{{- $fullName := include "common.fullname" . -}}
+{{- $fullName := include "teable.nameBuilder" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,24 +16,19 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/secrets: {{ include (print .Template.BasePath "/backend-secrets.yaml") . | sha256sum }}
+        checksum/secrets: {{ include (print .Template.BasePath "/secret.yaml") . | sha256sum }}
     {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
     {{- end }}
       labels:
         {{- include "common.selectorLabels" . | nindent 8 }}
     spec:
-      {{- if $.Values.image.credentials }}
-      imagePullSecrets:
-        - name: {{ include "common.secret.dockerconfigjson.name" (dict "fullname" $fullName "imageCredentials" $.Values.image.credentials) }}
-      {{- end}}
       serviceAccountName: {{ include "common.serviceAccountName" . }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            {{- include "teable.env.shared" $ | nindent 12 }}
             {{- include "teable.env.backend" $ | nindent 12 }}
             {{- include "teable.env.mail" $ | nindent 12 }}
             {{- include "teable.env.storage" $ | nindent 12 }}
@@ -54,8 +49,6 @@ spec:
           startupProbe:
             {{- include "common.probes.abstract" (merge .Values.probes.startup (dict "targetPort" .Values.service.targetPort )) | nindent 12 }}
           {{- end }}
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
           {{- if .Values.persistence }}
           volumeMounts:
             {{- range $name, $volume := .Values.persistence }}
@@ -83,3 +76,21 @@ spec:
             claimName: "{{ $fullName }}-{{ $name }}"
         {{- end }}
       {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "teable.nameBuilder" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.service.annotations | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "common.selectorLabels" . | nindent 4 }}

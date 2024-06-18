@@ -11,5 +11,6 @@ imagePullPolicy: {{ $root.image.pullPolicy | default $.Values.image.pullPolicy }
 {{- end }}
 
 {{- define "teable.nameBuilder" -}}
-{{- prepend (rest .) (include "common.fullname" (first .)) | join "-" -}}
+  {{- $fullName := include "common.fullname" . -}}
+  {{- printf "%s-teable" $fullName -}}
 {{- end }}
