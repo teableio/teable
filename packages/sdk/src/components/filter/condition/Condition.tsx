@@ -32,8 +32,8 @@ function Condition(props: IConditionProps) {
 
   const fieldTypeHandler = (newFieldId: string | null) => {
     const newField = fieldMap[newFieldId!];
-    const newFieldType = newField.type;
-    const currentFieldType = fieldMap[fieldId].type || null;
+    const newFieldType = newField?.type;
+    const currentFieldType = fieldMap[fieldId]?.type || null;
     const newFieldPath = [...path, 'fieldId'];
     const newValuePath = [...path, 'value'];
     // different type should reset value to null.
