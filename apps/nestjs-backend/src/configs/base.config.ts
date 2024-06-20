@@ -6,7 +6,6 @@ import { registerAs } from '@nestjs/config';
 export const baseConfig = registerAs('base', () => ({
   brandName: process.env.BRAND_NAME!,
   publicOrigin: process.env.PUBLIC_ORIGIN!,
-  assetPrefix: process.env.ASSET_PREFIX ?? process.env.PUBLIC_ORIGIN!,
   storagePrefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN!,
   secretKey: process.env.SECRET_KEY ?? 'defaultSecretKey',
   publicDatabaseProxy: process.env.PUBLIC_DATABASE_PROXY,
