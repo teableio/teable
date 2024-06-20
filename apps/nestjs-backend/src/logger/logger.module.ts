@@ -17,10 +17,19 @@ export class LoggerModule {
 
         return {
           pinoHttp: {
+            serializers: {
+              req(req) {
+                delete req.headers;
+                return req;
+              },
+              res(res) {
+                delete res.headers;
+                return res;
+              },
+            },
             name: 'teable',
             level: level,
-            autoLogging: false,
-            quietReqLogger: true,
+            autoLogging: process.env.NODE_ENV === 'production',
             genReqId: (req, res) => {
               const existingID = req.id ?? req.headers[X_REQUEST_ID];
               if (existingID) return existingID;
