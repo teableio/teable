@@ -25,7 +25,8 @@
     "base": "Base",
     "field": "Field",
     "record": "Record",
-    "automation": "Automation"
+    "automation": "Automation",
+    "user": "User"
   },
   "editor": {
     "attachment": {
@@ -156,7 +157,8 @@
       "automationCreate": "Create automation",
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
-      "automationUpdate": "Update automation"
+      "automationUpdate": "Update automation",
+      "userEmailRead": "Read user email"
     }
   }
 }

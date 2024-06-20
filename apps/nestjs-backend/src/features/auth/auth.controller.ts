@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import type { IUserMeVo } from '@teable/openapi';
 import {
   IAddPasswordRo,
   IChangePasswordRo,
@@ -16,6 +17,7 @@ import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
+import { TokenAccess } from './decorators/token.decorator';
 import { LocalAuthGuard } from './guard/local-auth.guard';
 import { pickUserMe } from './utils';
 
@@ -56,6 +58,12 @@ export class AuthController {
   @Get('/user/me')
   async me(@Req() request: Express.Request) {
     return request.user;
+  }
+
+  @Get('/user')
+  @TokenAccess()
+  async user(@Req() request: Express.Request) {
+    return this.authService.getUserInfo(request.user as IUserMeVo);
   }
 
   @Patch('/change-password')
