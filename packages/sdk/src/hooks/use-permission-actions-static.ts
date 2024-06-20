@@ -131,6 +131,9 @@ const actionsI18nMap: Record<
   'automation|update': {
     description: 'permission.actionDescription.automationUpdate',
   },
+  'user|email_read': {
+    description: 'permission.actionDescription.userEmailRead',
+  },
 };
 
 const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
@@ -154,6 +157,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   },
   [ActionPrefix.Automation]: {
     title: 'noun.automation',
+  },
+  [ActionPrefix.User]: {
+    title: 'noun.user',
   },
 };
 
