@@ -6,6 +6,7 @@ import { getRandomString } from '@teable/core';
 import * as minio from 'minio';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { replaceStorageUrl } from '../../../utils/full-storage-url';
 import { second } from '../../../utils/second';
 import type StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
@@ -40,12 +41,14 @@ export class MinioStorage implements StorageAdapter {
       'Content-Length': contentLength,
     };
     try {
-      const url = await this.minioClient.presignedUrl(
-        uploadMethod,
-        bucket,
-        path,
-        expiresIn ?? second(tokenExpireIn),
-        requestHeaders
+      const url = replaceStorageUrl(
+        await this.minioClient.presignedUrl(
+          uploadMethod,
+          bucket,
+          path,
+          expiresIn ?? second(tokenExpireIn),
+          requestHeaders
+        )
       );
       return {
         url,
@@ -93,7 +96,9 @@ export class MinioStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
-    return this.minioClient.presignedGetObject(bucket, path, expiresIn, respHeaders);
+    return replaceStorageUrl(
+      await this.minioClient.presignedGetObject(bucket, path, expiresIn, respHeaders)
+    );
   }
 
   async uploadFileWidthPath(

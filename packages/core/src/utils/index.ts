@@ -5,3 +5,4 @@ export * from './date';
 export * from './dsn-parser';
 export * from './clipboard';
 export * from './minidenticon';
+export * from './replace-suffix';

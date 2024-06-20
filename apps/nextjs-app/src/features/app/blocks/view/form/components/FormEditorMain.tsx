@@ -17,6 +17,7 @@ import {
   Textarea,
   cn,
 } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
@@ -140,10 +141,14 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           )}
         >
           {coverUrl && (
-            <img
+            <Image
               src={getPreviewUrl(coverUrl)}
-              alt="form cover"
-              className="size-full object-cover"
+              alt="card cover"
+              fill
+              sizes="100%"
+              style={{
+                objectFit: 'cover',
+              }}
             />
           )}
           <Button
@@ -165,10 +170,12 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
         <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
           {logoUrl ? (
             <>
-              <img
+              <Image
+                className="rounded-lg object-cover shadow-sm"
                 src={getPreviewUrl(logoUrl)}
-                alt="form logo"
-                className="size-full rounded-lg object-cover shadow-sm"
+                alt="card cover"
+                fill
+                sizes="100%"
               />
               <Button
                 variant={'ghost'}
