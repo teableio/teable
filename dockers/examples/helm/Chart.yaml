@@ -12,3 +12,6 @@ dependencies:
   - name: postgresql
     version: "15.5.6"
     repository: "oci://registry-1.docker.io/bitnamicharts"
+  - name: redis
+    version: "19.5.5"
+    repository: "oci://registry-1.docker.io/bitnamicharts"

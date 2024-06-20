@@ -1,126 +1,126 @@
 {{- define "teable.env.backend" -}}
-{{- $serviceName := include "teable.nameBuilder" . }}
+{{- $teable := include "teable.nameBuilder" . -}}
+{{- $secret := include "teable.secretName" . -}}
 - name: PUBLIC_ORIGIN
-  value: {{.Values.config.origin | required "You should set `origin` to url where the app is available. Ex: https://teable.example.com" | quote}}
+  value: "{{- if .Values.ingress.tls -}}https{{- else -}}http{{- end }}://{{ .Values.ingress.services.teable.host }}"
 - name: BACKEND_JWT_SECRET
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $secret }}
       key: jwt-secret
 - name: BACKEND_SESSION_SECRET
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $secret }}
       key: session-secret
 - name: BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $secret }}
       key: accessToken-encryption-key
 - name: BACKEND_ACCESS_TOKEN_ENCRYPTION_IV
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $secret }}
       key: accessToken-encryption-iv
+- name: BACKEND_CACHE_PROVIDER
+  value: redis
+- name: BACKEND_CACHE_REDIS_URI
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secret }}
+      key: redis-url
 {{- end -}}
 
 {{- define "teable.env.database" -}}
-{{- $serviceName := include "teable.nameBuilder" . }}
-- name: POSTGRES_HOST
-  value: {{ $serviceName }}-postgresql
-- name: POSTGRES_PORT
-  value: {{ .Values.postgresql.containerPorts.postgresql | quote }}
-- name: POSTGRES_DB
-  value: {{ .Values.postgresql.auth.database | quote }}
-- name: POSTGRES_USER
-  value: postgres
-- name: POSTGRES_PASSWORD
+{{- $secret := include "teable.secretName" . -}}
+{{- $postgres:= include "common.nameBuilder" (list $ "postgresql") }}
+- name: PRISMA_DATABASE_URL
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
-      key: {{ .Values.postgresql.auth.secretKeys.adminPasswordKey | quote }}
+      name: {{ $secret }}
+      key: database-url
 {{- end -}}
 
 {{- define "teable.env.mail" -}}
-{{- $serviceName := include "teable.nameBuilder" . }}
+{{- $teable := include "teable.nameBuilder" . }}
+{{- $secret := include "teable.secretName" . -}}
 - name: BACKEND_MAIL_HOST
   valueFrom:
     configMapKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $teable }}
       key: mail-host
       optional: true
 - name: BACKEND_MAIL_PORT
   valueFrom:
     configMapKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $teable }}
       key: mail-port
       optional: true
 - name: BACKEND_MAIL_SECURE
   valueFrom:
     configMapKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $teable }}
       key: mail-secure
       optional: true
 - name: BACKEND_MAIL_SENDER
   valueFrom:
     configMapKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $teable }}
       key: mail-sender
       optional: true
 - name: BACKEND_MAIL_SENDER_NAME
   valueFrom:
     configMapKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $teable }}
       key: mail-sender-name
       optional: true
 - name: BACKEND_MAIL_AUTH_USER
   valueFrom:
     configMapKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $teable }}
       key: mail-auth-username
       optional: true
 - name: BACKEND_MAIL_AUTH_PASS
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $secret }}
       key: mail-auth-password
       optional: true
 {{- end -}}
 
 {{- define "teable.env.storage" -}}
-{{- $serviceName := include "teable.nameBuilder" . }}
+{{- $teable := include "teable.nameBuilder" . }}
+{{- $secret := include "teable.secretName" . -}}
+{{- $minio:= include "common.nameBuilder" (list $ "minio") }}
 - name: STORAGE_PREFIX
   valueFrom:
-    configMapKeyRef:
-      name: {{ $serviceName }}
-      key: storage-origin
+    secretKeyRef:
+      name: {{ $secret }}
+      key: minio-url
 - name: BACKEND_STORAGE_PROVIDER
   valueFrom:
     configMapKeyRef:
-      name: {{ $serviceName }}
+      name: {{ $teable }}
       key: storage-provider
 - name: BACKEND_STORAGE_PUBLIC_BUCKET
-  value: {{ (split "," .Values.minio.defaultBuckets)._0 | trim }}
+  value: {{ index .Values.minio.provisioning.buckets 0 "name" }}
 - name: BACKEND_STORAGE_PRIVATE_BUCKET
-  value: {{ (split "," .Values.minio.defaultBuckets)._1 | trim }}
+  value: {{ index .Values.minio.provisioning.buckets 1 "name" }}
 - name: BACKEND_STORAGE_MINIO_ENDPOINT
-  value: {{ $serviceName }}-minio
+  value: {{ .Values.minio.apiIngress.hostname | quote }}
 - name: BACKEND_STORAGE_MINIO_PORT
-  value: {{ .Values.minio.containerPorts.api | quote }}
+  value: {{ .Values.minio.apiIngress.tls | ternary "443" "80" | quote }}
 - name: BACKEND_STORAGE_MINIO_USE_SSL
-  valueFrom:
-    configMapKeyRef:
-      name: {{ $serviceName }}
-      key: storage-minio-useSSL
-      optional: true
+  value: {{ .Values.minio.apiIngress.tls | quote }}
 - name: BACKEND_STORAGE_MINIO_ACCESS_KEY
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
-      key: root-user
+      name: {{ $secret }}
+      key: minio-user
 - name: BACKEND_STORAGE_MINIO_SECRET_KEY
   valueFrom:
     secretKeyRef:
-      name: {{ $serviceName }}
-      key: root-password
+      name: {{ $secret }}
+      key: minio-password
 {{- end -}}

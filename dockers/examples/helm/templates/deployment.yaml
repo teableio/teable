@@ -28,8 +28,13 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - node
+          args:
+            - apps/nestjs-backend/dist/index.js
           env:
             {{- include "teable.env.backend" $ | nindent 12 }}
+            {{- include "teable.env.database" $ | nindent 12 }}
             {{- include "teable.env.mail" $ | nindent 12 }}
             {{- include "teable.env.storage" $ | nindent 12 }}
             {{- $envVars | indent 12 }}
@@ -91,6 +96,6 @@ spec:
     - port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
-      name: http
+      name: teable-port
   selector:
     {{- include "common.selectorLabels" . | nindent 4 }}

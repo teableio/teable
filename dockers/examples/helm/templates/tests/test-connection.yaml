@@ -1,4 +1,4 @@
-{{- $fullName := include "teable.nameBuilder" $ -}}  # Pass the root context
+{{- $fullName := include "common.fullname" $ -}}  # Pass the root context
 apiVersion: v1
 kind: Pod
 metadata:

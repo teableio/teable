@@ -14,5 +14,5 @@ data:
   mail-auth-username: {{ .Values.config.mail.auth.username | quote }}
   {{- end}}
 
-  storage-origin: {{ .Values.config.storage.origin | default .Values.config.origin | quote }}
+  storage-origin: {{ .Values.config.storageOrigin | default .Values.config.origin | quote }}
   storage-provider: {{ .Values.config.storage.provider | default "minio" | quote }}

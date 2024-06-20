@@ -14,3 +14,11 @@ imagePullPolicy: {{ $root.image.pullPolicy | default $.Values.image.pullPolicy }
   {{- $fullName := include "common.fullname" . -}}
   {{- printf "%s-teable" $fullName -}}
 {{- end }}
+
+{{- define "common.nameBuilder" -}}
+{{- prepend (rest .) (include "common.fullname" (first .)) | join "-" -}}
+{{- end }}
+
+{{- define "teable.secretName" -}}
+{{- print "teable-secret" }}
+{{- end }}

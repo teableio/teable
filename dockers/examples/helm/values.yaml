@@ -1,8 +1,24 @@
+# The ingress setting is required for Teable
+# Some reasons:
+# 1. For convenience, we will include the full url address in the return value of the table data api request, So the application must know the exposed host
+# 2. The full address should also be included in the email notification
+# 3. The attachment management upload service also requires the full storage service access path
+# 4. The spreadsheet copy function can be used only when the https service is enabled see (https://developer.mozilla.org/en-US/docs/Web/API/Clipboard)
+ingress:
+  enabled: true
+  services:
+    teable:
+      host: dev-app.teable.io
+      portName: teable-port
+      path: "/"
+      pathType: Prefix
+    # minio:
+    #   host: dev-app.teable.io
+    #   portName: minio-api
+    #   path: "/storage"
+    #   pathType: Prefix
 
 config:
-  # * Required! You should set `origin` to url where the app is available. Ex: https://teable.example.com"
-  origin: https://teable.example.com
-
   # config this to enable email sending
   mail:
     host: null
@@ -14,46 +30,12 @@ config:
       username: null
       password: null
 
-  # database-host: {{ .Values.config.database.host | default $defaultDatabaseHost | quote }}
-  # database-port: {{ .Values.config.database.port | default "5432" | quote }}
-  # database-name: {{ .Values.config.database.name | default "teable" | quote }}
-  # database-user: {{ .Values.config.database.user | default "teable" | quote }}
-  # database-extraArgs: {{ .Values.config.database.extraArgs }}
-
-  # ---------- You can choose to configure external storage and databases ----------
-  # Safely ignore the following settings if you want to use the internal storage and database.
-  database:
-    useExternal: false
-    # choose between internal or external, we current only support postgres
-    host: null
-    port: null
-    name: null
-    user: null
-    # leave this empty to generate a random password (recommend)
-    password: null
-    extraArgs: {}
-
   storage:
     # The URL of the attachment files server. example: https://storage.teable.example.com
     # leave this empty to use the same value as `origin`
-    origin: null
 
     # currently only supports minio
     provider: null
-    # public bucket for avatar, image, etc.
-    publicBucket: null
-    privateBucket: null
-
-    # if you are using minio, you should set the following values
-    minio:
-      port: null
-      # end point for internal access, leave it empty to use internal service name
-      endPoint: null
-      useSSL: null
-      accessKey: null
-      # leave this empty to generate a random secret (recommend)
-      secretKey: null
-      serverUrl: null
 
   # leave all the following values empty to generate random values (recommend)
   jwtSecret: null
@@ -65,17 +47,53 @@ config:
     key: null
     iv: null
 
+  redisDb: 0
+        
 minio:
-  # The default buckets for public and private files, separated by commas, 2 buckets are required
-  defaultBuckets: "pub-assets,pvt-assets"
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "250m"
+  auth:
+    existingSecret: teable-secret
+    rootUserSecretKey: minio-user
+    rootPasswordSecretKey: minio-password
+  extraEnvVars:
+    - name: MINIO_SERVER_URL
+      valueFrom:
+        secretKeyRef:
+          name: teable-secret
+          key: minio-url
+  ingress:
+    enabled: true
+    hostname: console-app.teable.io
+  apiIngress:
+    tls: false
+    enabled: true
+    hostname: sss-app.teable.io
+  # The default buckets for public and private files
+  provisioning:
+    enabled: true
+    # notice: first is public, second is private, cannot change order
+    buckets:
+      - name: pub-assets
+      - name: pvt-assets
+    extraCommands:
+      - mc anonymous set download provisioning/pub-assets
 
 postgresql:
+  auth:
+    enablePostgresUser: false
+    username: teable
+    database: teable
+    existingSecret: teable-secret
+    secretKeys:
+      userPasswordKey: database-password
   persistence:
     enabled: true
+
+redis:
+  architecture: standalone
+  auth:
+    existingSecret: teable-secret
+    secretKeys:
+      userPasswordKey: redis-password
 
 ## @section Global parameters
 ## @param replicaCount represents the number of pods that will be created for the application
@@ -130,7 +148,10 @@ affinity: {}
 ## Any number of environment variables can be added to this object.
 ## To add an environment variable, simply include a new line in the 'envVars: {}' block,
 ## with the key-value pair representing the variable name and its corresponding value.
-envVars: {}
+envVars:
+  BRAND_NAME: teable
+  NEXTJS_DIR: apps/nextjs-app
+  NEXT_ENV_IMAGES_ALL_REMOTE: true
 
 ## @param podAnnotations provides additional metadata for pods in the form of annotations.
 ## Annotations are key-value pairs that can be used to provide non-identifying data for pods.
@@ -166,7 +187,7 @@ image:
 ## @descriptionEnd
 service:
   ## @param service.type The type of the service. It can be one of the following: ClusterIP, NodePort, LoadBalancer, or ExternalName.
-  type: NodePort
+  type: ClusterIP
   ## @param service.port The port on which the service will listen. Here, it is set to 80.
   port: 80
   ## @param service.targetPort The port of the target Pods where the HTTP service is running. Here, it's also set to 80.
@@ -174,7 +195,6 @@ service:
   ## @param service.annotations This is the place to specify additional annotations for the service. Here, it's an empty object,
   ## indicating there are no custom annotations specified for the service.
   annotations: {}
-
 
 ## @section Probe parameters
 ## @descriptionStart
@@ -195,28 +215,6 @@ probes:
   startup:
     ## @skip probes.startup.path
     path: /
-
-## @section Ingress parameters
-## @descriptionStart
-## 'ingress' controls the properties of the Ingress resource to be created for the application.
-## @descriptionEnd
-## @param ingress.className Optional string used to tie Ingress resources with specific IngressClass objects.
-## @param ingress.enabled Flag to enable the creation of the Ingress. Default is 'false'.
-## @param ingress.annotations Further annotations to add to the Ingress resource object.
-## @param ingress.hosts A list of hosts and their respective paths to be included in the Ingress object.
-## @param ingress.tls.additional Additional configuration for ingresses that will enable SSL certificates for multiple hosts.
-ingress:
-  className: null
-  enabled: false
-  annotations: {}
-  hosts: []
-  #    - host: chart-example.local
-  #      paths: []
-  tls:
-    additional: []
-#      - secretName: chart-example-tls
-#        hosts:
-#          - chart-example.local
 
 ## @section Resource parameters
 ## @descriptionStart

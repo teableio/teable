@@ -1,6 +1,6 @@
 {{- if .Values.ingress.enabled -}}
 {{- $fullName := include "teable.nameBuilder" . -}}
-{{- $svcPort := .Values.service.port -}}
+{{- $commonName := include "common.name" . -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -13,35 +13,25 @@ metadata:
   {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls }}
   tls:
-    {{- range .Values.ingress.hosts }}
-    {{- if .tls }}
-    {{- $secretName := printf "%s-tls" (trunc 249 $fullName) }}
-    - secretName: {{ if and (eq (kindOf .tls) "bool") .tls }}{{ $secretName }}{{ else }}{{ .tls.secretName | default $secretName }}{{ end }}
+    - secretName: {{ printf "%s-tls" (trunc 249 $fullName) }}
       hosts:
-        - {{ .host | quote }}
-    {{- end }}
-    {{- end }}
-    {{- range .Values.ingress.tls.additional }}
-    - hosts:
-        {{- range .hosts }}
-        - {{ . | quote }}
+        {{- range $key, $service := .Values.ingress.services }}
+        - {{ $service.host | quote }}
         {{- end }}
-      secretName: {{ .secretName }}
-    {{- end }}
+  {{- end }}
   rules:
-    {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
+    {{- range $key, $service := .Values.ingress.services }}
+    - host: {{ $service.host | quote }}
       http:
         paths:
-          {{- range .paths | default (list (dict)) }}
-          - path: {{ .path | default "/" | quote }}
-            pathType: {{ .pathType | default "Prefix" | quote }}
+          - path: {{ $service.path | quote }}
+            pathType: {{ $service.pathType | quote }}
             backend:
               service:
-                name: {{ $fullName }}
+                name: {{ include "common.nameBuilder" (list $ $key) }}
                 port:
-                  number: {{ $svcPort }}
-          {{- end }}
+                  name: {{ $service.portName }}
     {{- end }}
 {{- end }}

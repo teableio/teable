@@ -30,11 +30,7 @@ spec:
         - name: {{ .Chart.Name }}
           {{- include "teable.shared.image" (list $ "migrationJob") | nindent 10 }}
           env:
-            - name: PRISMA_DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secret }}
-                  key: database-url
+            {{- include "teable.env.database" $ | nindent 12 }}
             {{- $envVars | nindent 12 }}
           resources:
             {{- toYaml $root.resources | nindent 12 }}
