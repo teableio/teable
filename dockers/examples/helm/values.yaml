@@ -5,18 +5,9 @@
 # 3. The attachment management upload service also requires the full storage service access path
 # 4. The spreadsheet copy function can be used only when the https service is enabled see (https://developer.mozilla.org/en-US/docs/Web/API/Clipboard)
 ingress:
+  tls: true
   enabled: true
-  services:
-    teable:
-      host: dev-app.teable.io
-      portName: teable-port
-      path: "/"
-      pathType: Prefix
-    # minio:
-    #   host: dev-app.teable.io
-    #   portName: minio-api
-    #   path: "/storage"
-    #   pathType: Prefix
+  hostname: null
 
 config:
   # config this to enable email sending
@@ -48,7 +39,7 @@ config:
     iv: null
 
   redisDb: 0
-        
+
 minio:
   auth:
     existingSecret: teable-secret
@@ -61,12 +52,13 @@ minio:
           name: teable-secret
           key: minio-url
   ingress:
+    tls: false
     enabled: true
-    hostname: console-app.teable.io
+    hostname: null
   apiIngress:
     tls: false
     enabled: true
-    hostname: sss-app.teable.io
+    hostname: null
   # The default buckets for public and private files
   provisioning:
     enabled: true
@@ -79,12 +71,13 @@ minio:
 
 postgresql:
   auth:
-    enablePostgresUser: false
-    username: teable
+    username: main
     database: teable
     existingSecret: teable-secret
     secretKeys:
-      userPasswordKey: database-password
+      userPasswordKey: database-user-password
+      adminPasswordKey: database-admin-password
+      replicationPasswordKey: database-replication-password
   persistence:
     enabled: true
 

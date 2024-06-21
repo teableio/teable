@@ -15,23 +15,19 @@ spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if .Values.ingress.tls }}
   tls:
-    - secretName: {{ printf "%s-tls" (trunc 249 $fullName) }}
-      hosts:
-        {{- range $key, $service := .Values.ingress.services }}
-        - {{ $service.host | quote }}
-        {{- end }}
+    - hosts:
+        - {{ .Values.ingress.hostname }}
+      secretName: {{ printf "%s-tls" .Values.ingress.hostname }}
   {{- end }}
   rules:
-    {{- range $key, $service := .Values.ingress.services }}
-    - host: {{ $service.host | quote }}
+    - host: {{ .Values.ingress.hostname | quote }}
       http:
         paths:
-          - path: {{ $service.path | quote }}
-            pathType: {{ $service.pathType | quote }}
+          - path: {{ default "/" .Values.ingress.path }}
+            pathType: ImplementationSpecific
             backend:
               service:
-                name: {{ include "common.nameBuilder" (list $ $key) }}
+                name: {{ $fullName }}
                 port:
-                  name: {{ $service.portName }}
+                  name: teable-port
     {{- end }}
-{{- end }}

@@ -2,7 +2,7 @@
 {{- $teable := include "teable.nameBuilder" . -}}
 {{- $secret := include "teable.secretName" . -}}
 - name: PUBLIC_ORIGIN
-  value: "{{- if .Values.ingress.tls -}}https{{- else -}}http{{- end }}://{{ .Values.ingress.services.teable.host }}"
+  value: "{{- if .Values.ingress.tls -}}https{{- else -}}http{{- end }}://{{ .Values.ingress.hostname }}"
 - name: BACKEND_JWT_SECRET
   valueFrom:
     secretKeyRef:
@@ -40,6 +40,10 @@
     secretKeyRef:
       name: {{ $secret }}
       key: database-url
+{{- if .Values.postgresql.primary.service.nodePorts.postgresql }}
+- name: PUBLIC_DATABASE_PROXY
+  value: "{{ .Values.ingress.hostname }}:{{ (toString .Values.postgresql.primary.service.nodePorts.postgresql) }}"
+{{- end }}
 {{- end -}}
 
 {{- define "teable.env.mail" -}}
