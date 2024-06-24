@@ -98,6 +98,13 @@ export class SpaceService {
 
   async createSpace(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
+    const disallowSpaceCreation = this.cls.get('disallowSpaceCreation');
+
+    if (disallowSpaceCreation) {
+      throw new ForbiddenException(
+        'The current instance disallow space creation by the administrator'
+      );
+    }
 
     const spaceList = await this.prismaService.space.findMany({
       where: { deletedTime: null, createdBy: userId },

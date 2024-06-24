@@ -1,6 +1,6 @@
 import { ExitIcon } from '@radix-ui/react-icons';
 import { useMutation } from '@tanstack/react-query';
-import { Code, HelpCircle, Settings } from '@teable/icons';
+import { Code, HelpCircle, License, Settings } from '@teable/icons';
 import { signout } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
 import {
@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSettingStore } from '../setting/useSettingStore';
 
 export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
@@ -25,6 +26,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
   const { mutateAsync: loginOut, isLoading } = useMutation({
     mutationFn: signout,
   });
+  const isCloud = useIsCloud();
 
   const loginOutClick = async () => {
     await loginOut();
@@ -52,6 +54,12 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
             {t('help.title')}
           </a>
         </DropdownMenuItem>
+        {isCloud && (
+          <DropdownMenuItem className="flex gap-2" onClick={() => router.push('/setting/license')}>
+            <License className="size-4 shrink-0" />
+            {t('noun.license')}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           className="flex gap-2"
           onClick={() => router.push('/setting/personal-access-token')}

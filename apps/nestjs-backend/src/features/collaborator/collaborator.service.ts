@@ -10,6 +10,12 @@ import { Knex } from 'knex';
 import { isDate } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import {
+  CollaboratorCreateEvent,
+  CollaboratorDeleteEvent,
+  Events,
+} from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { getFullStorageUrl } from '../../utils/full-storage-url';
 
@@ -18,6 +24,7 @@ export class CollaboratorService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly eventEmitterService: EventEmitterService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -29,7 +36,7 @@ export class CollaboratorService {
     if (exist) {
       throw new BadRequestException('has already existed in space');
     }
-    return await this.prismaService.txClient().collaborator.create({
+    const collaborator = await this.prismaService.txClient().collaborator.create({
       data: {
         spaceId,
         roleName: role,
@@ -37,6 +44,11 @@ export class CollaboratorService {
         createdBy: currentUserId,
       },
     });
+    this.eventEmitterService.emitAsync(
+      Events.COLLABORATOR_CREATE,
+      new CollaboratorCreateEvent(spaceId)
+    );
+    return collaborator;
   }
 
   async deleteBySpaceId(spaceId: string) {
@@ -121,7 +133,7 @@ export class CollaboratorService {
   }
 
   async deleteCollaborator(spaceId: string, userId: string) {
-    return await this.prismaService.txClient().collaborator.updateMany({
+    const result = await this.prismaService.txClient().collaborator.updateMany({
       where: {
         spaceId,
         userId,
@@ -130,6 +142,11 @@ export class CollaboratorService {
         deletedTime: new Date().toISOString(),
       },
     });
+    this.eventEmitterService.emitAsync(
+      Events.COLLABORATOR_DELETE,
+      new CollaboratorDeleteEvent(spaceId)
+    );
+    return result;
   }
 
   async updateCollaborator(spaceId: string, updateCollaborator: UpdateSpaceCollaborateRo) {

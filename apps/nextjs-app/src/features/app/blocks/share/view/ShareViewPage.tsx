@@ -50,6 +50,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
               email: '',
               notifyMeta: {},
               hasPassword: false,
+              isAdmin: false,
             }}
           >
             <AnchorContext.Provider

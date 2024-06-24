@@ -184,8 +184,10 @@ model User {
   phone            String?   @unique
   email            String    @unique
   avatar           String?
+  isAdmin          Boolean?  @map("is_admin")
   notifyMeta       String?   @map("notify_meta")
   lastSignTime     DateTime? @map("last_sign_time")
+  deactivatedTime  DateTime? @map("deactivated_time")
   createdTime      DateTime  @default(now()) @map("created_time")
   deletedTime      DateTime? @map("deleted_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")

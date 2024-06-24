@@ -14,12 +14,14 @@ import {
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
+import { useSetting } from '../../hooks/useSetting';
 import { AddPassword } from './account/AddPassword';
 import { ChangePasswordDialog } from './account/ChangePasswordDialog';
 
 export const Account: React.FC = () => {
   const { user: sessionUser, refresh, refreshAvatar } = useSession();
   const { t } = useTranslation('common');
+  const { disallowResetPassword } = useSetting();
 
   const updateUserAvatarMutation = useMutation(updateUserAvatar, {
     onSuccess: () => {
@@ -100,7 +102,7 @@ export const Account: React.FC = () => {
               <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
             </div>
           </div>
-          {sessionUser.hasPassword && (
+          {!disallowResetPassword && sessionUser.hasPassword && (
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('settings.account.password')}</Label>

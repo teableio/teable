@@ -6,11 +6,11 @@ import { getFullStorageUrl } from '../../utils/full-storage-url';
 export const pickUserMe = (
   user: Pick<
     Prisma.UserGetPayload<null>,
-    'id' | 'name' | 'avatar' | 'phone' | 'email' | 'password' | 'notifyMeta'
+    'id' | 'name' | 'avatar' | 'phone' | 'email' | 'password' | 'notifyMeta' | 'isAdmin'
   >
 ): IUserMeVo => {
   return {
-    ...pick(user, 'id', 'name', 'phone', 'email'),
+    ...pick(user, 'id', 'name', 'phone', 'email', 'isAdmin'),
     notifyMeta: typeof user.notifyMeta === 'object' ? user.notifyMeta : JSON.parse(user.notifyMeta),
     avatar:
       user.avatar && !user.avatar?.startsWith('http')

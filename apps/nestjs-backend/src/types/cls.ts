@@ -24,4 +24,7 @@ export interface IClsStore extends ClsStore {
   permissions: PermissionAction[];
   // for share db adapter
   cookie?: string;
+  disallowSignUp?: boolean;
+  disallowResetPassword?: boolean;
+  disallowSpaceCreation?: boolean;
 }

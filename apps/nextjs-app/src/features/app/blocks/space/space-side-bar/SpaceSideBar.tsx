@@ -1,33 +1,44 @@
-import { Home } from '@teable/icons';
+import { Admin, Home } from '@teable/icons';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { PinList } from './PinList';
 import { SpaceList } from './SpaceList';
 
-export const SpaceSideBar = () => {
+export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
+  const { isAdmin } = props;
   const router = useRouter();
+  const isCloud = useIsCloud();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   const pageRoutes: {
     href: string;
     text: string;
     Icon: React.FC<{ className?: string }>;
+    hidden?: boolean;
   }[] = [
     {
       href: '/space',
       text: t('space:allSpaces'),
       Icon: Home,
     },
+    {
+      href: '/admin/setting',
+      text: t('noun.adminPanel'),
+      Icon: Admin,
+      hidden: isCloud || !isAdmin,
+    },
   ];
   return (
     <>
       <div className="flex flex-col gap-2 px-3">
         <ul>
-          {pageRoutes.map(({ href, text, Icon }) => {
+          {pageRoutes.map(({ href, text, Icon, hidden }) => {
+            if (hidden) return null;
             return (
               <li key={href}>
                 <Button
