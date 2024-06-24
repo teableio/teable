@@ -16,6 +16,8 @@ export enum HttpErrorCode {
   UNAUTHORIZED = 'unauthorized',
   // 401 - Given the bearer token used, the client doesn't have permission to perform this operation.
   UNAUTHORIZED_SHARE = 'unauthorized_share',
+  // 402 - Payment Required
+  PAYMENT_REQUIRED = 'payment_required',
   // 403 - Given the bearer token used, the client doesn't have permission to perform this operation.
   RESTRICTED_RESOURCE = 'restricted_resource',
   // 404 - Given the bearer token used, the resource does not exist. This error can also indicate that the resource has not been shared with owner of the bearer token.
