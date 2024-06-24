@@ -1,13 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PinType, deleteSpace, getSpaceById, updateSpace } from '@teable/openapi';
+import {
+  PinType,
+  deleteSpace,
+  getSpaceById,
+  getSubscriptionSummary,
+  updateSpace,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
+import { useIsCloud } from '../../hooks/useIsCloud';
 import { DraggableBaseGrid } from './DraggableBaseGrid';
 import { StarButton } from './space-side-bar/StarButton';
 import { useBaseList } from './useBaseList';
@@ -15,6 +23,7 @@ import { useBaseList } from './useBaseList';
 export const SpaceInnerPage: React.FC = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const isCloud = useIsCloud();
   const ref = useRef<HTMLDivElement>(null);
   const spaceId = router.query.spaceId as string;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
@@ -32,6 +41,12 @@ export const SpaceInnerPage: React.FC = () => {
   const basesInSpace = useMemo(() => {
     return bases?.filter((base) => base.spaceId === spaceId);
   }, [bases, spaceId]);
+
+  const { data: subscriptionSummary } = useQuery({
+    queryKey: ['subscription-summary', spaceId],
+    queryFn: () => getSubscriptionSummary(spaceId).then(({ data }) => data),
+    enabled: isCloud,
+  });
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
@@ -89,6 +104,9 @@ export const SpaceInnerPage: React.FC = () => {
               <h1 className="text-2xl font-semibold">{space.name}</h1>
             </SpaceRenaming>
             <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
+            {isCloud && (
+              <LevelWithUpgrade level={subscriptionSummary?.level} spaceId={space.id} withUpgrade />
+            )}
           </div>
 
           {basesInSpace?.length ? (

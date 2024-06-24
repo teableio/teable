@@ -7,6 +7,7 @@ export interface IServerEnv {
   sentryDsn?: string;
   socialAuthProviders?: string[];
   storagePrefix?: string;
+  edition?: string;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});
