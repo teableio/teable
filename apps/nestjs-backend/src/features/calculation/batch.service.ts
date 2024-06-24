@@ -330,7 +330,7 @@ export class BatchService {
       },
     };
 
-    this.logger.log(`saveOp: ${baseRaw.src}-${collection}`);
+    this.logger.verbose(`saveOp: ${baseRaw.src}-${collection}`);
 
     const rawOps = dataList.map(({ docId: docId, version, data }) => {
       let rawOp: IRawOp;

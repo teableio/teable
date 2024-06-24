@@ -17,6 +17,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
   bigTransactionTimeout: Number(
     process.env.BIG_TRANSACTION_TIMEOUT ?? 10 * 60 * 1000 /* 10 mins */
   ),
+  automationGap: Number(process.env.AUTOMATION_GAP ?? 200),
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);
