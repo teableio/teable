@@ -649,7 +649,11 @@ export class SelectionService {
     return [range[0], range[1]];
   }
 
-  async paste(tableId: string, pasteRo: IPasteRo) {
+  async paste(
+    tableId: string,
+    pasteRo: IPasteRo,
+    expansionChecker?: (col: number, row: number) => Promise<void>
+  ) {
     const { content, header = [], ...rangesRo } = pasteRo;
     const { ranges, type, ...queryRo } = rangesRo;
     const { viewId } = queryRo;
@@ -702,6 +706,7 @@ export class SelectionService {
       tableColCount,
       tableRowCount,
     ]);
+    await expansionChecker?.(numColsToExpand, numRowsToExpand);
 
     const updateRange: IPasteVo['ranges'] = [cell, cell];
 
