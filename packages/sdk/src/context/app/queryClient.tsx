@@ -1,12 +1,17 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { IHttpError } from '@teable/core';
 import { toast } from '@teable/ui-lib';
+import { useBillingUpgradeStore } from '../../components/billing/store/billing-upgrade';
 
 export const errorRequestHandler = (error: unknown) => {
   const { code, message, status } = error as IHttpError;
   // no authentication
   if (status === 401) {
     window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;
+    return;
+  }
+  if (status === 402) {
+    useBillingUpgradeStore.setState({ modalOpen: true });
     return;
   }
   toast({

@@ -23,7 +23,10 @@
     "loading": "Loading...",
     "refreshPage": "Refresh Page",
     "yesDelete": "Yes, delete",
-    "rename": "Rename"
+    "rename": "Rename",
+    "change": "Change",
+    "upgrade": "Upgrade",
+    "search": "Search"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -100,7 +103,15 @@
     "record": "Record",
     "dashboard": "Dashboard",
     "automation": "Automation",
-    "authorityMatrix": "Authority Matrix"
+    "authorityMatrix": "Authority Matrix",
+    "adminPanel": "Admin Panel",
+    "license": "License"
+  },
+  "level": {
+    "free": "Free",
+    "plus": "Plus",
+    "pro": "Pro",
+    "enterprise": "Enterprise"
   },
   "noResult": "No Result.",
   "untitled": "Untitled",
@@ -158,5 +169,12 @@
     "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/developer/api"
   },
-  "pagePermissionChangeTip": "Page permissions have been updated. Please refresh the page to see the latest content."
+  "pagePermissionChangeTip": "Page permissions have been updated. Please refresh the page to see the latest content.",
+  "listEmptyTips": "The list is empty",
+  "billing": {
+    "overLimits": "Over limits",
+    "overLimitsDescription": "Your current subscription has exceeded its usage limit. Please upgrade your plan to continue using this feature without interruption.",
+    "unavailableInPlanTips": "The current subscription plan does not support this feature",
+    "levelTips": "This space is currently on the {{level}} plan"
+  }
 }

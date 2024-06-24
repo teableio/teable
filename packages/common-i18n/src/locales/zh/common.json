@@ -23,7 +23,10 @@
     "loading": "加载中...",
     "refreshPage": "刷新页面",
     "yesDelete": "是，删除",
-    "rename": "重命名"
+    "rename": "重命名",
+    "change": "变更",
+    "upgrade": "升级",
+    "search": "搜索"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -100,7 +103,15 @@
     "record": "记录",
     "dashboard": "仪表盘",
     "automation": "自动化",
-    "authorityMatrix": "权限矩阵"
+    "authorityMatrix": "权限矩阵",
+    "adminPanel": "管理面板",
+    "license": "许可证"
+  },
+  "level": {
+    "free": "免费版",
+    "plus": "高级版",
+    "pro": "专业版",
+    "enterprise": "企业版"
   },
   "noResult": "无结果。",
   "untitled": "未命名",
@@ -157,5 +168,12 @@
     "mainLink": "https://help.teable.cn",
     "apiLink": "https://help.teable.cn/gao-dai-ma-kai-fa/api"
   },
-  "pagePermissionChangeTip": "页面权限已更新，请刷新页面以查看最新内容。"
+  "pagePermissionChangeTip": "页面权限已更新，请刷新页面以查看最新内容。",
+  "listEmptyTips": "列表为空",
+  "billing": {
+    "overLimits": "超出限制",
+    "overLimitsDescription": "用量已超出了当前订阅版本的限制，您可以升级到更高级的版本以解锁更多功能用量。",
+    "unavailableInPlanTips": "当前订阅计划不支持此功能",
+    "levelTips": "当前空间使用的是{{level}}计划"
+  }
 }

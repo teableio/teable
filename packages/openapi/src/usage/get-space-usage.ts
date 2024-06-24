@@ -1,0 +1,86 @@
+import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod';
+import { axios } from '../axios';
+import { BillingProductLevel } from '../billing';
+import { registerRoute, urlBuilder } from '../utils';
+
+export enum UsageFeature {
+  NumRows = 'numRows',
+  AttachmentSize = 'attachmentSize',
+  NumDatabaseConnections = 'numDatabaseConnections',
+  NumApiCalls = 'numApiCalls',
+}
+
+export const usageFeatureSchema = z.object({
+  [UsageFeature.NumRows]: z.number(),
+  [UsageFeature.AttachmentSize]: z.number(),
+  [UsageFeature.NumDatabaseConnections]: z.number(),
+  [UsageFeature.NumApiCalls]: z.number(),
+});
+
+export enum UsageFeatureLimit {
+  MaxRows = 'maxRows',
+  MaxSizeAttachments = 'maxSizeAttachments',
+  MaxNumDatabaseConnections = 'maxNumDatabaseConnections',
+  MaxNumApiCallsPerMonth = 'maxNumApiCallsPerMonth',
+  MaxRevisionHistoryDays = 'maxRevisionHistoryDays',
+  MaxAutomationHistoryDays = 'maxAutomationHistoryDays',
+  AutomationEnable = 'automationEnable',
+  AuditLogEnable = 'auditLogEnable',
+  AdminPanelEnable = 'adminPanelEnable',
+  ExtensionsEnable = 'extensionsEnable',
+  RowColoringEnable = 'rowColoringEnable',
+  AdvancedPermissionsEnable = 'advancedPermissionsEnable',
+  PasswordRestrictedSharesEnable = 'passwordRestrictedSharesEnable',
+}
+
+export const usageFeatureLimitSchema = z.object({
+  [UsageFeatureLimit.MaxRows]: z.number(),
+  [UsageFeatureLimit.MaxSizeAttachments]: z.number(),
+  [UsageFeatureLimit.MaxNumDatabaseConnections]: z.number(),
+  [UsageFeatureLimit.MaxNumApiCallsPerMonth]: z.number(),
+  [UsageFeatureLimit.MaxRevisionHistoryDays]: z.number(),
+  [UsageFeatureLimit.MaxAutomationHistoryDays]: z.number(),
+  [UsageFeatureLimit.AutomationEnable]: z.boolean(),
+  [UsageFeatureLimit.AuditLogEnable]: z.boolean(),
+  [UsageFeatureLimit.AdminPanelEnable]: z.boolean(),
+  [UsageFeatureLimit.ExtensionsEnable]: z.boolean(),
+  [UsageFeatureLimit.RowColoringEnable]: z.boolean(),
+  [UsageFeatureLimit.AdvancedPermissionsEnable]: z.boolean(),
+  [UsageFeatureLimit.PasswordRestrictedSharesEnable]: z.boolean(),
+});
+
+export const usageVoSchema = z.object({
+  level: z.nativeEnum(BillingProductLevel),
+  limit: usageFeatureLimitSchema,
+});
+
+export type IUsageVo = z.infer<typeof usageVoSchema>;
+
+export const GET_SPACE_USAGE = '/space/{spaceId}/usage';
+
+export const GetSpaceUsageRoute: RouteConfig = registerRoute({
+  method: 'get',
+  path: GET_SPACE_USAGE,
+  description: 'Get usage information for the space',
+  request: {
+    params: z.object({
+      spaceId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Returns usage information for the space.',
+      content: {
+        'application/json': {
+          schema: usageVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['usage'],
+});
+
+export const getSpaceUsage = async (spaceId: string) => {
+  return axios.get<IUsageVo>(urlBuilder(GET_SPACE_USAGE, { spaceId }));
+};
