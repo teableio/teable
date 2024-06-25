@@ -159,8 +159,6 @@ COPY --from=post-builder --chown=nodejs:nodejs /app/packages ./packages
 COPY --from=post-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
 
-COPY --chown=nodejs:nodejs scripts/start.mjs ./scripts/start.mjs
-
 EXPOSE ${PORT}
 
 ENTRYPOINT ["node", "apps/nestjs-backend/dist/index.js"]
