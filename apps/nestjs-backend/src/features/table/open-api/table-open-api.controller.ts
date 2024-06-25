@@ -2,8 +2,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
 import type { ITableFullVo, ITableListVo, ITableVo } from '@teable/openapi';
 import {
-  getTableQuerySchema,
-  IGetTableQuery,
   tableRoSchema,
   ICreateTableWithDefault,
   dbTableNameRoSchema,
@@ -46,10 +44,9 @@ export class TableController {
   @Get(':tableId')
   async getTable(
     @Param('baseId') baseId: string,
-    @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getTableQuerySchema)) query: IGetTableQuery
+    @Param('tableId') tableId: string
   ): Promise<ITableVo> {
-    return await this.tableOpenApiService.getTable(baseId, tableId, query);
+    return await this.tableOpenApiService.getTable(baseId, tableId);
   }
 
   @Permissions('table|read')

@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IOtOperation, ISnapshotBase } from '@teable/core';
 import {
-  FieldKeyType,
   generateTableId,
   getRandomString,
   getUniqName,
@@ -10,7 +9,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateTableRo, ITableFullVo, ITableVo } from '@teable/openapi';
+import type { ICreateTableRo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -22,9 +21,6 @@ import type { IClsStore } from '../../types/cls';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { Timing } from '../../utils/timing';
 import { BatchService } from '../calculation/batch.service';
-import { FieldService } from '../field/field.service';
-import { RecordService } from '../record/record.service';
-import { ViewService } from '../view/view.service';
 
 @Injectable()
 export class TableService implements IReadonlyAdapterService {
@@ -34,9 +30,6 @@ export class TableService implements IReadonlyAdapterService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
-    private readonly viewService: ViewService,
-    private readonly fieldService: FieldService,
-    private readonly recordService: RecordService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -195,32 +188,6 @@ export class TableService implements IReadonlyAdapterService {
       icon: tableMeta.icon ?? undefined,
       lastModifiedTime: tableTime[0] || tableMeta.createdTime.toISOString(),
       defaultViewId: tableDefaultViewIds[0],
-    };
-  }
-
-  async getFullTable(
-    baseId: string,
-    tableId: string,
-    viewId?: string,
-    fieldKeyType: FieldKeyType = FieldKeyType.Name
-  ): Promise<ITableFullVo> {
-    const tableMeta = await this.getTableMeta(baseId, tableId);
-    const fields = await this.fieldService.getFieldsByQuery(tableId, { viewId });
-    const views = await this.viewService.getViews(tableId);
-    const { records } = await this.recordService.getRecords(tableId, {
-      viewId,
-      skip: 0,
-      take: 50,
-      fieldKeyType,
-    });
-
-    return {
-      ...tableMeta,
-      description: tableMeta.description ?? undefined,
-      icon: tableMeta.icon ?? undefined,
-      fields,
-      views,
-      records,
     };
   }
 

@@ -37,7 +37,7 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
 
   const { data: table } = useQuery({
     queryKey: ReactQueryKeys.tableInfo(base.id, tableId),
-    queryFn: () => apiGetTableById(base.id, tableId, {}),
+    queryFn: () => apiGetTableById(base.id, tableId),
   });
 
   const { data: fields } = useQuery({

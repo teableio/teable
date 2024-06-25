@@ -25,7 +25,6 @@ import type {
   ICreateRecordsRo,
   ICreateTableRo,
   ICreateTableWithDefault,
-  IGetTableQuery,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
@@ -161,11 +160,7 @@ export class TableOpenApiService {
     return await this.tableService.createTable(baseId, tableRo);
   }
 
-  async getTable(baseId: string, tableId: string, query: IGetTableQuery): Promise<ITableVo> {
-    const { viewId, fieldKeyType, includeContent } = query;
-    if (includeContent) {
-      return await this.tableService.getFullTable(baseId, tableId, viewId, fieldKeyType);
-    }
+  async getTable(baseId: string, tableId: string): Promise<ITableVo> {
     return await this.tableService.getTableMeta(baseId, tableId);
   }
 
