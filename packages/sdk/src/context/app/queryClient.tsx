@@ -1,7 +1,10 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { IHttpError } from '@teable/core';
 import { toast } from '@teable/ui-lib';
-import { useBillingUpgradeStore } from '../../components/billing/store/billing-upgrade';
+import {
+  UsageLimitModalType,
+  useUsageLimitModalStore,
+} from '../../components/billing/store/usage-limit-modal';
 
 export const errorRequestHandler = (error: unknown) => {
   const { code, message, status } = error as IHttpError;
@@ -11,7 +14,11 @@ export const errorRequestHandler = (error: unknown) => {
     return;
   }
   if (status === 402) {
-    useBillingUpgradeStore.setState({ modalOpen: true });
+    useUsageLimitModalStore.setState({ modalType: UsageLimitModalType.Upgrade, modalOpen: true });
+    return;
+  }
+  if (status === 460) {
+    useUsageLimitModalStore.setState({ modalType: UsageLimitModalType.User, modalOpen: true });
     return;
   }
   toast({
