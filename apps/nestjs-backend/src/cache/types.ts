@@ -11,6 +11,7 @@ export interface ICacheStore {
   [key: `auth:session-expire:${string}`]: boolean;
   [key: `oauth2:${string}`]: IOauth2State;
   [key: `reset-password-email:${string}`]: IResetPasswordEmailCache;
+  [key: `workflow:running:${string}`]: string;
 }
 
 export interface IAttachmentSignatureCache {

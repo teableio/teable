@@ -26,7 +26,8 @@
     "rename": "Rename",
     "change": "Change",
     "upgrade": "Upgrade",
-    "search": "Search"
+    "search": "Search",
+    "loadMore": "Load more"
   },
   "quickAction": {
     "title": "Quick Actions...",
