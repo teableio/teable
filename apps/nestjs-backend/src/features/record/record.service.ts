@@ -552,7 +552,7 @@ export class RecordService {
     return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
   }
 
-  private convertProjection(fieldKeys?: string[]) {
+  convertProjection(fieldKeys?: string[]) {
     return fieldKeys?.reduce<Record<string, boolean>>((acc, cur) => {
       acc[cur] = true;
       return acc;
