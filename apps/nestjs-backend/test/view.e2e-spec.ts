@@ -2,12 +2,11 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IColumn, IFieldRo, IFieldVo, IViewRo } from '@teable/core';
 import { FieldType, Relationship, ViewType } from '@teable/core';
-import type { ICreateTableRo, ITableFullVo, ITableVo } from '@teable/openapi';
+import type { ICreateTableRo, ITableFullVo } from '@teable/openapi';
 import {
   updateViewDescription,
   updateViewName,
   getViewFilterLinkRecords,
-  getTableById,
   updateViewShareMeta,
   enableShareView,
 } from '@teable/openapi';
@@ -21,6 +20,7 @@ import {
   createTable,
   getViews,
   getView,
+  getTable,
 } from './utils/init-app';
 
 const defaultViews = [
@@ -140,7 +140,7 @@ describe('OpenAPI ViewController (e2e)', () => {
   });
 
   describe('/api/table/{tableId}/view/:viewId/filter-link-records (GET)', () => {
-    let table: ITableVo;
+    let table: ITableFullVo;
     let linkTable1: ITableFullVo;
     let linkTable2: ITableFullVo;
 
@@ -235,8 +235,7 @@ describe('OpenAPI ViewController (e2e)', () => {
         records: linkTable2RecordRo,
       });
 
-      const tableData = await getTableById(baseId, fullTable.id, { includeContent: true });
-      table = tableData.data;
+      table = (await getTable(baseId, fullTable.id, { includeContent: true })) as ITableFullVo;
     });
 
     afterAll(async () => {

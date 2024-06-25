@@ -25,8 +25,6 @@ import type {
   IRecordsVo,
   IUpdateRecordRo,
   ITableFullVo,
-  IGetTableQuery,
-  ITableVo,
 } from '@teable/openapi';
 import {
   axios,
@@ -163,17 +161,29 @@ export async function deleteTable(baseId: string, tableId: string, expectStatus?
   }
 }
 
+type IMakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
 export async function getTable(
   baseId: string,
   tableId: string,
-  query: IGetTableQuery = {}
-): Promise<ITableVo> {
-  const result = await apiGetTableById(baseId, tableId, query);
-
+  query?: { includeContent?: boolean; viewId?: string }
+): Promise<IMakeOptional<ITableFullVo, 'records' | 'views' | 'fields'>> {
+  const result = await apiGetTableById(baseId, tableId);
+  if (query?.includeContent) {
+    const { records } = await getRecords(tableId);
+    const fields = await getFields(tableId, query.viewId);
+    const views = await getViews(tableId);
+    return {
+      ...result.data,
+      records,
+      views,
+      fields,
+    };
+  }
   return result.data;
 }
 
-async function getCookie(email: string, password: string) {
+export async function getCookie(email: string, password: string) {
   const sessionResponse = await apiSignin({ email, password });
   return {
     access_token: sessionResponse.data,
