@@ -102,17 +102,21 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: any | null, ids: string[], extra?: any) => void
   ) {
     try {
-      await this.cls.runWith(this.cls.get(), async () => {
-        this.cls.set('cookie', options.cookie);
-        this.cls.set('shareViewId', options.shareId);
-        const [docType, collectionId] = collection.split('_');
-
-        const queryResult = await this.getReadonlyService(docType as IdPrefix).getDocIdsByQuery(
-          collectionId,
-          query
-        );
-        callback(null, queryResult.ids, queryResult.extra);
-      });
+      await this.cls.runWith(
+        {
+          ...this.cls.get(),
+          cookie: options.cookie,
+          shareViewId: options.shareId,
+        },
+        async () => {
+          const [docType, collectionId] = collection.split('_');
+          const queryResult = await this.getReadonlyService(docType as IdPrefix).getDocIdsByQuery(
+            collectionId,
+            query
+          );
+          callback(null, queryResult.ids, queryResult.extra);
+        }
+      );
     } catch (e) {
       this.logger.error(e);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -201,18 +205,23 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-    await this.cls.runWith(this.cls.get(), async () => {
-      this.cls.set('cookie', options.agentCustom.cookie);
-      this.cls.set('shareViewId', options.agentCustom.shareId);
-      this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
-        if (err) {
-          callback(err);
-        } else {
-          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-          callback(null, data![id]);
-        }
-      });
-    });
+    await this.cls.runWith(
+      {
+        ...this.cls.get(),
+        cookie: options.agentCustom.cookie,
+        shareViewId: options.agentCustom.shareId,
+      },
+      async () => {
+        this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
+          if (err) {
+            callback(err);
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+            callback(null, data![id]);
+          }
+        });
+      }
+    );
   }
 
   // Get operations between [from, to) non-inclusively. (Ie, the range should
