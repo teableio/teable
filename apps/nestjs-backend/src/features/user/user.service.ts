@@ -82,7 +82,7 @@ export class UserService {
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>
   ) {
-    const disallowSignUp = this.cls.get('disallowSignUp');
+    const disallowSignUp = this.cls.get('setting.disallowSignUp');
 
     if (disallowSignUp) {
       throw new BadRequestException('The current instance disallow sign up by the administrator');

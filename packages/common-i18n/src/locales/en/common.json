@@ -105,7 +105,8 @@
     "automation": "Automation",
     "authorityMatrix": "Authority Matrix",
     "adminPanel": "Admin Panel",
-    "license": "License"
+    "license": "License",
+    "instanceId": "Instance ID"
   },
   "level": {
     "free": "Free",
@@ -177,5 +178,14 @@
     "userLimitExceededDescription": "The current instance have reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
     "unavailableInPlanTips": "The current subscription plan does not support this feature",
     "levelTips": "This space is currently on the {{level}} plan"
+  },
+  "admin": {
+    "setting": {
+      "description": "Change the settings for your current instance",
+      "allowSignUp": "Allow creating new accounts",
+      "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",
+      "allowSpaceCreation": "Allow everyone to create new workspaces",
+      "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces."
+    }
   }
 }

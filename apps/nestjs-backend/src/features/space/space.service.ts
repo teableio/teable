@@ -98,7 +98,7 @@ export class SpaceService {
 
   async createSpace(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
-    const disallowSpaceCreation = this.cls.get('disallowSpaceCreation');
+    const disallowSpaceCreation = this.cls.get('setting.disallowSpaceCreation');
 
     if (disallowSpaceCreation) {
       throw new ForbiddenException(

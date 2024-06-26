@@ -322,3 +322,11 @@ model AccessToken {
 
   @@map("access_token")
 }
+
+model Setting {
+  instanceId              String    @id @default(cuid()) @map("instance_id")
+  disallowSignUp          Boolean?  @map("disallow_sign_up")
+  disallowSpaceCreation   Boolean?  @map("disallow_space_creation")
+
+  @@map("setting")
+}

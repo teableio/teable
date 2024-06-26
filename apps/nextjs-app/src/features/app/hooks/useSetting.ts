@@ -1,24 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { getSetting } from '@teable/openapi';
-import { useIsEE } from './useIsEE';
+import { useSession } from '@teable/sdk/hooks';
 
 export const useSetting = () => {
-  const isEE = useIsEE();
+  const { user } = useSession();
   const { data: setting, isLoading } = useQuery({
     queryKey: ['setting'],
     queryFn: () => getSetting().then(({ data }) => data),
-    enabled: isEE,
   });
 
-  const {
-    disallowSignUp = false,
-    disallowResetPassword = false,
-    disallowSpaceCreation = false,
-  } = setting ?? {};
+  const { disallowSignUp = false, disallowSpaceCreation = false } = setting ?? {};
 
   return {
     disallowSignUp,
-    disallowResetPassword: (isEE && isLoading) || disallowResetPassword,
-    disallowSpaceCreation: (isEE && isLoading) || disallowSpaceCreation,
+    disallowSpaceCreation: !user.isAdmin && (isLoading || disallowSpaceCreation),
   };
 };

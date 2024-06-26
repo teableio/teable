@@ -6,7 +6,6 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
 import { useState, type FC, useCallback } from 'react';
-import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { authConfig } from '@/features/i18n/auth.config';
 import type { ISignForm } from '../components/SignForm';
 import { SignForm } from '../components/SignForm';
@@ -15,7 +14,6 @@ import { SocialAuth } from '../components/SocialAuth';
 export const LoginPage: FC = () => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const router = useRouter();
-  const isEE = useIsEE();
   const redirect = router.query.redirect as string;
   const [signType, setSignType] = useState<ISignForm['type']>('signin');
   const onSuccess = useCallback(() => {
@@ -25,10 +23,9 @@ export const LoginPage: FC = () => {
   const { data: setting } = useQuery({
     queryKey: ['setting'],
     queryFn: () => getSetting().then(({ data }) => data),
-    enabled: isEE,
   });
 
-  const disallowSignUp = setting?.disallowSignUp;
+  const { disallowSignUp = false } = setting ?? {};
 
   return (
     <>
