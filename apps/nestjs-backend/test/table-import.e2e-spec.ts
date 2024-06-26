@@ -10,7 +10,6 @@ import {
   notify as apiNotify,
   analyzeFile as apiAnalyzeFile,
   importTableFromFile as apiImportTableFromFile,
-  getTableById as apiGetTableById,
   createBase as apiCreateBase,
   createSpace as apiCreateSpace,
   deleteBase as apiDeleteBase,
@@ -21,7 +20,7 @@ import {
 import * as XLSX from 'xlsx';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
 
-import { initApp, deleteTable } from './utils/init-app';
+import { initApp, deleteTable, getTable as apiGetTableById } from './utils/init-app';
 
 enum TestFileFormat {
   'CSV' = 'csv',
@@ -265,17 +264,11 @@ describe('OpenAPI ImportController (e2e)', () => {
           name: field.name,
         }));
 
-        const res = await apiGetTableById(baseId, table.data[0].id, {
-          includeContent: true,
-        });
+        await apiGetTableById(baseId, table.data[0].id);
 
         bases.push([baseId, id]);
 
         expect(createdFields).toEqual(assertHeaders);
-        expect(res).toMatchObject({
-          status: 200,
-          statusText: 'OK',
-        });
       }
     );
   });
@@ -349,9 +342,7 @@ describe('OpenAPI ImportController (e2e)', () => {
 
       await delay(1000);
 
-      const {
-        data: { records },
-      } = await apiGetTableById(baseId, tableId, {
+      const { records } = await apiGetTableById(baseId, tableId, {
         includeContent: true,
       });
 

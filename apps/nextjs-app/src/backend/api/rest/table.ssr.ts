@@ -1,4 +1,4 @@
-import type { IFieldVo, IRecord } from '@teable/core';
+import type { IFieldVo, IGetFieldsQuery, IRecord, IViewVo } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
 import type {
   AcceptInvitationLinkRo,
@@ -13,6 +13,8 @@ import type {
   ITableListVo,
   ISettingVo,
   IUserMeVo,
+  IRecordsVo,
+  ITableVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -20,11 +22,13 @@ import {
   GET_BASE_ALL,
   GET_DEFAULT_VIEW_ID,
   GET_FIELD_LIST,
+  GET_RECORDS_URL,
   GET_RECORD_URL,
   GET_SETTING,
   GET_SPACE,
   GET_TABLE,
   GET_TABLE_LIST,
+  GET_VIEW_LIST,
   SHARE_VIEW_GET,
   SPACE_COLLABORATE_LIST,
   UPDATE_NOTIFICATION_STATUS,
@@ -42,9 +46,22 @@ export class SsrApi {
     this.axios = getAxios();
   }
 
-  async getTable(baseId: string, tableId: string, viewId?: string) {
-    return this.axios
-      .get<ITableFullVo>(urlBuilder(GET_TABLE, { baseId, tableId }), {
+  async getTable(baseId: string, tableId: string, viewId?: string): Promise<ITableFullVo> {
+    const { records } = await this.axios
+      .get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { baseId, tableId }), {
+        params: {
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+        },
+      })
+      .then(({ data }) => data);
+
+    const fields = await this.getFields(tableId, { viewId });
+    const views = await this.axios
+      .get<IViewVo[]>(urlBuilder(GET_VIEW_LIST, { tableId }))
+      .then(({ data }) => data);
+    const table = await this.axios
+      .get<ITableVo>(urlBuilder(GET_TABLE, { baseId, tableId }), {
         params: {
           includeContent: true,
           viewId,
@@ -52,11 +69,17 @@ export class SsrApi {
         },
       })
       .then(({ data }) => data);
+    return {
+      ...table,
+      records,
+      views,
+      fields,
+    };
   }
 
-  async getFields(tableId: string) {
+  async getFields(tableId: string, query?: IGetFieldsQuery) {
     return this.axios
-      .get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }))
+      .get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }), { params: query })
       .then(({ data }) => data);
   }
 

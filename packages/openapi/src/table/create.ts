@@ -58,7 +58,7 @@ export const tableFullVoSchema = z
 
 export type ITableFullVo = z.infer<typeof tableFullVoSchema>;
 
-export const tableVoSchema = tableFullVoSchema.partial({
+export const tableVoSchema = tableFullVoSchema.omit({
   fields: true,
   views: true,
   records: true,

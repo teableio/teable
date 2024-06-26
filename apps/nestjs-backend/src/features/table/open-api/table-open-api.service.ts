@@ -25,12 +25,12 @@ import type {
   ICreateRecordsRo,
   ICreateTableRo,
   ICreateTableWithDefault,
-  IGetTableQuery,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
   IUpdateOrderRo,
 } from '@teable/openapi';
+import { nanoid } from 'nanoid';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -118,7 +118,22 @@ export class TableOpenApiService {
         )
       );
     }
-    return fields;
+
+    const repeatedDbFieldNames = fields
+      .map((f) => f.dbFieldName)
+      .filter((value, index, self) => self.indexOf(value) !== index);
+
+    // generator dbFieldName may repeat, this is fix it.
+    return fields.map((f) => {
+      const newField = { ...f };
+      const { dbFieldName } = newField;
+
+      if (repeatedDbFieldNames.includes(dbFieldName)) {
+        newField.dbFieldName = `${dbFieldName}_${nanoid(3)}`;
+      }
+
+      return newField;
+    });
   }
 
   async createTable(baseId: string, tableRo: ICreateTableWithDefault): Promise<ITableFullVo> {
@@ -161,11 +176,7 @@ export class TableOpenApiService {
     return await this.tableService.createTable(baseId, tableRo);
   }
 
-  async getTable(baseId: string, tableId: string, query: IGetTableQuery): Promise<ITableVo> {
-    const { viewId, fieldKeyType, includeContent } = query;
-    if (includeContent) {
-      return await this.tableService.getFullTable(baseId, tableId, viewId, fieldKeyType);
-    }
+  async getTable(baseId: string, tableId: string): Promise<ITableVo> {
     return await this.tableService.getTableMeta(baseId, tableId);
   }
 

@@ -85,7 +85,9 @@ FROM node:${NODE_VERSION}-bookworm-slim AS runner
 
 ENV TZ=UTC \
     NODE_ENV=production \
-    PORT=${NEXTJS_APP_PORT:-3000}
+    PORT=${NEXTJS_APP_PORT:-3000}\
+    BRAND_NAME=teable\
+    NEXTJS_DIR=apps/nextjs-app
 
 RUN set -ex; \
         npm install zx -g; \
@@ -157,11 +159,6 @@ COPY --from=post-builder --chown=nodejs:nodejs /app/packages ./packages
 COPY --from=post-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
 
-COPY --chown=nodejs:nodejs scripts/start.mjs ./scripts/start.mjs
-
 EXPOSE ${PORT}
 
-COPY scripts/entrypoint/docker-entrypoint.sh /
-ENTRYPOINT ["/docker-entrypoint.sh"]
-
-CMD ["scripts/start.mjs"]
+ENTRYPOINT ["node", "apps/nestjs-backend/dist/index.js"]

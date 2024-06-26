@@ -22,7 +22,7 @@ export function Timing(customLoggerKey?: string): MethodDecorator {
 
       const printLog = () => {
         const end = process.hrtime.bigint();
-        logger.log(
+        logger.verbose(
           `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${
             (end - start) / BigInt(1000000)
           } ms; Heap Usage: ${
