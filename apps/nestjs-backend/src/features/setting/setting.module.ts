@@ -15,8 +15,9 @@ export class SettingModule {
     consumer
       .apply(CheckSettingsMiddleware)
       .forRoutes(
+        { path: '/api/space', method: RequestMethod.POST },
         { path: '/api/auth/signup', method: RequestMethod.POST },
-        { path: '/api/space', method: RequestMethod.POST }
+        { path: '/api/auth/*/callback', method: RequestMethod.GET }
       );
   }
 }
