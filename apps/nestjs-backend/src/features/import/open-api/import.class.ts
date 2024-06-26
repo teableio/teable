@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { getUniqName, FieldType } from '@teable/core';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
-import { zip, toString, intersection } from 'lodash';
+import { zip, toString, intersection, chunk as chunkArray } from 'lodash';
 import fetch from 'node-fetch';
 import sizeof from 'object-sizeof';
 import Papa from 'papaparse';
@@ -317,10 +317,20 @@ export class ExcelImporter extends Importer {
 
     if (options && chunk) {
       const { skipFirstNLines, key } = options;
-      if (skipFirstNLines) {
-        parseResult[key].splice(0, 1);
+
+      const parseResults = chunkArray(parseResult[key], Importer.MAX_CHUNK_LENGTH);
+
+      for (let i = 0; i < parseResults.length; i++) {
+        const currentChunk = parseResults[i];
+        if (i === 0 && skipFirstNLines) {
+          currentChunk.splice(0, 1);
+        }
+        try {
+          await chunk({ [key]: currentChunk });
+        } catch (e) {
+          onError?.((e as Error)?.message || Importer.DEFAULT_ERROR_MESSAGE);
+        }
       }
-      await chunk(parseResult);
       onFinished?.();
     }
 
