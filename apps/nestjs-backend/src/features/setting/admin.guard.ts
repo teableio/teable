@@ -14,7 +14,7 @@ export class AdminGuard implements CanActivate {
   async canActivate() {
     const userId = this.cls.get('user.id');
 
-    const user = await this.prismaService.txClient().user.findUnique({
+    const user = await this.prismaService.user.findUnique({
       where: { id: userId, deletedTime: null, deactivatedTime: null },
     });
 
