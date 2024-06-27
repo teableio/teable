@@ -43,4 +43,7 @@ export enum Events {
 
   COLLABORATOR_CREATE = 'collaborator.create',
   COLLABORATOR_DELETE = 'collaborator.delete',
+
+  WORKFLOW_ACTIVATE = 'workflow.activate',
+  WORKFLOW_DEACTIVATE = 'workflow.deactivate',
 }
