@@ -93,12 +93,15 @@ export class AccessTokenService {
     return list.map(this.transformAccessTokenEntity);
   }
 
-  async createAccessToken(createAccessToken: CreateAccessTokenRo) {
-    const userId = this.cls.get('user.id');
-    const { name, description, scopes, spaceIds, baseIds, expiredTime } = createAccessToken;
+  async createAccessToken(
+    createAccessToken: CreateAccessTokenRo & { isOAuth?: boolean; userId?: string }
+  ) {
+    const userId = createAccessToken.userId ?? this.cls.get('user.id')!;
+    const { name, description, scopes, spaceIds, baseIds, expiredTime, isOAuth } =
+      createAccessToken;
     const id = generateAccessTokenId();
     const sign = getRandomString(16);
-    const accessTokenEntity = await this.prismaService.accessToken.create({
+    const accessTokenEntity = await this.prismaService.txClient().accessToken.create({
       data: {
         id,
         name,
@@ -108,6 +111,7 @@ export class AccessTokenService {
         baseIds: baseIds === null ? null : JSON.stringify(baseIds),
         userId,
         sign,
+        isOAuth,
         expiredTime: new Date(expiredTime).toISOString(),
       },
       select: {

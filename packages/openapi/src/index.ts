@@ -25,3 +25,4 @@ export * from './pin';
 export * from './billing';
 export * from './setting';
 export * from './usage';
+export * from './oauth';

@@ -315,6 +315,7 @@ model AccessToken {
   spaceIds         String?   @map("space_ids")
   baseIds          String?   @map("base_ids")
   sign             String
+  isOAuth          Boolean?  @map("is_oauth")
   expiredTime      DateTime  @map("expired_time")
   lastUsedTime     DateTime? @map("last_used_time")
   createdTime      DateTime  @default(now()) @map("created_time")
@@ -330,4 +331,53 @@ model Setting {
   disallowSpaceInvitation   Boolean?  @map("disallow_space_invitation")
 
   @@map("setting")
+}
+model OAuthApp {
+  id               String    @id @default(cuid())
+  name             String
+  logo             String?
+  homepage         String
+  description      String?
+  clientId         String    @unique @map("client_id")
+  redirectUris     String?   @map("redirect_uris")
+  scopes           String?
+  isExtension      Boolean?  @map("is_extension")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  createdBy       String    @map("created_by")
+
+  @@map("oauth_app")
+}
+
+model OAuthAppAuthorized {
+  id               String    @id @default(cuid())
+  clientId         String    @map("client_id")
+  userId           String    @map("user_id")
+  authorizedTime   DateTime  @map("authorized_time")
+
+  @@unique([clientId, userId])
+  @@map("oauth_app_authorized")
+}
+
+model OAuthAppSecret {
+  id              String    @id @default(cuid())
+  clientId        String    @map("app_id")
+  secret          String    @unique
+  maskedSecret    String    @map("masked_secret")
+  createdTime     DateTime  @default(now()) @map("created_time")
+  createdBy       String    @map("created_by")
+  lastUsedTime    DateTime? @map("last_used_time")
+
+  @@map("oauth_app_secret")
+}
+
+model OAuthAppToken {
+  id               String    @id @default(cuid())
+  appSecretId      String    @map("app_secret_id")
+  refreshTokenSign String    @map("refresh_token_sign")  @unique
+  expiredTime      DateTime  @map("expired_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+
+  @@map("oauth_app_token")
 }
