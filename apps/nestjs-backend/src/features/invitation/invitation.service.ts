@@ -53,6 +53,21 @@ export class InvitationService {
 
   async emailInvitationBySpace(spaceId: string, data: EmailSpaceInvitationRo) {
     const user = this.cls.get('user');
+
+    if (!user.isAdmin) {
+      const setting = await this.prismaService.setting.findFirst({
+        select: {
+          disallowSpaceInvitation: true,
+        },
+      });
+
+      if (setting?.disallowSpaceInvitation) {
+        throw new ForbiddenException(
+          'The current instance disallow space invitation by the administrator'
+        );
+      }
+    }
+
     const space = await this.prismaService.space.findFirst({
       select: { name: true },
       where: { id: spaceId, deletedTime: null },

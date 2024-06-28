@@ -7,6 +7,7 @@ export const settingVoSchema = z.object({
   instanceId: z.string(),
   disallowSignUp: z.boolean().nullable(),
   disallowSpaceCreation: z.boolean().nullable(),
+  disallowSpaceInvitation: z.boolean().nullable(),
 });
 
 export type ISettingVo = z.infer<typeof settingVoSchema>;

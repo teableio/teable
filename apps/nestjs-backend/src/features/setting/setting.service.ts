@@ -13,6 +13,7 @@ export class SettingService {
           instanceId: true,
           disallowSignUp: true,
           disallowSpaceCreation: true,
+          disallowSpaceInvitation: true,
         },
       })
       .catch(() => {
