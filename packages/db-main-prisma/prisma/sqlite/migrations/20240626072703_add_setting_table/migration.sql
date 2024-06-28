@@ -8,4 +8,4 @@ CREATE TABLE "setting" (
 );
 
 -- Insert initial record
-INSERT INTO "setting" ("instance_id", "disallow_sign_up", "disallow_space_creation") VALUES (gen_random_uuid(), NULL, NULL);
+INSERT INTO "setting" ("instance_id", "disallow_sign_up", "disallow_space_creation") VALUES ("instance-id", NULL, NULL);
