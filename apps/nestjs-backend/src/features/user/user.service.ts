@@ -92,7 +92,7 @@ export class UserService {
       throw new BadRequestException('The current instance disallow sign up by the administrator');
     }
 
-    await this.createUser(user, account);
+    return await this.createUser(user, account);
   }
 
   async createUser(
