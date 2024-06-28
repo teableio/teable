@@ -13,6 +13,8 @@ export interface ICacheStore {
   [key: `reset-password-email:${string}`]: IResetPasswordEmailCache;
   [key: `workflow:running:${string}`]: string;
   [key: `workflow:repeatKey:${string}`]: string;
+  [key: `oauth:code:${string}`]: IOAuthCodeState;
+  [key: `oauth:txn:${string}`]: IOAuthTxnStore;
 }
 
 export interface IAttachmentSignatureCache {
@@ -44,4 +46,24 @@ export interface IOauth2State {
 
 export interface IResetPasswordEmailCache {
   userId: string;
+}
+
+export interface IOAuthCodeState {
+  scopes: string[];
+  redirectUri: string;
+  clientId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
+export interface IOAuthTxnStore {
+  redirectURI: string;
+  clientId: string;
+  type: string;
+  scopes: string[];
+  userId: string;
+  state?: string;
 }

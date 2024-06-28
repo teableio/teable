@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
 import { Store } from 'express-session';
+import { pick } from 'lodash';
 import { CacheService } from '../../../cache/cache.service';
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import type { ISessionData } from '../../../types/session';
 import { second } from '../../../utils/second';
+
+const SESSION_STORE_KEYS = ['passport', 'cookie'] as const;
 
 @Injectable()
 export class SessionStoreService extends Store {
@@ -78,7 +81,8 @@ export class SessionStoreService extends Store {
 
   async set(sid: string, session: ISessionData, callback?: ((err?: unknown) => void) | undefined) {
     try {
-      await this.setCache(sid, session);
+      // Avoid redundant keys on req.session objects
+      await this.setCache(sid, pick(session, SESSION_STORE_KEYS));
       callback?.();
     } catch (error) {
       callback?.(error);
