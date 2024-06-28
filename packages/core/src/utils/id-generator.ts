@@ -29,6 +29,8 @@ export enum IdPrefix {
 
   AuthorityMatrix = 'aut',
   AuthorityMatrixRole = 'aur',
+
+  License = 'lic',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -127,4 +129,8 @@ export function generateAuthorityMatrixId() {
 
 export function generateAuthorityMatrixRoleId() {
   return IdPrefix.AuthorityMatrixRole + getRandomString(16);
+}
+
+export function generateLicenseId() {
+  return IdPrefix.License + getRandomString(16);
 }

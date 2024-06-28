@@ -23,7 +23,7 @@ import { debounce } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import type { FC, PropsWithChildren } from 'react';
 import React, { useMemo, useState } from 'react';
-import { UserAvatar } from '@/features/app/components/user/UserAvatar';
+import { Collaborator } from './Collaborator';
 import { RoleSelect } from './RoleSelect';
 
 extend(relativeTime);
@@ -99,13 +99,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
       <div className="space-y-5">
         {collaboratorsFiltered?.map(({ userId, userName, email, role, avatar, createdTime }) => (
           <div key={userId} className="relative flex items-center gap-3 pr-6">
-            <div className="flex flex-1">
-              <UserAvatar user={{ name: userName, avatar }} />
-              <div className="ml-2 flex flex-1 flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{userName}</p>
-                <p className="text-xs leading-none text-muted-foreground">{email}</p>
-              </div>
-            </div>
+            <Collaborator name={userName} email={email} avatar={avatar} />
             <div className="text-xs text-muted-foreground">
               {t('invite.dialog.collaboratorJoin', {
                 joinTime: dayjs(createdTime).fromNow(),

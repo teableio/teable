@@ -6,10 +6,12 @@ import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { type FC } from 'react';
+import { useSetting } from '@/features/app/hooks/useSetting';
 import { SpaceItem } from './SpaceItem';
 
 export const SpaceList: FC = () => {
   const router = useRouter();
+  const { disallowSpaceCreation } = useSetting();
 
   const queryClient = useQueryClient();
   const { data: spaceList } = useQuery({
@@ -33,15 +35,17 @@ export const SpaceList: FC = () => {
   return (
     <div className="flex flex-col gap-2 overflow-hidden">
       <div className="px-3">
-        <Button
-          variant={'outline'}
-          size={'xs'}
-          disabled={isLoading}
-          className="w-full"
-          onClick={() => addSpace({})}
-        >
-          {isLoading ? <Spin className="size-3" /> : <Plus />}
-        </Button>
+        {!disallowSpaceCreation && (
+          <Button
+            variant={'outline'}
+            size={'xs'}
+            disabled={isLoading}
+            className="w-full"
+            onClick={() => addSpace({})}
+          >
+            {isLoading ? <Spin className="size-3" /> : <Plus />}
+          </Button>
+        )}
       </div>
       <div className="overflow-y-auto px-3">
         <ul>

@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import type { Profile } from 'passport-google-oauth20';
@@ -43,6 +43,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
     if (!user) {
       throw new UnauthorizedException('Failed to create user from Google profile');
+    }
+    if (user.deactivatedTime) {
+      throw new BadRequestException('Your account has been deactivated by the administrator');
     }
     await this.userService.refreshLastSignTime(user.id);
     return pickUserMe(user);

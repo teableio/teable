@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import type { Profile } from 'passport-github2';
@@ -41,6 +41,9 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     });
     if (!user) {
       throw new UnauthorizedException('Failed to create user from GitHub profile');
+    }
+    if (user.deactivatedTime) {
+      throw new BadRequestException('Your account has been deactivated by the administrator');
     }
     await this.userService.refreshLastSignTime(user.id);
     return pickUserMe(user);

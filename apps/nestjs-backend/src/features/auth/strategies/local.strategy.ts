@@ -22,6 +22,9 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new BadRequestException('Incorrect password.');
     }
+    if (user.deactivatedTime) {
+      throw new BadRequestException('Your account has been deactivated by the administrator');
+    }
     await this.userService.refreshLastSignTime(user.id);
     return pickUserMe(user);
   }

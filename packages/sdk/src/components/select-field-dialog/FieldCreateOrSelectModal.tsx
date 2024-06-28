@@ -122,6 +122,7 @@ export const FieldCreateOrSelectModal = forwardRef<
         className="p-5"
         closeable={false}
         onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader className="space-y-2">
           <DialogTitle>{title}</DialogTitle>

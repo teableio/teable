@@ -14,6 +14,7 @@ export const userMeVoSchema = z.object({
   phone: z.string().nullable().optional(),
   notifyMeta: userNotifyMetaSchema,
   hasPassword: z.boolean(),
+  isAdmin: z.boolean().nullable(),
 });
 
 export type IUserMeVo = z.infer<typeof userMeVoSchema>;

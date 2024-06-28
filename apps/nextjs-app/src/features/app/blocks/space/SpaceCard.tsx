@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { IGetBaseVo, IGetSpaceVo } from '@teable/openapi';
+import type { IGetBaseVo, IGetSpaceVo, ISubscriptionSummaryVo } from '@teable/openapi';
 import { PinType, deleteSpace, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
@@ -7,18 +7,22 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { type FC, useEffect, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
+import { useIsCloud } from '../../hooks/useIsCloud';
 import { DraggableBaseGrid } from './DraggableBaseGrid';
 import { StarButton } from './space-side-bar/StarButton';
 
 interface ISpaceCard {
   space: IGetSpaceVo;
   bases?: IGetBaseVo[];
+  subscription?: ISubscriptionSummaryVo;
 }
 export const SpaceCard: FC<ISpaceCard> = (props) => {
-  const { space, bases } = props;
+  const { space, bases, subscription } = props;
   const router = useRouter();
+  const isCloud = useIsCloud();
   const queryClient = useQueryClient();
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>(space.name);
@@ -78,6 +82,9 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
               </CardTitle>
             </SpaceRenaming>
             <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
+            {isCloud && (
+              <LevelWithUpgrade level={subscription?.level} spaceId={space.id} withUpgrade />
+            )}
           </div>
           <SpaceActionBar
             className="flex shrink-0 items-center gap-3"

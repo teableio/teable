@@ -1,6 +1,6 @@
 import https from 'https';
 import { join } from 'path';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   generateAccountId,
   generateSpaceId,
@@ -13,6 +13,10 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { type ICreateSpaceRo, type IUserNotifyMeta, UploadType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
+import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
+import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../types/cls';
 import { getFullStorageUrl } from '../../utils/full-storage-url';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -23,7 +27,9 @@ export class UserService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
+    private readonly eventEmitterService: EventEmitterService,
+    @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
+    @BaseConfig() private readonly baseConfig: IBaseConfig
   ) {}
 
   async getUserById(id: string) {
@@ -76,6 +82,17 @@ export class UserService {
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>
   ) {
+    const setting = await this.prismaService.setting.findFirst({
+      select: {
+        disallowSignUp: true,
+        disallowSpaceCreation: true,
+      },
+    });
+
+    if (setting?.disallowSignUp) {
+      throw new BadRequestException('The current instance disallow sign up by the administrator');
+    }
+
     // defaults
     const defaultNotifyMeta: IUserNotifyMeta = {
       email: true,
@@ -86,6 +103,10 @@ export class UserService {
       id: user.id ?? generateUserId(),
       notifyMeta: JSON.stringify(defaultNotifyMeta),
     };
+
+    const userTotalCount = await this.prismaService.txClient().user.count();
+
+    const isAdmin = !this.baseConfig.isCloud && userTotalCount === 0;
 
     if (!user?.avatar) {
       const avatar = await this.generateDefaultAvatar(user.id!);
@@ -99,6 +120,7 @@ export class UserService {
       data: {
         ...user,
         name: user.name ?? user.email.split('@')[0],
+        isAdmin: isAdmin ? true : null,
       },
     });
     const { id, name } = newUser;
@@ -111,6 +133,7 @@ export class UserService {
       this.cls.set('user.id', id);
       await this.createSpaceBySignup({ name: `${name}'s space` });
     });
+    this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(id));
     return newUser;
   }
 

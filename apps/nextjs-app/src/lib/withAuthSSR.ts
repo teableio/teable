@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { ParsedUrlQuery } from 'querystring';
 import type { IHttpError } from '@teable/core';
 import type {
@@ -13,19 +14,17 @@ export type GetServerSideProps<
   P extends { [key: string]: any } = { [key: string]: any },
   Q extends ParsedUrlQuery = ParsedUrlQuery,
   D extends PreviewData = PreviewData,
-> = (
-  context: GetServerSidePropsContext<Q, D>,
-  ssrApi: SsrApi
-) => Promise<GetServerSidePropsResult<P>>;
+  T extends SsrApi = SsrApi,
+> = (context: GetServerSidePropsContext<Q, D>, ssrApi: T) => Promise<GetServerSidePropsResult<P>>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default function withAuthSSR<P extends { [key: string]: any }>(
-  handler: GetServerSideProps<P>
+export default function withAuthSSR<P extends { [key: string]: any }, T extends SsrApi = SsrApi>(
+  handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData, T>,
+  ssrClass: new () => T = SsrApi as new () => T
 ): NextGetServerSideProps {
   return async (context: GetServerSidePropsContext) => {
     const req = context.req;
     try {
-      const ssrApi = new SsrApi();
+      const ssrApi = new ssrClass();
       ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
       return await handler(context, ssrApi);
     } catch (e) {

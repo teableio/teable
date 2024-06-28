@@ -16,10 +16,14 @@ export enum HttpErrorCode {
   UNAUTHORIZED = 'unauthorized',
   // 401 - Given the bearer token used, the client doesn't have permission to perform this operation.
   UNAUTHORIZED_SHARE = 'unauthorized_share',
+  // 402 - Payment Required
+  PAYMENT_REQUIRED = 'payment_required',
   // 403 - Given the bearer token used, the client doesn't have permission to perform this operation.
   RESTRICTED_RESOURCE = 'restricted_resource',
   // 404 - Given the bearer token used, the resource does not exist. This error can also indicate that the resource has not been shared with owner of the bearer token.
   NOT_FOUND = 'not_found',
+  // 460 - The user has reached the limit of the number of users that can be created in the current instance.
+  USER_LIMIT_EXCEEDED = 'user_limit_exceeded',
   // 500 - An unexpected error occurred.
   INTERNAL_SERVER_ERROR = 'internal_server_error',
   // 503 - database is unavailable or is not in a state that can be queried. Please try again later.

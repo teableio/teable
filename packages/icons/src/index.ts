@@ -1,4 +1,5 @@
 export { default as A } from './components/A';
+export { default as Admin } from './components/Admin';
 export { default as AlertCircle } from './components/AlertCircle';
 export { default as AlertTriangle } from './components/AlertTriangle';
 export { default as Apple } from './components/Apple';
@@ -77,6 +78,7 @@ export { default as Key } from './components/Key';
 export { default as Layers } from './components/Layers';
 export { default as LayoutList } from './components/LayoutList';
 export { default as LayoutTemplate } from './components/LayoutTemplate';
+export { default as License } from './components/License';
 export { default as Link } from './components/Link';
 export { default as ListChecks } from './components/ListChecks';
 export { default as ListOrdered } from './components/ListOrdered';

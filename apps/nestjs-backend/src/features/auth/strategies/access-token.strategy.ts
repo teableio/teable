@@ -32,6 +32,9 @@ export class AccessTokenStrategy extends PassportStrategy(PassportAccessTokenStr
     if (!user) {
       throw new UnauthorizedException();
     }
+    if (user.deactivatedTime) {
+      throw new UnauthorizedException('Your account has been deactivated by the administrator');
+    }
 
     this.cls.set('user.id', user.id);
     this.cls.set('user.name', user.name);

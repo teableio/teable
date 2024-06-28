@@ -11,6 +11,8 @@ import type {
   ShareViewGetVo,
   ITableFullVo,
   ITableListVo,
+  ISettingVo,
+  IUserMeVo,
   IRecordsVo,
   ITableVo,
 } from '@teable/openapi';
@@ -22,6 +24,7 @@ import {
   GET_FIELD_LIST,
   GET_RECORDS_URL,
   GET_RECORD_URL,
+  GET_SETTING,
   GET_SPACE,
   GET_TABLE,
   GET_TABLE_LIST,
@@ -29,6 +32,7 @@ import {
   SHARE_VIEW_GET,
   SPACE_COLLABORATE_LIST,
   UPDATE_NOTIFICATION_STATUS,
+  USER_ME,
   urlBuilder,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
@@ -137,5 +141,13 @@ export class SsrApi {
     return this.axios
       .patch<void>(urlBuilder(UPDATE_NOTIFICATION_STATUS, { notificationId }), data)
       .then(({ data }) => data);
+  }
+
+  async getSetting() {
+    return this.axios.get<ISettingVo>(GET_SETTING).then(({ data }) => data);
+  }
+
+  async getUserMe() {
+    return this.axios.get<IUserMeVo>(USER_ME).then(({ data }) => data);
   }
 }

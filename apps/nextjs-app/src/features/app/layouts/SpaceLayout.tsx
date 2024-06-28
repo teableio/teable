@@ -30,7 +30,7 @@ export const SpaceLayout: React.FC<{
               <Sidebar headerLeft={<SidebarHeaderLeft />}>
                 <Fragment>
                   <div className="flex flex-1 flex-col gap-2 divide-y divide-solid overflow-hidden">
-                    <SpaceSideBar />
+                    <SpaceSideBar isAdmin={user?.isAdmin} />
                   </div>
                   <SideBarFooter />
                 </Fragment>

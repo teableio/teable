@@ -184,8 +184,10 @@ model User {
   phone            String?   @unique
   email            String    @unique
   avatar           String?
+  isAdmin          Boolean?  @map("is_admin")
   notifyMeta       String?   @map("notify_meta")
   lastSignTime     DateTime? @map("last_sign_time")
+  deactivatedTime  DateTime? @map("deactivated_time")
   createdTime      DateTime  @default(now()) @map("created_time")
   deletedTime      DateTime? @map("deleted_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
@@ -319,4 +321,12 @@ model AccessToken {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
   @@map("access_token")
+}
+
+model Setting {
+  instanceId              String    @id @default(cuid()) @map("instance_id")
+  disallowSignUp          Boolean?  @map("disallow_sign_up")
+  disallowSpaceCreation   Boolean?  @map("disallow_space_creation")
+
+  @@map("setting")
 }

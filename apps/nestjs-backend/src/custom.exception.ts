@@ -16,6 +16,8 @@ export const getDefaultCodeByStatus = (status: HttpStatus) => {
       return HttpErrorCode.VALIDATION_ERROR;
     case HttpStatus.UNAUTHORIZED:
       return HttpErrorCode.UNAUTHORIZED;
+    case HttpStatus.PAYMENT_REQUIRED:
+      return HttpErrorCode.PAYMENT_REQUIRED;
     case HttpStatus.FORBIDDEN:
       return HttpErrorCode.RESTRICTED_RESOURCE;
     case HttpStatus.NOT_FOUND:
