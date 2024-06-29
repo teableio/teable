@@ -184,7 +184,9 @@
       "description": "Change the settings for your current instance",
       "allowSignUp": "Allow creating new accounts",
       "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",
-      "allowSpaceCreation": "Allow everyone to create new workspaces",
+      "allowSpaceInvitation": "Allow sending space invitations",
+      "allowSpaceInvitationDescription": "Disabling this option will prevent users other than administrators from inviting others to join spaces. Enabling this option will allow directly invited users to create an account even if new account registration is disabled.",
+      "allowSpaceCreation": "Allow everyone to create new spaces",
       "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces."
     }
   }

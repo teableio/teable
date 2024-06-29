@@ -80,7 +80,7 @@ export class AuthService {
           },
         });
       }
-      return await this.userService.createUser({
+      return await this.userService.createUserWithSettingCheck({
         id: generateUserId(),
         name: email.split('@')[0],
         email,

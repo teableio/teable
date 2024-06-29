@@ -9,10 +9,15 @@ export const useSetting = () => {
     queryFn: () => getSetting().then(({ data }) => data),
   });
 
-  const { disallowSignUp = false, disallowSpaceCreation = false } = setting ?? {};
+  const {
+    disallowSignUp = false,
+    disallowSpaceCreation = false,
+    disallowSpaceInvitation = false,
+  } = setting ?? {};
 
   return {
     disallowSignUp,
     disallowSpaceCreation: !user.isAdmin && (isLoading || disallowSpaceCreation),
+    disallowSpaceInvitation: !user.isAdmin && (isLoading || disallowSpaceInvitation),
   };
 };

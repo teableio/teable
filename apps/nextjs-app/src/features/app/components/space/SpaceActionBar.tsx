@@ -16,13 +16,22 @@ interface ActionBarProps {
   invQueryFilters: string[];
   className?: string;
   buttonSize?: ButtonProps['size'];
+  disallowSpaceInvitation?: boolean | null;
   onRename?: () => void;
   onDelete?: () => void;
   onSpaceSetting?: () => void;
 }
 
 export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
-  const { space, className, buttonSize = 'default', onRename, onDelete, onSpaceSetting } = props;
+  const {
+    space,
+    className,
+    buttonSize = 'default',
+    disallowSpaceInvitation,
+    onRename,
+    onDelete,
+    onSpaceSetting,
+  } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   return (
@@ -34,11 +43,14 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
           </Button>
         </CreateBaseModalTrigger>
       )}
-      <SpaceCollaboratorModalTrigger space={space}>
-        <Button variant={'outline'} size={buttonSize}>
-          <UserPlus className="size-4" /> {t('space:action.invite')}
-        </Button>
-      </SpaceCollaboratorModalTrigger>
+      {!disallowSpaceInvitation && (
+        <SpaceCollaboratorModalTrigger space={space}>
+          <Button variant={'outline'} size={buttonSize}>
+            <UserPlus className="size-4" /> {t('space:action.invite')}
+          </Button>
+        </SpaceCollaboratorModalTrigger>
+      )}
+
       <SpaceActionTrigger
         space={space}
         showRename={hasPermission(space.role, 'space|update')}

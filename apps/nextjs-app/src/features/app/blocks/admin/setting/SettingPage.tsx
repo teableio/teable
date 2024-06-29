@@ -32,7 +32,7 @@ export const SettingPage = (props: ISettingPageProps) => {
 
   if (!setting) return null;
 
-  const { instanceId, disallowSignUp, disallowSpaceCreation } = setting;
+  const { instanceId, disallowSignUp, disallowSpaceCreation, disallowSpaceInvitation } = setting;
 
   return (
     <div className="flex h-screen w-full flex-col overflow-y-auto overflow-x-hidden px-8 py-6">
@@ -42,7 +42,7 @@ export const SettingPage = (props: ISettingPageProps) => {
       </div>
 
       <div className="flex w-full flex-col space-y-4 py-4">
-        <div className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+        <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
           <div className="space-y-1">
             <Label htmlFor="allow-sign-up">{t('admin.setting.allowSignUp')}</Label>
             <div className="text-[13px] text-gray-500">
@@ -55,7 +55,20 @@ export const SettingPage = (props: ISettingPageProps) => {
             onCheckedChange={(checked) => onCheckedChange('disallowSignUp', !checked)}
           />
         </div>
-        <div className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+        <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
+          <div className="space-y-1">
+            <Label htmlFor="allow-sign-up">{t('admin.setting.allowSpaceInvitation')}</Label>
+            <div className="text-[13px] text-gray-500">
+              {t('admin.setting.allowSpaceInvitationDescription')}
+            </div>
+          </div>
+          <Switch
+            id="allow-space-invitation"
+            checked={!disallowSpaceInvitation}
+            onCheckedChange={(checked) => onCheckedChange('disallowSpaceInvitation', !checked)}
+          />
+        </div>
+        <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
           <div className="space-y-1">
             <Label htmlFor="allow-space-creation">{t('admin.setting.allowSpaceCreation')}</Label>
             <div className="text-[13px] text-gray-500">

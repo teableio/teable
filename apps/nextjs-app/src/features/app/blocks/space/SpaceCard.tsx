@@ -18,9 +18,10 @@ interface ISpaceCard {
   space: IGetSpaceVo;
   bases?: IGetBaseVo[];
   subscription?: ISubscriptionSummaryVo;
+  disallowSpaceInvitation?: boolean | null;
 }
 export const SpaceCard: FC<ISpaceCard> = (props) => {
-  const { space, bases, subscription } = props;
+  const { space, bases, subscription, disallowSpaceInvitation } = props;
   const router = useRouter();
   const isCloud = useIsCloud();
   const queryClient = useQueryClient();
@@ -91,6 +92,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             buttonSize="xs"
             space={space}
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
+            disallowSpaceInvitation={disallowSpaceInvitation}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
             onSpaceSetting={onSpaceSetting}

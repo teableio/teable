@@ -34,7 +34,7 @@ export const SpacePage: FC = () => {
     enabled: isCloud,
   });
 
-  const { disallowSpaceCreation } = useSetting();
+  const { disallowSpaceCreation, disallowSpaceInvitation } = useSetting();
 
   const { mutate: createSpaceMutator, isLoading } = useMutation({
     mutationFn: createSpace,
@@ -77,6 +77,7 @@ export const SpacePage: FC = () => {
             space={space}
             bases={baseList?.filter(({ spaceId }) => spaceId === space.id)}
             subscription={subscriptionMap[space.id]}
+            disallowSpaceInvitation={disallowSpaceInvitation}
           />
         ))}
       </div>

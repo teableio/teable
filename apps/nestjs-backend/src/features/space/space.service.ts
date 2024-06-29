@@ -98,17 +98,20 @@ export class SpaceService {
 
   async createSpace(createSpaceRo: ICreateSpaceRo) {
     const userId = this.cls.get('user.id');
-    const setting = await this.prismaService.setting.findFirst({
-      select: {
-        disallowSignUp: true,
-        disallowSpaceCreation: true,
-      },
-    });
+    const isAdmin = this.cls.get('user.isAdmin');
 
-    if (setting?.disallowSpaceCreation) {
-      throw new ForbiddenException(
-        'The current instance disallow space creation by the administrator'
-      );
+    if (!isAdmin) {
+      const setting = await this.prismaService.setting.findFirst({
+        select: {
+          disallowSpaceCreation: true,
+        },
+      });
+
+      if (setting?.disallowSpaceCreation) {
+        throw new ForbiddenException(
+          'The current instance disallow space creation by the administrator'
+        );
+      }
     }
 
     const spaceList = await this.prismaService.space.findMany({

@@ -16,6 +16,7 @@ import { Collaborators } from '../../components/collaborator-manage/space-inner/
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
+import { useSetting } from '../../hooks/useSetting';
 import { DraggableBaseGrid } from './DraggableBaseGrid';
 import { StarButton } from './space-side-bar/StarButton';
 import { useBaseList } from './useBaseList';
@@ -37,6 +38,8 @@ export const SpaceInnerPage: React.FC = () => {
   });
 
   const bases = useBaseList();
+
+  const { disallowSpaceInvitation } = useSetting();
 
   const basesInSpace = useMemo(() => {
     return bases?.filter((base) => base.spaceId === spaceId);
@@ -124,6 +127,7 @@ export const SpaceInnerPage: React.FC = () => {
             space={space}
             buttonSize={'xs'}
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
+            disallowSpaceInvitation={disallowSpaceInvitation}
             onDelete={() => deleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
             onSpaceSetting={onSpaceSetting}
