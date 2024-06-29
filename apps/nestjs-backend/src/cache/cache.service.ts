@@ -15,6 +15,7 @@ export class CacheService {
   async set<TKey extends keyof ICacheStore>(
     key: TKey,
     value: ICacheStore[TKey],
+    // seconds, and will add random 20-60 seconds
     ttl?: number
   ): Promise<void> {
     await this.cacheManager.set(key, value, ttl ? (ttl + getRandomInt(20, 60)) * 1000 : undefined);

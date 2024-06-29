@@ -54,12 +54,16 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    this.agents?.map((agent) => agent?.close());
-    this.shareDb.close();
-    this.server.close((err) => {
-      if (err) {
-        this.logger.error('DevWsGateway close error', err?.stack);
-      }
-    });
+    try {
+      this.agents?.map((agent) => agent?.close());
+      this.shareDb.close();
+      this.server.close((err) => {
+        if (err) {
+          this.logger.error('DevWsGateway close error', err?.stack);
+        }
+      });
+    } catch (err) {
+      this.logger.error('dev module close error: ' + (err as Error).message, (err as Error)?.stack);
+    }
   }
 }

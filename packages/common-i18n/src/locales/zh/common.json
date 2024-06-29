@@ -26,7 +26,8 @@
     "rename": "重命名",
     "change": "变更",
     "upgrade": "升级",
-    "search": "搜索"
+    "search": "搜索",
+    "loadMore": "加载更多"
   },
   "quickAction": {
     "title": "快捷搜索...",
