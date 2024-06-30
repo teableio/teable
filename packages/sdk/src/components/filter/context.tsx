@@ -17,6 +17,7 @@ export interface IFilterContext {
   setFilters: (path: IFiltersPath, value: IFilterItem['value'] | null) => void;
   addCondition: (path: IFiltersPath, type?: ConditionAddType) => void;
   deleteCondition: (path: IFiltersPath, index: number) => void;
+  compact?: boolean;
 }
 
 export const FilterContext: React.Context<IFilterContext> = React.createContext<IFilterContext>(

@@ -10,10 +10,12 @@ interface IMutipleSelect {
   value: string[] | null;
   // SingleSelectField used in MultipleSelect in filter scenario
   field: MultipleSelectField | SingleSelectField;
+  className?: string;
+  popoverClassName?: string;
 }
 
 const FilterMultipleSelect = (props: IMutipleSelect) => {
-  const { field, value, onSelect } = props;
+  const { field, value, onSelect, className, popoverClassName } = props;
   const values = useMemo(() => {
     if (Array.isArray(value) && value.length) {
       return value;
@@ -60,8 +62,8 @@ const FilterMultipleSelect = (props: IMutipleSelect) => {
       value={values}
       displayRender={displayRender}
       optionRender={displayRender}
-      className="w-64"
-      popoverClassName="w-64"
+      className={className}
+      popoverClassName={popoverClassName}
     />
   );
 };

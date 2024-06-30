@@ -1,7 +1,7 @@
 import type { IDateFilter, IFilterItem } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
+import { cn, Input } from '@teable/ui-lib';
 
-import { Input } from '@teable/ui-lib';
 import { useMemo } from 'react';
 
 import type { DateField, IFieldInstance } from '../../../model';
@@ -17,6 +17,7 @@ import {
   FilterUserSelect,
 } from '../component';
 import { EMPTY_OPERATORS, MULTIPLE_OPERATORS } from '../constant';
+import { useCompact } from '../hooks';
 import type { IFilterComponents } from '../types';
 
 interface IBaseFieldValue {
@@ -29,8 +30,18 @@ interface IBaseFieldValue {
 
 export function BaseFieldValue(props: IBaseFieldValue) {
   const { onSelect, components, field, operator, value } = props;
+  const compact = useCompact();
 
-  const emptyComponent = <Input className="m-1 h-8 w-40 placeholder:text-[13px]" disabled />;
+  const emptyComponent = (
+    <Input
+      className={cn('m-1 h-8 placeholder:text-[13px]', {
+        'max-w-40': compact,
+        'w-40': !compact,
+      })}
+      disabled
+    />
+  );
+
   const showEmptyComponent = useMemo(() => {
     const showEmpty = EMPTY_OPERATORS.includes(operator);
     showEmpty && onSelect?.(null);
@@ -46,7 +57,10 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       placeholder="Enter a value"
       value={value as string}
       onChange={onSelect}
-      className="w-40"
+      className={cn({
+        'max-w-40 min-w-24': compact,
+        'w-40': !compact,
+      })}
     />
   );
 
@@ -57,7 +71,10 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           value={value as number}
           options={field.options}
           onChange={onSelect as (value?: number | null) => void}
-          className="m-1 w-40"
+          className={cn('m-1', {
+            'max-w-40 min-w-24': compact,
+            'w-40': !compact,
+          })}
         />
       );
     case FieldType.SingleSelect:
@@ -66,6 +83,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           field={field}
           value={value as string[]}
           onSelect={(value) => onSelect(value as IFilterItem['value'])}
+          className={cn({ 'max-w-64': compact, 'w-64': !compact })}
+          popoverClassName={cn({ 'max-w-64': compact, 'w-64': !compact })}
         />
       ) : (
         <FilterSingleSelect
@@ -73,6 +92,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           value={value as string}
           onSelect={onSelect}
           operator={operator}
+          className={cn({ 'max-w-64': compact, 'w-64': !compact })}
+          popoverClassName={cn({ 'max-w-64': compact, 'w-64': !compact })}
         />
       );
     case FieldType.MultipleSelect:
@@ -81,6 +102,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           field={field}
           value={value as string[]}
           onSelect={(value) => onSelect(value as IFilterItem['value'])}
+          className={cn({ 'max-w-64': compact, 'w-64': !compact })}
+          popoverClassName={cn({ 'max-w-64': compact, 'w-64': !compact })}
         />
       );
     case FieldType.Date:
@@ -95,7 +118,16 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         />
       );
     case FieldType.Checkbox:
-      return <FilterCheckbox value={value as boolean} onChange={onSelect} />;
+      return (
+        <FilterCheckbox
+          value={value as boolean}
+          onChange={onSelect}
+          className={cn({
+            'max-w-20 min-w-10': compact,
+            'w-20': !compact,
+          })}
+        />
+      );
     case FieldType.Link: {
       const linkProps = {
         field,
@@ -138,7 +170,16 @@ export function BaseFieldValue(props: IBaseFieldValue) {
     }
     case FieldType.Formula: {
       if (field.cellValueType === CellValueType.Boolean) {
-        return <FilterCheckbox value={value as boolean} onChange={onSelect} />;
+        return (
+          <FilterCheckbox
+            value={value as boolean}
+            onChange={onSelect}
+            className={cn({
+              'max-w-20 min-w-10': compact,
+              'w-20': !compact,
+            })}
+          />
+        );
       }
       return InputComponent;
     }

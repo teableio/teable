@@ -1,8 +1,10 @@
+import { cn } from '@teable/ui-lib';
 import { useCallback, useContext, useMemo } from 'react';
 import { useFieldStaticGetter } from '../../../hooks';
 
 import { BaseSingleSelect } from '../component';
 import { FilterContext } from '../context';
+import { useCompact } from '../hooks';
 
 interface IFieldSelectProps {
   fieldId: string | null;
@@ -12,6 +14,7 @@ interface IFieldSelectProps {
 function FieldSelect(props: IFieldSelectProps) {
   const { fieldId: value, onSelect } = props;
   const { fields } = useContext(FilterContext);
+  const compact = useCompact();
   const options = useMemo(() => {
     return fields.map((field) => ({
       value: field.id,
@@ -39,7 +42,10 @@ function FieldSelect(props: IFieldSelectProps) {
       options={options}
       onSelect={onSelect}
       value={value}
-      className="w-40 shrink-0"
+      className={cn('shrink-0', {
+        'max-w-40': compact,
+        'w-40': !compact,
+      })}
       popoverClassName="w-fit"
       optionRender={optionRender}
       displayRender={(selectedField) => {

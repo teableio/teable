@@ -31,10 +31,20 @@ export interface IFilterMainProps
     filter: IFilterItem,
     onSelect: (value: IFilterItem['value']) => void
   ) => JSX.Element;
+  // if set this to true, the filter's inner component will only set a max width
+  compact?: boolean;
 }
 
 export const FilterMain = (props: IFilterMainProps) => {
-  const { filters: initFilter, fields, components, context, onChange, customFieldValue } = props;
+  const {
+    filters: initFilter,
+    fields,
+    components,
+    context,
+    onChange,
+    customFieldValue,
+    compact = false,
+  } = props;
 
   const { t } = useTranslation();
   const [filters, setFilters] = useState<IFilter | null>(initFilter);
@@ -177,6 +187,7 @@ export const FilterMain = (props: IFilterMainProps) => {
         onChange: onChange,
         addCondition: addCondition,
         deleteCondition: deleteCondition,
+        compact: compact,
       }}
     >
       {conditionCreator && <div className="px-4 pt-3">{conditionCreator}</div>}
