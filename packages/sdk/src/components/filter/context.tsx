@@ -17,6 +17,9 @@ export interface IFilterContext {
   setFilters: (path: IFiltersPath, value: IFilterItem['value'] | null) => void;
   addCondition: (path: IFiltersPath, type?: ConditionAddType) => void;
   deleteCondition: (path: IFiltersPath, index: number) => void;
+}
+
+export interface IFilterDisplayContext {
   compact?: boolean;
 }
 
@@ -24,3 +27,6 @@ export const FilterContext: React.Context<IFilterContext> = React.createContext<
   // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-non-null-assertion
   null!
 );
+
+export const FilterDisplayContext: React.Context<IFilterDisplayContext> =
+  React.createContext<IFilterDisplayContext>({});

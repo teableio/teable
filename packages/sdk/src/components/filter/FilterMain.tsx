@@ -12,7 +12,7 @@ import { useDebounce } from 'react-use';
 
 import { useTranslation } from '../../context/app/i18n';
 import { Condition, ConditionGroup } from './condition';
-import { FilterContext } from './context';
+import { FilterContext, FilterDisplayContext } from './context';
 import type { IFilterBaseProps, IFiltersPath } from './types';
 import { isFilterItem, ConditionAddType } from './types';
 
@@ -187,31 +187,36 @@ export const FilterMain = (props: IFilterMainProps) => {
         onChange: onChange,
         addCondition: addCondition,
         deleteCondition: deleteCondition,
-        compact: compact,
       }}
     >
-      {conditionCreator && <div className="px-4 pt-3">{conditionCreator}</div>}
-      <div className="flex w-max p-3">
-        <Button
-          variant="ghost"
-          size="xs"
-          className="text-[13px]"
-          onClick={() => addCondition([], ConditionAddType.ITEM)}
-        >
-          <Plus className="size-4" />
-          {t('filter.addCondition')}
-        </Button>
+      <FilterDisplayContext.Provider
+        value={{
+          compact: compact,
+        }}
+      >
+        {conditionCreator && <div className="px-4 pt-3">{conditionCreator}</div>}
+        <div className="flex w-max p-3">
+          <Button
+            variant="ghost"
+            size="xs"
+            className="text-[13px]"
+            onClick={() => addCondition([], ConditionAddType.ITEM)}
+          >
+            <Plus className="size-4" />
+            {t('filter.addCondition')}
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={() => addCondition([], ConditionAddType.GROUP)}
-          className="text-[13px]"
-        >
-          <Plus className="size-4" />
-          {t('filter.addConditionGroup')}
-        </Button>
-      </div>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => addCondition([], ConditionAddType.GROUP)}
+            className="text-[13px]"
+          >
+            <Plus className="size-4" />
+            {t('filter.addConditionGroup')}
+          </Button>
+        </div>
+      </FilterDisplayContext.Provider>
     </FilterContext.Provider>
   );
 };
