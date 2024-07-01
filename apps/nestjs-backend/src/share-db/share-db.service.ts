@@ -1,4 +1,3 @@
-import url from 'url';
 import { Injectable, Logger } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable/core';
@@ -35,12 +34,10 @@ export class ShareDbService extends ShareDBClass {
 
     const { provider, redis } = this.cacheConfig;
     if (provider === 'redis') {
-      const parsedURL = new url.URL(redis.uri as string);
-      const redisPubsub = new RedisPubSub({
-        host: parsedURL.hostname,
-        port: Number(parsedURL.port),
-        password: parsedURL.password,
-      });
+      if (!redis.uri) {
+        throw new Error('Redis URI is required for Redis cache provider.');
+      }
+      const redisPubsub = new RedisPubSub({ redisURI: redis.uri });
 
       this.logger.log(`> Detected Redis cache; enabled the Redis pub/sub adapter for ShareDB.`);
       this.pubsub = redisPubsub;

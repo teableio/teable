@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import Redis from 'ioredis';
-import type { RedisOptions } from 'ioredis';
 import type { Error } from 'sharedb';
 import { PubSub } from 'sharedb';
 
@@ -16,15 +15,15 @@ export class RedisPubSub extends PubSub {
   observer: Redis;
   _closing?: boolean;
 
-  constructor(options: RedisOptions & { prefix?: string } = {}) {
+  constructor(options: { redisURI: string; prefix?: string }) {
     super(options);
 
-    this.client = new Redis(options);
+    this.client = new Redis(options.redisURI);
 
     // Redis doesn't allow the same connection to both listen to channels and do
     // operations. Make an extra redis connection for subscribing with the same
     // options if not provided
-    this.observer = new Redis(options);
+    this.observer = new Redis(options.redisURI);
     this.observer.on('message', this.handleMessage.bind(this));
   }
 
