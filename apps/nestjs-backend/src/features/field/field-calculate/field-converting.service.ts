@@ -37,7 +37,7 @@ import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
-import { createFieldInstanceByVo } from '../model/factory';
+import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
 import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../model/field-dto/multiple-select-field.dto';
@@ -303,6 +303,118 @@ export class FieldConvertingService {
     return Boolean(changedProperties.length || !isEmpty(optionsChanges));
   }
 
+  // lookupOptions of lookup field and rollup field must be consistent with linkField Settings
+  // And they don't belong in the referenceField
+  private async updateLookupRollupRef(
+    newField: IFieldInstance,
+    oldField: IFieldInstance
+  ): Promise<IOpsMap | undefined> {
+    if (newField.type !== FieldType.Link || oldField.type !== FieldType.Link) {
+      return;
+    }
+
+    // ignore foreignTableId change
+    if (newField.options.foreignTableId !== oldField.options.foreignTableId) {
+      return;
+    }
+
+    const { relationship, fkHostTableName, foreignKeyName, selfKeyName } = newField.options;
+    if (
+      relationship === oldField.options.relationship &&
+      fkHostTableName === oldField.options.fkHostTableName &&
+      foreignKeyName === oldField.options.foreignKeyName &&
+      selfKeyName === oldField.options.selfKeyName
+    ) {
+      return;
+    }
+
+    const relatedFieldsRaw = await this.prismaService.field.findMany({
+      where: {
+        lookupLinkedFieldId: newField.id,
+        deletedTime: null,
+      },
+    });
+
+    const relatedFields = relatedFieldsRaw.map(createFieldInstanceByRaw);
+
+    const lookupToFields = await this.prismaService.field.findMany({
+      where: {
+        id: {
+          in: relatedFields.map((field) => field.lookupOptions?.lookupFieldId as string),
+        },
+      },
+    });
+    const relatedFieldsRawMap = keyBy(relatedFieldsRaw, 'id');
+    const lookupToFieldsMap = keyBy(lookupToFields, 'id');
+
+    const { pushOpsMap, getOpsMap } = this.fieldOpsMap();
+
+    relatedFields.forEach((field) => {
+      const lookupOptions = field.lookupOptions!;
+      const ops: IOtOperation[] = [];
+      ops.push(
+        FieldOpBuilder.editor.setFieldProperty.build({
+          key: 'lookupOptions',
+          newValue: {
+            ...lookupOptions,
+            relationship,
+            fkHostTableName,
+            foreignKeyName,
+            selfKeyName,
+          },
+          oldValue: lookupOptions,
+        })
+      );
+
+      const lookupToFieldRaw = lookupToFieldsMap[lookupOptions.lookupFieldId];
+
+      if (field.isLookup) {
+        const isMultipleCellValue =
+          newField.isMultipleCellValue || lookupToFieldRaw.isMultipleCellValue || false;
+
+        if (isMultipleCellValue !== field.isMultipleCellValue) {
+          ops.push(
+            FieldOpBuilder.editor.setFieldProperty.build({
+              key: 'isMultipleCellValue',
+              newValue: isMultipleCellValue,
+              oldValue: field.isMultipleCellValue,
+            }),
+            FieldOpBuilder.editor.setFieldProperty.build({
+              key: 'dbFieldType',
+              newValue: this.fieldSupplementService.getDbFieldType(
+                field.type,
+                field.cellValueType,
+                isMultipleCellValue
+              ),
+              oldValue: field.dbFieldType,
+            })
+          );
+        }
+
+        const newOptions = this.fieldSupplementService.prepareFormattingShowAs(
+          field.options,
+          JSON.parse(lookupToFieldRaw.options as string),
+          field.cellValueType,
+          isMultipleCellValue
+        );
+
+        if (!isEqual(newOptions, field.options)) {
+          ops.push(
+            FieldOpBuilder.editor.setFieldProperty.build({
+              key: 'options',
+              newValue: newOptions,
+              oldValue: field.options,
+            })
+          );
+        }
+      }
+
+      pushOpsMap(relatedFieldsRawMap[field.id].tableId, field.id, ops);
+    });
+
+    return getOpsMap();
+  }
+
   /**
    * modify a field will causes the properties of the field that depend on it to change
    * example：
@@ -316,8 +428,11 @@ export class FieldConvertingService {
       return;
     }
 
+    const refFieldOpsMap = await this.updateLookupRollupRef(newField, oldField);
+
     const fieldOpsMap = await this.generateReferenceFieldOps(newField.id);
-    await this.submitFieldOpsMap(fieldOpsMap);
+
+    await this.submitFieldOpsMap(composeOpMaps([refFieldOpsMap, fieldOpsMap]));
   }
 
   private async updateOptionsFromMultiSelectField(

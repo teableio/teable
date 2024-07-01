@@ -383,7 +383,7 @@ export class FieldSupplementService {
     }
   }
 
-  private prepareFormattingShowAs(
+  prepareFormattingShowAs(
     options: IFieldRo['options'] = {},
     sourceOptions: IFieldVo['options'],
     cellValueType: CellValueType,
