@@ -1,0 +1,17 @@
+apiVersion: v2
+name: teable
+icon: 'https://avatars.githubusercontent.com/u/113977713'
+description: A Helm chart for Kubernetes
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: minio
+    version: "14.6.10"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+  - name: postgresql
+    version: "15.5.6"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+  - name: redis
+    version: "19.5.5"
+    repository: "oci://registry-1.docker.io/bitnamicharts"

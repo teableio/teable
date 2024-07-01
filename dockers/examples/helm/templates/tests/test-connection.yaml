@@ -1,0 +1,16 @@
+{{- $fullName := include "common.fullname" $ -}}  # Pass the root context
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ $fullName }}-test-connection"
+  labels:
+    {{- include "common.labels" $ | nindent 4 }}  # Pass the root context
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "teable.nameBuilder" $ }}:{{ .Values.service.port }}']  # Pass the root context for nameBuilder, direct access for .Values
+  restartPolicy: Never
