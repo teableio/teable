@@ -1,8 +1,10 @@
 import type { IFilterOperator } from '@teable/core';
 import { getValidFilterOperators } from '@teable/core';
+import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import type { IFieldInstance } from '../../../model';
 import { BaseSingleSelect } from '../component';
+import { useCompact } from '../hooks';
 import { getFieldOperatorMapping, shouldFilterByDefaultValue } from '../utils';
 
 interface IOperatorOptions {
@@ -18,6 +20,7 @@ interface IBaseOperatorSelectProps {
 
 export function BaseOperatorSelect(props: IBaseOperatorSelectProps) {
   const { onSelect, value, field } = props;
+  const compact = useCompact();
   const labelMapping = useMemo(() => getFieldOperatorMapping(field?.type), [field]);
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
     if (field) {
@@ -36,7 +39,10 @@ export function BaseOperatorSelect(props: IBaseOperatorSelectProps) {
       value={value}
       options={operatorOption}
       popoverClassName="w-48"
-      className="m-1 w-32 shrink-0 justify-between"
+      className={cn('m-1 shrink-0 justify-between', {
+        'max-w-40': compact,
+        'w-40': !compact,
+      })}
       onSelect={onSelect}
       disabled={shouldDisabled}
     />

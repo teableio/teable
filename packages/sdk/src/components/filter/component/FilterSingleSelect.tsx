@@ -1,4 +1,5 @@
 import { ColorUtils } from '@teable/core';
+import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import type { SingleSelectField } from '../../../model';
 import type { IColorOption } from './base';
@@ -9,10 +10,12 @@ interface ISingleSelect {
   operator: string;
   value: string | null;
   field: SingleSelectField;
+  className?: string;
+  popoverClassName?: string;
 }
 
 function FilterSingleSelect(props: ISingleSelect) {
-  const { onSelect, field, value } = props;
+  const { onSelect, field, value, className, popoverClassName } = props;
 
   const options = useMemo<IColorOption[]>(() => {
     return field?.options?.choices.map((choice) => ({
@@ -45,8 +48,8 @@ function FilterSingleSelect(props: ISingleSelect) {
       options={options}
       value={value}
       onSelect={onSelect}
-      className="w-64 justify-between"
-      popoverClassName="w-64"
+      className={cn('justify-between', className)}
+      popoverClassName={cn(popoverClassName)}
       optionRender={optionRender}
       displayRender={optionRender}
     />
