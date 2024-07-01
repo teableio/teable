@@ -31,5 +31,6 @@
     {
       "pattern": "./packages/*/"
     }
-  ]
+  ],
+  "vitest.maximumConfigs": 10
 }

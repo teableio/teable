@@ -72,10 +72,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     sourceFieldRo: IFieldRo,
     newFieldRo: IFieldRo,
     values: unknown[] = [],
+    createdCallback?: (newField: IFieldVo) => Promise<void>,
     appendBlankRow?: number
   ) {
     const sourceField = await createField(table.id, sourceFieldRo);
-
+    await createdCallback?.(sourceField);
     if (appendBlankRow) {
       const records = [];
       for (let i = 0; i < appendBlankRow; i++) {
@@ -837,6 +838,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         sourceFieldRo,
         newFieldRo,
         ['x', 'x, y', 'x\nz', `x, "','"`, `x, y, ", "`, `"','", ", "`],
+        undefined,
         3
       );
       expect(newField).toMatchObject({
@@ -1631,11 +1633,44 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
       await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
 
-      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
-        [{ id: table2.records[0].id }, { id: table2.records[1].id }],
-        [{ id: table2.records[2].id }],
-      ]);
-
+      let lookupField: IFieldVo;
+      const { newField, values } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        [
+          [{ id: table2.records[0].id }, { id: table2.records[1].id }],
+          [{ id: table2.records[2].id }],
+        ],
+        async (sourceField) => {
+          const lookupFieldRo: IFieldRo = {
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          };
+          lookupField = await createField(table1.id, lookupFieldRo);
+          const rollupFieldRo: IFieldRo = {
+            type: FieldType.Rollup,
+            options: {
+              expression: `count({values})`,
+              formatting: {
+                precision: 2,
+                type: 'decimal',
+              },
+            } as IRollupFieldOptions,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          };
+          await createField(table1.id, rollupFieldRo);
+        }
+      );
       expect(newField).toMatchObject({
         cellValueType: CellValueType.String,
         dbFieldType: DbFieldType.Json,
@@ -1644,6 +1679,19 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
           relationship: Relationship.ManyOne,
           foreignTableId: table2.id,
           lookupFieldId: table2.fields[0].id,
+        },
+      });
+
+      expect(lookupField!).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isMultipleCellValue: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: newField.id,
         },
       });
 
@@ -1681,6 +1729,32 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         { id: table2.records[0].id },
         { id: table2.records[1].id },
       ]);
+
+      await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceField.id,
+        },
+      });
+      await createField(table1.id, {
+        type: FieldType.Rollup,
+        options: {
+          expression: `count({values})`,
+          formatting: {
+            precision: 2,
+            type: 'decimal',
+          },
+        } as IRollupFieldOptions,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceField.id,
+        },
+      });
+
       const newField = await convertField(table1.id, sourceField.id, newFieldRo);
 
       expect(newField).toMatchObject({
@@ -1746,6 +1820,32 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         { id: table2.records[0].id },
         { id: table2.records[1].id },
       ]);
+
+      await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceField.id,
+        },
+      });
+      await createField(table1.id, {
+        type: FieldType.Rollup,
+        options: {
+          expression: `count({values})`,
+          formatting: {
+            precision: 2,
+            type: 'decimal',
+          },
+        } as IRollupFieldOptions,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceField.id,
+        },
+      });
+
       const newField = await convertField(table1.id, sourceField.id, newFieldRo);
 
       expect(newField).toMatchObject({
@@ -1811,7 +1911,33 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         table1,
         sourceFieldRo,
         newFieldRo,
-        [{ id: table2.records[0].id }, { id: table2.records[1].id }, { id: table2.records[2].id }]
+        [{ id: table2.records[0].id }, { id: table2.records[1].id }, { id: table2.records[2].id }],
+        async (sourceField) => {
+          await createField(table1.id, {
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          });
+          await createField(table1.id, {
+            type: FieldType.Rollup,
+            options: {
+              expression: `count({values})`,
+              formatting: {
+                precision: 2,
+                type: 'decimal',
+              },
+            } as IRollupFieldOptions,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          });
+        }
       );
 
       // make sure symmetricField have been deleted
@@ -1877,9 +2003,38 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       await updateRecordByApi(table3.id, table3.records[1].id, table3.fields[0].id, 'C2');
       await updateRecordByApi(table3.id, table3.records[2].id, table3.fields[0].id, 'C3');
 
-      const { sourceField } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
-        { id: table2.records[0].id },
-      ]);
+      const { sourceField } = await expectUpdate(
+        table1,
+        sourceFieldRo,
+        newFieldRo,
+        [{ id: table2.records[0].id }],
+        async (sourceField) => {
+          await createField(table1.id, {
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          });
+          await createField(table1.id, {
+            type: FieldType.Rollup,
+            options: {
+              expression: `count({values})`,
+              formatting: {
+                precision: 2,
+                type: 'decimal',
+              },
+            } as IRollupFieldOptions,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          });
+        }
+      );
 
       // make sure records has been updated
       const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
@@ -2088,7 +2243,33 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         table1,
         sourceFieldRo,
         newFieldRo,
-        [{ id: table2.records[0].id }, { id: table2.records[1].id }, { id: table2.records[2].id }]
+        [{ id: table2.records[0].id }, { id: table2.records[1].id }, { id: table2.records[2].id }],
+        async (sourceField) => {
+          await createField(table1.id, {
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          });
+          await createField(table1.id, {
+            type: FieldType.Rollup,
+            options: {
+              expression: `count({values})`,
+              formatting: {
+                precision: 2,
+                type: 'decimal',
+              },
+            } as IRollupFieldOptions,
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: sourceField.id,
+            },
+          });
+        }
       );
 
       // make sure symmetricField have been deleted
