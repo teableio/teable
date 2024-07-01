@@ -30,6 +30,7 @@ config:
 
   # leave all the following values empty to generate random values (recommend)
   jwtSecret: null
+  sessionSecret: null
 
   # the key and iv for encrypting, The value is an ascII character string of 16 characters
   # leave all the following values empty to generate random values (recommend)

@@ -10,9 +10,9 @@ export const authConfig = registerAs('auth', () => ({
   },
   session: {
     secret:
-      process.env.BACKEND_JWT_SECRET ??
+      process.env.BACKEND_SESSION_SECRET ??
       'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932',
-    expiresIn: process.env.BACKEND_JWT_EXPIRES_IN ?? '7d',
+    expiresIn: process.env.BACKEND_SESSION_EXPIRES_IN ?? '7d',
   },
   accessToken: {
     prefix: process.env.BRAND_NAME!.toLocaleLowerCase(),
