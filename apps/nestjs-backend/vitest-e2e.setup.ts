@@ -14,11 +14,18 @@ interface ITestConfig {
   baseId: string;
 }
 
+interface IInitAppReturnType {
+  app: INestApplication<unknown>;
+  appUrl: string;
+  cookie: string;
+  sessionID: string;
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var testConfig: ITestConfig;
   // eslint-disable-next-line no-var
-  var getApp: undefined | (() => Promise<INestApplication<unknown>>);
+  var initApp: undefined | (() => Promise<IInitAppReturnType>);
 }
 
 // Set global variables (if needed)
