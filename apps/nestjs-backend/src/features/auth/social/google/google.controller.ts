@@ -3,6 +3,7 @@ import { Response } from 'express';
 import type { IOauth2State } from '../../../../cache/types';
 import { Public } from '../../decorators/public.decorator';
 import { GoogleGuard } from '../../guard/google.guard';
+import { SocialGuard } from '../../guard/social.guard';
 
 @Controller('api/auth')
 export class GoogleController {
@@ -14,7 +15,7 @@ export class GoogleController {
 
   @Get('/google/callback')
   @Public()
-  @UseGuards(GoogleGuard)
+  @UseGuards(SocialGuard, GoogleGuard)
   async googleCallback(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
     const user = req.user!;
     // set cookie, passport login

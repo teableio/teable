@@ -50,13 +50,51 @@ export class PermissionService {
     return collaborator.roleName as BaseRole;
   }
 
-  async getAccessToken(accessTokenId: string) {
-    const { scopes, spaceIds, baseIds } = await this.prismaService.accessToken.findFirstOrThrow({
-      where: { id: accessTokenId },
-      select: { scopes: true, spaceIds: true, baseIds: true },
+  async getOauthAccessBy(userId: string) {
+    const collaborator = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        userId,
+        deletedTime: null,
+      },
+      select: { roleName: true, spaceId: true, baseId: true },
     });
+
+    const spaceIds: string[] = [];
+    const baseIds: string[] = [];
+    collaborator.forEach(({ baseId, spaceId }) => {
+      if (baseId) {
+        baseIds.push(baseId);
+      } else if (spaceId) {
+        spaceIds.push(spaceId);
+      }
+    });
+
+    return { spaceIds, baseIds };
+  }
+
+  async getAccessToken(accessTokenId: string) {
+    const {
+      scopes: stringifyScopes,
+      spaceIds,
+      baseIds,
+      isOAuth,
+      userId,
+    } = await this.prismaService.accessToken.findFirstOrThrow({
+      where: { id: accessTokenId },
+      select: { scopes: true, spaceIds: true, baseIds: true, isOAuth: true, userId: true },
+    });
+    const scopes = JSON.parse(stringifyScopes) as PermissionAction[];
+    if (isOAuth) {
+      const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
+        await this.getOauthAccessBy(userId);
+      return {
+        scopes,
+        spaceIds: spaceIdsByOAuth,
+        baseIds: baseIdsByOAuth,
+      };
+    }
     return {
-      scopes: JSON.parse(scopes) as PermissionAction[],
+      scopes,
       spaceIds: spaceIds ? JSON.parse(spaceIds) : undefined,
       baseIds: baseIds ? JSON.parse(baseIds) : undefined,
     };

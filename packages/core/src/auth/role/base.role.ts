@@ -1,13 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { z } from '../../zod';
-import type {
-  AutomationActions,
-  BaseActions,
-  FieldActions,
-  RecordActions,
-  TableActions,
-  ViewActions,
-} from '../actions';
+import type { AllActions, SpaceActions } from '../actions';
 import { SpaceRole } from './space.role';
 
 export enum BaseRole {
@@ -19,13 +12,9 @@ export enum BaseRole {
 
 export const baseRolesSchema = z.nativeEnum(BaseRole);
 
-export type BasePermission =
-  | BaseActions
-  | TableActions
-  | ViewActions
-  | FieldActions
-  | RecordActions
-  | AutomationActions;
+type ExcludeSpaceActions<T> = T extends SpaceActions ? never : T;
+
+export type BasePermission = ExcludeSpaceActions<AllActions>;
 
 export const basePermissions: Record<
   BaseRole | SpaceRole.Owner,
@@ -65,6 +54,7 @@ export const basePermissions: Record<
     'automation|delete': true,
     'automation|read': true,
     'automation|update': true,
+    'user|email_read': true,
   },
   [BaseRole.Creator]: {
     'base|create': false,
@@ -100,6 +90,7 @@ export const basePermissions: Record<
     'automation|delete': true,
     'automation|read': true,
     'automation|update': true,
+    'user|email_read': true,
   },
   [BaseRole.Editor]: {
     'base|create': false,
@@ -135,6 +126,7 @@ export const basePermissions: Record<
     'automation|delete': false,
     'automation|read': true,
     'automation|update': false,
+    'user|email_read': true,
   },
   [BaseRole.Commenter]: {
     'base|create': false,
@@ -170,6 +162,7 @@ export const basePermissions: Record<
     'automation|delete': false,
     'automation|read': true,
     'automation|update': false,
+    'user|email_read': true,
   },
   [BaseRole.Viewer]: {
     'base|create': false,
@@ -205,5 +198,6 @@ export const basePermissions: Record<
     'automation|delete': false,
     'automation|read': true,
     'automation|update': false,
+    'user|email_read': true,
   },
 };

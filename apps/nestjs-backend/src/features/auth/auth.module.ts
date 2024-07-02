@@ -5,6 +5,7 @@ import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guard/auth.guard';
+import { PermissionModule } from './permission.module';
 import { SessionStoreService } from './session/session-store.service';
 import { SessionModule } from './session/session.module';
 import { SessionSerializer } from './session/session.serializer';
@@ -20,6 +21,7 @@ import { SessionStrategy } from './strategies/session.strategy';
     SessionModule,
     AccessTokenModule,
     SocialModule,
+    PermissionModule,
   ],
   providers: [
     AuthService,

@@ -14,6 +14,7 @@ import { ImportOpenApiModule } from './features/import/open-api/import-open-api.
 import { InvitationModule } from './features/invitation/invitation.module';
 import { NextModule } from './features/next/next.module';
 import { NotificationModule } from './features/notification/notification.module';
+import { OAuthModule } from './features/oauth/oauth.module';
 import { PinModule } from './features/pin/pin.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { SettingModule } from './features/setting/setting.module';
@@ -49,6 +50,7 @@ export const appModules = {
     ExportOpenApiModule,
     PinModule,
     SettingModule,
+    OAuthModule,
   ],
   providers: [InitBootstrapProvider],
 };
@@ -56,6 +58,7 @@ export const appModules = {
 @Module({
   ...appModules,
   imports: [GlobalModule, ...appModules.imports],
+  controllers: [],
 })
 export class AppModule {
   static register(customModuleMetadata: ModuleMetadata) {

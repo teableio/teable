@@ -1,8 +1,9 @@
 import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { generateUserId, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IChangePasswordRo } from '@teable/openapi';
+import type { IChangePasswordRo, IUserInfoVo, IUserMeVo } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
+import { omit, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { AuthConfig, type IAuthConfig } from '../../configs/auth.config';
@@ -11,6 +12,7 @@ import type { IClsStore } from '../../types/cls';
 import { second } from '../../utils/second';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
+import { PermissionService } from './permission.service';
 import { SessionStoreService } from './session/session-store.service';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class AuthService {
     private readonly sessionStoreService: SessionStoreService,
     private readonly mailSenderService: MailSenderService,
     private readonly cacheService: CacheService,
+    private readonly permissionService: PermissionService,
     @AuthConfig() private readonly authConfig: IAuthConfig,
     @MailConfig() private readonly mailConfig: IMailConfig
   ) {}
@@ -181,5 +184,18 @@ export class AuthService {
         salt,
       },
     });
+  }
+
+  async getUserInfo(user: IUserMeVo): Promise<IUserInfoVo> {
+    const res = pick(user, ['id', 'email', 'avatar', 'name']);
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!accessTokenId) {
+      return res;
+    }
+    const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
+    if (!scopes.includes('user|email_read')) {
+      return omit(res, 'email');
+    }
+    return res;
   }
 }
