@@ -7,7 +7,7 @@ import { passwordSchema } from './types';
 export const SIGN_IN = '/auth/signin';
 
 export const signinSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().toLowerCase(),
   password: passwordSchema,
 });
 

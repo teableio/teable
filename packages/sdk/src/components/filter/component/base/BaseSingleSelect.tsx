@@ -11,7 +11,7 @@ import {
   cn,
 } from '@teable/ui-lib';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { IOption, IBaseSelect } from './types';
 
@@ -37,16 +37,6 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   const label = useMemo(() => {
     return options.find((option) => option.value === value)?.label || t('common.untitled');
   }, [options, t, value]);
-
-  useEffect(() => {
-    // other type value comes, adapter or reset
-    const isNull = value === null;
-    const isSameType = typeof value === 'string';
-    const isInOption = options.findIndex((option) => option.value === value) > -1;
-    if ((!isNull && !isSameType) || (!isInOption && options.length && !isNull)) {
-      onSelect?.(null);
-    }
-  }, [onSelect, value, options]);
 
   const selectedValue = useMemo(() => {
     return options.find((option) => option.value === value);
