@@ -36,7 +36,7 @@ describe('OAuthServerService', () => {
       return prismaService;
     });
 
-    prismaService.$tx.mockImplementation(async (fn, _options) => {
+    prismaService.$tx.mockImplementation(async (fn) => {
       return await fn(prismaService);
     });
   });
