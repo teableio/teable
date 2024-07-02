@@ -8,6 +8,7 @@ export interface IClientBase {
 export interface IAuthorizeClient extends IClientBase {
   isTrusted?: boolean;
   scopes: string[];
+  redirectUri: string;
 }
 
 export interface IExchangeClient extends IClientBase {
@@ -16,7 +17,7 @@ export interface IExchangeClient extends IClientBase {
   clientSecret: string;
 }
 
-export type IOAuth2Server = OAuth2Server<IClientBase, IUserMeVo>;
+export type IOAuth2Server<Client = IClientBase, User = IUserMeVo> = OAuth2Server<Client, User>;
 
 export interface IOAuthStoreOption {
   transactionField?: string;

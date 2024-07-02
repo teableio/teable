@@ -4,15 +4,17 @@ import type { IUserMeVo } from '@teable/openapi';
 import type { Request } from 'express';
 import type { OAuth2, OAuth2Req } from 'oauth2orize';
 import { CacheService } from '../../cache/cache.service';
+import { oauth2Config } from './constant';
 import type { IAuthorizeClient } from './types';
 
 @Injectable()
 export class OAuthTxStore {
+  oauth2Config = oauth2Config;
+
   constructor(private readonly cacheService: CacheService) {}
 
-  async load(req: Request, cb: (err: unknown, txn?: OAuth2) => void) {
+  async load(req: Request, cb: (err: unknown, txn?: OAuth2<IAuthorizeClient, IUserMeVo>) => void) {
     const transactionID = req.body?.['transaction_id'];
-
     if (!transactionID) {
       return cb(new BadRequestException('transaction_id is required'));
     }
@@ -21,15 +23,18 @@ export class OAuthTxStore {
     if (!txnStore) {
       return cb(new BadRequestException('Invalid transaction ID'));
     }
-
-    if (txnStore.userId !== (req.user as IUserMeVo).id) {
+    const user = req.user as IUserMeVo;
+    if (txnStore.userId !== user.id) {
       return cb(new BadRequestException('Invalid user'));
     }
-
     cb(null, {
       transactionID,
       redirectURI: txnStore.redirectURI,
-      client: { clientId: txnStore.clientId },
+      client: {
+        clientId: txnStore.clientId,
+        redirectUri: txnStore.redirectURI,
+        scopes: txnStore.scopes,
+      },
       req: {
         clientID: txnStore.clientId,
         transactionID,
@@ -38,7 +43,7 @@ export class OAuthTxStore {
         state: txnStore.state!,
         redirectURI: txnStore.redirectURI,
       },
-      user: req.user!,
+      user,
       info: {
         scope: txnStore.scopes.join(' '),
       },
@@ -64,9 +69,10 @@ export class OAuthTxStore {
         redirectURI,
         type: txn.req.type,
         scopes: txn.client.scopes,
+        state: txn.req.state,
         userId: (req.user as IUserMeVo).id,
       },
-      60 * 5
+      this.oauth2Config.transactionExpireIn
     );
 
     cb(null, transactionID);

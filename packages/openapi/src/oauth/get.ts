@@ -1,5 +1,5 @@
 import { axios } from '../axios';
-import { registerRoute } from '../utils';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const OAUTH_GET = '/oauth/client/{clientId}';
@@ -53,5 +53,5 @@ export const oauthGetRoute = registerRoute({
 });
 
 export const oauthGet = async (clientId: string) => {
-  return axios.get<OAuthGetVo>(OAUTH_GET, { params: { clientId } });
+  return axios.get<OAuthGetVo>(urlBuilder(OAUTH_GET, { clientId }));
 };
