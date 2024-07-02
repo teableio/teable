@@ -4,7 +4,7 @@ import { AppContext } from '../AppContext';
 import type { TKey, TValue } from './types';
 
 export const useTranslation = () => {
-  const { locale } = useContext(AppContext);
+  const { locale, lang } = useContext(AppContext);
   const t = useCallback(
     (key: TKey, options?: Record<string, unknown>): TValue => {
       const translation = get(locale, key) as unknown as TValue;
@@ -21,5 +21,6 @@ export const useTranslation = () => {
   );
   return {
     t,
+    lang,
   };
 };

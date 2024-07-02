@@ -96,7 +96,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
                       </div>
                     )
                 )
-              : 'Select'}
+              : t('common.selectPlaceHolder')}
           </div>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>

@@ -6,7 +6,7 @@ import {
   listSpaceInvitationLink,
   updateSpaceInvitationLink,
 } from '@teable/openapi';
-import { useSpaceRoleStatic } from '@teable/sdk/hooks';
+import { useSpaceRoleStatic, useLanDayjs } from '@teable/sdk/hooks';
 import {
   Button,
   Input,
@@ -16,14 +16,11 @@ import {
   TooltipTrigger,
   useToast,
 } from '@teable/ui-lib';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { map } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { RoleSelect } from './RoleSelect';
 import { getRolesWithLowerPermissions } from './utils';
-dayjs.extend(relativeTime);
 
 interface IInviteLink {
   spaceId: string;
@@ -35,6 +32,7 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { t } = useTranslation('common');
+  const dayjs = useLanDayjs();
 
   const linkList = useQuery({
     queryKey: ['invite-link-list', spaceId],

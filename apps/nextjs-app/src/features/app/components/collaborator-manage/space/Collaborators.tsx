@@ -8,7 +8,7 @@ import {
   getSpaceCollaboratorList,
   updateSpaceCollaborator,
 } from '@teable/openapi';
-import { ReactQueryKeys, useSession } from '@teable/sdk';
+import { ReactQueryKeys, useSession, useLanDayjs } from '@teable/sdk';
 import {
   Button,
   Input,
@@ -17,16 +17,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib';
-import dayjs, { extend } from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { debounce } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import type { FC, PropsWithChildren } from 'react';
 import React, { useMemo, useState } from 'react';
 import { Collaborator } from './Collaborator';
 import { RoleSelect } from './RoleSelect';
-
-extend(relativeTime);
 
 interface ICollaborators {
   spaceId: string;
@@ -50,6 +46,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
   const { t } = useTranslation('common');
+  const dayjs = useLanDayjs();
 
   const { data: collaborators } = useQuery({
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),

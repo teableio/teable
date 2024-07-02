@@ -1,5 +1,5 @@
 import { type ITableVo } from '@teable/openapi';
-import { useTable } from '@teable/sdk/hooks';
+import { useTable, useLanDayjs } from '@teable/sdk/hooks';
 import {
   Card,
   CardHeader,
@@ -8,20 +8,17 @@ import {
   CardContent,
   Label,
 } from '@teable/ui-lib/shadcn';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from 'next-i18next';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { DbTableName } from '../components/DbTableName';
 import { TableDescription } from '../components/TableDescription';
 import { TableName } from '../components/TableName';
-dayjs.extend(relativeTime);
 
 export const TableDetail = () => {
   const table = useTable() as ITableVo;
   const [dbSchemaName] = table.dbTableName.split('.');
   const { t } = useTranslation(['table']);
-
+  const dayjs = useLanDayjs();
   const { driver } = useEnv();
 
   return (

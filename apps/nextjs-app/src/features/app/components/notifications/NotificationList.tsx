@@ -4,15 +4,12 @@ import { Inbox } from '@teable/icons';
 import type { INotificationVo } from '@teable/openapi';
 import { updateNotificationStatus } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
+import { useLanDayjs } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib';
-import dayjs, { extend } from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import Link from 'next/link';
 import React from 'react';
 import { NotificationActionBar } from './NotificationActionBar';
 import { NotificationIcon } from './NotificationIcon';
-
-extend(relativeTime);
 
 interface NotificationListProps {
   notifyStatus: NotificationStatesEnum;
@@ -27,6 +24,7 @@ interface NotificationListProps {
 export const NotificationList: React.FC<NotificationListProps> = (props) => {
   const { notifyStatus, data, className, hasNextPage, isFetchingNextPage, onShowMoreClick } = props;
   const queryClient = useQueryClient();
+  const dayjs = useLanDayjs();
 
   const newPagesArray = (updatedId: string) => {
     return data?.map((item) => ({
