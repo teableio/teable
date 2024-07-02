@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { DecisionInfoGetVo } from '@teable/openapi';
 import { Request, Response } from 'express';
 import { Public } from '../auth/decorators/public.decorator';
@@ -19,16 +19,18 @@ export class OAuthServerController {
   @Public()
   async accessToken(@Res({ passthrough: true }) res: Response, @Req() req: Request) {
     await this.oauthServerService.token(req, res);
-    return 'authorized';
   }
 
   @Post('decision')
-  async decision(@Res({ passthrough: true }) res: Response, @Req() req: Request) {
-    await this.oauthServerService.decision(req, res);
+  async decision(@Res() res: Response, @Req() req: Request) {
+    return this.oauthServerService.decision(req, res);
   }
 
   @Get('decision/:transactionId')
-  async transaction(@Req() req: Request): Promise<DecisionInfoGetVo> {
-    return this.oauthServerService.getDecisionInfo(req);
+  async transaction(
+    @Req() req: Request,
+    @Param('transactionId') transactionId: string
+  ): Promise<DecisionInfoGetVo> {
+    return this.oauthServerService.getDecisionInfo(req, transactionId);
   }
 }

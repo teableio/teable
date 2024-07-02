@@ -21,6 +21,6 @@ export const deleteOauthSecretRoute = registerRoute({
   tags: ['oauth'],
 });
 
-export const deleteOAuthSecret = async (secretId: string) => {
-  return axios.delete<void>(urlBuilder(OAUTH_SECRET_DELETE, { secretId }));
+export const deleteOAuthSecret = async (clientId: string, secretId: string) => {
+  return axios.delete<void>(urlBuilder(OAUTH_SECRET_DELETE, { clientId, secretId }));
 };

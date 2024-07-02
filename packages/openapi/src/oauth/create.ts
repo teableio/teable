@@ -1,3 +1,4 @@
+import { OAUTH_ACTIONS } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
@@ -10,12 +11,15 @@ export const oauthCreateRoSchema = z.object({
   description: z.string().optional(),
   homepage: z.string().url(),
   logo: z.string().url().optional(),
-  scopes: z.array(z.string()).optional(),
+  scopes: z
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .array(z.nativeEnum(OAUTH_ACTIONS as any))
+    .transform<string[]>((val) => (val ? Array.from(new Set(val)) : val))
+    .optional(),
   redirectUris: z.array(z.string().url()),
 });
 
 export type OAuthCreateRo = z.infer<typeof oauthCreateRoSchema>;
-
 export const oauthCreateVoSchema = oauthGetVoSchema;
 
 export type OAuthCreateVo = z.infer<typeof oauthCreateVoSchema>;

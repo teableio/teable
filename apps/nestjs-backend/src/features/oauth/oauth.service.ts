@@ -64,6 +64,9 @@ export class OAuthService {
         clientId,
       },
     });
+    if (!secrets.length) {
+      return;
+    }
     return secrets.map((s) => ({
       id: s.id,
       secret: s.maskedSecret,
@@ -81,14 +84,23 @@ export class OAuthService {
       throw new NotFoundException('OAuth client not found');
     }
     const secrets = await this.getSecrets(clientId);
-
     return this.convertToVo(
       pick(
         {
           ...res,
           secrets,
         },
-        ['id', 'name', 'description', 'scopes', 'homepage', 'logo', 'redirectUris', 'clientId']
+        [
+          'id',
+          'name',
+          'description',
+          'scopes',
+          'homepage',
+          'logo',
+          'redirectUris',
+          'clientId',
+          'secrets',
+        ]
       )
     );
   }
@@ -159,23 +171,25 @@ export class OAuthService {
     const res = await this.prismaService.oAuthAppSecret.create({
       data: {
         clientId,
-        secret,
+        secret: hashedSecret,
         maskedSecret,
         createdBy: this.cls.get('user.id'),
       },
     });
+
     return {
-      secret: hashedSecret,
+      secret,
       maskedSecret,
       id: res.id,
       lastUsedTime: res.lastUsedTime?.toISOString(),
     };
   }
 
-  async deleteSecret(secretId: string): Promise<void> {
+  async deleteSecret(clientId: string, secretId: string): Promise<void> {
     await this.prismaService.oAuthAppSecret.delete({
       where: {
         id: secretId,
+        clientId,
       },
     });
   }

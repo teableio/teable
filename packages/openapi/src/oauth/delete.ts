@@ -1,5 +1,5 @@
 import { axios } from '../axios';
-import { registerRoute } from '../utils';
+import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const OAUTH_DELETE = '/oauth/client/{clientId}';
@@ -21,6 +21,6 @@ export const deleteOauthRoute = registerRoute({
   tags: ['oauth'],
 });
 
-export const deleteOAuth = async (clientId: string) => {
-  return axios.delete<void>(OAUTH_DELETE, { params: { clientId } });
+export const oauthDelete = async (clientId: string) => {
+  return axios.delete<void>(urlBuilder(OAUTH_DELETE, { clientId }));
 };

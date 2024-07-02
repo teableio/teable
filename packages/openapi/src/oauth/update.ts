@@ -1,10 +1,10 @@
 import { axios } from '../axios';
-import { registerRoute } from '../utils';
-import type { z } from '../zod';
+import { registerRoute, urlBuilder } from '../utils';
+import { z } from '../zod';
 import { oauthCreateRoSchema } from './create';
 import { oauthGetVoSchema } from './get';
 
-export const OAUTH_UPDATE = '/oauth/client';
+export const OAUTH_UPDATE = '/oauth/client/{clientId}';
 
 export const oauthUpdateRoSchema = oauthCreateRoSchema;
 
@@ -19,6 +19,9 @@ export const oauthUpdateRoute = registerRoute({
   path: OAUTH_UPDATE,
   description: 'Update an OAuth application',
   request: {
+    params: z.object({
+      clientId: z.string(),
+    }),
     body: {
       content: {
         'application/json': {
@@ -40,6 +43,6 @@ export const oauthUpdateRoute = registerRoute({
   tags: ['oauth'],
 });
 
-export const oauthUpdate = async (oauthRo: OAuthUpdateRo) => {
-  return axios.put<OAuthUpdateVo>(OAUTH_UPDATE, oauthRo);
+export const oauthUpdate = async (clientId: string, oauthRo: OAuthUpdateRo) => {
+  return axios.put<OAuthUpdateVo>(urlBuilder(OAUTH_UPDATE, { clientId }), oauthRo);
 };

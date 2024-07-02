@@ -26,5 +26,6 @@ import { OAuthClientStrategy } from './strategies/oauth2-client.strategies';
   ],
   controllers: [OAuthController, OAuthServerController],
   providers: [OAuthServerService, OAuthService, OAuthClientStrategy, OAuthTxStore],
+  exports: [OAuthService],
 })
 export class OAuthModule {}

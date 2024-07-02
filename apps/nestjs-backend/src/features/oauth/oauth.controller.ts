@@ -53,8 +53,11 @@ export class OAuthController {
     return this.oauthService.generateSecret(clientId);
   }
 
-  @Delete(':clientId/secret')
-  async deleteOAuthSecret(@Param('clientId') clientId: string): Promise<void> {
-    return this.oauthService.deleteSecret(clientId);
+  @Delete(':clientId/secret/:secretId')
+  async deleteOAuthSecret(
+    @Param('clientId') clientId: string,
+    @Param('secretId') secretId: string
+  ): Promise<void> {
+    return this.oauthService.deleteSecret(clientId, secretId);
   }
 }
