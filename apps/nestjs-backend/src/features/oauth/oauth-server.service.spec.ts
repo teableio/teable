@@ -73,6 +73,7 @@ describe('OAuthServerService', () => {
         null,
         {
           clientId: 'clientId',
+          redirectUri: 'http://localhost/callback',
           scopes: ['user|email_read'],
         },
         'http://localhost/callback'
@@ -123,6 +124,7 @@ describe('OAuthServerService', () => {
         {
           clientId: 'clientId',
           scopes: ['user|email_read'],
+          redirectUri: 'http://localhost/callback',
         },
         'http://localhost/callback'
       );
@@ -194,6 +196,8 @@ describe('OAuthServerService', () => {
       });
       expect(mockDone).toHaveBeenCalledWith(null, mockAccessToken.token, mockRefreshToken, {
         scopes: mockCodeState.scopes,
+        expires_in: expect.any(Number),
+        refresh_expires_in: expect.any(Number),
       });
     });
 
@@ -344,6 +348,8 @@ describe('OAuthServerService', () => {
       );
       expect(mockDone).toHaveBeenCalledWith(null, newAccessToken.token, newRefreshToken, {
         scopes: ['user|email_read'],
+        expires_in: expect.any(Number),
+        refresh_expires_in: expect.any(Number),
       });
     });
 
