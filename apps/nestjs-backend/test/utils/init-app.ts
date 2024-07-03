@@ -117,8 +117,6 @@ export async function initApp() {
   console.log('> Test System Time Zone:', timeZone);
   console.log('> Test Current System Time:', now.toString());
 
-  console.log('> Test Current System Time: init123');
-
   const sessionHandleService = app.get<SessionHandleService>(SessionHandleService);
   return {
     app,
