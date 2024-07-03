@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import 'dayjs/locale/zh';
 import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 import { useCallback } from 'react';
