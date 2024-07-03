@@ -1,7 +1,6 @@
 import type { IncomingHttpHeaders } from 'http';
-import type { OpName } from '@teable/core';
+import type { OpName, Event } from '@teable/core';
 import { nanoid } from 'nanoid';
-import type { Events } from './event.enum';
 
 export interface IEventContext {
   user?: {
@@ -17,7 +16,7 @@ export interface IEventContext {
 }
 
 export abstract class CoreEvent<Payload extends object = object> {
-  abstract name: Events;
+  abstract name: Event;
 
   constructor(
     public readonly payload: Payload,

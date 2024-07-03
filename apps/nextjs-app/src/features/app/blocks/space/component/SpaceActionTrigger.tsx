@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from '@teable/icons';
+import { Pencil, Trash2, Settings } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -8,11 +8,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
 import React from 'react';
 
 interface ISpaceActionTrigger {
   space: IGetSpaceVo;
   showRename?: boolean;
+  showSettings?: boolean;
   showDelete?: boolean;
   onRename?: () => void;
   onDelete?: () => void;
@@ -21,11 +23,21 @@ interface ISpaceActionTrigger {
 export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTrigger>> = (
   props
 ) => {
-  const { space, children, showDelete, showRename, onDelete, onRename } = props;
+  const router = useRouter();
+
+  const { space, children, showDelete, showRename, showSettings, onDelete, onRename } = props;
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
-  if (!showDelete && !showRename) {
+  if (!showDelete && !showRename && !showSettings) {
     return null;
   }
+
+  const onSettings = () => {
+    router.push({
+      pathname: '/setting/[spaceId]',
+      query: { spaceId: space.id },
+    });
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -35,6 +47,12 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
             <DropdownMenuItem onClick={onRename}>
               <Pencil className="mr-2" />
               Rename
+            </DropdownMenuItem>
+          )}
+          {showSettings && (
+            <DropdownMenuItem onClick={onSettings}>
+              <Settings className="mr-2" />
+              Settings
             </DropdownMenuItem>
           )}
           {showDelete && (

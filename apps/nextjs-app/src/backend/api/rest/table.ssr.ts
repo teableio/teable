@@ -6,11 +6,11 @@ import type {
   IGetBaseVo,
   IGetDefaultViewIdVo,
   IGetSpaceVo,
+  ITableFullVo,
+  ITableListVo,
   IUpdateNotifyStatusRo,
   ListSpaceCollaboratorVo,
   ShareViewGetVo,
-  ITableFullVo,
-  ITableListVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -28,14 +28,23 @@ import {
   urlBuilder,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
+import { WebhookSsr } from '@/backend/api/rest/webhook.ssr';
 import { getAxios } from './axios';
 
 export class SsrApi {
   axios: AxiosInstance;
 
+  private _webhook: WebhookSsr;
+
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   constructor() {
     this.axios = getAxios();
+
+    this._webhook = new WebhookSsr(this.axios);
+  }
+
+  get webhook(): WebhookSsr {
+    return this._webhook;
   }
 
   async getTable(baseId: string, tableId: string, viewId?: string) {

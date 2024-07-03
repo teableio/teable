@@ -49,7 +49,7 @@
     "dayjs": "1.11.10",
     "lodash": "4.17.21",
     "nanoid": "3.3.7",
-    "reflect-metadata": "0.2.1",
+    "reflect-metadata": "0.2.2",
     "papaparse": "5.4.1",
     "zod": "3.22.4"
   },
@@ -67,7 +67,7 @@
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "size-limit": "11.1.2",
-    "typescript": "5.4.3",
+    "typescript": "5.4.4",
     "vite-tsconfig-paths": "4.3.2",
     "vitest": "1.4.0"
   }

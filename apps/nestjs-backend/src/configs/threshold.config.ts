@@ -17,6 +17,8 @@ export const thresholdConfig = registerAs('threshold', () => ({
   bigTransactionTimeout: Number(
     process.env.BIG_TRANSACTION_TIMEOUT ?? 10 * 60 * 1000 /* 10 mins */
   ),
+  // Maximum limit for creating webhooks, If the environment variable is not set, it defaults to 10.
+  maxCreateWebhookLimit: Number(process.env.MAX_CREATE_WEBHOOK_LIMIT ?? 10),
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);

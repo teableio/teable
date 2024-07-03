@@ -7,3 +7,4 @@ export * from './op';
 export * from './aggregation';
 export * from './notification';
 export * from './channel';
+export * from './event';

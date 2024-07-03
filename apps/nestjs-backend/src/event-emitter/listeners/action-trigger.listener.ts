@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { IActionTriggerBuffer, IGridColumn } from '@teable/core';
-import { getActionTriggerChannel, OpName } from '@teable/core';
+import { getActionTriggerChannel, OpName, Event } from '@teable/core';
 import { isEmpty } from 'lodash';
 import { match } from 'ts-pattern';
 import { ShareDbService } from '../../share-db/share-db.service';
@@ -11,7 +11,6 @@ import type {
   RecordUpdateEvent,
   ViewUpdateEvent,
 } from '../events';
-import { Events } from '../events';
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
@@ -23,7 +22,7 @@ export class ActionTriggerListener {
 
   constructor(private readonly shareDbService: ShareDbService) {}
 
-  @OnEvent(Events.TABLE_VIEW_UPDATE, { async: true })
+  @OnEvent(Event.TABLE_VIEW_UPDATE, { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
     // Handling table view update events
@@ -87,9 +86,9 @@ export class ActionTriggerListener {
 
     const buffer = match(event)
       .returnType<IActionTriggerBuffer>()
-      .with({ name: Events.TABLE_RECORD_CREATE }, () => ({ addRecord: [tableId] }))
-      .with({ name: Events.TABLE_RECORD_UPDATE }, () => ({ setRecord: [tableId] }))
-      .with({ name: Events.TABLE_RECORD_DELETE }, () => ({ deleteRecord: [tableId] }))
+      .with({ name: Event.TABLE_RECORD_CREATE }, () => ({ addRecord: [tableId] }))
+      .with({ name: Event.TABLE_RECORD_UPDATE }, () => ({ setRecord: [tableId] }))
+      .with({ name: Event.TABLE_RECORD_DELETE }, () => ({ deleteRecord: [tableId] }))
       .otherwise(() => ({}));
 
     if (!isEmpty(buffer)) {
@@ -98,7 +97,7 @@ export class ActionTriggerListener {
   }
 
   private isTableViewUpdateEvent(event: IListenerEvent): boolean {
-    return Events.TABLE_VIEW_UPDATE === event.name;
+    return Event.TABLE_VIEW_UPDATE === event.name;
   }
 
   private isValidViewUpdateOperation(event: ViewUpdateEvent): boolean | undefined {
@@ -109,9 +108,9 @@ export class ActionTriggerListener {
 
   private isTableRecordEvent(event: IListenerEvent): boolean {
     const recordEvents = [
-      Events.TABLE_RECORD_CREATE,
-      Events.TABLE_RECORD_DELETE,
-      Events.TABLE_RECORD_UPDATE,
+      Event.TABLE_RECORD_CREATE,
+      Event.TABLE_RECORD_DELETE,
+      Event.TABLE_RECORD_UPDATE,
     ];
     return recordEvents.includes(event.name);
   }

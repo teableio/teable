@@ -18,7 +18,7 @@ export function parseDsn(dsn: string): IDsn {
     };
   }
 
-  if (!parsedDsn.success) {
+  if (parsedDsn.success === false) {
     throw new Error(`DATABASE_URL ${parsedDsn.reason}`);
   }
   if (!parsedDsn.value.port) {

@@ -49,4 +49,6 @@ export const ReactQueryKeys = {
   tableInfo: (baseId: string, tableId: string) => ['table-info', baseId, tableId],
 
   field: (tableId: string) => ['field-info', tableId],
+
+  webhookList: (spaceId: string) => ['webhook-list', spaceId] as const,
 };

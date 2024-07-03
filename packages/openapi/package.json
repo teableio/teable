@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache ./.eslintcache",
+    "clean": "rimraf ./dist ./build ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "tsc --watch",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs --cache --cache-location ../../.cache/eslint/openapi.eslintcache",
     "test": "run test-unit",
@@ -34,7 +34,7 @@
     "axios": "1.6.8",
     "httpsnippet-lite": "3.0.5",
     "openapi-sampler": "1.4.0",
-    "openapi3-ts": "4.2.2",
+    "openapi3-ts": "4.3.1",
     "zod": "3.22.4"
   },
   "devDependencies": {
@@ -42,7 +42,7 @@
     "@vitest/coverage-v8": "1.4.0",
     "eslint": "8.57.0",
     "rimraf": "5.0.5",
-    "typescript": "5.4.3",
+    "typescript": "5.4.4",
     "vite-tsconfig-paths": "4.3.2",
     "vitest": "1.4.0"
   }

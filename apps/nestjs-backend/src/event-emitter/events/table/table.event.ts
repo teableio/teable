@@ -1,8 +1,8 @@
 import type { ITableOp } from '@teable/core';
+import { Event } from '@teable/core';
 import { match } from 'ts-pattern';
 import { RawOpType } from '../../../share-db/interface';
 import type { IEventContext } from '../core-event';
-import { Events } from '../event.enum';
 import type { IChangeValue } from '../op-event';
 import { OpEvent } from '../op-event';
 
@@ -18,7 +18,7 @@ type ITableUpdatePayload = {
 };
 
 export class TableCreateEvent extends OpEvent<ITableCreatePayload> {
-  public readonly name = Events.TABLE_CREATE;
+  public readonly name = Event.TABLE_CREATE;
   public readonly rawOpType = RawOpType.Create;
 
   constructor(baseId: string, table: ITableOp, context: IEventContext) {
@@ -27,7 +27,7 @@ export class TableCreateEvent extends OpEvent<ITableCreatePayload> {
 }
 
 export class TableDeleteEvent extends OpEvent<ITableDeletePayload> {
-  public readonly name = Events.TABLE_DELETE;
+  public readonly name = Event.TABLE_DELETE;
   public readonly rawOpType = RawOpType.Del;
 
   constructor(baseId: string, tableId: string, context: IEventContext) {
@@ -36,7 +36,7 @@ export class TableDeleteEvent extends OpEvent<ITableDeletePayload> {
 }
 
 export class TableUpdateEvent extends OpEvent<ITableUpdatePayload> {
-  public readonly name = Events.TABLE_UPDATE;
+  public readonly name = Event.TABLE_UPDATE;
   public readonly rawOpType = RawOpType.Edit;
 
   constructor(baseId: string, table: IChangeTable, context: IEventContext) {
@@ -51,15 +51,15 @@ export class TableEventFactory {
     context: IEventContext
   ) {
     return match(name)
-      .with(Events.TABLE_CREATE, () => {
+      .with(Event.TABLE_CREATE, () => {
         const { baseId, table } = payload as ITableCreatePayload;
         return new TableCreateEvent(baseId, table, context);
       })
-      .with(Events.TABLE_DELETE, () => {
+      .with(Event.TABLE_DELETE, () => {
         const { baseId, tableId } = payload as ITableDeletePayload;
         return new TableDeleteEvent(baseId, tableId, context);
       })
-      .with(Events.TABLE_UPDATE, () => {
+      .with(Event.TABLE_UPDATE, () => {
         const { baseId, table } = payload as ITableUpdatePayload;
         return new TableUpdateEvent(baseId, table, context);
       })

@@ -7,6 +7,7 @@ import {
   RecordOpBuilder,
   TableOpBuilder,
   ViewOpBuilder,
+  Event,
 } from '@teable/core';
 import { get, isEmpty, omit, set } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -20,7 +21,6 @@ import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import type { IChangeRecord, OpEvent, RecordCreateEvent, RecordUpdateEvent } from './events';
 import {
-  Events,
   FieldEventFactory,
   RecordEventFactory,
   TableEventFactory,
@@ -36,22 +36,22 @@ export class EventEmitterService {
 
   private readonly eventNameMapping = {
     [RawOpType.Create]: {
-      [IdPrefix.Table]: Events.TABLE_CREATE,
-      [IdPrefix.Field]: Events.TABLE_FIELD_CREATE,
-      [IdPrefix.View]: Events.TABLE_VIEW_CREATE,
-      [IdPrefix.Record]: Events.TABLE_RECORD_CREATE,
+      [IdPrefix.Table]: Event.TABLE_CREATE,
+      [IdPrefix.Field]: Event.TABLE_FIELD_CREATE,
+      [IdPrefix.View]: Event.TABLE_VIEW_CREATE,
+      [IdPrefix.Record]: Event.TABLE_RECORD_CREATE,
     },
     [RawOpType.Del]: {
-      [IdPrefix.Table]: Events.TABLE_DELETE,
-      [IdPrefix.Field]: Events.TABLE_FIELD_DELETE,
-      [IdPrefix.View]: Events.TABLE_VIEW_DELETE,
-      [IdPrefix.Record]: Events.TABLE_RECORD_DELETE,
+      [IdPrefix.Table]: Event.TABLE_DELETE,
+      [IdPrefix.Field]: Event.TABLE_FIELD_DELETE,
+      [IdPrefix.View]: Event.TABLE_VIEW_DELETE,
+      [IdPrefix.Record]: Event.TABLE_RECORD_DELETE,
     },
     [RawOpType.Edit]: {
-      [IdPrefix.Table]: Events.TABLE_UPDATE,
-      [IdPrefix.Field]: Events.TABLE_FIELD_UPDATE,
-      [IdPrefix.View]: Events.TABLE_VIEW_UPDATE,
-      [IdPrefix.Record]: Events.TABLE_RECORD_UPDATE,
+      [IdPrefix.Table]: Event.TABLE_UPDATE,
+      [IdPrefix.Field]: Event.TABLE_FIELD_UPDATE,
+      [IdPrefix.View]: Event.TABLE_VIEW_UPDATE,
+      [IdPrefix.Record]: Event.TABLE_RECORD_UPDATE,
     },
   };
 
@@ -92,7 +92,7 @@ export class EventEmitterService {
       .subscribe((next) => this.handleEventResult(next));
   }
 
-  private aggregateEventsByGroup(project: GroupedObservable<Events, OpEvent>): Observable<OpEvent> {
+  private aggregateEventsByGroup(project: GroupedObservable<Event, OpEvent>): Observable<OpEvent> {
     return project.pipe(
       toArray(),
       map((groupedEvents) => this.combineEvents(groupedEvents)),
@@ -121,17 +121,17 @@ export class EventEmitterService {
 
   private getMergePropertyName(event: OpEvent): string {
     return match(event)
-      .with({ name: Events.TABLE_VIEW_CREATE }, () => 'view')
+      .with({ name: Event.TABLE_VIEW_CREATE }, () => 'view')
       .with(
-        P.union({ name: Events.TABLE_FIELD_CREATE }, { name: Events.TABLE_FIELD_UPDATE }),
+        P.union({ name: Event.TABLE_FIELD_CREATE }, { name: Event.TABLE_FIELD_UPDATE }),
         () => 'field'
       )
-      .with({ name: Events.TABLE_FIELD_DELETE }, () => 'fieldId')
+      .with({ name: Event.TABLE_FIELD_DELETE }, () => 'fieldId')
       .with(
-        P.union({ name: Events.TABLE_RECORD_CREATE }, { name: Events.TABLE_RECORD_UPDATE }),
+        P.union({ name: Event.TABLE_RECORD_CREATE }, { name: Event.TABLE_RECORD_UPDATE }),
         () => 'record'
       )
-      .with({ name: Events.TABLE_RECORD_DELETE }, () => 'recordId')
+      .with({ name: Event.TABLE_RECORD_DELETE }, () => 'recordId')
       .otherwise(() => '');
   }
 
@@ -229,7 +229,7 @@ export class EventEmitterService {
       return;
     }
 
-    if (existingEvent.rawOpType === RawOpType.Create && event.name === Events.TABLE_RECORD_UPDATE) {
+    if (existingEvent.rawOpType === RawOpType.Create && event.name === Event.TABLE_RECORD_UPDATE) {
       const fields = this.getUpdateFieldsFromEvent(event as RecordUpdateEvent);
       event = this.combineUpdateEvents(existingEvent as RecordCreateEvent, fields);
     }

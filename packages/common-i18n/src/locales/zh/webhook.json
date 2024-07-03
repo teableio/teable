@@ -1,0 +1,77 @@
+{
+  "moreDesc": "和{{len}}个其他",
+  "deleteConfirm": {
+    "title": "删除 webhook?",
+    "description": "此操作无法撤消。未来的活动将不再传递到此webhook ({{notificationUrl}})."
+  },
+  "base": {
+    "create": {
+      "title": "创建数据库",
+      "description": "初始化一个新的数据库实例，用于存储表和数据。"
+    },
+    "delete": {
+      "title": "删除数据库",
+      "description": "永久移除一个现有的数据库及其包含的所有数据和表。"
+    },
+    "update": {
+      "title": "修改数据库",
+      "description": "更新数据库配置或属性，例如修改名称或安全设置。"
+    }
+  },
+  "table": {
+    "create": {
+      "title": "创建表",
+      "description": "在数据库中新增一个表，用于存储结构化数据记录。"
+    },
+    "delete": {
+      "title": "删除表",
+      "description": "从数据库中永久移除一个表及其所有数据。"
+    },
+    "update": {
+      "title": "修改表",
+      "description": "修改表的结构或属性，如添加、删除或修改列。"
+    },
+    "field": {
+      "create": {
+        "title": "创建字段",
+        "description": "在表中添加新的字段，用于存储数据项。"
+      },
+      "delete": {
+        "title": "删除字段",
+        "description": "从表中移除指定的字段，并删除相关数据。"
+      },
+      "update": {
+        "title": "修改字段",
+        "description": "更改现有字段的定义，如字段名、类型等。"
+      }
+    },
+    "record": {
+      "create": {
+        "title": "创建记录",
+        "description": "向表中添加新的数据记录，填充各字段值。"
+      },
+      "delete": {
+        "title": "删除记录",
+        "description": "从表中移除指定的数据记录。"
+      },
+      "update": {
+        "title": "修改记录",
+        "description": "更新表中一条现有记录的一个或多个字段值。"
+      }
+    },
+    "view": {
+      "create": {
+        "title": "创建视图",
+        "description": "定义一个新的视图，为数据查询或展示提供特定的数据表示。"
+      },
+      "delete": {
+        "title": "删除视图",
+        "description": "移除一个现有的视图定义，不影响基础数据表。"
+      },
+      "update": {
+        "title": "修改视图",
+        "description": "更新视图的定义，包括所涉及的数据或展示格式。"
+      }
+    }
+  }
+}

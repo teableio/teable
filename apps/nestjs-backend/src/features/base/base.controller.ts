@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import { Event } from '@teable/core';
 import {
   createBaseRoSchema,
   duplicateBaseRoSchema,
@@ -20,7 +21,6 @@ import type {
   ListBaseCollaboratorVo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
-import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
@@ -39,7 +39,7 @@ export class BaseController {
   @Post()
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
-  @EmitControllerEvent(Events.BASE_CREATE)
+  @EmitControllerEvent(Event.BASE_CREATE)
   async createBase(
     @Body(new ZodValidationPipe(createBaseRoSchema))
     createBaseRo: ICreateBaseRo
@@ -50,7 +50,7 @@ export class BaseController {
   @Post('duplicate')
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
-  @EmitControllerEvent(Events.BASE_CREATE)
+  @EmitControllerEvent(Event.BASE_CREATE)
   async duplicateBase(
     @Body(new ZodValidationPipe(duplicateBaseRoSchema))
     duplicateBaseRo: IDuplicateBaseRo
@@ -61,7 +61,7 @@ export class BaseController {
   @Post('create-from-template')
   @Permissions('base|create')
   @ResourceMeta('spaceId', 'body')
-  @EmitControllerEvent(Events.BASE_CREATE)
+  @EmitControllerEvent(Event.BASE_CREATE)
   async createBaseFromTemplate(
     @Body(new ZodValidationPipe(createBaseFromTemplateRoSchema))
     createBaseFromTemplateRo: ICreateBaseFromTemplateRo
@@ -71,7 +71,7 @@ export class BaseController {
 
   @Patch(':baseId')
   @Permissions('base|update')
-  @EmitControllerEvent(Events.BASE_UPDATE)
+  @EmitControllerEvent(Event.BASE_UPDATE)
   async updateBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(updateBaseRoSchema))
@@ -102,7 +102,7 @@ export class BaseController {
 
   @Delete(':baseId')
   @Permissions('base|delete')
-  @EmitControllerEvent(Events.BASE_DELETE)
+  @EmitControllerEvent(Event.BASE_DELETE)
   async deleteBase(@Param('baseId') baseId: string) {
     return await this.baseService.deleteBase(baseId);
   }

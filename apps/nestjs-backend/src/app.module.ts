@@ -18,6 +18,7 @@ import { SelectionModule } from './features/selection/selection.module';
 import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
 import { UserModule } from './features/user/user.module';
+import { WebhookModule } from './features/webhook/webhook.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
@@ -47,6 +48,7 @@ import { WsModule } from './ws/ws.module';
     AccessTokenModule,
     ImportOpenApiModule,
     ExportOpenApiModule,
+    WebhookModule,
   ],
   providers: [InitBootstrapProvider],
 })

@@ -14,12 +14,12 @@ import {
   Relationship,
   SingleLineTextFieldCore,
   TimeFormatting,
+  Event,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { FieldCreateEvent } from '../src/event-emitter/events';
-import { Events } from '../src/event-emitter/events';
 import {
   createField,
   createTable,
@@ -64,7 +64,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     it('/api/table/{tableId}/field (POST)', async () => {
-      event.once(Events.TABLE_FIELD_CREATE, async (payload: FieldCreateEvent) => {
+      event.once(Event.TABLE_FIELD_CREATE, async (payload: FieldCreateEvent) => {
         expect(payload).toBeDefined();
         expect(payload?.payload).toBeDefined();
         expect(payload?.payload?.tableId).toBeDefined();

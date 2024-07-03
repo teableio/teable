@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Event } from '@teable/core';
 import { AttachmentsTableService } from '../../features/attachments/attachments-table.service';
 import {
-  Events,
   FieldDeleteEvent,
   RecordDeleteEvent,
   RecordCreateEvent,
@@ -13,7 +13,7 @@ import {
 export class AttachmentListener {
   constructor(private readonly attachmentsTableService: AttachmentsTableService) {}
 
-  @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
+  @OnEvent(Event.TABLE_RECORD_CREATE, { async: true })
   async recordCreateListener(listenerEvent: RecordCreateEvent) {
     const {
       payload: { record, tableId },
@@ -26,7 +26,7 @@ export class AttachmentListener {
     );
   }
 
-  @OnEvent(Events.TABLE_RECORD_DELETE, { async: true })
+  @OnEvent(Event.TABLE_RECORD_DELETE, { async: true })
   async recordDeleteListener(listenerEvent: RecordDeleteEvent) {
     const {
       payload: { tableId, recordId },
@@ -37,7 +37,7 @@ export class AttachmentListener {
     );
   }
 
-  @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
+  @OnEvent(Event.TABLE_RECORD_UPDATE, { async: true })
   async recordUpdateListener(listenerEvent: RecordUpdateEvent) {
     const {
       payload: { tableId, record },
@@ -50,7 +50,7 @@ export class AttachmentListener {
     );
   }
 
-  @OnEvent(Events.TABLE_FIELD_DELETE, { async: true })
+  @OnEvent(Event.TABLE_FIELD_DELETE, { async: true })
   async fieldDeleteListener(listenerEvent: FieldDeleteEvent) {
     const {
       payload: { tableId, fieldId },

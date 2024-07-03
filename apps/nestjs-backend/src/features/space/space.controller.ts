@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
+import { Event } from '@teable/core';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
@@ -26,7 +27,6 @@ import {
   UpdateSpaceCollaborateRo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
-import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -43,7 +43,7 @@ export class SpaceController {
 
   @Post()
   @Permissions('space|create')
-  @EmitControllerEvent(Events.SPACE_CREATE)
+  @EmitControllerEvent(Event.SPACE_CREATE)
   async createSpace(
     @Body(new ZodValidationPipe(createSpaceRoSchema))
     createSpaceRo: ICreateSpaceRo
@@ -53,7 +53,7 @@ export class SpaceController {
 
   @Permissions('space|update')
   @Patch(':spaceId')
-  @EmitControllerEvent(Events.SPACE_UPDATE)
+  @EmitControllerEvent(Event.SPACE_UPDATE)
   async updateSpace(
     @Param('spaceId') spaceId: string,
     @Body(new ZodValidationPipe(updateSpaceRoSchema))
@@ -75,7 +75,7 @@ export class SpaceController {
 
   @Permissions('space|delete')
   @Delete(':spaceId')
-  @EmitControllerEvent(Events.SPACE_DELETE)
+  @EmitControllerEvent(Event.SPACE_DELETE)
   async deleteSpace(@Param('spaceId') spaceId: string) {
     await this.spaceService.deleteSpace(spaceId);
     return null;

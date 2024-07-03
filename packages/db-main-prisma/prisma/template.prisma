@@ -19,26 +19,26 @@ model Space {
   lastModifiedBy   String?   @map("last_modified_by")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
-  baseGroup      Base[]
+  baseGroup Base[]
 
   @@map("space")
 }
 
 model Base {
-  id               String      @id @default(cuid())
-  spaceId          String      @map("space_id")
+  id               String    @id @default(cuid())
+  spaceId          String    @map("space_id")
   name             String
   order            Float
   icon             String?
-  schemaPass       String?     @map("schema_pass")
-  deletedTime      DateTime?   @map("deleted_time")
-  createdTime      DateTime    @default(now()) @map("created_time")
-  createdBy        String      @map("created_by")
-  lastModifiedBy   String?     @map("last_modified_by")
-  lastModifiedTime DateTime?   @updatedAt @map("last_modified_time")
+  schemaPass       String?   @map("schema_pass")
+  deletedTime      DateTime? @map("deleted_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
-  space          Space       @relation(fields: [spaceId], references: [id])
-  tables         TableMeta[]
+  space  Space       @relation(fields: [spaceId], references: [id])
+  tables TableMeta[]
 
   @@index([order])
   @@map("base")
@@ -152,9 +152,9 @@ model Snapshots {
 }
 
 model Reference {
-  id          String @id @default(cuid())
-  fromFieldId String @map("from_field_id")
-  toFieldId   String @map("to_field_id")
+  id          String   @id @default(cuid())
+  fromFieldId String   @map("from_field_id")
+  toFieldId   String   @map("to_field_id")
   createdTime DateTime @default(now()) @map("created_time")
 
   @@unique([toFieldId, fromFieldId])
@@ -177,19 +177,20 @@ model User {
   deletedTime      DateTime? @map("deleted_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
-  accounts         Account[]
+  accounts Account[]
+
   @@map("users")
 }
 
 model Account {
-  id               String    @id @default(cuid())
-  userId           String    @map("user_id")
-  type             String
-  provider         String
-  providerId       String    @map("provider_id")
-  createdTime      DateTime  @default(now()) @map("created_time")
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  type        String
+  provider    String
+  providerId  String   @map("provider_id")
+  createdTime DateTime @default(now()) @map("created_time")
 
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerId])
   @@map("account")
@@ -368,4 +369,38 @@ model AccessToken {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
   @@map("access_token")
+}
+
+model Webhook {
+  id               String    @id @default(cuid())
+  url              String    @map("url")
+  spaceId          String    @map("space_id")
+  baseIds          String?   @map("base_ids")
+  method           String    @map("method")
+  contentType      String    @map("content_type")
+  secret           String?   @map("secret")
+  events           String?   @map("events")
+  isEnabled        Boolean   @default(false) @map("is_enabled")
+  createdBy        String    @map("create_by")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  @@map("webhooks")
+}
+
+model WebhookRunHistory {
+  id           String    @id @default(cuid())
+  webhookId    String    @map("webhook_id")
+  event        String    @map("event")
+  status       String    @map("status")
+  request      String    @map("request")
+  response     String    @map("response")
+  isError      Boolean   @default(false) @map("is_error")
+  errorMsg     String?   @map("error_msg")
+  createdBy    String    @map("create_by")
+  createdTime  DateTime  @default(now()) @map("created_time")
+  finishedTime DateTime? @map("finished_time")
+
+  @@map("webhook_run_histories")
 }

@@ -2,6 +2,7 @@
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Event } from '@teable/core';
 import type { Request } from 'express';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs';
@@ -9,7 +10,7 @@ import { match, P } from 'ts-pattern';
 import { EMIT_EVENT_NAME } from '../decorators/emit-controller-event.decorator';
 import { EventEmitterService } from '../event-emitter.service';
 import type { IEventContext } from '../events';
-import { Events, BaseEventFactory, SpaceEventFactory } from '../events';
+import { BaseEventFactory, SpaceEventFactory } from '../events';
 
 @Injectable()
 export class EventMiddleware implements NestInterceptor {
@@ -20,7 +21,7 @@ export class EventMiddleware implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const req = context.switchToHttp().getRequest<Request>();
-    const emitEventName = this.reflector.get<Events>(EMIT_EVENT_NAME, context.getHandler());
+    const emitEventName = this.reflector.get<Event>(EMIT_EVENT_NAME, context.getHandler());
 
     return next.handle().pipe(
       tap((data) => {
@@ -44,7 +45,7 @@ export class EventMiddleware implements NestInterceptor {
   }
 
   private createEvent(
-    eventName: Events,
+    eventName: Event,
     interceptContext: ReturnType<typeof this.interceptContext>
   ) {
     const { reqUser, reqHeaders, reqParams, resolveData } = interceptContext;
@@ -55,10 +56,10 @@ export class EventMiddleware implements NestInterceptor {
     };
 
     return match(eventName)
-      .with(P.union(Events.BASE_CREATE, Events.BASE_DELETE, Events.BASE_UPDATE), () =>
+      .with(P.union(Event.BASE_CREATE, Event.BASE_DELETE, Event.BASE_UPDATE), () =>
         BaseEventFactory.create(eventName, { base: resolveData, ...reqParams }, eventContext)
       )
-      .with(P.union(Events.SPACE_CREATE, Events.SPACE_DELETE, Events.SPACE_UPDATE), () =>
+      .with(P.union(Event.SPACE_CREATE, Event.SPACE_DELETE, Event.SPACE_UPDATE), () =>
         SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
       )
       .otherwise(() => null);

@@ -2,7 +2,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { FieldKeyType, FieldType, Relationship, RowHeightLevel, ViewType } from '@teable/core';
+import {
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  RowHeightLevel,
+  ViewType,
+  Event,
+} from '@teable/core';
 import type { ICreateTableRo } from '@teable/openapi';
 import {
   updateTableDescription,
@@ -12,7 +19,6 @@ import {
 } from '@teable/openapi';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
-import { Events } from '../src/event-emitter/events';
 import type {
   FieldCreateEvent,
   TableCreateEvent,
@@ -137,36 +143,36 @@ describe('OpenAPI TableController (e2e)', () => {
 
   it('/api/table/ (POST) with assertData data', async () => {
     let eventCount = 0;
-    event.once(Events.TABLE_CREATE, async (payload: TableCreateEvent) => {
+    event.once(Event.TABLE_CREATE, async (payload: TableCreateEvent) => {
       expect(payload).toBeDefined();
-      expect(payload.name).toBe(Events.TABLE_CREATE);
+      expect(payload.name).toBe(Event.TABLE_CREATE);
       expect(payload?.payload).toBeDefined();
       expect(payload?.payload?.baseId).toBeDefined();
       expect(payload?.payload?.table).toBeDefined();
       eventCount++;
     });
 
-    event.once(Events.TABLE_FIELD_CREATE, async (payload: FieldCreateEvent) => {
+    event.once(Event.TABLE_FIELD_CREATE, async (payload: FieldCreateEvent) => {
       expect(payload).toBeDefined();
-      expect(payload.name).toBe(Events.TABLE_FIELD_CREATE);
+      expect(payload.name).toBe(Event.TABLE_FIELD_CREATE);
       expect(payload?.payload).toBeDefined();
       expect(payload?.payload?.tableId).toBeDefined();
       expect(payload?.payload?.field).toHaveLength(5);
       eventCount++;
     });
 
-    event.once(Events.TABLE_VIEW_CREATE, async (payload: ViewCreateEvent) => {
+    event.once(Event.TABLE_VIEW_CREATE, async (payload: ViewCreateEvent) => {
       expect(payload).toBeDefined();
-      expect(payload.name).toBe(Events.TABLE_VIEW_CREATE);
+      expect(payload.name).toBe(Event.TABLE_VIEW_CREATE);
       expect(payload?.payload).toBeDefined();
       expect(payload?.payload?.tableId).toBeDefined();
       expect(payload?.payload?.view).toHaveLength(2);
       eventCount++;
     });
 
-    event.once(Events.TABLE_RECORD_CREATE, async (payload: RecordCreateEvent) => {
+    event.once(Event.TABLE_RECORD_CREATE, async (payload: RecordCreateEvent) => {
       expect(payload).toBeDefined();
-      expect(payload.name).toBe(Events.TABLE_RECORD_CREATE);
+      expect(payload.name).toBe(Event.TABLE_RECORD_CREATE);
       expect(payload?.payload).toBeDefined();
       expect(payload?.payload?.tableId).toBeDefined();
       expect(payload?.payload?.record).toHaveLength(2);

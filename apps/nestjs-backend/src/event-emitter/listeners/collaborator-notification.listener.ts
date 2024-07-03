@@ -1,14 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { IRecord, IUserCellValue } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, Event } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { has, intersection, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { NotificationService } from '../../features/notification/notification.service';
 import type { IChangeRecord, IChangeValue, RecordCreateEvent, RecordUpdateEvent } from '../events';
-import { Events } from '../events';
 
 type IListenerEvent = RecordCreateEvent | RecordUpdateEvent;
 
@@ -30,8 +29,8 @@ export class CollaboratorNotificationListener {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  @OnEvent(Events.TABLE_RECORD_CREATE, { async: true })
-  @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
+  @OnEvent(Event.TABLE_RECORD_CREATE, { async: true })
+  @OnEvent(Event.TABLE_RECORD_UPDATE, { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
     const { tableId, record } = listenerEvent.payload;
 

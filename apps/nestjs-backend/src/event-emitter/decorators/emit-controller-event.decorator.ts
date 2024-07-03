@@ -1,17 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { SetMetadata, UseInterceptors } from '@nestjs/common';
-import type { Events } from '../events';
+import type { Event } from '@teable/core';
 import { EventMiddleware } from '../interceptor/event.Interceptor';
 
 type OrdinaryEventName = Extract<
-  Events,
-  | Events.BASE_CREATE
-  | Events.BASE_DELETE
-  | Events.BASE_UPDATE
-  | Events.SPACE_CREATE
-  | Events.SPACE_DELETE
-  | Events.SPACE_UPDATE
+  Event,
+  | Event.BASE_CREATE
+  | Event.BASE_DELETE
+  | Event.BASE_UPDATE
+  | Event.SPACE_CREATE
+  | Event.SPACE_DELETE
+  | Event.SPACE_UPDATE
 >;
 
 export const EMIT_EVENT_NAME = 'EMIT_EVENT_NAME';

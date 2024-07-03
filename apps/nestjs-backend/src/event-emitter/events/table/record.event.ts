@@ -1,8 +1,8 @@
 import type { IRecord } from '@teable/core';
+import { Event } from '@teable/core';
 import { match } from 'ts-pattern';
 import { RawOpType } from '../../../share-db/interface';
 import type { IEventContext } from '../core-event';
-import { Events } from '../event.enum';
 import type { IChangeValue } from '../op-event';
 import { OpEvent } from '../op-event';
 
@@ -18,7 +18,7 @@ type IRecordUpdatePayload = {
 };
 
 export class RecordCreateEvent extends OpEvent<IRecordCreatePayload> {
-  public readonly name = Events.TABLE_RECORD_CREATE;
+  public readonly name = Event.TABLE_RECORD_CREATE;
   public readonly rawOpType = RawOpType.Create;
 
   constructor(tableId: string, record: IRecord | IRecord[], context: IEventContext) {
@@ -27,7 +27,7 @@ export class RecordCreateEvent extends OpEvent<IRecordCreatePayload> {
 }
 
 export class RecordDeleteEvent extends OpEvent<IRecordDeletePayload> {
-  public readonly name = Events.TABLE_RECORD_DELETE;
+  public readonly name = Event.TABLE_RECORD_DELETE;
   public readonly rawOpType = RawOpType.Del;
 
   constructor(tableId: string, recordId: string | string[], context: IEventContext) {
@@ -36,7 +36,7 @@ export class RecordDeleteEvent extends OpEvent<IRecordDeletePayload> {
 }
 
 export class RecordUpdateEvent extends OpEvent<IRecordUpdatePayload> {
-  public readonly name = Events.TABLE_RECORD_UPDATE;
+  public readonly name = Event.TABLE_RECORD_UPDATE;
   public readonly rawOpType = RawOpType.Edit;
 
   constructor(tableId: string, record: IChangeRecord | IChangeRecord[], context: IEventContext) {
@@ -51,15 +51,15 @@ export class RecordEventFactory {
     context: IEventContext
   ) {
     return match(name)
-      .with(Events.TABLE_RECORD_CREATE, () => {
+      .with(Event.TABLE_RECORD_CREATE, () => {
         const { tableId, record } = payload as IRecordCreatePayload;
         return new RecordCreateEvent(tableId, record, context);
       })
-      .with(Events.TABLE_RECORD_DELETE, () => {
+      .with(Event.TABLE_RECORD_DELETE, () => {
         const { tableId, recordId } = payload as IRecordDeletePayload;
         return new RecordDeleteEvent(tableId, recordId, context);
       })
-      .with(Events.TABLE_RECORD_UPDATE, () => {
+      .with(Event.TABLE_RECORD_UPDATE, () => {
         const { tableId, record } = payload as IRecordUpdatePayload;
         return new RecordUpdateEvent(tableId, record, context);
       })

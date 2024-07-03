@@ -1,8 +1,8 @@
 import type { IViewVo } from '@teable/core';
+import { Event } from '@teable/core';
 import { match } from 'ts-pattern';
 import { RawOpType } from '../../../share-db/interface';
 import type { IEventContext } from '../core-event';
-import { Events } from '../event.enum';
 import type { IChangeValue } from '../op-event';
 import { OpEvent } from '../op-event';
 
@@ -31,7 +31,7 @@ type IViewUpdatePayload = {
 };
 
 export class ViewCreateEvent extends OpEvent<IViewCreatePayload> {
-  public readonly name = Events.TABLE_VIEW_CREATE;
+  public readonly name = Event.TABLE_VIEW_CREATE;
   public readonly rawOpType = RawOpType.Create;
 
   constructor(tableId: string, view: IViewVo | IViewVo[], context: IEventContext) {
@@ -40,7 +40,7 @@ export class ViewCreateEvent extends OpEvent<IViewCreatePayload> {
 }
 
 export class ViewDeleteEvent extends OpEvent<IViewDeletePayload> {
-  public readonly name = Events.TABLE_VIEW_DELETE;
+  public readonly name = Event.TABLE_VIEW_DELETE;
   public readonly rawOpType = RawOpType.Del;
 
   constructor(tableId: string, viewId: string, context: IEventContext) {
@@ -49,7 +49,7 @@ export class ViewDeleteEvent extends OpEvent<IViewDeletePayload> {
 }
 
 export class ViewUpdateEvent extends OpEvent<IViewUpdatePayload> {
-  public readonly name = Events.TABLE_VIEW_UPDATE;
+  public readonly name = Event.TABLE_VIEW_UPDATE;
   public readonly rawOpType = RawOpType.Edit;
 
   constructor(tableId: string, view: IChangeView, context: IEventContext) {
@@ -64,15 +64,15 @@ export class ViewEventFactory {
     context: IEventContext
   ) {
     return match(name)
-      .with(Events.TABLE_VIEW_CREATE, () => {
+      .with(Event.TABLE_VIEW_CREATE, () => {
         const { tableId, view } = payload as IViewCreatePayload;
         return new ViewCreateEvent(tableId, view, context);
       })
-      .with(Events.TABLE_VIEW_DELETE, () => {
+      .with(Event.TABLE_VIEW_DELETE, () => {
         const { tableId, viewId } = payload as IViewDeletePayload;
         return new ViewDeleteEvent(tableId, viewId, context);
       })
-      .with(Events.TABLE_VIEW_UPDATE, () => {
+      .with(Event.TABLE_VIEW_UPDATE, () => {
         const { tableId, view } = payload as IViewUpdatePayload;
         return new ViewUpdateEvent(tableId, view, context);
       })

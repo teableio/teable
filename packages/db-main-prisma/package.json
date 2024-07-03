@@ -41,35 +41,34 @@
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "peerDependencies": {
-    "@prisma/client": "^5.0.0",
     "@nestjs/common": "^10.0.0",
+    "@prisma/client": "^5.0.0",
     "nestjs-cls": "^4.0.0"
   },
   "dependencies": {
-    "@prisma/client": "5.11.0",
-    "prisma": "5.11.0",
-    "nanoid": "3.3.7"
+    "@prisma/client": "5.13.0",
+    "nanoid": "3.3.7",
+    "prisma": "5.13.0"
   },
   "devDependencies": {
-    "@soluble/dsn-parser": "1.9.2",
     "@faker-js/faker": "8.4.1",
+    "@soluble/dsn-parser": "1.9.2",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "20.9.0",
     "@types/bcrypt": "5.0.2",
+    "@types/node": "20.9.0",
+    "bcrypt": "5.1.1",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.1.1",
     "eslint": "8.57.0",
-    "handlebars": "4.7.8",
     "is-port-reachable": "3.1.0",
     "mustache": "4.2.0",
     "npm-run-all2": "6.1.2",
     "picocolors": "1.0.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
-    "tsx": "4.7.1",
-    "typescript": "5.4.3",
-    "bcrypt": "5.1.1"
+    "tsx": "4.7.2",
+    "typescript": "5.4.4"
   },
   "prisma": {
     "seed": "tsx ./prisma/seed.ts"

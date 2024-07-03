@@ -19,4 +19,5 @@ export * from './user';
 export * from './access-token';
 export * from './import';
 export * from './export';
+export * from './webhook';
 export { urlBuilder } from './utils';

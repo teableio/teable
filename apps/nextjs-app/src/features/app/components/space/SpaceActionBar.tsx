@@ -41,6 +41,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
       <SpaceActionTrigger
         space={space}
         showRename={hasPermission(space.role, 'space|update')}
+        showSettings={hasPermission(space.role, 'space|update')}
         showDelete={hasPermission(space.role, 'space|delete')}
         onDelete={onDelete}
         onRename={onRename}

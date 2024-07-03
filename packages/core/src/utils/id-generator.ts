@@ -26,6 +26,9 @@ export enum IdPrefix {
   Notification = 'not',
 
   AccessToken = 'acc',
+
+  WebHook = 'whk',
+  WebHookRunHistory = 'wrh',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -116,4 +119,12 @@ export function generateAccessTokenId() {
 
 export function generateAccountId() {
   return IdPrefix.Account + getRandomString(16);
+}
+
+export function generateWebHookId() {
+  return IdPrefix.WebHook + getRandomString(16);
+}
+
+export function generateWebHookRunHistoryId() {
+  return IdPrefix.WebHookRunHistory + getRandomString(16);
 }

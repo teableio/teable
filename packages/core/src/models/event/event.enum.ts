@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-export enum Events {
+export enum Event {
   SPACE_CREATE = 'space.create',
   SPACE_DELETE = 'space.delete',
   SPACE_UPDATE = 'space.update',

@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { HttpError } from '@teable/core';
-import { IdPrefix, SpaceRole } from '@teable/core';
+import { IdPrefix, SpaceRole, Event } from '@teable/core';
 import type { ListSpaceCollaboratorVo, ListSpaceInvitationLinkVo } from '@teable/openapi';
 import {
   createSpace as apiCreateSpace,
@@ -19,7 +19,6 @@ import {
   updateSpace as apiUpdateSpace,
   updateSpaceInvitationLink as apiUpdateSpaceInvitationLink,
 } from '@teable/openapi';
-import { Events } from '../src/event-emitter/events';
 import type { SpaceDeleteEvent, SpaceUpdateEvent } from '../src/event-emitter/events';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { initApp } from './utils/init-app';
@@ -49,9 +48,9 @@ describe('OpenAPI SpaceController (e2e)', () => {
   });
 
   it('/api/space/:spaceId (PUT)', async () => {
-    event.once(Events.SPACE_UPDATE, async (payload: SpaceUpdateEvent) => {
+    event.once(Event.SPACE_UPDATE, async (payload: SpaceUpdateEvent) => {
       expect(payload).toBeDefined();
-      expect(payload.name).toBe(Events.SPACE_UPDATE);
+      expect(payload.name).toBe(Event.SPACE_UPDATE);
       expect(payload?.payload).toBeDefined();
       expect(payload?.payload?.space).toBeDefined();
     });
@@ -77,9 +76,9 @@ describe('OpenAPI SpaceController (e2e)', () => {
   });
 
   it('/api/space/:spaceId (DELETE)', async () => {
-    event.once(Events.SPACE_DELETE, async (payload: SpaceDeleteEvent) => {
+    event.once(Event.SPACE_DELETE, async (payload: SpaceDeleteEvent) => {
       expect(payload).toBeDefined();
-      expect(payload.name).toBe(Events.SPACE_DELETE);
+      expect(payload.name).toBe(Event.SPACE_DELETE);
       expect(payload?.payload).toBeDefined();
       expect(payload?.payload?.spaceId).toBeDefined();
     });

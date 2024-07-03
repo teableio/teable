@@ -142,6 +142,6 @@
     "react-dom": "18.2.0",
     "rimraf": "5.0.5",
     "tailwindcss": "3.4.1",
-    "typescript": "5.4.3"
+    "typescript": "5.4.4"
   }
 }

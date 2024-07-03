@@ -1,8 +1,8 @@
 import type { IFieldPropertyKey, IFieldVo } from '@teable/core';
+import { Event } from '@teable/core';
 import { match } from 'ts-pattern';
 import { RawOpType } from '../../../share-db/interface';
 import type { IEventContext } from '../core-event';
-import { Events } from '../event.enum';
 import type { IChangeValue } from '../op-event';
 import { OpEvent } from '../op-event';
 
@@ -16,7 +16,7 @@ type IFieldUpdatePayload = {
 };
 
 export class FieldCreateEvent extends OpEvent<IFieldCreatePayload> {
-  public readonly name = Events.TABLE_FIELD_CREATE;
+  public readonly name = Event.TABLE_FIELD_CREATE;
   public readonly rawOpType = RawOpType.Create;
 
   constructor(tableId: string, field: IFieldVo | IFieldVo[], context: IEventContext) {
@@ -25,7 +25,7 @@ export class FieldCreateEvent extends OpEvent<IFieldCreatePayload> {
 }
 
 export class FieldDeleteEvent extends OpEvent<IFieldDeletePayload> {
-  public readonly name = Events.TABLE_FIELD_DELETE;
+  public readonly name = Event.TABLE_FIELD_DELETE;
   public readonly rawOpType = RawOpType.Del;
   public isBulk = false;
 
@@ -35,7 +35,7 @@ export class FieldDeleteEvent extends OpEvent<IFieldDeletePayload> {
 }
 
 export class FieldUpdateEvent extends OpEvent<IFieldUpdatePayload> {
-  public readonly name = Events.TABLE_FIELD_UPDATE;
+  public readonly name = Event.TABLE_FIELD_UPDATE;
   public readonly rawOpType = RawOpType.Edit;
   public isBulk = false;
 
@@ -51,15 +51,15 @@ export class FieldEventFactory {
     context: IEventContext
   ) {
     return match(name)
-      .with(Events.TABLE_FIELD_CREATE, () => {
+      .with(Event.TABLE_FIELD_CREATE, () => {
         const { tableId, field } = payload as IFieldCreatePayload;
         return new FieldCreateEvent(tableId, field, context);
       })
-      .with(Events.TABLE_FIELD_DELETE, () => {
+      .with(Event.TABLE_FIELD_DELETE, () => {
         const { tableId, fieldId } = payload as IFieldDeletePayload;
         return new FieldDeleteEvent(tableId, fieldId, context);
       })
-      .with(Events.TABLE_FIELD_UPDATE, () => {
+      .with(Event.TABLE_FIELD_UPDATE, () => {
         const { tableId, field } = payload as IFieldUpdatePayload;
         return new FieldUpdateEvent(tableId, field, context);
       })
