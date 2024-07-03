@@ -1,5 +1,4 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { WsAdapter } from '@nestjs/platform-ws';
@@ -59,28 +58,25 @@ import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
 import { TestingLogger } from './testing-logger';
 
 export async function initApp() {
-  let app: INestApplication<unknown>;
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  if (globalThis.getApp) {
-    app = await globalThis.getApp();
-  } else {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    })
-      .overrideProvider(NextService)
-      .useValue({
-        onModuleInit: () => {
-          return;
-        },
-      })
-      .overrideProvider(DevWsGateway)
-      .useClass(WsGateway)
-      .compile();
+  if (globalThis.initApp) return await globalThis.initApp();
 
-    app = moduleFixture.createNestApplication({
-      logger: new TestingLogger(),
-    });
-  }
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    imports: [AppModule],
+  })
+    .overrideProvider(NextService)
+    .useValue({
+      onModuleInit: () => {
+        return;
+      },
+    })
+    .overrideProvider(DevWsGateway)
+    .useClass(WsGateway)
+    .compile();
+
+  const app = moduleFixture.createNestApplication({
+    logger: new TestingLogger(),
+  });
 
   const configService = app.get(ConfigService);
 
@@ -120,6 +116,7 @@ export async function initApp() {
   console.log(`> Test Ready on ${url}`);
   console.log('> Test System Time Zone:', timeZone);
   console.log('> Test Current System Time:', now.toString());
+
   const sessionHandleService = app.get<SessionHandleService>(SessionHandleService);
   return {
     app,
