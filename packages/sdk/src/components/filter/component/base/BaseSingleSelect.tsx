@@ -76,7 +76,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
             ? (selectedValue && displayRender?.(selectedValue)) ?? (
                 <span className="truncate">{label}</span>
               )
-            : 'Select'}
+            : t('common.selectPlaceHolder')}
           <ChevronsUpDown className="ml-2 size-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>

@@ -1,19 +1,20 @@
 import { Table2 } from '@teable/icons';
-import { useConnection, useTable, useTablePermission } from '@teable/sdk/hooks';
+import { useConnection, useTable, useTablePermission, useLanDayjs } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { cn, Input } from '@teable/ui-lib/shadcn';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
-dayjs.extend(relativeTime);
+import { tableConfig } from '@/features/i18n/table.config';
 
 export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   const { connected } = useConnection();
   const permission = useTablePermission();
   const [isEditing, setIsEditing] = useState(false);
   const table = useTable();
+  const dayjs = useLanDayjs();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const icon = table?.icon ? (
     <Emoji size={'1.25rem'} emoji={table.icon} />
@@ -74,7 +75,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
           />
         )}
         <div className="hidden text-xs leading-none text-slate-400 @xl/view-header:block">
-          last modified: {dayjs(table?.lastModifiedTime).fromNow()}
+          {t('table:lastModify')} {dayjs(table?.lastModifiedTime).fromNow()}
         </div>
       </div>
     </div>
