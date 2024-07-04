@@ -63,6 +63,9 @@ export class OAuthService {
       where: {
         clientId,
       },
+      orderBy: {
+        createdTime: 'desc',
+      },
     });
     if (!secrets.length) {
       return;
@@ -156,6 +159,7 @@ export class OAuthService {
         name: true,
         logo: true,
         homepage: true,
+        description: true,
       },
     });
     return nullsToUndefined(res);

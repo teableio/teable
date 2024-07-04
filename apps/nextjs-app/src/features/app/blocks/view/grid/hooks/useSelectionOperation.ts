@@ -18,8 +18,9 @@ import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useCallback } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
+import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { extractTableHeader, serializerHtml } from '../../../../utils/clipboard';
-import { getSelectionCell, selectionCoverAttachments, uploadFiles } from '../utils';
+import { getSelectionCell, selectionCoverAttachments } from '../utils';
 
 const rangeTypes = {
   [SelectionRegionType.Columns]: RangeType.Columns,

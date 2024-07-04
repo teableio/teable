@@ -10,6 +10,7 @@ export default abstract class StorageAdapter {
       case UploadType.Table:
         return storageConfig().privateBucket;
       case UploadType.Avatar:
+      case UploadType.OAuth:
       case UploadType.Form:
         return storageConfig().publicBucket;
       default:
@@ -25,6 +26,8 @@ export default abstract class StorageAdapter {
         return 'avatar';
       case UploadType.Form:
         return 'form';
+      case UploadType.OAuth:
+        return 'oauth';
       default:
         throw new BadRequestException('Invalid upload type');
     }

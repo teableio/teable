@@ -8,6 +8,7 @@ export const oauthGetListVoSchema = z.array(
   z.object({
     clientId: z.string(),
     name: z.string(),
+    description: z.string().optional(),
     logo: z.string().url().optional(),
     homepage: z.string().url(),
   })
@@ -33,5 +34,5 @@ export const oauthGetListRoute = registerRoute({
 });
 
 export const oauthGetList = async () => {
-  return axios.get<OAuthGetListVo[]>(OAUTH_GET_LIST);
+  return axios.get<OAuthGetListVo>(OAUTH_GET_LIST);
 };

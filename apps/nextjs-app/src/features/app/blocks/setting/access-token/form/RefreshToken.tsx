@@ -17,8 +17,8 @@ import {
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
+import { RequireCom } from '../../components/RequireCom';
 import { ExpirationSelect } from './ExpirationSelect';
-import { RequireCom } from './RequireCom';
 
 interface IRefreshTokenProps {
   accessTokenId: string;

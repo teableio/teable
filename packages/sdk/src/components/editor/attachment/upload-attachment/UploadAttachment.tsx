@@ -5,8 +5,9 @@ import { UploadType, type INotifyVo } from '@teable/openapi';
 import { Button, FilePreviewItem, FilePreviewProvider, Progress, cn } from '@teable/ui-lib';
 import { map, omit } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
+import { FileZone } from '../../../FileZone';
 import { getFileCover, isSystemFileIcon } from '../utils';
-import { DragAndCopy } from './DragAndCopy';
 import { FileInput } from './FileInput';
 import type { IFile } from './uploadManage';
 import { AttachmentManager } from './uploadManage';
@@ -35,7 +36,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   const listRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
   const [newAttachments, setNewAttachments] = useState<IAttachmentCellValue>([]);
-
+  const { t } = useTranslation();
   attachmentsRef.current = attachments;
 
   useEffect(() => {
@@ -114,7 +115,12 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   return (
     <div className={cn('flex h-full flex-col overflow-hidden', className)}>
       <div className="relative flex-1 overflow-y-auto" ref={listRef}>
-        <DragAndCopy onChange={uploadAttachment} disabled={readonly}>
+        <FileZone
+          action={['drop', 'paste']}
+          defaultText={t('editor.attachment.uploadDragDefault')}
+          onChange={uploadAttachment}
+          disabled={readonly}
+        >
           {len > 0 && (
             <ul className="-right-2 flex size-full flex-wrap">
               <FilePreviewProvider>
@@ -187,7 +193,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
               ))}
             </ul>
           )}
-        </DragAndCopy>
+        </FileZone>
       </div>
       {!readonly && <FileInput onChange={uploadAttachment} />}
     </div>

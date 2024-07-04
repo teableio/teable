@@ -7,6 +7,7 @@ export enum UploadType {
   Table = 1,
   Avatar = 2,
   Form = 3,
+  OAuth = 4,
 }
 
 export const signatureRoSchema = z.object({

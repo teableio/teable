@@ -76,7 +76,7 @@ export class AccessTokenService {
   async listAccessToken() {
     const userId = this.cls.get('user.id');
     const list = await this.prismaService.accessToken.findMany({
-      where: { userId },
+      where: { userId, isOAuth: null },
       select: {
         id: true,
         name: true,
