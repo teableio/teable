@@ -1,40 +1,63 @@
-import { isEqual, keyBy } from 'lodash';
+import type { IUpdateOrderRo } from '@teable/openapi';
+import { isEqual } from 'lodash';
 import { useCallback, useMemo, useState } from 'react';
-import { useFieldCellEditable, useFields, useRecord, useView } from '../../../hooks';
-import type { GridView } from '../../../model';
-import { getFilterFieldIds } from '../../filter/utils';
+import { useFieldCellEditable, useFields } from '../../../hooks';
+import { createRecordInstance } from '../../../model';
 import { CellType } from '../../grid/interface';
 import type { ICell, ICellItem, IGridColumn, IInnerCell } from '../../grid/interface';
 import { createCellValue2GridDisplay } from './use-grid-columns';
 
 export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) => {
-  const view = useView() as GridView | undefined;
   const fields = useFields();
-  const totalFields = useFields({ withHidden: true, withDenied: true });
-  const sort = view?.sort;
-  const isAutoSort = sort && !sort?.manualSort;
   const fieldEditable = useFieldCellEditable();
-  const [prefillingRecordId, setPrefillingRecordId] = useState<string>();
+
+  const [prefillingRowOrder, setPrefillingRowOrder] = useState<IUpdateOrderRo>();
   const [prefillingRowIndex, setPrefillingRowIndex] = useState<number>();
-  const record = useRecord(prefillingRecordId);
+  const [prefillingFieldValueMap, setPrefillingFieldValueMap] = useState<
+    { [fieldId: string]: unknown } | undefined
+  >();
+
+  const localRecord = useMemo(() => {
+    if (prefillingFieldValueMap == null) {
+      return null;
+    }
+
+    const record = createRecordInstance({
+      id: '',
+      fields: prefillingFieldValueMap,
+    });
+    record.getCellValue = (fieldId: string) => {
+      return prefillingFieldValueMap[fieldId];
+    };
+    record.updateCell = (fieldId: string, newValue: unknown) => {
+      record.fields[fieldId] = newValue;
+      setPrefillingFieldValueMap({
+        ...prefillingFieldValueMap,
+        [fieldId]: newValue,
+      });
+      return Promise.resolve();
+    };
+
+    return record;
+  }, [prefillingFieldValueMap]);
 
   const getPrefillingCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
       const [columnIndex] = cell;
       const cellValue2GridDisplay = createCellValue2GridDisplay(fields, fieldEditable);
-      if (record != null) {
+      if (localRecord != null) {
         const fieldId = columns[columnIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(record, columnIndex);
+        return cellValue2GridDisplay(localRecord, columnIndex);
       }
       return { type: CellType.Loading };
     },
-    [columns, fieldEditable, fields, record]
+    [columns, fieldEditable, fields, localRecord]
   );
 
   const onPrefillingCellEdited = useCallback(
     (cell: ICellItem, newVal: IInnerCell) => {
-      if (record == null) return;
+      if (localRecord == null) return;
 
       const [col] = cell;
       const fieldId = columns[col].id;
@@ -51,40 +74,33 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
         default:
           newCellValue = data === '' ? null : data;
       }
-      const oldCellValue = record.getCellValue(fieldId) ?? null;
+      const oldCellValue = localRecord.getCellValue(fieldId) ?? null;
       if (isEqual(newCellValue, oldCellValue)) return;
-      record.updateCell(fieldId, newCellValue);
-      return record;
+      localRecord.updateCell(fieldId, newCellValue);
+      return localRecord;
     },
-    [record, columns]
+    [localRecord, columns]
   );
-
-  const isRowPrefillingActived = useMemo(() => {
-    if (isAutoSort) return true;
-
-    const filter = view?.filter;
-
-    if (filter == null) return false;
-
-    const filterIds = getFilterFieldIds(filter?.filterSet, keyBy(totalFields, 'id'));
-    return Boolean(filterIds.size);
-  }, [isAutoSort, totalFields, view?.filter]);
 
   return useMemo(() => {
     return {
       prefillingRowIndex,
-      prefillingRecordId,
-      isRowPrefillingActived,
+      prefillingRowOrder,
+      prefillingFieldValueMap,
       setPrefillingRowIndex,
-      setPrefillingRecordId,
+      setPrefillingRowOrder,
       onPrefillingCellEdited,
       getPrefillingCellContent,
+      setPrefillingFieldValueMap,
     };
   }, [
     prefillingRowIndex,
-    prefillingRecordId,
-    isRowPrefillingActived,
-    getPrefillingCellContent,
+    prefillingRowOrder,
+    prefillingFieldValueMap,
+    setPrefillingRowIndex,
+    setPrefillingRowOrder,
     onPrefillingCellEdited,
+    getPrefillingCellContent,
+    setPrefillingFieldValueMap,
   ]);
 };

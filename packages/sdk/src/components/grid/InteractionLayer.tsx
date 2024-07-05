@@ -33,7 +33,6 @@ import type {
   IInnerCell,
   ILinearRow,
   IMouseState,
-  IRange,
   IRowControlItem,
   IScrollState,
 } from './interface';
@@ -46,8 +45,7 @@ import {
   DraggableType,
   SelectableType,
 } from './interface';
-import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
-import { CombinedSelection } from './managers';
+import type { CoordinateManager, ImageManager, SpriteManager, CombinedSelection } from './managers';
 import { CellRegionType, getCellRenderer } from './renderers';
 import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
@@ -407,10 +405,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         }
         const linearRow = getLinearRow(hoverRowIndex - 1);
         onRowAppend?.(linearRow.realIndex);
-
-        const range = [0, rowIndex + 1] as IRange;
-        setActiveCell(range);
-        setSelection(new CombinedSelection(SelectionRegionType.Cells, [range, range]));
         return;
       }
       case RegionType.AppendColumn:
@@ -750,7 +744,6 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onPaste={onPaste}
         onDelete={onDelete}
         onChange={onCellEdited}
-        onRowAppend={onRowAppend}
         onRowExpand={onRowExpand}
         setEditing={setEditing}
         setSelection={setSelection}

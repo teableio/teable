@@ -17,6 +17,7 @@ import { AnchorProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBase, useSearch, useTable } from '../../../hooks';
 import { Table } from '../../../model';
+import { CreateRecordModal } from '../../create-record';
 import { SearchInput } from '../../search';
 import { LinkListType } from './interface';
 import type { ILinkListRef } from './LinkList';
@@ -31,7 +32,6 @@ export interface ILinkEditorMainProps {
   isEditing?: boolean;
   setEditing?: (isEditing: boolean) => void;
   onChange?: (value: ILinkCellValue | ILinkCellValue[] | null) => void;
-  onExpandRecord?: (recordId: string) => void;
 }
 
 export interface ILinkEditorMainRef {
@@ -42,8 +42,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   props,
   forwardRef
 ) => {
-  const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange, onExpandRecord } =
-    props;
+  const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange } = props;
 
   const { searchQuery } = useSearch();
 
@@ -98,15 +97,8 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     setListType(type);
   };
 
-  const onAppendRecord = async () => {
-    if (baseId == null || table == null || tableId == null) return;
-
-    const res = await table.createRecord({});
-    const record = res.data.records[0];
-
-    if (record != null) {
-      onExpandRecord?.(record.id);
-    }
+  const onCreateRecordCallback = async () => {
+    if (tableId == null) return;
 
     Table.getRowCount(tableId, recordQuery).then((res) => {
       const rowCount = res.data.rowCount;
@@ -170,10 +162,12 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
         />
       </div>
       <div className="flex justify-between">
-        <Button variant="ghost" onClick={onAppendRecord}>
-          <Plus className="size-4" />
-          {t('editor.link.create')}
-        </Button>
+        <CreateRecordModal callback={onCreateRecordCallback}>
+          <Button variant="ghost">
+            <Plus className="size-4" />
+            {t('editor.link.create')}
+          </Button>
+        </CreateRecordModal>
         <div>
           <Button variant="outline" onClick={onReset}>
             {t('common.cancel')}

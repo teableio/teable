@@ -166,8 +166,8 @@
     }
   },
   "grid": {
-    "prefillingRowTitle": "Row moved",
-    "prefillingRowTooltip": "This row will move to its new position when you select another row"
+    "prefillingRowTitle": "Add new record",
+    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row."
   },
   "form": {
     "fieldsManagement": "Fields",

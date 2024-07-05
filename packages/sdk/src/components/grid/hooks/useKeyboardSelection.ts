@@ -29,7 +29,6 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     setSelection,
     onCopy,
     onDelete,
-    onRowAppend,
     onRowExpand,
     editorRef,
   } = props;
@@ -158,21 +157,18 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
   );
 
   useHotkeys(
-    ['enter', 'shift+enter'],
-    (keyboardEvent, hotkeysEvent) => {
-      const { shift } = hotkeysEvent;
+    ['enter'],
+    () => {
       const { isColumnSelection, ranges: selectionRanges } = selection;
-      const isShiftEnter = Boolean(shift);
       if (isEditing) {
         let range = selectionRanges[0];
         if (isColumnSelection) {
           range = [range[0], 0];
         }
         const [columnIndex, rowIndex] = range;
-        const nextRowIndex = isShiftEnter ? rowIndex + 1 : Math.min(rowIndex + 1, pureRowCount - 1);
+        const nextRowIndex = Math.min(rowIndex + 1, pureRowCount - 1);
         const newRange = [columnIndex, nextRowIndex] as IRange;
         editorRef.current?.saveValue?.();
-        isShiftEnter && onRowAppend?.();
         setTimeout(() => {
           setSelection(selection.set(SelectionRegionType.Cells, [newRange, newRange]));
           setActiveCell(newRange);
