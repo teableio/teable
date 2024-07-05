@@ -86,7 +86,7 @@ export const Selector: React.FC<ISelectorProps> = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className={cn('w-full p-0', contentClassName)}
+        className={cn('w-full max-w-[200px] p-0', contentClassName)}
         style={{ minWidth: ref.current?.offsetWidth }}
       >
         <Command
@@ -111,9 +111,12 @@ export const Selector: React.FC<ISelectorProps> = ({
                 }}
               >
                 <Check
-                  className={cn('mr-2 h-4 w-4', id === selectedId ? 'opacity-100' : 'opacity-0')}
+                  className={cn(
+                    'mr-2 h-4 w-4 flex-shrink-0',
+                    id === selectedId ? 'opacity-100' : 'opacity-0'
+                  )}
                 />
-                {icon} <span className="ml-2">{name ? name : defaultName}</span>
+                {icon} <span className="ml-2 truncate">{name ? name : defaultName}</span>
               </CommandItem>
             ))}
           </CommandList>

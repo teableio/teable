@@ -56,7 +56,7 @@ export function FieldSelector(props: IFieldSelector) {
             role="combobox"
             tabIndex={-1}
             aria-expanded={open}
-            className={cn('h-8 w-[200px] flex items-center', className)}
+            className={cn('h-8 max-w-[200px] flex items-center', className)}
           >
             <div className="flex flex-1 items-center truncate">
               <Icon className="size-4 shrink-0 p-0.5 opacity-50" />
