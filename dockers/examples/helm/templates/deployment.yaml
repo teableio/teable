@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $fullName }}
+  namespace: {{ include "common.namespace" . }}
   labels:
     {{- include "common.labels" . | nindent 4 }}
 spec:
@@ -24,14 +25,14 @@ spec:
         {{- include "common.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "common.serviceAccountName" . }}
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.image.pullSecrets | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - node
-          args:
-            - apps/nestjs-backend/dist/index.js
           env:
             {{- include "teable.env.backend" $ | nindent 12 }}
             {{- include "teable.env.database" $ | nindent 12 }}
@@ -86,6 +87,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "teable.nameBuilder" . }}
+  namespace: {{ include "common.namespace" . }}
   labels:
     {{- include "common.labels" . | nindent 4 }}
   annotations:

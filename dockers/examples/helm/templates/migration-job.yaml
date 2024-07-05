@@ -6,6 +6,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "teable.nameBuilder" . }}
+  namespace: {{ include "common.namespace" . }}
   labels:
     {{- include "common.labels" $ | nindent 4 }}
     app.kubernetes.io/part: migration
@@ -26,6 +27,10 @@ spec:
         app.kubernetes.io/part: migration
     spec:
       restartPolicy: Never
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml .Values.image.pullSecrets | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           {{- include "teable.shared.image" (list $ "migrationJob") | nindent 10 }}

@@ -37,3 +37,6 @@ Session.vim
 .history
 
 .append.yaml
+# Extends values file
+extends/
+
