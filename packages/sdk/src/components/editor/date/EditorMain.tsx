@@ -112,9 +112,6 @@ const DateEditorMainBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEdit
         onSelect={onSelect}
         className={className}
         disabled={readonly}
-        fromYear={1970}
-        toYear={2100}
-        captionLayout="dropdown-buttons"
         footer={
           <div className="flex items-center justify-center p-1">
             {!notHaveTimePicker && date ? (

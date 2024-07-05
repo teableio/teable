@@ -47,6 +47,7 @@ function DatePicker(props: IFilerDatePickerProps) {
         <Calendar
           mode="single"
           selected={date}
+          defaultMonth={date}
           onSelect={selectHandler as SelectSingleEventHandler}
           initialFocus
         />
