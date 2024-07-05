@@ -1,13 +1,12 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
 import { Draggable } from '@hello-pangea/dnd';
 import { Plus } from '@teable/icons';
-import { generateLocalId } from '@teable/sdk/components';
+import { CreateRecordModal, generateLocalId } from '@teable/sdk/components';
 import { useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib';
 import { useRef, useState } from 'react';
 import type { VirtuosoHandle } from 'react-virtuoso';
-import { AddRecordModal } from '../../AddRecordModal';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IKanbanContext } from '../context';
 import { useInView, useKanban } from '../hooks';
@@ -111,13 +110,13 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
                   </div>
 
                   {cardCreatable && (
-                    <AddRecordModal callback={onAppendCallback}>
+                    <CreateRecordModal callback={onAppendCallback}>
                       <div className="flex items-center justify-center rounded-b-md bg-slate-50 px-3 py-2 dark:bg-slate-900">
                         <Button variant="outline" className="w-full shadow-none">
                           <Plus className="size-5" />
                         </Button>
                       </div>
-                    </AddRecordModal>
+                    </CreateRecordModal>
                   )}
                 </div>
               </div>

@@ -9,6 +9,7 @@
     "confirm": "Confirm",
     "back": "Back",
     "done": "Done",
+    "create": "Create",
     "search": {
       "placeholder": "Search...",
       "empty": "No results found"

@@ -1,8 +1,5 @@
-import { FieldKeyType } from '@teable/core';
 import { Trash, ArrowUp, ArrowDown } from '@teable/icons';
-import { SelectionRegionType } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
-import { Record } from '@teable/sdk/model';
 import {
   cn,
   Command,
@@ -55,7 +52,7 @@ export const RecordMenu = () => {
 
   if (recordMenu == null) return null;
 
-  const { record, isMultipleSelected, onAfterInsertCallback } = recordMenu;
+  const { record, isMultipleSelected, insertRecord } = recordMenu;
   if (!record && !isMultipleSelected) return null;
 
   const visible = Boolean(recordMenu);
@@ -68,36 +65,6 @@ export const RecordMenu = () => {
       }
     : {};
 
-  const onInsertRecord = async (anchorId: string, position: 'before' | 'after') => {
-    if (!tableId || !viewId) return;
-
-    const res = await Record.createRecords(tableId, {
-      fieldKeyType: FieldKeyType.Id,
-      records: [
-        {
-          fields: {},
-        },
-      ],
-      order: {
-        viewId,
-        anchorId,
-        position,
-      },
-    });
-    const record = res.data.records[0];
-
-    if (record == null || selection == null) return;
-
-    const { type, ranges } = selection;
-
-    if (type === SelectionRegionType.Cells) {
-      return onAfterInsertCallback?.(record.id, ranges[0][1]);
-    }
-    if (type === SelectionRegionType.Rows) {
-      return onAfterInsertCallback?.(record.id, ranges[0][0]);
-    }
-  };
-
   const menuItemGroups: IMenuItemProps<MenuItemType>[][] = [
     [
       {
@@ -108,7 +75,7 @@ export const RecordMenu = () => {
         disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId || !record) return;
-          await onInsertRecord(record.id, 'before');
+          insertRecord?.(record.id, 'before');
         },
       },
       {
@@ -119,7 +86,7 @@ export const RecordMenu = () => {
         disabled: isAutoSort,
         onClick: async () => {
           if (!tableId || !viewId || !record) return;
-          await onInsertRecord(record.id, 'after');
+          insertRecord?.(record.id, 'after');
         },
       },
     ],

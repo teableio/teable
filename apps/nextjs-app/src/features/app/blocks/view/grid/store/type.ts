@@ -14,7 +14,7 @@ export interface IRecordMenu {
   isMultipleSelected?: boolean;
   position: IPosition;
   deleteRecords?: (selection: CombinedSelection) => Promise<void>;
-  onAfterInsertCallback?: (recordId: string, targetIndex?: number) => void;
+  insertRecord?: (anchorId: string, position: 'before' | 'after') => void;
 }
 
 export interface IStatisticMenu {

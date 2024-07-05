@@ -1,30 +1,29 @@
 import { useMutation } from '@tanstack/react-query';
 import { FieldKeyType } from '@teable/core';
 import { createRecords } from '@teable/openapi';
-import { RecordEditor } from '@teable/sdk/components/expand-record/RecordEditor';
-import { useFields, useTableId, useViewId } from '@teable/sdk/hooks';
-import type { IFieldInstance, Record } from '@teable/sdk/model';
-import { createRecordInstance, recordInstanceFieldMap } from '@teable/sdk/model';
-import { Spin } from '@teable/ui-lib/base';
-import { Button, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
+import { Dialog, DialogTrigger, DialogContent, Spin, Button } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
-import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
+import { useTranslation } from '../../context/app/i18n';
+import { useFields, useTableId, useViewId } from '../../hooks';
+import type { IFieldInstance, Record } from '../../model';
+import { createRecordInstance, recordInstanceFieldMap } from '../../model';
+import { RecordEditor } from '../expand-record/RecordEditor';
 
-interface IAddRecordModalProps {
+interface ICreateRecordModalProps {
   children?: React.ReactNode;
   callback?: (recordId: string) => void;
 }
 
-export const AddRecordModal = (props: IAddRecordModalProps) => {
+export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const { children, callback } = props;
   const tableId = useTableId();
   const viewId = useViewId();
   const showFields = useFields();
   const [open, setOpen] = useState(false);
   const [version, updateVersion] = useCounter(0);
-  const { t } = useTranslation('common');
+  const { t } = useTranslation();
   const allFields = useFields({ withHidden: true, withDenied: true });
   const [record, setRecord] = useState<Record | undefined>(undefined);
 
@@ -99,7 +98,7 @@ export const AddRecordModal = (props: IAddRecordModalProps) => {
   const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
 
   const fields = useMemo(
-    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : []),
+    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : allFields),
     [allFields, showFieldsId, viewId]
   );
 
@@ -136,7 +135,7 @@ export const AddRecordModal = (props: IAddRecordModalProps) => {
         </div>
         <div className="flex justify-end gap-4 border-t px-10 py-3">
           <Button variant={'outline'} size={'sm'} onClick={() => setOpen(false)}>
-            {t('actions.cancel')}
+            {t('common.cancel')}
           </Button>
           <Button
             className="relative overflow-hidden"
@@ -151,7 +150,7 @@ export const AddRecordModal = (props: IAddRecordModalProps) => {
                 <Spin className="mr-2" />
               </div>
             )}
-            {t('actions.create')}
+            {t('common.create')}
           </Button>
         </div>
       </DialogContent>

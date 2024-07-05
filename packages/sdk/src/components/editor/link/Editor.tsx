@@ -102,10 +102,6 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     return linkEditorMainRef.current?.onReset();
   };
 
-  const onExpandRecord = (recordId: string) => {
-    setExpandRecordId(recordId);
-  };
-
   const onConfirm = () => {
     if (values == null) return onChange?.(null);
     onChange?.(isMultiple ? values : values[0]);
@@ -157,7 +153,6 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                   ref={linkEditorMainRef}
                   isEditing={isEditing}
                   setEditing={setEditing}
-                  onExpandRecord={onExpandRecord}
                 />
               </DialogContent>
             </Dialog>

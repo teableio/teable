@@ -1,27 +1,20 @@
 import type { ILinkCellValue } from '@teable/core';
 import { Dialog, DialogContent } from '@teable/ui-lib';
-import { useRef, type FC, useState, useMemo } from 'react';
+import type { FC } from 'react';
+import { useRef } from 'react';
 import { type LinkField } from '../../../model';
 import type { ILinkEditorMainRef } from '../../editor';
 import { LinkEditorMain } from '../../editor';
-import { ExpandRecorder } from '../../expand-record';
 import type { IEditorProps } from '../../grid/components';
 import type { IWrapperEditorProps } from './type';
 
 export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) => {
   const { record, field, isEditing, setEditing } = props;
   const { id: fieldId, options } = field as LinkField;
-  const { foreignTableId } = options;
-  const [expandRecordId, setExpandRecordId] = useState<string>();
   const cellValue = record.getCellValue(fieldId) as ILinkCellValue | ILinkCellValue[] | undefined;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
-
-  const expandRecordIds = useMemo(() => {
-    if (expandRecordId == null) return;
-    return [expandRecordId];
-  }, [expandRecordId]);
 
   const onOpenChange = (open: boolean) => {
     if (open) return setEditing?.(true);
@@ -32,19 +25,9 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
     record.updateCell(fieldId, value);
   };
 
-  const onExpandRecord = (recordId: string) => {
-    setExpandRecordId(recordId);
-  };
-
   return (
     <>
       <div ref={containerRef} />
-      <ExpandRecorder
-        tableId={foreignTableId}
-        recordId={expandRecordId}
-        recordIds={expandRecordIds}
-        onClose={() => setExpandRecordId(undefined)}
-      />
       <Dialog open={isEditing} onOpenChange={onOpenChange}>
         <DialogContent
           container={containerRef.current}
@@ -60,7 +43,6 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
             isEditing={isEditing}
             onChange={onChange}
             setEditing={setEditing}
-            onExpandRecord={onExpandRecord}
           />
         </DialogContent>
       </Dialog>

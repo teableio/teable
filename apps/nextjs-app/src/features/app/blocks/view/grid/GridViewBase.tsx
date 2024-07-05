@@ -1,4 +1,7 @@
-import { RowHeightLevel, contractColorForTheme } from '@teable/core';
+import { useMutation } from '@tanstack/react-query';
+import { FieldKeyType, RowHeightLevel, contractColorForTheme } from '@teable/core';
+import type { IUpdateOrderRo } from '@teable/openapi';
+import { createRecords } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -46,7 +49,6 @@ import {
   useRowCount,
   useSSRRecord,
   useSSRRecords,
-  useTable,
   useTableId,
   useTablePermission,
   useView,
@@ -85,7 +87,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const containerRef = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
   const tableId = useTableId() as string;
-  const table = useTable();
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
   const rowCount = useRowCount();
@@ -134,13 +135,30 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const {
     prefillingRowIndex,
-    prefillingRecordId,
-    isRowPrefillingActived,
+    prefillingRowOrder,
+    prefillingFieldValueMap,
     setPrefillingRowIndex,
-    setPrefillingRecordId,
+    setPrefillingRowOrder,
     onPrefillingCellEdited,
     getPrefillingCellContent,
+    setPrefillingFieldValueMap,
   } = useGridPrefillingRow(columns);
+
+  const { mutate: mutateCreateRecord } = useMutation({
+    mutationFn: () =>
+      createRecords(tableId!, {
+        records: [{ fields: prefillingFieldValueMap! }],
+        fieldKeyType: FieldKeyType.Id,
+        order:
+          activeViewId && prefillingRowOrder
+            ? { ...prefillingRowOrder, viewId: activeViewId }
+            : undefined,
+      }),
+    onSuccess: () => {
+      setPrefillingRowIndex(undefined);
+      setPrefillingFieldValueMap(undefined);
+    },
+  });
 
   const inPrefilling = prefillingRowIndex != null;
 
@@ -166,15 +184,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         Object.keys(recordMap).find((key) => recordMap[key]?.id === recordId)
       );
 
-      if (recordId === prefillingRecordId) {
-        return prefillingGridRef.current?.setSelection(
-          new CombinedSelection(SelectionRegionType.Cells, [
-            [0, 0],
-            [0, 0],
-          ])
-        );
-      }
-
       recordIndex >= 0 &&
         gridRef.current?.setSelection(
           new CombinedSelection(SelectionRegionType.Cells, [
@@ -183,7 +192,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           ])
         );
     }
-  }, [router.query.recordId, recordMap, isReadyToRender, prefillingRecordId]);
+  }, [router.query.recordId, recordMap, isReadyToRender]);
 
   useMount(() => setReadyToRender(true));
 
@@ -230,106 +239,68 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [recordMap, columns]
   );
 
-  const callbackForPrefilling = useCallback(
-    (recordId: string, targetIndex?: number) => {
-      if (!isRowPrefillingActived) return;
-      const index = targetIndex ?? Math.max(realRowCount - 1, 0);
-      setPrefillingRowIndex(index);
-      setPrefillingRecordId(recordId);
-      setSelection(emptySelection);
-      gridRef.current?.setSelection(emptySelection);
-    },
-    [
-      isRowPrefillingActived,
-      realRowCount,
-      setPrefillingRowIndex,
-      setPrefillingRecordId,
-      setSelection,
-    ]
-  );
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  const onContextMenu = (selection: CombinedSelection, position: IPosition) => {
+    const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
 
-  const createRecordWithCallback = (
-    fieldValueMap: { [fieldId: string]: unknown },
-    targetIndex?: number
-  ) => {
-    return table?.createRecord(fieldValueMap).then((res) => {
-      const record = res.data.records[0];
-      if (record == null) return;
-      callbackForPrefilling(record.id, targetIndex);
-    });
+    function extract<T>(_start: number, _end: number, source: T[] | { [key: number]: T }): T[] {
+      const start = Math.min(_start, _end);
+      const end = Math.max(_start, _end);
+      return Array.from({ length: end - start + 1 })
+        .map((_, index) => {
+          return source[start + index];
+        })
+        .filter(Boolean);
+    }
+
+    if (isCellSelection || isRowSelection) {
+      const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
+      const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
+      const isMultipleSelected =
+        (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
+
+      if (isMultipleSelected) {
+        openRecordMenu({
+          position,
+          isMultipleSelected,
+          deleteRecords: async (selection) => {
+            deleteRecords(selection);
+            gridRef.current?.setSelection(emptySelection);
+          },
+        });
+      } else {
+        const record = recordMap[rowStart];
+        const neighborRecords: Array<Record | null> = [];
+        neighborRecords[0] = rowStart === 0 ? null : recordMap[rowStart - 1];
+        neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
+
+        openRecordMenu({
+          position,
+          record,
+          neighborRecords,
+          insertRecord: (anchorId, position) => {
+            if (!tableId || !view?.id || !record) return;
+            const targetIndex = position === 'before' ? rowStart - 1 : rowStart;
+            generateRecord({}, Math.max(targetIndex, 0), { anchorId, position });
+          },
+          deleteRecords: async (selection) => {
+            deleteRecords(selection);
+            gridRef.current?.setSelection(emptySelection);
+          },
+          isMultipleSelected: false,
+        });
+      }
+    }
+
+    if (isColumnSelection) {
+      const [start, end] = ranges[0];
+      const selectColumns = extract(start, end, columns);
+      const indexedColumns = keyBy(selectColumns, 'id');
+      const selectFields = fields.filter((field) => indexedColumns[field.id]);
+      const onSelectionClear = () => gridRef.current?.setSelection(emptySelection);
+      openHeaderMenu({ position, fields: selectFields, onSelectionClear });
+    }
   };
-
-  const onContextMenu = useCallback(
-    // eslint-disable-next-line sonarjs/cognitive-complexity
-    (selection: CombinedSelection, position: IPosition) => {
-      const { isCellSelection, isRowSelection, isColumnSelection, ranges } = selection;
-
-      function extract<T>(_start: number, _end: number, source: T[] | { [key: number]: T }): T[] {
-        const start = Math.min(_start, _end);
-        const end = Math.max(_start, _end);
-        return Array.from({ length: end - start + 1 })
-          .map((_, index) => {
-            return source[start + index];
-          })
-          .filter(Boolean);
-      }
-
-      if (isCellSelection || isRowSelection) {
-        const rowStart = isCellSelection ? ranges[0][1] : ranges[0][0];
-        const rowEnd = isCellSelection ? ranges[1][1] : ranges[0][1];
-        const isMultipleSelected =
-          (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
-
-        if (isMultipleSelected) {
-          openRecordMenu({
-            position,
-            isMultipleSelected,
-            deleteRecords: async (selection) => {
-              deleteRecords(selection);
-              gridRef.current?.setSelection(emptySelection);
-            },
-            onAfterInsertCallback: callbackForPrefilling,
-          });
-        } else {
-          const record = recordMap[rowStart];
-          const neighborRecords: Array<Record | null> = [];
-          neighborRecords[0] = rowStart === 0 ? null : recordMap[rowStart - 1];
-          neighborRecords[1] = rowStart >= realRowCount - 1 ? null : recordMap[rowStart + 1];
-
-          openRecordMenu({
-            position,
-            record,
-            neighborRecords,
-            deleteRecords: async (selection) => {
-              deleteRecords(selection);
-              gridRef.current?.setSelection(emptySelection);
-            },
-            onAfterInsertCallback: callbackForPrefilling,
-            isMultipleSelected: false,
-          });
-        }
-      }
-
-      if (isColumnSelection) {
-        const [start, end] = ranges[0];
-        const selectColumns = extract(start, end, columns);
-        const indexedColumns = keyBy(selectColumns, 'id');
-        const selectFields = fields.filter((field) => indexedColumns[field.id]);
-        const onSelectionClear = () => gridRef.current?.setSelection(emptySelection);
-        openHeaderMenu({ position, fields: selectFields, onSelectionClear });
-      }
-    },
-    [
-      columns,
-      recordMap,
-      fields,
-      openRecordMenu,
-      deleteRecords,
-      callbackForPrefilling,
-      realRowCount,
-      openHeaderMenu,
-    ]
-  );
 
   const onColumnHeaderMenuClick = useCallback(
     (colIndex: number, bounds: IRectangle) => {
@@ -382,11 +353,32 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     [view]
   );
 
+  const generateRecord = (
+    fieldValueMap: { [fieldId: string]: unknown },
+    targetIndex?: number,
+    rowOrder?: IUpdateOrderRo
+  ) => {
+    const index = targetIndex ?? Math.max(realRowCount - 1, 0);
+    setPrefillingFieldValueMap(fieldValueMap);
+    setPrefillingRowOrder(rowOrder);
+    setPrefillingRowIndex(index);
+    setSelection(emptySelection);
+    gridRef.current?.setSelection(emptySelection);
+    setTimeout(() => {
+      prefillingGridRef.current?.setSelection(
+        new CombinedSelection(SelectionRegionType.Cells, [
+          [0, 0],
+          [0, 0],
+        ])
+      );
+    });
+  };
+
   const onRowAppend = (targetIndex?: number) => {
     if (group?.length && targetIndex != null) {
       const record = recordMap[targetIndex];
 
-      if (record == null) return createRecordWithCallback({}, targetIndex);
+      if (record == null) return generateRecord({}, targetIndex);
 
       const fieldValueMap = group.reduce(
         (prev, { fieldId }) => {
@@ -395,9 +387,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
         },
         {} as { [key: string]: unknown }
       );
-      return createRecordWithCallback(fieldValueMap, targetIndex);
+      return generateRecord(fieldValueMap, targetIndex);
     }
-    return createRecordWithCallback({}, targetIndex);
+    return generateRecord({}, targetIndex);
   };
 
   const onColumnAppend = () => {
@@ -476,25 +468,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       {
         pathname: router.pathname,
         query: { ...router.query, recordId },
-      },
-      undefined,
-      {
-        shallow: true,
-      }
-    );
-  };
-
-  const onPrefillingRowExpand = (_rowIndex: number) => {
-    if (!prefillingRecordId) return;
-
-    if (onRowExpand) {
-      onRowExpand(prefillingRecordId);
-      return;
-    }
-    router.push(
-      {
-        pathname: router.pathname,
-        query: { ...router.query, recordId: prefillingRecordId },
       },
       undefined,
       {
@@ -665,7 +638,9 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             onDelete={getAuthorizedFunction(onDelete, 'record|update')}
             onRowOrdered={onRowOrdered}
             onRowExpand={onRowExpandInner}
-            onRowAppend={getAuthorizedFunction(onRowAppend, 'record|create')}
+            onRowAppend={
+              isTouchDevice ? undefined : getAuthorizedFunction(onRowAppend, 'record|create')
+            }
             onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
             onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
             onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
@@ -688,9 +663,12 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
           {inPrefilling && (
             <PrefillingRowContainer
               style={prefillingRowStyle}
-              onClickOutside={() => {
+              onClickOutside={async () => {
+                await mutateCreateRecord();
+              }}
+              onCancel={() => {
                 setPrefillingRowIndex(undefined);
-                setPrefillingRecordId(undefined);
+                setPrefillingFieldValueMap(undefined);
               }}
             >
               <Grid
@@ -711,7 +689,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
                 columnHeaderVisible={false}
                 freezeColumnCount={frozenColumnCount}
                 customIcons={customIcons}
-                onRowExpand={onPrefillingRowExpand}
                 getCellContent={getPrefillingCellContent}
                 onScrollChanged={onPrefillingGridScrollChanged}
                 onCellEdited={getAuthorizedFunction(onPrefillingCellEdited, 'record|update')}
