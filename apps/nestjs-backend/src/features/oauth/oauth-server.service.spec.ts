@@ -88,7 +88,7 @@ describe('OAuthServerService', () => {
         done
       );
 
-      expect(done).toHaveBeenCalledWith(new BadRequestException('Invalid scopes'));
+      expect(done).toHaveBeenCalledWith(new BadRequestException('Invalid scopes: table|read'));
     });
 
     it('should fail if no redirectUri configured', async () => {
