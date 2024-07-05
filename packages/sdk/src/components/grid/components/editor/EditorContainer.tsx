@@ -5,7 +5,13 @@ import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'rea
 import type { IGridTheme } from '../../configs';
 import { useKeyboardSelection } from '../../hooks';
 import type { IInteractionLayerProps } from '../../InteractionLayer';
-import type { IActiveCellBound, ICellItem, IRectangle, IScrollState } from '../../interface';
+import {
+  SelectionRegionType,
+  type IActiveCellBound,
+  type ICellItem,
+  type IRectangle,
+  type IScrollState,
+} from '../../interface';
 import type { CombinedSelection } from '../../managers';
 import type { ICell, IInnerCell } from '../../renderers/cell-renderer/interface';
 import { CellType } from '../../renderers/cell-renderer/interface';
@@ -119,9 +125,9 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
   useEffect(() => {
     if ((cellType as CellType) === CellType.Loading) return;
-    if (!activeCell) return;
+    if (!activeCell || selection.type === SelectionRegionType.None) return;
     requestAnimationFrame(() => (editorRef.current || defaultFocusRef.current)?.focus?.());
-  }, [cellType, activeCell, isEditing]);
+  }, [cellType, activeCell, selection, isEditing]);
 
   useKeyboardSelection({
     editorRef,
