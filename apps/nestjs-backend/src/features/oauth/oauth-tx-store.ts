@@ -4,14 +4,15 @@ import type { IUserMeVo } from '@teable/openapi';
 import type { Request } from 'express';
 import type { OAuth2, OAuth2Req } from 'oauth2orize';
 import { CacheService } from '../../cache/cache.service';
-import { oauth2Config } from './constant';
+import { IOAuthConfig, OAuthConfig } from '../../configs/oauth.config';
 import type { IAuthorizeClient } from './types';
 
 @Injectable()
 export class OAuthTxStore {
-  oauth2Config = oauth2Config;
-
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    private readonly cacheService: CacheService,
+    @OAuthConfig() private readonly oauth2Config: IOAuthConfig
+  ) {}
 
   async load(req: Request, cb: (err: unknown, txn?: OAuth2<IAuthorizeClient, IUserMeVo>) => void) {
     const transactionID = req.body?.['transaction_id'];

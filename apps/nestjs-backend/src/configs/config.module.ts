@@ -10,6 +10,7 @@ import { cacheConfig } from './cache.config';
 import { envValidationSchema } from './env.validation.schema';
 import { loggerConfig } from './logger.config';
 import { mailConfig } from './mail.config';
+import { oauthConfig } from './oauth.config';
 import { storageConfig } from './storage';
 import { thresholdConfig } from './threshold.config';
 
@@ -22,6 +23,7 @@ const configurations = [
   storageConfig,
   thresholdConfig,
   cacheConfig,
+  oauthConfig,
 ];
 
 @Module({})

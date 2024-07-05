@@ -23,16 +23,15 @@ import type {
 import oauth2orize, { AuthorizationError } from 'oauth2orize';
 import { CacheService } from '../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import { IOAuthConfig, OAuthConfig } from '../../configs/oauth.config';
 import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
-import { oauth2Config } from './constant';
 import { OAuthTxStore } from './oauth-tx-store';
 import type { IAuthorizeClient, IExchangeClient, IOAuth2Server } from './types';
 
 @Injectable()
 export class OAuthServerService {
   server: IOAuth2Server;
-  oauth2Config = oauth2Config;
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -40,7 +39,8 @@ export class OAuthServerService {
     private readonly accessTokenService: AccessTokenService,
     private readonly jwtService: JwtService,
     private readonly oauthTxStore: OAuthTxStore,
-    @BaseConfig() private readonly baseConfig: IBaseConfig
+    @BaseConfig() private readonly baseConfig: IBaseConfig,
+    @OAuthConfig() private readonly oauth2Config: IOAuthConfig
   ) {
     this.server = oauth2orize.createServer({
       store: this.oauthTxStore,
@@ -52,8 +52,8 @@ export class OAuthServerService {
     );
   }
 
-  private getAuthorizedTime(userId: string, clientId: string) {
-    return this.prismaService
+  private async getAuthorizedTime(userId: string, clientId: string) {
+    const authorizedTime = await this.prismaService
       .txClient()
       .oAuthAppAuthorized.findUnique({
         where: {
@@ -68,6 +68,11 @@ export class OAuthServerService {
         },
       })
       .then((data) => data?.authorizedTime);
+    // validate authorized time is not expired
+    return (
+      authorizedTime &&
+      new Date(authorizedTime).getTime() + ms(this.oauth2Config.authorizedExpireIn) > Date.now()
+    );
   }
 
   private handleError(error: unknown | undefined) {
@@ -85,11 +90,10 @@ export class OAuthServerService {
   ) => {
     try {
       const { redirectUris, scopes } = await this.getOAuthApp(clientId);
-
       // validate scopes if get scopes from user
       const invalidScopes = difference(queryScopes, scopes);
       if (invalidScopes.length > 0) {
-        return done(new BadRequestException('Invalid scopes'));
+        return done(new BadRequestException('Invalid scopes: ' + invalidScopes.join(',')));
       }
 
       // valid redirectUri
@@ -126,6 +130,7 @@ export class OAuthServerService {
   ) => {
     const isTrusted = await this.getAuthorizedTime(user.id, client.clientId);
     if (isTrusted) {
+      await this.touchAuthorize(client.clientId, user.id);
       return done(null, true, undefined, undefined);
     }
     return done(null, false, undefined, undefined);
@@ -166,27 +171,31 @@ export class OAuthServerService {
 
   private decisionComplete = async (_req: unknown, oauth2: OAuth2, cb: (err?: unknown) => void) => {
     // complete the transaction
-    // update authorized time
-    await this.prismaService.oAuthAppAuthorized
-      .upsert({
-        where: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          clientId_userId: {
-            clientId: oauth2.req.clientID,
-            userId: oauth2.user.id,
-          },
-        },
-        create: {
-          clientId: oauth2.req.clientID,
-          userId: oauth2.user.id,
-          authorizedTime: new Date().toISOString(),
-        },
-        update: {
-          authorizedTime: new Date().toISOString(),
-        },
-      })
+    await this.touchAuthorize(oauth2.req.clientID, oauth2.user.id)
       .then(() => cb())
       .catch(cb);
+  };
+
+  private touchAuthorize = async (clientId: string, userId: string) => {
+    // update authorized time
+    console.log('touchAuthorize', clientId, userId);
+    await this.prismaService.oAuthAppAuthorized.upsert({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        clientId_userId: {
+          clientId: clientId,
+          userId: userId,
+        },
+      },
+      create: {
+        clientId: clientId,
+        userId: userId,
+        authorizedTime: new Date().toISOString(),
+      },
+      update: {
+        authorizedTime: new Date().toISOString(),
+      },
+    });
   };
 
   async decision(req: Request, res: Response) {
