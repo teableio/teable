@@ -173,6 +173,8 @@ image:
   #    password: "pass"
   ## @param image.tag used to reference a specific image snapshot in the image repository.
   tag: "latest"
+  ## @param image.pullSecrets is an array of references to Kubernetes secrets that contain credentials to access private registries.
+  pullSecrets: null
 
 
 ## @section Service parameters

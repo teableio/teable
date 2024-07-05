@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: "{{ $fullName }}-test-connection"
+  namespace: {{ include "common.namespace" . }}
   labels:
     {{- include "common.labels" $ | nindent 4 }}  # Pass the root context
   annotations:
