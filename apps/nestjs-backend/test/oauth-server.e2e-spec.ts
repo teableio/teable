@@ -109,7 +109,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
       { maxRedirects: 0 }
     );
     expect(res.status).toBe(302);
-    expect(res.headers.location).toContain(`/oauth/authorize/ensure?transaction_id=`);
+    expect(res.headers.location).toContain(`/oauth/decision?transaction_id=`);
   });
 
   it('/api/oauth/authorize (GET) - redirect_uri invalid', async () => {
