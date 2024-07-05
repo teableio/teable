@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Gauge, Lock, PackageCheck } from '@teable/icons';
-import { getSpaceUsage } from '@teable/openapi';
+import { getInstanceUsage, getSpaceUsage } from '@teable/openapi';
 import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
   Tooltip,
@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { tableConfig } from '@/features/i18n/table.config';
 import { TableList } from '../../table-list/TableList';
 import { QuickAction } from './QuickAction';
@@ -23,6 +24,7 @@ export const BaseSideBar = () => {
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
+  const isEE = useIsEE();
   const isCloud = useIsCloud();
 
   const base = useBase();
@@ -30,12 +32,19 @@ export const BaseSideBar = () => {
 
   const spaceId = base.spaceId;
 
-  const { data: usage } = useQuery({
+  const { data: spaceUsage } = useQuery({
     queryKey: ['space-usage', spaceId],
     queryFn: ({ queryKey }) => getSpaceUsage(queryKey[1]).then(({ data }) => data),
     enabled: isCloud,
   });
 
+  const { data: instanceUsage } = useQuery({
+    queryKey: ['instance-usage'],
+    queryFn: () => getInstanceUsage().then(({ data }) => data),
+    enabled: isEE,
+  });
+
+  const usage = instanceUsage ?? spaceUsage;
   const { automationEnable = true, advancedPermissionsEnable = true } = usage?.limit ?? {};
 
   const pageRoutes: {

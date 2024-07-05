@@ -158,7 +158,7 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
 
   useHotkeys(
     ['enter'],
-    (_keyboardEvent, _hotkeysEvent) => {
+    () => {
       const { isColumnSelection, ranges: selectionRanges } = selection;
       if (isEditing) {
         let range = selectionRanges[0];
