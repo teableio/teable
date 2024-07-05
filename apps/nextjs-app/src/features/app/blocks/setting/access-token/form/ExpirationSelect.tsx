@@ -102,7 +102,14 @@ export const ExpirationSelect = (props: IExpirationSelect) => {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={date} onSelect={onDateChange} initialFocus />
+            <Calendar
+              mode="single"
+              selected={date}
+              defaultMonth={date}
+              onSelect={onDateChange}
+              fromYear={new Date().getFullYear()}
+              initialFocus
+            />
           </PopoverContent>
         </Popover>
       )}

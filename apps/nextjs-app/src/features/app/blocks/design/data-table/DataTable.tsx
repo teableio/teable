@@ -61,7 +61,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
         <CardTitle>{t('table:field.fieldManagement')}</CardTitle>
         <CardDescription>{t('table:field.fieldManagementDesc')}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col p-0 px-2">
+      <CardContent className="flex flex-col overflow-auto p-0 px-2">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
