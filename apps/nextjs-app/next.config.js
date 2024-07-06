@@ -89,6 +89,7 @@ const secureHeaders = createSecureHeaders({
             'https://*.teable.cn',
             'https://*.clarity.ms',
           ],
+          mediaSrc: ["'self'", 'https:', 'http:', 'data:'],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
           workerSrc: ['blob:'],
         }
