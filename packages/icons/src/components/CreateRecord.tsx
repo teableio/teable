@@ -10,9 +10,9 @@ const CreateRecord = (props: SVGProps<SVGSVGElement>) => (
     {...props}
   >
     <g clipPath="url(#prefix__a)">
-      <rect width={24} height={24} fill="#2684FF" rx={3} />
+      <rect width={24} height={24} fill="#C4B5FD" rx={3} />
       <path
-        fill="#fff"
+        fill="#A855F7"
         d="M17.01 11.01h-4.02V6.99a.99.99 0 1 0-1.98 0v4.02H6.99a.99.99 0 1 0 0 1.98h4.02v4.02a.99.99 0 1 0 1.98 0v-4.02h4.02a.99.99 0 1 0 0-1.98"
       />
     </g>

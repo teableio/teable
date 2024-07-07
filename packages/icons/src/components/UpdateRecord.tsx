@@ -10,13 +10,13 @@ const UpdateRecord = (props: SVGProps<SVGSVGElement>) => (
     {...props}
   >
     <g clipPath="url(#prefix__a)">
-      <rect width={24} height={24} fill="#2684FF" rx={3} />
+      <rect width={24} height={24} fill="#A7F3D0" rx={3} />
       <path
-        stroke="#fff"
+        stroke="#22C55E"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        d="M9.882 17.941 18 9.824 15.177 7l-8.118 8.118L6 19zM18 5l2 2"
+        d="M9.235 17.118 16 10.353 13.647 8l-6.765 6.765L6 18zM16 6l2 2"
       />
     </g>
     <defs>
