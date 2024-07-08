@@ -410,7 +410,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
     expect(error?.status).toBe(401);
   });
 
-  describe.only('revoke access', () => {
+  describe('revoke access', () => {
     let accessToken: string;
 
     beforeEach(async () => {
