@@ -69,7 +69,6 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       return (
         <NumberEditor
           value={value as number}
-          options={field.options}
           onChange={onSelect as (value?: number | null) => void}
           className={cn('m-1', {
             'max-w-40 min-w-24': compact,

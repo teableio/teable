@@ -7,7 +7,6 @@ import type {
   ILongTextCellValue,
   IMultipleSelectCellValue,
   INumberCellValue,
-  INumberFieldOptions,
   IRatingFieldOptions,
   ISelectFieldChoice,
   ISelectFieldOptions,
@@ -98,7 +97,6 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         <NumberEditor
           ref={editorRef}
           className={className}
-          options={options as INumberFieldOptions}
           value={cellValue as INumberCellValue}
           onChange={onChange}
           readonly={readonly}
