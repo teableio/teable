@@ -11,7 +11,7 @@ import { useRouter } from 'next/router';
 
 export interface ISidebarContentRoute {
   Icon: React.FC<{ className?: string }>;
-  label: string;
+  label: string | React.ReactNode;
   route: string;
   pathTo: string;
   disabledTip?: string;

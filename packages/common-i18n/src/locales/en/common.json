@@ -118,7 +118,8 @@
     "authorityMatrix": "Authority Matrix",
     "adminPanel": "Admin Panel",
     "license": "License",
-    "instanceId": "Instance ID"
+    "instanceId": "Instance ID",
+    "beta": "Beta"
   },
   "level": {
     "free": "Free",
