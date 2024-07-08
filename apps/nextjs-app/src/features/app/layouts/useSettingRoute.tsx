@@ -1,5 +1,4 @@
 import { Key, Link } from '@teable/icons';
-import { Badge } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 
@@ -19,12 +18,9 @@ export const useSettingRoute = () => {
         label: (
           <>
             {t('oauthApps')}
-            <Badge
-              variant={'outline'}
-              className="ml-1 h-5 -translate-y-1 p-0.5 text-[11px] font-normal"
-            >
+            <span className="ml-1 h-5 rounded-sm border border-warning p-0.5 text-[11px] font-normal text-warning">
               {t('common:noun.beta')}
-            </Badge>
+            </span>
           </>
         ),
         route: '/setting/oauth-app',
