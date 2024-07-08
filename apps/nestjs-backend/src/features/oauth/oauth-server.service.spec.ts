@@ -176,11 +176,12 @@ describe('OAuthServerService', () => {
 
       expect(cacheService.get).toHaveBeenCalledWith(`oauth:code:${mockCode}`);
       expect(cacheService.del).toHaveBeenCalledWith(`oauth:code:${mockCode}`);
-      expect(service['generateAccessToken']).toHaveBeenCalledWith(
-        mockCodeState.user.id,
-        mockCodeState.scopes,
-        mockClient.name
-      );
+      expect(service['generateAccessToken']).toHaveBeenCalledWith({
+        userId: mockCodeState.user.id,
+        scopes: mockCodeState.scopes,
+        clientId: mockClient.clientId,
+        clientName: mockClient.name,
+      });
       expect(service['getRefreshToken']).toHaveBeenCalledWith(
         mockClient,
         mockAccessToken.id,
@@ -326,11 +327,12 @@ describe('OAuthServerService', () => {
       expect(prismaService.txClient().accessToken.findUnique).toHaveBeenCalledWith({
         where: { id: verifiedToken.accessTokenId },
       });
-      expect(service['generateAccessToken']).toHaveBeenCalledWith(
-        oldAccessToken.userId,
-        ['user|email_read'],
-        client.name
-      );
+      expect(service['generateAccessToken']).toHaveBeenCalledWith({
+        clientId: client.clientId,
+        clientName: client.name,
+        userId: oldAccessToken.userId,
+        scopes: ['user|email_read'],
+      });
       expect(prismaService.txClient().oAuthAppToken.update).toHaveBeenCalledWith({
         where: { refreshTokenSign: verifiedToken.sign, appSecretId: client.secretId },
         data: {
