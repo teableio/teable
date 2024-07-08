@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Gauge, Lock, PackageCheck } from '@teable/icons';
+import { Gauge, Lock, Network } from '@teable/icons';
 import { getInstanceUsage, getSpaceUsage } from '@teable/openapi';
 import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
@@ -61,7 +61,7 @@ export const BaseSideBar = () => {
     {
       href: `/base/${baseId}/automation`,
       label: t('common:noun.automation'),
-      Icon: PackageCheck,
+      Icon: Network,
       disabled: !automationEnable,
     },
     ...(basePermission?.['base|authority_matrix_config']
