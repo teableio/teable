@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { generateClientId, getRandomString, nullsToUndefined } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type {
+  AuthorizedVo,
   GenerateOAuthSecretVo,
   OAuthCreateRo,
   OAuthCreateVo,
@@ -196,5 +197,118 @@ export class OAuthService {
         clientId,
       },
     });
+  }
+
+  async revokeAccess(clientId: string) {
+    // validate clientId is match with current user
+    const currentUserId = this.cls.get('user.id');
+    const app = await this.prismaService.oAuthApp.findFirst({
+      where: { clientId, createdBy: currentUserId },
+    });
+    if (!app) {
+      throw new ForbiddenException('No permission to revoke access: ' + clientId);
+    }
+    await this.prismaService.$tx(async () => {
+      await this.prismaService.txClient().oAuthAppAuthorized.deleteMany({
+        where: { clientId },
+      });
+      const secrets = await this.prismaService.txClient().oAuthAppSecret.findMany({
+        where: { clientId },
+      });
+      const secretIds = secrets.map((s) => s.id);
+      await this.prismaService.txClient().oAuthAppToken.deleteMany({
+        where: { appSecretId: { in: secretIds } },
+      });
+      // delete access token
+      await this.prismaService.txClient().accessToken.deleteMany({
+        where: { clientId },
+      });
+    });
+  }
+
+  async getAuthorizedList(): Promise<AuthorizedVo[]> {
+    const userId = this.cls.get('user.id');
+    const authorized = await this.prismaService.oAuthAppAuthorized.findMany({
+      where: {
+        userId,
+      },
+      select: {
+        clientId: true,
+      },
+    });
+    if (authorized.length === 0) {
+      return [];
+    }
+    const clientIds = authorized.map((a) => a.clientId);
+    const client = await this.prismaService.oAuthApp.findMany({
+      where: {
+        clientId: { in: clientIds },
+      },
+    });
+    if (client.length === 0) {
+      return [];
+    }
+    // user map
+    const users = await this.prismaService.user.findMany({
+      where: {
+        id: { in: client.map((c) => c.createdBy) },
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      },
+    });
+    const userMap = users.reduce(
+      (acc, u) => {
+        acc[u.id] = {
+          email: u.email,
+          name: u.name,
+        };
+        return acc;
+      },
+      {} as Record<string, { email: string; name: string }>
+    );
+
+    // last used time
+    const lastUsedTime = await this.prismaService.$queryRaw<
+      {
+        clientId: string;
+        lastUsedTime: string;
+      }[]
+    >(Prisma.sql`
+      WITH ranked_clients AS (
+          SELECT
+              client_id,
+              last_used_time,
+              ROW_NUMBER() OVER (PARTITION BY client_id ORDER BY last_used_time DESC) AS rn
+          FROM oauth_app_secret
+          WHERE client_id IN (${Prisma.join(clientIds)})
+      )
+      SELECT client_id as clientId, last_used_time as lastUsedTime
+      FROM ranked_clients
+      WHERE rn = 1;
+    `);
+
+    const lastUsedTimeMap = lastUsedTime.reduce(
+      (acc, d) => {
+        acc[d.clientId] = d;
+        return acc;
+      },
+      {} as Record<string, { clientId: string; lastUsedTime: string }>
+    );
+
+    return client.map((c) =>
+      this.convertToVo({
+        clientId: c.clientId,
+        name: c.name,
+        description: c.description,
+        logo: c.logo,
+        homepage: c.homepage,
+        scopes: c.scopes,
+        lastUsedTime: lastUsedTimeMap[c.clientId]?.lastUsedTime,
+        createdUser: userMap[c.createdBy],
+      })
+    );
   }
 }

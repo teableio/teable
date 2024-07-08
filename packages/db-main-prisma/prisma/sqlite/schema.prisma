@@ -315,7 +315,7 @@ model AccessToken {
   spaceIds         String?   @map("space_ids")
   baseIds          String?   @map("base_ids")
   sign             String
-  isOAuth          Boolean?  @map("is_oauth")
+  clientId         String?   @map("client_id")
   expiredTime      DateTime  @map("expired_time")
   lastUsedTime     DateTime? @map("last_used_time")
   createdTime      DateTime  @default(now()) @map("created_time")
@@ -341,10 +341,9 @@ model OAuthApp {
   clientId         String    @unique @map("client_id")
   redirectUris     String?   @map("redirect_uris")
   scopes           String?
-  isExtension      Boolean?  @map("is_extension")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
-  createdBy       String    @map("created_by")
+  createdBy        String     @map("created_by")
 
   @@map("oauth_app")
 }
@@ -361,7 +360,7 @@ model OAuthAppAuthorized {
 
 model OAuthAppSecret {
   id              String    @id @default(cuid())
-  clientId        String    @map("app_id")
+  clientId        String    @map("client_id")
   secret          String    @unique
   maskedSecret    String    @map("masked_secret")
   createdTime     DateTime  @default(now()) @map("created_time")

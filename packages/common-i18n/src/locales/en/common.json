@@ -93,6 +93,17 @@
     "nav": {
       "settings": "Settings",
       "logout": "Log out"
+    },
+    "integration": {
+      "title": "Integrations",
+      "description": "You have granted {{count}} applications access to your account.",
+      "lastUsed": "Last used at {{date}}",
+      "revoke": "Revoke",
+      "owner": "Owner by {{user}}",
+      "revokeTitle": "Are you sure you want to revoke authorization?",
+      "revokeDesc": "{{name}} will no longer be able to access the Teable API. You cannot undo this action.",
+      "scopeTitle": "Permissions",
+      "scopeDesc": "This application will be able to get the following scopes:"
     }
   },
   "noun": {
@@ -107,7 +118,8 @@
     "authorityMatrix": "Authority Matrix",
     "adminPanel": "Admin Panel",
     "license": "License",
-    "instanceId": "Instance ID"
+    "instanceId": "Instance ID",
+    "beta": "Beta"
   },
   "level": {
     "free": "Free",

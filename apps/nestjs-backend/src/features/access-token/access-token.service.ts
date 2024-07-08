@@ -76,7 +76,7 @@ export class AccessTokenService {
   async listAccessToken() {
     const userId = this.cls.get('user.id');
     const list = await this.prismaService.accessToken.findMany({
-      where: { userId, isOAuth: null },
+      where: { userId, clientId: null },
       select: {
         id: true,
         name: true,
@@ -94,10 +94,10 @@ export class AccessTokenService {
   }
 
   async createAccessToken(
-    createAccessToken: CreateAccessTokenRo & { isOAuth?: boolean; userId?: string }
+    createAccessToken: CreateAccessTokenRo & { clientId?: string; userId?: string }
   ) {
     const userId = createAccessToken.userId ?? this.cls.get('user.id')!;
-    const { name, description, scopes, spaceIds, baseIds, expiredTime, isOAuth } =
+    const { name, description, scopes, spaceIds, baseIds, expiredTime, clientId } =
       createAccessToken;
     const id = generateAccessTokenId();
     const sign = getRandomString(16);
@@ -111,7 +111,7 @@ export class AccessTokenService {
         baseIds: baseIds === null ? null : JSON.stringify(baseIds),
         userId,
         sign,
-        isOAuth,
+        clientId,
         expiredTime: new Date(expiredTime).toISOString(),
       },
       select: {

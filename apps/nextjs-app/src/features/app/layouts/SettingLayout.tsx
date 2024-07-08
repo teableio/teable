@@ -1,15 +1,15 @@
 import type { DriverClient } from '@teable/core';
-import { Key, Link } from '@teable/icons';
 import type { IUser } from '@teable/sdk';
 import { AppProvider, SessionProvider } from '@teable/sdk';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { AppLayout } from '@/features/app/layouts';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SidebarContent } from '../components/sidebar/SidebarContent';
 import { SidebarHeaderLeft } from '../components/sidebar/SidebarHeaderLeft';
 import { useSdkLocale } from '../hooks/useSdkLocale';
+import { useSettingRoute } from './useSettingRoute';
 
 export const SettingLayout: React.FC<{
   children: React.ReactNode;
@@ -22,22 +22,7 @@ export const SettingLayout: React.FC<{
   const { i18n } = useTranslation();
   const { t } = useTranslation(['setting', 'common']);
 
-  const routes = useMemo(() => {
-    return [
-      {
-        Icon: Key,
-        label: t('personalAccessToken'),
-        route: '/setting/personal-access-token',
-        pathTo: '/setting/personal-access-token',
-      },
-      {
-        Icon: Link,
-        label: t('oauthApps'),
-        route: '/setting/oauth-app',
-        pathTo: '/setting/oauth-app',
-      },
-    ];
-  }, [t]);
+  const routes = useSettingRoute();
 
   const onBack = () => {
     router.push('/');

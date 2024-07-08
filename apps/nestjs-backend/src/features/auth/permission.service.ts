@@ -50,7 +50,7 @@ export class PermissionService {
     return collaborator.roleName as BaseRole;
   }
 
-  async getOauthAccessBy(userId: string) {
+  async getOAuthAccessBy(userId: string) {
     const collaborator = await this.prismaService.txClient().collaborator.findMany({
       where: {
         userId,
@@ -77,16 +77,16 @@ export class PermissionService {
       scopes: stringifyScopes,
       spaceIds,
       baseIds,
-      isOAuth,
+      clientId,
       userId,
     } = await this.prismaService.accessToken.findFirstOrThrow({
       where: { id: accessTokenId },
-      select: { scopes: true, spaceIds: true, baseIds: true, isOAuth: true, userId: true },
+      select: { scopes: true, spaceIds: true, baseIds: true, clientId: true, userId: true },
     });
     const scopes = JSON.parse(stringifyScopes) as PermissionAction[];
-    if (isOAuth) {
+    if (clientId) {
       const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
-        await this.getOauthAccessBy(userId);
+        await this.getOAuthAccessBy(userId);
       return {
         scopes,
         spaceIds: spaceIdsByOAuth,
