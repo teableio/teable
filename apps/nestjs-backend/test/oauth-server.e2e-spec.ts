@@ -4,7 +4,6 @@ import type { INestApplication } from '@nestjs/common';
 import { HttpError } from '@teable/core';
 import {
   GET_TABLE_LIST,
-  getAuthorizedList,
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
@@ -464,8 +463,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
     });
 
     it('/api/oauth/client/:clientId/revoke-access (POST)', async () => {
-      const authorizedListData = await getAuthorizedList();
-      const revokeRes = await revokeAccess(authorizedListData.data[0].clientId);
+      const revokeRes = await revokeAccess(oauth.clientId);
       expect(revokeRes.status).toBe(200);
 
       const error = await getError(() =>
