@@ -1,4 +1,4 @@
-import { Bell, Settings, UserEdit } from '@teable/icons';
+import { Bell, Link, Settings, UserEdit } from '@teable/icons';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { System } from '@/features/app/components/setting/System';
 import { Account } from './Account';
+import { Integration } from './integration/Integration';
 import { Notifications } from './Notifications';
 import { useSettingStore } from './useSettingStore';
 
@@ -42,6 +43,13 @@ export const SettingDialog = () => {
               <Bell className="shrink-0" />
               {t('settings.notify.title')}
             </TabsTrigger>
+            <TabsTrigger
+              value="integration"
+              className="w-36 justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
+            >
+              <Link className="shrink-0" />
+              {t('settings.integration.title')}
+            </TabsTrigger>
           </TabsList>
           <TabsContent tabIndex={-1} value="profile" className="mt-0 w-full">
             <Account />
@@ -51,6 +59,9 @@ export const SettingDialog = () => {
           </TabsContent>
           <TabsContent tabIndex={-1} value="notifications" className="mt-0 w-full">
             <Notifications />
+          </TabsContent>
+          <TabsContent tabIndex={-1} value="integration" className="mt-0 w-full">
+            <Integration />
           </TabsContent>
         </Tabs>
       </DialogContent>

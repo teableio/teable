@@ -4,9 +4,11 @@ import type { INestApplication } from '@nestjs/common';
 import { HttpError } from '@teable/core';
 import {
   GET_TABLE_LIST,
+  getAuthorizedList,
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
+  revokeAccess,
   urlBuilder,
 } from '@teable/openapi';
 import type { ITableListVo, OAuthCreateVo } from '@teable/openapi';
@@ -406,5 +408,74 @@ describe('OpenAPI OAuthController (e2e)', () => {
       )
     );
     expect(error?.status).toBe(401);
+  });
+
+  describe.only('revoke access', () => {
+    let accessToken: string;
+
+    beforeEach(async () => {
+      const { transactionID } = await gerAuthorize(axios, oauth);
+
+      const res = await decision(axios, transactionID!);
+
+      const url = new URL(res.headers.location);
+      const code = url.searchParams.get('code');
+      const secret = await generateOAuthSecret(oauth.clientId);
+
+      const tokenRes = await anonymousAxios.post(
+        `/oauth/access_token`,
+        {
+          grant_type: 'authorization_code',
+          code,
+          client_id: oauth.clientId,
+          client_secret: secret.data.secret,
+          redirect_uri: oauth.redirectUris[0],
+        },
+        {
+          maxRedirects: 0,
+          headers: {
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      accessToken = tokenRes.data.access_token;
+    });
+
+    it('/api/oauth/client/:clientId/revoke-access (GET)', async () => {
+      const revokeRes = await anonymousAxios.get(`/oauth/client/${oauth.clientId}/revoke-token`, {
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      expect(revokeRes.status).toBe(200);
+
+      const error = await getError(() =>
+        anonymousAxios.get(`/auth/user`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+      );
+      expect(error?.status).toBe(401);
+    });
+
+    it('/api/oauth/client/:clientId/revoke-access (POST)', async () => {
+      const authorizedListData = await getAuthorizedList();
+      const revokeRes = await revokeAccess(authorizedListData.data[0].clientId);
+      expect(revokeRes.status).toBe(200);
+
+      const error = await getError(() =>
+        anonymousAxios.get(`/auth/user`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+      );
+      expect(error?.status).toBe(401);
+    });
   });
 });

@@ -62,6 +62,9 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
       onCancel={onBack}
       loading={isLoading}
       onSubmit={() => {
+        if (!updatedForm) {
+          return onBack();
+        }
         updatedForm && formRef.current?.validate() && updateMutate(updatedForm);
       }}
     >

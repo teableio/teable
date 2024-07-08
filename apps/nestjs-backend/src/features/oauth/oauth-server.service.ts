@@ -261,9 +261,19 @@ export class OAuthServerService {
     done(null, code);
   };
 
-  private generateAccessToken(userId: string, scopes: string[], clientName: string) {
+  private generateAccessToken({
+    userId,
+    scopes,
+    clientId,
+    clientName,
+  }: {
+    userId: string;
+    scopes: string[];
+    clientId: string;
+    clientName: string;
+  }) {
     return this.accessTokenService.createAccessToken({
-      isOAuth: true,
+      clientId,
       name: `oauth:${clientName}`,
       scopes,
       userId,
@@ -307,11 +317,12 @@ export class OAuthServerService {
         }
 
         // save access token
-        const accessToken = await this.generateAccessToken(
-          codeState.user.id,
-          codeState.scopes,
-          client.name
-        );
+        const accessToken = await this.generateAccessToken({
+          userId: codeState.user.id,
+          scopes: codeState.scopes,
+          clientId: client.clientId,
+          clientName: client.name,
+        });
 
         // save oauth access token
         const refreshTokenSign = getRandomString(16);
@@ -364,7 +375,12 @@ export class OAuthServerService {
           return done(new UnauthorizedException('Invalid access token'));
         }
         const scopes = oldAccessToken.scopes ? JSON.parse(oldAccessToken.scopes) : [];
-        const accessToken = await this.generateAccessToken(oldAccessToken.userId, scopes, name);
+        const accessToken = await this.generateAccessToken({
+          userId: oldAccessToken.userId,
+          scopes,
+          clientId,
+          clientName: name,
+        });
 
         // validate refresh_token and refresh refresh_token
         const oauthAppToken = await this.prismaService

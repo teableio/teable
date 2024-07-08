@@ -93,6 +93,17 @@
     "nav": {
       "settings": "设置",
       "logout": "退出登录"
+    },
+    "integration": {
+      "title": "集成",
+      "description": "您已授权 {{count}} 个应用程序访问您的帐户。",
+      "lastUsed": "上次使用于 {{date}}",
+      "revoke": "撤销",
+      "owner": "{{user}} 所有",
+      "revokeTitle": "您确定要撤销授权吗？",
+      "revokeDesc": "{{name}} 将不再能够访问 Teable API。此操作无法撤销。",
+      "scopeTitle": "权限",
+      "scopeDesc": "此应用程序将能够获取以下权限："
     }
   },
   "noun": {
