@@ -56,6 +56,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|delete': true,
     'automation|read': true,
     'automation|update': true,
+    'user|email_read': true,
   },
   creator: {
     'space|create': false,
@@ -98,6 +99,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|delete': true,
     'automation|read': true,
     'automation|update': true,
+    'user|email_read': true,
   },
   editor: {
     'space|create': false,
@@ -140,6 +142,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|delete': false,
     'automation|read': true,
     'automation|update': false,
+    'user|email_read': true,
   },
   commenter: {
     'space|create': false,
@@ -182,6 +185,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|delete': false,
     'automation|read': true,
     'automation|update': false,
+    'user|email_read': true,
   },
   viewer: {
     'space|create': false,
@@ -224,5 +228,6 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|delete': false,
     'automation|read': true,
     'automation|update': false,
+    'user|email_read': true,
   },
 };

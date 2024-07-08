@@ -167,7 +167,6 @@
   },
   "help": {
     "title": "Help",
-    "devDocs": "Developer Docs",
     "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/developer/api"
   },

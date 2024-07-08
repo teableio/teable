@@ -1,4 +1,4 @@
-import type { AllActions } from '@teable/core';
+import { ActionPrefix, type AllActions } from '@teable/core';
 import {
   createAccessTokenRoSchema,
   type CreateAccessTokenRo,
@@ -10,13 +10,23 @@ import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
+import { RequireCom } from '../../components/RequireCom';
+import { ScopesSelect } from '../../components/ScopesSelect';
 import { AccessSelect } from './AccessSelect';
 import { ExpirationSelect } from './ExpirationSelect';
 import { RefreshToken } from './RefreshToken';
-import { RequireCom } from './RequireCom';
-import { ScopesSelect } from './ScopesSelect';
 
 export type IFormType = 'new' | 'edit';
+
+const actionsPrefixes = [
+  ActionPrefix.Space,
+  ActionPrefix.Base,
+  ActionPrefix.Table,
+  ActionPrefix.View,
+  ActionPrefix.Field,
+  ActionPrefix.Record,
+  ActionPrefix.Automation,
+];
 
 type ISubmitData = {
   new: CreateAccessTokenRo;
@@ -141,7 +151,11 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
             {t('token:formLabelTips.scopes')}
           </div>
         </Label>
-        <ScopesSelect initValue={scopes as AllActions[]} onChange={setScopes} />
+        <ScopesSelect
+          initValue={scopes as AllActions[]}
+          onChange={setScopes}
+          actionsPrefixes={actionsPrefixes}
+        />
       </div>
       <div className="space-y-2">
         <Label aria-required>

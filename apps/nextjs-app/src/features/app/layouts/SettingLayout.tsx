@@ -1,12 +1,11 @@
 import type { DriverClient } from '@teable/core';
-import { Key } from '@teable/icons';
+import { Key, Link } from '@teable/icons';
 import type { IUser } from '@teable/sdk';
 import { AppProvider, SessionProvider } from '@teable/sdk';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useMemo } from 'react';
 import { AppLayout } from '@/features/app/layouts';
-import { personalAccessTokenConfig } from '@/features/i18n/personal-access-token.config';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SidebarContent } from '../components/sidebar/SidebarContent';
 import { SidebarHeaderLeft } from '../components/sidebar/SidebarHeaderLeft';
@@ -21,15 +20,21 @@ export const SettingLayout: React.FC<{
   const router = useRouter();
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
-  const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
+  const { t } = useTranslation(['setting', 'common']);
 
   const routes = useMemo(() => {
     return [
       {
         Icon: Key,
-        label: t('token:title'),
+        label: t('personalAccessToken'),
         route: '/setting/personal-access-token',
         pathTo: '/setting/personal-access-token',
+      },
+      {
+        Icon: Link,
+        label: t('oauthApps'),
+        route: '/setting/oauth-app',
+        pathTo: '/setting/oauth-app',
       },
     ];
   }, [t]);
@@ -43,7 +48,9 @@ export const SettingLayout: React.FC<{
       <AppProvider lang={i18n.language} locale={sdkLocale} dehydratedState={dehydratedState}>
         <SessionProvider user={user}>
           <div id="portal" className="relative flex h-screen w-full items-start">
-            <Sidebar headerLeft={<SidebarHeaderLeft title={t('settings.title')} onBack={onBack} />}>
+            <Sidebar
+              headerLeft={<SidebarHeaderLeft title={t('common:settings.title')} onBack={onBack} />}
+            >
               <SidebarContent routes={routes} />
             </Sidebar>
             {children}

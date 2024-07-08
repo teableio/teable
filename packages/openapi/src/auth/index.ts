@@ -6,3 +6,4 @@ export * from './change-password';
 export * from './send-reset-password-email';
 export * from './reset-password';
 export * from './add-password';
+export * from './user';

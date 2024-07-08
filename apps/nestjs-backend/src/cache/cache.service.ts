@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { getRandomInt } from '@teable/core';
 import { type Store } from 'keyv';
+import { second } from '../utils/second';
 import type { ICacheStore } from './types';
 
 @Injectable()
@@ -16,9 +17,14 @@ export class CacheService {
     key: TKey,
     value: ICacheStore[TKey],
     // seconds, and will add random 20-60 seconds
-    ttl?: number
+    ttl?: number | string
   ): Promise<void> {
-    await this.cacheManager.set(key, value, ttl ? (ttl + getRandomInt(20, 60)) * 1000 : undefined);
+    const numberTTL = typeof ttl === 'string' ? second(ttl) : ttl;
+    await this.cacheManager.set(
+      key,
+      value,
+      numberTTL ? (numberTTL + getRandomInt(20, 60)) * 1000 : undefined
+    );
   }
 
   async del<TKey extends keyof ICacheStore>(key: TKey): Promise<void> {

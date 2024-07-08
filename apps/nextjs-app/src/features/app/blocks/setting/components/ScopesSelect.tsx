@@ -1,15 +1,17 @@
-import { actionPrefixMap, type ActionPrefix, type AllActions } from '@teable/core';
+import { actionPrefixMap } from '@teable/core';
+import type { ActionPrefix, AllActions } from '@teable/core';
 import { usePermissionActionsStatic } from '@teable/sdk/hooks';
 import { Checkbox, Label } from '@teable/ui-lib/shadcn';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 interface IScopesSelectProps {
   initValue?: AllActions[];
-  onChange: (value: string[]) => void;
+  onChange?: (value: string[]) => void;
+  actionsPrefixes?: ActionPrefix[];
 }
 
 export const ScopesSelect = (props: IScopesSelectProps) => {
-  const { onChange, initValue } = props;
+  const { onChange, initValue, actionsPrefixes } = props;
   const [value, setValue] = useState<Record<AllActions, boolean>>(() => {
     if (initValue) {
       return initValue.reduce(
@@ -32,10 +34,18 @@ export const ScopesSelect = (props: IScopesSelectProps) => {
     onChange?.(actions);
   };
 
+  const actionsPrefix = useMemo(() => {
+    if (actionsPrefixes) {
+      return Object.keys(actionPrefixStaticMap).filter((key) =>
+        actionsPrefixes.includes(key as ActionPrefix)
+      ) as ActionPrefix[];
+    }
+    return Object.keys(actionPrefixStaticMap) as ActionPrefix[];
+  }, [actionPrefixStaticMap, actionsPrefixes]);
+
   return (
     <div className="space-y-3 pl-2">
-      {Object.keys(actionPrefixStaticMap).map((_actionPrefix) => {
-        const actionPrefix = _actionPrefix as ActionPrefix;
+      {actionsPrefix.map((actionPrefix) => {
         const actions = actionPrefixMap[actionPrefix];
         return (
           <div key={actionPrefix} className="space-y-1">

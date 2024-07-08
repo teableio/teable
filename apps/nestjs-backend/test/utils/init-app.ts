@@ -94,8 +94,6 @@ export async function initApp() {
   const port = new URL(nestUrl).port;
   const url = `http://127.0.0.1:${port}`;
 
-  console.log('url', url);
-
   process.env.PORT = port;
   process.env.STORAGE_PREFIX = url;
 

@@ -28,7 +28,6 @@ export const AccessList = (props: IAccessListProps) => {
     queryKey: ['base-all'],
     queryFn: () => getBaseAll(),
   });
-
   const spaceMap = useMemo(() => {
     const spaceMap: Record<string, IGetSpaceVo> = {};
     spaceList?.data?.forEach((item) => {
@@ -46,13 +45,12 @@ export const AccessList = (props: IAccessListProps) => {
   }, [baseList]);
 
   const { displaySpaceMap, displayBaseMap, allDisplaySpaceIds } = useMemo(() => {
-    if (isEmpty(baseMap) || isEmpty(spaceMap)) {
+    if (isEmpty(baseMap) && isEmpty(spaceMap)) {
       return { displayBaseMap: {}, displaySpaceMap: {}, allDisplaySpaceIds: [] };
     }
     const displaySpaceMap: Record<string, IGetSpaceVo> = {};
     const displayBaseMap: Record<string, IGetBaseVo[]> = {};
     const allDisplaySpaceIds = new Set<string>();
-
     spaceIds.forEach((spaceId) => {
       displaySpaceMap[spaceId] = spaceMap[spaceId];
       allDisplaySpaceIds.add(spaceId);

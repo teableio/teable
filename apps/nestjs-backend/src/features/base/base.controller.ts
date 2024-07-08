@@ -25,6 +25,7 @@ import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
+import { TokenAccess } from '../auth/decorators/token.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
@@ -99,6 +100,12 @@ export class BaseController {
   @Get('access/all')
   async getAllBase(): Promise<IGetBaseVo[]> {
     return await this.baseService.getAllBaseList();
+  }
+
+  @Get('access/list')
+  @TokenAccess()
+  async getAccessBase(): Promise<{ id: string; name: string }[]> {
+    return this.baseService.getAccessBaseList();
   }
 
   @Delete(':baseId')

@@ -1,5 +1,6 @@
 import type { CreateAccessTokenVo, UpdateAccessTokenVo } from '@teable/openapi';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useEffect, useRef } from 'react';
 import { SettingRight } from '../SettingRight';
 import { AccessTokenList } from './AccessTokenList';
@@ -11,6 +12,7 @@ export const PersonAccessTokenPage = () => {
   const router = useRouter();
   const formType = router.query.form as IFormType;
   const newTokenRef = useRef<string>();
+  const { t } = useTranslation('common');
 
   const backList = () => {
     newTokenRef.current = undefined;
@@ -36,7 +38,10 @@ export const PersonAccessTokenPage = () => {
   }, [router.query]);
 
   return (
-    <SettingRight title={<PersonAccessTokenTitle backList={backList} />}>
+    <SettingRight
+      title={<PersonAccessTokenTitle backList={backList} />}
+      helpLink={t('help.apiLink')}
+    >
       <div className="my-3 space-y-1">
         {formType ? (
           <PersonAccessTokenForm onSubmit={onSubmit} onRefresh={onRefresh} onCancel={backList} />

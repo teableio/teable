@@ -1,0 +1,63 @@
+{
+  "add": "新增 OAuth 应用",
+  "title": {
+    "add": "新增 OAuth 应用",
+    "edit": "编辑 OAuth 应用"
+  },
+  "form": {
+    "name": {
+      "label": "OAuth 应用名称",
+      "description": "您的 OAuth 应用的名称。"
+    },
+    "description": {
+      "label": "描述",
+      "description": "您的 OAuth 应用的简短描述。"
+    },
+    "homePageUrl": {
+      "label": "主页 URL",
+      "description": "您的 OAuth 应用网站的完整 URL。"
+    },
+    "logo": {
+      "label": "标志",
+      "description": "建议使用正方形图像。",
+      "placeholder": "将文件拖放到此处或点击、粘贴进行上传",
+      "button": "上传标志",
+      "clear": "清除",
+      "lengthError": "仅允许一个文件。",
+      "typeError": "仅允许图像文件。"
+    },
+    "callbackUrl": {
+      "label": "回调 URL",
+      "description": "用户授权您的集成后要重定向的完整 URL。",
+      "add": "添加回调 URL"
+    },
+    "scopes": {
+      "label": "权限范围",
+      "description": "您的 OAuth 应用所需的权限。"
+    },
+    "secret": {
+      "label": "客户端密钥",
+      "add": "生成一个新的客户端密钥",
+      "newDescription": "请务必立即复制您的新客户端密钥。您将无法再次看到它。",
+      "empty": "您需要一个客户端密钥来验证应用程序对 API 的身份。",
+      "lastUsed": "上次使用时间 {{date}}",
+      "tag": "客户端密钥",
+      "neverUsed": "从未使用"
+    },
+    "clientId": {
+      "label": "客户端 ID："
+    }
+  },
+  "formType": {
+    "basic": "基本信息",
+    "scopes": "权限范围",
+    "identify": "识别和授权用户",
+    "clientInfo": "客户端信息"
+  },
+  "decision": {
+    "title": "{{name}} 正在请求访问您的帐户",
+    "scopes": "此应用程序将能够获取以下权限范围：",
+    "redirectDescription": "授权将重定向到",
+    "authorize": "授权"
+  }
+}

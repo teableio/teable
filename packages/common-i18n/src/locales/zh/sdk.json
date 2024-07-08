@@ -147,7 +147,8 @@
       "automationCreate": "创建自动化",
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
-      "automationUpdate": "更新自动化"
+      "automationUpdate": "更新自动化",
+      "userEmailRead": "查看用户电子邮件"
     }
   },
   "noun": {
@@ -157,6 +158,7 @@
     "base": "数据库",
     "field": "字段",
     "record": "记录",
-    "automation": "自动化"
+    "automation": "自动化",
+    "user": "用户"
   }
 }
