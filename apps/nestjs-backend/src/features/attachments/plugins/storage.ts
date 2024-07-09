@@ -6,6 +6,7 @@ import type { IStorageConfig } from '../../../configs/storage';
 import { storageConfig } from '../../../configs/storage';
 import { LocalStorage } from './local';
 import { MinioStorage } from './minio';
+import { S3Storage } from './s3';
 
 const StorageAdapterProvider = Symbol.for('ObjectStorage');
 
@@ -19,6 +20,8 @@ export const storageAdapterProvider: Provider = {
         return new LocalStorage(config, cacheService);
       case 'minio':
         return new MinioStorage(config);
+      case 's3':
+        return new S3Storage(config);
       default:
         throw new Error('Invalid storage provider');
     }
