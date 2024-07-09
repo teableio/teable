@@ -107,6 +107,8 @@
     "webpack": "5.91.0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.609.0",
+    "@aws-sdk/s3-request-presigner": "3.609.0",
     "@keyv/redis": "2.8.4",
     "@keyv/sqlite": "3.6.7",
     "@nestjs-modules/mailer": "1.11.2",

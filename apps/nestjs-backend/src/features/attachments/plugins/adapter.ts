@@ -44,7 +44,7 @@ export default abstract class StorageAdapter {
    * @param params presigned params, limit presigned url upload file
    * @returns presigned url and upload params
    */
-  abstract presigned(bucket: string, dir: string, params?: IPresignParams): Promise<IPresignRes>;
+  abstract presigned(bucket: string, dir: string, params: IPresignParams): Promise<IPresignRes>;
 
   /**
    * get object meta
