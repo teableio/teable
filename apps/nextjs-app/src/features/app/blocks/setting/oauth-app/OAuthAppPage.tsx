@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { useInitializationZodI18n } from '@/features/app/hooks/useinitializationZodI18n';
+import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
 import { SettingRight } from '../SettingRight';
 import { SettingRightTitle } from '../SettingRightTitle';
