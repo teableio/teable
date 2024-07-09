@@ -74,7 +74,7 @@ export const FilterMain = (props: IFilterMainProps) => {
         onChange?.(filters);
       }
     },
-    500,
+    100,
     [filters]
   );
 

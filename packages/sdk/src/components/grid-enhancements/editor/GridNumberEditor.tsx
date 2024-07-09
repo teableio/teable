@@ -1,4 +1,3 @@
-import type { INumberFieldOptions } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { NumberEditor } from '../../editor';
@@ -16,7 +15,6 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
   const { field, record, rect, style, theme, cell, isEditing } = props;
   const { cellLineColorActived } = theme;
   const editorRef = useRef<IEditorRef<number>>(null);
-  const options = field.options as INumberFieldOptions;
   const { width, height } = rect;
 
   useImperativeHandle(ref, () => ({
@@ -48,7 +46,6 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
       ref={editorRef}
       className="rounded-md border-2 text-right shadow-none focus-visible:ring-transparent"
       style={{ border: `2px solid ${cellLineColorActived}`, ...style, ...attachStyle }}
-      options={options}
       onChange={saveValue}
       saveOnBlur={false}
     />

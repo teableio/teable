@@ -1,24 +1,16 @@
-import { formatNumberToString, parseStringToNumber } from '@teable/core';
-import type { INumberFieldOptions } from '@teable/core';
+import { parseStringToNumber } from '@teable/core';
 import { Input, cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { ICellEditor, IEditorRef } from '../type';
 
-interface INumberEditor extends ICellEditor<number | null> {
-  options: INumberFieldOptions;
-}
-
-export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INumberEditor> = (
-  props,
-  ref
-) => {
-  const { value, options, onChange, className, readonly, style, saveOnBlur = true } = props;
-  const { formatting } = options;
+export const NumberEditorBase: ForwardRefRenderFunction<
+  IEditorRef<number>,
+  ICellEditor<number | null>
+> = (props, ref) => {
+  const { value, onChange, className, readonly, style, saveOnBlur = true } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [formatStr, setFormatStr] = useState<string | null>(
-    formatNumberToString(value as number, formatting)
-  );
+  const [str, setStr] = useState<string | null>(value ? value.toString() : '');
 
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
@@ -27,17 +19,15 @@ export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INum
   }));
 
   const setValue = (value?: number) => {
-    setFormatStr(formatNumberToString(value, formatting));
+    setStr(typeof value === 'number' ? value.toString() : '');
   };
 
   const saveValue = () => {
-    const currentValue = parseStringToNumber(formatStr, formatting);
-    onChange?.(currentValue);
-    setFormatStr(formatNumberToString(currentValue as number, formatting));
+    onChange?.(parseStringToNumber(str));
   };
 
-  const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormatStr(e.target.value);
+  const onChangeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setStr(e.target.value);
   };
 
   return (
@@ -45,8 +35,8 @@ export const NumberEditorBase: ForwardRefRenderFunction<IEditorRef<number>, INum
       ref={inputRef}
       style={style}
       className={cn('h-10 sm:h-8', className)}
-      value={formatStr || ''}
-      onChange={onChangeInner}
+      value={str || ''}
+      onChange={onChangeHandler}
       onBlur={() => saveOnBlur && saveValue()}
       disabled={readonly}
     />
