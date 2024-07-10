@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import type { Profile } from 'passport-openidconnect';
@@ -39,9 +39,15 @@ export class OIDCStrategy extends PassportStrategy(Strategy, 'openidconnect') {
       type: 'oauth',
       avatarUrl: photos?.[0].value,
     });
+
     if (!user) {
       throw new UnauthorizedException('Failed to create user from OIDC profile');
     }
+
+    if (user.deactivatedTime) {
+      throw new BadRequestException('Your account has been deactivated by the administrator');
+    }
+    await this.usersService.refreshLastSignTime(user.id);
     return pickUserMe(user);
   }
 }
