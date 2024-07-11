@@ -137,7 +137,7 @@ export const SharePopover: React.FC<{
                     <Qrcode />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="size-48 p-0.5">
+                <PopoverContent className="size-48 bg-white p-2">
                   {shareUrl && <QRCodeSVG value={shareUrl} className="size-full" />}
                 </PopoverContent>
               </Popover>
