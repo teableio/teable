@@ -86,7 +86,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
   return (
     <Card className={cn('group cursor-pointer hover:shadow-md', className)} onClick={intoBase}>
-      <CardContent className="flex size-full items-center px-4 py-6">
+      <CardContent className="flex size-full items-center gap-3 px-4 py-6">
         {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
           <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
@@ -99,8 +99,8 @@ export const BaseCard: FC<IBaseCard> = (props) => {
             )}
           </EmojiPicker>
         </div>
-        <div className="h-full flex-1 overflow-hidden">
-          <div className="flex items-center justify-between gap-3 p-0.5">
+        <div className="h-full flex-1">
+          <div className="relative flex justify-between gap-3 p-0.5">
             {renaming ? (
               <form
                 onSubmit={(e) => {
@@ -118,28 +118,26 @@ export const BaseCard: FC<IBaseCard> = (props) => {
                 />
               </form>
             ) : (
-              <h3 className="line-clamp-2 flex-1 px-4	" title={base.name}>
+              <h3 className="line-clamp-2 flex-1" title={base.name}>
                 {base.name}
               </h3>
             )}
-            <StarButton className="size-4" id={base.id} type={PinType.Base} />
-            <div className="shrink-0">
-              <BaseActionTrigger
-                base={base}
-                showRename={hasUpdatePermission}
-                showDuplicate={hasReadPermission}
-                showDelete={hasDeletePermission}
-                onDelete={() => deleteBaseMutator(base.id)}
-                onRename={onRename}
-              >
-                <Button
-                  className="sm:opacity-0 sm:group-hover:opacity-100"
-                  variant="outline"
-                  size={'xs'}
+            <div className="right-0 flex items-center gap-3 md:absolute md:translate-x-full md:opacity-0 md:group-hover:relative md:group-hover:translate-x-0 md:group-hover:opacity-100">
+              <StarButton className="size-4 opacity-100" id={base.id} type={PinType.Base} />
+              <div className="shrink-0">
+                <BaseActionTrigger
+                  base={base}
+                  showRename={hasUpdatePermission}
+                  showDuplicate={hasReadPermission}
+                  showDelete={hasDeletePermission}
+                  onDelete={() => deleteBaseMutator(base.id)}
+                  onRename={onRename}
                 >
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </BaseActionTrigger>
+                  <Button variant="outline" size={'xs'}>
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                </BaseActionTrigger>
+              </div>
             </div>
           </div>
         </div>

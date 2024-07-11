@@ -107,6 +107,7 @@ export { default as Phone } from './components/Phone';
 export { default as Play } from './components/Play';
 export { default as Plus } from './components/Plus';
 export { default as PlusCircle } from './components/PlusCircle';
+export { default as Qrcode } from './components/Qrcode';
 export { default as RefreshCcw } from './components/RefreshCcw';
 export { default as Search } from './components/Search';
 export { default as SendMail } from './components/SendMail';
