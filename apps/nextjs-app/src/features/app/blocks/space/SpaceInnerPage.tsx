@@ -108,7 +108,12 @@ export const SpaceInnerPage: React.FC = () => {
             </SpaceRenaming>
             <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
             {isCloud && (
-              <LevelWithUpgrade level={subscriptionSummary?.level} spaceId={space.id} withUpgrade />
+              <LevelWithUpgrade
+                level={subscriptionSummary?.level}
+                status={subscriptionSummary?.status}
+                spaceId={space.id}
+                withUpgrade
+              />
             )}
           </div>
 

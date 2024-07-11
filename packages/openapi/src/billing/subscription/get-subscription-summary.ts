@@ -15,8 +15,21 @@ export enum BillingProductLevel {
   Enterprise = 'enterprise',
 }
 
+export enum SubscriptionStatus {
+  Active = 'active',
+  Canceled = 'canceled',
+  Incomplete = 'incomplete',
+  IncompleteExpired = 'incomplete_expired',
+  Trialing = 'trialing',
+  PastDue = 'past_due',
+  Unpaid = 'unpaid',
+  Paused = 'paused',
+  SeatLimitExceeded = 'seat_limit_exceeded',
+}
+
 export const subscriptionSummaryVoSchema = z.object({
   spaceId: z.string(),
+  status: z.nativeEnum(SubscriptionStatus),
   level: z.nativeEnum(BillingProductLevel),
 });
 

@@ -188,7 +188,22 @@
     "overLimitsDescription": "用量已超出了当前订阅版本的限制，您可以升级到更高级的版本以解锁更多功能用量。",
     "userLimitExceededDescription": "当前实例已达到许可证允许的最大用户数限制，请停用超限的用户或升级许可证以继续使用。",
     "unavailableInPlanTips": "当前订阅计划不支持此功能",
-    "levelTips": "当前空间使用的是{{level}}计划"
+    "levelTips": "当前空间使用的是{{level}}计划",
+    "spaceSubscriptionModal": {
+      "title": "升级空间站的订阅计划",
+      "description": "您只能更改具有「拥有者」权限的空间站"
+    },
+    "status": {
+      "active": "已激活",
+      "canceled": "已取消",
+      "incomplete": "交易未完成",
+      "incompleteExpired": "交易已过期",
+      "trialing": "试用中",
+      "pastDue": "逾期",
+      "unpaid": "未支付",
+      "paused": "已暂停",
+      "seatLimitExceeded": "席位数超限制"
+    }
   },
   "admin": {
     "setting": {
