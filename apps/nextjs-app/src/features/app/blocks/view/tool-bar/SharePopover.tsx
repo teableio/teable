@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable/core';
-import { Copy, Edit, RefreshCcw } from '@teable/icons';
+import { Copy, Edit, RefreshCcw, Qrcode } from '@teable/icons';
 import { useView } from '@teable/sdk/hooks';
 import type { View } from '@teable/sdk/model';
 import {
@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib';
 import { debounce, omit } from 'lodash';
+import { QRCodeSVG } from 'qrcode.react';
 import { useMemo, useState } from 'react';
 
 const getShareUrl = (shareId: string) => {
@@ -129,6 +130,18 @@ export const SharePopover: React.FC<{
                 Share Link
               </Label>
               <Input className="h-7 grow" id="share-link" placeholder={shareUrl} readOnly />
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="xs" variant="outline">
+                    <Qrcode />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="size-48 p-0.5">
+                  {shareUrl && <QRCodeSVG value={shareUrl} className="size-full" />}
+                </PopoverContent>
+              </Popover>
+
               <TooltipProvider disableHoverableContent={true}>
                 <Tooltip open={copyTooltip}>
                   <TooltipTrigger asChild>
