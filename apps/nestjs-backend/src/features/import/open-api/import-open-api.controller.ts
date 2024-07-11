@@ -10,7 +10,9 @@ import {
 import type { ITableFullVo, IAnalyzeVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { TokenAccess } from '../../auth/decorators/token.decorator';
 import { PermissionGuard } from '../../auth/guard/permission.guard';
+
 import { ImportOpenApiService } from './import-open-api.service';
 
 @Controller('api/import')
@@ -18,6 +20,7 @@ import { ImportOpenApiService } from './import-open-api.service';
 export class ImportController {
   constructor(private readonly importOpenService: ImportOpenApiService) {}
   @Get('/analyze')
+  @TokenAccess()
   async analyzeSheetFromFile(
     @Query(new ZodValidationPipe(analyzeRoSchema)) analyzeRo: IAnalyzeRo
   ): Promise<IAnalyzeVo> {
