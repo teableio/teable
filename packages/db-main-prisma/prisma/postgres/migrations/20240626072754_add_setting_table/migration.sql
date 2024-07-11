@@ -7,5 +7,7 @@ CREATE TABLE "setting" (
     CONSTRAINT "setting_pkey" PRIMARY KEY ("instance_id")
 );
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Insert initial record
 INSERT INTO "setting" ("instance_id", "disallow_sign_up", "disallow_space_creation") VALUES (gen_random_uuid(), NULL, NULL);
