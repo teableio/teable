@@ -325,6 +325,7 @@ export class BaseService {
     return pick(permissionMap, [
       ...actionPrefixMap[ActionPrefix.Table],
       ...actionPrefixMap[ActionPrefix.Base],
+      ...actionPrefixMap[ActionPrefix.Automation],
     ]);
   }
 }
