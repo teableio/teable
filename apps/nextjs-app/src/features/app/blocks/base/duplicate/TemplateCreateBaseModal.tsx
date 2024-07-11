@@ -33,12 +33,6 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
     queryFn: () => getSpaceList(),
   });
 
-  useEffect(() => {
-    if (!targetSpaceId) {
-      setTargetSpaceId(spaceList?.data[0]?.id);
-    }
-  }, [spaceList, targetSpaceId, templateId]);
-
   const { mutateAsync: templateCreateBaseMutator } = useMutation({
     mutationFn: createBaseFromTemplate,
     onSuccess: ({ data }) => {
@@ -53,6 +47,12 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
   const editableSpaceList = useMemo(() => {
     return spaceList?.data.filter((space) => hasPermission(space.role, 'base|create')) || [];
   }, [spaceList?.data]);
+
+  useEffect(() => {
+    if (!targetSpaceId) {
+      setTargetSpaceId(editableSpaceList[0]?.id);
+    }
+  }, [editableSpaceList, targetSpaceId, templateId]);
 
   const onSubmit = () => {
     if (!targetSpaceId) {
