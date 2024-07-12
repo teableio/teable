@@ -1,7 +1,6 @@
 export * from './FilterSingleSelect';
 export * from './FilterMultipleSelect';
 export * from './FilterInput';
-export * from './FilterInputNumber';
 export * from './filterDatePicker';
 export * from './FilterCheckBox';
 export * from './filter-link';
