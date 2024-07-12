@@ -12,6 +12,7 @@ import { spaceConfig } from '@/features/i18n/space.config';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
+import { useSpaceSubscriptionMonitor } from '../billing/useSpaceSubscriptionMonitor';
 import { SpaceCard } from './SpaceCard';
 import { useBaseList } from './useBaseList';
 import { useSpaceListOrdered } from './useSpaceListOrdered';
@@ -22,7 +23,9 @@ export const SpacePage: FC = () => {
   const isCloud = useIsCloud();
   const ref = useRef<HTMLDivElement>(null);
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
+
   useTemplateMonitor();
+  useSpaceSubscriptionMonitor();
 
   const orderedSpaceList = useSpaceListOrdered();
 

@@ -189,7 +189,22 @@
     "overLimitsDescription": "Your current subscription has exceeded its usage limit. Please upgrade your plan to continue using this feature without interruption.",
     "userLimitExceededDescription": "The current instance have reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
     "unavailableInPlanTips": "The current subscription plan does not support this feature",
-    "levelTips": "This space is currently on the {{level}} plan"
+    "levelTips": "This space is currently on the {{level}} plan",
+    "spaceSubscriptionModal": {
+      "title": "Upgrade space's subscription plan",
+      "description": "You can only upgrade workspaces where you are an owner"
+    },
+    "status": {
+      "active": "Active",
+      "canceled": "Canceled",
+      "incomplete": "Incomplete",
+      "incompleteExpired": "Incomplete Expired",
+      "trialing": "Trialing",
+      "pastDue": "Past Due",
+      "unpaid": "Unpaid",
+      "paused": "Paused",
+      "seatLimitExceeded": "Seat limit exceeded"
+    }
   },
   "admin": {
     "setting": {

@@ -97,7 +97,8 @@
       "user": "User",
       "rating": "Rating",
       "autoNumber": "Auto number",
-      "lookup": "lookup to other table"
+      "lookup": "lookup to other table",
+      "button": "Button"
     }
   },
   "spaceRole": {

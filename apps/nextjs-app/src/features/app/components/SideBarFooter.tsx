@@ -5,6 +5,7 @@ import { NotificationsManage } from '@/features/app/components/notifications/Not
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 import { DuplicateBaseModal } from '../blocks/base/duplicate/DuplicateBaseModal';
 import { TemplateCreateBaseModal } from '../blocks/base/duplicate/TemplateCreateBaseModal';
+import { SpaceSubscriptionModal } from '../blocks/billing/SpaceSubscriptionModal';
 import { SettingDialog } from './setting/SettingDialog';
 import { UserNav } from './user/UserNav';
 
@@ -23,6 +24,7 @@ export const SideBarFooter: React.FC = () => {
         <SettingDialog />
         <DuplicateBaseModal />
         <TemplateCreateBaseModal />
+        <SpaceSubscriptionModal />
         <NotificationsManage />
       </div>
     </div>

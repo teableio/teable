@@ -1,3 +1,4 @@
+import type { SubscriptionStatus } from '@teable/openapi';
 import { BillingProductLevel } from '@teable/openapi';
 import {
   Button,
@@ -10,15 +11,17 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
 import { Level } from './Level';
+import { Status } from './Status';
 
 interface ILevelWithUpgradeProps {
-  level?: BillingProductLevel;
   spaceId?: string;
+  level?: BillingProductLevel;
+  status?: SubscriptionStatus;
   withUpgrade?: boolean;
 }
 
 export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
-  const { level, spaceId, withUpgrade } = props;
+  const { level, spaceId, withUpgrade, status } = props;
   const isEnterprise = level === BillingProductLevel.Enterprise;
   const { t } = useTranslation('common');
   const { description } = useBillingLevelConfig(level);
@@ -45,6 +48,7 @@ export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      <Status status={status} />
       {withUpgrade && !isEnterprise && (
         <Button
           size="xs"
