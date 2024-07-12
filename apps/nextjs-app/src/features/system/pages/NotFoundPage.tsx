@@ -19,11 +19,11 @@ export const NotFoundPage: FC<Props> = (props) => {
       <Head>
         <title>{title}</title>
       </Head>
-      <div className="flex h-screen flex-col items-center justify-center bg-white">
+      <div className="flex h-screen flex-col items-center justify-center gap-y-6 bg-white text-center">
         <h1 data-testid="not-found-title" className="text-5xl text-black md:text-4xl lg:text-5xl">
           {title}
         </h1>
-        <Button className="mt-5 text-center text-xl no-underline hover:underline">
+        <Button className="text-center text-xl no-underline hover:underline">
           <a href={'/'}>{t('system:links.backToHome')}</a>
         </Button>
       </div>

@@ -38,6 +38,14 @@ export default function withAuthSSR<P extends { [key: string]: any }, T extends 
           },
         };
       }
+      if (error.status === 402) {
+        return {
+          redirect: {
+            destination: `/402`,
+            permanent: false,
+          },
+        };
+      }
       if (error.status === 403) {
         return {
           redirect: {

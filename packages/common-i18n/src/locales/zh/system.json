@@ -8,5 +8,9 @@
   "forbidden": {
     "title": "403 - 禁止访问",
     "description": "您没有权限访问此页面"
+  },
+  "paymentRequired": {
+    "title": "402 - 需要升级订阅",
+    "description": "您当前的订阅计划不支持访问此功能，请升级您的订阅以继续使用"
   }
 }
