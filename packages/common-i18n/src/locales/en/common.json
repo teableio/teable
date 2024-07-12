@@ -24,10 +24,12 @@
     "refreshPage": "Refresh Page",
     "yesDelete": "Yes, delete",
     "rename": "Rename",
+    "duplicate": "duplicate",
     "change": "Change",
     "upgrade": "Upgrade",
     "search": "Search",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "collapseSidebar": "Collapse Sidebar"
   },
   "quickAction": {
     "title": "Quick Actions...",

@@ -1,9 +1,8 @@
 import type { IDateFilter, IFilterItem } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
 import { cn, Input } from '@teable/ui-lib';
-
 import { useMemo } from 'react';
-
+import { useTranslation } from '../../../context/app/i18n';
 import type { DateField, IFieldInstance } from '../../../model';
 import { NumberEditor, RatingEditor } from '../../editor';
 import {
@@ -30,6 +29,7 @@ interface IBaseFieldValue {
 
 export function BaseFieldValue(props: IBaseFieldValue) {
   const { onSelect, components, field, operator, value } = props;
+  const { t } = useTranslation();
   const compact = useCompact();
 
   const emptyComponent = (
@@ -54,7 +54,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
 
   const InputComponent = (
     <FilterInput
-      placeholder="Enter a value"
+      placeholder={t('filter.default.placeholder')}
       value={value as string}
       onChange={onSelect}
       className={cn({
@@ -74,6 +74,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             'max-w-40 min-w-24': compact,
             'w-40': !compact,
           })}
+          placeholder={t('filter.default.placeholder')}
         />
       );
     case FieldType.SingleSelect:

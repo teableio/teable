@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
 
@@ -32,6 +33,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     onRename,
     align = 'end',
   } = props;
+  const { t } = useTranslation('common');
   const [deleteConfirm, setDeleteConfirm] = React.useState(false);
   const baseStore = useDuplicateBaseStore();
   if (!showDelete && !showRename && !showDuplicate) {
@@ -57,13 +59,13 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           {showRename && (
             <DropdownMenuItem onClick={onRename}>
               <Pencil className="mr-2" />
-              Rename
+              {t('actions.rename')}
             </DropdownMenuItem>
           )}
           {showDuplicate && (
             <DropdownMenuItem onClick={() => baseStore.openModal(base)}>
               <Copy className="mr-2" />
-              Duplicate
+              {t('actions.duplicate')}
             </DropdownMenuItem>
           )}
           {showDelete && (
@@ -71,7 +73,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
                 <Trash2 className="mr-2" />
-                Delete
+                {t('actions.delete')}
               </DropdownMenuItem>
             </>
           )}

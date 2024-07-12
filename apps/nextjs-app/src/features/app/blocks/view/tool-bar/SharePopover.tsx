@@ -25,8 +25,10 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib';
 import { debounce, omit } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMemo, useState } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
 
 const getShareUrl = (shareId: string) => {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -38,7 +40,9 @@ export const SharePopover: React.FC<{
 }> = (props) => {
   const { children } = props;
   const view = useView();
-  const ShareViewText = 'Share';
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const ShareViewText = t('table:toolbar.others.share.label');
   const [copyTooltip, setCopyTooltip] = useState<boolean>(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
   const [sharePassword, setSharePassword] = useState<string>('');
@@ -113,7 +117,7 @@ export const SharePopover: React.FC<{
       <PopoverTrigger asChild>{children(ShareViewText, enableShare)}</PopoverTrigger>
       <PopoverContent className="w-96 space-y-4 p-4">
         <div className="flex items-center justify-between">
-          <Label htmlFor="share-switch">Sharing</Label>
+          <Label htmlFor="share-switch">{t('table:toolbar.others.share.statusLabel')}</Label>
           <Switch
             className="ml-auto"
             id="share-switch"
@@ -150,7 +154,9 @@ export const SharePopover: React.FC<{
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Copied</p>
+                    <p>
+                      <p>{t('table:toolbar.others.share.copied')}</p>
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -162,7 +168,7 @@ export const SharePopover: React.FC<{
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Generate new link</p>
+                    <p>{t('table:toolbar.others.share.genLink')}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -177,7 +183,7 @@ export const SharePopover: React.FC<{
                     onCheckedChange={(checked) => setShareMeta({ allowCopy: checked })}
                   />
                   <Label className="text-xs" htmlFor="share-allowCopy">
-                    Allow viewers to copy data out of this view
+                    {t('table:toolbar.others.share.allowCopy')}
                   </Label>
                 </div>
               )}
@@ -189,7 +195,7 @@ export const SharePopover: React.FC<{
                     onCheckedChange={(checked) => setShareMeta({ includeHiddenField: checked })}
                   />
                   <Label className="text-xs" htmlFor="share-includeHiddenField">
-                    Show all fields in expanded records
+                    {t('table:toolbar.others.share.showAllFields')}
                   </Label>
                 </div>
               )}
@@ -200,7 +206,7 @@ export const SharePopover: React.FC<{
                   onCheckedChange={onPasswordSwitchChange}
                 />
                 <Label className="text-xs" htmlFor="share-password">
-                  Restrict by password
+                  {t('table:toolbar.others.share.restrict')}
                 </Label>
                 {Boolean(shareMeta?.password) && (
                   <Button
@@ -217,7 +223,7 @@ export const SharePopover: React.FC<{
           </>
         ) : (
           <div className="text-center text-sm text-muted-foreground">
-            People who have the link can see the view.
+            {t('table:toolbar.others.share.tips')}
           </div>
         )}
         <Dialog
@@ -227,10 +233,8 @@ export const SharePopover: React.FC<{
           <DialogTrigger asChild></DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Enter a password</DialogTitle>
-              <DialogDescription>
-                Password restrictions for accessing shared views
-              </DialogDescription>
+              <DialogTitle>{t('table:toolbar.others.share.passwordTitle')}</DialogTitle>
+              <DialogDescription>{t('table:toolbar.others.share.passwordTips')}</DialogDescription>
             </DialogHeader>
             <Input
               className="h-8"
@@ -240,14 +244,14 @@ export const SharePopover: React.FC<{
             />
             <DialogFooter>
               <Button size={'sm'} variant={'ghost'} onClick={() => closeSharePasswordDialog()}>
-                Cancel
+                {t('table:toolbar.others.share.cancel')}
               </Button>
               <Button
                 size={'sm'}
                 onClick={confirmSharePassword}
                 disabled={!sharePasswordSchema.safeParse(sharePassword).success}
               >
-                Save
+                {t('table:toolbar.others.share.save')}
               </Button>
             </DialogFooter>
           </DialogContent>

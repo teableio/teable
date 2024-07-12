@@ -1,6 +1,7 @@
 import type { IFilterItem } from '@teable/core';
 import { Input, cn } from '@teable/ui-lib';
 import { useEffect, useState } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 
 interface InputProps {
   value: IFilterItem['value'];
@@ -10,7 +11,8 @@ interface InputProps {
 }
 
 const FilterInput = (props: InputProps) => {
-  const { onChange, placeholder = 'Enter a value', value, className } = props;
+  const { t } = useTranslation();
+  const { onChange, placeholder = t('filter.default.placeholder'), value, className } = props;
   const [input, setInput] = useState<string>((value as string) ?? '');
 
   useEffect(() => {
