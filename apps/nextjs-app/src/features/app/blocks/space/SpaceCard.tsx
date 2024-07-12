@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { SpaceRole } from '@teable/core';
 import type { IGetBaseVo, IGetSpaceVo, ISubscriptionSummaryVo } from '@teable/openapi';
 import { PinType, deleteSpace, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -88,7 +89,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
                 level={subscription?.level}
                 status={subscription?.status}
                 spaceId={space.id}
-                withUpgrade
+                withUpgrade={space.role === SpaceRole.Owner}
               />
             )}
           </div>

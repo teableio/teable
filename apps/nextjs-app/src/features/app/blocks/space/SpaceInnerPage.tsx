@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { SpaceRole } from '@teable/core';
 import {
   PinType,
   deleteSpace,
@@ -112,7 +113,7 @@ export const SpaceInnerPage: React.FC = () => {
                 level={subscriptionSummary?.level}
                 status={subscriptionSummary?.status}
                 spaceId={space.id}
-                withUpgrade
+                withUpgrade={space.role === SpaceRole.Owner}
               />
             )}
           </div>
