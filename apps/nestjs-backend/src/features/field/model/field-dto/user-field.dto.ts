@@ -2,8 +2,8 @@ import type { IUserCellValue } from '@teable/core';
 import { UserFieldCore } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { omit } from 'lodash';
-import { getFullStorageUrl } from '../../../../utils/full-storage-url';
 import StorageAdapter from '../../../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../../../attachments/plugins/utils';
 import type { FieldBase } from '../field-base';
 
 export class UserFieldDto extends UserFieldCore implements FieldBase {
@@ -35,7 +35,7 @@ export class UserFieldDto extends UserFieldCore implements FieldBase {
       const bucket = StorageAdapter.getBucket(UploadType.Avatar);
       const path = `${StorageAdapter.getDir(UploadType.Avatar)}/${cellValue.id}`;
 
-      cellValue.avatarUrl = getFullStorageUrl(`${bucket}/${path}`);
+      cellValue.avatarUrl = getFullStorageUrl(bucket, path);
     }
     return cellValue;
   }

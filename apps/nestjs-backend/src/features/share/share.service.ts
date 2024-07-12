@@ -14,19 +14,20 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  ShareViewFormSubmitRo,
-  ShareViewGetVo,
-  IShareViewRowCountRo,
-  IShareViewAggregationsRo,
-  IRangesRo,
-  IShareViewGroupPointsRo,
-  IAggregationVo,
-  IGroupPointsVo,
-  IRowCountVo,
-  IShareViewLinkRecordsRo,
-  IRecordsVo,
-  IShareViewCollaboratorsRo,
+import {
+  type ShareViewFormSubmitRo,
+  type ShareViewGetVo,
+  type IShareViewRowCountRo,
+  type IShareViewAggregationsRo,
+  type IRangesRo,
+  type IShareViewGroupPointsRo,
+  type IAggregationVo,
+  type IGroupPointsVo,
+  type IRowCountVo,
+  type IShareViewLinkRecordsRo,
+  type IRecordsVo,
+  type IShareViewCollaboratorsRo,
+  UploadType,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
@@ -35,9 +36,10 @@ import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
-import { getFullStorageUrl } from '../../utils/full-storage-url';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { AggregationService } from '../aggregation/aggregation.service';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../attachments/plugins/utils';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -336,7 +338,7 @@ export class ShareService {
       userId: id,
       email,
       userName: name,
-      avatar: avatar && getFullStorageUrl(avatar),
+      avatar: avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
     }));
   }
 

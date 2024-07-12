@@ -21,7 +21,6 @@ import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { FieldOperator } from '@/features/app/components/field-setting';
-import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { FORM_EDITOR_DROPPABLE_ID } from '../constant';
@@ -35,7 +34,6 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   const { fields } = props;
   const view = useView() as FormView | undefined;
   const isHydrated = useIsHydrated();
-  const getPreviewUrl = usePreviewUrl();
   const { openSetting } = useFieldSettingStore();
 
   const coverInput = useRef<HTMLInputElement>(null);
@@ -101,9 +99,9 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
     const uploadItem = { instance: files[0], id: generateAttachmentId() };
     attachmentManager.upload([uploadItem], UploadType.Form, {
       successCallback: (_file: IFile, attachment: INotifyVo) => {
-        const url = attachment.url;
+        const url = attachment.path;
         const optionProp = isCover ? 'coverUrl' : 'logoUrl';
-        isCover ? setCoverUrl(url) : setLogoUrl(url);
+        isCover ? setCoverUrl(attachment.presignedUrl) : setLogoUrl(attachment.presignedUrl);
         view.updateOption({ [optionProp]: url });
       },
     });
@@ -142,7 +140,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
         >
           {coverUrl && (
             <Image
-              src={getPreviewUrl(coverUrl)}
+              src={coverUrl}
               alt="card cover"
               fill
               sizes="100%"
@@ -172,7 +170,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             <>
               <Image
                 className="rounded-lg object-cover shadow-sm"
-                src={getPreviewUrl(logoUrl)}
+                src={logoUrl}
                 alt="card cover"
                 fill
                 sizes="100%"

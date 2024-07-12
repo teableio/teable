@@ -18,9 +18,9 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../types/cls';
-import { getFullStorageUrl } from '../../utils/full-storage-url';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
+import { getFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class UserService {
@@ -40,7 +40,9 @@ export class UserService {
     return (
       userRaw && {
         ...userRaw,
-        avatar: userRaw.avatar && getFullStorageUrl(userRaw.avatar),
+        avatar:
+          userRaw.avatar &&
+          getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), userRaw.avatar),
         notifyMeta: userRaw.notifyMeta && JSON.parse(userRaw.notifyMeta),
       }
     );
@@ -157,19 +159,13 @@ export class UserService {
   async updateAvatar(id: string, avatarFile: { path: string; mimetype: string; size: number }) {
     const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
-    const { hash, url } = await this.storageAdapter.uploadFileWidthPath(
-      bucket,
-      path,
-      avatarFile.path,
-      {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': avatarFile.mimetype,
-      }
-    );
+    const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, avatarFile.path, {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': avatarFile.mimetype,
+    });
     const { size, mimetype } = avatarFile;
 
     await this.mountAttachment(id, {
-      bucket,
       hash,
       size,
       mimetype,
@@ -179,7 +175,7 @@ export class UserService {
 
     await this.prismaService.txClient().user.update({
       data: {
-        avatar: url,
+        avatar: path,
       },
       where: { id, deletedTime: null },
     });
@@ -225,13 +221,12 @@ export class UserService {
     const { size } = await svgObject.metadata();
     const svgBuffer = await svgObject.toBuffer();
 
-    const { url, hash } = await this.storageAdapter.uploadFile(bucket, path, svgBuffer, {
+    const { hash } = await this.storageAdapter.uploadFile(bucket, path, svgBuffer, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': mimetype,
     });
 
     await this.mountAttachment(id, {
-      bucket: bucket,
       hash: hash,
       size: size,
       mimetype: mimetype,
@@ -241,7 +236,7 @@ export class UserService {
       height: svgSize[1],
     });
 
-    return url;
+    return path;
   }
 
   private async uploadAvatarByUrl(userId: string, url: string) {
@@ -253,20 +248,19 @@ export class UserService {
           const path = join(StorageAdapter.getDir(UploadType.Avatar), userId);
           const bucket = StorageAdapter.getBucket(UploadType.Avatar);
 
-          const { url, hash } = await this.storageAdapter.uploadFile(bucket, path, stream, {
+          const { hash } = await this.storageAdapter.uploadFile(bucket, path, stream, {
             // eslint-disable-next-line @typescript-eslint/naming-convention
             'Content-Type': contentType,
           });
 
           await this.mountAttachment(userId, {
-            bucket: bucket,
             hash: hash,
             size: size ? parseInt(size) : undefined,
             mimetype: contentType,
             token: userId,
             path: path,
           });
-          resolve(url);
+          resolve(path);
         })
         .on('error', (error) => {
           reject(error);

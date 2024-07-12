@@ -9,10 +9,10 @@ import type { Request } from 'express';
 import * as fse from 'fs-extra';
 import sharp from 'sharp';
 import { CacheService } from '../../../cache/cache.service';
+import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
-import { getFullStorageUrl } from '../../../utils/full-storage-url';
 import { second } from '../../../utils/second';
 import type StorageAdapter from './adapter';
 import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
@@ -28,10 +28,11 @@ export class LocalStorage implements StorageAdapter {
   storageDir: string;
   temporaryDir = resolve(os.tmpdir(), '.temporary');
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
-  readPath = '/api/attachments/read';
+  static readPath = '/api/attachments/read';
 
   constructor(
     @StorageConfig() readonly config: IStorageConfig,
+    @BaseConfig() readonly baseConfig: IBaseConfig,
     private readonly cacheService: CacheService
   ) {
     this.expireTokenEncryptor = new Encryptor(this.config.encryption);
@@ -54,7 +55,7 @@ export class LocalStorage implements StorageAdapter {
 
   private getUrl(bucket: string, path: string, params: ITokenEncryptor) {
     const token = this.expireTokenEncryptor.encrypt(params);
-    return `${join(this.readPath, bucket, path)}?token=${token}`;
+    return `${join(LocalStorage.readPath, bucket, path)}?token=${token}`;
   }
 
   parsePath(path: string) {
@@ -211,7 +212,7 @@ export class LocalStorage implements StorageAdapter {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,
     });
-    return getFullStorageUrl(url);
+    return this.baseConfig.storagePrefix + join('/', url);
   }
 
   verifyReadToken(token: string) {
@@ -236,7 +237,7 @@ export class LocalStorage implements StorageAdapter {
     await this.save(filePath, join(bucket, path));
     return {
       hash,
-      url: join(this.readPath, bucket, path),
+      path,
     };
   }
 
@@ -271,7 +272,7 @@ export class LocalStorage implements StorageAdapter {
     await this.save(temPath, join(bucket, path));
     return {
       hash,
-      url: join(this.readPath, bucket, path),
+      path,
     };
   }
 }

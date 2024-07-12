@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { SpaceRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  ListBaseCollaboratorVo,
-  ListSpaceCollaboratorVo,
-  UpdateSpaceCollaborateRo,
+import {
+  UploadType,
+  type ListBaseCollaboratorVo,
+  type ListSpaceCollaboratorVo,
+  type UpdateSpaceCollaborateRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isDate } from 'lodash';
@@ -17,7 +18,8 @@ import {
   Events,
 } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
-import { getFullStorageUrl } from '../../utils/full-storage-url';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../attachments/plugins/utils';
 
 @Injectable()
 export class CollaboratorService {
@@ -126,7 +128,10 @@ export class CollaboratorService {
         collaborator.createdTime = collaborator.createdTime.toISOString();
       }
       if (collaborator.avatar) {
-        collaborator.avatar = getFullStorageUrl(collaborator.avatar);
+        collaborator.avatar = getFullStorageUrl(
+          StorageAdapter.getBucket(UploadType.Avatar),
+          collaborator.avatar
+        );
       }
       return collaborator;
     });

@@ -9,6 +9,7 @@ import type {
   ISetViewPropertyOpContext,
   IColumnMeta,
   IViewPropertyKeys,
+  IFormViewOptions,
 } from '@teable/core';
 import {
   getUniqName,
@@ -21,6 +22,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, merge } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -31,6 +33,8 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../attachments/plugins/utils';
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
@@ -190,7 +194,22 @@ export class ViewService implements IReadonlyAdapterService {
       where: { id: viewId },
     });
 
-    return createViewInstanceByRaw(viewRaw) as IViewVo;
+    return this.convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
+  }
+
+  private convertViewVoAttachmentUrl(viewVo: IViewVo) {
+    if (viewVo.type === ViewType.Form) {
+      const formOptions = viewVo.options as IFormViewOptions;
+      formOptions?.coverUrl &&
+        (formOptions.coverUrl = formOptions.coverUrl
+          ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Form), formOptions.coverUrl)
+          : undefined);
+      formOptions?.logoUrl &&
+        (formOptions.logoUrl = formOptions.logoUrl
+          ? getFullStorageUrl(StorageAdapter.getBucket(UploadType.Form), formOptions.logoUrl)
+          : undefined);
+    }
+    return viewVo;
   }
 
   async getViews(tableId: string): Promise<IViewVo[]> {
@@ -199,7 +218,7 @@ export class ViewService implements IReadonlyAdapterService {
       orderBy: { order: 'asc' },
     });
 
-    return viewRaws.map((viewRaw) => createViewVoByRaw(viewRaw));
+    return viewRaws.map((viewRaw) => this.convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw)));
   }
 
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
@@ -209,7 +228,7 @@ export class ViewService implements IReadonlyAdapterService {
       { docId: viewRaw.id, version: 0, data: viewRaw },
     ]);
 
-    return createViewVoByRaw(viewRaw);
+    return this.convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw));
   }
 
   async deleteView(tableId: string, viewId: string) {

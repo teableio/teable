@@ -146,7 +146,7 @@ export class S3Storage implements StorageAdapter {
     path: string,
     filePath: string,
     metadata: Record<string, unknown>
-  ): Promise<{ hash: string; url: string }> {
+  ) {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: path,
@@ -161,7 +161,7 @@ export class S3Storage implements StorageAdapter {
 
     return this.s3Client.send(command).then((res) => ({
       hash: res.ETag!,
-      url: `/${bucket}/${path}`,
+      path,
     }));
   }
 
@@ -170,7 +170,7 @@ export class S3Storage implements StorageAdapter {
     path: string,
     stream: Buffer | Readable,
     metadata?: Record<string, unknown>
-  ): Promise<{ hash: string; url: string }> {
+  ) {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: path,
@@ -185,7 +185,7 @@ export class S3Storage implements StorageAdapter {
 
     return this.s3Client.send(command).then((res) => ({
       hash: res.ETag!,
-      url: `/${bucket}/${path}`,
+      path,
     }));
   }
 }

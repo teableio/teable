@@ -58,7 +58,7 @@ export class ViewOpenApiService {
 
   async createView(tableId: string, viewRo: IViewRo) {
     return await this.prismaService.$tx(async () => {
-      return await this.createViewInner(tableId, viewRo);
+      return this.createViewInner(tableId, viewRo);
     });
   }
 

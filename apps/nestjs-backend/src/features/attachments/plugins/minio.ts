@@ -105,7 +105,7 @@ export class MinioStorage implements StorageAdapter {
     const { etag: hash } = await this.minioClient.fPutObject(bucket, path, filePath, metadata);
     return {
       hash,
-      url: `/${bucket}/${path}`,
+      path,
     };
   }
 
@@ -118,7 +118,7 @@ export class MinioStorage implements StorageAdapter {
     const { etag: hash } = await this.minioClient.putObject(bucket, path, stream, metadata);
     return {
       hash,
-      url: `/${bucket}/${path}`,
+      path,
     };
   }
 }

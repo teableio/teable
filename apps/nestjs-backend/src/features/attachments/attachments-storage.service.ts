@@ -17,6 +17,7 @@ export class AttachmentsStorageService {
   ) {}
 
   async getPreviewUrl<T extends string | string[] = string | string[]>(
+    bucket: string,
     token: T,
     meta?: { expiresIn?: number }
   ): Promise<T> {
@@ -36,7 +37,6 @@ export class AttachmentsStorageService {
       select: {
         path: true,
         token: true,
-        bucket: true,
         mimetype: true,
       },
     });
@@ -45,7 +45,7 @@ export class AttachmentsStorageService {
     }
     const urlArray: string[] = [];
     for (const item of attachment) {
-      const { path, token, bucket, mimetype } = item;
+      const { path, token, mimetype } = item;
       const url = await this.getPreviewUrlByPath(bucket, path, token, expiresIn, {
         // eslint-disable-next-line @typescript-eslint/naming-convention
         'Content-Type': mimetype,
@@ -66,6 +66,7 @@ export class AttachmentsStorageService {
     let url = previewCache?.url;
     if (!url) {
       url = await this.storageAdapter.getPreviewUrl(bucket, path, expiresIn, respHeaders);
+
       await this.cacheService.set(
         `attachment:preview:${token}`,
         {
