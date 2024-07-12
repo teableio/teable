@@ -48,6 +48,7 @@ import { RecordOpenApiService } from '../record/open-api/record-open-api.service
 import { RecordService } from '../record/record.service';
 import { SelectionService } from '../selection/selection.service';
 import { createViewVoByRaw } from '../view/model/factory';
+import { ViewService } from '../view/view.service';
 
 export interface IShareViewInfo {
   shareId: string;
@@ -71,6 +72,7 @@ export class ShareService {
     private readonly selectionService: SelectionService,
     private readonly collaboratorService: CollaboratorService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly viewService: ViewService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -106,7 +108,7 @@ export class ShareService {
       shareId,
       tableId,
       viewId,
-      view: createViewVoByRaw(view),
+      view: this.viewService.convertViewVoAttachmentUrl(createViewVoByRaw(view)),
       fields,
       records,
     };

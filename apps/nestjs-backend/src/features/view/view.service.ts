@@ -197,7 +197,7 @@ export class ViewService implements IReadonlyAdapterService {
     return this.convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
   }
 
-  private convertViewVoAttachmentUrl(viewVo: IViewVo) {
+  convertViewVoAttachmentUrl(viewVo: IViewVo) {
     if (viewVo.type === ViewType.Form) {
       const formOptions = viewVo.options as IFormViewOptions;
       formOptions?.coverUrl &&
