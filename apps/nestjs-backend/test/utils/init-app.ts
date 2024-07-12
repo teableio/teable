@@ -50,6 +50,7 @@ import {
 } from '@teable/openapi';
 import { json, urlencoded } from 'express';
 import { AppModule } from '../../src/app.module';
+import { baseConfig, IBaseConfig } from '../../src/configs/base.config';
 import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
 import { NextService } from '../../src/features/next/next.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
@@ -95,7 +96,10 @@ export async function initApp() {
   const url = `http://127.0.0.1:${port}`;
 
   process.env.PORT = port;
+  // for attachment origin set
   process.env.STORAGE_PREFIX = url;
+  const baseConfigService = app.get(baseConfig.KEY) as IBaseConfig;
+  baseConfigService.storagePrefix = url;
 
   axios.defaults.baseURL = url + '/api';
 
