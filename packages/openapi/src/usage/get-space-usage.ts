@@ -28,6 +28,7 @@ export enum UsageFeatureLimit {
   AuditLogEnable = 'auditLogEnable',
   AdminPanelEnable = 'adminPanelEnable',
   RowColoringEnable = 'rowColoringEnable',
+  ButtonFieldEnable = 'buttonFieldEnable',
   AdvancedExtensionsEnable = 'advancedExtensionsEnable',
   AdvancedPermissionsEnable = 'advancedPermissionsEnable',
   PasswordRestrictedSharesEnable = 'passwordRestrictedSharesEnable',
@@ -42,8 +43,9 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.AutomationEnable]: z.boolean(),
   [UsageFeatureLimit.AuditLogEnable]: z.boolean(),
   [UsageFeatureLimit.AdminPanelEnable]: z.boolean(),
-  [UsageFeatureLimit.AdvancedExtensionsEnable]: z.boolean(),
   [UsageFeatureLimit.RowColoringEnable]: z.boolean(),
+  [UsageFeatureLimit.ButtonFieldEnable]: z.boolean(),
+  [UsageFeatureLimit.AdvancedExtensionsEnable]: z.boolean(),
   [UsageFeatureLimit.AdvancedPermissionsEnable]: z.boolean(),
   [UsageFeatureLimit.PasswordRestrictedSharesEnable]: z.boolean(),
 });
