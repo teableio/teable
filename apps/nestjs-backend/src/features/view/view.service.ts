@@ -418,7 +418,7 @@ export class ViewService implements IReadonlyAdapterService {
           id: view.id,
           v: view.version,
           type: 'json0',
-          data: createViewVoByRaw(view),
+          data: this.convertViewVoAttachmentUrl(createViewVoByRaw(view)),
         };
       })
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
