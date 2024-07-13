@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { getUniqName } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { createSpace, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { type FC } from 'react';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { SpaceItem } from './SpaceItem';
@@ -12,6 +14,7 @@ import { SpaceItem } from './SpaceItem';
 export const SpaceList: FC = () => {
   const router = useRouter();
   const { disallowSpaceCreation } = useSetting();
+  const { t } = useTranslation('space');
 
   const queryClient = useQueryClient();
   const { data: spaceList } = useQuery({
@@ -41,7 +44,13 @@ export const SpaceList: FC = () => {
             size={'xs'}
             disabled={isLoading}
             className="w-full"
-            onClick={() => addSpace({})}
+            onClick={() => {
+              const name = getUniqName(
+                t('defaultSpaceName'),
+                spaceList?.data?.length ? spaceList?.data.map((space) => space?.name) : []
+              );
+              addSpace({ name });
+            }}
           >
             {isLoading ? <Spin className="size-3" /> : <Plus />}
           </Button>

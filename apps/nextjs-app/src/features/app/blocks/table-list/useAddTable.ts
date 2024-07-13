@@ -1,4 +1,4 @@
-import { getUniqName } from '@teable/core';
+import { getUniqName, ViewType } from '@teable/core';
 import { useBase, useTables } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -19,6 +19,7 @@ export function useAddTable() {
     const tableData = (
       await base.createTable({
         name: uniqueName,
+        views: [{ name: t('view.category.table'), type: ViewType.Grid }],
       })
     ).data;
     const tableId = tableData.id;
@@ -33,5 +34,5 @@ export function useAddTable() {
         shallow: Boolean(router.query.viewId),
       }
     );
-  }, [baseId, router, base]);
+  }, [t, tables, base, router, baseId]);
 }
