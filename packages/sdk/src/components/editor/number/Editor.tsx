@@ -6,7 +6,7 @@ import type { ICellEditor, IEditorRef } from '../type';
 
 export const NumberEditorBase: ForwardRefRenderFunction<
   IEditorRef<number>,
-  ICellEditor<number | null>
+  ICellEditor<number | null> & { placeholder?: string }
 > = (props, ref) => {
   const { value, onChange, className, readonly, style, saveOnBlur = true } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
