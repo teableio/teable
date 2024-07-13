@@ -83,7 +83,7 @@ export default abstract class StorageAdapter {
     path: string,
     filePath: string,
     metadata: Record<string, unknown>
-  ): Promise<{ hash: string; url: string }>;
+  ): Promise<{ hash: string; path: string }>;
 
   /**
    * uploadFile with file stream
@@ -97,5 +97,5 @@ export default abstract class StorageAdapter {
     path: string,
     stream: Buffer | ReadableStream,
     metadata?: Record<string, unknown>
-  ): Promise<{ hash: string; url: string }>;
+  ): Promise<{ hash: string; path: string }>;
 }

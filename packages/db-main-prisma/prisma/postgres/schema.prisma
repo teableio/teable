@@ -212,7 +212,6 @@ model Account {
 
 model Attachments {
   id             String    @id @default(cuid())
-  bucket         String
   token          String    @unique
   hash           String
   size           Int

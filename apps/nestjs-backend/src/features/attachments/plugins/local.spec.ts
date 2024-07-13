@@ -10,13 +10,11 @@ import { vi } from 'vitest';
 import { CacheService } from '../../../cache/cache.service';
 import type { IAttachmentLocalTokenCache } from '../../../cache/types';
 import { GlobalModule } from '../../../global/global.module';
-import * as fullStorageUrlModule from '../../../utils/full-storage-url';
 import { LocalStorage } from './local';
 import { StorageModule } from './storage.module';
 import type { ILocalFileUpload } from './types';
 
 vi.mock('fs-extra');
-vi.mock('../../../utils/full-storage-url');
 vi.mock('fs');
 
 describe('LocalStorage', () => {
@@ -43,6 +41,10 @@ describe('LocalStorage', () => {
     urlExpireIn: '7d',
   };
 
+  const mockBaseConfig: any = {
+    storagePrefix: 'https://example.com',
+  };
+
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const mockRespHeaders = { 'Content-Type': imageType };
 
@@ -63,6 +65,10 @@ describe('LocalStorage', () => {
         {
           provide: 'STORAGE_CONFIG',
           useValue: mockConfig,
+        },
+        {
+          provide: 'BASE_CONFIG',
+          useValue: mockBaseConfig,
         },
       ],
     }).compile();
@@ -317,7 +323,6 @@ describe('LocalStorage', () => {
       const mockExpiresIn = 3600;
 
       vi.spyOn(storage.expireTokenEncryptor, 'encrypt').mockReturnValueOnce('mock-token');
-      vi.spyOn(fullStorageUrlModule, 'getFullStorageUrl').mockReturnValueOnce('http://example.com');
 
       const result = await storage.getPreviewUrl(
         mockBucket,
@@ -330,10 +335,9 @@ describe('LocalStorage', () => {
         expiresDate: Math.floor(Date.now() / 1000) + mockExpiresIn,
         respHeaders: mockRespHeaders,
       });
-      expect(fullStorageUrlModule.getFullStorageUrl).toHaveBeenCalledWith(
-        '/api/attachments/read/mock-bucket/mock/file/path?token=mock-token'
+      expect(result).toBe(
+        'http://127.0.0.1:3000/api/attachments/read/mock-bucket/mock/file/path?token=mock-token'
       );
-      expect(result).toBe('http://example.com');
     });
   });
 

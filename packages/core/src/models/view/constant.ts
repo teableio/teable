@@ -10,7 +10,7 @@ export enum ViewType {
   Grid = 'grid',
   Calendar = 'calendar',
   Kanban = 'kanban',
-  Form = 'Form',
+  Form = 'form',
   Gallery = 'gallery',
   Gantt = 'gantt',
 }

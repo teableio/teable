@@ -8,7 +8,6 @@ import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 import { useLocalStorage, useMap, useSet } from 'react-use';
-import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { tableConfig } from '@/features/i18n/table.config';
 import { generateUniqLocalKey } from '../util';
 import { BrandFooter } from './BrandFooter';
@@ -24,7 +23,6 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
   const view = useView() as FormView | undefined;
   const fields = useFields();
   const { toast } = useToast();
-  const getPreviewUrl = usePreviewUrl();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const localKey = generateUniqLocalKey(tableId, view?.id);
   const [formDataMap, setFormDataMap] = useLocalStorage<Record<string, Record<string, unknown>>>(
@@ -146,7 +144,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
         >
           {coverUrl && (
             <Image
-              src={getPreviewUrl(coverUrl)}
+              src={coverUrl}
               alt="card cover"
               fill
               sizes="100%"
@@ -161,7 +159,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
           <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
             <Image
               className="rounded-lg object-cover shadow-sm"
-              src={getPreviewUrl(logoUrl)}
+              src={logoUrl}
               alt="card cover"
               fill
               sizes="100%"

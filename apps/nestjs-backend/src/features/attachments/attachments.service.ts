@@ -124,7 +124,6 @@ export class AttachmentsService {
     );
     const attachment = await this.prismaService.txClient().attachments.create({
       data: {
-        bucket,
         hash,
         size,
         mimetype,

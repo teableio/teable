@@ -12,16 +12,18 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  IGetNotifyListQuery,
-  INotificationUnreadCountVo,
-  INotificationVo,
-  IUpdateNotifyStatusRo,
+import {
+  UploadType,
+  type IGetNotifyListQuery,
+  type INotificationUnreadCountVo,
+  type INotificationVo,
+  type IUpdateNotifyStatusRo,
 } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { ShareDbService } from '../../share-db/share-db.service';
-import { getFullStorageUrl } from '../../utils/full-storage-url';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../attachments/plugins/utils';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
 
@@ -68,7 +70,9 @@ export class NotificationService {
     const userIcon = userIconSchema.parse({
       userId: fromUser.id,
       userName: fromUser.name,
-      userAvatarUrl: fromUser?.avatar && getFullStorageUrl(fromUser.avatar),
+      userAvatarUrl:
+        fromUser?.avatar &&
+        getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), fromUser.avatar),
     });
 
     const urlMeta = notificationUrlSchema.parse({
@@ -246,7 +250,8 @@ export class NotificationService {
         return {
           userId: id,
           userName: name,
-          userAvatarUrl: avatar && getFullStorageUrl(avatar),
+          userAvatarUrl:
+            avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
         };
       }
     }
