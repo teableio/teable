@@ -1,5 +1,7 @@
 import { difference, map } from 'lodash';
 import React from 'react';
+import { useTranslation } from '../../context/app/i18n';
+
 import { useViewId, useFields, useView } from '../../hooks';
 import type { GridView, IFieldInstance } from '../../model';
 import { HideFieldsBase } from './HideFieldsBase';
@@ -11,6 +13,7 @@ export const HideFields: React.FC<{
   const activeViewId = useViewId();
   const fields = useFields({ withHidden: true, withDenied: true });
   const view = useView() as GridView | undefined;
+  const { t } = useTranslation();
 
   const filterFields = (fields: IFieldInstance[], shouldBeHidden?: boolean) =>
     fields.filter(
@@ -49,7 +52,7 @@ export const HideFields: React.FC<{
   return (
     <HideFieldsBase footer={footer} fields={fieldData} hidden={hiddenFieldIds} onChange={onChange}>
       {children(
-        hiddenCount ? `${hiddenCount} hidden field(s)` : 'Hide fields',
+        hiddenCount ? t('hidden.configLabel_other', { count: hiddenCount }) : t('hidden.label'),
         Boolean(hiddenCount)
       )}
     </HideFieldsBase>

@@ -126,7 +126,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
     <div className="rounded-lg p-1">
       <Command filter={commandFilter}>
         <CommandInput
-          placeholder="Search a field"
+          placeholder={t('common.search.placeholder')}
           className="h-8 text-xs"
           onValueChange={(value) => searchHandle(value)}
         />

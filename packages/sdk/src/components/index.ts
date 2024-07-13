@@ -14,3 +14,4 @@ export * from './select-field-dialog';
 export * from './search';
 export * from './record-list';
 export * from './create-record';
+export * from './color';

@@ -1,5 +1,4 @@
-import { RowHeightLevel } from '@teable/core';
-import { DivideSquare, Menu, Square, StretchHorizontal } from '@teable/icons';
+import type { RowHeightLevel } from '@teable/core';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,30 +6,7 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib';
 import React from 'react';
-
-// eslint-disable-next-line @typescript-eslint/naming-convention
-export const ROW_HEIGHT_MENU_ITEMS = [
-  {
-    label: 'Short',
-    value: RowHeightLevel.Short,
-    Icon: Menu,
-  },
-  {
-    label: 'Medium',
-    value: RowHeightLevel.Medium,
-    Icon: StretchHorizontal,
-  },
-  {
-    label: 'Tall',
-    value: RowHeightLevel.Tall,
-    Icon: DivideSquare,
-  },
-  {
-    label: 'ExtraTall',
-    value: RowHeightLevel.ExtraTall,
-    Icon: Square,
-  },
-];
+import { useRowHeightNodes } from './useRowHeightNodes';
 
 interface IRowHeightBaseProps {
   value?: RowHeightLevel;
@@ -41,11 +17,13 @@ interface IRowHeightBaseProps {
 export const RowHeightBase = (props: IRowHeightBaseProps) => {
   const { onChange, children } = props;
 
+  const rowHeightMenuItems = useRowHeightNodes();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="start" className="w-40 p-0">
-        {ROW_HEIGHT_MENU_ITEMS.map(({ label, value: valueInner, Icon }) => (
+        {rowHeightMenuItems.map(({ label, value: valueInner, Icon }) => (
           <DropdownMenuItem
             className="cursor-pointer"
             key={valueInner}

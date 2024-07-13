@@ -57,13 +57,41 @@
     }
   },
   "filter": {
+    "label": "Filter",
+    "displayLabel": "Filter by ",
+    "displayLabel_other": "Filter by {{fieldName}} and {{count}} other fields",
     "addCondition": "Add condition",
     "addConditionGroup": "Add condition group",
     "linkInputPlaceholder": "Enter a value",
     "groupDescription": "Any of the following are true…",
-    "currentUser": "Me（current user）"
+    "currentUser": "Me（current user）",
+    "tips": {
+      "scope": "In this view, show records"
+    },
+    "default": {
+      "empty": "No filter conditions are applied",
+      "placeholder": "Enter a value"
+    }
+  },
+  "color": {
+    "label": "color"
+  },
+  "rowHeight": {
+    "short": "short",
+    "medium": "medium",
+    "tall": "tall",
+    "extraTall": "extraTall"
+  },
+  "share": {
+    "title": "share"
+  },
+  "extensions": {
+    "title": "extensions"
   },
   "hidden": {
+    "label": "Hidden Fields",
+    "configLabel_one": "{{count}} hidden field",
+    "configLabel_other": "{{count}} hidden fields",
     "showAll": "Show All",
     "hideAll": "Hide All",
     "forbidHiddenPrimaryTip": "Primary key: is used to identify records, could not to hidden"
@@ -72,11 +100,18 @@
     "copy": "Copy to clipboard"
   },
   "sort": {
-    "title": "Sort by",
-    "addButton": "Add another sort"
+    "label": "Sort",
+    "displayLabel_one": "Sort by {{count}} field",
+    "displayLabel_other": "Sort by {{count}} fields",
+    "setTips": "Sort by",
+    "addButton": "Add another sort",
+    "autoSort": "Automatically sort records"
   },
   "group": {
-    "title": "Group by",
+    "label": "Group",
+    "displayLabel_one": "Group by {{count}} fields",
+    "displayLabel_other": "Group by {{count}} fields",
+    "setTips": "Group by",
     "addButton": "Add Subgroup"
   },
   "field": {

@@ -24,10 +24,12 @@
     "refreshPage": "刷新页面",
     "yesDelete": "是，删除",
     "rename": "重命名",
+    "duplicate": "复制",
     "change": "变更",
     "upgrade": "升级",
     "search": "搜索",
-    "loadMore": "加载更多"
+    "loadMore": "加载更多",
+    "collapseSidebar": "折叠侧边栏"
   },
   "quickAction": {
     "title": "快捷搜索...",

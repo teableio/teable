@@ -7,7 +7,16 @@ import {
   LayoutList,
   Share2,
 } from '@teable/icons';
-import { Filter, HideFields, RowHeight, useFields, Sort, Group, useTableId } from '@teable/sdk';
+import {
+  Filter,
+  HideFields,
+  RowHeight,
+  useFields,
+  Sort,
+  Group,
+  useTableId,
+  Color,
+} from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import {
   Tooltip,
@@ -120,9 +129,27 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <ToolBarButton className="opacity-30" text="Color" textClassName="@2xl/toolbar:inline">
-              <PaintBucket className="size-4 text-sm" />
-            </ToolBarButton>
+            {/* disabled doesn't trigger the tooltip, so wrap div */}
+            <div>
+              <Color>
+                {(text: string, isActive) => (
+                  <ToolBarButton
+                    disabled={true}
+                    isActive={isActive}
+                    text={text}
+                    className={cn(
+                      GUIDE_VIEW_GROUPING,
+                      'max-w-xs',
+                      isActive &&
+                        'bg-green-100 dark:bg-green-600/30 hover:bg-green-200 dark:hover:bg-green-500/30'
+                    )}
+                    textClassName="@2xl/toolbar:inline"
+                  >
+                    <PaintBucket className="size-4 text-sm" />
+                  </ToolBarButton>
+                )}
+              </Color>
+            </div>
           </TooltipTrigger>
           <TooltipContent>
             <p>{t('table:toolbar.comingSoon')}</p>

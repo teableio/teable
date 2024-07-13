@@ -3,6 +3,7 @@ import { ArrowUpRight, Code2, Component, Database, MoreHorizontal, Share2 } from
 import { useTablePermission, useView } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
+import { useTranslation } from 'next-i18next';
 import { GUIDE_API_BUTTON } from '@/components/Guide';
 import { DbConnectionPanelTrigger } from '../../db-connection/PanelTrigger';
 import { useCellGraphStore } from '../../graph/useCellGraphStore';
@@ -20,9 +21,10 @@ const OthersList = ({
   const { toggleGraph } = useCellGraphStore();
   const view = useView();
   const permission = useTablePermission();
+  const { t } = useTranslation('table');
 
   return (
-    <div className={className}>
+    <div className={cn('gap-1', className)}>
       <SharePopover>
         {(text, isActive) => (
           <ToolBarButton
@@ -41,7 +43,7 @@ const OthersList = ({
         <Popover>
           <PopoverTrigger asChild>
             <ToolBarButton
-              text="Extensions"
+              text={t('toolbar.others.extensions.label')}
               textClassName={classNames?.textClassName}
               className={classNames?.buttonClassName}
             >
@@ -56,7 +58,7 @@ const OthersList = ({
               onClick={() => toggleGraph()}
             >
               <Share2 className="pr-1 text-lg" />
-              Graph
+              {t('toolbar.others.extensions.graph')}
             </Button>
           </PopoverContent>
         </Popover>
@@ -81,13 +83,13 @@ const OthersList = ({
           >
             <Link href="/docs" target="_blank">
               <Code2 className="size-4" />
-              Restful API
+              {t('toolbar.others.api.restfulApi')}
             </Link>
           </Button>
           <DbConnectionPanelTrigger>
             <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">
               <Database className="pr-1 text-lg" />
-              Database Connection
+              {t('toolbar.others.api.databaseConnection')}
             </Button>
           </DbConnectionPanelTrigger>
         </PopoverContent>

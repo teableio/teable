@@ -20,14 +20,14 @@ export const Group = (props: IGroupProps) => {
 
   const { text, isActive } = useMemo(() => {
     const text = groupLength
-      ? `Group By ${groupLength} field${groupLength > 1 ? 's' : ''}`
-      : 'Group';
+      ? t(`group.displayLabel_${groupLength > 1 ? 'other' : 'one'}`, { count: groupLength })
+      : t('group.label');
     return {
       text,
       isActive: text !== 'Group',
       Icon: LayoutList,
     };
-  }, [groupLength]);
+  }, [groupLength, t]);
 
   const onChangeInner = (group?: IGroup | null) => {
     onChange?.(group?.length ? group : null);
@@ -38,7 +38,7 @@ export const Group = (props: IGroupProps) => {
       <PopoverTrigger asChild>{children?.(text, isActive)}</PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-fit max-w-screen-md p-0">
         <header className="mx-3">
-          <div className="border-b py-3 text-xs">{t('group.title')}</div>
+          <div className="border-b py-3 text-[13px]">{t('group.setTips')}</div>
         </header>
         <SortContent
           limit={3}

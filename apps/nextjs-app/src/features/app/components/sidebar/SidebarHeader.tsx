@@ -1,5 +1,6 @@
 import { Sidebar } from '@teable/icons';
 import { Button, TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@teable/ui-lib';
+import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 
 export interface ISidebarHeaderProps {
@@ -9,6 +10,7 @@ export interface ISidebarHeaderProps {
 
 export const SidebarHeader = (prop: ISidebarHeaderProps) => {
   const { headerLeft, onExpand } = prop;
+  const { t } = useTranslation('common');
 
   return (
     <div className="m-2 flex h-7 items-center gap-1">
@@ -28,7 +30,7 @@ export const SidebarHeader = (prop: ISidebarHeaderProps) => {
               </Button>
             </TooltipTrigger>
             <TooltipContent hideWhenDetached={true}>
-              <p>Collapse SideBar ⌘+B</p>
+              <p>{t('actions.collapseSidebar')} ⌘+B</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

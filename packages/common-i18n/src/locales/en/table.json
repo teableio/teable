@@ -2,7 +2,33 @@
   "toolbar": {
     "comingSoon": "Coming soon",
     "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
-    "createFieldButtonText": "Create a new <0/> field"
+    "createFieldButtonText": "Create a new <0/> field",
+    "others": {
+      "share": {
+        "label": "Share",
+        "statusLabel": "Sharing",
+        "shareLink": "Share Link",
+        "copied": "Copied",
+        "genLink": "Generate new link",
+        "allowCopy": "Allow viewers to copy data out of this view",
+        "showAllFields": "Show all fields in expanded records",
+        "restrict": "Restrict by password",
+        "tips": "People who have the link can see the view.",
+        "passwordTitle": "Enter a password",
+        "passwordTips": "Password restrictions for accessing shared views",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "extensions": {
+        "label": "Extensions",
+        "graph": "Graph"
+      },
+      "api": {
+        "label": "API",
+        "restfulApi": "Restful API",
+        "databaseConnection": "Database Connection"
+      }
+    }
   },
   "field": {
     "fieldManagement": "Field Management",
@@ -89,6 +115,7 @@
     "fieldType": "Field Type"
   },
   "table": {
+    "newTableLabel": "New table",
     "rename": "Rename",
     "design": "Design",
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
@@ -234,7 +261,16 @@
     "addRecord": "Add record",
     "searchView": "Search view...",
     "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
-    "insertToolTip": "Automatic sorting is turned on, insert with order is not available"
+    "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
+    "action": {
+      "rename": "Rename view",
+      "delete": "Delete view"
+    },
+    "category": {
+      "table": "Grid View",
+      "form": "Form View",
+      "kanban": "Kanban View"
+    }
   },
   "lastModifiedTime": "Last modified time",
   "lastModify": "Last modify: "

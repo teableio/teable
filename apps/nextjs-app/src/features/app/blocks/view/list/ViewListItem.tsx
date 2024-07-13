@@ -1,3 +1,4 @@
+import { Pencil, Trash2 } from '@teable/icons';
 import { useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import {
@@ -10,9 +11,11 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { VIEW_ICON_MAP } from '../constant';
 import { useDeleteView } from './useDeleteView';
+
 interface IProps {
   view: IViewInstance;
   removable: boolean;
@@ -26,6 +29,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const baseId = router.query.baseId as string;
   const deleteView = useDeleteView(view.id);
   const permission = useTablePermission();
+  const { t } = useTranslation('table');
 
   const navigateHandler = () => {
     router.push(
@@ -130,15 +134,12 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                 onClick={() => {
                   setIsEditing(true);
                 }}
+                className="flex justify-start"
               >
-                Rename view
+                <Pencil className="size-3" />
+                {t('view.action.rename')}
               </Button>
             )}
-            {/* {permission['view|create'] && (
-                    <Button variant="ghost" size="xs">
-                      Duplicate view
-                    </Button>
-                  )} */}
             {permission['view|delete'] && (
               <>
                 <Separator className="my-0.5" />
@@ -146,12 +147,14 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                   size="xs"
                   disabled={!removable}
                   variant="ghost"
+                  className="flex justify-start text-red-500"
                   onClick={(e) => {
                     e.preventDefault();
                     deleteView();
                   }}
                 >
-                  Delete view
+                  <Trash2 className="size-3" />
+                  {t('view.action.delete')}
                 </Button>
               </>
             )}

@@ -2,6 +2,7 @@ import { Search, X } from '@teable/icons';
 import { FieldSelector } from '@teable/sdk/components';
 import { useFields, useSearch } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce } from 'react-use';
@@ -19,7 +20,7 @@ export function SearchButton({
   const { fieldId, value, setFieldId, setValue } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
-
+  const { t } = useTranslation('common');
   const ref = useRef<HTMLInputElement>(null);
 
   useHotkeys(
@@ -90,7 +91,7 @@ export function SearchButton({
       <input
         ref={ref}
         className="placeholder:text-muted-foregrounds flex w-32 rounded-md bg-transparent px-1 outline-none"
-        placeholder="Search..."
+        placeholder={t('actions.search')}
         autoComplete="off"
         autoCorrect="off"
         spellCheck="false"

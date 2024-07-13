@@ -2,7 +2,33 @@
   "toolbar": {
     "comingSoon": "即将推出",
     "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。",
-    "createFieldButtonText": "创建一个<0/>类型的字段"
+    "createFieldButtonText": "创建一个<0/>类型的字段",
+    "others": {
+      "share": {
+        "label": "分享",
+        "statusLabel": "分享视图",
+        "shareLink": "分享链接",
+        "copied": "已复制",
+        "genLink": "生成新链接",
+        "allowCopy": "允许拷贝试图数据",
+        "showAllFields": "显示展开记录中的所有字段",
+        "restrict": "设置访问密码",
+        "tips": "开启后将获取一个链接，此链接仅允许访问当前视图。",
+        "passwordTitle": "设置访问密码",
+        "passwordTips": "链接仅在正确密码输入后可访问",
+        "cancel": "取消",
+        "save": "保存"
+      },
+      "extensions": {
+        "label": "插件",
+        "graph": "关系图"
+      },
+      "api": {
+        "label": "API 接口",
+        "restfulApi": "Restful API",
+        "databaseConnection": "数据库连接"
+      }
+    }
   },
   "field": {
     "fieldManagement": "字段管理",
@@ -89,6 +115,7 @@
     "fieldType": "字段类型"
   },
   "table": {
+    "newTableLabel": "表格",
     "rename": "重命名",
     "design": "设计",
     "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
@@ -233,7 +260,16 @@
     "addRecord": "添加记录",
     "searchView": "搜索视图...",
     "dragToolTip": "自动排序已经打开，无法进行手动拖拽排序",
-    "insertToolTip": "自动排序已经打开，无法指定插入位置"
+    "insertToolTip": "自动排序已经打开，无法指定插入位置",
+    "action": {
+      "rename": "重命名",
+      "delete": "删除视图"
+    },
+    "category": {
+      "table": "表格视图",
+      "form": "表单视图",
+      "kanban": "看板视图"
+    }
   },
   "lastModifiedTime": "最近修改时间",
   "lastModify": "上次修改："

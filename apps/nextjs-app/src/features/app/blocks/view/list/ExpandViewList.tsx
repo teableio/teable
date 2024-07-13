@@ -41,7 +41,7 @@ export const ExpandViewList = () => {
             onValueChange={(value) => setIsDraggable(!value)}
           />
           <CommandEmpty>{t('common:noResult')}</CommandEmpty>
-          <CommandList>
+          <CommandList className="p-0.5">
             <DraggableWrapper strategy={verticalListSortingStrategy}>
               {({
                 view: { id, name, type },
