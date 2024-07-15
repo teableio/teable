@@ -142,10 +142,11 @@
       "importTitle": "Create a new table",
       "incrementImportTitle": "Import Into — ",
       "optionsTitle": "Import option",
-      "leaveTitle": "Are you sure to leave this page?",
       "primitiveFields": "Primitive Fields",
       "importFields": "Import Field",
-      "primaryField": "Primary Field"
+      "primaryField": "Primary Field",
+      "tipsTitle": "Tips",
+      "confirm": "Confirm and continue"
     },
     "menu": {
       "addFromOtherSource": "Add from other sources",
@@ -163,7 +164,9 @@
       "analyzing": "analyzing",
       "notSupportFieldType": "Field type is not supported",
       "resultEmpty": "No results found.",
-      "searchPlaceholder": "Search import field"
+      "searchPlaceholder": "Search...",
+      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import result will be notify to you later. You'd better do not operate the table during the import, which may cause errors.",
+      "noTips": "I've know that, don't show again"
     },
     "options": {
       "autoSelectFieldOptionName": "Auto-select field types",

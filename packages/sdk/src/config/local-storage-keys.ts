@@ -9,4 +9,5 @@ export enum LocalStorageKeys {
   ViewGridCollapsedGroup = 'ls_view_grid_collapsed_group',
   ViewKanbanCollapsedStack = 'ls_view_kanban_collapsed_stack',
   CompletedGuideMap = 'ls_completed_guide_map',
+  ImportAlert = 'ls_import_alert',
 }

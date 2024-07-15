@@ -104,11 +104,12 @@ const FieldConfigPanel = (props: IFieldConfigPanel) => {
             key={sheetKey}
             size="xs"
             onClick={() => setSelectedSheetKey(sheetKey)}
-            className={cn('w-20 shrink-0 cursor-pointer truncate rounded-sm', {
+            className={cn('max-w-32 shrink-0 cursor-pointer truncate rounded-sm px-2', {
               'bg-secondary': sheetKey === selectedSheetKey,
             })}
+            title={workSheets[sheetKey].name}
           >
-            {workSheets[sheetKey].name}
+            <span className="truncate">{workSheets[sheetKey].name}</span>
           </Button>
         ))}
       </div>

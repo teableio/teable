@@ -2,9 +2,9 @@ import type { I18nActiveNamespaces } from '@/lib/i18n';
 
 export interface IAuthConfig {
   // Define namespaces in use in both the type and the config.
-  i18nNamespaces: I18nActiveNamespaces<'common' | 'auth'>;
+  i18nNamespaces: I18nActiveNamespaces<'common' | 'auth' | 'space'>;
 }
 
 export const authConfig: IAuthConfig = {
-  i18nNamespaces: ['common', 'auth'],
+  i18nNamespaces: ['common', 'auth', 'space'],
 };

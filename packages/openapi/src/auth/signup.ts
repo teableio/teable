@@ -6,7 +6,9 @@ import { signinSchema, signinVoSchema } from './signin';
 
 export const SIGN_UP = '/auth/signup';
 
-export const signupSchema = signinSchema;
+export const signupSchema = signinSchema.extend({
+  defaultSpaceName: z.string().optional(),
+});
 
 export type ISignup = z.infer<typeof signupSchema>;
 

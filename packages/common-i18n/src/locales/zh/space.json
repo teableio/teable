@@ -1,5 +1,5 @@
 {
-  "defaultSpaceName": "空间",
+  "initialSpaceName": "{{name}}的空间",
   "page": {
     "title": "Teable App"
   },

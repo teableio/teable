@@ -218,5 +218,15 @@
       "allowSpaceCreation": "Allow everyone to create new spaces",
       "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces."
     }
+  },
+  "notification": {
+    "title": "Notifications",
+    "unread": "Unread",
+    "read": "Read",
+    "markAs": "Mark this notification as {{status}}",
+    "markAllAsRead": "Mark all as read",
+    "noUnread": "No unread notifications",
+    "changeSetting": "Change page notification settings",
+    "new": "new {{count}}"
   }
 }

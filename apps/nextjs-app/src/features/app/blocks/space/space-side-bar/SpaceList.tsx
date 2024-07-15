@@ -14,7 +14,7 @@ import { SpaceItem } from './SpaceItem';
 export const SpaceList: FC = () => {
   const router = useRouter();
   const { disallowSpaceCreation } = useSetting();
-  const { t } = useTranslation('space');
+  const { t } = useTranslation('common');
 
   const queryClient = useQueryClient();
   const { data: spaceList } = useQuery({
@@ -46,7 +46,7 @@ export const SpaceList: FC = () => {
             className="w-full"
             onClick={() => {
               const name = getUniqName(
-                t('defaultSpaceName'),
+                t('noun.space'),
                 spaceList?.data?.length ? spaceList?.data.map((space) => space?.name) : []
               );
               addSpace({ name });

@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
 
 interface ActionBarProps {
@@ -20,6 +21,7 @@ interface ActionBarProps {
 
 export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
   const { notifyStatus, children, onStatusCheck } = props;
+  const { t } = useTranslation('common');
 
   return (
     <HoverCard openDelay={100} closeDelay={0}>
@@ -45,8 +47,12 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top" align="center" sideOffset={10}>
-                  Mark this notification as
-                  {notifyStatus === NotificationStatesEnum.Unread ? ' read' : ' unread'}
+                  {t('notification.markAs', {
+                    status:
+                      notifyStatus === NotificationStatesEnum.Unread
+                        ? t('notification.read')
+                        : t('notification.unread'),
+                  })}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -60,7 +66,7 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top" align="center" sideOffset={10}>
-                  Change page notification settings
+                  {t('notification.changeSetting')}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

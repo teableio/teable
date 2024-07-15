@@ -10,12 +10,14 @@ import { useNotification } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import { cn } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import React, { useEffect, useState } from 'react';
 import { NotificationList } from './NotificationList';
 
 export const NotificationsManage: React.FC = () => {
   const queryClient = useQueryClient();
   const notification = useNotification();
+  const { t } = useTranslation('common');
 
   const [isOpen, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -83,7 +85,7 @@ export const NotificationsManage: React.FC = () => {
           }}
         >
           <RefreshCcw />
-          <p>{num} new</p>
+          <p>{t('notification.new', { count: num })}</p>
         </Button>
       </div>
     );
@@ -133,14 +135,14 @@ export const NotificationsManage: React.FC = () => {
                 }}
               >
                 <Read />
-                Mark all as read
+                {t('notification.markAllAsRead')}
               </Button>
             </div>
           ) : (
             ''
           )}
           <div className="flex items-center justify-between border-t border-solid p-4">
-            <div className="text-sm font-normal">Notifications</div>
+            <div className="text-sm font-normal">{t('notification.title')}</div>
             {renderNewButton()}
             <div>
               <Button
@@ -151,7 +153,7 @@ export const NotificationsManage: React.FC = () => {
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
               >
-                Unread
+                {t('notification.title')}
               </Button>
               <Button
                 variant="ghost"
@@ -161,7 +163,7 @@ export const NotificationsManage: React.FC = () => {
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
               >
-                Read
+                {t('notification.read')}
               </Button>
             </div>
           </div>

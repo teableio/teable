@@ -1,5 +1,5 @@
 {
-  "defaultSpaceName": "Space",
+  "initialSpaceName": "{{name}}'s space",
   "page": {
     "title": "Teable App"
   },

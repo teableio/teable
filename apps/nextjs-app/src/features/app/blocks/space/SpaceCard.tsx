@@ -79,7 +79,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
               onChange={(e) => setSpaceName(e.target.value)}
               onBlur={(e) => toggleUpdateSpace(e)}
             >
-              <CardTitle className="truncate" title={space.name}>
+              <CardTitle className="truncate leading-5" title={space.name}>
                 {space.name}
               </CardTitle>
             </SpaceRenaming>

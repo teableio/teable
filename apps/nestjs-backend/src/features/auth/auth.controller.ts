@@ -47,7 +47,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
     @Req() req: Express.Request
   ) {
-    const user = pickUserMe(await this.authService.signup(body.email, body.password));
+    const user = pickUserMe(
+      await this.authService.signup(body.email, body.password, body.defaultSpaceName)
+    );
     // set cookie, passport login
     await new Promise<void>((resolve, reject) => {
       req.login(user, (err) => (err ? reject(err) : resolve()));

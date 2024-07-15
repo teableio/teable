@@ -29,6 +29,7 @@ function SortItem(props: ISortItemProps) {
         value={fieldId}
         onSelect={(value) => selectHandler(ISortKey.FieldId, value)}
         excludedIds={selectedFields}
+        className="w-40"
         {...restProps}
       />
 

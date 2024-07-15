@@ -66,7 +66,7 @@ export class AuthService {
     return (await this.comparePassword(pass, password, salt)) ? { ...result, password } : null;
   }
 
-  async signup(email: string, password: string) {
+  async signup(email: string, password: string, defaultSpaceName?: string) {
     const user = await this.userService.getUserByEmail(email);
     if (user && (user.password !== null || user.accounts.length > 0)) {
       throw new HttpException(`User ${email} is already registered`, HttpStatus.BAD_REQUEST);
@@ -83,14 +83,18 @@ export class AuthService {
           },
         });
       }
-      return await this.userService.createUserWithSettingCheck({
-        id: generateUserId(),
-        name: email.split('@')[0],
-        email,
-        salt,
-        password: hashPassword,
-        lastSignTime: new Date().toISOString(),
-      });
+      return await this.userService.createUserWithSettingCheck(
+        {
+          id: generateUserId(),
+          name: email.split('@')[0],
+          email,
+          salt,
+          password: hashPassword,
+          lastSignTime: new Date().toISOString(),
+        },
+        undefined,
+        defaultSpaceName
+      );
     });
   }
 

@@ -83,7 +83,8 @@ export class UserService {
 
   async createUserWithSettingCheck(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
-    account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>
+    account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
+    defaultSpaceName?: string
   ) {
     const setting = await this.prismaService.setting.findFirst({
       select: {
@@ -95,12 +96,13 @@ export class UserService {
       throw new BadRequestException('The current instance disallow sign up by the administrator');
     }
 
-    return await this.createUser(user, account);
+    return await this.createUser(user, account, defaultSpaceName);
   }
 
   async createUser(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
-    account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>
+    account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
+    defaultSpaceName?: string
   ) {
     // defaults
     const defaultNotifyMeta: IUserNotifyMeta = {
@@ -141,7 +143,7 @@ export class UserService {
     }
     await this.cls.runWith(this.cls.get(), async () => {
       this.cls.set('user.id', id);
-      await this.createSpaceBySignup({ name: `${name}'s space` });
+      await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
     });
     this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(id));
     return newUser;
