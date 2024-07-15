@@ -12,15 +12,5 @@
   "paymentRequired": {
     "title": "402 - Subscription Upgrade Required",
     "description": "Your current subscription does not support access to this feature. <br></br>Please upgrade your subscription to continue."
-  },
-  "notification": {
-    "title": "Notifications",
-    "unread": "Unread",
-    "read": "Read",
-    "markAs": "Mark this notification as {{status}}",
-    "markAllAsRead": "Mark all as read",
-    "noUnread": "No unread notifications",
-    "changeSetting": "Change page notification settings",
-    "new": "new {{count}}"
   }
 }

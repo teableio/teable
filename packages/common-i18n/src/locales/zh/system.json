@@ -12,15 +12,5 @@
   "paymentRequired": {
     "title": "402 - 需要升级订阅",
     "description": "您当前的订阅计划不支持访问此功能，请升级您的订阅以继续使用"
-  },
-  "notification": {
-    "title": "通知",
-    "unread": "未读",
-    "read": "已读",
-    "markAs": "将此通知标记为{{status}}",
-    "markAllAsRead": "全部标记为已读",
-    "noUnread": "没有未读通知",
-    "changeSetting": "更改页面通知设置",
-    "new": "新消息{{count}}条"
   }
 }

@@ -12,7 +12,6 @@ import {
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
-import { systemConfig } from '@/features/i18n/system.config';
 
 interface ActionBarProps {
   notifyStatus: NotificationStatesEnum;
@@ -22,7 +21,7 @@ interface ActionBarProps {
 
 export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
   const { notifyStatus, children, onStatusCheck } = props;
-  const { t } = useTranslation(systemConfig.i18nNamespaces);
+  const { t } = useTranslation('common');
 
   return (
     <HoverCard openDelay={100} closeDelay={0}>
@@ -51,8 +50,8 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
                   {t('notification.markAs', {
                     status:
                       notifyStatus === NotificationStatesEnum.Unread
-                        ? t('system:notification.read')
-                        : t('system:notification.unread'),
+                        ? t('notification.read')
+                        : t('notification.unread'),
                   })}
                 </TooltipContent>
               </Tooltip>
@@ -67,7 +66,7 @@ export const NotificationActionBar: React.FC<ActionBarProps> = (props) => {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top" align="center" sideOffset={10}>
-                  {t('system:notification.changeSetting')}
+                  {t('notification.changeSetting')}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

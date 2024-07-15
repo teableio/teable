@@ -217,5 +217,15 @@
       "allowSpaceCreation": "允许所有人创建新的空间",
       "allowSpaceCreationDescription": "关闭此选项将禁止除管理员以外的用户创建新的空间。"
     }
+  },
+  "notification": {
+    "title": "通知",
+    "unread": "未读",
+    "read": "已读",
+    "markAs": "将此通知标记为{{status}}",
+    "markAllAsRead": "全部标记为已读",
+    "noUnread": "没有未读通知",
+    "changeSetting": "更改页面通知设置",
+    "new": "新消息{{count}}条"
   }
 }
