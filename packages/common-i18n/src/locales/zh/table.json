@@ -142,10 +142,11 @@
       "importTitle": "创建一个新表格",
       "incrementImportTitle": "导入到 — ",
       "optionsTitle": "导入选项",
-      "leaveTitle": "确定离开此页面?",
       "primitiveFields": "原表字段",
       "importFields": "导入的字段",
-      "primaryField": "主键"
+      "primaryField": "主键",
+      "tipsTitle": "温馨提示",
+      "confirm": "确认并继续"
     },
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
@@ -162,7 +163,10 @@
       "fileExceedSizeTip": "该类型文件限制文件大小为",
       "analyzing": "分析中",
       "notSupportFieldType": "字段类型不支持",
-      "resultEmpty": "未查询到结果"
+      "resultEmpty": "未查询到结果",
+      "searchPlaceholder": "搜索...",
+      "importAlert": "一旦导入，不能中止，直到导入成功或失败中止，导入结果将会在推送到通知栏。导入期间，最好不要操作表格，可能会引起错误。",
+      "noTips": "我已知晓，不再提示"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",

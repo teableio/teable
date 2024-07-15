@@ -15,7 +15,7 @@ import {
   importTableFromFile,
   inplaceImportTableFromFile,
 } from '@teable/openapi';
-import { useBase } from '@teable/sdk';
+import { useBase, LocalStorageKeys } from '@teable/sdk';
 import {
   Dialog,
   DialogContent,
@@ -35,11 +35,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
+  Checkbox,
 } from '@teable/ui-lib';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useCallback } from 'react';
+import { useLocalStorage } from 'react-use';
 import { FieldConfigPanel, InplaceFieldConfigPanel } from './field-config-panel';
 import { UploadPanel } from './upload-panel';
 import { UrlPanel } from './UrlPanel';
@@ -68,7 +71,6 @@ export const TableImport = (props: ITableImportProps) => {
   const [step, setStep] = useState(Step.UPLOAD);
   const { children, open, onOpenChange, fileType, tableId } = props;
   const [errorMessage, setErrorMessage] = useState('');
-  const [alterDialogVisible, setAlterDialogVisible] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileInfo, setFileInfo] = useState<IAnalyzeRo>({} as IAnalyzeRo);
   const primitiveWorkSheets = useRef<IAnalyzeVo['worksheets']>({});
@@ -78,10 +80,8 @@ export const TableImport = (props: ITableImportProps) => {
     sourceWorkSheetKey: '',
     sourceColumnMap: {},
   });
-
-  const closeDialog = () => {
-    dialogOpenProxy(false);
-  };
+  const [shouldAlert, setShouldAlert] = useLocalStorage(LocalStorageKeys.ImportAlert, true);
+  const [shouldTips, setShouldTips] = useState(false);
 
   const { mutateAsync: importNewTableFn, isLoading } = useMutation({
     mutationFn: async ({ baseId, importRo }: { baseId: string; importRo: IImportOptionRo }) => {
@@ -241,17 +241,6 @@ export const TableImport = (props: ITableImportProps) => {
     [fileType, t]
   );
 
-  const dialogOpenProxy = useCallback(
-    (open: boolean) => {
-      if (!open && Step.CONFIG && isLoading) {
-        setAlterDialogVisible(true);
-        return;
-      }
-      onOpenChange?.(open);
-    },
-    [isLoading, onOpenChange]
-  );
-
   const fieldChangeHandler = (value: IImportOptionRo['worksheets']) => {
     setWorkSheets(value);
   };
@@ -262,7 +251,7 @@ export const TableImport = (props: ITableImportProps) => {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={dialogOpenProxy}>
+      <Dialog open={open} onOpenChange={(open) => onOpenChange?.(open)}>
         {children && <DialogTrigger>{children}</DialogTrigger>}
         {open && (
           <DialogContent
@@ -341,46 +330,77 @@ export const TableImport = (props: ITableImportProps) => {
             {step === Step.CONFIG && (
               <DialogFooter>
                 <footer className="mt-1 flex items-center justify-end">
-                  <Button size="sm" variant="secondary" onClick={() => closeDialog()}>
+                  <Button size="sm" variant="secondary" onClick={() => onOpenChange?.(false)}>
                     {t('table:import.menu.cancel')}
                   </Button>
-                  <Button
-                    size="sm"
-                    className="ml-1"
-                    onClick={() => importTable()}
-                    disabled={tableId ? inplaceLoading : isLoading}
-                  >
-                    {(tableId ? inplaceLoading : isLoading) && <Spin className="mr-1 size-4" />}
-                    {t('table:import.title.import')}
-                  </Button>
+                  {shouldAlert ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          className="ml-1"
+                          disabled={tableId ? inplaceLoading : isLoading}
+                        >
+                          {(tableId ? inplaceLoading : isLoading) && (
+                            <Spin className="mr-1 size-4" />
+                          )}
+                          {t('table:import.title.import')}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {t('table:import.tips.importAlert')}
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="flex items-center">
+                          <Checkbox
+                            id="noTips"
+                            checked={shouldTips}
+                            onCheckedChange={(res: boolean) => {
+                              setShouldTips(res);
+                            }}
+                          />
+                          <label
+                            htmlFor="noTips"
+                            className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {t('table:import.tips.noTips')}
+                          </label>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              importTable();
+                              if (shouldTips) {
+                                setShouldAlert(false);
+                              }
+                            }}
+                          >
+                            {t('table:import.title.confirm')}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="ml-1"
+                      onClick={() => importTable()}
+                      disabled={tableId ? inplaceLoading : isLoading}
+                    >
+                      {(tableId ? inplaceLoading : isLoading) && <Spin className="mr-1 size-4" />}
+                      {t('table:import.title.import')}
+                    </Button>
+                  )}
                 </footer>
               </DialogFooter>
             )}
           </DialogContent>
         )}
       </Dialog>
-
-      <AlertDialog
-        open={alterDialogVisible}
-        onOpenChange={(open: boolean) => setAlterDialogVisible(open)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('table:import.title.leaveTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('table:import.tips.leaveTip')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                onOpenChange?.(false);
-              }}
-            >
-              {t('table:import.menu.leave')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };

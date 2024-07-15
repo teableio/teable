@@ -30,7 +30,7 @@ interface IFieldSelector {
 export function FieldSelector(props: IFieldSelector) {
   const { options, onSelect, value, disabled = false } = props;
   const [open, setOpen] = useState(false);
-  const { t } = useTranslation(['table']);
+  const { t } = useTranslation(['table', 'common']);
 
   const comOptions = useMemo(() => {
     const result = [...options];
