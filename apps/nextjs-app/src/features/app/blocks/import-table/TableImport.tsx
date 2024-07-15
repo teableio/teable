@@ -333,8 +333,8 @@ export const TableImport = (props: ITableImportProps) => {
                   <Button size="sm" variant="secondary" onClick={() => onOpenChange?.(false)}>
                     {t('table:import.menu.cancel')}
                   </Button>
-                  {shouldAlert ? (
-                    <AlertDialog>
+                  <AlertDialog>
+                    {shouldAlert ? (
                       <AlertDialogTrigger asChild>
                         <Button
                           size="sm"
@@ -347,54 +347,54 @@ export const TableImport = (props: ITableImportProps) => {
                           {t('table:import.title.import')}
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            {t('table:import.tips.importAlert')}
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <div className="flex items-center">
-                          <Checkbox
-                            id="noTips"
-                            checked={shouldTips}
-                            onCheckedChange={(res: boolean) => {
-                              setShouldTips(res);
-                            }}
-                          />
-                          <label
-                            htmlFor="noTips"
-                            className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                          >
-                            {t('table:import.tips.noTips')}
-                          </label>
-                        </div>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => {
-                              importTable();
-                              if (shouldTips) {
-                                setShouldAlert(false);
-                              }
-                            }}
-                          >
-                            {t('table:import.title.confirm')}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="ml-1"
-                      onClick={() => importTable()}
-                      disabled={tableId ? inplaceLoading : isLoading}
-                    >
-                      {(tableId ? inplaceLoading : isLoading) && <Spin className="mr-1 size-4" />}
-                      {t('table:import.title.import')}
-                    </Button>
-                  )}
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="ml-1"
+                        onClick={() => importTable()}
+                        disabled={tableId ? inplaceLoading : isLoading}
+                      >
+                        {(tableId ? inplaceLoading : isLoading) && <Spin className="mr-1 size-4" />}
+                        {t('table:import.title.import')}
+                      </Button>
+                    )}
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t('table:import.tips.importAlert')}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="flex items-center">
+                        <Checkbox
+                          id="noTips"
+                          checked={shouldTips}
+                          onCheckedChange={(res: boolean) => {
+                            setShouldTips(res);
+                          }}
+                        />
+                        <label
+                          htmlFor="noTips"
+                          className="pl-2 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {t('table:import.tips.noTips')}
+                        </label>
+                      </div>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t('table:import.menu.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            importTable();
+                            if (shouldTips) {
+                              setShouldAlert(false);
+                            }
+                          }}
+                        >
+                          {t('table:import.title.confirm')}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </footer>
               </DialogFooter>
             )}
