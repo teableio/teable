@@ -24,7 +24,7 @@ export const Group = (props: IGroupProps) => {
       : t('group.label');
     return {
       text,
-      isActive: text !== 'Group',
+      isActive: text !== t('group.label'),
       Icon: LayoutList,
     };
   }, [groupLength, t]);
