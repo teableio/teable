@@ -29,7 +29,10 @@ export const SignForm: FC<ISignForm> = (props) => {
         return signin(form);
       }
       if (type === 'signup') {
-        return signup(form);
+        return signup({
+          ...form,
+          defaultSpaceName: t('space:initialSpaceName', { name: form.email.split('@')[0] }),
+        });
       }
       throw new Error('Invalid type');
     },
