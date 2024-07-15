@@ -10,12 +10,15 @@ import { useNotification } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import { cn } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import React, { useEffect, useState } from 'react';
+import { systemConfig } from '@/features/i18n/system.config';
 import { NotificationList } from './NotificationList';
 
 export const NotificationsManage: React.FC = () => {
   const queryClient = useQueryClient();
   const notification = useNotification();
+  const { t } = useTranslation(systemConfig.i18nNamespaces);
 
   const [isOpen, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -83,7 +86,7 @@ export const NotificationsManage: React.FC = () => {
           }}
         >
           <RefreshCcw />
-          <p>{num} new</p>
+          <p>{t('system:notification.new', { count: num })}</p>
         </Button>
       </div>
     );
@@ -133,14 +136,14 @@ export const NotificationsManage: React.FC = () => {
                 }}
               >
                 <Read />
-                Mark all as read
+                {t('system:notification.markAllAsRead')}
               </Button>
             </div>
           ) : (
             ''
           )}
           <div className="flex items-center justify-between border-t border-solid p-4">
-            <div className="text-sm font-normal">Notifications</div>
+            <div className="text-sm font-normal">{t('system:notification.title')}</div>
             {renderNewButton()}
             <div>
               <Button
@@ -151,7 +154,7 @@ export const NotificationsManage: React.FC = () => {
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
               >
-                Unread
+                {t('system:notification.unread')}
               </Button>
               <Button
                 variant="ghost"
@@ -161,7 +164,7 @@ export const NotificationsManage: React.FC = () => {
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
               >
-                Read
+                {t('system:notification.read')}
               </Button>
             </div>
           </div>
