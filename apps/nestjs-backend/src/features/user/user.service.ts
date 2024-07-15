@@ -135,7 +135,7 @@ export class UserService {
         isAdmin: isAdmin ? true : null,
       },
     });
-    const { id } = newUser;
+    const { id, name } = newUser;
     if (account) {
       await this.prismaService.txClient().account.create({
         data: { id: generateAccountId(), ...account, userId: id },
@@ -143,7 +143,7 @@ export class UserService {
     }
     await this.cls.runWith(this.cls.get(), async () => {
       this.cls.set('user.id', id);
-      await this.createSpaceBySignup({ name: defaultSpaceName });
+      await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
     });
     this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(id));
     return newUser;
