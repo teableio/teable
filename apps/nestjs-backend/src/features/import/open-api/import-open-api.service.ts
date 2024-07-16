@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import type { IFieldRo } from '@teable/core';
 import { FieldType, FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -41,7 +42,7 @@ export class ImportOpenApiService {
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo) {
     const userId = this.cls.get('user.id');
-    const { attachmentUrl, fileType, worksheets, notification = false } = importRo;
+    const { attachmentUrl, fileType, worksheets, notification = false, tz } = importRo;
 
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
@@ -53,16 +54,37 @@ export class ImportOpenApiService {
     for (const [sheetKey, value] of Object.entries(worksheets)) {
       const { importData, useFirstRowAsHeader, columns: columnInfo, name } = value;
       const fieldsRo = columnInfo.map((col, index) => {
-        return {
+        const result: IImportColumn & {
+          isPrimary?: boolean;
+        } = {
           ...col,
-          isPrimary: index === 0 ? true : null,
         };
+        if (index === 0) {
+          result.isPrimary = true;
+        }
+        return result;
       });
 
       // create table with column
       const table = await this.tableOpenApiService.createTable(baseId, {
         name: name,
-        fields: fieldsRo,
+        fields: fieldsRo.map((col) => {
+          const fieldItem: IFieldRo = {
+            name: col.name,
+            type: col.type,
+          };
+          if (col.type === FieldType.Date) {
+            // give default date format
+            fieldItem.options = {
+              formatting: {
+                timeZone: tz,
+                date: 'YYYY-MM-DD',
+                time: 'None',
+              },
+            };
+          }
+          return fieldItem;
+        }),
         views: DEFAULT_VIEWS,
         records: [],
       });

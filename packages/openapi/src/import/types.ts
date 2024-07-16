@@ -1,4 +1,4 @@
-import { FieldType } from '@teable/core';
+import { FieldType, timeZoneStringSchema } from '@teable/core';
 import z from 'zod';
 
 export enum SUPPORTEDTYPE {
@@ -60,6 +60,7 @@ export const importOptionRoSchema = z.object({
   attachmentUrl: z.string().url(),
   fileType: z.nativeEnum(SUPPORTEDTYPE),
   notification: z.boolean().optional(),
+  tz: timeZoneStringSchema,
 });
 
 export const inplaceImportOptionRoSchema = z.object({
