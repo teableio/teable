@@ -290,13 +290,11 @@ model InvitationRecord {
 
 model Notification {
   id          String   @id @default(cuid())
-  fromUser    String?  @map("from_user") @ignore
-  toUser      String?  @map("to_user") @ignore
   fromUserId  String   @map("from_user_id")
   toUserId    String   @map("to_user_id")
   type        String   @map("type")
   message     String   @map("message")
-  urlMeta     String?  @map("url_meta")
+  urlPath     String?  @map("url_path")
   isRead      Boolean  @default(false) @map("is_read")
   createdTime DateTime @default(now()) @map("created_time")
   createdBy   String   @map("created_by")

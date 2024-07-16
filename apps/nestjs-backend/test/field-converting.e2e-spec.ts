@@ -2213,7 +2213,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
     });
 
-    it.only('should convert link from one table to another and change relationship', async () => {
+    it('should convert link from one table to another and change relationship', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
         options: {

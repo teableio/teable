@@ -92,6 +92,26 @@ export class MailSenderService {
     };
   }
 
+  commonEmailOptions(info: {
+    to: string;
+    title: string;
+    message: string;
+    buttonUrl: string;
+    buttonText: string;
+  }) {
+    const { title, message } = info;
+
+    return {
+      notifyMessage: message,
+      subject: `${title} - ${this.baseConfig.brandName}`,
+      template: 'normal',
+      context: {
+        partialBody: 'common-body',
+        ...info,
+      },
+    };
+  }
+
   resetPasswordEmailOptions(info: { name: string; email: string; resetPasswordUrl: string }) {
     const { name, email, resetPasswordUrl } = info;
     return {
