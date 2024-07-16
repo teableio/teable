@@ -80,22 +80,24 @@ export class NotificationService {
       tableId: refRecord.tableId,
       ...(refRecord.recordIds.length === 1 ? { recordId: refRecord.recordIds[0] } : {}),
     });
+    const type =
+      refRecord.recordIds.length > 1
+        ? NotificationTypeEnum.CollaboratorMultiRowTag
+        : NotificationTypeEnum.CollaboratorCellTag;
+
+    const notifyPath = this.generateNotifyPath(type as NotificationTypeEnum, urlMeta);
 
     const data: Prisma.NotificationCreateInput = {
       id: notifyId,
-      fromUserId: fromUserId,
-      toUserId: toUserId,
-      type:
-        refRecord.recordIds.length > 1
-          ? NotificationTypeEnum.CollaboratorMultiRowTag
-          : NotificationTypeEnum.CollaboratorCellTag,
+      fromUserId,
+      toUserId,
+      type,
       message: emailOptions.notifyMessage,
-      urlMeta: JSON.stringify(urlMeta),
+      urlPath: notifyPath,
       createdBy: fromUserId,
     };
     const notifyData = await this.createNotify(data);
 
-    const notifyUrl = this.generateNotifyUrl(notifyData.type as NotificationTypeEnum, urlMeta);
     const unreadCount = (await this.unreadCount(toUser.id)).unreadCount;
 
     const socketNotification = {
@@ -104,7 +106,7 @@ export class NotificationService {
         message: notifyData.message,
         notifyIcon: userIcon,
         notifyType: notifyData.type as NotificationTypeEnum,
-        url: notifyUrl,
+        url: this.mailConfig.origin + notifyPath,
         isRead: false,
         createdTime: notifyData.createdTime.toISOString(),
       },
@@ -118,37 +120,39 @@ export class NotificationService {
     }
   }
 
-  async sendImportResultNotify(params: {
-    tableId: string;
-    baseId: string;
-    toUserId: string;
-    message: string;
-  }) {
-    const { toUserId, tableId, message, baseId } = params;
+  async sendCommonNotify(
+    params: {
+      path: string;
+      toUserId: string;
+      message: string;
+      emailConfig?: {
+        title: string;
+        message: string;
+        buttonUrl?: string; // use path as default
+        buttonText?: string; // use 'View' as default
+      };
+    },
+    type = NotificationTypeEnum.System
+  ) {
+    const { toUserId, emailConfig, message, path } = params;
     const notifyId = generateNotificationId();
     const toUser = await this.userService.getUserById(toUserId);
     if (!toUser) {
       return;
     }
-    const urlMeta = notificationUrlSchema.parse({
-      baseId: baseId,
-      tableId: tableId,
-    });
 
     const data: Prisma.NotificationCreateInput = {
       id: notifyId,
       fromUserId: SYSTEM_USER_ID,
-      toUserId: toUserId,
-      type: NotificationTypeEnum.System,
-      urlMeta: JSON.stringify(urlMeta),
-      createdBy: NotificationTypeEnum.System,
+      toUserId,
+      type,
+      urlPath: path,
+      createdBy: SYSTEM_USER_ID,
       message,
     };
     const notifyData = await this.createNotify(data);
 
     const unreadCount = (await this.unreadCount(toUser.id)).unreadCount;
-
-    const notifyUrl = this.generateNotifyUrl(notifyData.type as NotificationTypeEnum, urlMeta);
 
     const systemNotifyIcon = this.generateNotifyIcon(
       notifyData.type as NotificationTypeEnum,
@@ -166,8 +170,8 @@ export class NotificationService {
       notification: {
         id: notifyData.id,
         message: notifyData.message,
-        notifyType: notifyData.type as NotificationTypeEnum,
-        url: notifyUrl,
+        notifyType: type,
+        url: this.mailConfig.origin + path,
         notifyIcon: systemNotifyIcon,
         isRead: false,
         createdTime: notifyData.createdTime.toISOString(),
@@ -176,6 +180,45 @@ export class NotificationService {
     };
 
     this.sendNotifyBySocket(toUser.id, socketNotification);
+
+    if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
+      const emailOptions = this.mailSenderService.commonEmailOptions({
+        ...emailConfig,
+        to: toUserId,
+        buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,
+        buttonText: emailConfig.buttonText || 'View',
+      });
+      this.sendNotifyByMail(toUser.email, emailOptions);
+    }
+  }
+
+  async sendImportResultNotify(params: {
+    tableId: string;
+    baseId: string;
+    toUserId: string;
+    message: string;
+  }) {
+    const { toUserId, tableId, message, baseId } = params;
+    const toUser = await this.userService.getUserById(toUserId);
+    if (!toUser) {
+      return;
+    }
+    const type = NotificationTypeEnum.System;
+    const urlMeta = notificationUrlSchema.parse({
+      baseId: baseId,
+      tableId: tableId,
+    });
+    const notifyPath = this.generateNotifyPath(type, urlMeta);
+
+    this.sendCommonNotify({
+      path: notifyPath,
+      toUserId,
+      message,
+      emailConfig: {
+        title: 'Import result notification',
+        message: message,
+      },
+    });
   }
 
   async getNotifyList(userId: string, query: IGetNotifyListQuery): Promise<INotificationVo> {
@@ -203,19 +246,16 @@ export class NotificationService {
     const fromUserSets = keyBy(rawUsers, 'id');
 
     const notifications = data.map((v) => {
-      const urlMeta = v.urlMeta && JSON.parse(v.urlMeta);
-
       const notifyIcon = this.generateNotifyIcon(
         v.type as NotificationTypeEnum,
         v.fromUserId,
         fromUserSets
       );
-      const notifyUrl = this.generateNotifyUrl(v.type as NotificationTypeEnum, urlMeta);
       return {
         id: v.id,
         notifyIcon: notifyIcon,
         notifyType: v.type as NotificationTypeEnum,
-        url: notifyUrl,
+        url: this.mailConfig.origin + v.urlPath,
         message: v.message,
         isRead: v.isRead,
         createdTime: v.createdTime.toISOString(),
@@ -257,19 +297,17 @@ export class NotificationService {
     }
   }
 
-  private generateNotifyUrl(notifyType: NotificationTypeEnum, urlMeta: INotificationUrl) {
-    const origin = this.mailConfig.origin;
-
+  private generateNotifyPath(notifyType: NotificationTypeEnum, urlMeta: INotificationUrl) {
     switch (notifyType) {
       case NotificationTypeEnum.System: {
         const { baseId, tableId } = urlMeta || {};
-        return `${origin}/base/${baseId}/${tableId}`;
+        return `/base/${baseId}/${tableId}`;
       }
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { baseId, tableId, recordId } = urlMeta || {};
 
-        return `${origin}/base/${baseId}/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
+        return `/base/${baseId}/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
       }
     }
   }
@@ -318,14 +356,17 @@ export class NotificationService {
     return this.prismaService.notification.create({ data });
   }
 
-  private sendNotifyBySocket(toUserId: string, data: INotificationBuffer) {
+  private async sendNotifyBySocket(toUserId: string, data: INotificationBuffer) {
     const channel = getUserNotificationChannel(toUserId);
 
     const presence = this.shareDbService.connect().getPresence(channel);
     const localPresence = presence.create(data.notification.id);
 
-    localPresence.submit(data, (error) => {
-      error && this.logger.error(error);
+    return new Promise((resolve) => {
+      localPresence.submit(data, (error) => {
+        error && this.logger.error(error);
+        resolve(data);
+      });
     });
   }
 
