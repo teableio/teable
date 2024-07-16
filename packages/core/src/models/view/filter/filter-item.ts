@@ -76,41 +76,41 @@ const operatorsExpectingArray: string[] = [
   isExactly.value,
 ];
 
-export const filterOperatorSchema = z
-  .object({
-    isSymbol: z.literal(false).optional(),
-    fieldId: z.string(),
-    value: filterValueSchema,
-    operator: operators,
-  })
-  .superRefine((val, ctx) => {
-    if (!val.value) {
-      return z.NEVER;
-    }
+export const baseFilterOperatorSchema = z.object({
+  isSymbol: z.literal(false).optional(),
+  fieldId: z.string(),
+  value: filterValueSchema,
+  operator: operators,
+});
 
-    if (operatorsExpectingNull.includes(val.operator)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `For the operator '${val.operator}', the 'value' should be null`,
-      });
-    }
+export const filterOperatorSchema = baseFilterOperatorSchema.superRefine((val, ctx) => {
+  if (!val.value) {
+    return z.NEVER;
+  }
 
-    if (operatorsExpectingArray.includes(val.operator) && !Array.isArray(val.value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `For the operator '${val.operator}', the 'value' should be an array`,
-      });
-    }
+  if (operatorsExpectingNull.includes(val.operator)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `For the operator '${val.operator}', the 'value' should be null`,
+    });
+  }
 
-    if (!operatorsExpectingArray.includes(val.operator) && Array.isArray(val.value)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `For the operator '${val.operator}', the 'value' should not be an array`,
-      });
-    }
-  });
+  if (operatorsExpectingArray.includes(val.operator) && !Array.isArray(val.value)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `For the operator '${val.operator}', the 'value' should be an array`,
+    });
+  }
 
-const filterSymbolOperatorSchema = z.object({
+  if (!operatorsExpectingArray.includes(val.operator) && Array.isArray(val.value)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `For the operator '${val.operator}', the 'value' should not be an array`,
+    });
+  }
+});
+
+export const filterSymbolOperatorSchema = z.object({
   isSymbol: z.literal(true),
   fieldId: z.string(),
   value: filterValueSchema,
