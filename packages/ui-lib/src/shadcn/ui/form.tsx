@@ -1,7 +1,7 @@
 import type * as LabelPrimitive from '@radix-ui/react-label';
 import { Slot } from '@radix-ui/react-slot';
 import * as React from 'react';
-import type { ControllerProps, FieldPath, FieldValues } from 'react-hook-form';
+import type { ControllerProps, FieldPath, FieldValues, FieldError } from 'react-hook-form';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 
 import { cn } from '../utils';
@@ -130,7 +130,24 @@ const FormMessage = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField();
-  const body = error ? String(error?.message) : children;
+  // fix the array error message, origin formMessage only support string error
+  let finalError = error;
+  if (!finalError?.message) {
+    if (Array.isArray(finalError) && finalError.length) {
+      const newError = finalError[0];
+      const errorKey = Object.keys(newError)[0];
+      finalError = { ...newError[errorKey], message: `${errorKey}: ${newError[errorKey].message}` };
+    } else if (finalError && Object.keys(finalError).length !== 0) {
+      const newError = { ...finalError } as unknown as Record<string, FieldError>;
+      const errorKey = Object.keys(newError)[0];
+      finalError = {
+        ...finalError,
+        message: `${newError[errorKey].message}`,
+      };
+    }
+  }
+
+  const body = finalError ? String(finalError?.message) : children;
 
   if (!body) {
     return null;
