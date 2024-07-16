@@ -31,6 +31,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     displayRender,
     search = true,
     placeholder = t('common.search.placeholder'),
+    cancelable = false,
   } = props;
   const [open, setOpen] = useState(false);
 
@@ -92,6 +93,12 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
                 key={option.value}
                 value={option.value}
                 onSelect={() => {
+                  // set cancelable support select same value will be reset to null
+                  if (cancelable && value === option.value) {
+                    onSelect(null);
+                    setOpen(false);
+                    return;
+                  }
                   onSelect(option.value);
                   setOpen(false);
                 }}

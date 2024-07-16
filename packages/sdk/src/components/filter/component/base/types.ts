@@ -21,6 +21,7 @@ interface IBaseSelect<V, O = IOption<V>> {
   optionRender?: (option: O) => React.ReactElement;
   displayRender?: (option: O) => React.ReactElement;
   placeholder?: string;
+  cancelable?: boolean;
 }
 
 interface IBaseMultipleSelect<V, O = IOption<V>>
