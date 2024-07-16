@@ -115,3 +115,107 @@ export const MULTIPLE_USER_FIELD_CASES = [
     expectMoreResults: false,
   },
 ];
+
+export const USER_LOOKUP_FIELD_CASES = [
+  {
+    fieldIndex: 8,
+    operator: isEmpty.value,
+    queryValue: null,
+    expectResultLength: 16,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 8,
+    operator: isNotEmpty.value,
+    queryValue: null,
+    expectResultLength: 5,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 8,
+    operator: hasAllOf.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 5,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 8,
+    operator: hasAnyOf.value,
+    queryValue: [Me],
+    expectResultLength: 5,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 8,
+    operator: hasAnyOf.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 5,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 8,
+    operator: isExactly.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 5,
+    expectMoreResults: true,
+  },
+  {
+    fieldIndex: 8,
+    operator: hasNoneOf.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 16,
+    expectMoreResults: false,
+  },
+];
+
+export const MULTIPLE_USER_LOOKUP_FIELD_CASES = [
+  {
+    fieldIndex: 10,
+    operator: isEmpty.value,
+    queryValue: null,
+    expectResultLength: 14,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 10,
+    operator: isNotEmpty.value,
+    queryValue: null,
+    expectResultLength: 7,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 10,
+    operator: hasAnyOf.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 5,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 10,
+    operator: hasAnyOf.value,
+    queryValue: [Me],
+    expectResultLength: 5,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 10,
+    operator: hasAllOf.value,
+    queryValue: ['usrTestUserId_1'],
+    expectResultLength: 7,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 10,
+    operator: isExactly.value,
+    queryValue: ['usrTestUserId', 'usrTestUserId_1'],
+    expectResultLength: 2,
+    expectMoreResults: true,
+  },
+  {
+    fieldIndex: 10,
+    operator: hasNoneOf.value,
+    queryValue: ['usrTestUserId'],
+    expectResultLength: 16,
+    expectMoreResults: false,
+  },
+];

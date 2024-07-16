@@ -16,3 +16,20 @@ export const CHECKBOX_FIELD_CASES = [
     expectMoreResults: false,
   },
 ];
+
+export const CHECKBOX_LOOKUP_FIELD_CASES = [
+  {
+    fieldIndex: 7,
+    operator: is.value,
+    queryValue: null,
+    expectResultLength: 14,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 7,
+    operator: is.value,
+    queryValue: true,
+    expectResultLength: 7,
+    expectMoreResults: false,
+  },
+];

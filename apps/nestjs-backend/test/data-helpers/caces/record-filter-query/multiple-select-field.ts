@@ -44,3 +44,48 @@ export const MULTIPLE_SELECT_FIELD_CASES = [
     expectMoreResults: false,
   },
 ];
+
+export const MULTIPLE_SELECT_LOOKUP_FIELD_CASES = [
+  {
+    fieldIndex: 9,
+    operator: isEmpty.value,
+    queryValue: null,
+    expectResultLength: 11,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 9,
+    operator: isNotEmpty.value,
+    queryValue: null,
+    expectResultLength: 10,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 9,
+    operator: hasAnyOf.value,
+    queryValue: ['rap', 'rock', 'hiphop'],
+    expectResultLength: 10,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 9,
+    operator: hasAllOf.value,
+    queryValue: ['rap', 'rock'],
+    expectResultLength: 8,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 9,
+    operator: hasNoneOf.value,
+    queryValue: ['rock'],
+    expectResultLength: 12,
+    expectMoreResults: true,
+  },
+  {
+    fieldIndex: 9,
+    operator: isExactly.value,
+    queryValue: ['rock', 'hiphop'],
+    expectResultLength: 0,
+    expectMoreResults: false,
+  },
+];

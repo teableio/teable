@@ -67,3 +67,62 @@ export const NUMBER_FIELD_CASES = [
     expectMoreResults: false,
   },
 ];
+
+export const NUMBER_LOOKUP_FIELD_CASES = [
+  {
+    fieldIndex: 4,
+    operator: isEmpty.value,
+    queryValue: null,
+    expectResultLength: 7,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 4,
+    operator: isNotEmpty.value,
+    queryValue: null,
+    expectResultLength: 14,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 4,
+    operator: is.value,
+    queryValue: 9,
+    expectResultLength: 2,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 4,
+    operator: isNot.value,
+    queryValue: 20,
+    expectResultLength: 20,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 4,
+    operator: isGreater.value,
+    queryValue: 1,
+    expectResultLength: 10,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 4,
+    operator: isGreaterEqual.value,
+    queryValue: 5,
+    expectResultLength: 6,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 4,
+    operator: isLess.value,
+    queryValue: 10,
+    expectResultLength: 12,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 4,
+    operator: isLessEqual.value,
+    queryValue: 3,
+    expectResultLength: 9,
+    expectMoreResults: false,
+  },
+];
