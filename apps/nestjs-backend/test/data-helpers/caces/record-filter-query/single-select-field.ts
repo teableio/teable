@@ -44,3 +44,48 @@ export const SINGLE_SELECT_FIELD_CASES = [
     expectMoreResults: false,
   },
 ];
+
+export const SINGLE_SELECT_LOOKUP_FIELD_CASES = [
+  {
+    fieldIndex: 5,
+    operator: isEmpty.value,
+    queryValue: null,
+    expectResultLength: 15,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 5,
+    operator: isNotEmpty.value,
+    queryValue: null,
+    expectResultLength: 6,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 5,
+    operator: is.value,
+    queryValue: 'x',
+    expectResultLength: 5,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 5,
+    operator: isNot.value,
+    queryValue: 'x',
+    expectResultLength: 16,
+    expectMoreResults: false,
+  },
+  {
+    fieldIndex: 5,
+    operator: isAnyOf.value,
+    queryValue: ['x', 'y'],
+    expectResultLength: 6,
+    expectMoreResults: true,
+  },
+  {
+    fieldIndex: 5,
+    operator: isNoneOf.value,
+    queryValue: ['x', 'y'],
+    expectResultLength: 15,
+    expectMoreResults: false,
+  },
+];

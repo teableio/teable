@@ -365,7 +365,16 @@ export class FieldSupplementService {
       return DbFieldType.Json;
     }
 
-    if (fieldType === FieldType.Link) {
+    if (
+      [
+        FieldType.Link,
+        FieldType.User,
+        FieldType.Attachment,
+        FieldType.Button,
+        FieldType.CreatedBy,
+        FieldType.LastModifiedBy,
+      ].includes(fieldType)
+    ) {
       return DbFieldType.Json;
     }
 

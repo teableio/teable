@@ -33,13 +33,19 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterSqlite {
   ): Knex.QueryBuilder {
     const jsonColumn = this.getJsonQueryColumn(this.field, operator);
     const isExactlySql = `(
-      select count(distinct json_each.value) from 
+      select count(${jsonColumn}) from 
         json_each(${this.tableColumnRef}) 
       where ${jsonColumn} in (${this.createSqlPlaceholders(value)})
-        and json_array_length(${this.tableColumnRef}) = ?
+    ) >= ?`;
+
+    const isFullMatchSql = `(
+      select count(distinct ${jsonColumn}) from 
+        json_each(${this.tableColumnRef})
     ) = ?`;
-    const vLength = value.length;
-    builderClient.whereRaw(isExactlySql, [...value, vLength, vLength]);
+
+    builderClient
+      .whereRaw(isExactlySql, [...value, value.length])
+      .whereRaw(isFullMatchSql, [value.length]);
     return builderClient;
   }
 
