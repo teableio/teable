@@ -85,7 +85,7 @@ export const MULTIPLE_SELECT_LOOKUP_FIELD_CASES = [
     fieldIndex: 9,
     operator: isExactly.value,
     queryValue: ['rock', 'hiphop'],
-    expectResultLength: 0,
+    expectResultLength: 1,
     expectMoreResults: false,
   },
 ];

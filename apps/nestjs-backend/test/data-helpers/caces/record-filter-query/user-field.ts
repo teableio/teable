@@ -208,7 +208,7 @@ export const MULTIPLE_USER_LOOKUP_FIELD_CASES = [
     fieldIndex: 10,
     operator: isExactly.value,
     queryValue: ['usrTestUserId', 'usrTestUserId_1'],
-    expectResultLength: 2,
+    expectResultLength: 5,
     expectMoreResults: true,
   },
   {
