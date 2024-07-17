@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
-import { DBErrorCode } from './db.error';
+import { PostgresErrorCode, SqliteErrorCode } from './db.error';
 
 interface ITx {
   client?: Prisma.TransactionClient;
@@ -23,13 +23,19 @@ function proxyClient(tx: Prisma.TransactionClient) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } catch (e: any) {
             const code = e.meta?.code ?? e.code;
-            if (code === DBErrorCode.UNIQUE_VIOLATION) {
+            if (
+              code === PostgresErrorCode.UNIQUE_VIOLATION ||
+              code === SqliteErrorCode.UNIQUE_VIOLATION
+            ) {
               throw new HttpException(
                 'Duplicate detected! Please ensure that all fields with unique value validation are indeed unique.',
                 HttpStatus.BAD_REQUEST
               );
             }
-            if (code === DBErrorCode.NOT_NULL_VIOLATION) {
+            if (
+              code === PostgresErrorCode.NOT_NULL_VIOLATION ||
+              code === SqliteErrorCode.NOT_NULL_VIOLATION
+            ) {
               throw new HttpException(
                 'One or more required fields were not provided! Please ensure all mandatory fields are filled.',
                 HttpStatus.BAD_REQUEST
