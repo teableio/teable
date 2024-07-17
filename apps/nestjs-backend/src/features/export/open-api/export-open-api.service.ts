@@ -1,11 +1,12 @@
 import { Readable } from 'stream';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type { IAttachmentCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
-import { isObject } from 'lodash';
 import Papa from 'papaparse';
 import { FieldService } from '../../field/field.service';
+import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
 
 @Injectable()
@@ -27,7 +28,7 @@ export class ExportOpenApiService {
     const tableRaw = await this.prismaService.tableMeta
       .findUnique({
         where: { id: tableId, deletedTime: null },
-        select: { name: true },
+        select: { name: true, fields: true },
       })
       .catch(() => {
         throw new BadRequestException('table is not found');
@@ -41,33 +42,21 @@ export class ExportOpenApiService {
     csvStream.pipe(response);
 
     // set headers as first row
-    const headers = await this.fieldService.getFieldsByQuery(tableId);
+    const headers = tableRaw?.fields || [];
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
+
     const headersInfoMap = new Map(
       headers.map((h, index) => [
         h.name,
         {
           index,
           type: h.type,
+          fieldInstance: createFieldInstanceByRaw(h),
         },
       ])
     );
 
     csvStream.push(headerData);
-
-    const transformTableToCsvValue = (value: unknown, type: FieldType) => {
-      let csvValue = value;
-      if (Array.isArray(value)) {
-        csvValue =
-          type === FieldType.Attachment
-            ? value.map((v) => `${v.name} ${v.presignedUrl}`).join(',')
-            : value.map((v) => (typeof v !== 'object' ? v : v.title)).join(',');
-      }
-      if (isObject(csvValue) && 'title' in csvValue) {
-        csvValue = csvValue?.title;
-      }
-      return csvValue;
-    };
 
     try {
       while (!isOver) {
@@ -87,9 +76,15 @@ export class ExportOpenApiService {
             const { fields } = r;
             const recordsArr = Array.from({ length: headers.length });
             for (const [key, value] of Object.entries(fields)) {
-              const { index: hIndex, type } = headersInfoMap.get(key) ?? {};
+              const { index: hIndex, type, fieldInstance } = headersInfoMap.get(key) ?? {};
               if (hIndex !== undefined && type !== undefined) {
-                recordsArr[hIndex] = transformTableToCsvValue(value, type);
+                const finalValue =
+                  type === FieldType.Attachment
+                    ? (value as IAttachmentCellValue)
+                        .map((v) => `${v.name} ${v.presignedUrl}`)
+                        .join(',')
+                    : fieldInstance?.cellValue2String(value);
+                recordsArr[hIndex] = finalValue;
               }
             }
             return recordsArr;
