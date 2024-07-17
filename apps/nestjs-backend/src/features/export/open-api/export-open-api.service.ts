@@ -6,7 +6,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
 import Papa from 'papaparse';
 import { FieldService } from '../../field/field.service';
-import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
 
 @Injectable()
@@ -28,7 +28,7 @@ export class ExportOpenApiService {
     const tableRaw = await this.prismaService.tableMeta
       .findUnique({
         where: { id: tableId, deletedTime: null },
-        select: { name: true, fields: true },
+        select: { name: true },
       })
       .catch(() => {
         throw new BadRequestException('table is not found');
@@ -42,7 +42,7 @@ export class ExportOpenApiService {
     csvStream.pipe(response);
 
     // set headers as first row
-    const headers = tableRaw?.fields || [];
+    const headers = await this.fieldService.getFieldsByQuery(tableId);
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
 
     const headersInfoMap = new Map(
@@ -51,7 +51,7 @@ export class ExportOpenApiService {
         {
           index,
           type: h.type,
-          fieldInstance: createFieldInstanceByRaw(h),
+          fieldInstance: createFieldInstanceByVo(h),
         },
       ])
     );
