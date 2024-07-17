@@ -70,8 +70,7 @@ export class ImportOpenApiService {
         name: name,
         fields: fieldsRo.map((col) => {
           const fieldItem: IFieldRo = {
-            name: col.name,
-            type: col.type,
+            ...col,
           };
           if (col.type === FieldType.Date) {
             // give default date format
