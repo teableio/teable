@@ -71,6 +71,13 @@ const mainFields = [
   {
     type: FieldType.Date,
     name: 'Date field',
+    options: {
+      formatting: {
+        timeZone: 'Asia/Shanghai',
+        date: 'YYYY-MM-DD',
+        time: 'None',
+      },
+    },
   },
   {
     type: FieldType.Attachment,
@@ -127,11 +134,12 @@ afterAll(async () => {
 
 const createRecordsWithLink = async (mainTableId: string, subTableId: string) => {
   return apiCreateRecords(mainTableId, {
+    typecast: true,
     records: [
       {
         fields: {
           ['Attachment field']: [{ ...txtFileData, id: 'actxxxxxx', name: 'test.txt' }],
-          ['Date field']: '2022-11-28T16:00:00.000Z',
+          ['Date field']: '2022-11-28',
           ['Text field']: 'txt1',
           ['Number field']: 1,
           ['Checkbox field']: true,
@@ -145,7 +153,7 @@ const createRecordsWithLink = async (mainTableId: string, subTableId: string) =>
       },
       {
         fields: {
-          ['Date field']: '2022-11-28T16:00:00.000Z',
+          ['Date field']: '2022-11-28',
           ['Text field']: 'txt2',
           ['Select field']: 'y',
           ['User Field']: {
@@ -249,7 +257,7 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
     expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.data.name)}.csv`);
     expect(contentType).toBe('text/csv');
     expect(csvData).toBe(
-      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1,true,x,2022-11-28T16:00:00.000Z,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1,true,sub_y\r\ntxt2,,,y,2022-11-28T16:00:00.000Z,,test,,,,,\r\n,,true,z,,,,,,,,`
+      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
     );
   });
 
@@ -337,7 +345,7 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
     expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.data.name)}.csv`);
     expect(contentType).toBe('text/csv');
     expect(csvData).toBe(
-      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1,true,x,2022-11-28T16:00:00.000Z,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1,true,sub_y\r\ntxt2,,,y,2022-11-28T16:00:00.000Z,,test,,,,,\r\n,,true,z,,,,,,,,`
+      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
     );
   });
 });

@@ -255,6 +255,7 @@ describe('OpenAPI ImportController (e2e)', () => {
               importData: true,
             },
           },
+          tz: 'Asia/Shanghai',
         });
 
         const { fields, id } = table.data[0];

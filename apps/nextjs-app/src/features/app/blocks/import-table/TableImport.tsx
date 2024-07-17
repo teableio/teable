@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import type { ITimeZoneString } from '@teable/core';
 import type {
   IInplaceImportOptionRo,
   IImportOptionRo,
@@ -145,6 +146,7 @@ export const TableImport = (props: ITableImportProps) => {
           worksheets: workSheets,
           ...fileInfo,
           notification: true,
+          tz: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
         },
       });
     };
