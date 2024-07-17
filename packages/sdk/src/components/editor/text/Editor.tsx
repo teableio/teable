@@ -19,10 +19,7 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
 
   useImperativeHandle(ref, () => ({
     focus: () => inputRef.current?.focus(),
-    setValue: (value?: string) => {
-      console.log('value', value);
-      setText(value || '');
-    },
+    setValue: (value?: string) => setText(value || ''),
     saveValue,
   }));
 

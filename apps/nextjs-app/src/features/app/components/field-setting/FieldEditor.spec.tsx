@@ -2,6 +2,7 @@ import { CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { render, TestAnchorProvider } from '@/test-utils';
 import { FieldEditor } from './FieldEditor';
+import { FieldOperator } from './type';
 
 const lookupFields = [
   {
@@ -38,6 +39,7 @@ describe('field editor static tests', () => {
             type: FieldType.SingleLineText,
           }}
           onChange={() => undefined}
+          operator={FieldOperator.Add}
         />
       </TestAnchorProvider>
     );
@@ -52,6 +54,7 @@ describe('field editor static tests', () => {
             type: FieldType.SingleLineText,
             isLookup: true,
           }}
+          operator={FieldOperator.Add}
           onChange={() => undefined}
         />
       </TestAnchorProvider>
@@ -67,6 +70,7 @@ describe('field editor static tests', () => {
           field={{
             type: FieldType.Rollup,
           }}
+          operator={FieldOperator.Add}
           onChange={() => undefined}
         />
       </TestAnchorProvider>
@@ -86,6 +90,7 @@ describe('field editor static tests', () => {
               lookupFieldId: 'mockFieldId',
             },
           }}
+          operator={FieldOperator.Add}
           onChange={() => undefined}
         />
       </TestAnchorProvider>
@@ -111,6 +116,7 @@ describe('field editor static tests', () => {
             },
             cellValueType: CellValueType.Number,
           }}
+          operator={FieldOperator.Add}
           onChange={() => undefined}
         />
       </TestAnchorProvider>
@@ -135,6 +141,7 @@ describe('field editor static tests', () => {
             cellValueType: CellValueType.Number,
             isMultipleCellValue: true,
           }}
+          operator={FieldOperator.Add}
           onChange={() => undefined}
         />
       </TestAnchorProvider>
