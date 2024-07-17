@@ -8,8 +8,16 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ViewType,
+  IConvertFieldRo,
+  FieldType,
 } from '@teable/core';
-import { FieldOpBuilder, IdPrefix, OpName } from '@teable/core';
+import {
+  FieldOpBuilder,
+  IdPrefix,
+  OpName,
+  checkFieldUniqueValidationEnabled,
+  checkFieldValidationEnabled,
+} from '@teable/core';
 import type { Field as RawField, Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -125,20 +133,38 @@ export class FieldService implements IReadonlyAdapterService {
     return multiFieldData;
   }
 
-  private async alterTableAddField(
-    dbTableName: string,
-    fieldInstances: { dbFieldType: DbFieldType; dbFieldName: string }[]
-  ) {
+  private async alterTableAddField(dbTableName: string, fieldInstances: IFieldInstance[]) {
     for (let i = 0; i < fieldInstances.length; i++) {
-      const field = fieldInstances[i];
+      const { dbFieldType, dbFieldName, type, isLookup, unique, notNull } = fieldInstances[i];
 
       const alterTableQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
-          const typeKey = dbType2knexFormat(this.knex, field.dbFieldType);
-          table[typeKey](field.dbFieldName);
+          const typeKey = dbType2knexFormat(this.knex, dbFieldType);
+          table[typeKey](dbFieldName);
         })
         .toQuery();
       await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
+
+      if (unique) {
+        if (!checkFieldUniqueValidationEnabled(type, isLookup)) {
+          throw new BadRequestException(
+            `Field type "${type}" does not support field value unique validation`
+          );
+        }
+
+        const fieldValidationQuery = this.knex.schema
+          .alterTable(dbTableName, (table) => {
+            table.unique(dbFieldName);
+          })
+          .toQuery();
+        await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
+      }
+
+      if (notNull) {
+        throw new BadRequestException(
+          `Field type "${type}" does not support field validation when creating a new field`
+        );
+      }
     }
   }
 
@@ -201,6 +227,43 @@ export class FieldService implements IReadonlyAdapterService {
     for (const alterTableQuery of modifyColumnSql) {
       await this.prismaService.txClient().$executeRawUnsafe(alterTableQuery);
     }
+  }
+
+  private async alterTableModifyFieldValidation(
+    fieldId: string,
+    newValidationRules: Pick<IConvertFieldRo, 'unique' | 'notNull'>
+  ) {
+    const { unique, notNull } = newValidationRules;
+    const { dbFieldName, table, type, isLookup } = await this.prismaService
+      .txClient()
+      .field.findFirstOrThrow({
+        where: { id: fieldId, deletedTime: null },
+        select: {
+          dbFieldName: true,
+          type: true,
+          isLookup: true,
+          table: { select: { dbTableName: true } },
+        },
+      });
+
+    if (!checkFieldValidationEnabled(type as FieldType, isLookup)) {
+      throw new BadRequestException(`Field type "${type}" does not support field validation`);
+    }
+
+    const dbTableName = table.dbTableName;
+
+    const fieldValidationQuery = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        if (unique != null) {
+          unique ? table.unique(dbFieldName) : table.dropUnique([dbFieldName]);
+        }
+
+        if (notNull != null) {
+          notNull ? table.dropNullable(dbFieldName) : table.setNullable(dbFieldName);
+        }
+      })
+      .toQuery();
+    await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
@@ -417,6 +480,7 @@ export class FieldService implements IReadonlyAdapterService {
 
   private async handleFieldProperty(fieldId: string, opContext: IOpContext) {
     const { key, newValue } = opContext as ISetFieldPropertyOpContext;
+
     if (key === 'options') {
       if (!newValue) {
         throw new Error('field options is required');
@@ -438,6 +502,10 @@ export class FieldService implements IReadonlyAdapterService {
 
     if (key === 'dbFieldName') {
       await this.alterTableModifyFieldName(fieldId, newValue as string);
+    }
+
+    if (key === 'unique' || key === 'notNull') {
+      await this.alterTableModifyFieldValidation(fieldId, { [key]: newValue });
     }
 
     return { [key]: newValue ?? null };

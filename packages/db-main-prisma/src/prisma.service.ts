@@ -1,9 +1,10 @@
 import type { OnModuleInit } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
+import { DBErrorCode } from './db.error';
 
 interface ITx {
   client?: Prisma.TransactionClient;
@@ -17,16 +18,27 @@ function proxyClient(tx: Prisma.TransactionClient) {
     get(target, p) {
       if (p === '$queryRawUnsafe' || p === '$executeRawUnsafe') {
         return async function (query: string, ...args: unknown[]) {
-          const stack = new Error().stack;
           try {
             return await target[p](query, ...args);
-          } catch (e: unknown) {
-            // you can debug here
-            const newError = new Error(
-              `An error occurred in ${p}: ${(e as { message: string }).message}`
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } catch (e: any) {
+            const code = e.meta?.code ?? e.code;
+            if (code === DBErrorCode.UNIQUE_VIOLATION) {
+              throw new HttpException(
+                'Duplicate detected! Please ensure that all fields with unique value validation are indeed unique.',
+                HttpStatus.BAD_REQUEST
+              );
+            }
+            if (code === DBErrorCode.NOT_NULL_VIOLATION) {
+              throw new HttpException(
+                'One or more required fields were not provided! Please ensure all mandatory fields are filled.',
+                HttpStatus.BAD_REQUEST
+              );
+            }
+            throw new HttpException(
+              `An error occurred in ${p}: ${e.message}`,
+              HttpStatus.INTERNAL_SERVER_ERROR
             );
-            newError.stack = stack;
-            throw newError;
           }
         };
       }

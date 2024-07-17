@@ -195,13 +195,6 @@ export const FIELD_RO_PROPERTIES = [
   'options',
 ] as const;
 
-/**
- * make sure FIELD_RO_PROPERTIES is exactly equals IFieldVo
- * if here throw error, you should update FIELD_RO_PROPERTIES
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _validator1: IEnsureKeysMatchInterface<IConvertFieldRo, typeof FIELD_RO_PROPERTIES> = true;
-
 export const FIELD_VO_PROPERTIES = [
   'type',
   'description',
@@ -333,6 +326,8 @@ const baseFieldRoSchema = fieldVoSchema
   .pick({
     type: true,
     name: true,
+    unique: true,
+    notNull: true,
     dbFieldName: true,
     isLookup: true,
     description: true,

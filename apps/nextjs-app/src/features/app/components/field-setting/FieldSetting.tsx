@@ -63,6 +63,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
       if (operator === FieldOperator.Edit) {
         const fieldId = props.field?.id;
+        console.log('field', field);
         table && fieldId && (await table.convertField(fieldId, field));
       }
 
@@ -245,7 +246,13 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
             {/* Header */}
             <div className="text-md mx-2 w-full border-b py-2 font-semibold">{title}</div>
             {/* Content Form */}
-            {<DynamicFieldEditor field={field} onChange={onFieldEditorChange} />}
+            {
+              <DynamicFieldEditor
+                field={field}
+                operator={operator}
+                onChange={onFieldEditorChange}
+              />
+            }
             {/* Footer */}
             <div className="flex w-full shrink-0 justify-between p-2">
               <div>

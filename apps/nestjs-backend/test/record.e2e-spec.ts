@@ -4,6 +4,7 @@ import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, FieldKeyType, FieldType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
+  convertField,
   createField,
   createRecords,
   createTable,
@@ -218,6 +219,114 @@ describe('OpenAPI RecordController (e2e)', () => {
           {
             fields: {
               [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      });
+    });
+  });
+
+  describe('validate record value by field validation', () => {
+    let table: ITableFullVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
+    });
+
+    afterAll(async () => {
+      await deleteTable(baseId, table.id);
+    });
+
+    const clearRecords = async () => {
+      const table2Records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+
+      await deleteRecords(
+        table.id,
+        table2Records.records.map((record) => record.id)
+      );
+    };
+
+    it('should validate the unique values of the unique field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField',
+        type: FieldType.SingleLineText,
+        unique: true,
+      };
+
+      await clearRecords();
+
+      const sourceField = await createField(table.id, sourceFieldRo);
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '100',
+            },
+          },
+        ],
+      });
+
+      await createRecords(
+        table.id,
+        {
+          records: [
+            {
+              fields: {
+                [sourceField.id]: '100',
+              },
+            },
+          ],
+        },
+        400
+      );
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '200',
+            },
+          },
+        ],
+      });
+    });
+
+    it('should validate the not null values of the not null field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField2',
+        type: FieldType.SingleLineText,
+      };
+      const convertFieldRo: IFieldRo = {
+        name: 'TextField2',
+        type: FieldType.SingleLineText,
+        notNull: true,
+      };
+
+      await clearRecords();
+
+      const sourceField = await createField(table.id, sourceFieldRo);
+      await convertField(table.id, sourceField.id, convertFieldRo);
+
+      await createRecords(
+        table.id,
+        {
+          records: [
+            {
+              fields: {},
+            },
+          ],
+        },
+        400
+      );
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '100',
             },
           },
         ],

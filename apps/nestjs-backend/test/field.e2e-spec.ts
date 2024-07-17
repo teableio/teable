@@ -233,6 +233,189 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
   });
 
+  describe('should decide whether to create field validation rules based on the field type', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeAll(async () => {
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+    });
+
+    afterAll(async () => {
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
+    });
+
+    async function createFieldWithUnique(
+      type: FieldType,
+      options?: IFieldRo['options'],
+      expectStatus = 201
+    ): Promise<IFieldVo> {
+      const fieldRo: IFieldRo = {
+        type,
+        unique: true,
+        options,
+      };
+
+      return await createField(table1.id, fieldRo, expectStatus);
+    }
+
+    async function createFieldWithNotNull(
+      type: FieldType,
+      options?: IFieldRo['options'],
+      expectStatus = 201
+    ): Promise<IFieldVo> {
+      const fieldRo: IFieldRo = {
+        type,
+        notNull: true,
+        options,
+      };
+
+      return await createField(table1.id, fieldRo, expectStatus);
+    }
+
+    it('should create successfully for a unique validation field with valid field types', async () => {
+      const textField = await createFieldWithUnique(FieldType.SingleLineText);
+      expect(textField.unique).toEqual(true);
+
+      const longTextField = await createFieldWithUnique(FieldType.LongText);
+      expect(longTextField.unique).toEqual(true);
+
+      const numberField = await createFieldWithUnique(FieldType.Number);
+      expect(numberField.unique).toEqual(true);
+
+      const datetimeField = await createFieldWithUnique(FieldType.Date);
+      expect(datetimeField.unique).toEqual(true);
+    });
+
+    it('should create fail for a unique validation field with invalid field types', async () => {
+      await createFieldWithUnique(FieldType.Attachment, undefined, 400);
+
+      await createFieldWithUnique(FieldType.User, undefined, 400);
+
+      await createFieldWithUnique(FieldType.Checkbox, undefined, 400);
+
+      await createFieldWithUnique(FieldType.SingleSelect, undefined, 400);
+
+      await createFieldWithUnique(FieldType.MultipleSelect, undefined, 400);
+
+      await createFieldWithUnique(FieldType.Rating, undefined, 400);
+
+      await createFieldWithUnique(
+        FieldType.Formula,
+        {
+          expression: '1 + 1',
+        },
+        400
+      );
+
+      await createFieldWithUnique(
+        FieldType.Link,
+        {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyOne,
+        },
+        400
+      );
+
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyOne,
+        } as ILinkFieldOptionsRo,
+      });
+
+      await createFieldWithUnique(
+        FieldType.Rollup,
+        {
+          options: {
+            expression: 'SUM({values})',
+          },
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            linkFieldId: linkField.id,
+          },
+        },
+        400
+      );
+
+      await createFieldWithUnique(FieldType.CreatedTime, undefined, 400);
+
+      await createFieldWithUnique(FieldType.LastModifiedTime, undefined, 400);
+
+      await createFieldWithUnique(FieldType.AutoNumber, undefined, 400);
+    });
+
+    it('should create fail for a not null validation field with all field types', async () => {
+      await createFieldWithNotNull(FieldType.SingleLineText, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.LongText, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.Number, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.Date, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.User, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.Checkbox, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.SingleSelect, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.MultipleSelect, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.Rating, undefined, 400);
+
+      await createFieldWithNotNull(
+        FieldType.Formula,
+        {
+          expression: '1 + 1',
+        },
+        400
+      );
+
+      await createFieldWithNotNull(
+        FieldType.Link,
+        {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyOne,
+        },
+        400
+      );
+
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyOne,
+        } as ILinkFieldOptionsRo,
+      });
+
+      await createFieldWithNotNull(
+        FieldType.Rollup,
+        {
+          options: {
+            expression: 'SUM({values})',
+          },
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            linkFieldId: linkField.id,
+          },
+        },
+        400
+      );
+
+      await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.LastModifiedTime, undefined, 400);
+
+      await createFieldWithNotNull(FieldType.AutoNumber, undefined, 400);
+    });
+  });
+
   describe('should safe delete field', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;

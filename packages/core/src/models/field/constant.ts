@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 export enum FieldType {
   SingleLineText = 'singleLineText',
   LongText = 'longText',
@@ -75,3 +76,23 @@ export const IMPORT_SUPPORTED_TYPES = [
   FieldType.SingleSelect,
   FieldType.User,
 ];
+
+export const UNIQUE_VALIDATION_FIELD_TYPES = new Set([
+  FieldType.SingleLineText,
+  FieldType.LongText,
+  FieldType.Number,
+  FieldType.Date,
+]);
+
+export const NOT_NULL_VALIDATION_FIELD_TYPES = new Set([
+  FieldType.SingleLineText,
+  FieldType.LongText,
+  FieldType.Number,
+  FieldType.SingleSelect,
+  FieldType.MultipleSelect,
+  FieldType.User,
+  FieldType.Date,
+  FieldType.Rating,
+  FieldType.Attachment,
+  FieldType.Link,
+]);

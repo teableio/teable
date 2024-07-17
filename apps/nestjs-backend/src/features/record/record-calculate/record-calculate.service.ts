@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { FieldKeyType, generateRecordId, RecordOpBuilder, FieldType } from '@teable/core';
+import { FieldKeyType, generateRecordId, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/openapi';
 import { isEmpty, keyBy } from 'lodash';
@@ -13,6 +13,7 @@ import { SystemFieldService } from '../../calculation/system-field.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { RecordService } from '../record.service';
+import type { IFieldRaws } from '../type';
 
 @Injectable()
 export class RecordCalculateService {
@@ -195,15 +196,10 @@ export class RecordCalculateService {
   }
 
   private async appendDefaultValue(
-    tableId: string,
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
-    fieldKeyType: FieldKeyType
+    fieldKeyType: FieldKeyType,
+    fieldRaws: IFieldRaws
   ) {
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: { id: true, name: true, type: true, options: true },
-    });
-
     return records.map((record) => {
       const fields: { [fieldIdOrName: string]: unknown } = { ...record.fields };
       for (const fieldRaw of fieldRaws) {
@@ -243,22 +239,38 @@ export class RecordCalculateService {
       throw new BadRequestException('Create records is empty');
     }
 
-    const emptyRecords = recordsRo.map((record) => {
+    const records = recordsRo.map((record) => {
       const recordId = record.id || generateRecordId();
-      return RecordOpBuilder.creator.build({
+      return {
         id: recordId,
-        fields: {},
-      });
+        fields: record.fields,
+      };
     });
 
-    await this.recordService.batchCreateRecords(tableId, emptyRecords, orderIndex);
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        options: true,
+        unique: true,
+        notNull: true,
+        isLookup: true,
+        dbFieldName: true,
+      },
+    });
+
+    await this.recordService.batchCreateRecords(
+      tableId,
+      records,
+      fieldKeyType,
+      fieldRaws,
+      orderIndex
+    );
 
     // submit auto fill changes
-    const plainRecords = await this.appendDefaultValue(
-      tableId,
-      recordsRo.map((s, i) => ({ id: emptyRecords[i].id, fields: s.fields })),
-      fieldKeyType
-    );
+    const plainRecords = await this.appendDefaultValue(records, fieldKeyType, fieldRaws);
 
     const recordIds = plainRecords.map((r) => r.id);
 
