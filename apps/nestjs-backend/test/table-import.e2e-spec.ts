@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
+import type { ITimeZoneString } from '@teable/core';
 import { FieldType, defaultDatetimeFormatting } from '@teable/core';
 import type { IInplaceImportOptionRo } from '@teable/openapi';
 import {
