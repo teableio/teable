@@ -14,10 +14,10 @@ interface IContext {
 }
 
 export const userFieldOptionsSchema = z.object({
-  isMultiple: z.boolean().openapi({
+  isMultiple: z.boolean().optional().openapi({
     description: 'Allow adding multiple users',
   }),
-  shouldNotify: z.boolean().openapi({
+  shouldNotify: z.boolean().optional().openapi({
     description: 'Notify users when their name is added to a cell',
   }),
 });
