@@ -188,8 +188,9 @@ export class ImportOpenApiService {
           if (columnInfo) {
             columnInfo.forEach((col, index) => {
               const { sourceColumnIndex } = col;
-              const value = row[sourceColumnIndex];
-              res.fields[fields[index].id] = value;
+              // empty row will be return void row value
+              const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
+              res.fields[fields[index].id] = value?.toString();
             });
           }
           // inplace records
@@ -208,7 +209,10 @@ export class ImportOpenApiService {
           return;
         }
         try {
-          await this.recordOpenApiService.multipleCreateRecords(table.id, {
+          const createFn = columnInfo
+            ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
+            : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
+          await createFn(table.id, {
             fieldKeyType: FieldKeyType.Id,
             typecast: true,
             records,
