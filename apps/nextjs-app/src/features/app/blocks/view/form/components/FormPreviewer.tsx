@@ -29,7 +29,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
     LocalStorageKeys.ViewFromData,
     {}
   );
-  const [formData, { set: setFormData, reset: resetFormData, remove: removeFormData }] = useMap<
+  const [formData, { set: setFormData, setAll: initFormData, remove: removeFormData }] = useMap<
     Record<string, unknown>
   >(formDataMap?.[localKey] ?? {});
   const [errors, { add: addError, remove: removeError, reset: resetErrors }] = useSet<string>(
@@ -101,7 +101,7 @@ export const FormPreviewer = (props: IFormPreviewerProps) => {
 
   const onReset = () => {
     setLoading(false);
-    resetFormData();
+    initFormData({});
     setFormDataMap(omit(formDataMap, [localKey]));
   };
 

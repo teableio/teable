@@ -22,15 +22,22 @@ export class Record extends RecordCore {
     super(fieldMap);
   }
 
+  private onCommitLocal(fieldId: string, cellValue: unknown) {
+    const oldCellValue = this.fields[fieldId];
+    const operation = RecordOpBuilder.editor.setRecord.build({
+      fieldId,
+      newCellValue: cellValue,
+      oldCellValue,
+    });
+    this.doc.data.fields[fieldId] = cellValue;
+    this.doc.emit('op', [operation], false, '');
+    this.fields[fieldId] = cellValue;
+  }
+
   async updateCell(fieldId: string, cellValue: unknown) {
+    const oldCellValue = this.fields[fieldId];
     try {
-      const operation = RecordOpBuilder.editor.setRecord.build({
-        fieldId,
-        newCellValue: cellValue,
-        oldCellValue: this.fields[fieldId],
-      });
-      this.doc.data.fields[fieldId] = cellValue;
-      this.doc.emit('op', [operation], false, '');
+      this.onCommitLocal(fieldId, cellValue);
       this.fields[fieldId] = cellValue;
       const [, tableId] = this.doc.collection.split('_');
       await Record.updateRecord(tableId, this.doc.id, {
@@ -42,6 +49,7 @@ export class Record extends RecordCore {
         },
       });
     } catch (error) {
+      this.onCommitLocal(fieldId, oldCellValue);
       return error;
     }
   }

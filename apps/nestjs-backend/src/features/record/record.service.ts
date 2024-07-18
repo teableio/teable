@@ -49,6 +49,7 @@ import { preservedDbFieldNames } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
+import { IFieldRaws } from './type';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -650,9 +651,11 @@ export class RecordService {
   async batchCreateRecords(
     tableId: string,
     records: IRecord[],
+    fieldKeyType: FieldKeyType,
+    fieldRaws: IFieldRaws,
     orderIndex?: { viewId: string; indexes: number[] }
   ) {
-    const snapshots = await this.createBatch(tableId, records, orderIndex);
+    const snapshots = await this.createBatch(tableId, records, fieldKeyType, fieldRaws, orderIndex);
 
     const dataList = snapshots.map((snapshot) => ({
       docId: snapshot.__id,
@@ -660,10 +663,6 @@ export class RecordService {
     }));
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Record, dataList);
-  }
-
-  async create(tableId: string, snapshot: IRecord) {
-    await this.createBatch(tableId, [snapshot]);
   }
 
   async creditCheck(tableId: string) {
@@ -707,6 +706,8 @@ export class RecordService {
   private async createBatch(
     tableId: string,
     records: IRecord[],
+    fieldKeyType: FieldKeyType,
+    fieldRaws: IFieldRaws,
     orderIndex?: { viewId: string; indexes: number[] }
   ) {
     const userId = this.cls.get('user.id');
@@ -722,6 +723,8 @@ export class RecordService {
 
     const allViewIndexes = await this.getAllViewIndexesField(dbTableName);
 
+    const validationFields = fieldRaws.filter((field) => field.notNull || field.unique);
+
     const snapshots = records
       .map((_, i) =>
         views.reduce<{ [viewIndexFieldName: string]: number }>((pre, cur) => {
@@ -736,11 +739,26 @@ export class RecordService {
       )
       .map((order, i) => {
         const snapshot = records[i];
+        const fields = snapshot.fields;
+
+        const dbFieldValueMap = validationFields.reduce(
+          (map, field) => {
+            const dbFieldName = field.dbFieldName;
+            const fieldKey = field[fieldKeyType];
+            const cellValue = fields[fieldKey];
+
+            map[dbFieldName] = cellValue;
+            return map;
+          },
+          {} as Record<string, unknown>
+        );
+
         return {
           __id: snapshot.id,
           __created_by: userId,
           __version: 1,
           ...order,
+          ...dbFieldValueMap,
         };
       });
 

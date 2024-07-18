@@ -163,12 +163,14 @@ export class ShareService {
       viewId: view.id,
       filterHidden: !view.shareMeta?.includeHiddenField,
     });
+    const visibleFieldIds = visibleFields.map(({ id }) => id);
+    const visibleFieldIdSet = new Set(visibleFieldIds);
 
     if (
       (!visibleFields.length && !isEmpty(fields)) ||
-      visibleFields.some((field) => !(field.id in fields))
+      Object.keys(fields).some((fieldId) => !visibleFieldIdSet.has(fieldId))
     ) {
-      throw new ForbiddenException('field is hidden, not allowed');
+      throw new ForbiddenException('The form contains hidden fields, submission not allowed.');
     }
 
     const { records } = await this.prismaService.$tx(async () => {

@@ -71,6 +71,7 @@ export class RecordOpenApiService {
     createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
+
     const typecastRecords = await this.validateFieldsAndTypecast(
       tableId,
       records,

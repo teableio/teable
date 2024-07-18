@@ -205,7 +205,7 @@ export const FieldMenu = () => {
                     'opacity-50': disabled,
                   })}
                   key={type}
-                  onSelect={async () => {
+                  onClick={async () => {
                     if (disabled) {
                       return;
                     }

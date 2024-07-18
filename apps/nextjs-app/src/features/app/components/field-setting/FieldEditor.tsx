@@ -6,20 +6,22 @@ import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { FieldValidation } from './field-validation/FieldValidation';
 import { FieldOptions } from './FieldOptions';
 import type { IFieldOptionsProps } from './FieldOptions';
 import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
 import { LookupOptions } from './lookup-options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { SystemInfo } from './SystemInfo';
-import type { IFieldEditorRo } from './type';
+import type { FieldOperator, IFieldEditorRo } from './type';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
 export const FieldEditor = (props: {
   field: Partial<IFieldEditorRo>;
+  operator: FieldOperator;
   onChange?: (field: IFieldEditorRo) => void;
 }) => {
-  const { field, onChange } = props;
+  const { field, operator, onChange } = props;
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
     (field: IFieldEditorRo) => {
@@ -31,17 +33,10 @@ export const FieldEditor = (props: {
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
-  const updateFieldName = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const updateFieldProps = (props: Partial<IFieldEditorRo>) => {
     setFieldFn({
       ...field,
-      name: e.target.value || undefined,
-    });
-  };
-
-  const updateFieldDesc = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setFieldFn({
-      ...field,
-      description: e.target.value || undefined,
+      ...props,
     });
   };
 
@@ -109,7 +104,7 @@ export const FieldEditor = (props: {
           placeholder="Field name (optional)"
           className="h-8"
           value={field['name'] || ''}
-          onChange={updateFieldName}
+          onChange={(e) => updateFieldProps({ name: e.target.value || undefined })}
         />
         {/* should place after the name input to make sure tab index correct */}
         <SystemInfo field={field as IFieldVo} />
@@ -142,7 +137,7 @@ export const FieldEditor = (props: {
             className="h-12 resize-none"
             value={field['description'] || undefined}
             placeholder={t('table:field.editor.descriptionPlaceholder')}
-            onChange={updateFieldDesc}
+            onChange={(e) => updateFieldProps({ description: e.target.value || undefined })}
           />
         </div>
       )}
@@ -161,6 +156,7 @@ export const FieldEditor = (props: {
         </p>
       </div>
       <hr className="border-slate-200" />
+      <FieldValidation field={field} operator={operator} onChange={updateFieldProps} />
       {getUnionOptions()}
     </div>
   );

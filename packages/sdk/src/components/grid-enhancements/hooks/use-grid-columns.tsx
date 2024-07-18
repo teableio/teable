@@ -123,7 +123,7 @@ const generateColumns = ({
       if (!field) return undefined;
       const columnMeta = view?.columnMeta[field.id] ?? null;
       const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
-      const { id, type, name, description, isLookup, isPrimary } = field;
+      const { id, type, name, description, isLookup, isPrimary, notNull } = field;
       const customTheme = getColumnThemeByField({
         field,
         theme,
@@ -134,7 +134,7 @@ const generateColumns = ({
 
       return {
         id,
-        name,
+        name: notNull ? `${name} *` : name,
         width,
         description,
         customTheme,

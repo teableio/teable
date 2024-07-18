@@ -1118,6 +1118,33 @@ export class FieldConvertingService {
     // 2. collect changes effect by the supplement(link) field
     const supplementChange = await this.fieldConvertingLinkService.analysisLink(newField, oldField);
 
+    // 3. preprocessing field validation
+    if (majorFieldKeysChanged(oldField, newField) && (oldField.unique || oldField.notNull)) {
+      const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
+        where: { id: tableId },
+        select: { dbTableName: true },
+      });
+
+      const { unique, notNull, dbFieldName } = oldField;
+
+      if (unique) {
+        oldField.unique = undefined;
+      }
+
+      if (notNull) {
+        oldField.notNull = undefined;
+      }
+
+      const fieldValidationQuery = this.knex.schema
+        .alterTable(dbTableName, (table) => {
+          if (unique) table.dropUnique([dbFieldName]);
+          if (notNull) table.setNullable(dbFieldName);
+        })
+        .toQuery();
+
+      await this.prismaService.$executeRawUnsafe(fieldValidationQuery);
+    }
+
     return {
       newField,
       oldField,
