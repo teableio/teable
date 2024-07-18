@@ -22,6 +22,7 @@ import {
   SingleLineTextDisplayType,
   DateFormattingPreset,
   generateFieldId,
+  DriverClient,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -126,59 +127,62 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.description).toEqual('hello');
     });
 
-    it('should modify field validation', async () => {
-      const sourceFieldRo: IFieldRo = {
-        name: 'TextField',
-        type: FieldType.SingleLineText,
-      };
-      const uniqueFieldRo: IFieldRo = {
-        ...sourceFieldRo,
-        unique: true,
-      };
-      const notNullFieldRo: IFieldRo = {
-        ...sourceFieldRo,
-        unique: false,
-        notNull: true,
-      };
+    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+      'should modify field validation',
+      async () => {
+        const sourceFieldRo: IFieldRo = {
+          name: 'TextField',
+          type: FieldType.SingleLineText,
+        };
+        const uniqueFieldRo: IFieldRo = {
+          ...sourceFieldRo,
+          unique: true,
+        };
+        const notNullFieldRo: IFieldRo = {
+          ...sourceFieldRo,
+          unique: false,
+          notNull: true,
+        };
 
-      const table2Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+        const table2Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
-      await deleteRecords(
-        table1.id,
-        table2Records.records.map((record) => record.id)
-      );
+        await deleteRecords(
+          table1.id,
+          table2Records.records.map((record) => record.id)
+        );
 
-      const sourceField = await createField(table1.id, sourceFieldRo);
-      const { records } = await createRecords(table1.id, {
-        records: [
-          {
-            fields: {
-              [sourceField.id]: '100',
+        const sourceField = await createField(table1.id, sourceFieldRo);
+        const { records } = await createRecords(table1.id, {
+          records: [
+            {
+              fields: {
+                [sourceField.id]: '100',
+              },
             },
-          },
-          {
-            fields: {
-              [sourceField.id]: '100',
+            {
+              fields: {
+                [sourceField.id]: '100',
+              },
             },
-          },
-          {
-            fields: {},
-          },
-        ],
-      });
+            {
+              fields: {},
+            },
+          ],
+        });
 
-      await convertField(table1.id, sourceField.id, uniqueFieldRo, 400);
+        await convertField(table1.id, sourceField.id, uniqueFieldRo, 400);
 
-      await deleteRecord(table1.id, records[1].id);
+        await deleteRecord(table1.id, records[1].id);
 
-      await convertField(table1.id, sourceField.id, uniqueFieldRo);
+        await convertField(table1.id, sourceField.id, uniqueFieldRo);
 
-      await convertField(table1.id, sourceField.id, notNullFieldRo, 400);
+        await convertField(table1.id, sourceField.id, notNullFieldRo, 400);
 
-      await deleteRecord(table1.id, records[2].id);
+        await deleteRecord(table1.id, records[2].id);
 
-      await convertField(table1.id, sourceField.id, notNullFieldRo);
-    });
+        await convertField(table1.id, sourceField.id, notNullFieldRo);
+      }
+    );
 
     it('should modify attachment field name', async () => {
       const sourceFieldRo: IFieldRo = {

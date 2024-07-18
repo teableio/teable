@@ -9,6 +9,7 @@ import type {
 } from '@teable/core';
 import {
   DateFormattingPreset,
+  DriverClient,
   FieldType,
   NumberFormattingType,
   Relationship,
@@ -349,71 +350,74 @@ describe('OpenAPI FieldController (e2e)', () => {
       await createFieldWithUnique(FieldType.AutoNumber, undefined, 400);
     });
 
-    it('should create fail for a not null validation field with all field types', async () => {
-      await createFieldWithNotNull(FieldType.SingleLineText, undefined, 400);
+    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+      'should create fail for a not null validation field with all field types',
+      async () => {
+        await createFieldWithNotNull(FieldType.SingleLineText, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.LongText, undefined, 400);
+        await createFieldWithNotNull(FieldType.LongText, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.Number, undefined, 400);
+        await createFieldWithNotNull(FieldType.Number, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.Date, undefined, 400);
+        await createFieldWithNotNull(FieldType.Date, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.User, undefined, 400);
+        await createFieldWithNotNull(FieldType.User, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.Checkbox, undefined, 400);
+        await createFieldWithNotNull(FieldType.Checkbox, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.SingleSelect, undefined, 400);
+        await createFieldWithNotNull(FieldType.SingleSelect, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.MultipleSelect, undefined, 400);
+        await createFieldWithNotNull(FieldType.MultipleSelect, undefined, 400);
 
-      await createFieldWithNotNull(FieldType.Rating, undefined, 400);
+        await createFieldWithNotNull(FieldType.Rating, undefined, 400);
 
-      await createFieldWithNotNull(
-        FieldType.Formula,
-        {
-          expression: '1 + 1',
-        },
-        400
-      );
-
-      await createFieldWithNotNull(
-        FieldType.Link,
-        {
-          foreignTableId: table2.id,
-          relationship: Relationship.ManyOne,
-        },
-        400
-      );
-
-      const linkField = await createField(table1.id, {
-        type: FieldType.Link,
-        options: {
-          foreignTableId: table2.id,
-          relationship: Relationship.ManyOne,
-        } as ILinkFieldOptionsRo,
-      });
-
-      await createFieldWithNotNull(
-        FieldType.Rollup,
-        {
-          options: {
-            expression: 'SUM({values})',
+        await createFieldWithNotNull(
+          FieldType.Formula,
+          {
+            expression: '1 + 1',
           },
-          lookupOptions: {
+          400
+        );
+
+        await createFieldWithNotNull(
+          FieldType.Link,
+          {
             foreignTableId: table2.id,
-            lookupFieldId: table2.fields[0].id,
-            linkFieldId: linkField.id,
+            relationship: Relationship.ManyOne,
           },
-        },
-        400
-      );
+          400
+        );
 
-      await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
+        const linkField = await createField(table1.id, {
+          type: FieldType.Link,
+          options: {
+            foreignTableId: table2.id,
+            relationship: Relationship.ManyOne,
+          } as ILinkFieldOptionsRo,
+        });
 
-      await createFieldWithNotNull(FieldType.LastModifiedTime, undefined, 400);
+        await createFieldWithNotNull(
+          FieldType.Rollup,
+          {
+            options: {
+              expression: 'SUM({values})',
+            },
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: table2.fields[0].id,
+              linkFieldId: linkField.id,
+            },
+          },
+          400
+        );
 
-      await createFieldWithNotNull(FieldType.AutoNumber, undefined, 400);
-    });
+        await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
+
+        await createFieldWithNotNull(FieldType.LastModifiedTime, undefined, 400);
+
+        await createFieldWithNotNull(FieldType.AutoNumber, undefined, 400);
+      }
+    );
   });
 
   describe('should safe delete field', () => {

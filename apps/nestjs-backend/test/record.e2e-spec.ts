@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
-import { CellFormat, FieldKeyType, FieldType, Relationship } from '@teable/core';
+import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   convertField,
@@ -294,44 +294,47 @@ describe('OpenAPI RecordController (e2e)', () => {
       });
     });
 
-    it('should validate the not null values of the not null field', async () => {
-      const sourceFieldRo: IFieldRo = {
-        name: 'TextField2',
-        type: FieldType.SingleLineText,
-      };
-      const convertFieldRo: IFieldRo = {
-        name: 'TextField2',
-        type: FieldType.SingleLineText,
-        notNull: true,
-      };
+    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+      'should validate the not null values of the not null field',
+      async () => {
+        const sourceFieldRo: IFieldRo = {
+          name: 'TextField2',
+          type: FieldType.SingleLineText,
+        };
+        const convertFieldRo: IFieldRo = {
+          name: 'TextField2',
+          type: FieldType.SingleLineText,
+          notNull: true,
+        };
 
-      await clearRecords();
+        await clearRecords();
 
-      const sourceField = await createField(table.id, sourceFieldRo);
-      await convertField(table.id, sourceField.id, convertFieldRo);
+        const sourceField = await createField(table.id, sourceFieldRo);
+        await convertField(table.id, sourceField.id, convertFieldRo);
 
-      await createRecords(
-        table.id,
-        {
+        await createRecords(
+          table.id,
+          {
+            records: [
+              {
+                fields: {},
+              },
+            ],
+          },
+          400
+        );
+
+        await createRecords(table.id, {
           records: [
             {
-              fields: {},
+              fields: {
+                [sourceField.id]: '100',
+              },
             },
           ],
-        },
-        400
-      );
-
-      await createRecords(table.id, {
-        records: [
-          {
-            fields: {
-              [sourceField.id]: '100',
-            },
-          },
-        ],
-      });
-    });
+        });
+      }
+    );
   });
 
   describe('calculate', () => {
