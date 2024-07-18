@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { IAttachmentCellValue, ILinkCellValue } from '@teable/core';
+import type { IAttachmentCellValue, ILinkCellValue, UserFieldCore } from '@teable/core';
 import { ColorUtils, FieldType, generateChoiceId } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -7,6 +7,7 @@ import { isUndefined, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
+import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -19,6 +20,7 @@ interface IServices {
   fieldConvertingService: FieldConvertingService;
   recordService: RecordService;
   attachmentsStorageService: AttachmentsStorageService;
+  collaboratorService: CollaboratorService;
 }
 
 /**
@@ -99,7 +101,7 @@ export class TypeCastAndValidate {
           throw new BadRequestException(fromZodError(validate.error).message);
         }
       }
-      return cellValue;
+      return validate.data;
     });
   }
 
@@ -211,9 +213,12 @@ export class TypeCastAndValidate {
   }
 
   private async castToUser(cellValues: unknown[]): Promise<unknown[]> {
-    const newCellValues = this.defaultCastTo(cellValues);
-    return newCellValues.map((cellValues) => {
-      return this.field.convertDBValue2CellValue(cellValues);
+    const ctx = await this.services.collaboratorService.getBaseCollabsWithPrimary(this.tableId);
+    return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
+      if (typeof cellValue === 'string') {
+        return (this.field as UserFieldCore).convertStringToCellValue(cellValue, { userSets: ctx });
+      }
+      return null;
     });
   }
 

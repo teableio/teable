@@ -96,8 +96,8 @@ export class UserFieldCore extends FieldCore {
   private matchUser(value: string, userSets: IUser[] = []) {
     let foundUser: IUser | null = null;
     for (const user of userSets) {
-      const { name, email } = user;
-      if (value === name || value === email) {
+      const { id, name, email } = user;
+      if (value === id || value === name || value === email) {
         if (foundUser) {
           // Multiple collaborators are matched and the cell is cleared
           return null;

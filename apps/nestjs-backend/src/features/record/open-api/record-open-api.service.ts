@@ -11,6 +11,7 @@ import type {
 } from '@teable/openapi';
 import { forEach, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
+import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -27,6 +28,7 @@ export class RecordOpenApiService {
     private readonly recordService: RecordService,
     private readonly fieldConvertingService: FieldConvertingService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly collaboratorService: CollaboratorService,
     private readonly viewService: ViewService,
     private readonly viewOpenApiService: ViewOpenApiService
   ) {}
@@ -164,6 +166,7 @@ export class RecordOpenApiService {
           fieldConvertingService: this.fieldConvertingService,
           recordService: this.recordService,
           attachmentsStorageService: this.attachmentsStorageService,
+          collaboratorService: this.collaboratorService,
         },
         field,
         tableId,

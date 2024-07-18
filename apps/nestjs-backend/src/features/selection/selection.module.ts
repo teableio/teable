@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AggregationModule } from '../aggregation/aggregation.module';
-import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldCalculateModule } from '../field/field-calculate/field-calculate.module';
 import { FieldModule } from '../field/field.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
@@ -15,7 +14,6 @@ import { SelectionService } from './selection.service';
     AggregationModule,
     RecordOpenApiModule,
     FieldCalculateModule,
-    CollaboratorModule,
   ],
   controllers: [SelectionController],
   providers: [SelectionService],
