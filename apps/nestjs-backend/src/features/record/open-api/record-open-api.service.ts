@@ -42,6 +42,17 @@ export class RecordOpenApiService {
     });
   }
 
+  /**
+   * create records without any ops, only typecast and sql
+   * @param tableId
+   * @param createRecordsRo
+   */
+  async createRecordsOnlySql(tableId: string, createRecordsRo: ICreateRecordsRo): Promise<void> {
+    await this.prismaService.$tx(async () => {
+      return await this.createPureRecords(tableId, createRecordsRo);
+    });
+  }
+
   private async getRecordOrderIndexes(
     tableId: string,
     orderRo: IRecordInsertOrderRo,
@@ -90,6 +101,21 @@ export class RecordOpenApiService {
       fieldKeyType,
       orderIndex
     );
+  }
+
+  private async createPureRecords(
+    tableId: string,
+    createRecordsRo: ICreateRecordsRo
+  ): Promise<void> {
+    const { fieldKeyType = FieldKeyType.Name, records, typecast } = createRecordsRo;
+    const typecastRecords = await this.validateFieldsAndTypecast(
+      tableId,
+      records,
+      fieldKeyType,
+      typecast
+    );
+
+    await this.recordService.createRecordsOnlySql(tableId, typecastRecords);
   }
 
   async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {

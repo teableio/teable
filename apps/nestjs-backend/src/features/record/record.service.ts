@@ -665,6 +665,41 @@ export class RecordService {
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Record, dataList);
   }
 
+  @Timing()
+  async createRecordsOnlySql(
+    tableId: string,
+    records: {
+      fields: Record<string, unknown>;
+    }[]
+  ) {
+    const userId = this.cls.get('user.id');
+    await this.creditCheck(tableId);
+    const dbTableName = await this.getDbTableName(tableId);
+    const fields = await this.getFieldsByProjection(tableId);
+    const fieldsMap = fields.reduce(
+      (map, curField) => {
+        map[curField.id] = curField.dbFieldName;
+        return map;
+      },
+      {} as Record<string, string>
+    );
+
+    const newRecords = records.map((record) => {
+      const fieldsValues: Record<string, unknown> = {};
+      Object.entries(record.fields).forEach(([fieldId, value]) => {
+        fieldsValues[fieldsMap[fieldId]] = value;
+      });
+      return {
+        __id: generateRecordId(),
+        __created_by: userId,
+        __version: 1,
+        ...fieldsValues,
+      };
+    });
+    const sql = this.dbProvider.batchInsertSql(dbTableName, newRecords);
+    await this.prismaService.txClient().$executeRawUnsafe(sql);
+  }
+
   async creditCheck(tableId: string) {
     if (!this.thresholdConfig.maxFreeRowLimit) {
       return;
