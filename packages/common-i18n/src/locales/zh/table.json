@@ -87,8 +87,8 @@
       "linkTable": "进行关联的表",
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
-      "enableValidateFieldUnique": "是否开启唯一值校验",
-      "enableValidateFieldNotNull": "是否开启非空值校验"
+      "enableValidateFieldUnique": "启用唯一值校验",
+      "enableValidateFieldNotNull": "启用非空值校验"
     },
     "subTitle": {
       "link": "在表之间创建关联关系",
