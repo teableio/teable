@@ -4,6 +4,7 @@ import type { PrismaService } from '@teable/db-main-prisma';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -23,12 +24,14 @@ describe('TypeCastAndValidate', () => {
   const fieldConvertingService = mockDeep<FieldConvertingService>();
   const recordService = mockDeep<RecordService>();
   const attachmentsStorageService = mockDeep<AttachmentsStorageService>();
+  const collaboratorService = mockDeep<CollaboratorService>();
 
   const services = {
     prismaService,
     fieldConvertingService,
     recordService,
     attachmentsStorageService,
+    collaboratorService,
   };
   const tableId = 'tableId';
 
@@ -36,6 +39,7 @@ describe('TypeCastAndValidate', () => {
     mockReset(fieldConvertingService);
     mockReset(prismaService);
     mockReset(recordService);
+    mockReset(collaboratorService);
   });
 
   describe('typecastCellValuesWithField', () => {
@@ -200,7 +204,7 @@ describe('TypeCastAndValidate', () => {
       }).toThrow('Bad Request');
     });
 
-    it('should return original record if typecast is false', () => {
+    it('should return null if typecast is false', () => {
       const field = mockDeep<IFieldInstance>();
       const typeCastAndValidate = new TypeCastAndValidate({
         services,
@@ -219,7 +223,7 @@ describe('TypeCastAndValidate', () => {
         () => 'value'
       );
 
-      expect(result).toEqual(cellValues);
+      expect(result).toEqual([null]);
     });
 
     it('should not throw error if no field value', () => {
@@ -231,7 +235,7 @@ describe('TypeCastAndValidate', () => {
 
       const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, vi.fn());
 
-      expect(result).toEqual(cellValues);
+      expect(result).toEqual([null]);
     });
   });
 

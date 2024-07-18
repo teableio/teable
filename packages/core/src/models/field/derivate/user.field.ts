@@ -14,10 +14,10 @@ interface IContext {
 }
 
 export const userFieldOptionsSchema = z.object({
-  isMultiple: z.boolean().openapi({
+  isMultiple: z.boolean().optional().openapi({
     description: 'Allow adding multiple users',
   }),
-  shouldNotify: z.boolean().openapi({
+  shouldNotify: z.boolean().optional().openapi({
     description: 'Notify users when their name is added to a cell',
   }),
 });
@@ -80,9 +80,7 @@ export class UserFieldCore extends FieldCore {
     }
 
     if (this.isMultipleCellValue) {
-      const cellValue = value.split(/[\n\r,]\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((item) => {
-        return item.includes(',') ? item.slice(1, -1) : item;
-      });
+      const cellValue = value.split(',').map((s) => s.trim());
 
       return cellValue
         .map((v) => {
@@ -96,8 +94,8 @@ export class UserFieldCore extends FieldCore {
   private matchUser(value: string, userSets: IUser[] = []) {
     let foundUser: IUser | null = null;
     for (const user of userSets) {
-      const { name, email } = user;
-      if (value === name || value === email) {
+      const { id, name, email } = user;
+      if (value === id || value === name || value === email) {
         if (foundUser) {
           // Multiple collaborators are matched and the cell is cleared
           return null;

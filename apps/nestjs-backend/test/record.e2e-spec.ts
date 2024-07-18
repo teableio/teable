@@ -139,6 +139,45 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(result.records[0].fields[table.fields[0].name]).toEqual('new value');
     });
 
+    it('should update and typecast record', async () => {
+      const singleUserField = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: false,
+        },
+      });
+
+      const multiUserField = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+        },
+      });
+
+      const res1 = await updateRecord(table.id, table.records[0].id, {
+        record: { fields: { [singleUserField.id]: 'test' } },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+
+      const res2 = await updateRecord(table.id, table.records[0].id, {
+        record: { fields: { [multiUserField.id]: 'test@e2e.com' } },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+
+      expect(res1.fields[singleUserField.id]).toMatchObject({
+        email: 'test@e2e.com',
+        title: 'test',
+      });
+      expect(res2.fields[multiUserField.id]).toMatchObject([
+        {
+          email: 'test@e2e.com',
+          title: 'test',
+        },
+      ]);
+    });
+
     it('should batch create records', async () => {
       const count = 100;
       console.time(`create ${count} records`);

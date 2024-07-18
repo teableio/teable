@@ -41,7 +41,6 @@ import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
-import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -61,7 +60,6 @@ export class SelectionService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly collaboratorService: CollaboratorService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -529,22 +527,13 @@ export class SelectionService {
                 );
               }
               break;
-            case FieldType.SingleSelect:
-            case FieldType.MultipleSelect:
-              recordField[field.id] = field.convertStringToCellValue(stringValue, true);
-              break;
-            case FieldType.User:
-              recordField[field.id] = field.convertStringToCellValue(stringValue, {
-                userSets: fieldConvertContext?.userSets,
-              });
-              break;
             case FieldType.Date:
               recordField[field.id] = (headerFields?.[col] || field).convertStringToCellValue(
                 stringValue
               );
               break;
             default:
-              recordField[field.id] = field.convertStringToCellValue(stringValue);
+              recordField[field.id] = stringValue;
           }
         }
 
@@ -568,15 +557,10 @@ export class SelectionService {
       ? this.collectionAttachment({ fields, tableData })
       : Promise.resolve(undefined);
 
-    const loadUserSets = hasFieldType(FieldType.User)
-      ? this.collaboratorService.getBaseCollabsWithPrimary(tableId)
-      : Promise.resolve(undefined);
-
-    const [attachments, userSets] = await Promise.all([loadAttachments, loadUserSets]);
+    const [attachments] = await Promise.all([loadAttachments]);
 
     return {
       attachments: attachments,
-      userSets: userSets,
     };
   }
 
