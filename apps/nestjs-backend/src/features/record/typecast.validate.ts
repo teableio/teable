@@ -187,7 +187,8 @@ export class TypeCastAndValidate {
   private async castToMultipleSelect(cellValues: unknown[]): Promise<unknown[]> {
     const allValuesSet = new Set<string>();
     const newCellValues = this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
-      const valueArr = this.valueToStringArray(cellValue);
+      const valueArr =
+        typeof cellValue === 'string' ? cellValue.split(',').map((s) => s.trim()) : null;
       const newCellValue: string[] | null = valueArr?.length ? valueArr : null;
       // collect all options
       newCellValue?.forEach((v) => v && allValuesSet.add(v));
@@ -233,6 +234,7 @@ export class TypeCastAndValidate {
 
       const attachmentsWithPresignedUrls = attachmentCellValue.map(async (item) => {
         const { path, mimetype, token } = item;
+        // presigned just for realtime op preview
         const presignedUrl = await this.services.attachmentsStorageService.getPreviewUrlByPath(
           StorageAdapter.getBucket(UploadType.Table),
           path,
