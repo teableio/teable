@@ -8,6 +8,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { FailAlert } from '../table-list/FailAlert';
 import { View } from '../view/View';
 import { TableHeader } from './table-header/TableHeader';
+import { ViewCheck } from './ViewCheck';
 
 export interface ITableProps {
   baseServerData: IGetBaseVo;
@@ -26,9 +27,13 @@ export const Table: React.FC<ITableProps> = ({
 }) => {
   const table = useTable();
   const router = useRouter();
-  const { tableId, viewId } = router.query as { tableId: string; viewId: string };
+  const { baseId, tableId, viewId } = router.query as {
+    tableId: string;
+    viewId: string;
+    baseId: string;
+  };
   return (
-    <AnchorContext.Provider value={{ tableId, viewId }}>
+    <AnchorContext.Provider value={{ tableId, viewId, baseId }}>
       <Head>
         <title>
           {table?.name
@@ -40,17 +45,19 @@ export const Table: React.FC<ITableProps> = ({
         <ViewProvider serverData={viewServerData}>
           <div className="flex h-full grow basis-[500px] flex-col">
             <TableHeader />
-            <FieldProvider serverSideData={fieldServerData}>
-              <ErrorBoundary
-                fallback={
-                  <div className="flex size-full items-center justify-center">
-                    <FailAlert />
-                  </div>
-                }
-              >
-                <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
-              </ErrorBoundary>
-            </FieldProvider>
+            <ViewCheck>
+              <FieldProvider serverSideData={fieldServerData}>
+                <ErrorBoundary
+                  fallback={
+                    <div className="flex size-full items-center justify-center">
+                      <FailAlert />
+                    </div>
+                  }
+                >
+                  <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
+                </ErrorBoundary>
+              </FieldProvider>
+            </ViewCheck>
           </div>
         </ViewProvider>
       </TablePermissionProvider>
