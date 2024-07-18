@@ -101,7 +101,7 @@ export class TypeCastAndValidate {
           throw new BadRequestException(fromZodError(validate.error).message);
         }
       }
-      return validate.data;
+      return validate.data == null ? null : validate.data;
     });
   }
 
