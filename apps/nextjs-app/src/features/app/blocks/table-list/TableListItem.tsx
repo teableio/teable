@@ -33,7 +33,7 @@ export const TableListItem: React.FC<IProps> = ({ table, isActive, className, is
         },
       },
       undefined,
-      { shallow: Boolean(viewId) }
+      { shallow: Boolean(table.defaultViewId) && Boolean(viewId) }
     );
   };
 
