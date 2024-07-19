@@ -36,6 +36,7 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
 interface IImportConstructorParams {
   url: string;
   type: SUPPORTEDTYPE;
+  maxRowCount?: number;
 }
 
 interface IParseResult {
@@ -192,6 +193,8 @@ export class CsvImporter extends Importer {
         let isFirst = true;
         let recordBuffer: unknown[][] = [];
         let isAbort = false;
+        let totalRowCount = 0;
+
         Papa.parse(toLineDelimitedStream(stream), {
           download: false,
           dynamicTyping: true,
@@ -204,6 +207,14 @@ export class CsvImporter extends Importer {
               }
 
               recordBuffer.push(...newChunk);
+              totalRowCount += recordBuffer.length;
+
+              if (this.config.maxRowCount && totalRowCount > this.config.maxRowCount) {
+                isAbort = true;
+                recordBuffer = [];
+                onError?.('please upgrade your plan to import more records');
+                parser.abort();
+              }
 
               if (
                 recordBuffer.length >= Importer.MAX_CHUNK_LENGTH ||
@@ -317,8 +328,13 @@ export class ExcelImporter extends Importer {
 
     if (options && chunk) {
       const { skipFirstNLines, key } = options;
+      const chunks = parseResult[key];
+      const parseResults = chunkArray(chunks, Importer.MAX_CHUNK_LENGTH);
 
-      const parseResults = chunkArray(parseResult[key], Importer.MAX_CHUNK_LENGTH);
+      if (this.config.maxRowCount && chunks.length > this.config.maxRowCount) {
+        onError?.('Please upgrade your plan to import more records');
+        return;
+      }
 
       for (let i = 0; i < parseResults.length; i++) {
         const currentChunk = parseResults[i];

@@ -40,13 +40,14 @@ export class ImportOpenApiService {
     return await importer.genColumns();
   }
 
-  async createTableFromImport(baseId: string, importRo: IImportOptionRo) {
+  async createTableFromImport(baseId: string, importRo: IImportOptionRo, maxRowCount?: number) {
     const userId = this.cls.get('user.id');
     const { attachmentUrl, fileType, worksheets, notification = false, tz } = importRo;
 
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
       type: fileType,
+      maxRowCount,
     });
 
     const tableResult = [];
@@ -111,7 +112,8 @@ export class ImportOpenApiService {
   async inplaceImportTable(
     baseId: string,
     tableId: string,
-    inplaceImportRo: IInplaceImportOptionRo
+    inplaceImportRo: IInplaceImportOptionRo,
+    maxRowCount?: number
   ) {
     const userId = this.cls.get('user.id');
     const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
@@ -142,6 +144,7 @@ export class ImportOpenApiService {
     const importer = importerFactory(fileType, {
       url: attachmentUrl,
       type: fileType,
+      maxRowCount,
     });
 
     this.importRecords(
@@ -237,7 +240,7 @@ export class ImportOpenApiService {
             baseId,
             tableId: table.id,
             toUserId: userId,
-            message: `❌ ${table.name} import abort: ${error}`,
+            message: `❌ ${table.name} import failed: ${error}`,
           });
       }
     );
