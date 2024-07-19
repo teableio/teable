@@ -13,6 +13,7 @@ import {
   notify as apiNotify,
   createRecords as apiCreateRecords,
   deleteTable as apiDeleteTable,
+  UploadType,
 } from '@teable/openapi';
 
 import { initApp } from './utils/init-app';
@@ -114,7 +115,7 @@ beforeAll(async () => {
   const { token, requestHeaders } = (
     await apiGetSignature(
       {
-        type: 1,
+        type: UploadType.Import,
         contentLength: stats.size,
         contentType: contentType,
       },
