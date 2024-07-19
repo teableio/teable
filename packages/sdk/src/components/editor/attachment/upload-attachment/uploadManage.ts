@@ -8,6 +8,7 @@ interface IUploadTask {
   status: Status;
   progress: number;
   type: UploadType;
+  baseId?: string;
   successCallback: ISuccessCallback;
   errorCallback: IErrorCallback;
   progressCallback: IProgressCallback;
@@ -20,7 +21,7 @@ export interface IFile {
 
 type ISuccessCallback = (file: IFile, attachment: INotifyVo) => void;
 
-type IErrorCallback = (file: IFile, error?: string) => void;
+type IErrorCallback = (file: IFile, error?: string, code?: number) => void;
 
 type IProgressCallback = (file: IFile, progress: number) => void;
 
@@ -47,7 +48,8 @@ export class AttachmentManager {
       successCallback?: ISuccessCallback;
       errorCallback?: IErrorCallback;
       progressCallback?: IProgressCallback;
-    }
+    },
+    baseId?: string
   ) {
     const { successCallback = noop, errorCallback = noop, progressCallback = noop } = callbackFn;
     for (let i = 0; i < files.length; i++) {
@@ -58,6 +60,7 @@ export class AttachmentManager {
         status: Status.Pending,
         progress: 0,
         type,
+        baseId,
         successCallback: successCallback,
         errorCallback: errorCallback,
         progressCallback: progressCallback,
@@ -81,6 +84,7 @@ export class AttachmentManager {
           type: uploadTask.type,
           contentLength: fileInstance.size,
           contentType: fileInstance.type,
+          baseId: uploadTask?.baseId,
         },
         this.shareId
       ); // Assuming you have an AttachmentApi that provides the upload URL
@@ -110,8 +114,9 @@ export class AttachmentManager {
         return;
       }
       this.completeUpload(uploadTask, notifyRes.data);
-    } catch (error) {
-      uploadTask.errorCallback(uploadTask.file);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      uploadTask.errorCallback(uploadTask.file, undefined, error?.status);
     }
   }
 

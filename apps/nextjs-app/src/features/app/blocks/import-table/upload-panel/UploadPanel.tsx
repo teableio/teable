@@ -32,7 +32,7 @@ const UploadPanel = (props: IUploadPanelProps) => {
             if (file) {
               attchmentManager.upload(
                 [{ id: generateAttachmentId(), instance: file }],
-                UploadType.Table,
+                UploadType.Import,
                 {
                   successCallback: (_, result) => {
                     onFinished?.(result);

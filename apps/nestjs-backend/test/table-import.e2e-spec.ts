@@ -2,7 +2,6 @@ import fs from 'fs';
 import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import type { ITimeZoneString } from '@teable/core';
 import { FieldType, defaultDatetimeFormatting } from '@teable/core';
 import type { IInplaceImportOptionRo } from '@teable/openapi';
 import {
@@ -17,6 +16,7 @@ import {
   createTable as apiCreateTable,
   inplaceImportTableFromFile as apiInplaceImportTableFromFile,
   SUPPORTEDTYPE,
+  UploadType,
 } from '@teable/openapi';
 import * as XLSX from 'xlsx';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
@@ -112,7 +112,7 @@ const genTestFiles = async () => {
     const { token, requestHeaders } = (
       await apiGetSignature(
         {
-          type: 1,
+          type: UploadType.Import,
           contentLength: stats.size,
           contentType: contentType,
         },

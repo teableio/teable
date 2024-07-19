@@ -3,9 +3,12 @@ import { generateAttachmentId } from '@teable/core';
 import { X, Download } from '@teable/icons';
 import { UploadType, type INotifyVo } from '@teable/openapi';
 import { Button, FilePreviewItem, FilePreviewProvider, Progress, cn } from '@teable/ui-lib';
+import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
 import { map, omit } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
+import { useBase } from '../../../../hooks';
+import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { FileZone } from '../../../FileZone';
 import { getFileCover, isSystemFileIcon } from '../utils';
 import { FileInput } from './FileInput';
@@ -32,6 +35,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     readonly,
     attachmentManager = defaultAttachmentManager,
   } = props;
+  const base = useBase();
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
   const listRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
@@ -78,18 +82,36 @@ export const UploadAttachment = (props: IUploadAttachment) => {
         acc[file.id] = { progress: 0, file: file.instance };
         return acc;
       }, {});
-      attachmentManager.upload(uploadList, UploadType.Table, {
-        successCallback: handleSuccess,
-        progressCallback: (file, progress) => {
-          setUploadingFiles((pre) => ({ ...pre, [file.id]: { progress, file: file.instance } }));
+      attachmentManager.upload(
+        uploadList,
+        UploadType.Table,
+        {
+          successCallback: handleSuccess,
+          errorCallback: (file, error, code) => {
+            const curUploadingFiles = { ...uploadingFiles };
+            delete curUploadingFiles[file.id];
+            setUploadingFiles(curUploadingFiles);
+
+            if (code === 402) {
+              return useUsageLimitModalStore.setState({
+                modalType: UsageLimitModalType.Upgrade,
+                modalOpen: true,
+              });
+            }
+            toast.error(error ?? t('common.uploadFailed'));
+          },
+          progressCallback: (file, progress) => {
+            setUploadingFiles((pre) => ({ ...pre, [file.id]: { progress, file: file.instance } }));
+          },
         },
-      });
+        base?.id
+      );
       setUploadingFiles((pre) => ({ ...pre, ...newUploadMap }));
       setTimeout(() => {
         scrollBottom();
       }, 100);
     },
-    [attachmentManager, handleSuccess]
+    [attachmentManager, base?.id, handleSuccess, t, uploadingFiles]
   );
 
   const scrollBottom = () => {

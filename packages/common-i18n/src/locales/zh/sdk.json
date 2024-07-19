@@ -16,7 +16,8 @@
     },
     "selectPlaceHolder": "请选择...",
     "loading": "加载中...",
-    "loadMore": "加载更多"
+    "loadMore": "加载更多",
+    "uploadFailed": "上传失败"
   },
   "editor": {
     "attachment": {
