@@ -16,7 +16,8 @@
     },
     "selectPlaceHolder": "Select...",
     "loading": "Loading...",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "uploadFailed": "Upload failed"
   },
   "noun": {
     "table": "Table",
