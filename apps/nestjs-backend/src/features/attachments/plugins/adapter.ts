@@ -8,6 +8,7 @@ export default abstract class StorageAdapter {
   static readonly getBucket = (type: UploadType) => {
     switch (type) {
       case UploadType.Table:
+      case UploadType.Import:
         return storageConfig().privateBucket;
       case UploadType.Avatar:
       case UploadType.OAuth:
@@ -28,6 +29,8 @@ export default abstract class StorageAdapter {
         return 'form';
       case UploadType.OAuth:
         return 'oauth';
+      case UploadType.Import:
+        return 'import';
       default:
         throw new BadRequestException('Invalid upload type');
     }

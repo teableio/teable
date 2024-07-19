@@ -8,6 +8,7 @@ export enum UploadType {
   Avatar = 2,
   Form = 3,
   OAuth = 4,
+  Import = 5,
 }
 
 export const signatureRoSchema = z
