@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { BaseRole, SpaceRole } from '@teable/core';
 import {
   ActionPrefix,
   RoleType,
@@ -321,6 +322,10 @@ export class BaseService {
 
   async getPermission(baseId: string) {
     const { role } = await this.getBaseById(baseId);
+    return this.getPermissionByRole(role);
+  }
+
+  async getPermissionByRole(role: SpaceRole | BaseRole) {
     const permissionMap = getPermissionMap(RoleType.Base, role);
     return pick(permissionMap, [
       ...actionPrefixMap[ActionPrefix.Table],
