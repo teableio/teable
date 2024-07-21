@@ -41,4 +41,41 @@ export class StringSortAdapter extends SortFunctionPostgres {
     );
     return builderClient;
   }
+
+  getAscSQL() {
+    const { type, options } = this.field;
+
+    if (type !== FieldType.SingleSelect) {
+      return super.getAscSQL();
+    }
+
+    const { choices } = options as ISelectFieldOptions;
+
+    const optionSets = choices.map(({ name }) => name);
+    return this.knex
+      .raw(`ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) ASC NULLS FIRST`, [
+        ...optionSets,
+        this.columnName,
+      ])
+      .toQuery();
+  }
+
+  getDescSQL() {
+    const { type, options } = this.field;
+
+    if (type !== FieldType.SingleSelect) {
+      return super.getDescSQL();
+    }
+
+    const { choices } = options as ISelectFieldOptions;
+
+    const optionSets = choices.map(({ name }) => name);
+    return this.knex
+      .raw(
+        `ARRAY_POSITION(ARRAY[${this.createSqlPlaceholders(optionSets)}], ??) DESC NULLS LAST`,
+
+        [...optionSets, this.columnName]
+      )
+      .toQuery();
+  }
 }

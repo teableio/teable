@@ -30,6 +30,20 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
     return chosenHandler(builderClient);
   }
 
+  generateSQL(sortFunc: SortFunc) {
+    const functionHandlers = {
+      [SortFunc.Asc]: this.getAscSQL,
+      [SortFunc.Desc]: this.getDescSQL,
+    };
+    const chosenHandler = functionHandlers[sortFunc].bind(this);
+
+    if (!chosenHandler) {
+      throw new InternalServerErrorException(`Unknown function ${sortFunc} for sort`);
+    }
+
+    return chosenHandler();
+  }
+
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     builderClient.orderByRaw(`?? ASC NULLS FIRST`, [this.columnName]);
     return builderClient;
@@ -38,6 +52,14 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     builderClient.orderByRaw(`?? DESC NULLS LAST`, [this.columnName]);
     return builderClient;
+  }
+
+  getAscSQL() {
+    return this.knex.raw(`?? ASC NULLS FIRST`, [this.columnName]).toQuery();
+  }
+
+  getDescSQL() {
+    return this.knex.raw(`?? DESC NULLS LAST`, [this.columnName]).toQuery();
   }
 
   protected createSqlPlaceholders(values: unknown[]): string {

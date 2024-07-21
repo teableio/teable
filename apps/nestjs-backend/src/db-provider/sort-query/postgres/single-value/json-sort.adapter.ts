@@ -24,4 +24,24 @@ export class JsonSortAdapter extends SortFunctionPostgres {
     }
     return builderClient;
   }
+
+  getAscSQL() {
+    const { type } = this.field;
+
+    if (type === FieldType.Link || type === FieldType.User) {
+      return this.knex.raw(`??::jsonb ->> 'title' ASC NULLS FIRST`, [this.columnName]).toQuery();
+    } else {
+      return this.knex.raw(`??::jsonb ASC NULLS FIRST`, [this.columnName]).toQuery();
+    }
+  }
+
+  getDescSQL() {
+    const { type } = this.field;
+
+    if (type === FieldType.Link || type === FieldType.User) {
+      return this.knex.raw(`??::jsonb ->> 'title' DESC NULLS LAST`, [this.columnName]).toQuery();
+    } else {
+      return this.knex.raw(`??::jsonb DESC NULLS LAST`, [this.columnName]).toQuery();
+    }
+  }
 }

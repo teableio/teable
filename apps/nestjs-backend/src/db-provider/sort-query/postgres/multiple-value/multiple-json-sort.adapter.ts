@@ -30,4 +30,32 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
     }
     return builderClient;
   }
+
+  getAscSQL() {
+    const { type } = this.field;
+
+    if (type === FieldType.Link || type === FieldType.User) {
+      return this.knex
+        .raw(`jsonb_path_query_array(??::jsonb, '$[*].title')::text ASC NULLS FIRST`, [
+          this.columnName,
+        ])
+        .toQuery();
+    } else {
+      return this.knex.raw(`??::jsonb ->> 0 ASC NULLS FIRST`, [this.columnName]).toQuery();
+    }
+  }
+
+  getDescSQL() {
+    const { type } = this.field;
+
+    if (type === FieldType.Link || type === FieldType.User) {
+      return this.knex
+        .raw(`jsonb_path_query_array(??::jsonb, '$[*].title')::text DESC NULLS LAST`, [
+          this.columnName,
+        ])
+        .toQuery();
+    } else {
+      return this.knex.raw(`??::jsonb ->> 0 DESC NULLS LAST`, [this.columnName]).toQuery();
+    }
+  }
 }

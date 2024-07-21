@@ -49,4 +49,48 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
   }
+
+  getAscSQL() {
+    const { options } = this.field;
+    const { time, timeZone } = (options as IDateFieldOptions).formatting;
+
+    if (time !== TimeFormatting.None) {
+      return this.knex.raw(`json_extract(??, '$[0]') ASC NULLS FIRST`, [this.columnName]).toQuery();
+    }
+
+    const offsetStr = `${getOffset(timeZone)} hour`;
+    return this.knex
+      .raw(
+        `
+      (
+        SELECT group_concat(DATE(elem.value, ?), ', ')
+        FROM json_each(??) as elem
+      ) ASC NULLS FIRST
+      `,
+        [offsetStr, this.columnName]
+      )
+      .toQuery();
+  }
+
+  getDescSQL() {
+    const { options } = this.field;
+    const { time, timeZone } = (options as IDateFieldOptions).formatting;
+
+    if (time !== TimeFormatting.None) {
+      return this.knex.raw(`json_extract(??, '$[0]') DESC NULLS LAST`, [this.columnName]).toQuery();
+    }
+
+    const offsetStr = `${getOffset(timeZone)} hour`;
+    return this.knex
+      .raw(
+        `
+      (
+        SELECT group_concat(DATE(elem.value, ?), ', ')
+        FROM json_each(??) as elem
+      ) DESC NULLS LAST
+      `,
+        [offsetStr, this.columnName]
+      )
+      .toQuery();
+  }
 }

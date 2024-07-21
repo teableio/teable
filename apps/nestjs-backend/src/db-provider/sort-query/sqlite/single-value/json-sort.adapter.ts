@@ -24,4 +24,28 @@ export class JsonSortAdapter extends SortFunctionSqlite {
     }
     return builderClient;
   }
+
+  getAscSQL() {
+    const { type } = this.field;
+
+    if (type === FieldType.Link || type === FieldType.User) {
+      return this.knex
+        .raw(`json_extract(??, '$.title') ASC NULLS FIRST`, [this.columnName])
+        .toQuery();
+    } else {
+      return this.knex.raw(`?? ASC NULLS FIRST`, [this.columnName]).toQuery();
+    }
+  }
+
+  getDescSQL() {
+    const { type } = this.field;
+
+    if (type === FieldType.Link || type === FieldType.User) {
+      return this.knex
+        .raw(`json_extract(??, '$.title') DESC NULLS LAST`, [this.columnName])
+        .toQuery();
+    } else {
+      return this.knex.raw(`?? DESC NULLS LAST`, [this.columnName]).toQuery();
+    }
+  }
 }

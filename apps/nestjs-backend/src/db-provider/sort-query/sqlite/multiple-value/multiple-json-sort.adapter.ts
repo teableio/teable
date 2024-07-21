@@ -23,4 +23,28 @@ export class MultipleJsonSortAdapter extends SortFunctionSqlite {
     );
     return builderClient;
   }
+
+  getAscSQL() {
+    return this.knex
+      .raw(
+        `
+        json_extract(??, '$[0]') ASC NULLS FIRST,
+        json_array_length(??) ASC NULLS FIRST
+        `,
+        [this.columnName, this.columnName]
+      )
+      .toQuery();
+  }
+
+  getDescSQL() {
+    return this.knex
+      .raw(
+        `
+        json_extract(??, '$[0]') DESC NULLS LAST,
+        json_array_length(??) DESC NULLS LAST
+        `,
+        [this.columnName, this.columnName]
+      )
+      .toQuery();
+  }
 }
