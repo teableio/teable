@@ -484,11 +484,6 @@ describe('selectionService', () => {
         { id: 'recordId2', fields: {} },
       ];
 
-      const mockNewRecords = [
-        { id: 'newRecordId1', fields: {} },
-        { id: 'newRecordId2', fields: {} },
-      ];
-
       vi.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
 
       vi.spyOn(aggregationService, 'performRowCount').mockResolvedValue({
@@ -499,10 +494,6 @@ describe('selectionService', () => {
       );
 
       vi.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
-
-      vi.spyOn(selectionService as any, 'expandRows').mockResolvedValue({
-        records: mockNewRecords,
-      });
 
       vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
 
