@@ -11,10 +11,10 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> = async
   const { res, req, query } = context;
   const { shareId } = query;
   const { i18nNamespaces } = shareConfig;
+  res.setHeader('Content-Security-Policy', 'frame-ancestors *;');
 
   try {
     const ssrApi = new SsrApi();
-    res.setHeader('Content-Security-Policy', "frame-ancestors 'self' *;");
     ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
     const shareViewData = await ssrApi.getShareView(shareId as string);
     const driver = parseDsn(process.env.PRISMA_DATABASE_URL as string).driver as DriverClient;

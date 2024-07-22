@@ -9,6 +9,7 @@ const queryClient = createQueryClient();
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { i18nNamespaces } = shareConfig;
+  context.res.setHeader('Content-Security-Policy', 'frame-ancestors *;');
   return {
     props: {
       ...(await getTranslationsProps(context, i18nNamespaces)),
