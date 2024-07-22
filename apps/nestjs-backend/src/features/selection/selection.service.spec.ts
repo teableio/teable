@@ -522,6 +522,8 @@ describe('selectionService', () => {
 
       vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
 
+      vi.spyOn(recordOpenApiService, 'createRecords').mockResolvedValue(null as any);
+
       prismaService.$tx.mockImplementation(async (fn, _options) => {
         return await fn(prismaService);
       });
@@ -598,7 +600,8 @@ describe('selectionService', () => {
 
       // Mock the required methods from the service
       selectionService['getSelectionCtxByRange'] = vi.fn().mockResolvedValue({ fields, records });
-      selectionService['fillCells'] = vi.fn().mockResolvedValue(updateRecordsRo);
+      selectionService['tableDataToRecords'] = vi.fn().mockResolvedValue([{ fields: {} }]);
+      selectionService['fillCells'] = vi.fn().mockReturnValue(updateRecordsRo);
       recordOpenApiService.updateRecords = vi.fn().mockResolvedValue(null);
 
       // Call the clear method
@@ -609,12 +612,7 @@ describe('selectionService', () => {
         viewId,
         ranges: clearRo.ranges,
       });
-      expect(selectionService['fillCells']).toHaveBeenCalledWith({
-        tableId,
-        tableData: [],
-        fields,
-        records,
-      });
+      expect(selectionService['fillCells']).toHaveBeenCalledWith(records, [{ fields: {} }]);
       expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith(tableId, updateRecordsRo);
     });
   });
@@ -982,21 +980,17 @@ describe('selectionService', () => {
         fields,
       });
 
-      expect(updateRecordsRo).toEqual({
-        fieldKeyType: FieldKeyType.Id,
-        typecast: true,
-        records: [
-          {
-            fields: { field1: 'A1', field2: 'B1', field3: 'C1' },
-          },
-          {
-            fields: { field1: 'A2', field2: 'B2', field3: 'C2' },
-          },
-          {
-            fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
-          },
-        ],
-      });
+      expect(updateRecordsRo).toEqual([
+        {
+          fields: { field1: 'A1', field2: 'B1', field3: 'C1' },
+        },
+        {
+          fields: { field1: 'A2', field2: 'B2', field3: 'C2' },
+        },
+        {
+          fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
+        },
+      ]);
     });
 
     it('date field with European and US', async () => {
@@ -1043,18 +1037,14 @@ describe('selectionService', () => {
         fields,
       });
 
-      expect(updateRecordsRo).toEqual({
-        fieldKeyType: FieldKeyType.Id,
-        typecast: true,
-        records: [
-          {
-            fields: {
-              europeanField: '2024-01-05T00:00:00.000Z',
-              usField: '2024-01-05T00:00:00.000Z',
-            },
+      expect(updateRecordsRo).toEqual([
+        {
+          fields: {
+            europeanField: '2024-01-05T00:00:00.000Z',
+            usField: '2024-01-05T00:00:00.000Z',
           },
-        ],
-      });
+        },
+      ]);
     });
   });
 });
