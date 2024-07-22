@@ -1,5 +1,6 @@
 import type auth from './locales/en/auth.json';
 import type common from './locales/en/common.json';
+import type developer from './locales/en/developer.json';
 import type oauth from './locales/en/oauth.json';
 import type sdk from './locales/en/sdk.json';
 import type setting from './locales/en/setting.json';
@@ -22,4 +23,5 @@ export interface I18nNamespaces {
   setting: typeof setting;
   oauth: typeof oauth;
   zod: typeof zod;
+  developer: typeof developer;
 }

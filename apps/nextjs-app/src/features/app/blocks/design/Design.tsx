@@ -33,7 +33,7 @@ export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   return (
     <AnchorContext.Provider value={{ tableId }}>
-      <TablePermissionProvider>
+      <TablePermissionProvider baseId={baseId}>
         <FieldProvider serverSideData={fields}>
           <Head>
             <title>

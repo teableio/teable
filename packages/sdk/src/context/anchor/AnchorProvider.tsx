@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { RowCountContext, RowCountProvider } from '../aggregation';
+import { BaseProvider } from '../base/BaseProvider';
 import { FieldContext, FieldProvider } from '../field';
 import { SearchProvider } from '../query';
 import { RecordContext, RecordProvider } from '../record';
@@ -28,27 +29,29 @@ export const AnchorProvider: React.FC<IAnchorProvider> = ({
 
   return (
     <AnchorContext.Provider value={value}>
-      {tableId ? (
-        <TablePermissionProvider>
-          <SearchProvider>
-            <FieldProvider fallback={fallback}>
-              <ViewProvider>
-                <RecordProvider>
-                  <RowCountProvider>{children}</RowCountProvider>
-                </RecordProvider>
-              </ViewProvider>
-            </FieldProvider>
-          </SearchProvider>
-        </TablePermissionProvider>
-      ) : (
-        <FieldContext.Provider value={{ fields: [] }}>
-          <ViewContext.Provider value={{ views: [] }}>
-            <RecordContext.Provider value={{}}>
-              <RowCountContext.Provider value={null}>{children}</RowCountContext.Provider>
-            </RecordContext.Provider>
-          </ViewContext.Provider>
-        </FieldContext.Provider>
-      )}
+      <BaseProvider>
+        {tableId ? (
+          <TablePermissionProvider baseId={baseId}>
+            <SearchProvider>
+              <FieldProvider fallback={fallback}>
+                <ViewProvider>
+                  <RecordProvider>
+                    <RowCountProvider>{children}</RowCountProvider>
+                  </RecordProvider>
+                </ViewProvider>
+              </FieldProvider>
+            </SearchProvider>
+          </TablePermissionProvider>
+        ) : (
+          <FieldContext.Provider value={{ fields: [] }}>
+            <ViewContext.Provider value={{ views: [] }}>
+              <RecordContext.Provider value={{}}>
+                <RowCountContext.Provider value={null}>{children}</RowCountContext.Provider>
+              </RecordContext.Provider>
+            </ViewContext.Provider>
+          </FieldContext.Provider>
+        )}
+      </BaseProvider>
     </AnchorContext.Provider>
   );
 };
