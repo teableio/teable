@@ -34,6 +34,9 @@ export const NotifyRoute: RouteConfig = registerRoute({
     params: z.object({
       token: z.string(),
     }),
+    query: z.object({
+      filename: z.string().optional(),
+    }),
   },
   responses: {
     201: {
@@ -48,10 +51,11 @@ export const NotifyRoute: RouteConfig = registerRoute({
   tags: ['attachments'],
 });
 
-export const notify = async (token: string, shareId?: string) => {
+export const notify = async (token: string, shareId?: string, filename?: string) => {
   return axios.post<INotifyVo>(urlBuilder(NOTIFY_URL, { token }), undefined, {
     headers: {
       'Tea-Share-Id': shareId,
     },
+    params: { filename },
   });
 };

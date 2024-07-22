@@ -135,6 +135,7 @@ export class S3Storage implements StorageAdapter {
       Bucket: bucket,
       Key: path,
       ResponseContentType: respHeaders?.['Content-Type'],
+      ResponseContentDisposition: respHeaders?.['Content-Disposition'],
     });
 
     return getSignedUrl(this.s3Client, command, {

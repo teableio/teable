@@ -47,7 +47,7 @@ export class AttachmentsService {
     );
   }
 
-  async readLocalFile(path: string, token?: string, filename?: string) {
+  async readLocalFile(path: string, token?: string) {
     const localStorage = this.storageAdapter as LocalStorage;
     let respHeaders: Record<string, string> = {};
 
@@ -68,9 +68,6 @@ export class AttachmentsService {
     }
 
     const headers: Record<string, string> = respHeaders ?? {};
-    if (filename) {
-      headers['Content-Disposition'] = `attachment; filename="${filename}"`;
-    }
     const fileStream = localStorage.read(path);
 
     return { headers, fileStream };
@@ -110,7 +107,7 @@ export class AttachmentsService {
     return res;
   }
 
-  async notify(token: string): Promise<INotifyVo> {
+  async notify(token: string, filename?: string): Promise<INotifyVo> {
     const tokenCache = await this.cacheService.get(`attachment:signature:${token}`);
     if (!tokenCache) {
       throw new BadRequestException(`Invalid token: ${token}`);
@@ -142,6 +139,12 @@ export class AttachmentsService {
         path: true,
       },
     });
+    const filenameHeader = filename
+      ? {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Disposition': `attachment; filename="${filename}"`,
+        }
+      : {};
     return {
       ...attachment,
       width: attachment.width ?? undefined,
@@ -153,7 +156,7 @@ export class AttachmentsService {
         token,
         undefined,
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        { 'Content-Type': mimetype }
+        { 'Content-Type': mimetype, ...filenameHeader }
       ),
     };
   }

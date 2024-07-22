@@ -46,18 +46,26 @@ export class AttachmentsController {
     @Req() req: Request,
     @Param('path') path: string,
     @Query('token') token: string,
-    @Query('filename') filename?: string
+    @Query('response-content-disposition') responseContentDisposition?: string
   ) {
     const hasCache = this.attachmentsService.localFileConditionalCaching(path, req.headers, res);
     if (hasCache) {
       res.status(304);
       return;
     }
-    const { fileStream, headers } = await this.attachmentsService.readLocalFile(
-      path,
-      token,
-      filename
-    );
+    const { fileStream, headers } = await this.attachmentsService.readLocalFile(path, token);
+    if (responseContentDisposition) {
+      // handle filename*=UTF-8''filename
+      const filenameRegex = /filename="(.+?)"/;
+      const match = responseContentDisposition.match(filenameRegex);
+      responseContentDisposition = match?.[1]
+        ? responseContentDisposition.replace(
+            filenameRegex,
+            `filename*=UTF-8''${encodeURIComponent(match[1])}`
+          )
+        : '';
+      headers['Content-Disposition'] = responseContentDisposition;
+    }
     res.set(headers);
     return new StreamableFile(fileStream);
   }
@@ -72,7 +80,10 @@ export class AttachmentsController {
 
   @UseGuards(AuthGuard, DynamicAuthGuardFactory)
   @Post('/notify/:token')
-  async notify(@Param('token') token: string): Promise<INotifyVo> {
-    return await this.attachmentsService.notify(token);
+  async notify(
+    @Param('token') token: string,
+    @Query('filename') filename?: string
+  ): Promise<INotifyVo> {
+    return await this.attachmentsService.notify(token, filename);
   }
 }

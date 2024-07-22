@@ -93,7 +93,11 @@ export class MinioStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
-    return this.minioClient.presignedGetObject(bucket, path, expiresIn, respHeaders);
+    const { 'Content-Disposition': contentDisposition, ...headers } = respHeaders ?? {};
+    return this.minioClient.presignedGetObject(bucket, path, expiresIn, {
+      ...headers,
+      'response-content-disposition': contentDisposition,
+    });
   }
 
   async uploadFileWidthPath(
