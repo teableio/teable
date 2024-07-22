@@ -747,7 +747,6 @@ export class SelectionService {
       headerFields: undefined,
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    console.log('updateRecordsRo', JSON.stringify(updateRecordsRo));
     await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
   }
 
