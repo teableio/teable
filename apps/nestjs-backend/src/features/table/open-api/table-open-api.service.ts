@@ -463,6 +463,10 @@ export class TableOpenApiService {
     if (!role) {
       throw new NotFoundException(`Role not found`);
     }
+    return this.getPermissionByRole(tableId, role);
+  }
+
+  async getPermissionByRole(tableId: string, role: SpaceRole | BaseRole) {
     const permissionMap = getPermissionMap(RoleType.Base, role);
     const tablePermission = actionPrefixMap[ActionPrefix.Table].reduce(
       (acc, action) => {

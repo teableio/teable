@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { BaseRole, ExcludeAction, TableActions } from '@teable/core';
+import type { BaseRole, ExcludeAction, SpaceRole, TableActions } from '@teable/core';
 import { ActionPrefix, RoleType, actionPrefixMap, getPermissionMap } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { pick } from 'lodash';
@@ -50,10 +50,17 @@ export class TablePermissionService {
         throw new NotFoundException('Collaborator not found');
       });
     const roleName = collaborator.roleName;
+    return this.getTablePermissionMapByRole(baseId, roleName as BaseRole, tableIds);
+  }
+
+  async getTablePermissionMapByRole(
+    baseId: string,
+    roleName: BaseRole | SpaceRole,
+    tableIds?: string[]
+  ) {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { baseId, deletedTime: null, id: { in: tableIds } },
     });
-
     return tables.reduce(
       (acc, table) => {
         acc[table.id] = pick(

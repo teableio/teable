@@ -10,5 +10,6 @@ import { DbConnectionService } from './db-connection.service';
   controllers: [BaseController],
   imports: [CollaboratorModule],
   providers: [DbProvider, BaseService, DbConnectionService, BaseDuplicateService],
+  exports: [BaseService, DbConnectionService, BaseDuplicateService],
 })
 export class BaseModule {}

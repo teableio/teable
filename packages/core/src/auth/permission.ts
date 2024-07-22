@@ -51,5 +51,5 @@ export const hasPermission = (role: SpaceRole, action: PermissionAction) => {
 };
 
 export const isUnrestrictedRole = (role: string) => {
-  return [SpaceRole.Owner, SpaceRole.Creator].includes(role as SpaceRole);
+  return [SpaceRole.Owner].includes(role as SpaceRole);
 };

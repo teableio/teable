@@ -119,7 +119,7 @@ export class PermissionService {
   }
 
   async getUpperIdByBaseId(baseId: string): Promise<{ spaceId: string }> {
-    const space = await this.prismaService.base.findFirst({
+    const base = await this.prismaService.base.findFirst({
       where: {
         id: baseId,
         deletedTime: null,
@@ -128,7 +128,7 @@ export class PermissionService {
         spaceId: true,
       },
     });
-    const spaceId = space?.spaceId;
+    const spaceId = base?.spaceId;
     if (!spaceId) {
       throw new NotFoundException(`Invalid baseId: ${baseId}`);
     }

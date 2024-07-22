@@ -13,6 +13,7 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -52,29 +53,32 @@ export const BaseSideBar = () => {
     label: string;
     Icon: React.FC<{ className?: string }>;
     disabled?: boolean;
-  }[] = [
-    {
-      href: `/base/${baseId}/dashboard`,
-      label: t('common:noun.dashboard'),
-      Icon: Gauge,
-    },
-    {
-      href: `/base/${baseId}/automation`,
-      label: t('common:noun.automation'),
-      Icon: Network,
-      disabled: !automationEnable,
-    },
-    ...(basePermission?.['base|authority_matrix_config']
-      ? [
-          {
-            href: `/base/${baseId}/authority-matrix`,
-            label: t('common:noun.authorityMatrix'),
-            Icon: Lock,
-            disabled: !advancedPermissionsEnable,
-          },
-        ]
-      : []),
-  ];
+  }[] = useMemo(
+    () =>
+      [
+        {
+          href: `/base/${baseId}/dashboard`,
+          label: t('common:noun.dashboard'),
+          Icon: Gauge,
+        },
+        {
+          href: `/base/${baseId}/automation`,
+          label: t('common:noun.automation'),
+          Icon: Network,
+          hidden: !basePermission?.['automation|read'],
+          disabled: !automationEnable,
+        },
+
+        {
+          href: `/base/${baseId}/authority-matrix`,
+          label: t('common:noun.authorityMatrix'),
+          Icon: Lock,
+          hidden: !basePermission?.['base|authority_matrix_config'],
+          disabled: !advancedPermissionsEnable,
+        },
+      ].filter((item) => !item.hidden),
+    [advancedPermissionsEnable, automationEnable, baseId, basePermission, t]
+  );
 
   return (
     <>

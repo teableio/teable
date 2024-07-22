@@ -65,7 +65,7 @@ export const basePermissions: Record<
     'base|invite_link': true,
     'base|table_import': true,
     'base|table_export': true,
-    'base|authority_matrix_config': false,
+    'base|authority_matrix_config': true,
     'base|db_connection': false,
     'table|create': true,
     'table|delete': true,
