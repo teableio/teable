@@ -1,0 +1,16 @@
+{
+  "apiQueryBuilder": "API Query Builder",
+  "subTitle": "Select the table you want to query, then start configuring parameters",
+  "action": {
+    "selectBase": "Select a database...",
+    "selectTable": "Select a table..."
+  },
+  "pickParams": "Select and configure the parameters",
+  "buildResult": "Build Result",
+  "buildResultEmpty": "No result yet",
+  "previewReturnValue": "Return Value Preview",
+  "replaceToken": "Replace Token",
+  "createNewToken": "Create New Token",
+  "only10Records": "Only the first 10 records are displayed",
+  "addSort": "Add a sort"
+}

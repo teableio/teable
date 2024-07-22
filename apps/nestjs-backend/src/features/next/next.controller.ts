@@ -29,6 +29,7 @@ export class NextController {
     'setting/?*',
     'admin/?*',
     'oauth/?*',
+    'developer/?*',
     'public/?*',
   ])
   public async home(@Req() req: express.Request, @Res() res: express.Response) {

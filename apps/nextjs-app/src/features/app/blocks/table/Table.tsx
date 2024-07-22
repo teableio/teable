@@ -41,7 +41,7 @@ export const Table: React.FC<ITableProps> = ({
             : 'Teable'}
         </title>
       </Head>
-      <TablePermissionProvider>
+      <TablePermissionProvider baseId={baseId}>
         <ViewProvider serverData={viewServerData}>
           <div className="flex h-full grow basis-[500px] flex-col">
             <TableHeader />

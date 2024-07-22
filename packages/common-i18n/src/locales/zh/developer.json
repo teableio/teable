@@ -1,0 +1,16 @@
+{
+  "apiQueryBuilder": "API 查询构建器",
+  "subTitle": "选择好你想要进行请求的表格，即可开始参数配置",
+  "action": {
+    "selectBase": "选择一个数据库...",
+    "selectTable": "选择一个表..."
+  },
+  "pickParams": "选择需要的参数进行配置",
+  "buildResult": "构造结果",
+  "buildResultEmpty": "暂无构造结果",
+  "previewReturnValue": "返回值预览",
+  "replaceToken": "替换 Token",
+  "createNewToken": "创建新 Token",
+  "only10Records": "只展示前 10 条记录",
+  "addSort": "添加一个排序"
+}
