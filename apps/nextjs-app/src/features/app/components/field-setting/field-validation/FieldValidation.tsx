@@ -1,6 +1,5 @@
 import type { FieldType } from '@teable/core';
 import {
-  checkFieldValidationEnabled,
   checkFieldUniqueValidationEnabled,
   checkFieldNotNullValidationEnabled,
 } from '@teable/core';
@@ -24,10 +23,12 @@ export const FieldValidation = (props: IFieldValidationProps) => {
   const { isLookup, unique, notNull } = field;
   const fieldType = field.type as FieldType;
   const isEditField = operator === FieldOperator.Edit;
+  const isUniqueEnabled = checkFieldUniqueValidationEnabled(fieldType, isLookup);
+  const isNotNullEnabled = isEditField && checkFieldNotNullValidationEnabled(fieldType, isLookup);
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
-  if (!checkFieldValidationEnabled(fieldType, isLookup)) {
+  if (!isUniqueEnabled && !isNotNullEnabled) {
     return null;
   }
 
@@ -38,7 +39,7 @@ export const FieldValidation = (props: IFieldValidationProps) => {
           {t('table:field.editor.fieldValidationRules')}
         </span>
 
-        {checkFieldUniqueValidationEnabled(fieldType, isLookup) && (
+        {isUniqueEnabled && (
           <div className="flex space-x-2">
             <Switch
               id={VALIDATION_UNIQUE}
@@ -53,7 +54,7 @@ export const FieldValidation = (props: IFieldValidationProps) => {
           </div>
         )}
 
-        {isEditField && checkFieldNotNullValidationEnabled(fieldType, isLookup) && (
+        {isNotNullEnabled && (
           <div className="flex space-x-2">
             <Switch
               id={VALIDATION_NOT_NULL}
