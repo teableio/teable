@@ -38,7 +38,7 @@ export const QueryBuilder = () => {
   return (
     <SettingRight title={<SettingRightTitle title={t('developer:apiQueryBuilder')} />}>
       <div className="flex w-full flex-col gap-4 pt-4">
-        <p>{t('developer:apiQueryBuilder')}</p>
+        <p>{t('developer:chooseSource')}</p>
         <div className="flex flex-col gap-2">
           <h1>1. {t('common:noun.base')}</h1>
           <Selector
@@ -89,7 +89,7 @@ export const QueryBuilder = () => {
         )}
         {tableId && (
           <div className="flex flex-col gap-2">
-            <h1 className="font-bold">{t('sdk:sort.label')}</h1>
+            <h1 className="font-bold">{t('common:actions.search')}</h1>
             <AnchorProvider baseId={baseId} tableId={tableId}>
               <SearchBuilder search={search} onChange={setSearch} />
             </AnchorProvider>

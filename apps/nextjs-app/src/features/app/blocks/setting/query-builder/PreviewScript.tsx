@@ -235,7 +235,7 @@ export const PreviewScript = ({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onLanguageChange={(language) => setSelectedLanguage(language as any)}
         />
-        {t('developer:replaceToken')}
+        {t('developer:replaceToken')}:
         <Input
           className="w-80"
           type="text"

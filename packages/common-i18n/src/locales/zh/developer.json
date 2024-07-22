@@ -1,5 +1,6 @@
 {
   "apiQueryBuilder": "API 查询构建器",
+  "chooseSource": "选择数据源",
   "subTitle": "选择好你想要进行请求的表格，即可开始参数配置",
   "action": {
     "selectBase": "选择一个数据库...",

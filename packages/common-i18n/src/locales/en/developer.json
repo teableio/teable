@@ -1,16 +1,17 @@
 {
-  "apiQueryBuilder": "API Query Builder",
+  "apiQueryBuilder": "API query builder",
+  "chooseSource": "Choose a data source",
   "subTitle": "Select the table you want to query, then start configuring parameters",
   "action": {
     "selectBase": "Select a database...",
     "selectTable": "Select a table..."
   },
   "pickParams": "Select and configure the parameters",
-  "buildResult": "Build Result",
+  "buildResult": "Build result",
   "buildResultEmpty": "No result yet",
-  "previewReturnValue": "Return Value Preview",
-  "replaceToken": "Replace Token",
-  "createNewToken": "Create New Token",
+  "previewReturnValue": "Return value preview",
+  "replaceToken": "Replace token",
+  "createNewToken": "Create new token",
   "only10Records": "Only the first 10 records are displayed",
   "addSort": "Add a sort"
 }
