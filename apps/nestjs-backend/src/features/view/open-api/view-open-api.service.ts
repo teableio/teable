@@ -6,7 +6,6 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import type {
-  IFieldVo,
   IOtOperation,
   IViewRo,
   IViewVo,
@@ -37,10 +36,13 @@ import type {
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
 import { FieldService } from '../../field/field.service';
-import { createFieldInstanceByRaw } from '../../field/model/factory';
+import type { IFieldInstance } from '../../field/model/factory';
+import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
 import { ViewService } from '../view.service';
 
@@ -53,6 +55,7 @@ export class ViewOpenApiService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -102,36 +105,19 @@ export class ViewOpenApiService {
     const fields = await this.fieldService.getFieldsByQuery(tableId, { viewId });
     const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
 
-    const fieldMap = fields.reduce(
+    const queryBuilder = this.knex(dbTableName);
+
+    const fieldInsMap = fields.reduce(
       (map, field) => {
-        map[field.id] = field;
+        map[field.id] = createFieldInstanceByVo(field);
         return map;
       },
-      {} as Record<string, IFieldVo>
+      {} as Record<string, IFieldInstance>
     );
 
-    let orderRawSql = sortObjs
-      .map((sort) => {
-        const { fieldId, order } = sort;
-
-        const field = fieldMap[fieldId];
-        if (!field) {
-          return;
-        }
-
-        const column =
-          field.dbFieldType === 'JSON'
-            ? this.knex.raw(`CAST(?? as text)`, [field.dbFieldName]).toQuery()
-            : this.knex.ref(field.dbFieldName).toQuery();
-
-        const nulls = order.toUpperCase() === 'ASC' ? 'FIRST' : 'LAST';
-
-        return `${column} ${order} NULLS ${nulls}`;
-      })
-      .join();
-
-    // ensure order stable
-    orderRawSql += this.knex.raw(`, ?? ASC`, ['__auto_number']).toQuery();
+    const orderRawSql = this.dbProvider
+      .sortQuery(queryBuilder, fieldInsMap, sortObjs)
+      .getRawSortSQLText();
 
     // build ops
     const newSort = {

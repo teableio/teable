@@ -34,4 +34,36 @@ export class MultipleNumberSortAdapter extends SortFunctionSqlite {
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
   }
+
+  getAscSQL() {
+    const { options } = this.field;
+    const { precision } = (options as INumberFieldOptions).formatting;
+    return this.knex
+      .raw(
+        `
+      (
+        SELECT group_concat(ROUND(elem.value, ?))
+        FROM json_each(??) as elem
+      ) ASC NULLS FIRST
+      `,
+        [precision, this.columnName]
+      )
+      .toQuery();
+  }
+
+  getDescSQL() {
+    const { options } = this.field;
+    const { precision } = (options as INumberFieldOptions).formatting;
+    return this.knex
+      .raw(
+        `
+      (
+        SELECT group_concat(ROUND(elem.value, ?))
+        FROM json_each(??) as elem
+      ) DESC NULLS LAST
+      `,
+        [precision, this.columnName]
+      )
+      .toQuery();
+  }
 }

@@ -22,6 +22,27 @@ export abstract class AbstractSortQuery implements ISortQueryInterface {
     return this.parseSorts(this.originQueryBuilder, this.sortObjs);
   }
 
+  getRawSortSQLText(): string {
+    return this.genSortSQL(this.sortObjs);
+  }
+
+  private genSortSQL(sortObjs?: ISortItem[]) {
+    const defaultSortSql = this.knex.raw(`?? ASC`, ['__auto_number']).toQuery();
+    if (!sortObjs?.length) {
+      return defaultSortSql;
+    }
+    let sortSQLText = sortObjs
+      .map(({ fieldId, order }) => {
+        const field = (this.fields && this.fields[fieldId]) as IFieldInstance;
+
+        return this.getSortAdapter(field).generateSQL(order);
+      })
+      .join();
+
+    sortSQLText += `, ${defaultSortSql}`;
+    return sortSQLText;
+  }
+
   private parseSorts(queryBuilder: Knex.QueryBuilder, sortObjs?: ISortItem[]): Knex.QueryBuilder {
     if (!sortObjs || !sortObjs.length) {
       return queryBuilder;

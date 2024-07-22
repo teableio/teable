@@ -35,4 +35,34 @@ export class StringSortAdapter extends SortFunctionSqlite {
     ]);
     return builderClient;
   }
+
+  getAscSQL() {
+    const { type, options } = this.field;
+
+    if (type !== FieldType.SingleSelect) {
+      return super.getAscSQL();
+    }
+
+    const { choices } = options as ISelectFieldOptions;
+
+    const optionSets = choices.map(({ name }) => name);
+    return this.knex
+      .raw(`${this.generateOrderByCase(optionSets)} ASC NULLS FIRST`, [this.columnName])
+      .toQuery();
+  }
+
+  getDescSQL() {
+    const { type, options } = this.field;
+
+    if (type !== FieldType.SingleSelect) {
+      return super.getDescSQL();
+    }
+
+    const { choices } = options as ISelectFieldOptions;
+
+    const optionSets = choices.map(({ name }) => name);
+    return this.knex
+      .raw(`${this.generateOrderByCase(optionSets)} DESC NULLS LAST`, [this.columnName])
+      .toQuery();
+  }
 }

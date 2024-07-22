@@ -5,4 +5,6 @@ export type ISortFunctionHandler = (builderClient: Knex.QueryBuilder) => Knex.Qu
 export interface ISortFunctionInterface {
   asc: ISortFunctionHandler;
   desc: ISortFunctionHandler;
+  getAscSQL: () => string;
+  getDescSQL: () => string;
 }

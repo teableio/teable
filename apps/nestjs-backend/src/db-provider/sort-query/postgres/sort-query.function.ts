@@ -22,4 +22,24 @@ export class SortFunctionPostgres extends AbstractSortFunction {
     );
     return builderClient;
   }
+
+  getAscSQL() {
+    const { dbFieldType } = this.field;
+
+    return this.knex
+      .raw(`${dbFieldType === DbFieldType.Json ? '??::text' : '??'} ASC NULLS FIRST`, [
+        this.columnName,
+      ])
+      .toQuery();
+  }
+
+  getDescSQL() {
+    const { dbFieldType } = this.field;
+
+    return this.knex
+      .raw(`${dbFieldType === DbFieldType.Json ? '??::text' : '??'} DESC NULLS LAST`, [
+        this.columnName,
+      ])
+      .toQuery();
+  }
 }
