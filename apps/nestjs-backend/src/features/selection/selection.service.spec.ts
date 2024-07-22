@@ -484,6 +484,29 @@ describe('selectionService', () => {
         { id: 'recordId2', fields: {} },
       ];
 
+      const mockNewFields = [
+        {
+          id: 'newFieldId1',
+          name: 'Field 1',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 1',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'newFieldId2',
+          name: 'Field 2',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 2',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+      ].map(createFieldInstanceByVo);
+
       vi.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
 
       vi.spyOn(aggregationService, 'performRowCount').mockResolvedValue({
@@ -494,6 +517,8 @@ describe('selectionService', () => {
       );
 
       vi.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
+
+      vi.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
 
       vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
 
