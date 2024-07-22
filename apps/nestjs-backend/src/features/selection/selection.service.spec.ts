@@ -2,7 +2,7 @@
 import { faker } from '@faker-js/faker';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldOptionsVo, IFieldVo, IRecord } from '@teable/core';
+import type { IFieldOptionsVo, IFieldVo } from '@teable/core';
 import {
   CellValueType,
   Colors,
@@ -170,45 +170,6 @@ describe('selectionService', () => {
     });
   });
 
-  describe('expandRows', () => {
-    it('should expand the rows and create new records', async () => {
-      // Mock dependencies
-      const tableId = 'table1';
-      const numRowsToExpand = 3;
-      const expectedRecords = [
-        { id: 'record1', fields: {} },
-        { id: 'record2', fields: {} },
-      ] as IRecord[];
-      vi.spyOn(recordOpenApiService, 'createRecords').mockResolvedValueOnce({
-        records: expectedRecords,
-      });
-
-      // Perform expanding rows
-      const result = await selectionService['expandRows']({
-        tableId,
-        numRowsToExpand,
-      });
-
-      // Verify the multipleCreateRecords call
-      expect(recordOpenApiService.createRecords).toHaveBeenCalledTimes(1);
-      expect(recordOpenApiService.createRecords).toHaveBeenCalledWith(tableId, {
-        records: Array.from({ length: numRowsToExpand }, () => ({ fields: {} })),
-      });
-
-      // Verify the result
-      expect(result).toEqual(expectedRecords);
-    });
-
-    it('should return empty array when numRowsToExpand is 0', async () => {
-      const result = await selectionService['expandRows']({
-        tableId: 'table1',
-        numRowsToExpand: 0,
-      });
-
-      expect(result).toEqual([]);
-    });
-  });
-
   describe('expandColumns', () => {
     it('should expand the columns and create new fields', async () => {
       vi.spyOn(fieldService as any, 'generateDbFieldName').mockReturnValue('fieldName');
@@ -314,144 +275,76 @@ describe('selectionService', () => {
   });
 
   describe('fillCells', () => {
-    it('should fill the cells with provided table data', async () => {
-      // Mock data
-      const tableData = [
-        ['A1', 'B1', 'C1'],
-        ['A2', 'B2', 'C2'],
-        ['A3', 'B3', 'C3'],
+    it('should return updated records with new fields merged when newRecords is provided', () => {
+      const oldRecords = [
+        { id: '1', fields: { a: 1, b: 2 } },
+        { id: '2', fields: { c: 3, d: 4 } },
       ];
+      const newRecords = [{ fields: { b: 20 } }, { fields: { d: 40, e: 5 } }];
 
-      const fields = [
-        {
-          id: 'field1',
-          name: 'Field 1',
-          type: FieldType.SingleLineText,
-          options: {},
-          dbFieldName: 'Field 1',
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Text,
-          columnMeta: {},
-        },
-        {
-          id: 'field2',
-          name: 'Field 2',
-          type: FieldType.SingleLineText,
-          options: {},
-          dbFieldName: 'Field 2',
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Text,
-          columnMeta: {},
-        },
-        {
-          id: 'field3',
-          name: 'Field 3',
-          type: FieldType.SingleLineText,
-          options: {},
-          dbFieldName: 'Field 3',
-          cellValueType: CellValueType.String,
-          dbFieldType: DbFieldType.Text,
-          columnMeta: {},
-        },
-      ].map(createFieldInstanceByVo);
+      const result = selectionService['fillCells'](oldRecords, newRecords);
 
-      const records = [
-        { id: 'record1', fields: {} },
-        { id: 'record2', fields: {} },
-        { id: 'record3', fields: {} },
-      ];
-
-      // Execute the method
-      const updateRecordsRo = await selectionService['fillCells']({
-        tableId,
-        tableData,
-        headerFields: undefined,
-        fields,
-        records,
-      });
-
-      expect(updateRecordsRo).toEqual({
+      expect(result).toEqual({
         fieldKeyType: FieldKeyType.Id,
         typecast: true,
         records: [
-          {
-            id: records[0].id,
-            fields: { field1: 'A1', field2: 'B1', field3: 'C1' },
-          },
-          {
-            id: records[1].id,
-            fields: { field1: 'A2', field2: 'B2', field3: 'C2' },
-          },
-          {
-            id: records[2].id,
-            fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
-          },
+          { id: '1', fields: { a: 1, b: 20 } },
+          { id: '2', fields: { c: 3, d: 40, e: 5 } },
         ],
       });
     });
 
-    it('date field with European and US', async () => {
-      const europeanField = {
-        id: 'europeanField',
-        name: 'European Field',
-        type: FieldType.Date,
-        options: {
-          formatting: {
-            date: DateFormattingPreset.European,
-            time: TimeFormatting.Hour24,
-            timeZone: 'utc',
-          },
-        },
-        dbFieldName: 'European Field',
-        cellValueType: CellValueType.DateTime,
-        dbFieldType: DbFieldType.DateTime,
-        columnMeta: {},
-      };
-      const usField = {
-        id: 'usField',
-        name: 'US Field',
-        type: FieldType.Date,
-        options: {
-          formatting: {
-            date: DateFormattingPreset.US,
-            time: TimeFormatting.Hour24,
-            timeZone: 'utc',
-          },
-        },
-        dbFieldName: 'US Field',
-        cellValueType: CellValueType.DateTime,
-        dbFieldType: DbFieldType.DateTime,
-        columnMeta: {},
-      };
-
-      const tableData = [['5/1/2024', '1/5/2024']];
-      const fields = [europeanField, usField].map(createFieldInstanceByVo);
-      const records = [
-        {
-          id: 'record1',
-          fields: {},
-        },
+    it('should return records with empty fields when newRecords is undefined', () => {
+      const oldRecords = [
+        { id: '1', fields: { a: 1, b: 2 } },
+        { id: '2', fields: { c: 3, d: 4 } },
       ];
 
-      const updateRecordsRo = await selectionService['fillCells']({
-        tableId,
-        tableData,
-        headerFields: fields,
-        fields,
-        records,
-      });
+      const result = selectionService['fillCells'](oldRecords);
 
-      expect(updateRecordsRo).toEqual({
+      expect(result).toEqual({
         fieldKeyType: FieldKeyType.Id,
         typecast: true,
         records: [
-          {
-            id: records[0].id,
-            fields: {
-              europeanField: '2024-01-05T00:00:00.000Z',
-              usField: '2024-01-05T00:00:00.000Z',
-            },
-          },
+          { id: '1', fields: {} },
+          { id: '2', fields: {} },
+        ],
+      });
+    });
+
+    it('should return records with empty fields when newRecords is an empty array', () => {
+      const oldRecords = [
+        { id: '1', fields: { a: 1, b: 2 } },
+        { id: '2', fields: { c: 3, d: 4 } },
+      ];
+
+      const result = selectionService['fillCells'](oldRecords, []);
+
+      expect(result).toEqual({
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          { id: '1', fields: {} },
+          { id: '2', fields: {} },
+        ],
+      });
+    });
+
+    it('should merge fields correctly when newRecords has fewer elements', () => {
+      const oldRecords = [
+        { id: '1', fields: { a: 1, b: 2 } },
+        { id: '2', fields: { c: 3, d: 4 } },
+      ];
+      const newRecords = [{ fields: { b: 20 } }];
+
+      const result = selectionService['fillCells'](oldRecords, newRecords);
+
+      expect(result).toEqual({
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+        records: [
+          { id: '1', fields: { a: 1, b: 20 } },
+          { id: '2', fields: {} },
         ],
       });
     });
@@ -614,11 +507,6 @@ describe('selectionService', () => {
         },
       ].map(createFieldInstanceByVo);
 
-      const mockNewRecords = [
-        { id: 'newRecordId1', fields: {} },
-        { id: 'newRecordId2', fields: {} },
-      ];
-
       vi.spyOn(selectionService as any, 'parseCopyContent').mockReturnValue(tableData);
 
       vi.spyOn(aggregationService, 'performRowCount').mockResolvedValue({
@@ -630,12 +518,11 @@ describe('selectionService', () => {
 
       vi.spyOn(fieldService, 'getFieldInstances').mockResolvedValue(mockFields);
 
-      vi.spyOn(selectionService as any, 'expandRows').mockResolvedValue({
-        records: mockNewRecords,
-      });
       vi.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
 
       vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
+
+      vi.spyOn(recordOpenApiService, 'createRecords').mockResolvedValue(null as any);
 
       prismaService.$tx.mockImplementation(async (fn, _options) => {
         return await fn(prismaService);
@@ -671,11 +558,6 @@ describe('selectionService', () => {
         tableId,
         header: mockFields,
         numColsToExpand: 2,
-      });
-
-      expect(selectionService['expandRows']).toHaveBeenCalledWith({
-        tableId,
-        numRowsToExpand: 2,
       });
 
       expect(result).toEqual([
@@ -718,7 +600,8 @@ describe('selectionService', () => {
 
       // Mock the required methods from the service
       selectionService['getSelectionCtxByRange'] = vi.fn().mockResolvedValue({ fields, records });
-      selectionService['fillCells'] = vi.fn().mockResolvedValue(updateRecordsRo);
+      selectionService['tableDataToRecords'] = vi.fn().mockResolvedValue([{ fields: {} }]);
+      selectionService['fillCells'] = vi.fn().mockReturnValue(updateRecordsRo);
       recordOpenApiService.updateRecords = vi.fn().mockResolvedValue(null);
 
       // Call the clear method
@@ -729,12 +612,7 @@ describe('selectionService', () => {
         viewId,
         ranges: clearRo.ranges,
       });
-      expect(selectionService['fillCells']).toHaveBeenCalledWith({
-        tableId,
-        tableData: [],
-        fields,
-        records,
-      });
+      expect(selectionService['fillCells']).toHaveBeenCalledWith(records, [{ fields: {} }]);
       expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith(tableId, updateRecordsRo);
     });
   });
@@ -1049,6 +927,124 @@ describe('selectionService', () => {
         type: field.type,
         options: field.options,
       });
+    });
+  });
+
+  describe('tableDataToRecords', () => {
+    it('should return the cells with provided table data', async () => {
+      // Mock data
+      const tableData = [
+        ['A1', 'B1', 'C1'],
+        ['A2', 'B2', 'C2'],
+        ['A3', 'B3', 'C3'],
+      ];
+
+      const fields = [
+        {
+          id: 'field1',
+          name: 'Field 1',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 1',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'field2',
+          name: 'Field 2',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 2',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+        {
+          id: 'field3',
+          name: 'Field 3',
+          type: FieldType.SingleLineText,
+          options: {},
+          dbFieldName: 'Field 3',
+          cellValueType: CellValueType.String,
+          dbFieldType: DbFieldType.Text,
+          columnMeta: {},
+        },
+      ].map(createFieldInstanceByVo);
+
+      // Execute the method
+      const updateRecordsRo = await selectionService['tableDataToRecords']({
+        tableId,
+        tableData,
+        headerFields: undefined,
+        fields,
+      });
+
+      expect(updateRecordsRo).toEqual([
+        {
+          fields: { field1: 'A1', field2: 'B1', field3: 'C1' },
+        },
+        {
+          fields: { field1: 'A2', field2: 'B2', field3: 'C2' },
+        },
+        {
+          fields: { field1: 'A3', field2: 'B3', field3: 'C3' },
+        },
+      ]);
+    });
+
+    it('date field with European and US', async () => {
+      const europeanField = {
+        id: 'europeanField',
+        name: 'European Field',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.European,
+            time: TimeFormatting.Hour24,
+            timeZone: 'utc',
+          },
+        },
+        dbFieldName: 'European Field',
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        columnMeta: {},
+      };
+      const usField = {
+        id: 'usField',
+        name: 'US Field',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.US,
+            time: TimeFormatting.Hour24,
+            timeZone: 'utc',
+          },
+        },
+        dbFieldName: 'US Field',
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        columnMeta: {},
+      };
+
+      const tableData = [['5/1/2024', '1/5/2024']];
+      const fields = [europeanField, usField].map(createFieldInstanceByVo);
+
+      const updateRecordsRo = await selectionService['tableDataToRecords']({
+        tableId,
+        tableData,
+        headerFields: fields,
+        fields,
+      });
+
+      expect(updateRecordsRo).toEqual([
+        {
+          fields: {
+            europeanField: '2024-01-05T00:00:00.000Z',
+            usField: '2024-01-05T00:00:00.000Z',
+          },
+        },
+      ]);
     });
   });
 });

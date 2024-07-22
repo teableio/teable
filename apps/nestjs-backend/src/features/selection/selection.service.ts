@@ -278,21 +278,6 @@ export class SelectionService {
     }
   }
 
-  private async expandRows({
-    tableId,
-    numRowsToExpand,
-  }: {
-    tableId: string;
-    numRowsToExpand: number;
-  }) {
-    if (numRowsToExpand === 0) {
-      return [];
-    }
-    const records = Array.from({ length: numRowsToExpand }, () => ({ fields: {} }));
-    const createdRecords = await this.recordOpenApiService.createRecords(tableId, { records });
-    return createdRecords.records.map(({ id, fields }) => ({ id, fields }));
-  }
-
   private optionsRoToVoByCvType(
     cellValueType: CellValueType,
     options: IFieldOptionsVo = {}
@@ -487,33 +472,27 @@ export class SelectionService {
     ];
   }
 
-  private async fillCells({
+  private async tableDataToRecords({
     tableId,
     tableData,
-    headerFields,
     fields,
-    records,
+    headerFields,
   }: {
     tableId: string;
     tableData: string[][];
-    headerFields: IFieldInstance[] | undefined;
     fields: IFieldInstance[];
-    records: Pick<IRecord, 'id' | 'fields'>[];
+    headerFields: IFieldInstance[] | undefined;
   }) {
     const fieldConvertContext = await this.fieldConvertContext(tableId, tableData, fields);
 
-    const updateRecordsRo: IUpdateRecordsRo = {
-      fieldKeyType: FieldKeyType.Id,
-      typecast: true,
-      records: [],
-    };
+    const records: { fields: IRecord['fields'] }[] = [];
     fields.forEach((field, col) => {
       if (field.isComputed) {
         return;
       }
-      records.forEach((record, row) => {
-        const stringValue = tableData?.[row]?.[col] ?? null;
-        const recordField = updateRecordsRo.records[row]?.fields || {};
+      tableData.forEach((cellCols, row) => {
+        const stringValue = cellCols?.[col] ?? null;
+        const recordField = records[row]?.fields || {};
 
         if (stringValue === null) {
           recordField[field.id] = null;
@@ -528,22 +507,43 @@ export class SelectionService {
               }
               break;
             case FieldType.Date:
+              // handle format
               recordField[field.id] = (headerFields?.[col] || field).convertStringToCellValue(
                 stringValue
               );
               break;
             default:
-              recordField[field.id] = stringValue;
+              recordField[field.id] = field.convertStringToCellValue(stringValue);
           }
         }
 
-        updateRecordsRo.records[row] = {
-          id: record.id,
+        records[row] = {
           fields: recordField,
         };
       });
     });
-    return updateRecordsRo;
+    return records;
+  }
+
+  private fillCells(
+    oldRecords: {
+      id: string;
+      fields: IRecord['fields'];
+    }[],
+    newRecords?: { fields: IRecord['fields'] }[]
+  ): IUpdateRecordsRo {
+    return {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      records: oldRecords.map(({ id, fields }, index) => {
+        const newFields = newRecords?.[index]?.fields;
+        const updateFields = newFields ? { ...fields, ...newFields } : {};
+        return {
+          id,
+          fields: updateFields,
+        };
+      }),
+    };
   }
 
   private async fieldConvertContext(
@@ -704,23 +704,34 @@ export class SelectionService {
     });
 
     await this.prismaService.$tx(async () => {
-      // Expansion row
-      const expandRows = await this.expandRows({ tableId, numRowsToExpand });
-
       const updateFields = effectFields.concat(expandColumns.map(createFieldInstanceByVo));
-      const updateRecords = records.concat(expandRows);
 
-      // Fill cells
-      const updateRecordsRo = await this.fillCells({
+      // get all effect records, contains update and need create record
+      const newRecords = await this.tableDataToRecords({
         tableId,
         tableData,
         headerFields: header.map(createFieldInstanceByVo),
         fields: updateFields,
-        records: updateRecords,
       });
 
-      updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
+      // Warning: Update before creating
+      // Fill cells
+      const updateNewRecords = newRecords.slice(0, records.length);
+      const updateRecordsRo = this.fillCells(records, updateNewRecords);
       await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+
+      // create record
+      if (numRowsToExpand) {
+        const createNewRecords = newRecords.slice(records.length);
+        const createRecordsRo = {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          records: createNewRecords,
+        };
+        await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
+      }
+
+      updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
     });
 
     return updateRange;
@@ -729,14 +740,13 @@ export class SelectionService {
   async clear(tableId: string, rangesRo: IRangesRo) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
-    const updateRecordsRo = await this.fillCells({
+    const updateRecords = await this.tableDataToRecords({
       tableId,
-      tableData: [],
-      headerFields: undefined,
+      tableData: Array.from({ length: records.length }, () => []),
       fields: fieldInstances,
-      records,
+      headerFields: undefined,
     });
-
+    const updateRecordsRo = this.fillCells(records, updateRecords);
     await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
   }
 
