@@ -243,6 +243,8 @@ export class TypeCastAndValidate {
           {
             // eslint-disable-next-line @typescript-eslint/naming-convention
             'Content-Type': mimetype,
+            // eslint-disable-next-line @typescript-eslint/naming-convention
+            'Content-Disposition': `attachment; filename="${item.name}"`,
           }
         );
         return {

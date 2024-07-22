@@ -108,7 +108,7 @@ export class AttachmentManager {
         },
       });
 
-      const notifyRes = await notify(token, this.shareId);
+      const notifyRes = await notify(token, this.shareId, fileInstance.name);
       if (!notifyRes.data) {
         uploadTask.errorCallback(uploadTask.file);
         return;
