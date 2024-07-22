@@ -11,26 +11,17 @@ export enum UploadType {
   Import = 5,
 }
 
-export const signatureRoSchema = z
-  .object({
-    contentType: z.string().openapi({ example: 'image/png', description: 'Mime type' }),
-    contentLength: z.number().openapi({ example: 123, description: 'File size' }),
-    expiresIn: z
-      .number()
-      .optional()
-      .openapi({ example: 60 * 60 * 1, description: 'Token expire time, seconds' }),
-    hash: z.string().optional().openapi({ example: 'xxxxxxxx', description: 'File hash' }),
-    type: z.nativeEnum(UploadType).openapi({ example: UploadType.Table, description: 'Type' }),
-    baseId: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.type === UploadType.Table && data.baseId == null) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'The baseId is required when type is Table',
-      });
-    }
-  });
+export const signatureRoSchema = z.object({
+  contentType: z.string().openapi({ example: 'image/png', description: 'Mime type' }),
+  contentLength: z.number().openapi({ example: 123, description: 'File size' }),
+  expiresIn: z
+    .number()
+    .optional()
+    .openapi({ example: 60 * 60 * 1, description: 'Token expire time, seconds' }),
+  hash: z.string().optional().openapi({ example: 'xxxxxxxx', description: 'File hash' }),
+  type: z.nativeEnum(UploadType).openapi({ example: UploadType.Table, description: 'Type' }),
+  baseId: z.string().optional(),
+});
 
 export type SignatureRo = z.infer<typeof signatureRoSchema>;
 
