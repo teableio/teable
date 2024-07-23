@@ -3,7 +3,7 @@ import { Button, cn, Input, ToggleGroup, ToggleGroupItem } from '@teable/ui-lib/
 import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { CopyButton } from '@/features/app/components/CopyButton';
@@ -48,9 +48,10 @@ const LanguageSelector = ({
   <ToggleGroup
     className="w-auto"
     type="single"
+    variant="outline"
     size="sm"
     value={selectedLanguage}
-    onValueChange={(v) => onLanguageChange(v)}
+    onValueChange={(v) => onLanguageChange(v || 'curl')}
   >
     <ToggleGroupItem value="curl" aria-label="Toggle curl">
       cURL
@@ -179,7 +180,7 @@ export const QueryParamsTable: React.FC<QueryParamsTableProps> = ({ query }) => 
     <table className="w-full border-collapse">
       <thead>
         <tr>
-          <th className="border p-2 text-left">Key</th>
+          <th className="w-60 border p-2 text-left">Key</th>
           <th className="border p-2 text-left">Value</th>
         </tr>
       </thead>
@@ -208,14 +209,21 @@ export const PreviewScript = ({
   query: IGetRecordsRo;
 }) => {
   const { t } = useTranslation(developerConfig.i18nNamespaces);
+  const [currentUrl, setCurrentUrl] = useState('');
+
+  useEffect(() => {
+    if (process) {
+      setCurrentUrl(window.location.origin);
+    }
+  }, []);
+
   const [selectedLanguage, setSelectedLanguage] = useState<'curl' | 'javascript' | 'python'>(
     'curl'
   );
 
   const [token, setToken] = useState<string>('_YOUR_API_TOKEN_');
 
-  const origin = window.location.origin;
-  const endpoint = `${origin}/api/table/${tableId}/record`;
+  const endpoint = `${currentUrl}/api/table/${tableId}/record`;
 
   const codeExamples = useMemo(
     () => ({

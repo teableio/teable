@@ -1,5 +1,6 @@
 import { QueryClient, dehydrate } from '@tanstack/react-query';
 import { SpaceRole } from '@teable/core';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { GeneralPage } from '@/features/app/blocks/space-setting';
@@ -17,7 +18,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   const queryClient = new QueryClient();
 
   await queryClient.fetchQuery({
-    queryKey: ['space', spaceId as string],
+    queryKey: ReactQueryKeys.space(spaceId as string),
     queryFn: ({ queryKey }) => ssrApi.getSpaceById(queryKey[1]),
   });
 

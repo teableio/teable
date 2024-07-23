@@ -9,13 +9,15 @@ import type {
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
+  space: (spaceId: string) => ['space', spaceId] as const,
+
   base: (baseId: string) => ['base', baseId] as const,
 
   baseAll: () => ['base-all'] as const,
 
   pinList: () => ['pin-list'] as const,
 
-  spaceList: () => ['space-list'] as const,
+  spaceList: () => ['space'] as const,
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
 

@@ -33,10 +33,12 @@ export const SpaceInnerPage: React.FC = () => {
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
 
-  const { data: space } = useQuery({
-    queryKey: ['space', spaceId],
-    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then(({ data }) => data),
+  const { data: spaceRes } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
   });
+
+  const space = spaceRes?.data;
 
   const bases = useBaseList();
 
@@ -65,7 +67,6 @@ export const SpaceInnerPage: React.FC = () => {
   const { mutateAsync: updateSpaceMutator } = useMutation({
     mutationFn: updateSpace,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['space'] });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
     },
   });

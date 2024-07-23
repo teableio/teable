@@ -50,7 +50,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
 
   const { data: collaborators } = useQuery({
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
-    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then(({ data }) => data),
+    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]),
   });
 
   const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
@@ -68,7 +68,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   });
 
   const collaboratorsFiltered = useMemo(() => {
-    return filterCollaborators(applySearch, collaborators);
+    return filterCollaborators(applySearch, collaborators?.data);
   }, [applySearch, collaborators]);
 
   const hasGrantRolePermission = hasPermission(role, 'space|grant_role');

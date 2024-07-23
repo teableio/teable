@@ -8,10 +8,10 @@ const Node: NextPageWithLayout = () => {
 
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { baseId } = context.query;
-  const tables = await ssrApi.getTables(baseId as string);
+  const tables = (await ssrApi.getTables(baseId as string)).data;
   const defaultTable = tables[0];
   if (defaultTable) {
-    const defaultView = await ssrApi.getDefaultViewId(baseId as string, defaultTable.id);
+    const defaultView = (await ssrApi.getDefaultViewId(baseId as string, defaultTable.id)).data;
     return {
       redirect: {
         destination: `/base/${baseId}/${defaultTable.id}/${defaultView.id}`,

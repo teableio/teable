@@ -15,7 +15,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   const queryClient = new QueryClient();
 
   await queryClient.fetchQuery({
-    queryKey: ['space', spaceId as string],
+    queryKey: ReactQueryKeys.space(spaceId as string),
     queryFn: ({ queryKey }) => ssrApi.getSpaceById(queryKey[1]),
   });
 

@@ -35,7 +35,7 @@ export const getServerSideProps = withAuthSSR<IViewPageProps>(async (context, ss
       await ssrApi.updateNotificationStatus(notifyId as string, { isRead: true });
     }
 
-    recordServerData = await ssrApi.getRecord(tableId as string, recordId as string);
+    recordServerData = (await ssrApi.getRecord(tableId as string, recordId as string)).data;
 
     if (!recordServerData) {
       return {
