@@ -287,7 +287,7 @@ export class AggregationService {
     return calculatedStatisticFields;
   }
 
-  private handleAggregation(params: {
+  private async handleAggregation(params: {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
@@ -317,7 +317,8 @@ export class AggregationService {
 
     const aggSql = this.dbProvider
       .aggregationQuery(queryBuilder, tableAlias, fieldInstanceMap, statisticFields)
-      .toQuerySql();
+      .appendBuilder()
+      .toQuery();
     return this.prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
   }
 
