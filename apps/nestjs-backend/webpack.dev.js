@@ -28,22 +28,6 @@ module.exports = function (options, webpack) {
         allowlist: ['webpack/hot/poll?100', /^@teable/],
       }),
     ],
-    // optimization: {
-    //   ...options.optimization,
-    //   splitChunks: {
-    //     chunks: 'all',
-    //     cacheGroups: {
-    //       workers: {
-    //         test: /[\\/]worker[\\/]/,
-    //         name(module) {
-    //           const matchedPath = module.resource.match(/[\\/]worker[\\/](.*?)\.(ts|js)$/);
-    //           return matchedPath ? `worker/${matchedPath[1]}` : 'worker/unknown';
-    //         },
-    //         enforce: true,
-    //       },
-    //     },
-    //   },
-    // },
     // ignore tests hot reload
     watchOptions: {
       ignored: ['**/test/**', '**/*.spec.ts', '**/node_modules/**'],

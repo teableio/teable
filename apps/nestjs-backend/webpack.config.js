@@ -20,22 +20,6 @@ module.exports = function (options) {
         return '[name]-[hash].js';
       },
     },
-    optimization: {
-      ...options.optimization,
-      splitChunks: {
-        chunks: 'all',
-        cacheGroups: {
-          workers: {
-            test: /[\\/]worker[\\/]/,
-            name(module) {
-              const matchedPath = module.resource.match(/[\\/]worker[\\/](.*?)\.(ts|js)$/);
-              return matchedPath ? `worker/${matchedPath[1]}` : 'worker/unknown';
-            },
-            enforce: true,
-          },
-        },
-      },
-    },
     plugins: [
       new CopyPlugin({
         patterns: [{ from: 'src/features/mail-sender/templates', to: 'templates' }],
