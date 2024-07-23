@@ -177,7 +177,7 @@ export class ImportOpenApiService {
     const { sheetKey, notification } = options;
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
 
-    const worker = new Worker(join(__dirname, 'worker', 'worker.js'), {
+    const worker = new Worker(join(process.cwd(), 'dist', 'worker', 'parse.js'), {
       workerData: { config: importer.getConfig(), options },
     });
 
@@ -260,6 +260,8 @@ export class ImportOpenApiService {
           message: `❌ ${table.name} import failed: ${e.message}`,
         });
     });
-    worker.on('exit', (code) => this.logger.log(`Worker stopped with exit code ${code}`));
+    worker.on('exit', (code) => {
+      this.logger.log(`Worker stopped with exit code ${code}`);
+    });
   }
 }
