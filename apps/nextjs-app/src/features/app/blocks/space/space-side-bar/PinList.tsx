@@ -25,19 +25,19 @@ export const PinList = () => {
 
   const { data: pinListData } = useQuery({
     queryKey: ReactQueryKeys.pinList(),
-    queryFn: getPinList,
+    queryFn: () => getPinList().then((data) => data.data),
   });
 
   useEffect(() => {
-    if (!pinListData?.data) {
+    if (!pinListData) {
       return;
     }
-    setPinList([...pinListData.data]);
-  }, [pinListData?.data]);
+    setPinList([...pinListData]);
+  }, [pinListData]);
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: getSpaceList,
+    queryFn: () => getSpaceList().then((data) => data.data),
   });
   const baseList = useBaseList();
 
@@ -47,17 +47,17 @@ export const PinList = () => {
       queryClient.invalidateQueries(ReactQueryKeys.pinList());
     },
     onError: () => {
-      setPinList(pinListData?.data ?? []);
+      setPinList(pinListData ?? []);
     },
   });
 
   const spaceMap = useMemo(() => {
     const map: { [key in string]: IGetSpaceVo } = {};
-    spaceList?.data.forEach((space) => {
+    spaceList?.forEach((space) => {
       map[space.id] = space;
     });
     return map;
-  }, [spaceList?.data]);
+  }, [spaceList]);
 
   const baseMap = useMemo(() => {
     const map: { [key in string]: IGetBaseVo } = {};
@@ -71,7 +71,7 @@ export const PinList = () => {
     const { over, active } = event;
     const to = over?.data?.current?.sortable?.index;
     const from = active?.data?.current?.sortable?.index;
-    const list = pinListData?.data ?? [];
+    const list = pinListData ?? [];
 
     if (!over || !list.length || from === to) {
       return;

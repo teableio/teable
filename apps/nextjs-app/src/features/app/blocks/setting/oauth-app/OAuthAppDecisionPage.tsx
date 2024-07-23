@@ -23,12 +23,12 @@ export const OAuthAppDecisionPage = () => {
   const { t } = useTranslation(oauthAppConfig.i18nNamespaces);
   const { data } = useQuery({
     queryKey: ['oauth-app-decision-info', transactionId],
-    queryFn: ({ queryKey }) => decisionInfoGet(queryKey[1]),
+    queryFn: ({ queryKey }) => decisionInfoGet(queryKey[1]).then((data) => data.data),
     enabled: !!transactionId,
     refetchOnWindowFocus: false,
   });
 
-  const decisionInfo = data?.data;
+  const decisionInfo = data;
 
   const scopesTypeLen = useMemo(() => {
     if (!decisionInfo?.scopes) {

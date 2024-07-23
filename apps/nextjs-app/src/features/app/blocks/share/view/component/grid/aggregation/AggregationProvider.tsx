@@ -52,7 +52,8 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
 
   const { data: shareViewAggregations } = useQuery({
     queryKey: ReactQueryKeys.shareViewAggregations(shareId, query),
-    queryFn: ({ queryKey }) => getShareViewAggregations(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) =>
+      getShareViewAggregations(queryKey[1], queryKey[2]).then((data) => data.data),
     refetchOnWindowFocus: false,
   });
 
@@ -77,7 +78,7 @@ export const AggregationProvider = ({ children }: IAggregationProviderProps) => 
     if (!shareViewAggregations) {
       return {};
     }
-    const { aggregations } = shareViewAggregations.data;
+    const { aggregations } = shareViewAggregations;
     return {
       aggregations: aggregations ?? [],
     };

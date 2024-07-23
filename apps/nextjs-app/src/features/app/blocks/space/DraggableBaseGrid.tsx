@@ -59,28 +59,34 @@ const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
     }
   };
 
-  return (
-    isHydrated && (
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
-        <DndKitContext onDragEnd={onDragEndHandler}>
-          <Droppable items={innerBases.map(({ id }) => id)}>
-            {innerBases.map((base) => (
-              <Draggable key={base.id} id={base.id}>
-                {({ setNodeRef, attributes, listeners, style }) => (
-                  <div ref={setNodeRef} {...attributes} {...listeners} style={style}>
-                    <BaseCard
-                      key={base.id}
-                      className="h-24 min-w-[17rem] max-w-[34rem] flex-1"
-                      base={base}
-                    />
-                  </div>
-                )}
-              </Draggable>
-            ))}
-          </Droppable>
-        </DndKitContext>
-      </div>
-    )
+  return isHydrated ? (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
+      <DndKitContext onDragEnd={onDragEndHandler}>
+        <Droppable items={innerBases.map(({ id }) => id)}>
+          {innerBases.map((base) => (
+            <Draggable key={base.id} id={base.id}>
+              {({ setNodeRef, attributes, listeners, style }) => (
+                <div ref={setNodeRef} {...attributes} {...listeners} style={style}>
+                  <BaseCard
+                    key={base.id}
+                    className="h-24 min-w-[17rem] max-w-[34rem] flex-1"
+                    base={base}
+                  />
+                </div>
+              )}
+            </Draggable>
+          ))}
+        </Droppable>
+      </DndKitContext>
+    </div>
+  ) : (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
+      {innerBases.map((base) => (
+        <div key={base.id}>
+          <BaseCard key={base.id} className="h-24 min-w-[17rem] max-w-[34rem] flex-1" base={base} />
+        </div>
+      ))}
+    </div>
   );
 };
 

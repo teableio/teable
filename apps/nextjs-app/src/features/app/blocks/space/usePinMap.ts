@@ -6,10 +6,10 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 export const usePinMap = () => {
   const { data: pinListData } = useQuery({
     queryKey: ReactQueryKeys.pinList(),
-    queryFn: getPinList,
+    queryFn: () => getPinList().then((data) => data.data),
   });
 
-  return pinListData?.data.reduce(
+  return pinListData?.reduce(
     (acc, pin) => {
       acc[pin.id] = pin;
       return acc;

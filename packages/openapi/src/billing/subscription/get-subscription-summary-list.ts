@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { axios } from '../../axios';
+import type { Axios } from 'axios';
+import { axios as axiosInstance } from '../../axios';
 import { registerRoute } from '../../utils';
 import { z } from '../../zod';
 import type { ISubscriptionSummaryVo } from './get-subscription-summary';
@@ -25,6 +26,7 @@ export const GetSubscriptionSummaryListRoute: RouteConfig = registerRoute({
   tags: ['billing'],
 });
 
-export const getSubscriptionSummaryList = async () => {
-  return axios.get<ISubscriptionSummaryVo[]>(GET_SUBSCRIPTION_SUMMARY_LIST);
+export const getSubscriptionSummaryList = async (axios?: Axios) => {
+  const theAxios = axios || axiosInstance;
+  return theAxios.get<ISubscriptionSummaryVo[]>(GET_SUBSCRIPTION_SUMMARY_LIST);
 };

@@ -17,7 +17,7 @@ export const ShareUserEditor = (props: IShareUserEditor) => {
   const { className, shareId, cellValue, field, onChange } = props;
   const { data: userQuery, isLoading } = useQuery({
     queryKey: ReactQueryKeys.shareViewCollaborators(shareId),
-    queryFn: ({ queryKey }) => getShareViewCollaborators(queryKey[1], {}),
+    queryFn: ({ queryKey }) => getShareViewCollaborators(queryKey[1], {}).then((data) => data.data),
   });
   return (
     <CellEditor
@@ -27,7 +27,7 @@ export const ShareUserEditor = (props: IShareUserEditor) => {
       className={className}
       context={{
         [FieldType.User]: {
-          data: userQuery?.data,
+          data: userQuery,
           isLoading,
         },
       }}

@@ -20,8 +20,8 @@ export const getViewPageServerData = async (
   const api = ssrApi;
   const tableResult = await api.getTable(baseId, tableId, viewId);
   if (tableResult) {
-    const base = (await api.getBaseById(baseId)).data;
-    const tablesResult = (await api.getTables(baseId)).data;
+    const base = await api.getBaseById(baseId);
+    const tablesResult = await api.getTables(baseId);
     const { fields, views, records } = tableResult;
     return {
       baseServerData: base,

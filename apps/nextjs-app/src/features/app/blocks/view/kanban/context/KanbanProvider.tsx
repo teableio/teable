@@ -74,7 +74,9 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       ? ReactQueryKeys.shareViewCollaborators(shareId)
       : ReactQueryKeys.baseCollaboratorList(baseId),
     queryFn: ({ queryKey }) =>
-      shareId ? getShareViewCollaborators(queryKey[1], {}) : getBaseCollaboratorList(queryKey[1]),
+      shareId
+        ? getShareViewCollaborators(queryKey[1], {}).then((data) => data.data)
+        : getBaseCollaboratorList(queryKey[1]).then((data) => data.data),
     enabled: Boolean((shareId || baseId) && stackFieldType === FieldType.User),
   });
 
@@ -129,7 +131,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     if (stackFieldType == null || groupPointMap == null) return;
 
     if (stackFieldType === FieldType.User) {
-      const users = userList?.data;
+      const users = userList;
       if (!users?.length) return;
 
       const stacks = users.map(({ userId, userName, avatar, email }) => {
@@ -190,7 +192,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       }
       return stacks;
     }
-  }, [groupPointMap, isEmptyStackHidden, stackFieldOptions, stackFieldType, userList?.data]);
+  }, [groupPointMap, isEmptyStackHidden, stackFieldOptions, stackFieldType, userList]);
 
   const coverField = useMemo(() => {
     if (!coverFieldId) return;

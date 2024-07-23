@@ -22,23 +22,23 @@ export const AccessList = (props: IAccessListProps) => {
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList(),
+    queryFn: () => getSpaceList().then((data) => data.data),
   });
   const { data: baseList } = useQuery({
-    queryKey: ['base-all'],
-    queryFn: () => getBaseAll(),
+    queryKey: ReactQueryKeys.baseAll(),
+    queryFn: () => getBaseAll().then((data) => data.data),
   });
   const spaceMap = useMemo(() => {
     const spaceMap: Record<string, IGetSpaceVo> = {};
-    spaceList?.data?.forEach((item) => {
+    spaceList?.forEach((item) => {
       spaceMap[item.id] = item;
     });
     return spaceMap;
-  }, [spaceList?.data]);
+  }, [spaceList]);
 
   const baseMap = useMemo(() => {
     const baseMap: Record<string, IGetBaseVo> = {};
-    baseList?.data?.forEach((item) => {
+    baseList?.forEach((item) => {
       baseMap[item.id] = item;
     });
     return baseMap;

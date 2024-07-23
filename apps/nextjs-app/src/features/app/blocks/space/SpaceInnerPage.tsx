@@ -33,12 +33,10 @@ export const SpaceInnerPage: React.FC = () => {
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
 
-  const { data: spaceRes } = useQuery({
+  const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
-    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
   });
-
-  const space = spaceRes?.data;
 
   const bases = useBaseList();
 
@@ -49,8 +47,8 @@ export const SpaceInnerPage: React.FC = () => {
   }, [bases, spaceId]);
 
   const { data: subscriptionSummary } = useQuery({
-    queryKey: ['subscription-summary', spaceId],
-    queryFn: () => getSubscriptionSummary(spaceId).then(({ data }) => data),
+    queryKey: ReactQueryKeys.subscriptionSummary(spaceId),
+    queryFn: () => getSubscriptionSummary(spaceId).then((res) => res.data),
     enabled: isCloud,
   });
 

@@ -16,12 +16,10 @@ export const CollaboratorPage = () => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const spaceId = router.query.spaceId as string;
 
-  const { data: spaceRes } = useQuery({
+  const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
-    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
   });
-
-  const space = spaceRes?.data;
 
   return (
     <div className="h-screen w-full overflow-y-auto overflow-x-hidden">

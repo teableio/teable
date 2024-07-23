@@ -33,12 +33,12 @@ export const QueryBuilder = () => {
   const [search, setSearch] = useState<[string, string]>();
   const { data: baseListReq } = useQuery({
     queryKey: ReactQueryKeys.baseAll(),
-    queryFn: () => getBaseAll(),
+    queryFn: () => getBaseAll().then((data) => data.data),
   });
 
   const { data: tableListReq } = useQuery({
     queryKey: ReactQueryKeys.tableList(baseId as string),
-    queryFn: () => getTableList(baseId as string),
+    queryFn: () => getTableList(baseId as string).then((data) => data.data),
     enabled: Boolean(baseId),
   });
 
@@ -60,7 +60,7 @@ export const QueryBuilder = () => {
           <Selector
             className="w-80"
             placeholder={t('developer:action.selectBase')}
-            candidates={baseListReq?.data}
+            candidates={baseListReq}
             selectedId={baseId}
             onChange={(id) => setBaseId(id)}
           />
@@ -70,7 +70,7 @@ export const QueryBuilder = () => {
           <Selector
             className="w-80"
             placeholder={t('developer:action.selectTable')}
-            candidates={tableListReq?.data}
+            candidates={tableListReq}
             selectedId={tableId}
             onChange={(id) => setTableId(id)}
           />

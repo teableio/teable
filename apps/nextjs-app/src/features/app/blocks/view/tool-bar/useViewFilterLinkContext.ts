@@ -16,7 +16,8 @@ export const useViewFilterLinkContext = (
 
   const { isLoading, data: queryData } = useQuery({
     queryKey: ReactQueryKeys.getViewFilterLinkRecords(tableId!, viewId!),
-    queryFn: ({ queryKey }) => getViewFilterLinkRecords(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) =>
+      getViewFilterLinkRecords(queryKey[1], queryKey[2]).then((data) => data.data),
     enabled: enabledQuery,
   });
 
@@ -33,7 +34,7 @@ export const useViewFilterLinkContext = (
 
   return {
     isLoading,
-    data: queryData?.data?.map((v) => ({
+    data: queryData?.map((v) => ({
       tableId: v.tableId,
       data: v.records.reduce(
         (acc, cur) => {

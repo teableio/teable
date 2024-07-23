@@ -16,7 +16,7 @@ export const SpacePageTitle = (props: { dehydratedState?: DehydratedState }) => 
     const spaceData = find(dehydratedState?.queries || [], {
       queryHash: JSON.stringify(ReactQueryKeys.space(spaceId)),
     })?.state.data as IGetSpaceVo;
-    return spaceData.name;
+    return spaceData?.name;
   };
   return (
     <Head>

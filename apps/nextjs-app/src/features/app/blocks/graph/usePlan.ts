@@ -15,21 +15,22 @@ export function usePlan({
 }) {
   const { data: updatePlan, refetch: planUpdate } = useQuery({
     queryKey: ReactQueryKeys.planFieldConvert(tableId, fieldId as string, fieldRo as IFieldRo),
-    queryFn: ({ queryKey }) => planFieldConvert(queryKey[1], queryKey[2], queryKey[3]),
+    queryFn: ({ queryKey }) =>
+      planFieldConvert(queryKey[1], queryKey[2], queryKey[3]).then((data) => data.data),
     refetchOnWindowFocus: false,
     enabled: false,
   });
 
   const { data: createPlan, refetch: planCreate } = useQuery({
     queryKey: ReactQueryKeys.planFieldCreate(tableId, fieldRo as IFieldRo),
-    queryFn: ({ queryKey }) => planFieldCreate(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) => planFieldCreate(queryKey[1], queryKey[2]).then((data) => data.data),
     refetchOnWindowFocus: false,
     enabled: false,
   });
 
   const { data: staticPlan, refetch: planStatic } = useQuery({
     queryKey: ReactQueryKeys.planField(tableId, fieldId as string),
-    queryFn: ({ queryKey }) => planField(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) => planField(queryKey[1], queryKey[2]).then((data) => data.data),
     refetchOnWindowFocus: false,
     enabled: false,
   });
@@ -52,5 +53,5 @@ export function usePlan({
     }
   }, [isCreate, isStatic, isUpdate, planCreate, planStatic, planUpdate]);
 
-  return createPlan?.data || staticPlan?.data || updatePlan?.data;
+  return createPlan || staticPlan || updatePlan;
 }

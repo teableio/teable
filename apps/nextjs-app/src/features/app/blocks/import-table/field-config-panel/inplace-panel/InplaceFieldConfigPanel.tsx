@@ -37,12 +37,12 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
 
   const { data: table } = useQuery({
     queryKey: ReactQueryKeys.tableInfo(base.id, tableId),
-    queryFn: () => apiGetTableById(base.id, tableId),
+    queryFn: () => apiGetTableById(base.id, tableId).then((data) => data.data),
   });
 
   const { data: fields } = useQuery({
     queryKey: ReactQueryKeys.field(tableId),
-    queryFn: () => apiGetFields(tableId),
+    queryFn: () => apiGetFields(tableId).then((data) => data.data),
   });
 
   const optionHandler = (value: IInplaceOption, propertyName: keyof IInplaceOption) => {
@@ -78,16 +78,16 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
       <div>
         <p className="text-base font-bold">
           {t('table:import.title.incrementImportTitle')}
-          {table?.data.name}
+          {table?.name}
         </p>
       </div>
 
-      {fields?.data && (
+      {fields && (
         <div className="my-2 h-[400px] overflow-y-auto rounded-sm border border-secondary">
           <InplacePreviewColumn
             onChange={columnHandler}
             workSheets={workSheets}
-            fields={fields?.data}
+            fields={fields}
             insertConfig={insertConfig}
           ></InplacePreviewColumn>
         </div>

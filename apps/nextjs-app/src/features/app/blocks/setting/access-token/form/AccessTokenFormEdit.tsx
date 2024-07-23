@@ -11,7 +11,7 @@ export const AccessTokenFormEdit = (props: IAccessTokenForm<'edit'>) => {
   const accessTokenId = router.query.id as string;
   const { data: accessTokenData, isLoading } = useQuery({
     queryKey: ReactQueryKeys.personAccessToken(accessTokenId),
-    queryFn: () => getAccessToken(accessTokenId),
+    queryFn: () => getAccessToken(accessTokenId).then((data) => data.data),
   });
   if (isLoading) {
     return (
@@ -22,5 +22,5 @@ export const AccessTokenFormEdit = (props: IAccessTokenForm<'edit'>) => {
       </div>
     );
   }
-  return <AccessTokenForm {...props} id={accessTokenId} defaultData={accessTokenData?.data} />;
+  return <AccessTokenForm {...props} id={accessTokenId} defaultData={accessTokenData} />;
 };

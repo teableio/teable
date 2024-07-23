@@ -7,16 +7,16 @@ import { usePinMap } from './usePinMap';
 export const useSpaceListOrdered = () => {
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: getSpaceList,
+    queryFn: () => getSpaceList().then((data) => data.data),
   });
 
   const pinMap = usePinMap();
 
   return useMemo(() => {
-    if (!spaceList?.data || !pinMap) {
+    if (!spaceList || !pinMap) {
       return [];
     }
-    return [...spaceList.data].sort((a, b) => {
+    return [...spaceList].sort((a, b) => {
       const aPin = pinMap[a.id];
       const bPin = pinMap[b.id];
       if (!aPin && !bPin) {
@@ -30,5 +30,5 @@ export const useSpaceListOrdered = () => {
       }
       return aPin.order - bPin.order;
     });
-  }, [pinMap, spaceList?.data]);
+  }, [pinMap, spaceList]);
 };
