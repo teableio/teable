@@ -1,5 +1,4 @@
-import { filterSchema, orderSchema } from '@teable/core';
-import { aggregationFieldSchema } from '../aggregation';
+import { filterSchema, orderSchema, StatisticsFunc } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -21,13 +20,17 @@ export const joinSchema = z.object({
   on: z.array(z.string(), z.string()).length(2),
 });
 
-export const fieldTypeSchema = z.enum(['context', 'field']);
+export type IJoin = z.infer<typeof joinSchema>;
 
-export const orderBySchema = z.object({
-  field: z.string(),
-  type: fieldTypeSchema,
-  order: orderSchema,
-});
+export const fieldTypeSchema = z.enum(['context', 'field']);
+export type SqlQueryFieldType = z.infer<typeof fieldTypeSchema>;
+const orderBySchema = z.array(
+  z.object({
+    field: z.string(),
+    type: fieldTypeSchema,
+    order: orderSchema,
+  })
+);
 
 export const groupBySchema = z.array(
   z.object({
@@ -43,6 +46,16 @@ export const distinctSchema = z.array(
   })
 );
 
+export const aggregationSchema = z.array(
+  z.object({
+    field: z.string(),
+    type: fieldTypeSchema,
+    statisticFunc: z.nativeEnum(StatisticsFunc),
+  })
+);
+
+export type IAggregation = z.infer<typeof aggregationSchema>;
+
 export const normalSqlQuery = z.object({
   groupBy: groupBySchema.optional(),
   orderBy: orderBySchema.optional(),
@@ -50,7 +63,7 @@ export const normalSqlQuery = z.object({
   join: z.array(joinSchema).optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
-  aggregation: z.array(aggregationFieldSchema).optional(),
+  aggregation: aggregationSchema.optional(),
   distinct: z.array(z.string()).optional(),
 });
 
@@ -60,12 +73,25 @@ export type ISqlQuery = INormalSqlQuery & {
   from: string | ISqlQuery;
 };
 
-export const sqlQuerySchema: z.ZodType<ISqlQuery> = normalSqlQuery.extend({
+const sqlQuerySchema: z.ZodType<ISqlQuery> = normalSqlQuery.extend({
   from: z.lazy(() => z.union([sqlQuerySchema, z.string()])),
 });
 
 export const sqlQuerySchemaRo = z.object({
-  query: sqlQuerySchema,
+  query: z.string().transform((value, ctx) => {
+    if (value == null) {
+      return value;
+    }
+
+    const parsingResult = sqlQuerySchema.safeParse(JSON.parse(value));
+    if (!parsingResult.success) {
+      parsingResult.error.issues.forEach((issue) => {
+        ctx.addIssue(issue);
+      });
+      return z.NEVER;
+    }
+    return parsingResult.data;
+  }),
 });
 
 export type ISqlQuerySchemaRo = z.infer<typeof sqlQuerySchemaRo>;
@@ -98,6 +124,6 @@ export const sqlQueryRoute = registerRoute({
 
 export const sqlQuery = (baseId: string, query: ISqlQuery) => {
   return axios.get<ISqlQuerySchemaVo>(urlBuilder(BASE_SQL_QUERY, { baseId }), {
-    params: { query },
+    params: { query: JSON.stringify(query) },
   });
 };
