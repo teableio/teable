@@ -84,6 +84,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
 
   return useMemo(() => {
     return {
+      localRecord,
       prefillingRowIndex,
       prefillingRowOrder,
       prefillingFieldValueMap,
@@ -94,6 +95,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       setPrefillingFieldValueMap,
     };
   }, [
+    localRecord,
     prefillingRowIndex,
     prefillingRowOrder,
     prefillingFieldValueMap,

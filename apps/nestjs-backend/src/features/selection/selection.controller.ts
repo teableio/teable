@@ -1,5 +1,12 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
-import type { ICopyVo, IRangesToIdVo, IPasteVo, IDeleteVo } from '@teable/openapi';
+import type {
+  ICopyVo,
+  IRangesToIdVo,
+  IPasteVo,
+  IDeleteVo,
+  ITemporaryPasteVo,
+} from '@teable/openapi';
 import {
   IRangesToIdQuery,
   rangesToIdQuerySchema,
@@ -8,6 +15,8 @@ import {
   pasteRoSchema,
   rangesRoSchema,
   IRangesRo,
+  temporaryPasteRoSchema,
+  ITemporaryPasteRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -45,6 +54,16 @@ export class SelectionController {
   ): Promise<IPasteVo> {
     const ranges = await this.selectionService.paste(tableId, pasteRo);
     return { ranges };
+  }
+
+  @Permissions('record|read')
+  @Patch('/temporaryPaste')
+  async temporaryPaste(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(temporaryPasteRoSchema), TqlPipe)
+    temporaryPasteRo: ITemporaryPasteRo
+  ): Promise<ITemporaryPasteVo> {
+    return await this.selectionService.temporaryPaste(tableId, temporaryPasteRo);
   }
 
   @Permissions('record|update')
