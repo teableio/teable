@@ -2,23 +2,6 @@ ARG NODE_VERSION=20.9.0
 ARG PRISMA_VERSION=5.11.0
 ARG BUILD_VERSION="1.0.0-alpha"
 
-FROM node:${NODE_VERSION}-bookworm AS prisma
-ARG PRISMA_VERSION
-
-RUN corepack enable && \
-    npm add @prisma/client@${PRISMA_VERSION} \
-            prisma@${PRISMA_VERSION} -g
-
-WORKDIR /prisma
-
-COPY --link packages/db-main-prisma/prisma/postgres ./postgres_migrate
-
-COPY --link packages/db-main-prisma/prisma/sqlite ./sqlite_migrate
-
-RUN cd postgres_migrate && prisma generate
-RUN cd sqlite_migrate && prisma generate
-
-
 FROM node:${NODE_VERSION}-bookworm-slim AS runner
 ARG PRISMA_VERSION
 ARG BUILD_VERSION
@@ -42,8 +25,11 @@ RUN set -eux; \
 
 WORKDIR /prisma
 
-COPY --from=prisma /prisma/postgres_migrate ./postgres_migrate
-COPY --from=prisma /prisma/sqlite_migrate ./sqlite_migrate
+COPY --link packages/db-main-prisma/prisma/postgres ./postgres_migrate
+RUN cd postgres_migrate && prisma generate
+
+COPY --link packages/db-main-prisma/prisma/sqlite ./sqlite_migrate
+RUN cd sqlite_migrate && prisma generate
 
 COPY scripts/db-migrate.mjs ./scripts/db-migrate.mjs
 COPY scripts/wait-for ./scripts/wait-for
