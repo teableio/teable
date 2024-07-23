@@ -63,7 +63,6 @@ export const FieldSetting = (props: IFieldSetting) => {
 
       if (operator === FieldOperator.Edit) {
         const fieldId = props.field?.id;
-        console.log('field', field);
         table && fieldId && (await table.convertField(fieldId, field));
       }
 

@@ -60,9 +60,12 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
     setSearchValue('');
     if (isMultiple) {
       const newValue = value.includes(val) ? value.filter((v) => v !== val) : value.concat(val);
+      setValue(newValue);
       return onChange?.(newValue);
     }
-    onChange?.(val === value[0] ? undefined : val);
+    const newValue = val === value[0] ? undefined : val;
+    setValue(getValue(newValue));
+    onChange?.(newValue);
   };
 
   const checkIsActive = useCallback(

@@ -133,6 +133,20 @@
     "deleteTip2": "This operation cannot be undone.",
     "operator": {
       "createBlank": "Create a blank table"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
+      "copying": "Copying...",
+      "copySuccessful": "Copy successful",
+      "copyFailed": "Copy failed",
+      "pasting": "Pasting...",
+      "pasteSuccessful": "Paste successful",
+      "pasteFailed": "Paste failed",
+      "clearing": "Clearing...",
+      "clearSuccessful": "Clear successful",
+      "deleting": "Deleting...",
+      "deleteSuccessful": "Delete successful",
+      "pasteFileFailed": "Files can only be pasted into an attachment field"
     }
   },
   "import": {

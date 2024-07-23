@@ -1,92 +1,24 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue, IFilter } from '@teable/core';
-import { AttachmentFieldCore } from '@teable/core';
-import type { ICopyVo, IPasteRo, IRangesRo } from '@teable/openapi';
-import { clear, copy, deleteSelection, paste, RangeType } from '@teable/openapi';
+import type { IFilter } from '@teable/core';
+import type { ICopyVo, IPasteRo, IRangesRo, ITemporaryPasteRo } from '@teable/openapi';
+import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
-import {
-  SelectionRegionType,
-  useFields,
-  useSearch,
-  useTableId,
-  useView,
-  useViewId,
-} from '@teable/sdk';
+import { useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
 import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
+import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
-import { uploadFiles } from '@/features/app/utils/uploadFile';
-import { extractTableHeader, serializerHtml } from '../../../../utils/clipboard';
-import { getSelectionCell, selectionCoverAttachments } from '../utils';
-
-const rangeTypes = {
-  [SelectionRegionType.Columns]: RangeType.Columns,
-  [SelectionRegionType.Rows]: RangeType.Rows,
-  [SelectionRegionType.Cells]: undefined,
-  [SelectionRegionType.None]: undefined,
-};
-
-enum ClipboardTypes {
-  'text' = 'text/plain',
-  'html' = 'text/html',
-  'Files' = 'Files',
-}
-
-export const useCopy = (props: {
-  copyReq: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, IRangesRo, unknown>;
-}) => {
-  const { copyReq } = props;
-
-  return useCallback(
-    async (selection: CombinedSelection) => {
-      const getData = async () => {
-        const ranges = selection.serialize();
-        const type = rangeTypes[selection.type];
-        const { data } = await copyReq({
-          ranges,
-          ...(type ? { type } : {}),
-        });
-        const { content, header } = data;
-        return { content, header };
-      };
-
-      // Can't await asynchronous action before navigator.clipboard.write in safari
-      if (!/^(?:(?!chrome|android).)*safari/i.test(navigator.userAgent)) {
-        const { header, content } = await getData();
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            [ClipboardTypes.text]: new Blob([content], { type: ClipboardTypes.text }),
-            [ClipboardTypes.html]: new Blob([serializerHtml(content, header)], {
-              type: ClipboardTypes.html,
-            }),
-          }),
-        ]);
-        return;
-      }
-
-      const getText = async () => {
-        const { content } = await getData();
-        return new Blob([content], { type: ClipboardTypes.text });
-      };
-
-      const getHtml = async () => {
-        const { header, content } = await getData();
-        return new Blob([serializerHtml(content, header)], { type: ClipboardTypes.html });
-      };
-
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [ClipboardTypes.text]: getText(),
-          [ClipboardTypes.html]: getHtml(),
-        }),
-      ]);
-    },
-    [copyReq]
-  );
-};
+import { tableConfig } from '@/features/i18n/table.config';
+import { selectionCoverAttachments } from '../utils';
+import {
+  ClipboardTypes,
+  copyHandler,
+  filePasteHandler,
+  rangeTypes,
+  textPasteHandler,
+} from '../utils/copyAndPaste';
 
 export const useSelectionOperation = (props?: {
   filter?: IFilter;
@@ -98,6 +30,9 @@ export const useSelectionOperation = (props?: {
   const fields = useFields();
   const view = useView();
   const { searchQuery: search } = useSearch();
+
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
   const groupBy = view?.group;
 
   const { mutateAsync: defaultCopyReq } = useMutation({
@@ -108,6 +43,11 @@ export const useSelectionOperation = (props?: {
   const { mutateAsync: pasteReq } = useMutation({
     mutationFn: (pasteRo: IPasteRo) =>
       paste(tableId!, { ...pasteRo, viewId, groupBy, filter, search }),
+  });
+
+  const { mutateAsync: temporaryPasteReq } = useMutation({
+    mutationFn: (temporaryPasteRo: ITemporaryPasteRo) =>
+      temporaryPaste(tableId!, { ...temporaryPasteRo, viewId }),
   });
 
   const { mutateAsync: clearReq } = useMutation({
@@ -121,154 +61,129 @@ export const useSelectionOperation = (props?: {
   });
 
   const { toast } = useToast();
-  const copyMethod = useCopy({ copyReq: copyReq || defaultCopyReq });
 
-  const handleFilePaste = useCallback(
-    async (
-      files: FileList,
-      selection: CombinedSelection,
-      recordMap: IRecordIndexMap,
-      toaster: ReturnType<typeof toast>
-    ) => {
-      const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
-      if (!isSelectionCoverAttachments) {
-        toaster.update({
-          id: toaster.id,
-          title: 'Files can only be pasted into an attachment field',
-        });
-        return;
-      }
+  const copyRequest = copyReq || defaultCopyReq;
 
-      const selectionCell = getSelectionCell(selection);
-      if (selectionCell) {
-        const attachments = await uploadFiles(files);
-        const [fieldIndex, recordIndex] = selectionCell;
-        const record = recordMap[recordIndex];
-        const field = fields[fieldIndex];
-        const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
-        await record.updateCell(field.id, [...oldCellValue, ...attachments]);
-      } else {
-        const attachments = await uploadFiles(files);
-        const attachmentsStrings = attachments
-          .map(({ name, token }) => {
-            return AttachmentFieldCore.itemString(name, token);
-          })
-          .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER);
-        await pasteReq({
-          content: attachmentsStrings,
-          ranges: selection.serialize(),
-          type: rangeTypes[selection.type],
-        });
-      }
-      toaster.update({ id: toaster.id, title: 'Pasted success!' });
-    },
-    [fields, pasteReq]
-  );
-  const handleTextPaste = useCallback(
-    async (selection: CombinedSelection, toaster: ReturnType<typeof toast>) => {
-      const clipboardContent = await navigator.clipboard.read();
-      const hasHtml = clipboardContent[0].types.includes(ClipboardTypes.html);
-      const text = clipboardContent[0].types.includes(ClipboardTypes.text)
-        ? await (await clipboardContent[0].getType(ClipboardTypes.text)).text()
-        : '';
-      const html = hasHtml
-        ? await (await clipboardContent[0].getType(ClipboardTypes.html)).text()
-        : undefined;
-      const header = extractTableHeader(html);
-
-      if (header.error) {
-        toaster.update({ id: toaster.id, title: header.error });
-        return;
-      }
-
-      await pasteReq({
-        content: hasHtml ? text : text.trim(),
-        ranges: selection.serialize(),
-        type: rangeTypes[selection.type],
-        header: header.result,
+  const checkCopyAndPasteEnvironment = useCallback(() => {
+    // not support http
+    if (!isLocalhost() && !isHTTPS()) {
+      toast({
+        variant: 'destructive',
+        description: t('table:table.actionTips.copyAndPasteEnvironment'),
       });
-      toaster.update({ id: toaster.id, title: 'Pasted success!' });
-    },
-    [pasteReq]
-  );
+      return false;
+    }
+    return true;
+  }, [toast, t]);
 
   const doCopy = useCallback(
-    async (selection: CombinedSelection) => {
-      // not support http
-      if (!isLocalhost() && !isHTTPS()) {
-        toast({
-          variant: 'destructive',
-          description: 'Copy and paste only works in HTTPS or localhost.',
-        });
-        return;
-      }
-      if (!viewId || !tableId) {
-        return;
-      }
+    async (selection: CombinedSelection, getCopyData?: () => Promise<ICopyVo>) => {
+      if (!checkCopyAndPasteEnvironment()) return;
+      if (!viewId || !tableId) return;
 
       const toaster = toast({
-        title: 'Copying...',
+        title: t('table:table.actionTips.copying'),
       });
+
+      const getCopyDataDefault = async () => {
+        const ranges = selection.serialize();
+        const type = rangeTypes[selection.type];
+        const { data } = await copyRequest({
+          ranges,
+          ...(type ? { type } : {}),
+        });
+        const { content, header } = data;
+        return { content, header };
+      };
+
+      const getCopyDataInner = getCopyData ?? getCopyDataDefault;
+
       try {
-        await copyMethod(selection);
-        toaster.update({ id: toaster.id, title: 'Copied success!' });
+        await copyHandler(getCopyDataInner);
+        toaster.update({ id: toaster.id, title: t('table:table.actionTips.copySuccessful') });
       } catch (e) {
         const error = e as Error;
         toaster.update({
           id: toaster.id,
           variant: 'destructive',
-          title: 'Copy error',
+          title: t('table:table.actionTips.copyFailed'),
           description: error.message,
         });
         console.error('Copy error: ', error);
       }
     },
-    [tableId, toast, viewId, copyMethod]
+    [checkCopyAndPasteEnvironment, viewId, tableId, toast, copyRequest, t]
   );
 
   const doPaste = useCallback(
-    async (selection: CombinedSelection, e: React.ClipboardEvent, recordMap: IRecordIndexMap) => {
-      // not support http
-      if (!isLocalhost() && !isHTTPS()) {
-        toast({
-          variant: 'destructive',
-          description: 'Copy and paste only works in HTTPS or localhost.',
-        });
-        return;
-      }
-      if (!viewId || !tableId) {
-        return;
-      }
+    async (
+      e: React.ClipboardEvent,
+      selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
+      updateTemporaryData?: (fieldValueMap: Record<string, unknown>) => void
+    ) => {
+      if (!checkCopyAndPasteEnvironment()) return;
+      if (!viewId || !tableId) return;
 
       const { files, types } = e.clipboardData;
-      const toaster = toast({ title: 'Pasting...' });
+      const toaster = toast({ title: t('table:table.actionTips.pasting') });
+
       try {
         if (files.length > 0 && !types.includes(ClipboardTypes.text)) {
-          await handleFilePaste(files, selection, recordMap, toaster);
+          const isSelectionCoverAttachments = selectionCoverAttachments(selection, fields);
+          if (!isSelectionCoverAttachments) {
+            return toaster.update({
+              id: toaster.id,
+              title: t('table:table.actionTips.pasteFileFailed'),
+            });
+          }
+          await filePasteHandler({
+            files,
+            fields,
+            selection,
+            recordMap,
+            requestPaste: async (content, type, ranges) => {
+              if (updateTemporaryData) {
+                const res = await temporaryPasteReq({ content, ranges });
+                const fieldValueMap = res.data[0].fields;
+                updateTemporaryData(fieldValueMap);
+              } else {
+                await pasteReq({ content, type, ranges });
+              }
+            },
+          });
         } else {
-          await handleTextPaste(selection, toaster);
+          await textPasteHandler(selection, async (content, type, ranges, header) => {
+            if (updateTemporaryData) {
+              const res = await temporaryPasteReq({ content, ranges, header });
+              const fieldValueMap = res.data[0].fields;
+              updateTemporaryData(fieldValueMap);
+            } else {
+              await pasteReq({ content, type, ranges, header });
+            }
+          });
         }
+        toaster.update({ id: toaster.id, title: t('table:table.actionTips.pasteSuccessful') });
       } catch (e) {
         const error = e as Error;
         toaster.update({
           id: toaster.id,
           variant: 'destructive',
-          title: 'Past error',
+          title: t('table:table.actionTips.pasteFailed'),
           description: error.message,
         });
-        console.error('Past error: ', error);
+        console.error('Paste error: ', error);
       }
     },
-    [viewId, tableId, toast, handleFilePaste, handleTextPaste]
+    [viewId, tableId, fields, toast, temporaryPasteReq, pasteReq, checkCopyAndPasteEnvironment, t]
   );
 
   const doClear = useCallback(
     async (selection: CombinedSelection) => {
-      if (!viewId || !tableId) {
-        return;
-      }
+      if (!viewId || !tableId) return;
+
       const toaster = toast({
-        title: 'Clearing...',
+        title: t('table:table.actionTips.clearing'),
       });
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
@@ -278,18 +193,17 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({ id: toaster.id, title: 'Clear success!' });
+      toaster.update({ id: toaster.id, title: t('table:table.actionTips.clearSuccessful') });
     },
-    [tableId, toast, viewId, clearReq]
+    [tableId, toast, viewId, clearReq, t]
   );
 
   const doDelete = useCallback(
     async (selection: CombinedSelection) => {
-      if (!viewId || !tableId) {
-        return;
-      }
+      if (!viewId || !tableId) return;
+
       const toaster = toast({
-        title: 'Deleting...',
+        title: t('table:table.actionTips.deleting'),
       });
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
@@ -299,10 +213,15 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({ id: toaster.id, title: 'Delete success!' });
+      toaster.update({ id: toaster.id, title: t('table:table.actionTips.deleteSuccessful') });
     },
-    [deleteReq, tableId, toast, viewId]
+    [deleteReq, tableId, toast, viewId, t]
   );
 
-  return { copy: doCopy, paste: doPaste, clear: doClear, deleteRecords: doDelete };
+  return {
+    copy: doCopy,
+    paste: doPaste,
+    clear: doClear,
+    deleteRecords: doDelete,
+  };
 };

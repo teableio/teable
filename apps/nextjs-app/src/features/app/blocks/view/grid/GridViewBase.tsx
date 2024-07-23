@@ -1,5 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
-import { FieldKeyType, RowHeightLevel, contractColorForTheme } from '@teable/core';
+import type { IFieldVo } from '@teable/core';
+import {
+  FieldKeyType,
+  RowHeightLevel,
+  contractColorForTheme,
+  fieldVoSchema,
+  stringifyClipboardText,
+} from '@teable/core';
 import type { IUpdateOrderRo } from '@teable/openapi';
 import { createRecords } from '@teable/openapi';
 import type {
@@ -134,6 +141,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   });
 
   const {
+    localRecord,
     prefillingRowIndex,
     prefillingRowOrder,
     prefillingFieldValueMap,
@@ -435,11 +443,46 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const onCopy = async (selection: CombinedSelection) => {
     copy(selection);
   };
+
+  const onCopyForPrefilling = async (selection: CombinedSelection) => {
+    const { type } = selection;
+
+    if (type !== SelectionRegionType.Cells || prefillingFieldValueMap == null) return;
+
+    const getCopyData = async () => {
+      const [start, end] = selection.serialize();
+      const selectedFields = fields.slice(start[0], end[0] + 1);
+      const filteredPropsFields = selectedFields
+        .map((f) => {
+          const validateField = fieldVoSchema.safeParse(f);
+          return validateField.success ? validateField.data : undefined;
+        })
+        .filter(Boolean) as IFieldVo[];
+      const content = [
+        selectedFields.map((field) =>
+          field.cellValue2String(prefillingFieldValueMap[field.id] as never)
+        ),
+      ];
+      return { content: stringifyClipboardText(content), header: filteredPropsFields };
+    };
+
+    copy(selection, getCopyData);
+  };
+
   const onPaste = (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
-      toast({ title: 'Unable to paste' });
+      return toast({ title: 'Unable to paste' });
     }
-    paste(selection, e, recordMap);
+    paste(e, selection, recordMap);
+  };
+
+  const onPasteForPrefilling = (selection: CombinedSelection, e: React.ClipboardEvent) => {
+    if (!permission['record|update'] || localRecord == null) {
+      return toast({ title: 'Unable to paste' });
+    }
+    paste(e, selection, { 0: localRecord }, (fieldValueMap) => {
+      setPrefillingFieldValueMap({ ...prefillingFieldValueMap, ...fieldValueMap });
+    });
   };
 
   const onSelectionChanged = useCallback(
@@ -692,6 +735,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
                 getCellContent={getPrefillingCellContent}
                 onScrollChanged={onPrefillingGridScrollChanged}
                 onCellEdited={getAuthorizedFunction(onPrefillingCellEdited, 'record|update')}
+                onCopy={onCopyForPrefilling}
+                onPaste={onPasteForPrefilling}
               />
             </PrefillingRowContainer>
           )}

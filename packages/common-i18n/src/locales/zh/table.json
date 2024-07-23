@@ -133,6 +133,20 @@
     "deleteTip2": "该操作无法撤销.",
     "operator": {
       "createBlank": "创建一个新表格"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "复制和粘贴功能仅在 HTTPS 或 localhost 环境下可用",
+      "copying": "正在复制...",
+      "copySuccessful": "复制成功",
+      "copyFailed": "复制失败",
+      "pasting": "正在粘贴...",
+      "pasteSuccessful": "粘贴成功",
+      "pasteFailed": "粘贴失败",
+      "clearing": "正在清除...",
+      "clearSuccessful": "清除成功",
+      "deleting": "正在删除...",
+      "deleteSuccessful": "删除成功",
+      "pasteFileFailed": "文件只能粘贴到附件字段中"
     }
   },
   "import": {

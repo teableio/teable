@@ -34,6 +34,7 @@ import type {
   IPasteVo,
   IRangesRo,
   IDeleteVo,
+  ITemporaryPasteVo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
@@ -415,6 +416,8 @@ export class SelectionService {
 
     const tokens = tableData.reduce((acc, recordData) => {
       const tokensInRecord = attachmentFieldsIndex.reduce((acc, index) => {
+        if (!recordData[index]) return acc;
+
         const tokensAndNames = recordData[index]
           .split(',')
           .map(AttachmentFieldDto.getTokenAndNameByString);
@@ -513,7 +516,7 @@ export class SelectionService {
               );
               break;
             default:
-              recordField[field.id] = field.convertStringToCellValue(stringValue);
+              recordField[field.id] = stringValue || null;
           }
         }
 
@@ -631,6 +634,43 @@ export class SelectionService {
       ];
     }
     return [range[0], range[1]];
+  }
+
+  // For pasting to add new lines
+  async temporaryPaste(tableId: string, pasteRo: IPasteRo) {
+    const { content, header = [], viewId, ranges, excludeFieldIds } = pasteRo;
+
+    const fields = await this.fieldService.getFieldInstances(tableId, {
+      viewId,
+      filterHidden: true,
+      excludeFieldIds: excludeFieldIds,
+    });
+
+    const rangeCell = ranges as [[number, number], [number, number]];
+    const startColumnIndex = rangeCell[0][0];
+
+    const tableData = this.expandPasteContent(this.parseCopyContent(content), rangeCell);
+    const tableColCount = tableData[0].length;
+    const effectFields = fields.slice(startColumnIndex, startColumnIndex + tableColCount);
+    let result: ITemporaryPasteVo = [];
+
+    await this.prismaService.$tx(async () => {
+      const newRecords = await this.tableDataToRecords({
+        tableId,
+        tableData,
+        headerFields: header.map(createFieldInstanceByVo),
+        fields: effectFields,
+      });
+
+      result = await this.recordOpenApiService.validateFieldsAndTypecast(
+        tableId,
+        newRecords,
+        FieldKeyType.Id,
+        true
+      );
+    });
+
+    return result;
   }
 
   async paste(
