@@ -687,7 +687,7 @@ export class RecordService {
     const newRecords = records.map((record) => {
       const fieldsValues: Record<string, unknown> = {};
       Object.entries(record.fields).forEach(([fieldId, value]) => {
-        fieldsValues[fieldsMap[fieldId]] = value;
+        fieldsValues[fieldsMap[fieldId]] = Array.isArray(value) ? JSON.stringify(value) : value;
       });
       return {
         __id: generateRecordId(),
