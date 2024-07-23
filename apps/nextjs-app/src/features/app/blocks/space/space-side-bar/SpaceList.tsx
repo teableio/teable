@@ -19,7 +19,7 @@ export const SpaceList: FC = () => {
   const queryClient = useQueryClient();
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: getSpaceList,
+    queryFn: () => getSpaceList().then((data) => data.data),
   });
 
   const { mutate: addSpace, isLoading } = useMutation({
@@ -47,7 +47,7 @@ export const SpaceList: FC = () => {
             onClick={() => {
               const name = getUniqName(
                 t('noun.space'),
-                spaceList?.data?.length ? spaceList?.data.map((space) => space?.name) : []
+                spaceList?.length ? spaceList?.map((space) => space?.name) : []
               );
               addSpace({ name });
             }}
@@ -58,7 +58,7 @@ export const SpaceList: FC = () => {
       </div>
       <div className="overflow-y-auto px-3">
         <ul>
-          {spaceList?.data.map((space) => (
+          {spaceList?.map((space) => (
             <li key={space.id}>
               <SpaceItem space={space} isActive={space.id === router.query.spaceId} />
             </li>

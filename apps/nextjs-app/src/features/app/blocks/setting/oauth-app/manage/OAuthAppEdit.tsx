@@ -31,7 +31,7 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
 
   const { data: oauthApp, isLoading: queryLoading } = useQuery({
     queryKey: ['oauthApp', clientId],
-    queryFn: ({ queryKey }) => oauthGet(queryKey[1]),
+    queryFn: ({ queryKey }) => oauthGet(queryKey[1]).then((data) => data.data),
     cacheTime: 0,
   });
 
@@ -76,7 +76,7 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
           </div>
           <div className="text-sm">
             <strong>{t('oauth:form.clientId.label')}</strong>
-            {oauthApp?.data.clientId}
+            {oauthApp?.clientId}
           </div>
         </div>
         <div className="space-y-4 pt-10">
@@ -92,11 +92,11 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
               {t('oauth:form.secret.add')}
             </Button>
           </div>
-          {!oauthApp?.data.secrets?.length && (
+          {!oauthApp?.secrets?.length && (
             <div className="text-sm">{t('oauth:form.secret.empty')}</div>
           )}
           <div className="rounded-lg border">
-            {oauthApp?.data.secrets?.map((secret, index) => {
+            {oauthApp?.secrets?.map((secret, index) => {
               const isNewSecret = newSecret?.id === secret.id;
               return (
                 <div
@@ -152,12 +152,7 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
         </div>
       </div>
       {!queryLoading && (
-        <OAuthAppForm
-          ref={formRef}
-          showBasicTitle
-          value={oauthApp?.data}
-          onChange={setUpdatedForm}
-        />
+        <OAuthAppForm ref={formRef} showBasicTitle value={oauthApp} onChange={setUpdatedForm} />
       )}
     </OAuthAppDetailLayout>
   );

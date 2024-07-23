@@ -20,12 +20,10 @@ export const GeneralPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  const { data: spaceRes } = useQuery({
+  const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
-    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
   });
-
-  const space = spaceRes?.data;
 
   const { mutateAsync: updateSpaceMutator } = useMutation({
     mutationFn: updateSpace,

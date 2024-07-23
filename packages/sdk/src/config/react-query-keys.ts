@@ -21,6 +21,10 @@ export const ReactQueryKeys = {
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
 
+  subscriptionSummary: (spaceId: string) => ['subscription-summary', spaceId] as const,
+
+  subscriptionSummaryList: () => ['subscription-summary'] as const,
+
   spaceCollaboratorList: (spaceId: string) => ['space-collaborator-list', spaceId] as const,
 
   baseCollaboratorList: (baseId: string) => ['base-collaborator-list', baseId] as const,

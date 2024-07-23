@@ -40,17 +40,17 @@ export const AccessSelect = (props: IFormAccess) => {
 
   const { data: spaceList, isLoading: spaceListLoading } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList(),
+    queryFn: () => getSpaceList().then((data) => data.data),
   });
 
   const { data: baseList, isLoading: baseListLoading } = useQuery({
     queryKey: ['base-all'],
-    queryFn: () => getBaseAll(),
+    queryFn: () => getBaseAll().then((data) => data.data),
   });
 
   const baseMap = useMemo(
     () =>
-      baseList?.data?.reduce(
+      baseList?.reduce(
         (acc, cur) => {
           const space = acc[cur.spaceId];
           acc[cur.spaceId] = space ? [...space, cur] : [cur];
@@ -110,7 +110,7 @@ export const AccessSelect = (props: IFormAccess) => {
             <CommandInput placeholder={t('accessSelect.inputPlaceholder')} className="h-9" />
             <CommandEmpty>{t('accessSelect.empty')}</CommandEmpty>
             <CommandList>
-              {spaceList?.data
+              {spaceList
                 ?.filter(({ id: spaceId }) => !spaces.includes(spaceId))
                 ?.map(({ id, name }) => (
                   <CommandGroup

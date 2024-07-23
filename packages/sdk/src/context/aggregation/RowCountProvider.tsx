@@ -22,7 +22,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
 
   const { data: resRowCount } = useQuery({
     queryKey: ReactQueryKeys.rowCount(tableId as string, rowCountQuery),
-    queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
     enabled: !!tableId && isHydrated,
     refetchOnWindowFocus: false,
   });
@@ -52,7 +52,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const rowCount = useMemo(() => {
     if (!resRowCount) return 0;
 
-    const { rowCount } = resRowCount.data;
+    const { rowCount } = resRowCount;
     return rowCount;
   }, [resRowCount]);
   return <RowCountContext.Provider value={rowCount}>{children}</RowCountContext.Provider>;

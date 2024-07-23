@@ -14,20 +14,22 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   const { spaceId } = context.query;
   const queryClient = new QueryClient();
 
-  await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.space(spaceId as string),
-    queryFn: ({ queryKey }) => ssrApi.getSpaceById(queryKey[1]),
-  });
+  await Promise.all([
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.space(spaceId as string),
+      queryFn: ({ queryKey }) => ssrApi.getSpaceById(queryKey[1]),
+    }),
 
-  await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.baseAll(),
-    queryFn: () => ssrApi.getBaseList(),
-  });
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.baseAll(),
+      queryFn: () => ssrApi.getBaseList(),
+    }),
 
-  await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string),
-    queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1]),
-  });
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string),
+      queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1]),
+    }),
+  ]);
 
   return {
     props: {

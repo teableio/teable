@@ -32,8 +32,8 @@ export const SpacePage: FC = () => {
   const baseList = useBaseList();
 
   const { data: subscriptionList } = useQuery({
-    queryKey: ['subscription-summary-list'],
-    queryFn: () => getSubscriptionSummaryList().then(({ data }) => data),
+    queryKey: ReactQueryKeys.subscriptionSummaryList(),
+    queryFn: () => getSubscriptionSummaryList().then((data) => data.data),
     enabled: isCloud,
   });
 

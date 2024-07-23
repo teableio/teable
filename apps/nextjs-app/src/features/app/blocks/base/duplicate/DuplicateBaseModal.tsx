@@ -34,7 +34,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList(),
+    queryFn: () => getSpaceList().then((res) => res.data),
   });
 
   const { mutateAsync: duplicateBaseMutator } = useMutation({
@@ -49,8 +49,8 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
   });
 
   const editableSpaceList = useMemo(() => {
-    return spaceList?.data.filter((space) => hasPermission(space.role, 'base|create')) || [];
-  }, [spaceList?.data]);
+    return spaceList?.filter((space) => hasPermission(space.role, 'base|create')) || [];
+  }, [spaceList]);
 
   const onSubmit = () => {
     if (!targetSpaceId) {

@@ -12,12 +12,10 @@ import { List } from './List';
 export const Integration = () => {
   const { t } = useTranslation('common');
   const [detail, setDetail] = useState<AuthorizedVo>();
-  const { data: authorizedListData } = useQuery({
+  const { data: authorizedList } = useQuery({
     queryKey: ['integration'],
-    queryFn: getAuthorizedList,
+    queryFn: () => getAuthorizedList().then((res) => res.data),
   });
-
-  const authorizedList = authorizedListData?.data;
 
   return (
     <div className="flex h-full flex-col space-y-6">

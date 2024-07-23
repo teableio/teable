@@ -19,7 +19,7 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   const aggQuery = useMemo(() => ({ viewId, search: searchQuery }), [searchQuery, viewId]);
   const { data: resAggregations } = useQuery({
     queryKey: ReactQueryKeys.aggregations(tableId as string, aggQuery),
-    queryFn: ({ queryKey }) => getAggregation(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) => getAggregation(queryKey[1], queryKey[2]).then((data) => data.data),
     enabled: !!tableId,
     refetchOnWindowFocus: false,
   });
@@ -52,7 +52,7 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children })
   const aggregations = useMemo(() => {
     if (!resAggregations) return {};
 
-    const { aggregations } = resAggregations.data;
+    const { aggregations } = resAggregations;
     return {
       aggregations: aggregations ?? [],
     };

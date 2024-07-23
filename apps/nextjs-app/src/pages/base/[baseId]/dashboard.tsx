@@ -12,8 +12,8 @@ const Node: NextPageWithLayout = () => <DashboardPage />;
 
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { baseId } = context.query;
-  const result = (await ssrApi.getTables(baseId as string)).data;
-  const base = (await ssrApi.getBaseById(baseId as string)).data;
+  const result = await ssrApi.getTables(baseId as string);
+  const base = await ssrApi.getBaseById(baseId as string);
   return {
     props: {
       tableServerData: result,

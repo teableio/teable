@@ -45,7 +45,8 @@ export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
 
   const { data: resGroupPoints } = useQuery({
     queryKey: ReactQueryKeys.shareViewGroupPoints(shareId, query),
-    queryFn: ({ queryKey }) => getShareViewGroupPoints(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) =>
+      getShareViewGroupPoints(queryKey[1], queryKey[2]).then((data) => data.data),
     enabled: Boolean(tableId && groupBy?.length),
     refetchOnWindowFocus: false,
     retry: 1,
@@ -65,7 +66,7 @@ export const GroupPointProvider = ({ children }: GroupPointProviderProps) => {
   const viewMatches = useMemo<IViewActionKey[]>(() => ['applyViewFilter'], []);
   useViewListener(viewId, viewMatches, updateGroupPoints);
 
-  const groupPoints = useMemo(() => resGroupPoints?.data || null, [resGroupPoints]);
+  const groupPoints = useMemo(() => resGroupPoints || null, [resGroupPoints]);
 
   return <GroupPointContext.Provider value={groupPoints}>{children}</GroupPointContext.Provider>;
 };

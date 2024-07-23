@@ -19,10 +19,10 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
 
   const { data: collaborators } = useQuery({
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
-    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]),
+    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then((res) => res.data),
   });
 
-  if (!collaborators?.data.length) {
+  if (!collaborators?.length) {
     return <div>{t('actions.loading')}</div>;
   }
 
@@ -32,7 +32,7 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
         <Trans
           ns="common"
           i18nKey={'invite.dialog.desc'}
-          count={collaborators.data.length}
+          count={collaborators.length}
           components={{ b: <b /> }}
         />
       </div>

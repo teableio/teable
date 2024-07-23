@@ -14,7 +14,7 @@ export const OAuthAppList = () => {
 
   const { data: oauthApps } = useQuery({
     queryKey: ['oauth-apps'],
-    queryFn: oauthGetList,
+    queryFn: () => oauthGetList().then((data) => data.data),
     staleTime: 0,
     refetchOnWindowFocus: false,
   });
@@ -35,7 +35,7 @@ export const OAuthAppList = () => {
         </Button>
       </div>
       <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
-        {oauthApps?.data?.map((app) => (
+        {oauthApps?.map((app) => (
           <Card key={app.clientId} className="group shadow-none hover:shadow-md">
             <CardContent className="relative flex size-full items-center gap-5 px-2 py-3">
               <div className="relative size-16 overflow-hidden rounded-sm">

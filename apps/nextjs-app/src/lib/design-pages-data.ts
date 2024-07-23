@@ -16,9 +16,9 @@ export const getDesignPageServerData = async (
   const api = ssrApi;
   const tableResult = await api.getTable(baseId, tableId);
   if (tableResult) {
-    const base = (await api.getBaseById(baseId)).data;
-    const tablesResult = (await api.getTables(baseId)).data;
-    const fieldsResult = (await api.getFields(tableId)).data;
+    const base = await api.getBaseById(baseId);
+    const tablesResult = await api.getTables(baseId);
+    const fieldsResult = await api.getFields(tableId);
     return {
       tableServerData: tablesResult,
       baseServerData: base,

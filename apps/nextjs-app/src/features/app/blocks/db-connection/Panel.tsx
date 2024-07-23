@@ -22,7 +22,7 @@ const ContentCard = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { data, isLoading } = useQuery({
     queryKey: ['connection', base.id],
-    queryFn: ({ queryKey }) => getDbConnection(queryKey[1]),
+    queryFn: ({ queryKey }) => getDbConnection(queryKey[1]).then((data) => data.data),
   });
 
   const mutationCreate = useMutation(createDbConnection, {
@@ -36,8 +36,8 @@ const ContentCard = () => {
       queryClient.invalidateQueries(['connection', base.id]);
     },
   });
-  const dataArray = data?.data?.dsn
-    ? Object.entries(data?.data?.dsn).map(([label, value]) => {
+  const dataArray = data?.dsn
+    ? Object.entries(data?.dsn).map(([label, value]) => {
         if (label === 'params') {
           return {
             label,
@@ -61,7 +61,7 @@ const ContentCard = () => {
   dataArray.unshift({
     label: 'url',
     type: 'text',
-    value: data?.data?.url || '',
+    value: data?.url || '',
   });
 
   return (
@@ -79,7 +79,7 @@ const ContentCard = () => {
           <div className="flex flex-col gap-2">
             {dataArray.map(({ label, type, value }) => (
               <div key={label} className="flex flex-col gap-2">
-                {data?.data ? (
+                {data ? (
                   <div className="flex items-center gap-2">
                     <Label className="w-20" htmlFor="subject">
                       {label}
@@ -120,21 +120,21 @@ const ContentCard = () => {
               </div>
             ))}
           </div>
-          {data?.data && (
+          {data && (
             <div className="text-sm text-secondary-foreground">
               <Trans
                 ns="table"
                 i18nKey="connection.connectionCountTip"
                 components={{ b: <b /> }}
                 values={{
-                  max: data?.data?.connection.max,
-                  current: data?.data?.connection.current,
+                  max: data.connection.max,
+                  current: data.connection.current,
                 }}
               />
             </div>
           )}
           <div className="flex justify-end">
-            {data?.data ? (
+            {data ? (
               <Button size="sm" onClick={() => mutationDelete.mutate(base.id)}>
                 {t('common:actions.delete')}
               </Button>

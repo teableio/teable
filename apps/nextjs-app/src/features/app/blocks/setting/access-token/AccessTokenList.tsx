@@ -36,7 +36,7 @@ export const AccessTokenList = (props: { newToken?: string }) => {
   const queryClient = useQueryClient();
   const { data: listResult } = useQuery({
     queryKey: ReactQueryKeys.personAccessTokenList(),
-    queryFn: () => listAccessToken(),
+    queryFn: () => listAccessToken().then((data) => data.data),
   });
 
   const { mutate: deleteAccessTokenMutate, isLoading: deleteLoading } = useMutation({
@@ -100,7 +100,7 @@ export const AccessTokenList = (props: { newToken?: string }) => {
         </Button>
       </div>
       <Table>
-        {!listResult?.data?.length && (
+        {!listResult?.length && (
           <TableCaption className="text-center">{t('token:empty.list')}</TableCaption>
         )}
         <TableHeader>
@@ -115,7 +115,7 @@ export const AccessTokenList = (props: { newToken?: string }) => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {listResult?.data?.map(
+          {listResult?.map(
             ({ id, name, baseIds, spaceIds, scopes, expiredTime, lastUsedTime, createdTime }) => {
               const accessArr: string[] = [];
               if (baseIds?.length) {

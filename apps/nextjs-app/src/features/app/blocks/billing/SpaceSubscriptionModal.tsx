@@ -29,12 +29,12 @@ export const SpaceSubscriptionModal = () => {
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList(),
+    queryFn: () => getSpaceList().then((data) => data.data),
   });
 
   const ownerSpaceList = useMemo(() => {
-    return spaceList?.data.filter((space) => hasPermission(space.role, 'space|update')) || [];
-  }, [spaceList?.data]);
+    return spaceList?.filter((space) => hasPermission(space.role, 'space|update')) || [];
+  }, [spaceList]);
 
   useEffect(() => {
     if (!targetSpaceId) {

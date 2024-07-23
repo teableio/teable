@@ -36,8 +36,8 @@ export const InviteLink: React.FC<IInviteLink> = (props) => {
 
   const linkList = useQuery({
     queryKey: ['invite-link-list', spaceId],
-    queryFn: ({ queryKey }) => listSpaceInvitationLink(queryKey[1]),
-  }).data?.data;
+    queryFn: ({ queryKey }) => listSpaceInvitationLink(queryKey[1]).then((res) => res.data),
+  }).data;
 
   const { mutate: updateInviteLink, isLoading: updateInviteLinkLoading } = useMutation({
     mutationFn: updateSpaceInvitationLink,

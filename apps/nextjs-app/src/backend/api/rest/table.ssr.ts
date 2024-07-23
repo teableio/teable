@@ -26,6 +26,7 @@ import {
   GET_RECORD_URL,
   GET_SETTING,
   GET_SPACE,
+  GET_SPACE_LIST,
   GET_TABLE,
   GET_TABLE_LIST,
   GET_VIEW_LIST,
@@ -56,7 +57,7 @@ export class SsrApi {
       })
       .then(({ data }) => data);
 
-    const fields = await this.getFields(tableId, { viewId }).then(({ data }) => data);
+    const fields = await this.getFields(tableId, { viewId });
     const views = await this.axios
       .get<IViewVo[]>(urlBuilder(GET_VIEW_LIST, { tableId }))
       .then(({ data }) => data);
@@ -78,60 +79,80 @@ export class SsrApi {
   }
 
   async getFields(tableId: string, query?: IGetFieldsQuery) {
-    return this.axios.get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }), { params: query });
+    return this.axios
+      .get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }), { params: query })
+      .then(({ data }) => data);
   }
 
   async getTables(baseId: string) {
-    return this.axios.get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }));
+    return this.axios
+      .get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }))
+      .then(({ data }) => data);
   }
 
   async getDefaultViewId(baseId: string, tableId: string) {
-    return this.axios.get<IGetDefaultViewIdVo>(
-      urlBuilder(GET_DEFAULT_VIEW_ID, { baseId, tableId })
-    );
+    return this.axios
+      .get<IGetDefaultViewIdVo>(urlBuilder(GET_DEFAULT_VIEW_ID, { baseId, tableId }))
+      .then(({ data }) => data);
   }
 
   async getRecord(tableId: string, recordId: string) {
-    return this.axios.get<IRecord>(urlBuilder(GET_RECORD_URL, { tableId, recordId }), {
-      params: { fieldKeyType: FieldKeyType.Id },
-    });
+    return this.axios
+      .get<IRecord>(urlBuilder(GET_RECORD_URL, { tableId, recordId }), {
+        params: { fieldKeyType: FieldKeyType.Id },
+      })
+      .then(({ data }) => data);
   }
 
   async getBaseById(baseId: string) {
-    return await this.axios.get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId }));
+    return await this.axios
+      .get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId }))
+      .then(({ data }) => data);
   }
 
   async getSpaceById(spaceId: string) {
-    return await this.axios.get<IGetSpaceVo>(urlBuilder(GET_SPACE, { spaceId }));
+    return await this.axios
+      .get<IGetSpaceVo>(urlBuilder(GET_SPACE, { spaceId }))
+      .then(({ data }) => data);
+  }
+
+  async getSpaceList() {
+    return await this.axios.get<IGetSpaceVo[]>(urlBuilder(GET_SPACE_LIST)).then(({ data }) => data);
   }
 
   async getBaseList() {
-    return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL);
+    return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL).then(({ data }) => data);
   }
 
   async getSpaceCollaboratorList(spaceId: string) {
-    return await this.axios.get<ListSpaceCollaboratorVo>(
-      urlBuilder(SPACE_COLLABORATE_LIST, { spaceId })
-    );
+    return await this.axios
+      .get<ListSpaceCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_LIST, { spaceId }))
+      .then(({ data }) => data);
   }
 
   async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
-    return this.axios.post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo);
+    return this.axios
+      .post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo)
+      .then(({ data }) => data);
   }
 
   async getShareView(shareId: string) {
-    return this.axios.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }));
+    return this.axios
+      .get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }))
+      .then(({ data }) => data);
   }
 
   async updateNotificationStatus(notificationId: string, data: IUpdateNotifyStatusRo) {
-    return this.axios.patch<void>(urlBuilder(UPDATE_NOTIFICATION_STATUS, { notificationId }), data);
+    return this.axios
+      .patch<void>(urlBuilder(UPDATE_NOTIFICATION_STATUS, { notificationId }), data)
+      .then(({ data }) => data);
   }
 
   async getSetting() {
-    return this.axios.get<ISettingVo>(GET_SETTING);
+    return this.axios.get<ISettingVo>(GET_SETTING).then(({ data }) => data);
   }
 
   async getUserMe() {
-    return this.axios.get<IUserMeVo>(USER_ME);
+    return this.axios.get<IUserMeVo>(USER_ME).then(({ data }) => data);
   }
 }

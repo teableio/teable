@@ -16,21 +16,23 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, serverData }) =
   const { baseId } = useContext(AnchorContext);
   const { data: baseData, isLoading } = useQuery({
     queryKey: ['base', baseId],
-    queryFn: ({ queryKey }) => (queryKey[1] ? getBaseById(queryKey[1]) : undefined),
+    queryFn: ({ queryKey }) =>
+      queryKey[1] ? getBaseById(queryKey[1]).then((res) => res.data) : undefined,
   });
 
   const { data: basePermissionData } = useQuery({
     queryKey: ['basePermission', baseId],
-    queryFn: ({ queryKey }) => (queryKey[1] ? getBasePermission(queryKey[1]) : undefined),
+    queryFn: ({ queryKey }) =>
+      queryKey[1] ? getBasePermission(queryKey[1]).then((res) => res.data) : undefined,
   });
 
   const value = useMemo(() => {
-    const base = isLoading ? serverData : baseData?.data;
+    const base = isLoading ? serverData : baseData;
     return {
       base: base ? new Base(base) : undefined,
-      permission: basePermissionData?.data,
+      permission: basePermissionData,
     };
-  }, [isLoading, serverData, baseData?.data, basePermissionData?.data]);
+  }, [isLoading, serverData, baseData, basePermissionData]);
 
   return <BaseContext.Provider value={value}>{children}</BaseContext.Provider>;
 };

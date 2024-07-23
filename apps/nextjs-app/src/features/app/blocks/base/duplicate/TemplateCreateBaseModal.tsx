@@ -30,7 +30,7 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
 
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList(),
+    queryFn: () => getSpaceList().then((data) => data.data),
   });
 
   const { mutateAsync: templateCreateBaseMutator } = useMutation({
@@ -45,8 +45,8 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
   });
 
   const editableSpaceList = useMemo(() => {
-    return spaceList?.data.filter((space) => hasPermission(space.role, 'base|create')) || [];
-  }, [spaceList?.data]);
+    return spaceList?.filter((space) => hasPermission(space.role, 'base|create')) || [];
+  }, [spaceList]);
 
   useEffect(() => {
     if (!targetSpaceId) {

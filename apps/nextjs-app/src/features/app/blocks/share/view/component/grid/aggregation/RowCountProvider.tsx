@@ -28,7 +28,8 @@ export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
 
   const { data: shareViewRowCount } = useQuery({
     queryKey: ReactQueryKeys.shareViewRowCount(shareId, query),
-    queryFn: ({ queryKey }) => getShareViewRowCount(queryKey[1], queryKey[2]),
+    queryFn: ({ queryKey }) =>
+      getShareViewRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
     refetchOnWindowFocus: false,
   });
 
@@ -50,7 +51,7 @@ export const RowCountProvider = ({ children }: IRowCountProviderProps) => {
     if (!shareViewRowCount) {
       return null;
     }
-    return shareViewRowCount.data.rowCount;
+    return shareViewRowCount.rowCount;
   }, [shareViewRowCount]);
 
   return <RowCountContext.Provider value={rowCount}>{children}</RowCountContext.Provider>;
