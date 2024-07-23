@@ -1,5 +1,6 @@
 import type { DehydratedState } from '@tanstack/react-query';
 import type { IGetSpaceVo } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { find } from 'lodash';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -13,7 +14,7 @@ export const SpacePageTitle = (props: { dehydratedState?: DehydratedState }) => 
 
   const findSpaceName = () => {
     const spaceData = find(dehydratedState?.queries || [], {
-      queryHash: JSON.stringify(['space', spaceId]),
+      queryHash: JSON.stringify(ReactQueryKeys.space(spaceId)),
     })?.state.data as IGetSpaceVo;
     return spaceData.name;
   };

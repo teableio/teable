@@ -56,7 +56,7 @@ export class SsrApi {
       })
       .then(({ data }) => data);
 
-    const fields = await this.getFields(tableId, { viewId });
+    const fields = await this.getFields(tableId, { viewId }).then(({ data }) => data);
     const views = await this.axios
       .get<IViewVo[]>(urlBuilder(GET_VIEW_LIST, { tableId }))
       .then(({ data }) => data);
@@ -78,76 +78,60 @@ export class SsrApi {
   }
 
   async getFields(tableId: string, query?: IGetFieldsQuery) {
-    return this.axios
-      .get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }), { params: query })
-      .then(({ data }) => data);
+    return this.axios.get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId }), { params: query });
   }
 
   async getTables(baseId: string) {
-    return this.axios
-      .get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }))
-      .then(({ data }) => data);
+    return this.axios.get<ITableListVo>(urlBuilder(GET_TABLE_LIST, { baseId }));
   }
 
   async getDefaultViewId(baseId: string, tableId: string) {
-    return this.axios
-      .get<IGetDefaultViewIdVo>(urlBuilder(GET_DEFAULT_VIEW_ID, { baseId, tableId }))
-      .then(({ data }) => data);
+    return this.axios.get<IGetDefaultViewIdVo>(
+      urlBuilder(GET_DEFAULT_VIEW_ID, { baseId, tableId })
+    );
   }
 
   async getRecord(tableId: string, recordId: string) {
-    return this.axios
-      .get<IRecord>(urlBuilder(GET_RECORD_URL, { tableId, recordId }), {
-        params: { fieldKeyType: FieldKeyType.Id },
-      })
-      .then(({ data }) => data);
+    return this.axios.get<IRecord>(urlBuilder(GET_RECORD_URL, { tableId, recordId }), {
+      params: { fieldKeyType: FieldKeyType.Id },
+    });
   }
 
   async getBaseById(baseId: string) {
-    return await this.axios
-      .get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId }))
-      .then(({ data }) => data);
+    return await this.axios.get<IGetBaseVo>(urlBuilder(GET_BASE, { baseId }));
   }
 
   async getSpaceById(spaceId: string) {
-    return await this.axios
-      .get<IGetSpaceVo>(urlBuilder(GET_SPACE, { spaceId }))
-      .then(({ data }) => data);
+    return await this.axios.get<IGetSpaceVo>(urlBuilder(GET_SPACE, { spaceId }));
   }
 
   async getBaseList() {
-    return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL).then(({ data }) => data);
+    return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL);
   }
 
   async getSpaceCollaboratorList(spaceId: string) {
-    return await this.axios
-      .get<ListSpaceCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_LIST, { spaceId }))
-      .then(({ data }) => data);
+    return await this.axios.get<ListSpaceCollaboratorVo>(
+      urlBuilder(SPACE_COLLABORATE_LIST, { spaceId })
+    );
   }
 
   async acceptInvitationLink(acceptInvitationLinkRo: AcceptInvitationLinkRo) {
-    return this.axios
-      .post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo)
-      .then(({ data }) => data);
+    return this.axios.post<AcceptInvitationLinkVo>(ACCEPT_INVITATION_LINK, acceptInvitationLinkRo);
   }
 
   async getShareView(shareId: string) {
-    return this.axios
-      .get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }))
-      .then(({ data }) => data);
+    return this.axios.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }));
   }
 
   async updateNotificationStatus(notificationId: string, data: IUpdateNotifyStatusRo) {
-    return this.axios
-      .patch<void>(urlBuilder(UPDATE_NOTIFICATION_STATUS, { notificationId }), data)
-      .then(({ data }) => data);
+    return this.axios.patch<void>(urlBuilder(UPDATE_NOTIFICATION_STATUS, { notificationId }), data);
   }
 
   async getSetting() {
-    return this.axios.get<ISettingVo>(GET_SETTING).then(({ data }) => data);
+    return this.axios.get<ISettingVo>(GET_SETTING);
   }
 
   async getUserMe() {
-    return this.axios.get<IUserMeVo>(USER_ME).then(({ data }) => data);
+    return this.axios.get<IUserMeVo>(USER_ME);
   }
 }

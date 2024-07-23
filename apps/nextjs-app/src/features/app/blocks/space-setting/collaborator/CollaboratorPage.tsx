@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { UserPlus } from '@teable/icons';
 import { getSpaceById } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -15,10 +16,12 @@ export const CollaboratorPage = () => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const spaceId = router.query.spaceId as string;
 
-  const { data: space } = useQuery({
-    queryKey: ['space', spaceId],
-    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then(({ data }) => data),
+  const { data: spaceRes } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
   });
+
+  const space = spaceRes?.data;
 
   return (
     <div className="h-screen w-full overflow-y-auto overflow-x-hidden">

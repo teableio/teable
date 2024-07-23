@@ -11,10 +11,12 @@ const InvitePage: NextPageWithLayout<{ error?: IHttpError }> = () => {
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { invitationId, invitationCode } = context.query;
   try {
-    const { spaceId, baseId } = await ssrApi.acceptInvitationLink({
-      invitationId: invitationId as string,
-      invitationCode: invitationCode as string,
-    });
+    const { spaceId, baseId } = (
+      await ssrApi.acceptInvitationLink({
+        invitationId: invitationId as string,
+        invitationCode: invitationCode as string,
+      })
+    ).data;
     if (spaceId) {
       return {
         redirect: {

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { Edit } from '@teable/icons';
 import { deleteSpace, getSpaceById, updateSpace } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -19,15 +20,17 @@ export const GeneralPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
-  const { data: space } = useQuery({
-    queryKey: ['space', spaceId],
-    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then(({ data }) => data),
+  const { data: spaceRes } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]),
   });
+
+  const space = spaceRes?.data;
 
   const { mutateAsync: updateSpaceMutator } = useMutation({
     mutationFn: updateSpace,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['space', spaceId] });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
     },
   });
 

@@ -2,7 +2,7 @@ import type { DehydratedState } from '@tanstack/react-query';
 import { Component, Home, Users } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
 import type { IUser } from '@teable/sdk';
-import { NotificationProvider, SessionProvider } from '@teable/sdk';
+import { NotificationProvider, ReactQueryKeys, SessionProvider } from '@teable/sdk';
 import { AppProvider } from '@teable/sdk/context';
 import { find } from 'lodash';
 import Head from 'next/head';
@@ -28,7 +28,7 @@ export const SpaceSettingLayout: React.FC<{
   const router = useRouter();
   const spaceId = router.query.spaceId as string;
   const space = find(dehydratedState?.queries || [], {
-    queryHash: JSON.stringify(['space', spaceId]),
+    queryHash: JSON.stringify(ReactQueryKeys.space(spaceId)),
   })?.state.data as IGetSpaceVo;
 
   const onBack = () => {

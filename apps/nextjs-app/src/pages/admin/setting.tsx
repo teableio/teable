@@ -14,7 +14,7 @@ const Setting: NextPageWithLayout<ISettingPageProps> = ({ settingServerData }) =
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const userMe = await ssrApi.getUserMe();
 
-  if (!userMe?.isAdmin) {
+  if (!userMe?.data.isAdmin) {
     return {
       redirect: {
         destination: '/403',
@@ -26,7 +26,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   const setting = await ssrApi.getSetting();
   return {
     props: {
-      settingServerData: setting,
+      settingServerData: setting.data,
       ...(await getTranslationsProps(context, 'common')),
     },
   };
