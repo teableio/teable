@@ -2,7 +2,7 @@ import { join } from 'path';
 import { Worker } from 'worker_threads';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldType, FieldKeyType } from '@teable/core';
+import { FieldType, FieldKeyType, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
@@ -177,6 +177,7 @@ export class ImportOpenApiService {
     const { sheetKey, notification } = options;
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
 
+    const workerId = `worker_${getRandomString(8)}`;
     const worker = new Worker(join(process.cwd(), 'dist', 'worker', 'parse.js'), {
       workerData: {
         config: importer.getConfig(),
@@ -185,11 +186,12 @@ export class ImportOpenApiService {
           notification: options.notification,
           skipFirstNLines: options.skipFirstNLines,
         },
+        id: workerId,
       },
     });
 
     worker.on('message', async (result) => {
-      const { type, data } = result;
+      const { type, data, chunkId, id } = result;
       switch (type) {
         case 'chunk': {
           const currentResult = (data as Record<string, unknown[][]>)[sheetKey];
@@ -231,7 +233,7 @@ export class ImportOpenApiService {
               typecast: true,
               records,
             });
-            worker.postMessage({ type: 'done' });
+            worker.postMessage({ type: 'done', chunkId });
           } catch (e) {
             this.logger.error((e as Error)?.message, (e as Error)?.stack);
             throw e;
@@ -239,7 +241,8 @@ export class ImportOpenApiService {
           break;
         }
         case 'finished':
-          notification &&
+          workerId === id &&
+            notification &&
             this.notificationService.sendImportResultNotify({
               baseId,
               tableId: table.id,
@@ -248,7 +251,8 @@ export class ImportOpenApiService {
             });
           break;
         case 'error':
-          notification &&
+          workerId === id &&
+            notification &&
             this.notificationService.sendImportResultNotify({
               baseId,
               tableId: table.id,
