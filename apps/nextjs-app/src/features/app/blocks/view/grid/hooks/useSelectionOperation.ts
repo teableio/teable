@@ -7,8 +7,10 @@ import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
 import { useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
 import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
+import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 import { isHTTPS, isLocalhost } from '@/features/app/utils';
+import { tableConfig } from '@/features/i18n/table.config';
 import { selectionCoverAttachments } from '../utils';
 import {
   ClipboardTypes,
@@ -28,6 +30,9 @@ export const useSelectionOperation = (props?: {
   const fields = useFields();
   const view = useView();
   const { searchQuery: search } = useSearch();
+
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
   const groupBy = view?.group;
 
   const { mutateAsync: defaultCopyReq } = useMutation({
@@ -64,12 +69,12 @@ export const useSelectionOperation = (props?: {
     if (!isLocalhost() && !isHTTPS()) {
       toast({
         variant: 'destructive',
-        description: 'Copy and paste only works in HTTPS or localhost.',
+        description: t('table:table.actionTips.copyAndPasteEnvironment'),
       });
       return false;
     }
     return true;
-  }, [toast]);
+  }, [toast, t]);
 
   const doCopy = useCallback(
     async (selection: CombinedSelection, getCopyData?: () => Promise<ICopyVo>) => {
@@ -77,7 +82,7 @@ export const useSelectionOperation = (props?: {
       if (!viewId || !tableId) return;
 
       const toaster = toast({
-        title: 'Copying...',
+        title: t('table:table.actionTips.copying'),
       });
 
       const getCopyDataDefault = async () => {
@@ -95,19 +100,19 @@ export const useSelectionOperation = (props?: {
 
       try {
         await copyHandler(getCopyDataInner);
-        toaster.update({ id: toaster.id, title: 'Copied success!' });
+        toaster.update({ id: toaster.id, title: t('table:table.actionTips.copySuccessful') });
       } catch (e) {
         const error = e as Error;
         toaster.update({
           id: toaster.id,
           variant: 'destructive',
-          title: 'Copy error',
+          title: t('table:table.actionTips.copyFailed'),
           description: error.message,
         });
         console.error('Copy error: ', error);
       }
     },
-    [checkCopyAndPasteEnvironment, viewId, tableId, toast, copyRequest]
+    [checkCopyAndPasteEnvironment, viewId, tableId, toast, copyRequest, t]
   );
 
   const doPaste = useCallback(
@@ -121,7 +126,7 @@ export const useSelectionOperation = (props?: {
       if (!viewId || !tableId) return;
 
       const { files, types } = e.clipboardData;
-      const toaster = toast({ title: 'Pasting...' });
+      const toaster = toast({ title: t('table:table.actionTips.pasting') });
 
       try {
         if (files.length > 0 && !types.includes(ClipboardTypes.text)) {
@@ -129,7 +134,7 @@ export const useSelectionOperation = (props?: {
           if (!isSelectionCoverAttachments) {
             return toaster.update({
               id: toaster.id,
-              title: 'Files can only be pasted into an attachment field',
+              title: t('table:table.actionTips.pasteFileFailed'),
             });
           }
           await filePasteHandler({
@@ -158,19 +163,19 @@ export const useSelectionOperation = (props?: {
             }
           });
         }
-        toaster.update({ id: toaster.id, title: 'Pasted success!' });
+        toaster.update({ id: toaster.id, title: t('table:table.actionTips.pasteSuccessful') });
       } catch (e) {
         const error = e as Error;
         toaster.update({
           id: toaster.id,
           variant: 'destructive',
-          title: 'Past error',
+          title: t('table:table.actionTips.pasteFailed'),
           description: error.message,
         });
         console.error('Past error: ', error);
       }
     },
-    [viewId, tableId, fields, toast, temporaryPasteReq, pasteReq, checkCopyAndPasteEnvironment]
+    [viewId, tableId, fields, toast, temporaryPasteReq, pasteReq, checkCopyAndPasteEnvironment, t]
   );
 
   const doClear = useCallback(
@@ -178,7 +183,7 @@ export const useSelectionOperation = (props?: {
       if (!viewId || !tableId) return;
 
       const toaster = toast({
-        title: 'Clearing...',
+        title: t('table:table.actionTips.clearing'),
       });
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
@@ -188,9 +193,9 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({ id: toaster.id, title: 'Clear success!' });
+      toaster.update({ id: toaster.id, title: t('table:table.actionTips.clearSuccessful') });
     },
-    [tableId, toast, viewId, clearReq]
+    [tableId, toast, viewId, clearReq, t]
   );
 
   const doDelete = useCallback(
@@ -198,7 +203,7 @@ export const useSelectionOperation = (props?: {
       if (!viewId || !tableId) return;
 
       const toaster = toast({
-        title: 'Deleting...',
+        title: t('table:table.actionTips.deleting'),
       });
       const ranges = selection.serialize();
       const type = rangeTypes[selection.type];
@@ -208,9 +213,9 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({ id: toaster.id, title: 'Delete success!' });
+      toaster.update({ id: toaster.id, title: t('table:table.actionTips.deleteSuccessful') });
     },
-    [deleteReq, tableId, toast, viewId]
+    [deleteReq, tableId, toast, viewId, t]
   );
 
   return {
