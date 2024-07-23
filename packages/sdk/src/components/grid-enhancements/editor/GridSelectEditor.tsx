@@ -59,7 +59,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 
   const onChange = (value?: string[] | string) => {
     record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value);
-    if (!isMultiple) setEditing?.(false);
+    if (!isMultiple) setTimeout(() => setEditing?.(false));
   };
 
   const onOptionAdd = useCallback(
