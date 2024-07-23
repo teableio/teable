@@ -178,7 +178,14 @@ export class ImportOpenApiService {
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
 
     const worker = new Worker(join(process.cwd(), 'dist', 'worker', 'parse.js'), {
-      workerData: { config: importer.getConfig(), options },
+      workerData: {
+        config: importer.getConfig(),
+        options: {
+          key: options.sheetKey,
+          notification: options.notification,
+          skipFirstNLines: options.skipFirstNLines,
+        },
+      },
     });
 
     worker.on('message', async (result) => {

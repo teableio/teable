@@ -26,9 +26,11 @@ const parse = () => {
     },
     () => {
       parentPort?.postMessage({ type: 'finished' });
+      parentPort?.close();
     },
     (error) => {
       parentPort?.postMessage({ type: 'error', data: error });
+      parentPort?.close();
     }
   );
 };
