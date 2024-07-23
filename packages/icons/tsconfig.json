@@ -6,12 +6,11 @@
     "baseUrl": "./src",
     "target": "esnext",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "../",
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "noEmit": false,
     "incremental": true,
-    "composite": true,
     "moduleResolution": "node",
     "esModuleInterop": true
   },
