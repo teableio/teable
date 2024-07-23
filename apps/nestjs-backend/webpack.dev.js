@@ -1,11 +1,26 @@
+const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+const glob = require('glob');
 const nodeExternals = require('webpack-node-externals');
 
 module.exports = function (options, webpack) {
+  const workerFiles = glob.sync(path.join(__dirname, 'src/worker/**.ts'));
   return {
     ...options,
-    entry: ['webpack/hot/poll?100', options.entry],
+    entry: {
+      index: ['webpack/hot/poll?100', options.entry],
+      worker: workerFiles,
+    },
+    output: {
+      path: path.join(__dirname, 'dist'),
+      filename: (pathData) => {
+        if (pathData.chunk.name === 'worker') {
+          return 'worker/[name].js';
+        }
+        return '[name].js';
+      },
+    },
     mode: 'development',
     devtool: 'source-map',
     externals: [
@@ -13,6 +28,22 @@ module.exports = function (options, webpack) {
         allowlist: ['webpack/hot/poll?100', /^@teable/],
       }),
     ],
+    // optimization: {
+    //   ...options.optimization,
+    //   splitChunks: {
+    //     chunks: 'all',
+    //     cacheGroups: {
+    //       workers: {
+    //         test: /[\\/]worker[\\/]/,
+    //         name(module) {
+    //           const matchedPath = module.resource.match(/[\\/]worker[\\/](.*?)\.(ts|js)$/);
+    //           return matchedPath ? `worker/${matchedPath[1]}` : 'worker/unknown';
+    //         },
+    //         enforce: true,
+    //       },
+    //     },
+    //   },
+    // },
     // ignore tests hot reload
     watchOptions: {
       ignored: ['**/test/**', '**/*.spec.ts', '**/node_modules/**'],
