@@ -676,18 +676,19 @@ export class RecordService {
     await this.creditCheck(tableId);
     const dbTableName = await this.getDbTableName(tableId);
     const fields = await this.getFieldsByProjection(tableId);
-    const fieldsMap = fields.reduce(
+    const fieldInstanceMap = fields.reduce(
       (map, curField) => {
-        map[curField.id] = curField.dbFieldName;
+        map[curField.id] = curField;
         return map;
       },
-      {} as Record<string, string>
+      {} as Record<string, IFieldInstance>
     );
 
     const newRecords = records.map((record) => {
       const fieldsValues: Record<string, unknown> = {};
       Object.entries(record.fields).forEach(([fieldId, value]) => {
-        fieldsValues[fieldsMap[fieldId]] = Array.isArray(value) ? JSON.stringify(value) : value;
+        const fieldInstance = fieldInstanceMap[fieldId];
+        fieldsValues[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(value);
       });
       return {
         __id: generateRecordId(),
