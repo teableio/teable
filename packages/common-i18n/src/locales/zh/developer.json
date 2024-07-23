@@ -1,7 +1,11 @@
 {
   "apiQueryBuilder": "API 查询构建器",
+  "subTitle": "你可以通过可视化的用户界面快速构建查询请求，并复制可直接运行的代码",
+  "apiList": "完整 API 列表",
+  "cellFormat": "返回值格式",
+  "fieldKeyType": "字段 key 类型",
+  "fieldKeyTypeDesc": "存在筛选或者排序条件时，仅可使用 Id 作为字段 Key",
   "chooseSource": "选择数据源",
-  "subTitle": "选择好你想要进行请求的表格，即可开始参数配置",
   "action": {
     "selectBase": "选择一个数据库...",
     "selectTable": "选择一个表..."

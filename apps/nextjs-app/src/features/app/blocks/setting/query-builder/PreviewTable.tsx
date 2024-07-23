@@ -1,3 +1,4 @@
+import { nullsToUndefined } from '@teable/core';
 import { getRecords, type IGetRecordsRo } from '@teable/openapi';
 import type { ICell, ICellItem } from '@teable/sdk/components';
 import {
@@ -10,7 +11,7 @@ import {
   useGridIcons,
   useGridTheme,
 } from '@teable/sdk/components';
-import { useTableId } from '@teable/sdk/hooks';
+import { useIsHydrated, useTableId } from '@teable/sdk/hooks';
 import { Table } from '@teable/sdk/model/table';
 import { ToggleGroup, ToggleGroupItem } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -31,10 +32,12 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
   useEffect(() => {
     if (tableId == null) return;
 
-    Table.getRowCount(tableId, query).then((res) => {
+    Table.getRowCount(tableId, nullsToUndefined(query) as IGetRecordsRo).then((res) => {
       setRowCount(res.data.rowCount);
     });
   }, [tableId, query]);
+
+  const isHydrated = useIsHydrated();
 
   const customIcons = useGridIcons();
 
@@ -42,11 +45,13 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
 
   useEffect(() => {
     if (mode === 'json' && tableId) {
-      getRecords(tableId, { ...query, take: 10 }).then((res) => {
-        setRecordRes(res.data);
-      });
+      getRecords(tableId, { ...(nullsToUndefined(query) as IGetRecordsRo), take: 10 }).then(
+        (res) => {
+          setRecordRes(res.data);
+        }
+      );
     }
-  });
+  }, [mode, query, tableId]);
 
   const getCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
@@ -68,9 +73,10 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
         <ToggleGroup
           className="w-auto"
           type="single"
+          variant="outline"
           size="sm"
           value={mode}
-          onValueChange={(v) => setMode(v)}
+          onValueChange={(v) => setMode(v || 'grid')}
         >
           <ToggleGroupItem value="grid" aria-label="Toggle view">
             Grid
@@ -80,7 +86,7 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
-      {mode === 'grid' && (
+      {mode === 'grid' && isHydrated && (
         <div className="relative h-[500px] w-full overflow-hidden rounded-lg border">
           <Grid
             style={{

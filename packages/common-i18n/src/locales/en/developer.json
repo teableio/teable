@@ -1,7 +1,11 @@
 {
   "apiQueryBuilder": "API query builder",
+  "subTitle": "You can quickly build your query requests through a interactive UI and copy the code that can be run directly",
+  "apiList": "Complete API List",
+  "cellFormat": "Cell result format",
+  "fieldKeyType": "Field key type",
+  "fieldKeyTypeDesc": "The type of the field key in the result",
   "chooseSource": "Choose a data source",
-  "subTitle": "Select the table you want to query, then start configuring parameters",
   "action": {
     "selectBase": "Select a database...",
     "selectTable": "Select a table..."
