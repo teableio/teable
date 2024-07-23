@@ -34,6 +34,7 @@ import type {
   IPasteVo,
   IRangesRo,
   IDeleteVo,
+  ITemporaryPasteVo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
@@ -515,7 +516,7 @@ export class SelectionService {
               );
               break;
             default:
-              recordField[field.id] = field.convertStringToCellValue(stringValue);
+              recordField[field.id] = stringValue || null;
           }
         }
 
@@ -651,20 +652,25 @@ export class SelectionService {
     const tableData = this.expandPasteContent(this.parseCopyContent(content), rangeCell);
     const tableColCount = tableData[0].length;
     const effectFields = fields.slice(startColumnIndex, startColumnIndex + tableColCount);
+    let result: ITemporaryPasteVo = [];
 
-    const newRecords = await this.tableDataToRecords({
-      tableId,
-      tableData,
-      headerFields: header.map(createFieldInstanceByVo),
-      fields: effectFields,
+    await this.prismaService.$tx(async () => {
+      const newRecords = await this.tableDataToRecords({
+        tableId,
+        tableData,
+        headerFields: header.map(createFieldInstanceByVo),
+        fields: effectFields,
+      });
+
+      result = await this.recordOpenApiService.validateFieldsAndTypecast(
+        tableId,
+        newRecords,
+        FieldKeyType.Id,
+        true
+      );
     });
 
-    return await this.recordOpenApiService.validateFieldsAndTypecast(
-      tableId,
-      newRecords,
-      FieldKeyType.Id,
-      true
-    );
+    return result;
   }
 
   async paste(

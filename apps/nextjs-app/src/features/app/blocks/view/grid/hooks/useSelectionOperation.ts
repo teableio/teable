@@ -172,7 +172,7 @@ export const useSelectionOperation = (props?: {
           title: t('table:table.actionTips.pasteFailed'),
           description: error.message,
         });
-        console.error('Past error: ', error);
+        console.error('Paste error: ', error);
       }
     },
     [viewId, tableId, fields, toast, temporaryPasteReq, pasteReq, checkCopyAndPasteEnvironment, t]
