@@ -9,13 +9,13 @@ import {
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import {
-  useBase,
   useView,
   useFields,
   useTableId,
   useGroupPoint,
   useTablePermission,
   useFieldPermission,
+  useBaseId,
 } from '@teable/sdk/hooks';
 import type {
   KanbanView,
@@ -40,7 +40,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const view = useView() as KanbanView | undefined;
   const { shareId } = useContext(ShareViewPageContext) ?? {};
   const { sort, filter } = view ?? {};
-  const { id: baseId } = useBase() ?? {};
+  const baseId = useBaseId() as string;
   const permission = useTablePermission();
   const fields = useFields();
   const allFields = useFields({ withHidden: true, withDenied: true });

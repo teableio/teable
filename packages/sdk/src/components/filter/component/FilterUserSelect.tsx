@@ -3,9 +3,10 @@ import { isMeTag, Me } from '@teable/core';
 import { User as UserIcon } from '@teable/icons';
 import { getBaseCollaboratorList } from '@teable/openapi';
 import { useCallback, useMemo } from 'react';
-import { ReactQueryKeys } from '../../../config';
+import { ReactQueryKeys } from '../../../config/react-query-keys';
 import { useTranslation } from '../../../context/app/i18n';
-import { useBase, useSession } from '../../../hooks';
+import { useBaseId } from '../../../hooks/use-base-id';
+import { useSession } from '../../../hooks/use-session';
 import type { UserField } from '../../../model';
 import { UserTag } from '../../cell-value';
 import { UserOption } from '../../editor';
@@ -127,12 +128,12 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
 };
 
 const FilterUserSelect = (props: IFilterUserProps) => {
-  const { id: baseId } = useBase();
+  const baseId = useBaseId();
   const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string),
+    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
   });
-  return <FilterUserSelectBase {...props} data={collaboratorsData?.data} />;
+  return collaboratorsData && <FilterUserSelectBase {...props} data={collaboratorsData} />;
 };
 
 export { FilterUserSelect, FilterUserSelectBase };
