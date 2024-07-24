@@ -1,5 +1,6 @@
-import { AnchorProvider } from '@teable/sdk/context';
+import { StandaloneViewProvider } from '@teable/sdk/context';
 import { Button, Tabs } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -10,10 +11,11 @@ import { GridContent } from './GridContent';
 export function DashboardPage() {
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const [anchor, setAnchor] = useState<{ tableId?: string; viewId?: string }>({});
+  const { query } = useRouter();
   const { viewId, tableId } = anchor;
   const [showDashboard, setShowDashboard] = useLocalStorage('showDashboard', false);
   return (
-    <AnchorProvider viewId={viewId} tableId={tableId}>
+    <StandaloneViewProvider viewId={viewId} tableId={tableId} baseId={query.baseId as string}>
       <div className="h-full flex-col md:flex">
         <div className="flex h-full flex-1 flex-col gap-2 lg:gap-4">
           <div className="items-center justify-between space-y-2 px-8 pb-2 pt-6 lg:flex">
@@ -58,6 +60,6 @@ export function DashboardPage() {
           )}
         </div>
       </div>
-    </AnchorProvider>
+    </StandaloneViewProvider>
   );
 }

@@ -5,7 +5,7 @@ import { getBaseCollaboratorList } from '@teable/openapi';
 import type { ForwardRefRenderFunction } from 'react';
 import React, { forwardRef } from 'react';
 import { ReactQueryKeys } from '../../../config';
-import { useBase } from '../../../hooks';
+import { useBaseId } from '../../../hooks';
 import type { ICellEditor, ICellEditorContext } from '../type';
 import type { IUserEditorRef } from './EditorBase';
 import { UserEditorBase } from './EditorBase';
@@ -18,9 +18,9 @@ export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUser
 }
 
 const DefaultDataWrapper = forwardRef<IUserEditorRef, IUserEditorMainProps>((props, ref) => {
-  const { id: baseId } = useBase();
+  const baseId = useBaseId();
   const { data: collaborators, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string),
     queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]),
   });
   return (

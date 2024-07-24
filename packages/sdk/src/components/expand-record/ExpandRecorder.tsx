@@ -3,21 +3,22 @@ import { useToast } from '@teable/ui-lib';
 import { type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
-import { AnchorProvider, ViewProvider } from '../../context';
+import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
-import { useTableId } from '../../hooks';
+import { useBaseId, useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
 
 const Wrap: FC<PropsWithChildren<{ tableId: string }>> = (props) => {
   const { tableId, children } = props;
   const currentTableId = useTableId();
+  const baseId = useBaseId();
 
   if (tableId !== currentTableId) {
     return (
-      <AnchorProvider tableId={tableId}>
+      <StandaloneViewProvider baseId={baseId} tableId={tableId}>
         <ViewProvider>{children}</ViewProvider>
-      </AnchorProvider>
+      </StandaloneViewProvider>
     );
   }
   return <>{children}</>;

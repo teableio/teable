@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, Database, HelpCircle } from '@teable/icons';
 import { deleteDbConnection, getDbConnection, createDbConnection } from '@teable/openapi';
-import { useBase, useBasePermission } from '@teable/sdk/hooks';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import {
   Button,
   Card,
@@ -17,23 +17,23 @@ import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 
 const ContentCard = () => {
-  const base = useBase();
+  const baseId = useBaseId() as string;
   const queryClient = useQueryClient();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { data, isLoading } = useQuery({
-    queryKey: ['connection', base.id],
+    queryKey: ['connection', baseId],
     queryFn: ({ queryKey }) => getDbConnection(queryKey[1]).then((data) => data.data),
   });
 
   const mutationCreate = useMutation(createDbConnection, {
     onSuccess: () => {
-      queryClient.invalidateQueries(['connection', base.id]);
+      queryClient.invalidateQueries(['connection', baseId]);
     },
   });
 
   const mutationDelete = useMutation(deleteDbConnection, {
     onSuccess: () => {
-      queryClient.invalidateQueries(['connection', base.id]);
+      queryClient.invalidateQueries(['connection', baseId]);
     },
   });
   const dataArray = data?.dsn
@@ -135,11 +135,11 @@ const ContentCard = () => {
           )}
           <div className="flex justify-end">
             {data ? (
-              <Button size="sm" onClick={() => mutationDelete.mutate(base.id)}>
+              <Button size="sm" onClick={() => mutationDelete.mutate(baseId)}>
                 {t('common:actions.delete')}
               </Button>
             ) : (
-              <Button size="sm" onClick={() => mutationCreate.mutate(base.id)}>
+              <Button size="sm" onClick={() => mutationCreate.mutate(baseId)}>
                 {t('common:actions.create')}
               </Button>
             )}

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CellFormat, FieldKeyType, type IFilterSet, type ISortItem } from '@teable/core';
 import { getBaseAll, getTableList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { AnchorProvider } from '@teable/sdk/context';
+import { StandaloneViewProvider } from '@teable/sdk/context';
 import { Selector } from '@teable/ui-lib/base';
 import { Button, ToggleGroup, ToggleGroupItem } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight } from 'lucide-react';
@@ -81,13 +81,13 @@ export const QueryBuilder = () => {
           <>
             <div className="flex flex-col gap-2">
               <h1 className="font-bold">{t('common:noun.view')}</h1>
-              <AnchorProvider baseId={baseId} tableId={tableId}>
+              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
                 <ViewBuilder viewId={viewId} onChange={setViewId} />
-              </AnchorProvider>
+              </StandaloneViewProvider>
             </div>
             <div className="flex flex-col gap-2">
               <h1 className="font-bold">{t('sdk:filter.label')}</h1>
-              <AnchorProvider baseId={baseId} tableId={tableId}>
+              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
                 <FilterBuilder
                   filter={filter}
                   onChange={(f) => {
@@ -95,11 +95,11 @@ export const QueryBuilder = () => {
                     setFieldKeyType(FieldKeyType.Id);
                   }}
                 />
-              </AnchorProvider>
+              </StandaloneViewProvider>
             </div>
             <div className="flex flex-col gap-2">
               <h1 className="font-bold">{t('sdk:sort.label')}</h1>
-              <AnchorProvider baseId={baseId} tableId={tableId}>
+              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
                 <OrderByBuilder
                   orderBy={orderBy}
                   onChange={(o) => {
@@ -107,13 +107,13 @@ export const QueryBuilder = () => {
                     setFieldKeyType(FieldKeyType.Id);
                   }}
                 />
-              </AnchorProvider>
+              </StandaloneViewProvider>
             </div>
             <div className="flex flex-col gap-2">
               <h1 className="font-bold">{t('common:actions.search')}</h1>
-              <AnchorProvider baseId={baseId} tableId={tableId}>
+              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
                 <SearchBuilder search={search} onChange={setSearch} />
-              </AnchorProvider>
+              </StandaloneViewProvider>
             </div>
             <div className="flex flex-col gap-2">
               <h1 className="font-bold">{t('developer:cellFormat')}</h1>
@@ -176,9 +176,9 @@ export const QueryBuilder = () => {
         {tableId && (
           <div className="flex w-full flex-col gap-4">
             <h1 className="font-bold">{t('developer:previewReturnValue')}</h1>
-            <AnchorProvider baseId={baseId} tableId={tableId}>
+            <StandaloneViewProvider baseId={baseId} tableId={tableId}>
               <PreviewTable query={{ filter, orderBy, viewId, search, cellFormat, fieldKeyType }} />
-            </AnchorProvider>
+            </StandaloneViewProvider>
           </div>
         )}
       </div>

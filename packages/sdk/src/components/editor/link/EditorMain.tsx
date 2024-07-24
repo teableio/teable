@@ -13,9 +13,9 @@ import {
   useState,
 } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
-import { AnchorProvider } from '../../../context';
+import { StandaloneViewProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
-import { useBase, useSearch, useTable } from '../../../hooks';
+import { useBaseId, useSearch, useTableId } from '../../../hooks';
 import { Table } from '../../../model';
 import { CreateRecordModal } from '../../create-record';
 import { SearchInput } from '../../search';
@@ -50,8 +50,8 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     onReset,
   }));
 
-  const base = useBase();
-  const table = useTable();
+  const baseId = useBaseId();
+  const tableId = useTableId();
   const { t } = useTranslation();
 
   const listRef = useRef<ILinkListRef>(null);
@@ -59,8 +59,6 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const [values, setValues] = useState<ILinkCellValue[]>();
   const [listType, setListType] = useState<LinkListType>(LinkListType.Unselected);
 
-  const baseId = base.id;
-  const tableId = table?.id;
   const isMultiple = isMultiValueLink(options.relationship);
 
   const recordQuery = useMemo((): IGetRecordsRo => {
@@ -189,11 +187,12 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
 ) => {
   const { options } = props;
   const tableId = options.foreignTableId;
+  const baseId = useBaseId();
 
   return (
-    <AnchorProvider tableId={tableId}>
+    <StandaloneViewProvider baseId={baseId} tableId={tableId}>
       <LinkEditorInner ref={forwardRef} {...props} />
-    </AnchorProvider>
+    </StandaloneViewProvider>
   );
 };
 

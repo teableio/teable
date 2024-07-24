@@ -3,7 +3,7 @@ import type { ILinkFieldOptionsRo } from '@teable/core';
 import { Relationship } from '@teable/core';
 import { getTablePermission } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase, useTableId, useTables } from '@teable/sdk/hooks';
+import { useBaseId, useTableId, useTables } from '@teable/sdk/hooks';
 import { Selector } from '@teable/ui-lib/base';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
@@ -17,7 +17,7 @@ export const LinkOptions = (props: {
   const { options, isLookup, onChange } = props;
   const tableId = useTableId();
   const tables = useTables();
-  const baseId = useBase().id;
+  const baseId = useBaseId() as string;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const relationship = options?.relationship ?? Relationship.ManyOne;

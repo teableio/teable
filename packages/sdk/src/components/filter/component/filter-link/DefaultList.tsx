@@ -1,5 +1,6 @@
-import { AnchorProvider } from '../../../../context';
+import { StandaloneViewProvider } from '../../../../context';
 import { useTranslation } from '../../../../context/app/i18n';
+import { useBaseId } from '../../../../hooks/use-base-id';
 import { SocketRecordList } from '../../../record-list';
 import { StorageLinkSelected } from './storage';
 import type { IFilterLinkSelectListProps } from './types';
@@ -7,12 +8,17 @@ import type { IFilterLinkSelectListProps } from './types';
 export const DefaultList = (props: IFilterLinkSelectListProps) => {
   const { field, value, onClick } = props;
   const { t } = useTranslation();
+  const baseId = useBaseId();
 
   const isSingle = typeof value === 'string';
   const values = isSingle ? [value] : value;
 
   return (
-    <AnchorProvider tableId={field.options.foreignTableId} fallback={<h1>{t('common.empty')}</h1>}>
+    <StandaloneViewProvider
+      baseId={baseId}
+      tableId={field.options.foreignTableId}
+      fallback={<h1>{t('common.empty')}</h1>}
+    >
       <SocketRecordList
         selectedRecordIds={values || undefined}
         onClick={(value) => {
@@ -21,6 +27,6 @@ export const DefaultList = (props: IFilterLinkSelectListProps) => {
         }}
         primaryFieldId={field.options.lookupFieldId}
       />
-    </AnchorProvider>
+    </StandaloneViewProvider>
   );
 };

@@ -1,7 +1,7 @@
 import type { ILookupOptionsRo, ILookupOptionsVo } from '@teable/core';
 import { FieldType } from '@teable/core';
-import { AnchorProvider } from '@teable/sdk/context';
-import { useFields, useTable, useFieldStaticGetter } from '@teable/sdk/hooks';
+import { StandaloneViewProvider } from '@teable/sdk/context';
+import { useFields, useTable, useFieldStaticGetter, useBaseId } from '@teable/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable/sdk/model';
 import { Selector } from '@teable/ui-lib/base';
 import { Trans, useTranslation } from 'next-i18next';
@@ -64,6 +64,7 @@ export const LookupOptions = (props: {
     linkFieldId: options.linkFieldId,
     lookupFieldId: options.lookupFieldId,
   });
+  const baseId = useBaseId();
 
   const setOptions = useCallback(
     (options: Partial<ILookupOptionsRo>, linkField?: LinkField, lookupField?: IFieldInstance) => {
@@ -102,7 +103,7 @@ export const LookupOptions = (props: {
             />
           </div>
           {innerOptions.foreignTableId && (
-            <AnchorProvider tableId={innerOptions.foreignTableId}>
+            <StandaloneViewProvider baseId={baseId} tableId={innerOptions.foreignTableId}>
               <SelectFieldByTableId
                 selectedId={innerOptions.lookupFieldId}
                 onChange={(lookupField: IFieldInstance) => {
@@ -112,7 +113,7 @@ export const LookupOptions = (props: {
                   setOptions?.({ lookupFieldId: lookupField.id }, linkField, lookupField);
                 }}
               />
-            </AnchorProvider>
+            </StandaloneViewProvider>
           )}
         </>
       ) : (
