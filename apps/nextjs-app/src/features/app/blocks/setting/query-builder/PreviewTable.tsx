@@ -1,4 +1,4 @@
-import { nullsToUndefined } from '@teable/core';
+import { nullsToUndefinedShallow } from '@teable/core';
 import { getRecords, type IGetRecordsRo } from '@teable/openapi';
 import type { ICell, ICellItem } from '@teable/sdk/components';
 import {
@@ -32,7 +32,7 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
   useEffect(() => {
     if (tableId == null) return;
 
-    Table.getRowCount(tableId, nullsToUndefined(query) as IGetRecordsRo).then((res) => {
+    Table.getRowCount(tableId, nullsToUndefinedShallow(query) as IGetRecordsRo).then((res) => {
       setRowCount(res.data.rowCount);
     });
   }, [tableId, query]);
@@ -45,7 +45,7 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
 
   useEffect(() => {
     if (mode === 'json' && tableId) {
-      getRecords(tableId, { ...(nullsToUndefined(query) as IGetRecordsRo), take: 10 }).then(
+      getRecords(tableId, { ...(nullsToUndefinedShallow(query) as IGetRecordsRo), take: 10 }).then(
         (res) => {
           setRecordRes(res.data);
         }
