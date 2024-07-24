@@ -1,11 +1,27 @@
+const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+const glob = require('glob');
 const nodeExternals = require('webpack-node-externals');
 
 module.exports = function (options, webpack) {
+  const workerFiles = glob.sync(path.join(__dirname, 'src/worker/**.ts'));
+  const workerEntries = workerFiles.reduce((acc, file) => {
+    const relativePath = path.relative(path.join(__dirname, 'src/worker'), file);
+    const entryName = `worker/${path.dirname(relativePath)}/${path.basename(relativePath, '.ts')}`;
+    acc[entryName] = file;
+    return acc;
+  }, {});
   return {
     ...options,
-    entry: ['webpack/hot/poll?100', options.entry],
+    entry: {
+      index: ['webpack/hot/poll?100', options.entry],
+      ...workerEntries,
+    },
+    output: {
+      path: path.join(__dirname, 'dist'),
+      filename: '[name].js',
+    },
     mode: 'development',
     devtool: 'source-map',
     externals: [
