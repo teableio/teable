@@ -124,7 +124,7 @@ const genTestFiles = async () => {
 
     const {
       data: { presignedUrl },
-    } = await apiNotify(token);
+    } = await apiNotify(token, undefined, 'Import Table.csv');
 
     result[format] = {
       path: tmpPath,
@@ -222,6 +222,8 @@ describe('OpenAPI ImportController (e2e)', () => {
   });
 
   describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
     it.each(testFileFormats.filter((format) => format !== TestFileFormat.TXT))(
       'should create a new Table from %s file',
       async (format) => {
@@ -266,10 +268,15 @@ describe('OpenAPI ImportController (e2e)', () => {
           name: field.name,
         }));
 
-        await apiGetTableById(baseId, table.data[0].id);
+        await delay(1000);
+
+        const { records } = await apiGetTableById(baseId, table.data[0].id, {
+          includeContent: true,
+        });
 
         bases.push([baseId, id]);
 
+        expect(records?.length).toBe(2);
         expect(createdFields).toEqual(assertHeaders);
       }
     );

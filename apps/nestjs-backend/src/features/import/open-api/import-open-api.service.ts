@@ -1,6 +1,8 @@
+import { join } from 'path';
+import { Worker } from 'worker_threads';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldType, FieldKeyType } from '@teable/core';
+import { FieldType, FieldKeyType, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
@@ -172,77 +174,106 @@ export class ImportOpenApiService {
       sourceColumnMap?: Record<string, number | null>;
     }
   ) {
-    const { skipFirstNLines, sheetKey, notification } = options;
+    const { sheetKey, notification } = options;
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
 
-    importer.parse(
-      {
-        skipFirstNLines,
-        key: sheetKey,
+    const workerId = `worker_${getRandomString(8)}`;
+    const worker = new Worker(join(process.cwd(), 'dist', 'worker', 'parse.js'), {
+      workerData: {
+        config: importer.getConfig(),
+        options: {
+          key: options.sheetKey,
+          notification: options.notification,
+          skipFirstNLines: options.skipFirstNLines,
+        },
+        id: workerId,
       },
-      async (result) => {
-        const currentResult = result[sheetKey];
-        // fill data
-        const records = currentResult.map((row) => {
-          const res: { fields: Record<string, unknown> } = {
-            fields: {},
-          };
-          // import new table
-          if (columnInfo) {
-            columnInfo.forEach((col, index) => {
-              const { sourceColumnIndex } = col;
-              // empty row will be return void row value
-              const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
-              res.fields[fields[index].id] = value?.toString();
-            });
-          }
-          // inplace records
-          if (sourceColumnMap) {
-            for (const [key, value] of Object.entries(sourceColumnMap)) {
-              if (value !== null) {
-                const { type } = fields.find((f) => f.id === key) || {};
-                // link value should be string
-                res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
+    });
+
+    worker.on('message', async (result) => {
+      const { type, data, chunkId, id } = result;
+      switch (type) {
+        case 'chunk': {
+          const currentResult = (data as Record<string, unknown[][]>)[sheetKey];
+          // fill data
+          const records = currentResult.map((row) => {
+            const res: { fields: Record<string, unknown> } = {
+              fields: {},
+            };
+            // import new table
+            if (columnInfo) {
+              columnInfo.forEach((col, index) => {
+                const { sourceColumnIndex } = col;
+                // empty row will be return void row value
+                const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
+                res.fields[fields[index].id] = value?.toString();
+              });
+            }
+            // inplace records
+            if (sourceColumnMap) {
+              for (const [key, value] of Object.entries(sourceColumnMap)) {
+                if (value !== null) {
+                  const { type } = fields.find((f) => f.id === key) || {};
+                  // link value should be string
+                  res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
+                }
               }
             }
+            return res;
+          });
+          if (records.length === 0) {
+            return;
           }
-          return res;
-        });
-        if (records.length === 0) {
-          return;
+          try {
+            const createFn = columnInfo
+              ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
+              : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
+            workerId === id &&
+              (await createFn(table.id, {
+                fieldKeyType: FieldKeyType.Id,
+                typecast: true,
+                records,
+              }));
+            worker.postMessage({ type: 'done', chunkId });
+          } catch (e) {
+            this.logger.error((e as Error)?.message, (e as Error)?.stack);
+            throw e;
+          }
+          break;
         }
-        try {
-          const createFn = columnInfo
-            ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
-            : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
-          await createFn(table.id, {
-            fieldKeyType: FieldKeyType.Id,
-            typecast: true,
-            records,
-          });
-        } catch (e) {
-          this.logger.error((e as Error)?.message, (e as Error)?.stack);
-          throw e;
-        }
-      },
-      () => {
-        notification &&
-          this.notificationService.sendImportResultNotify({
-            baseId,
-            tableId: table.id,
-            toUserId: userId,
-            message: `🎉 ${table.name} ${sourceColumnMap ? 'inplace' : ''} imported successfully`,
-          });
-      },
-      (error) => {
-        notification &&
-          this.notificationService.sendImportResultNotify({
-            baseId,
-            tableId: table.id,
-            toUserId: userId,
-            message: `❌ ${table.name} import failed: ${error}`,
-          });
+        case 'finished':
+          workerId === id &&
+            notification &&
+            this.notificationService.sendImportResultNotify({
+              baseId,
+              tableId: table.id,
+              toUserId: userId,
+              message: `🎉 ${table.name} ${sourceColumnMap ? 'inplace' : ''} imported successfully`,
+            });
+          break;
+        case 'error':
+          workerId === id &&
+            notification &&
+            this.notificationService.sendImportResultNotify({
+              baseId,
+              tableId: table.id,
+              toUserId: userId,
+              message: `❌ ${table.name} import failed: ${data}`,
+            });
+          break;
       }
-    );
+    });
+    worker.on('error', (e) => {
+      notification &&
+        this.notificationService.sendImportResultNotify({
+          baseId,
+          tableId: table.id,
+          toUserId: userId,
+          message: `❌ ${table.name} import failed: ${e.message}`,
+        });
+    });
+    worker.on('exit', (code) => {
+      this.logger.log(`Worker stopped with exit code ${code}`);
+    });
   }
 }

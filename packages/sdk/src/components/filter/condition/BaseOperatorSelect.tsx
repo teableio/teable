@@ -40,8 +40,8 @@ export function BaseOperatorSelect(props: IBaseOperatorSelectProps) {
       options={operatorOption}
       popoverClassName="w-48"
       className={cn('m-1 shrink-0 justify-between', {
-        'max-w-40': compact,
-        'w-40': !compact,
+        'max-w-32': compact,
+        'w-32': !compact,
       })}
       onSelect={onSelect}
       disabled={shouldDisabled}

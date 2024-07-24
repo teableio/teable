@@ -33,10 +33,11 @@ const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
   [FieldType.SingleLineText]: z.string(),
 };
 
-interface IImportConstructorParams {
+export interface IImportConstructorParams {
   url: string;
   type: SUPPORTEDTYPE;
   maxRowCount?: number;
+  fileName?: string;
 }
 
 interface IParseResult {
@@ -74,6 +75,14 @@ export abstract class Importer {
     ]
   ): Promise<IParseResult>;
 
+  private setFileNameFromHeader(fileName: string) {
+    this.config.fileName = fileName;
+  }
+
+  getConfig() {
+    return this.config;
+  }
+
   async getFile() {
     const { url, type } = this.config;
     const { body: stream, headers } = await fetch(url);
@@ -97,12 +106,29 @@ export abstract class Importer {
       );
     }
 
-    return stream;
+    const contentDisposition = headers.get('content-disposition');
+    let fileName = 'Import Table.csv';
+
+    if (contentDisposition) {
+      const fileNameMatch =
+        contentDisposition.match(/filename\*=UTF-8''([^;]+)/) ||
+        contentDisposition.match(/filename="?([^"]+)"?/);
+      if (fileNameMatch) {
+        fileName = fileNameMatch[1];
+      }
+    }
+
+    const finalFileName = fileName.split('.').shift() as string;
+
+    this.setFileNameFromHeader(decodeURIComponent(finalFileName));
+
+    return { stream, fileName: finalFileName };
   }
 
   async genColumns() {
     const supportTypes = Importer.SUPPORTEDTYPE;
     const parseResult = await this.parse();
+    const { fileName, type } = this.config;
     const result: IAnalyzeVo['worksheets'] = {};
 
     for (const [sheetName, cols] of Object.entries(parseResult)) {
@@ -154,7 +180,7 @@ export abstract class Importer {
       });
 
       result[sheetName] = {
-        name: sheetName,
+        name: type === SUPPORTEDTYPE.EXCEL ? sheetName : fileName ? fileName : sheetName,
         columns: calculatedColumnHeaders,
       };
     }
@@ -185,7 +211,7 @@ export class CsvImporter extends Importer {
     ]
   ): Promise<unknown> {
     const [options, chunkCb, onFinished, onError] = args;
-    const stream = await this.getFile();
+    const { stream } = await this.getFile();
 
     // chunk parse
     if (options && chunkCb) {
@@ -299,7 +325,7 @@ export class ExcelImporter extends Importer {
     onFinished?: () => void,
     onError?: (errorMsg: string) => void
   ): Promise<unknown> {
-    const fileSteam = await this.getFile();
+    const { stream: fileSteam } = await this.getFile();
 
     const asyncRs = async (stream: NodeJS.ReadableStream): Promise<IParseResult> =>
       new Promise((res, rej) => {
