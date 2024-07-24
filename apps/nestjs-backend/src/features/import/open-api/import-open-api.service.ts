@@ -1,4 +1,3 @@
-import { join } from 'path';
 import { Worker } from 'worker_threads';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
@@ -17,7 +16,7 @@ import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { DEFAULT_VIEWS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
-import { importerFactory } from './import.class';
+import { importerFactory, getWorkerPath } from './import.class';
 import type { CsvImporter, ExcelImporter } from './import.class';
 
 @Injectable()
@@ -178,7 +177,9 @@ export class ImportOpenApiService {
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
 
     const workerId = `worker_${getRandomString(8)}`;
-    const worker = new Worker(join(process.cwd(), 'dist', 'worker', 'parse.js'), {
+    const path = getWorkerPath('parse');
+
+    const worker = new Worker(path, {
       workerData: {
         config: importer.getConfig(),
         options: {
