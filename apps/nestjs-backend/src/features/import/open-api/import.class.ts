@@ -1,3 +1,5 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { BadRequestException } from '@nestjs/common';
 import { getUniqName, FieldType } from '@teable/core';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
@@ -388,5 +390,17 @@ export const importerFactory = (type: SUPPORTEDTYPE, config: IImportConstructorP
       return new ExcelImporter(config);
     default:
       throw new Error('not support');
+  }
+};
+
+export const getWorkerPath = (fileName: string) => {
+  // there are two possible paths for worker
+  const workerPath = join(__dirname, 'worker', `${fileName}.js`);
+  const workerPath2 = join(process.cwd(), 'dist', 'worker', `${fileName}.js`);
+
+  if (existsSync(workerPath)) {
+    return workerPath;
+  } else {
+    return workerPath2;
   }
 };
