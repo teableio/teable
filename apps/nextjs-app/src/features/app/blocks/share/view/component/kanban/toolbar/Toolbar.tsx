@@ -19,7 +19,6 @@ export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
   const allFields = useFields({ withHidden: true, withDenied: true });
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { stackFieldId } = view?.options ?? {};
-
   const stackFieldName = useMemo(() => {
     if (stackFieldId == null) return '';
     const groupField = allFields.find(({ id }) => id === stackFieldId);

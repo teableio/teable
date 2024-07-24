@@ -4,8 +4,9 @@ import { Plus } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { Button, Dialog, DialogContent, DialogTrigger, useToast } from '@teable/ui-lib';
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { AnchorProvider } from '../../../context';
+import { StandaloneViewProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
+import { useBaseId } from '../../../hooks/use-base-id';
 import { ExpandRecorder } from '../../expand-record';
 import type { ILinkEditorMainRef } from './EditorMain';
 import { LinkEditorMain } from './EditorMain';
@@ -48,6 +49,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
   const [values, setValues] = useState<ILinkCellValue[]>();
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const { t } = useTranslation();
+  const baseId = useBaseId();
 
   const { foreignTableId, relationship } = options;
   const isMultiple = isMultiValueLink(relationship);
@@ -112,7 +114,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
       {Boolean(selectedRowCount) &&
         (displayType === LinkDisplayType.Grid ? (
           <div className="relative h-40 w-full overflow-hidden rounded-md border">
-            <AnchorProvider tableId={foreignTableId}>
+            <StandaloneViewProvider baseId={baseId} tableId={foreignTableId}>
               <LinkList
                 ref={listRef}
                 type={LinkListType.Selected}
@@ -124,7 +126,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                 onChange={onRecordListChange}
                 onExpand={onRecordExpand}
               />
-            </AnchorProvider>
+            </StandaloneViewProvider>
           </div>
         ) : (
           cvArray?.map(({ id, title }) => (

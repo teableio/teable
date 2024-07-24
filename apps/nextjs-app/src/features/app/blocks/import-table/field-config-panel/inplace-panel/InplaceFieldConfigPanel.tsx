@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/openapi';
 import { getTableById as apiGetTableById, getFields as apiGetFields } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBase } from '@teable/sdk/hooks';
+import { useBaseId } from '@teable/sdk/hooks';
 import { isEqual } from 'lodash';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +23,7 @@ export type IInplaceOption = Pick<
 >;
 
 const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
-  const base = useBase();
+  const baseId = useBaseId() as string;
   const { t } = useTranslation(['table']);
   const { tableId, workSheets, insertConfig, onChange, errorMessage } = props;
 
@@ -36,8 +36,8 @@ const InplaceFieldConfigPanel = (props: IInplaceFieldConfigPanel) => {
   );
 
   const { data: table } = useQuery({
-    queryKey: ReactQueryKeys.tableInfo(base.id, tableId),
-    queryFn: () => apiGetTableById(base.id, tableId).then((data) => data.data),
+    queryKey: ReactQueryKeys.tableInfo(baseId, tableId),
+    queryFn: () => apiGetTableById(baseId, tableId).then((data) => data.data),
   });
 
   const { data: fields } = useQuery({

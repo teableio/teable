@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { ColorUtils } from '@teable/core';
 import { DraggableHandle, X } from '@teable/icons';
 import { IdReturnType, getGraph, getIdsFromRanges } from '@teable/openapi';
-import { useBase, useTableId, useViewId } from '@teable/sdk';
+import { useBaseId, useTableId, useViewId } from '@teable/sdk';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
@@ -15,7 +15,7 @@ export const CellGraph: React.FC = () => {
   const { selection } = useGridViewStore();
   const { mutateAsync: getGraphMutator, data, isLoading } = useMutation({ mutationFn: getGraph });
   const tableId = useTableId();
-  const base = useBase();
+  const baseId = useBaseId();
   const viewId = useViewId();
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(500);
@@ -38,7 +38,7 @@ export const CellGraph: React.FC = () => {
   useEffect(() => {
     const cell = selection?.ranges?.[0];
     const isCell = selection?.isCellSelection;
-    if (!selection || !cell || !isCell || !tableId || !viewId || !base.id) {
+    if (!selection || !cell || !isCell || !tableId || !viewId || !baseId) {
       return;
     }
     getIdsFromRanges(tableId, {
@@ -52,7 +52,7 @@ export const CellGraph: React.FC = () => {
         return;
       }
 
-      getGraphMutator({ baseId: base.id, tableId, cell: [fieldId, recordId] }).then((res) => {
+      getGraphMutator({ baseId, tableId, cell: [fieldId, recordId] }).then((res) => {
         if (res.data) {
           const { nodes, edges, combos } = res.data;
           const cache: Record<string, string> = {};
@@ -88,7 +88,7 @@ export const CellGraph: React.FC = () => {
         }
       });
     });
-  }, [base.id, getGraphMutator, selection, tableId, updateGraph, viewId]);
+  }, [baseId, getGraphMutator, selection, tableId, updateGraph, viewId]);
 
   return (
     <Rnd

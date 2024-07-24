@@ -7,7 +7,7 @@ import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
 import { map, omit } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
-import { useBase } from '../../../../hooks';
+import { useBaseId } from '../../../../hooks';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { FileZone } from '../../../FileZone';
 import { getFileCover, isSystemFileIcon } from '../utils';
@@ -35,7 +35,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     readonly,
     attachmentManager = defaultAttachmentManager,
   } = props;
-  const base = useBase();
+  const baseId = useBaseId();
   const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
   const listRef = useRef<HTMLDivElement>(null);
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
@@ -104,14 +104,14 @@ export const UploadAttachment = (props: IUploadAttachment) => {
             setUploadingFiles((pre) => ({ ...pre, [file.id]: { progress, file: file.instance } }));
           },
         },
-        base?.id
+        baseId
       );
       setUploadingFiles((pre) => ({ ...pre, ...newUploadMap }));
       setTimeout(() => {
         scrollBottom();
       }, 100);
     },
-    [attachmentManager, base?.id, handleSuccess, t, uploadingFiles]
+    [attachmentManager, baseId, handleSuccess, t, uploadingFiles]
   );
 
   const scrollBottom = () => {

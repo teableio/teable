@@ -1,6 +1,6 @@
 import { ViewType } from '@teable/core';
 import { ArrowUpRight, Code2, Component, Database, MoreHorizontal, Share2 } from '@teable/icons';
-import { useBase, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
+import { useBaseId, useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
@@ -22,7 +22,7 @@ const OthersList = ({
   const view = useView();
   const permission = useTablePermission();
   const { t } = useTranslation('table');
-  const base = useBase();
+  const baseId = useBaseId() as string;
   const tableId = useTableId();
 
   return (
@@ -86,7 +86,7 @@ const OthersList = ({
             <Link
               href={{
                 pathname: '/developer/tool/query-builder',
-                query: { baseId: base.id, tableId },
+                query: { baseId, tableId },
               }}
               target="_blank"
             >
