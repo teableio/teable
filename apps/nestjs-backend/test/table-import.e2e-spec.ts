@@ -268,14 +268,15 @@ describe('OpenAPI ImportController (e2e)', () => {
           name: field.name,
         }));
 
-        delay(1000);
+        await delay(1000);
 
-        await apiGetTableById(baseId, table.data[0].id, {
+        const { records } = await apiGetTableById(baseId, table.data[0].id, {
           includeContent: true,
         });
 
         bases.push([baseId, id]);
 
+        expect(records?.length).toBe(2);
         expect(createdFields).toEqual(assertHeaders);
       }
     );

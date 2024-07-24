@@ -228,11 +228,12 @@ export class ImportOpenApiService {
             const createFn = columnInfo
               ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
               : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
-            await createFn(table.id, {
-              fieldKeyType: FieldKeyType.Id,
-              typecast: true,
-              records,
-            });
+            workerId === id &&
+              (await createFn(table.id, {
+                fieldKeyType: FieldKeyType.Id,
+                typecast: true,
+                records,
+              }));
             worker.postMessage({ type: 'done', chunkId });
           } catch (e) {
             this.logger.error((e as Error)?.message, (e as Error)?.stack);
