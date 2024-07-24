@@ -43,8 +43,8 @@ function FieldSelect(props: IFieldSelectProps) {
       onSelect={onSelect}
       value={value}
       className={cn('shrink-0', {
-        'max-w-40': compact,
-        'w-40': !compact,
+        'max-w-32': compact,
+        'w-32': !compact,
       })}
       popoverClassName="w-fit"
       optionRender={optionRender}
