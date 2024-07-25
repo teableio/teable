@@ -135,6 +135,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           onSelect(value?.length ? (value as IFilterItem['value']) : null),
         value: value as string[],
         operator: operator,
+        className: 'ml-1',
       };
       if (components && components[FieldType.Link]) {
         const LinkComponents = components[FieldType.Link];
@@ -150,7 +151,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           value={value as number}
           options={field.options}
           onChange={onSelect as (value?: number) => void}
-          className="h-8 rounded-md border border-input px-2 shadow-sm"
+          className="ml-1 h-8 rounded-md border border-input px-2 shadow-sm"
           iconClassName="w-4 h-4 mr-1"
         />
       );

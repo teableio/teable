@@ -1,5 +1,6 @@
 import type { IConjunction } from '@teable/core';
 import { cn } from '@teable/ui-lib';
+import { useTranslation } from '../../../context/app/i18n';
 import { useCompact } from '../hooks';
 import { ConjunctionSelect } from './ConjunctionSelect';
 
@@ -17,6 +18,7 @@ enum ConjunctionPosition {
 
 const Conjunction = (props: IConjunctionProps) => {
   const { index, onSelect, value } = props;
+  const { t } = useTranslation();
   const compact = useCompact();
 
   return (
@@ -26,11 +28,17 @@ const Conjunction = (props: IConjunctionProps) => {
         'w-[66px]': !compact,
       })}
     >
-      {index === ConjunctionPosition.WHERE ? <span className="px-1 text-sm">where</span> : null}
+      {index === ConjunctionPosition.WHERE ? (
+        <span className="px-1 text-sm">{t('filter.conjunction.where')}</span>
+      ) : null}
       {index === ConjunctionPosition.SELECTOR ? (
         <ConjunctionSelect value={value} onSelect={onSelect} />
       ) : null}
-      {index >= ConjunctionPosition.JOIN ? <span className="px-1 text-[13px]">{value}</span> : null}
+      {index >= ConjunctionPosition.JOIN ? (
+        <span className="px-1 text-[13px]">
+          {value === 'or' ? t('filter.conjunction.or') : t('filter.conjunction.and')}
+        </span>
+      ) : null}
     </div>
   );
 };

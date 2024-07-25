@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from '@teable/icons';
 import { Button, cn } from '@teable/ui-lib';
 import { useState } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 
 interface IRowCounterProps {
   rowCount: number;
@@ -9,6 +10,7 @@ interface IRowCounterProps {
 
 export const RowCounter = (props: IRowCounterProps) => {
   const { rowCount, className } = props;
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
   const onClick = () => {
@@ -24,7 +26,7 @@ export const RowCounter = (props: IRowCounterProps) => {
         className
       )}
     >
-      {collapsed ? rowCount : `${rowCount} records`}
+      {collapsed ? rowCount : t('common.rowCount', { count: rowCount })}
       <Button
         variant={'ghost'}
         size={'xs'}

@@ -2,16 +2,12 @@ import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teab
 import { exactDate, FieldType, getValidFilterSubOperators } from '@teable/core';
 import { Input } from '@teable/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField } from '../../../../model';
 import { DateEditor } from '../../../editor';
+import { useDateI18nMap } from '../../hooks';
 import { BaseSingleSelect } from '../base';
-import {
-  DATEPICKEROPTIONS,
-  defaultValue,
-  INPUTOPTIONS,
-  withInDefaultValue,
-  defaultMapping,
-} from './constant';
+import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
 
 interface IFilerDatePickerProps {
   value: IDateFilter | null;
@@ -28,6 +24,8 @@ const isDateMetaValue = (value: any) => {
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect, field } = props;
   const [innerValue, setInnerValue] = useState<IDateFilter | null>(initValue);
+  const { t } = useTranslation();
+  const dateMap = useDateI18nMap();
 
   const defaultConfig = useMemo(() => {
     if (operator !== 'isWithIn') {
@@ -83,7 +81,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     );
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const options = optionMapping!.map((operator) => ({
-      label: defaultMapping[operator],
+      label: dateMap[operator],
       value: operator,
     }));
     // change the operator to another type
@@ -93,7 +91,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       onSelect?.(newValue);
     }
     return options;
-  }, [defaultConfig.mode, innerValue, onSelect, operator]);
+  }, [dateMap, defaultConfig.mode, innerValue, onSelect, operator]);
 
   const inputCreator = useMemo(() => {
     const isDatePick = innerValue?.mode && DATEPICKEROPTIONS.includes(innerValue?.mode);
@@ -112,7 +110,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       case isInput:
         return (
           <Input
-            placeholder="Enter days"
+            placeholder={t('filter.default.placeholder')}
             defaultValue={innerValue?.numberOfDays ?? ''}
             className="m-1 h-8 w-24 placeholder:text-[13px]"
             onInput={(e) => {
@@ -131,7 +129,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         );
     }
     return null;
-  }, [innerValue, datePickerSelect, field, onSelect]);
+  }, [innerValue, datePickerSelect, field.options, t, onSelect]);
 
   return (
     <>
