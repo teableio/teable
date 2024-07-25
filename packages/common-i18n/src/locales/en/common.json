@@ -225,8 +225,9 @@
     "read": "Read",
     "markAs": "Mark this notification as {{status}}",
     "markAllAsRead": "Mark all as read",
-    "noUnread": "No unread notifications",
+    "noUnread": "No {{status}} notifications",
     "changeSetting": "Change page notification settings",
-    "new": "new {{count}}"
+    "new": "new {{count}}",
+    "showMore": "Show more"
   }
 }

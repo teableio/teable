@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { NotificationStatesEnum } from '@teable/core';
+import { NotificationStatesEnum } from '@teable/core';
 import { Inbox } from '@teable/icons';
 import type { INotificationVo } from '@teable/openapi';
 import { updateNotificationStatus } from '@teable/openapi';
@@ -7,6 +7,7 @@ import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib';
 import Link from 'next/link';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { NotificationActionBar } from './NotificationActionBar';
 import { NotificationIcon } from './NotificationIcon';
@@ -23,6 +24,7 @@ interface NotificationListProps {
 
 export const NotificationList: React.FC<NotificationListProps> = (props) => {
   const { notifyStatus, data, className, hasNextPage, isFetchingNextPage, onShowMoreClick } = props;
+  const { t } = useTranslation('common');
   const queryClient = useQueryClient();
   const dayjs = useLanDayjs();
 
@@ -102,7 +104,14 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
           <div className="flex items-center justify-center text-5xl font-normal">
             <Inbox />
           </div>
-          <p className="text-center">No {notifyStatus} notifications</p>
+          <p className="text-center">
+            {t('notification.noUnread', {
+              status:
+                notifyStatus === NotificationStatesEnum.Read
+                  ? t('notification.read')
+                  : t('notification.unread'),
+            })}
+          </p>
         </div>
       ) : (
         <>
@@ -115,7 +124,7 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
               onClick={onShowMoreClick}
               disabled={!hasNextPage || isFetchingNextPage}
             >
-              Show more
+              {t('notification.showMore')}
             </Button>
           )}
         </>
