@@ -17,5 +17,5 @@
     }
   },
   "exclude": ["**/node_modules", "**/.*/", "dist", "build"],
-  "include": ["./src", "../../icons/src"]
+  "include": ["./src"]
 }

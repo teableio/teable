@@ -8,7 +8,6 @@
     "jsx": "react-jsx",
     "jsxFactory": "",
     "jsxFragmentFactory": "",
-    "composite": true,
     "paths": {}
   },
   "exclude": ["**/*.stories.tsx", "**/*.stories.mdx", ".storybook/**", "**/*spec.ts"],
