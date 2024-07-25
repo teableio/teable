@@ -17,7 +17,8 @@
     "selectPlaceHolder": "请选择...",
     "loading": "加载中...",
     "loadMore": "加载更多",
-    "uploadFailed": "上传失败"
+    "uploadFailed": "上传失败",
+    "rowCount": "{{count}}条记录"
   },
   "editor": {
     "attachment": {
@@ -62,6 +63,65 @@
     "default": {
       "empty": "当前没有应用任何筛选条件",
       "placeholder": "请输入"
+    },
+    "conjunction": {
+      "and": "所有",
+      "or": "任意",
+      "where": "当"
+    },
+    "operator": {
+      "is": "等于",
+      "isNot": "不等于",
+      "contains": "包含",
+      "doesNotContain": "不包含",
+      "isEmpty": "为空",
+      "isNotEmpty": "不为空",
+      "isGreater": "大于",
+      "isGreaterEqual": "大于等于",
+      "isLess": "小于",
+      "isLessEqual": "小于等于",
+      "isAnyOf": "属于",
+      "isNoneOf": "不属于",
+      "hasAnyOf": "包含",
+      "hasAllOf": "包含所有",
+      "hasNoneOf": "不包含",
+      "isExactly": "等于",
+      "isWithIn": "在...之内",
+      "isBefore": "早于",
+      "isAfter": "晚于",
+      "isOnOrBefore": "早于或等于",
+      "isOnOrAfter": "晚于或等于",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "component": {
+      "date": {
+        "today": "今天",
+        "tomorrow": "明天",
+        "yesterday": "昨天",
+        "oneWeekAgo": "一周前",
+        "oneWeekFromNow": "一周后",
+        "oneMonthAgo": "一个月前",
+        "oneMonthFromNow": "一个月后",
+        "daysAgo": "几天前",
+        "daysFromNow": "几天后",
+        "exactDate": "具体日期",
+
+        "pastWeek": "过去一周",
+        "pastMonth": "过去一个月",
+        "pastYear": "过去一年",
+        "nextWeek": "下周",
+        "nextMonth": "下个月",
+        "nextYear": "明年",
+        "pastNumberOfDays": "过去几天",
+        "nextNumberOfDays": "接下来几天"
+      }
     }
   },
   "color": {

@@ -1,3 +1,4 @@
+import { cn } from '@teable/ui-lib';
 import { useTranslation } from '../../../../context/app/i18n';
 import { FilterInput } from '../FilterInput';
 import type { IFilterLinkProps } from './types';
@@ -5,7 +6,7 @@ import type { IFilterLinkProps } from './types';
 type IFilterLinkInputProps = IFilterLinkProps<string>;
 
 export const FilterLinkInput = (props: IFilterLinkInputProps) => {
-  const { value, onSelect } = props;
+  const { value, onSelect, className } = props;
   const { t } = useTranslation();
 
   return (
@@ -13,7 +14,7 @@ export const FilterLinkInput = (props: IFilterLinkInputProps) => {
       placeholder={t('filter.linkInputPlaceholder')}
       value={value}
       onChange={onSelect}
-      className="w-40"
+      className={cn('w-40', className)}
     />
   );
 };

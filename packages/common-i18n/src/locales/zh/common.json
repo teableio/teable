@@ -224,8 +224,9 @@
     "read": "已读",
     "markAs": "将此通知标记为{{status}}",
     "markAllAsRead": "全部标记为已读",
-    "noUnread": "没有未读通知",
+    "noUnread": "没有{{status}}通知",
     "changeSetting": "更改页面通知设置",
-    "new": "新消息{{count}}条"
+    "new": "新消息{{count}}条",
+    "showMore": "显示更多"
   }
 }
