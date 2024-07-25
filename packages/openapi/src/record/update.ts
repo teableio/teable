@@ -1,7 +1,8 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IRecord } from '@teable/core';
 import { recordSchema } from '@teable/core';
-import { axios } from '../axios';
+import type { AxiosResponse, Axios } from 'axios';
+import { axios as axiosInstance } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { recordInsertOrderRoSchema } from './create';
@@ -72,16 +73,42 @@ export const UpdateRecordRoute: RouteConfig = registerRoute({
   tags: ['record'],
 });
 
-export const updateRecord = async (
+export async function updateRecord(
   tableId: string,
   recordId: string,
   recordRo: IUpdateRecordRo
-) => {
-  return axios.patch<IRecord>(
-    urlBuilder(UPDATE_RECORD, {
-      tableId,
-      recordId,
-    }),
-    recordRo
+): Promise<AxiosResponse<IRecord>>;
+export async function updateRecord(
+  axios: Axios,
+  tableId: string,
+  recordId: string,
+  recordRo: IUpdateRecordRo
+): Promise<AxiosResponse<IRecord>>;
+export async function updateRecord(
+  axios: Axios | string,
+  tableId?: string,
+  recordId?: string | IUpdateRecordRo,
+  recordRo?: IUpdateRecordRo
+): Promise<AxiosResponse<IRecord>> {
+  let theAxios: Axios;
+  let theTableId: string;
+  let theRecordId: string;
+  let theRecordRo: IUpdateRecordRo;
+
+  if (typeof axios === 'string') {
+    theAxios = axiosInstance;
+    theTableId = axios;
+    theRecordId = tableId as string;
+    theRecordRo = recordId as IUpdateRecordRo;
+  } else {
+    theAxios = axios;
+    theTableId = tableId as string;
+    theRecordId = recordId as string;
+    theRecordRo = recordRo!;
+  }
+
+  return theAxios.patch<IRecord>(
+    urlBuilder(UPDATE_RECORD, { tableId: theTableId, recordId: theRecordId }),
+    theRecordRo
   );
-};
+}
