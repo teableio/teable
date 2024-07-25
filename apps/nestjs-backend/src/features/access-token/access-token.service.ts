@@ -45,8 +45,7 @@ export class AccessTokenService {
 
   async validate(splitAccessTokenObj: { accessTokenId: string; sign: string }) {
     const { accessTokenId, sign } = splitAccessTokenObj;
-
-    const accessTokenEntity = await this.prismaService.txClient().accessToken.findUniqueOrThrow({
+    const accessTokenEntity = await this.prismaService.accessToken.findUniqueOrThrow({
       where: { id: accessTokenId },
       select: {
         userId: true,
@@ -62,7 +61,7 @@ export class AccessTokenService {
     if (accessTokenEntity.expiredTime.getTime() < Date.now() + 1000) {
       throw new UnauthorizedException('token expired');
     }
-    await this.prismaService.txClient().accessToken.update({
+    await this.prismaService.accessToken.update({
       where: { id: accessTokenId },
       data: { lastUsedTime: new Date().toISOString() },
     });
@@ -101,7 +100,7 @@ export class AccessTokenService {
       createAccessToken;
     const id = generateAccessTokenId();
     const sign = getRandomString(16);
-    const accessTokenEntity = await this.prismaService.txClient().accessToken.create({
+    const accessTokenEntity = await this.prismaService.accessToken.create({
       data: {
         id,
         name,
