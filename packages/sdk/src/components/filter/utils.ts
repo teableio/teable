@@ -1,17 +1,8 @@
 import type { IFilter } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
-import { cloneDeep } from 'lodash';
 import type { IFieldInstance } from '../../model';
-import { operatorLabelMapping, fieldNumberLabelMap, EMPTY_OPERATORS } from './constant';
+import { EMPTY_OPERATORS } from './constant';
 import { isFilterItem } from './types';
-
-export const getFieldOperatorMapping = (type?: FieldType) => {
-  let mergedMapping = cloneDeep(operatorLabelMapping);
-  if (type === FieldType.Number) {
-    mergedMapping = { ...operatorLabelMapping, ...fieldNumberLabelMap };
-  }
-  return mergedMapping;
-};
 
 export const shouldFilterByDefaultValue = (field: IFieldInstance | undefined) => {
   if (!field) return false;

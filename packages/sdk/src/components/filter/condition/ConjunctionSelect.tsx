@@ -1,5 +1,6 @@
 import type { IConjunction } from '@teable/core';
 import { cn } from '@teable/ui-lib';
+import { useTranslation } from '../../../context/app/i18n';
 import { BaseSingleSelect } from '../component';
 import { useCompact } from '../hooks';
 
@@ -7,17 +8,6 @@ interface IConjunctionItem {
   value: IConjunction;
   label: string;
 }
-
-const ConjunctionOptions: IConjunctionItem[] = [
-  {
-    value: 'and',
-    label: 'and',
-  },
-  {
-    value: 'or',
-    label: 'or',
-  },
-];
 
 interface IConjunctionSelectProps {
   value: IConjunction;
@@ -27,6 +17,17 @@ interface IConjunctionSelectProps {
 function ConjunctionSelect(props: IConjunctionSelectProps) {
   const { onSelect, value } = props;
   const compact = useCompact();
+  const { t } = useTranslation();
+  const ConjunctionOptions: IConjunctionItem[] = [
+    {
+      value: 'and',
+      label: t('filter.conjunction.and'),
+    },
+    {
+      value: 'or',
+      label: t('filter.conjunction.or'),
+    },
+  ];
 
   return (
     <BaseSingleSelect<IConjunction, IConjunctionItem>
