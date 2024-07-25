@@ -60,6 +60,6 @@ export async function getFields(
   }
 
   return theAxios.get<IFieldVo[]>(urlBuilder(GET_FIELD_LIST, { tableId: theTableId }), {
-    params: { query: theQuery },
+    params: theQuery,
   });
 }
