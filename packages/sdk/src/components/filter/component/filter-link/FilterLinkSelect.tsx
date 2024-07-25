@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import { useState } from 'react';
 import { SINGLE_SELECT_OPERATORS } from './constant';
 import { DefaultList } from './DefaultList';
@@ -13,7 +13,7 @@ interface FilterLinkSelectProps extends IFilterLinkProps {
 }
 
 export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
-  const { value, operator, onSelect, components } = props;
+  const { value, operator, onSelect, components, className } = props;
   const { Trigger, List } = components || {};
   const [open, setOpen] = useState(false);
 
@@ -37,7 +37,7 @@ export const FilterLinkSelect = (props: FilterLinkSelectProps) => {
     <div className="space-y-3">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size={'sm'} className="w-40 justify-start">
+          <Button variant="outline" size={'sm'} className={cn('w-40 justify-start', className)}>
             <InnerTrigger {...props} />
           </Button>
         </PopoverTrigger>

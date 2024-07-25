@@ -5,6 +5,7 @@ export interface IFilterLinkProps<T = string[] | string> {
   operator: string;
   value: T | null;
   onSelect: (value: T | null) => void;
+  className?: string;
 }
 
 export interface IFilterLinkSelectListProps {
