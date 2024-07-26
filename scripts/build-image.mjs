@@ -35,6 +35,10 @@ const getSemver = async () => {
     const runNumber = env.GITHUB_RUN_NUMBER;
     const sha = env.GITHUB_SHA.substring(0, 7);
 
+    console.log('refType: ', refType);
+    console.log('runNumber: ', runNumber);
+    console.log('sha: ', sha);
+
     switch (refType) {
       case 'branch':
         semver = `${version}-alpha+build.${runNumber}.sha-${sha}`;
@@ -44,7 +48,7 @@ const getSemver = async () => {
         break;
     }
   }
-
+  console.log('semver: ', semver);
   return semver;
 };
 
@@ -92,7 +96,8 @@ const push = toBoolean(pushArg);
 const command = ['docker', 'buildx', 'build'];
 
 // BUILD_VERSION - this is a default behavior
-command.push('--build-arg', `BUILD_VERSION=${await getSemver()}`);
+const semver = await getSemver();
+command.push('--build-arg', `BUILD_VERSION=${semver}`);
 
 await asyncForEach(buildArgs, async (buildArg) => {
   command.push('--build-arg', buildArg);
@@ -109,8 +114,10 @@ if (file) {
 if (platforms.length > 0) {
   command.push('--platform', platforms.join(','));
 }
-await asyncForEach(tags, async (tag) => {
-  command.push('--tag', `${tag}${tagSuffix ?? ''}`);
+await asyncForEach(tags, async (fullName) => {
+  const [image, tag] = fullName.split(':');
+  command.push('--tag', `${image}:${tag}${tagSuffix ?? ''}`);
+  command.push('--tag', `${image}:${semver}`);
 });
 
 if (push) {
