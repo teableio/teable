@@ -80,6 +80,8 @@ const {
   'build-arg': buildArg,
   'cache-from': cacheFromArg,
   'cache-to': cacheToArg,
+  tag,
+  'tag-suffix': tagSuffix,
   platforms: platformsArg,
   push: pushArg,
 } = argv;
@@ -87,11 +89,13 @@ const {
 const buildArgs = toArray(buildArg);
 const cacheFrom = toArray(cacheFromArg);
 const cacheTo = toArray(cacheToArg);
+const tags = toArray(tag, false, true);
 const platforms = toArray(platformsArg, true);
 const push = toBoolean(pushArg);
 
 const command = ['docker', 'buildx', 'build'];
 
+// BUILD_VERSION - this is a default behavior
 const semver = await getSemver();
 command.push('--build-arg', `BUILD_VERSION=${semver}`);
 
@@ -110,11 +114,11 @@ if (file) {
 if (platforms.length > 0) {
   command.push('--platform', platforms.join(','));
 }
-
-// 使用 package.json 中的版本号作为标签，并添加 latest 标签
-const imageName = 'your-image-name'; // 请替换为您的镜像名称
-command.push('--tag', `${imageName}:${semver}`);
-command.push('--tag', `${imageName}:latest`);
+await asyncForEach(tags, async (tag) => {
+  command.push('--tag', `${tag}${tagSuffix ?? ''}`);
+  // 添加新的 tag，使用 semver
+  command.push('--tag', `${tag}:${semver}${tagSuffix ?? ''}`);
+});
 
 if (push) {
   command.push('--push');
