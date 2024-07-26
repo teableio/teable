@@ -3,7 +3,7 @@ name: Build and Push to Docker Registry
 on:
   push:
     branches:
-      - fix/transaction
+      - build/tag
     tags:
       - 'v*'
     paths:
@@ -11,6 +11,7 @@ on:
       - 'apps/nextjs-app/**'
       - 'packages/core/**'
       - 'packages/sdk/**'
+      - '.github/**'
 
 jobs:
   build-push:
