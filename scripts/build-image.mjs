@@ -116,8 +116,9 @@ if (platforms.length > 0) {
 }
 await asyncForEach(tags, async (fullName) => {
   const [image, tag] = fullName.split(':');
+  const dockerSemver = semver.replace(/\+/g, '-').replace(/\s/g, '_');
   command.push('--tag', `${image}:${tag}${tagSuffix ?? ''}`);
-  command.push('--tag', `${image}:${semver}`);
+  command.push('--tag', `${image}:${dockerSemver}`);
 });
 
 if (push) {
