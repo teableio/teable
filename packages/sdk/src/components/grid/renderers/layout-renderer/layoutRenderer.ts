@@ -704,10 +704,6 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
   const { scrollTop, scrollLeft } = scrollState;
   const { themeKey } = theme;
 
-  // const { fontFamily, avatarBg, avatarTextColor, avatarSizeXS, fontSizeXXS, scrollBarBg } = theme;
-  // const avatarOffset = 4;
-  // const cellOffset = 1;
-
   const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
     coordInstance;
 
@@ -722,7 +718,7 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
     const conflictCollaborators = visibleCells[i].sort((a, b) => b.timeStamp - a.timeStamp);
     const { activeCell, borderColor } = conflictCollaborators[0];
     if (!activeCell) {
-      return;
+      continue;
     }
     const [columnIndex, _rowIndex] = activeCell;
     const rowIndex = real2RowIndex(_rowIndex);
