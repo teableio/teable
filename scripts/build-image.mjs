@@ -124,4 +124,5 @@ if (push) {
 command.push('.');
 command.push('--progress=plain');
 
-await $`${command}`;
+// await $`${command}`;
+console.log(command.join(' '));
