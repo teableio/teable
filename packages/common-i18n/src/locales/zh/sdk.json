@@ -65,8 +65,8 @@
       "placeholder": "请输入"
     },
     "conjunction": {
-      "and": "所有",
-      "or": "任一",
+      "and": "且",
+      "or": "或",
       "where": "当"
     },
     "operator": {
