@@ -3,7 +3,7 @@ name: Build and Push to Docker Registry
 on:
   push:
     branches:
-      - build/tag
+      - develop
     tags:
       - 'v*'
     paths:
