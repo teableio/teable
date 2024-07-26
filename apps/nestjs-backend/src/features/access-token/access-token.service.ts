@@ -100,7 +100,7 @@ export class AccessTokenService {
       createAccessToken;
     const id = generateAccessTokenId();
     const sign = getRandomString(16);
-    const accessTokenEntity = await this.prismaService.accessToken.create({
+    const accessTokenEntity = await this.prismaService.txClient().accessToken.create({
       data: {
         id,
         name,
