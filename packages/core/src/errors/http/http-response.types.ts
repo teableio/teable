@@ -32,4 +32,6 @@ export enum HttpErrorCode {
   GATEWAY_TIMEOUT = 'gateway_timeout',
   // Unknown error code
   UNKNOWN_ERROR_CODE = 'unknown_error_code',
+  /** view */
+  VIEW_NOT_FOUND = 'view_not_found',
 }
