@@ -47,7 +47,7 @@ function ConditionGroup(props: IConditionGroupProps) {
             </span>
 
             <div className="flex">
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">
                     <Plus className="size-4"></Plus>
