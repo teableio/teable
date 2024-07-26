@@ -12,6 +12,7 @@ on:
       - 'packages/core/**'
       - 'packages/sdk/**'
       - '.github/**'
+      - 'scripts/**'
 
 jobs:
   build-push:
