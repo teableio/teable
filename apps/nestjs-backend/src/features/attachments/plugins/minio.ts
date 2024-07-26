@@ -38,7 +38,7 @@ export class MinioStorage implements StorageAdapter {
     const requestHeaders = {
       'Content-Type': contentType,
       'Content-Length': contentLength,
-      'response-cache-control': 'max-age=31536000',
+      'response-cache-control': 'max-age=518400',
     };
     try {
       const url = await this.minioClient.presignedUrl(
