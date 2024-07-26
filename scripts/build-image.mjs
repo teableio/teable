@@ -35,6 +35,10 @@ const getSemver = async () => {
     const runNumber = env.GITHUB_RUN_NUMBER;
     const sha = env.GITHUB_SHA.substring(0, 7);
 
+    console.log('refType: ', refType);
+    console.log('runNumber: ', runNumber);
+    console.log('sha: ', sha);
+
     switch (refType) {
       case 'branch':
         semver = `${version}-alpha+build.${runNumber}.sha-${sha}`;
@@ -44,7 +48,7 @@ const getSemver = async () => {
         break;
     }
   }
-
+  console.log('semver: ', semver);
   return semver;
 };
 
