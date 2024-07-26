@@ -58,19 +58,6 @@ jobs:
       - name: ⚙️ Install zx
         run: npm install -g zx
 
-      - name: ⚙️ Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            registry.cn-shenzhen.aliyuncs.com/teable/${{ matrix.image }}
-            ghcr.io/teableio/${{ matrix.image }}
-            docker.io/teableio/${{ matrix.image }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            # set latest tag for default branch
-            type=raw,value=latest,enable={{is_default_branch}}
       - name: ⚙️ Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: ⚙️ Set up Docker Buildx
@@ -79,6 +66,5 @@ jobs:
         run: |
           zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
               --build-arg="ENABLE_CSP=false" \
-              --tag="${{ steps.meta.outputs.tags }}" \
               --platforms="linux/amd64,linux/arm64" \
               --push
