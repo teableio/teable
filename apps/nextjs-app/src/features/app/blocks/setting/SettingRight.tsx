@@ -1,6 +1,7 @@
 import { HelpCircle } from '@teable/icons';
 import { useSession } from '@teable/sdk/hooks';
 import { Button, Separator } from '@teable/ui-lib/shadcn';
+import Head from 'next/head';
 import React from 'react';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 
@@ -15,6 +16,11 @@ export const SettingRight = (props: ISettingRight) => {
   const { user } = useSession();
   return (
     <div className="size-full">
+      {typeof title === 'string' && (
+        <Head>
+          <title>{title}</title>
+        </Head>
+      )}
       <div className="flex h-full flex-1 flex-col">
         <div className="flex h-16 items-center gap-x-4 px-8">
           {typeof title === 'string' ? <h2 className="flex-1 text-base">{title}</h2> : title}
