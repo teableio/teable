@@ -114,10 +114,10 @@ if (file) {
 if (platforms.length > 0) {
   command.push('--platform', platforms.join(','));
 }
-await asyncForEach(tags, async (tag) => {
-  command.push('--tag', `${tag}${tagSuffix ?? ''}`);
-  // 添加新的 tag，使用 semver
-  command.push('--tag', `${tag}:${semver}${tagSuffix ?? ''}`);
+await asyncForEach(tags, async (fullName) => {
+  const [image, tag] = fullName.split(':');
+  command.push('--tag', `${image}:${tag}${tagSuffix ?? ''}`);
+  command.push('--tag', `${image}:${semver}`);
 });
 
 if (push) {
