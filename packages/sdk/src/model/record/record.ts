@@ -30,7 +30,7 @@ export class Record extends RecordCore {
     super(fieldMap);
   }
 
-  private onCommitLocal(fieldId: string, cellValue: unknown) {
+  private onCommitLocal(fieldId: string, cellValue: unknown, undo?: boolean) {
     const oldCellValue = this.fields[fieldId];
     const operation = RecordOpBuilder.editor.setRecord.build({
       fieldId,
@@ -39,6 +39,9 @@ export class Record extends RecordCore {
     });
     this.doc.data.fields[fieldId] = cellValue;
     this.doc.emit('op', [operation], false, '');
+    if (this.doc.version) {
+      undo ? this.doc.version-- : this.doc.version++;
+    }
     this.fields[fieldId] = cellValue;
   }
 
@@ -57,7 +60,7 @@ export class Record extends RecordCore {
         },
       });
     } catch (error) {
-      this.onCommitLocal(fieldId, oldCellValue);
+      this.onCommitLocal(fieldId, oldCellValue, true);
       return error;
     }
   }

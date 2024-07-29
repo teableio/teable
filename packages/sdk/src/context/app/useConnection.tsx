@@ -10,6 +10,7 @@ export function getWsPath() {
   return `${wsProtocol}//${window.location.host}/socket`;
 }
 
+const ignoreErrorCodes = [HttpErrorCode.VIEW_NOT_FOUND];
 const shareDbErrorHandler = (error: unknown) => {
   const httpError = new HttpError(error as string, 500);
   const { code, message } = httpError;
@@ -19,6 +20,9 @@ const shareDbErrorHandler = (error: unknown) => {
   }
   if (code === HttpErrorCode.UNAUTHORIZED_SHARE) {
     window.location.reload();
+    return;
+  }
+  if (ignoreErrorCodes) {
     return;
   }
   toast({ title: 'Socket Error', variant: 'destructive', description: `${code}: ${message}` });

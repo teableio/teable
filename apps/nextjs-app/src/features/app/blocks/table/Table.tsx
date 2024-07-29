@@ -5,10 +5,10 @@ import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ErrorBoundary } from 'react-error-boundary';
-import { FailAlert } from '../table-list/FailAlert';
 import { View } from '../view/View';
+import { FailAlert } from './FailAlert';
+import { useViewErrorHandler } from './hooks/use-view-error-handler';
 import { TableHeader } from './table-header/TableHeader';
-import { ViewCheck } from './ViewCheck';
 
 export interface ITableProps {
   baseServerData: IGetBaseVo;
@@ -32,6 +32,7 @@ export const Table: React.FC<ITableProps> = ({
     viewId: string;
     baseId: string;
   };
+  useViewErrorHandler(baseId, tableId, viewId);
   return (
     <AnchorContext.Provider value={{ tableId, viewId, baseId }}>
       <Head>
@@ -45,19 +46,17 @@ export const Table: React.FC<ITableProps> = ({
         <ViewProvider serverData={viewServerData}>
           <div className="flex h-full grow basis-[500px] flex-col">
             <TableHeader />
-            <ViewCheck>
-              <FieldProvider serverSideData={fieldServerData}>
-                <ErrorBoundary
-                  fallback={
-                    <div className="flex size-full items-center justify-center">
-                      <FailAlert />
-                    </div>
-                  }
-                >
-                  <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
-                </ErrorBoundary>
-              </FieldProvider>
-            </ViewCheck>
+            <FieldProvider serverSideData={fieldServerData}>
+              <ErrorBoundary
+                fallback={
+                  <div className="flex size-full items-center justify-center">
+                    <FailAlert />
+                  </div>
+                }
+              >
+                <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
+              </ErrorBoundary>
+            </FieldProvider>
           </div>
         </ViewProvider>
       </TablePermissionProvider>

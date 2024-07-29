@@ -13,4 +13,5 @@ export const ErrorCodeToStatusMap: Record<HttpErrorCode, number> = {
   [HttpErrorCode.DATABASE_CONNECTION_UNAVAILABLE]: 503,
   [HttpErrorCode.GATEWAY_TIMEOUT]: 504,
   [HttpErrorCode.UNKNOWN_ERROR_CODE]: 500,
+  [HttpErrorCode.VIEW_NOT_FOUND]: 404,
 };

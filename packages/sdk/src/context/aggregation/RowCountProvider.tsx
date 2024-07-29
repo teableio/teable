@@ -25,6 +25,7 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
     queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
     enabled: !!tableId && isHydrated,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
   });
 
   const updateRowCount = useCallback(

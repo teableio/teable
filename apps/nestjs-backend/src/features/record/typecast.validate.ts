@@ -13,6 +13,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../field/model/field-dto/multiple-select-field.dto';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
+import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
 import type { RecordService } from './record.service';
 
 interface IServices {
@@ -217,7 +218,13 @@ export class TypeCastAndValidate {
     const ctx = await this.services.collaboratorService.getBaseCollabsWithPrimary(this.tableId);
     return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
       if (typeof cellValue === 'string') {
-        return (this.field as UserFieldCore).convertStringToCellValue(cellValue, { userSets: ctx });
+        const cv = (this.field as UserFieldCore).convertStringToCellValue(cellValue, {
+          userSets: ctx,
+        });
+        if (Array.isArray(cv)) {
+          return cv.map(UserFieldDto.fullAvatarUrl);
+        }
+        return cv ? UserFieldDto.fullAvatarUrl(cv) : cv;
       }
       return null;
     });
