@@ -90,6 +90,9 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     if (isEqual(record?.getCellValue(fieldId), newValue)) {
       return;
     }
+    if (Array.isArray(newValue) && newValue.length === 0) {
+      return record?.updateCell(fieldId, null);
+    }
     record?.updateCell(fieldId, newValue);
   };
 
