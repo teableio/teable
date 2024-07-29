@@ -105,6 +105,10 @@ export const System: React.FC = () => {
           </div>
         </RadioGroup>
       </div>
+      <div>
+        <Label>{t('settings.setting.version')}</Label>
+        <div className="text-sm">{process.env.NEXT_PUBLIC_BUILD_VERSION}</div>
+      </div>
     </div>
   );
 };
