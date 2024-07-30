@@ -3,6 +3,7 @@ import { TeableNew } from '@teable/icons';
 import { RecordProvider } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useContext } from 'react';
 import { EmbedFooter } from '../../EmbedFooter';
@@ -19,7 +20,7 @@ export const GridView = () => {
   } = useRouter();
 
   return (
-    <div className="flex size-full flex-col md:px-3 md:pb-3">
+    <div className={cn('flex size-full flex-col', embed ? '' : 'md:px-3 md:pb-3')}>
       {!embed && (
         <div className="flex w-full justify-between px-1 py-2 md:px-0 md:py-3">
           <h1 className="font-semibold md:text-lg">{view?.name}</h1>

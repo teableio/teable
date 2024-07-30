@@ -32,7 +32,7 @@ export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
   const columns = useDataColumns();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   return (
-    <AnchorContext.Provider value={{ tableId }}>
+    <AnchorContext.Provider value={{ baseId, tableId }}>
       <TablePermissionProvider baseId={baseId}>
         <FieldProvider serverSideData={fields}>
           <Head>
