@@ -171,7 +171,7 @@ export const ColorUtils: IColorUtils = {
   },
 };
 
-export const contractColorForTheme = (color: string, theme: 'light' | 'dark') => {
+export const contractColorForTheme = (color: string, theme: string | undefined) => {
   const colorRegular = Color(color).alpha(1);
   return theme === 'light' ? colorRegular.darken(0.5).hex() : colorRegular.lighten(0.5).hex();
 };

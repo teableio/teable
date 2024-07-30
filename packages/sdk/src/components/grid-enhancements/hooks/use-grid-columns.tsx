@@ -1,5 +1,6 @@
 import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
 import { CellValueType, ColorUtils, FieldType } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
 import { LRUCache } from 'lru-cache';
 import { useMemo } from 'react';
@@ -14,8 +15,7 @@ import {
   convertNextImageUrl,
   onMixedTextClick,
 } from '../..';
-import { ThemeKey } from '../../../context';
-import { useFields, useTheme, useView, useFieldCellEditable } from '../../../hooks';
+import { useFields, useView, useFieldCellEditable } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/utils';
@@ -41,7 +41,7 @@ interface IGenerateColumnsProps {
   fields: IFieldInstance[];
   view?: GridView;
   hasMenu?: boolean;
-  theme?: ThemeKey;
+  theme?: string;
   sortFieldIds?: Set<string>;
   groupFieldIds?: Set<string>;
   filterFieldIds?: Set<string>;
@@ -58,7 +58,7 @@ const getColumnThemeByField = ({
 }) => {
   const { id, isPending, hasError } = field;
   const { orange, green, violet, rose, yellow } = colors;
-  const isDark = theme === ThemeKey.Dark;
+  const isDark = theme === 'dark';
   const color_50 = isDark ? 700 : 50;
   const color_100 = isDark ? 500 : 100;
   const color_200 = isDark ? 400 : 200;
@@ -455,11 +455,13 @@ export function useGridColumns(hasMenu?: boolean) {
   const fields = useFields();
   const totalFields = useFields({ withHidden: true, withDenied: true });
   const fieldEditable = useFieldCellEditable();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const sort = view?.sort;
   const group = view?.group;
   const filter = view?.filter;
   const isAutoSort = sort && !sort?.manualSort;
+
+  console.log('resolvedTheme', resolvedTheme);
 
   const sortFieldIds = useMemo(() => {
     if (!isAutoSort) return;
@@ -489,7 +491,7 @@ export function useGridColumns(hasMenu?: boolean) {
       columns: generateColumns({
         fields,
         view,
-        theme,
+        theme: resolvedTheme,
         hasMenu,
         sortFieldIds,
         groupFieldIds,
@@ -497,6 +499,15 @@ export function useGridColumns(hasMenu?: boolean) {
       }),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields, fieldEditable),
     }),
-    [fields, view, hasMenu, fieldEditable, theme, sortFieldIds, groupFieldIds, filterFieldIds]
+    [
+      fields,
+      view,
+      hasMenu,
+      fieldEditable,
+      resolvedTheme,
+      sortFieldIds,
+      groupFieldIds,
+      filterFieldIds,
+    ]
   );
 }

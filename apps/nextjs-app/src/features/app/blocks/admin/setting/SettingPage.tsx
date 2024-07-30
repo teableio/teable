@@ -84,7 +84,9 @@ export const SettingPage = (props: ISettingPageProps) => {
       </div>
 
       <div className="grow" />
-
+      <p className="p-4 text-right text-xs">
+        {t('settings.setting.version')}: {process.env.NEXT_PUBLIC_BUILD_VERSION}
+      </p>
       <CopyInstance instanceId={instanceId} />
     </div>
   );

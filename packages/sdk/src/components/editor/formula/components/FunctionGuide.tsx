@@ -1,9 +1,8 @@
 import type { FunctionName } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { cn } from '@teable/ui-lib';
 import type { FC } from 'react';
-import { ThemeKey } from '../../../../context';
 import { useTranslation } from '../../../../context/app/i18n';
-import { useTheme } from '../../../../hooks';
 import type { IFunctionSchema } from '../interface';
 
 interface IFunctionGuideProps {
@@ -12,12 +11,12 @@ interface IFunctionGuideProps {
 
 export const FunctionGuide: FC<IFunctionGuideProps> = (props) => {
   const { data } = props;
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const { t } = useTranslation();
 
   if (data == null) return null;
 
-  const codeBg = theme === ThemeKey.Light ? 'bg-slate-100' : 'bg-gray-900';
+  const codeBg = resolvedTheme === 'light' ? 'bg-slate-100' : 'bg-gray-900';
 
   return (
     <div className="w-full overflow-y-auto">

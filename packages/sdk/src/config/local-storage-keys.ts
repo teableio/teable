@@ -1,5 +1,4 @@
 export enum LocalStorageKeys {
-  Theme = 'ls_theme',
   FieldSystem = 'ls_field_system',
   ShowActivity = 'ls_show_activity',
   ExpandRecordPanelSize = 'ls_expand_record_panel_size',

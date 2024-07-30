@@ -1,7 +1,7 @@
 import { LaptopIcon } from '@radix-ui/react-icons';
 import { Moon, Settings, Sun, Table2 } from '@teable/icons';
-import { ThemeKey } from '@teable/sdk/context';
-import { useBase, useTables, useTheme } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/next-themes';
+import { useBase, useTables } from '@teable/sdk/hooks';
 import {
   CommandDialog,
   CommandInput,
@@ -81,7 +81,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
               className="flex gap-2"
               onSelect={() => {
                 setOpen(false);
-                theme.setTheme(ThemeKey.Light);
+                theme.setTheme('light');
               }}
               value={t('common:settings.setting.light')}
             >
@@ -92,7 +92,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
               className="flex gap-2"
               onSelect={() => {
                 setOpen(false);
-                theme.setTheme(ThemeKey.Dark);
+                theme.setTheme('dark');
               }}
               value={t('common:settings.setting.dark')}
             >
@@ -103,7 +103,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
               className="flex gap-2"
               onSelect={() => {
                 setOpen(false);
-                theme.setTheme(null);
+                theme.setTheme('system');
               }}
               value={t('common:settings.setting.system')}
             >

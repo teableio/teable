@@ -8,6 +8,7 @@ const scrollbarPlugin = require('tailwind-scrollbar');
 /** @type {import('tailwindcss').Config} */
 module.exports = uiConfig({
   content: [filePath, sdkPath, uiLibPath],
+  darkMode: 'class',
   theme: {},
   plugins: [
     scrollbarPlugin({ nocompatible: true }),
