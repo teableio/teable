@@ -64,7 +64,13 @@ export const FormToolBar: React.FC = () => {
 
       <SharePopover>
         {(text, isActive) => (
-          <ToolBarButton disabled={!isEditable} isActive={isActive} text={text}>
+          <ToolBarButton
+            isActive={isActive}
+            text={text}
+            textClassName="inline"
+            className="justify-start rounded-none"
+            disabled={!permission['view|update']}
+          >
             <ArrowUpRight className="size-4" />
           </ToolBarButton>
         )}

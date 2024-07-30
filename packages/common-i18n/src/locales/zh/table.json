@@ -16,6 +16,10 @@
         "tips": "开启后将获取一个链接，此链接仅允许访问当前视图。",
         "passwordTitle": "设置访问密码",
         "passwordTips": "链接仅在正确密码输入后可访问",
+        "embed": "嵌入",
+        "embedPreview": "嵌入预览",
+        "hideToolbar": "隐藏工具栏",
+        "URLSetting": "URL 设置",
         "cancel": "取消",
         "save": "保存"
       },

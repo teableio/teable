@@ -4,8 +4,10 @@ import { shareViewAuth } from '@teable/openapi';
 import { Button, Input, Label } from '@teable/ui-lib';
 import { Spin } from '@teable/ui-lib/base';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
+import { shareConfig } from '@/features/i18n/share.config';
 
 export const AuthPage = () => {
   const [error, setError] = useState('');
@@ -14,6 +16,7 @@ export const AuthPage = () => {
   const { mutateAsync: authShareView, isLoading } = useMutation({
     mutationFn: shareViewAuth,
   });
+  const { t } = useTranslation(shareConfig.i18nNamespaces);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -41,14 +44,12 @@ export const AuthPage = () => {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
-        <h2 className="text-center text-3xl font-extrabold">
-          Enter your password to view this page
-        </h2>
+        <h2 className="text-center text-3xl font-extrabold">{t('share:auth.title')}</h2>
         <form className="relative space-y-6" onSubmit={onSubmit}>
           <div className="-space-y-px rounded-md shadow-sm">
             <div>
               <Label className="sr-only" htmlFor="password">
-                Password
+                {t('share:auth.password')}
               </Label>
               <Input
                 id="password"
@@ -63,7 +64,7 @@ export const AuthPage = () => {
           </div>
           <Button className="w-full" type="submit" disabled={isLoading}>
             {isLoading && <Spin />}
-            Submit
+            {t('share:auth.submit')}
           </Button>
           {error && (
             <div className="absolute -bottom-1 w-full translate-y-full text-center text-sm text-destructive">

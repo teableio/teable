@@ -39,7 +39,6 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
     return undefined;
   }, [shareId]);
 
-  console.log('forcedTheme', query.theme);
   return (
     <AppProvider
       lang={i18n.language}

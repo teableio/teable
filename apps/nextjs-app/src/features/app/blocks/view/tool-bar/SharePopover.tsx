@@ -1,11 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
 import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable/core';
-import { Copy, Edit, RefreshCcw, Qrcode } from '@teable/icons';
+import { Edit, RefreshCcw, Qrcode } from '@teable/icons';
 import { useView } from '@teable/sdk/hooks';
 import type { View } from '@teable/sdk/model';
 import {
   Button,
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -21,23 +22,43 @@ import {
   RadioGroupItem,
   Separator,
   Switch,
+  Textarea,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib';
-import { debounce, omit } from 'lodash';
+import { omit } from 'lodash';
+import { LucideEye } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 import { useMemo, useState } from 'react';
+import { CopyButton } from '@/features/app/components/CopyButton';
 import { tableConfig } from '@/features/i18n/table.config';
 
-const getShareUrl = (shareId: string, theme?: string) => {
+const getShareUrl = ({
+  shareId,
+  theme,
+  hideToolBar,
+}: {
+  shareId: string;
+  theme?: string;
+  hideToolBar?: boolean;
+}) => {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const url = new URL(`${origin}/share/${shareId}/view`);
   if (theme && theme !== 'system') {
     url.searchParams.append('theme', theme);
   }
+  if (hideToolBar) {
+    url.searchParams.append('hideToolBar', 'true');
+  }
+  return url.toString();
+};
+
+const embedUrl = (shareUrl: string = '') => {
+  const url = new URL(shareUrl);
+  url.searchParams.append('embed', 'true');
   return url.toString();
 };
 
@@ -49,10 +70,11 @@ export const SharePopover: React.FC<{
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const ShareViewText = t('table:toolbar.others.share.label');
-  const [copyTooltip, setCopyTooltip] = useState<boolean>(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
   const [sharePassword, setSharePassword] = useState<string>('');
   const [shareTheme, setShareTheme] = useState<string>('system');
+  const [hideToolBar, setHideToolBar] = useState<boolean>();
+  const [embed, setEmbed] = useState<boolean>();
 
   const { mutate: enableShareFn, isLoading: enableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.apiEnableShare(),
@@ -62,26 +84,18 @@ export const SharePopover: React.FC<{
     mutationFn: async (view: View) => view.disableShare(),
   });
 
-  const resetCopyTooltip = useMemo(() => {
-    return debounce(setCopyTooltip, 1000);
-  }, []);
-
   const shareUrl = useMemo(() => {
-    return view?.shareId ? getShareUrl(view?.shareId, shareTheme) : undefined;
-  }, [view?.shareId, shareTheme]);
+    return view?.shareId
+      ? getShareUrl({ shareId: view?.shareId, theme: shareTheme, hideToolBar })
+      : undefined;
+  }, [view?.shareId, shareTheme, hideToolBar]);
+  const embedHtml = `<iframe src="${embedUrl(shareUrl)}" width="100%" height="533" style="border: 0"></iframe>`;
 
   if (!view) {
     return children(ShareViewText, false);
   }
 
   const { enableShare, shareMeta } = view;
-
-  const copyShareLink = async () => {
-    if (!shareUrl) return;
-    await navigator.clipboard.writeText(shareUrl);
-    setCopyTooltip(true);
-    resetCopyTooltip(false);
-  };
 
   const setShareMeta = (shareMeta: IShareViewMeta) => {
     view.setShareMeta({ ...view.shareMeta, ...shareMeta });
@@ -152,21 +166,7 @@ export const SharePopover: React.FC<{
                   {shareUrl && <QRCodeSVG value={shareUrl} className="size-full" />}
                 </PopoverContent>
               </Popover>
-
-              <TooltipProvider disableHoverableContent={true}>
-                <Tooltip open={copyTooltip}>
-                  <TooltipTrigger asChild>
-                    <Button size="xs" variant="outline" onClick={copyShareLink}>
-                      <Copy />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      <p>{t('table:toolbar.others.share.copied')}</p>
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <CopyButton text={shareUrl as string} size="xs" variant="outline" />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -227,6 +227,64 @@ export const SharePopover: React.FC<{
                 )}
               </div>
             </div>
+            <hr />
+            <p className="text-xs">{t('toolbar.others.share.URLSetting')}</p>
+            {view.type !== ViewType.Form && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="share-hideToolBar"
+                  checked={hideToolBar}
+                  onCheckedChange={(checked) => setHideToolBar(checked)}
+                />
+                <Label className="text-xs" htmlFor="share-includeHiddenField">
+                  {t('toolbar.others.share.hideToolbar')}
+                </Label>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="share-embed"
+                checked={embed}
+                onCheckedChange={(checked) => setEmbed(checked)}
+              />
+              <Label className="text-xs" htmlFor="share-includeHiddenField">
+                {t('toolbar.others.share.embed')}
+              </Label>
+              {embed && (
+                <>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="xs" variant="outline">
+                        <LucideEye className="size-3" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] md:max-w-[600px] lg:max-w-[800px]">
+                      <DialogHeader>
+                        <DialogTitle>{t('toolbar.others.share.embedPreview')}</DialogTitle>
+                      </DialogHeader>
+                      <div className="h-[500px]">
+                        <iframe
+                          src={embedUrl(shareUrl)}
+                          title="embed view"
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0 }}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button size={'sm'} variant={'ghost'}>
+                            {t('common:actions.close')}
+                          </Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <CopyButton text={embedHtml as string} size="xs" variant="outline" />
+                </>
+              )}
+            </div>
+            {embed && <Textarea className="h-20 font-mono text-xs" value={embedHtml} readOnly />}
             <div className="flex gap-4">
               <Label className="text-xs" htmlFor="share-password">
                 {t('common:settings.setting.theme')}
