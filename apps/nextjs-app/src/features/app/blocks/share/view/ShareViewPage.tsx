@@ -9,6 +9,7 @@ import {
 } from '@teable/sdk/context';
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
@@ -29,6 +30,8 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
 
+  const { query } = useRouter();
+
   const wsPath = useMemo(() => {
     if (typeof window === 'object') {
       return addQueryParamsToWebSocketUrl(getWsPath(), { shareId });
@@ -36,13 +39,19 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
     return undefined;
   }, [shareId]);
 
+  console.log('forcedTheme', query.theme);
   return (
-    <ShareViewPageContext.Provider value={props.shareViewData}>
-      <Head>
-        <title>{view?.name ?? 'Teable'}</title>
-      </Head>
-      <AppLayout>
-        <AppProvider lang={i18n.language} wsPath={wsPath} locale={sdkLocale}>
+    <AppProvider
+      lang={i18n.language}
+      wsPath={wsPath}
+      locale={sdkLocale}
+      forcedTheme={query.theme as string}
+    >
+      <ShareViewPageContext.Provider value={props.shareViewData}>
+        <Head>
+          <title>{view?.name ?? 'Teable'}</title>
+        </Head>
+        <AppLayout>
           <SessionProvider
             user={{
               id: ANONYMOUS_USER_ID,
@@ -70,8 +79,8 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
               </ViewProvider>
             </AnchorContext.Provider>
           </SessionProvider>
-        </AppProvider>
-      </AppLayout>
-    </ShareViewPageContext.Provider>
+        </AppLayout>
+      </ShareViewPageContext.Provider>
+    </AppProvider>
   );
 };

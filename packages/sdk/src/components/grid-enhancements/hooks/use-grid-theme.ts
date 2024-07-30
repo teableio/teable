@@ -1,6 +1,5 @@
+import { useTheme } from '@teable/next-themes';
 import colors from 'tailwindcss/colors';
-import { ThemeKey } from '../../../context';
-import { useTheme } from '../../../hooks/use-theme';
 import type { IGridTheme } from '../../grid/configs';
 import { hexToRGBA } from '../../grid/utils';
 
@@ -48,7 +47,7 @@ const darkTheme = {
   avatarSizeSM: 20,
   avatarSizeMD: 24,
 
-  themeKey: ThemeKey.Dark,
+  themeKey: 'dark',
 
   // ScrollBar
   scrollBarBg: colors.gray[600],
@@ -59,6 +58,6 @@ const darkTheme = {
 } as IGridTheme;
 
 export function useGridTheme(): IGridTheme {
-  const { theme } = useTheme();
-  return theme === ThemeKey.Dark ? darkTheme : lightTheme;
+  const { resolvedTheme } = useTheme();
+  return resolvedTheme === 'dark' ? darkTheme : lightTheme;
 }

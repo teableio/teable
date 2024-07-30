@@ -142,7 +142,7 @@
     "date-fns": "2.30.0",
     "deepmerge": "4.3.1",
     "embla-carousel-react": "8.0.0",
-    "next-themes": "0.3.0",
+    "@teable/next-themes": "0.3.3",
     "react-day-picker": "8.10.0",
     "react-hook-form": "7.51.1",
     "react-resizable-panels": "2.0.16",

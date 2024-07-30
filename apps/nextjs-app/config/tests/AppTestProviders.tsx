@@ -1,17 +1,13 @@
 import type { IAppContext } from '@teable/sdk/context';
-import { AppContext, FieldContext, ThemeKey, ViewContext } from '@teable/sdk/context';
+import { AppContext, FieldContext, ViewContext } from '@teable/sdk/context';
 import { defaultLocale } from '@teable/sdk/context/app/i18n';
 import type { IFieldInstance, IViewInstance } from '@teable/sdk/model';
-import { noop } from 'lodash';
 import type { FC, PropsWithChildren } from 'react';
 import { I18nextTestStubProvider } from './I18nextTestStubProvider';
 
 export const createAppContext = (context: Partial<IAppContext> = {}) => {
   const defaultContext: IAppContext = {
     connected: false,
-    theme: ThemeKey.Dark,
-    isAutoTheme: false,
-    setTheme: noop,
     locale: defaultLocale,
   };
   // eslint-disable-next-line react/display-name
