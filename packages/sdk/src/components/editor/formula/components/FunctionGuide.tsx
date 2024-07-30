@@ -1,6 +1,6 @@
 import type { FunctionName } from '@teable/core';
-import { cn } from '@teable/ui-lib';
 import { useTheme } from '@teable/next-themes';
+import { cn } from '@teable/ui-lib';
 import type { FC } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { IFunctionSchema } from '../interface';
