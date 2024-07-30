@@ -1,4 +1,5 @@
 import { Hydrate, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from '@teable/next-themes';
 import { isObject, merge } from 'lodash';
 import { useMemo } from 'react';
 import { AppContext } from '../app/AppContext';
@@ -6,11 +7,11 @@ import type { ILocalePartial } from './i18n';
 import { defaultLocale } from './i18n';
 import { createQueryClient } from './queryClient';
 import { useConnection } from './useConnection';
-import { useTheme } from './useTheme';
 
 const queryClient = createQueryClient();
 
 interface IAppProviderProps {
+  forcedTheme?: string;
   children: React.ReactNode;
   wsPath?: string;
   lang?: string;
@@ -19,10 +20,9 @@ interface IAppProviderProps {
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { children, wsPath, lang, locale, dehydratedState } = props;
+  const { forcedTheme, children, wsPath, lang, locale, dehydratedState } = props;
 
   const { connected, connection } = useConnection(wsPath);
-  const themeProps = useTheme();
 
   const value = useMemo(() => {
     return {
@@ -30,15 +30,17 @@ export const AppProvider = (props: IAppProviderProps) => {
       connected,
       lang,
       locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
-      ...themeProps,
     };
-  }, [connection, connected, lang, locale, themeProps]);
+  }, [connection, connected, lang, locale]);
 
+  // forcedTheme is not work as expected https://github.com/pacocoursey/next-themes/issues/252
   return (
-    <AppContext.Provider value={value}>
-      <QueryClientProvider client={queryClient}>
-        <Hydrate state={dehydratedState}>{children}</Hydrate>
-      </QueryClientProvider>
-    </AppContext.Provider>
+    <ThemeProvider attribute="class" forcedTheme={forcedTheme}>
+      <AppContext.Provider value={value}>
+        <QueryClientProvider client={queryClient}>
+          <Hydrate state={dehydratedState}>{children}</Hydrate>
+        </QueryClientProvider>
+      </AppContext.Provider>
+    </ThemeProvider>
   );
 };

@@ -1,6 +1,6 @@
 import { ViewType } from '@teable/core';
 import { useContext } from 'react';
-import { FormView } from './component/FormView';
+import { FormView } from './component/form/FormView';
 import { GridView } from './component/grid/GridView';
 import { KanbanView } from './component/kanban/KanbanView';
 import { ShareViewPageContext } from './ShareViewPageContext';

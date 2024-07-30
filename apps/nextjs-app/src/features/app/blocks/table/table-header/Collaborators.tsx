@@ -1,6 +1,7 @@
 import { ColorUtils, contractColorForTheme, getCollaboratorsChannel } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import type { IUser } from '@teable/sdk';
-import { useSession, useTheme } from '@teable/sdk';
+import { useSession } from '@teable/sdk';
 import { useConnection } from '@teable/sdk/hooks';
 import {
   cn,
@@ -29,7 +30,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
   const { connection } = useConnection();
   const { tableId } = router.query;
   const { user: sessionUser } = useSession();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const [presence, setPresence] = useState<Presence>();
   const user = useMemo(
     () => ({
@@ -98,7 +99,7 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
         user={{ name, avatar }}
         className="size-6 cursor-pointer border-2"
         style={{
-          borderColor: contractColorForTheme(borderColor, theme),
+          borderColor: contractColorForTheme(borderColor, resolvedTheme),
         }}
       />
     );

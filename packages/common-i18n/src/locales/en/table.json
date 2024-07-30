@@ -16,6 +16,10 @@
         "tips": "People who have the link can see the view.",
         "passwordTitle": "Enter a password",
         "passwordTips": "Password restrictions for accessing shared views",
+        "embed": "Embed",
+        "embedPreview": "Embed Preview",
+        "hideToolbar": "Hide toolbar",
+        "URLSetting": "URL Setting",
         "cancel": "Cancel",
         "save": "Save"
       },

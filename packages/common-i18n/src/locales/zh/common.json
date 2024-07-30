@@ -87,9 +87,10 @@
     "setting": {
       "title": "我的设置",
       "theme": "主题",
-      "themeDesc": "选择仪表板的主题。",
+      "themeDesc": "选择应用主题。",
       "dark": "深色",
       "light": "浅色",
+      "version": "应用版本",
       "system": "系统"
     },
     "nav": {

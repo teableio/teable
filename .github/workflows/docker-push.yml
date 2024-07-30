@@ -68,6 +68,7 @@ jobs:
             ghcr.io/teableio/${{ matrix.image }}
             docker.io/teableio/${{ matrix.image }}
           tags: |
+            type=sha,format=long
             type=raw,value=latest
 
       - name: ⚙️ Set up QEMU
