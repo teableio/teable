@@ -387,117 +387,6 @@ export class BaseDuplicateService {
     await this.duplicateJunctionTable(fromBaseId, toBaseId, tableRaws, withRecords);
   }
 
-  private async duplicateJunctionTableIndexes(fromBaseId: string, toBaseId: string) {
-    const query = this.knex('pg_indexes')
-      .select('*')
-      .where({
-        schemaname: fromBaseId,
-      })
-      .where('indexname', 'like', 'index_%')
-      .toQuery();
-
-    const beforeIndexedResult = await this.prismaService.txClient().$queryRawUnsafe<
-      {
-        schemaname: string;
-        tablename: string;
-        indexname: string;
-        indexdef: string;
-      }[]
-    >(query);
-
-    this.logger.log(beforeIndexedResult, 'beforeJunctionIndexed');
-
-    for (const item of beforeIndexedResult) {
-      const regex = new RegExp(`"${fromBaseId}"`, 'g');
-      const updatedIndexDef = item.indexdef.replace(regex, `"${toBaseId}"`);
-      try {
-        await this.prismaService.txClient().$executeRawUnsafe(updatedIndexDef);
-      } catch (e) {
-        this.logger.error(
-          { def: updatedIndexDef, msg: (e as { message: string }).message },
-          'indexUpdateError'
-        );
-      }
-    }
-
-    const afterQuery = this.knex('pg_indexes')
-      .select('*')
-      .where({
-        schemaname: toBaseId,
-      })
-      .where('indexname', 'like', 'index_%')
-      .toQuery();
-
-    const afterIndexedResult = await this.prismaService.txClient().$queryRawUnsafe<
-      {
-        schemaname: string;
-        tablename: string;
-        indexname: string;
-        indexdef: string;
-      }[]
-    >(afterQuery);
-
-    this.logger.log(afterIndexedResult, 'afterJunctionIndexed');
-  }
-
-  private async duplicateDbIndexes(
-    fromBaseId: string,
-    toBaseId: string,
-    old2NewViewIdMap: Record<string, string>
-  ) {
-    const query = this.knex('pg_indexes')
-      .select('*')
-      .where({
-        schemaname: fromBaseId,
-      })
-      .where('indexname', 'like', 'idx___row%')
-      .toQuery();
-
-    const beforeIndexedResult = await this.prismaService.txClient().$queryRawUnsafe<
-      {
-        schemaname: string;
-        tablename: string;
-        indexname: string;
-      }[]
-    >(query);
-
-    this.logger.log(beforeIndexedResult, 'beforeViewIndexed');
-
-    const indexSql = beforeIndexedResult
-      .map((item) => ({
-        oldViewId: item.indexname.substring('idx___row_'.length),
-        tablename: item.tablename,
-      }))
-      .filter(({ oldViewId }) => old2NewViewIdMap[oldViewId])
-      .map(({ oldViewId, tablename }) =>
-        this.knex.schema
-          .withSchema(toBaseId)
-          .alterTable(tablename, (table) => {
-            const newViewId = old2NewViewIdMap[oldViewId];
-            table.index([`${ROW_ORDER_FIELD_PREFIX}_${newViewId}`], `idx___row_${newViewId}`);
-          })
-          .toSQL()
-          .map((item) => item.sql)
-      )
-      .flat();
-
-    for (const sql of indexSql) {
-      await this.prismaService.txClient().$executeRawUnsafe(sql);
-    }
-
-    const toBaseQuery = this.knex('pg_indexes')
-      .select('*')
-      .where({
-        schemaname: toBaseId,
-      })
-      .where('indexname', 'like', 'idx___row%')
-      .toQuery();
-    const afterIndexedResult = await this.prismaService.txClient().$queryRawUnsafe(toBaseQuery);
-    this.logger.log(afterIndexedResult, 'afterViewIndexed');
-
-    await this.duplicateJunctionTableIndexes(fromBaseId, toBaseId);
-  }
-
   private async duplicateAttachments(
     old2NewTableIdMap: Record<string, string>,
     old2NewFieldIdMap: Record<string, string>
@@ -536,7 +425,6 @@ export class BaseDuplicateService {
     this.logger.log(old2NewViewIdMap, 'old2NewViewIdMap');
     await this.duplicateReferences(old2NewFieldIdMap);
     await this.duplicateDbTable(fromBaseId, toBaseId, old2NewViewIdMap, withRecords);
-    await this.duplicateDbIndexes(fromBaseId, toBaseId, old2NewViewIdMap);
     if (withRecords) {
       await this.duplicateAttachments(old2NewTableIdMap, old2NewFieldIdMap);
     }
