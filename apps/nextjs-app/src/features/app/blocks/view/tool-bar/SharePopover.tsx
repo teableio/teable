@@ -56,7 +56,7 @@ const getShareUrl = ({
   return url.toString();
 };
 
-const embedUrl = (shareUrl: string = '') => {
+const embedUrl = (shareUrl: string) => {
   const url = new URL(shareUrl);
   url.searchParams.append('embed', 'true');
   return url.toString();
@@ -89,7 +89,9 @@ export const SharePopover: React.FC<{
       ? getShareUrl({ shareId: view?.shareId, theme: shareTheme, hideToolBar })
       : undefined;
   }, [view?.shareId, shareTheme, hideToolBar]);
-  const embedHtml = `<iframe src="${embedUrl(shareUrl)}" width="100%" height="533" style="border: 0"></iframe>`;
+  const embedHtml = shareUrl
+    ? `<iframe src="${embedUrl(shareUrl)}" width="100%" height="533" style="border: 0"></iframe>`
+    : '';
 
   if (!view) {
     return children(ShareViewText, false);
@@ -250,7 +252,7 @@ export const SharePopover: React.FC<{
               <Label className="text-xs" htmlFor="share-includeHiddenField">
                 {t('table:toolbar.others.share.embed')}
               </Label>
-              {embed && (
+              {embed && shareUrl && (
                 <>
                   <Dialog>
                     <DialogTrigger asChild>
