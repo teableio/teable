@@ -14,7 +14,7 @@ export const EmbedFooter = ({
   const router = useRouter();
   const { t } = useTranslation(shareConfig.i18nNamespaces);
   const fullPath = router.asPath;
-  const url = new URL(fullPath, 'http://example.com'); // Use a dummy base URL
+  const url = new URL(fullPath, 'https://app.teable.io'); // Use a dummy base URL
   url.searchParams.delete('embed');
   const pathWithoutEmbed = `${url.pathname}${url.search}`;
 

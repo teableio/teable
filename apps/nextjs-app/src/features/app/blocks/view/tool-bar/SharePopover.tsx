@@ -45,8 +45,8 @@ const getShareUrl = ({
   theme?: string;
   hideToolBar?: boolean;
 }) => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const url = new URL(`${origin}/share/${shareId}/view`);
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.teable.io';
+  const url = new URL(`/share/${shareId}/view`, origin);
   if (theme && theme !== 'system') {
     url.searchParams.append('theme', theme);
   }
@@ -228,7 +228,7 @@ export const SharePopover: React.FC<{
               </div>
             </div>
             <hr />
-            <p className="text-xs">{t('toolbar.others.share.URLSetting')}</p>
+            <p className="text-xs">{t('table:toolbar.others.share.URLSetting')}</p>
             {view.type !== ViewType.Form && (
               <div className="flex items-center gap-2">
                 <Switch
@@ -237,7 +237,7 @@ export const SharePopover: React.FC<{
                   onCheckedChange={(checked) => setHideToolBar(checked)}
                 />
                 <Label className="text-xs" htmlFor="share-includeHiddenField">
-                  {t('toolbar.others.share.hideToolbar')}
+                  {t('table:toolbar.others.share.hideToolbar')}
                 </Label>
               </div>
             )}
@@ -248,7 +248,7 @@ export const SharePopover: React.FC<{
                 onCheckedChange={(checked) => setEmbed(checked)}
               />
               <Label className="text-xs" htmlFor="share-includeHiddenField">
-                {t('toolbar.others.share.embed')}
+                {t('table:toolbar.others.share.embed')}
               </Label>
               {embed && (
                 <>
@@ -260,7 +260,7 @@ export const SharePopover: React.FC<{
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[425px] md:max-w-[600px] lg:max-w-[800px]">
                       <DialogHeader>
-                        <DialogTitle>{t('toolbar.others.share.embedPreview')}</DialogTitle>
+                        <DialogTitle>{t('table:toolbar.others.share.embedPreview')}</DialogTitle>
                       </DialogHeader>
                       <div className="h-[500px]">
                         <iframe
