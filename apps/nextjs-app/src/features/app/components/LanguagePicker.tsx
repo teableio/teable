@@ -7,6 +7,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn/ui/dropdown-menu';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 const languages = [
   { key: 'zh', title: '中文' },
@@ -23,15 +24,16 @@ const setCookie = (locale?: string) => {
 };
 
 export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation('common');
   const setLanguage = (value: string) => {
     if (value === 'default') {
       setCookie();
-      window.location.reload();
     } else {
       setCookie(value);
       i18n.changeLanguage(value);
     }
+    toast.message(t('actions.updateSucceed'));
+    window.location.reload();
   };
 
   const currentLanguage = i18n.language.split('-')[0];
