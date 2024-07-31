@@ -127,17 +127,6 @@ export class BaseQueryService {
     currentFieldMap = filteredFieldMap;
     currentQueryBuilder = filteredQueryBuilder;
 
-    const { queryBuilder: orderedQueryBuilder, fieldMap: orderedFieldMap } = new QueryOrder().parse(
-      baseQuery.orderBy,
-      {
-        dbProvider: this.dbProvider,
-        queryBuilder: currentQueryBuilder,
-        fieldMap: currentFieldMap,
-      }
-    );
-    currentFieldMap = orderedFieldMap;
-    currentQueryBuilder = orderedQueryBuilder;
-
     const { queryBuilder: groupedQueryBuilder, fieldMap: groupedFieldMap } = new QueryGroup().parse(
       baseQuery.groupBy,
       {
@@ -166,6 +155,17 @@ export class BaseQueryService {
       });
     currentFieldMap = aggregatedFieldMap;
     currentQueryBuilder = aggregatedQueryBuilder;
+
+    const { queryBuilder: orderedQueryBuilder, fieldMap: orderedFieldMap } = new QueryOrder().parse(
+      baseQuery.orderBy,
+      {
+        dbProvider: this.dbProvider,
+        queryBuilder: currentQueryBuilder,
+        fieldMap: currentFieldMap,
+      }
+    );
+    currentFieldMap = orderedFieldMap;
+    currentQueryBuilder = orderedQueryBuilder;
 
     const { queryBuilder: selectedQueryBuilder, fieldMap: selectedFieldMap } =
       new QuerySelect().parse(baseQuery.select, {

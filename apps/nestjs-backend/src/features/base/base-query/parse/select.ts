@@ -45,6 +45,9 @@ export class QuerySelect {
               const alias = `${cur.id}_${cur.name}`;
               acc[alias] = cur.dbFieldName;
               currentFieldMap[cur.id].dbFieldName = alias;
+            } else {
+              // aggregation field id as alias
+              currentFieldMap[cur.id].dbFieldName = cur.id;
             }
             return acc;
           },

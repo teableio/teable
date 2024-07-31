@@ -1,8 +1,7 @@
-import { BaseQueryColumnType, type IBaseQueryOrderBy } from '@teable/openapi';
+import { type IBaseQueryOrderBy } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../../../field/model/factory';
-import { createBaseQueryFieldInstance } from './utils';
 
 export class QueryOrder {
   parse(
@@ -21,24 +20,16 @@ export class QueryOrder {
       return { queryBuilder, fieldMap };
     }
 
-    const notFieldMap: Record<string, IFieldInstance> = {};
-    order.forEach((item) => {
-      if (item.type !== BaseQueryColumnType.Field) {
-        notFieldMap[item.column] = createBaseQueryFieldInstance(item.column, item.type);
-      }
-    });
-
-    const resFieldMap = { ...fieldMap, ...notFieldMap };
     dbProvider
       .sortQuery(
         queryBuilder,
-        resFieldMap,
+        fieldMap,
         order.map((item) => ({
           fieldId: item.column,
           order: item.order,
         }))
       )
       .appendSortBuilder();
-    return { queryBuilder, fieldMap: resFieldMap };
+    return { queryBuilder, fieldMap };
   }
 }

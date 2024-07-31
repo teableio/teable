@@ -1,10 +1,9 @@
+import { BadRequestException } from '@nestjs/common';
 import type { IFilter, IFilterSet } from '@teable/core';
-import type { IBaseQueryFilter } from '@teable/openapi';
-import { BaseQueryColumnType } from '@teable/openapi';
+import { type IBaseQueryFilter } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../../../field/model/factory';
-import { createBaseQueryFieldInstance } from './utils';
 
 export class QueryFilter {
   parse(
@@ -27,38 +26,36 @@ export class QueryFilter {
     }
     const { queryBuilder, dbProvider, currentUserId, fieldMap } = content;
     // baseQuery filter to filterQuery filter
-    const { filter: filterQuery, fieldMap: fieldMapQuery } =
-      this.convertQueryFilterToFilter(filter);
+    const { filter: filterQuery } = this.convertQueryFilterToFilter(filter, fieldMap);
 
-    const resFieldMap = { ...fieldMap, ...fieldMapQuery };
     dbProvider
-      .filterQuery(queryBuilder, resFieldMap, filterQuery, { withUserId: currentUserId })
+      .filterQuery(queryBuilder, fieldMap, filterQuery, { withUserId: currentUserId })
       .appendQueryBuilder();
     return {
       queryBuilder,
-      fieldMap: resFieldMap,
+      fieldMap,
     };
   }
 
-  private convertQueryFilterToFilter(filter: IBaseQueryFilter): {
+  private convertQueryFilterToFilter(
+    filter: IBaseQueryFilter,
+    fieldMap: Record<string, IFieldInstance>
+  ): {
     filter: IFilter;
-    fieldMap: Record<string, IFieldInstance>;
   } {
     if (!filter) {
-      return { filter: null, fieldMap: {} };
+      return { filter: null };
     }
-    let resFieldMap: Record<string, IFieldInstance> = {};
     // convert baseQuery filter to filterQuery filter
-    const notFieldCollections: { type: BaseQueryColumnType; column: string }[] = [];
     const filterSets: IFilterSet['filterSet'] = [];
     filter.filterSet.forEach((item) => {
       if ('filterSet' in item) {
-        const { filter, fieldMap } = this.convertQueryFilterToFilter(item);
+        const { filter } = this.convertQueryFilterToFilter(item, fieldMap);
         filter && filterSets.push(filter);
-        resFieldMap = { ...resFieldMap, ...fieldMap };
       } else {
-        if (item.type !== BaseQueryColumnType.Field) {
-          notFieldCollections.push({ type: item.type, column: item.column });
+        const field = fieldMap[item.column];
+        if (!field) {
+          throw new BadRequestException(`Field ${item.column} not found`);
         }
         filterSets.push({
           isSymbol: false,
@@ -69,17 +66,11 @@ export class QueryFilter {
       }
     });
 
-    // handle not field collections
-    notFieldCollections.forEach((item) => {
-      resFieldMap[item.column] = createBaseQueryFieldInstance(item.column, item.type);
-    });
-
     return {
       filter: {
         filterSet: filterSets,
         conjunction: filter.conjunction,
       },
-      fieldMap: resFieldMap,
     };
   }
 }
