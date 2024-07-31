@@ -8,4 +8,4 @@ export * from './collaborator-get-list';
 export * from './duplicate';
 export * from './create-from-template';
 export * from './get-permission';
-export * from './sql-query';
+export * from './query-data';

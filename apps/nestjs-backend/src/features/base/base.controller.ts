@@ -11,8 +11,8 @@ import {
   ICreateBaseFromTemplateRo,
   updateOrderRoSchema,
   IUpdateOrderRo,
-  sqlQuerySchemaRo,
-  ISqlQuerySchemaRo,
+  baseQuerySchemaRo,
+  IBaseQuerySchemaRo,
 } from '@teable/openapi';
 import type {
   ICreateBaseVo,
@@ -29,9 +29,9 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { BaseQueryService } from './base-query/base-query.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
-import { SqlQueryService } from './sql-query.service';
 
 @Controller('api/base/')
 export class BaseController {
@@ -39,7 +39,7 @@ export class BaseController {
     private readonly baseService: BaseService,
     private readonly dbConnectionService: DbConnectionService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly sqlQueryService: SqlQueryService
+    private readonly baseQueryService: BaseQueryService
   ) {}
 
   @Post()
@@ -150,11 +150,11 @@ export class BaseController {
     return await this.baseService.getPermission(baseId);
   }
 
-  @Get(':baseId/sql-query')
+  @Get(':baseId/query')
   async sqlQuery(
     @Param('baseId') baseId: string,
-    @Query(new ZodValidationPipe(sqlQuerySchemaRo)) query: ISqlQuerySchemaRo
+    @Query(new ZodValidationPipe(baseQuerySchemaRo)) query: IBaseQuerySchemaRo
   ) {
-    return await this.sqlQueryService.sqlQuery(baseId, query.query);
+    return await this.baseQueryService.baseQuery(baseId, query.query);
   }
 }

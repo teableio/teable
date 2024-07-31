@@ -1,0 +1,591 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+import type { INestApplication } from '@nestjs/common';
+import { Colors, FieldType, isGreater, SortFunc, StatisticsFunc } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { createTable, baseQuery, BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
+import { initApp } from './utils/init-app';
+
+describe('BaseSqlQuery e2e', () => {
+  let app: INestApplication;
+  const baseId = globalThis.testConfig.baseId;
+  beforeAll(async () => {
+    const appCtx = await initApp();
+    app = appCtx.app;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  describe('Iterate through each query capability', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        fields: [
+          {
+            name: 'name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'age',
+            type: FieldType.Number,
+          },
+          {
+            name: 'position',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                {
+                  name: 'Frontend Developer',
+                  color: Colors.Red,
+                },
+                {
+                  name: 'Backend Developer',
+                  color: Colors.Blue,
+                },
+              ],
+            },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              name: 'Alice',
+              age: 20,
+              position: 'Frontend Developer',
+            },
+          },
+          {
+            fields: {
+              name: 'Bob',
+              age: 30,
+              position: 'Backend Developer',
+            },
+          },
+          {
+            fields: {
+              name: 'Charlie',
+              age: 40,
+              position: 'Frontend Developer',
+            },
+          },
+        ],
+      }).then((res) => res.data);
+    });
+
+    it('aggregation', async () => {
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        aggregation: [
+          {
+            column: table.fields[1].id,
+            type: BaseQueryColumnType.Field,
+            statisticFunc: StatisticsFunc.Average,
+          },
+        ],
+      });
+
+      expect(res.data.rows).toEqual([
+        expect.objectContaining({ [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30 }),
+      ]);
+    });
+
+    it('filter', async () => {
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        where: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              column: table.fields[1].id,
+              type: BaseQueryColumnType.Field,
+              operator: isGreater.value,
+              value: 35,
+            },
+          ],
+        },
+      });
+      expect(res.data.columns).toHaveLength(3);
+      expect(res.data.rows).toEqual([
+        {
+          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Charlie',
+          [`${table.fields[1].id}_${table.fields[1].name}`]: 40,
+          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+        },
+      ]);
+    });
+
+    it('orderBy', async () => {
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        orderBy: [
+          {
+            column: table.fields[1].id,
+            type: BaseQueryColumnType.Field,
+            order: SortFunc.Desc,
+          },
+        ],
+      });
+      expect(res.data.columns).toHaveLength(3);
+      expect(res.data.rows).toEqual([
+        {
+          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Charlie',
+          [`${table.fields[1].id}_${table.fields[1].name}`]: 40,
+          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+        },
+        {
+          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Bob',
+          [`${table.fields[1].id}_${table.fields[1].name}`]: 30,
+          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Backend Developer',
+        },
+        {
+          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Alice',
+          [`${table.fields[1].id}_${table.fields[1].name}`]: 20,
+          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+        },
+      ]);
+    });
+
+    it('groupBy', async () => {
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        select: [
+          {
+            column: table.fields[2].id,
+            type: BaseQueryColumnType.Field,
+          },
+          {
+            column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
+            type: BaseQueryColumnType.Aggregation,
+          },
+        ],
+        groupBy: [
+          {
+            column: table.fields[2].id,
+            type: BaseQueryColumnType.Field,
+          },
+        ],
+        aggregation: [
+          {
+            column: table.fields[1].id,
+            type: BaseQueryColumnType.Field,
+            statisticFunc: StatisticsFunc.Average,
+          },
+        ],
+      });
+      expect(res.data.columns).toHaveLength(2);
+      expect(res.data.rows).toEqual([
+        {
+          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Backend Developer',
+          [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
+        },
+        {
+          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+          [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
+        },
+      ]);
+    });
+
+    it('limit and offset', async () => {
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        limit: 1,
+        offset: 1,
+      });
+      expect(res.data.columns).toHaveLength(3);
+      expect(res.data.rows).toHaveLength(1);
+    });
+
+    describe('from', () => {
+      it('from query', async () => {
+        const res = await baseQuery(baseId, {
+          from: {
+            from: table.id,
+            where: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  column: table.fields[1].id,
+                  type: BaseQueryColumnType.Field,
+                  operator: isGreater.value,
+                  value: 35,
+                },
+              ],
+            },
+          },
+        });
+        expect(res.data.columns).toHaveLength(3);
+        expect(res.data.rows).toEqual([
+          {
+            [`${table.fields[0].id}_${table.fields[0].dbFieldName}`]: 'Charlie',
+            [`${table.fields[1].id}_${table.fields[1].dbFieldName}`]: 40,
+            [`${table.fields[2].id}_${table.fields[2].dbFieldName}`]: 'Frontend Developer',
+          },
+        ]);
+      });
+
+      it('from query with aggregation', async () => {
+        const res = await baseQuery(baseId, {
+          select: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+          ],
+          from: {
+            from: table.id,
+            where: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  column: table.fields[1].id,
+                  type: BaseQueryColumnType.Field,
+                  operator: isGreater.value,
+                  value: 35,
+                },
+              ],
+            },
+          },
+          aggregation: [
+            {
+              column: table.fields[1].id,
+              type: BaseQueryColumnType.Field,
+              statisticFunc: StatisticsFunc.Average,
+            },
+          ],
+        });
+        expect(res.data.columns).toHaveLength(1);
+        expect(res.data.rows).toEqual([
+          { [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 40 },
+        ]);
+      });
+
+      it('from query include aggregation', async () => {
+        const res = await baseQuery(baseId, {
+          select: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+          ],
+          from: {
+            from: table.id,
+            aggregation: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                statisticFunc: StatisticsFunc.Average,
+              },
+            ],
+          },
+        });
+        expect(res.data.columns).toHaveLength(1);
+        expect(res.data.rows).toEqual([
+          { [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30 },
+        ]);
+      });
+
+      it('from query include aggregation and filter', async () => {
+        const res = await baseQuery(baseId, {
+          select: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+          ],
+          from: {
+            from: table.id,
+            aggregation: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                statisticFunc: StatisticsFunc.Average,
+              },
+            ],
+            where: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  column: table.fields[1].id,
+                  type: BaseQueryColumnType.Field,
+                  operator: isGreater.value,
+                  value: 35,
+                },
+              ],
+            },
+          },
+        });
+        expect(res.data.columns).toHaveLength(1);
+        expect(res.data.rows).toEqual([
+          { [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 40 },
+        ]);
+      });
+
+      it('from query include aggregation and filter and orderBy', async () => {
+        const res = await baseQuery(baseId, {
+          select: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+          ],
+          from: {
+            from: table.id,
+            aggregation: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                statisticFunc: StatisticsFunc.Average,
+              },
+            ],
+            where: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  column: table.fields[1].id,
+                  type: BaseQueryColumnType.Field,
+                  operator: isGreater.value,
+                  value: 35,
+                },
+              ],
+            },
+            orderBy: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                order: SortFunc.Desc,
+              },
+            ],
+          },
+        });
+        expect(res.data.columns).toHaveLength(1);
+        expect(res.data.rows).toEqual([
+          { [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 40 },
+        ]);
+      });
+      it('from query include aggregation and filter and orderBy and groupBy', async () => {
+        const res = await baseQuery(baseId, {
+          select: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+          ],
+          from: {
+            from: table.id,
+            aggregation: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                statisticFunc: StatisticsFunc.Average,
+              },
+            ],
+            where: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  column: table.fields[1].id,
+                  type: BaseQueryColumnType.Field,
+                  operator: isGreater.value,
+                  value: 35,
+                },
+              ],
+            },
+            orderBy: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                order: SortFunc.Desc,
+              },
+            ],
+            groupBy: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+              },
+            ],
+          },
+        });
+        expect(res.data.columns).toHaveLength(1);
+        expect(res.data.rows).toEqual([
+          { [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 40 },
+        ]);
+      });
+    });
+  });
+
+  describe('Iterate through each query capability with join', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeAll(async () => {
+      table1 = await createTable(baseId, {
+        fields: [
+          {
+            name: 'name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'age',
+            type: FieldType.Number,
+          },
+        ],
+        records: [
+          {
+            fields: {
+              name: 'Alice',
+              age: 20,
+            },
+          },
+          {
+            fields: {
+              name: 'Bob',
+              age: 30,
+            },
+          },
+          {
+            fields: {
+              name: 'Charlie',
+              age: 40,
+            },
+          },
+        ],
+      }).then((res) => res.data);
+
+      table2 = await createTable(baseId, {
+        fields: [
+          {
+            name: 'name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'age',
+            type: FieldType.Number,
+          },
+        ],
+        records: [
+          {
+            fields: {
+              name: 'David',
+              age: 20,
+            },
+          },
+          {
+            fields: {
+              name: 'Eve',
+              age: 30,
+            },
+          },
+          {
+            fields: {
+              name: 'Frank',
+              age: 50,
+            },
+          },
+        ],
+      }).then((res) => res.data);
+    });
+
+    it('join', async () => {
+      const res = await baseQuery(baseId, {
+        from: table1.id,
+        join: [
+          {
+            type: BaseQueryJoinType.Left,
+            table: table2.id,
+            on: [`${table1.fields[1].id}`, `${table2.fields[1].id}`],
+          },
+        ],
+      });
+      expect(res.data.columns).toHaveLength(4);
+      expect(res.data.rows).toEqual([
+        {
+          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Alice',
+          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 20,
+          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'David',
+          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 20,
+        },
+        {
+          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Bob',
+          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 30,
+          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'Eve',
+          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 30,
+        },
+        {
+          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Charlie',
+          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 40,
+          [`${table2.fields[0].id}_${table2.fields[0].name}`]: null,
+          [`${table2.fields[1].id}_${table2.fields[1].name}`]: null,
+        },
+      ]);
+    });
+
+    it('join inner', async () => {
+      const res = await baseQuery(baseId, {
+        from: table1.id,
+        join: [
+          {
+            type: BaseQueryJoinType.Inner,
+            table: table2.id,
+            on: [`${table1.fields[1].id}`, `${table2.fields[1].id}`],
+          },
+        ],
+      });
+      expect(res.data.columns).toHaveLength(4);
+      expect(res.data.rows).toEqual([
+        {
+          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Alice',
+          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 20,
+          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'David',
+          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 20,
+        },
+        {
+          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Bob',
+          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 30,
+          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'Eve',
+          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 30,
+        },
+      ]);
+    });
+
+    it('join filter and select', async () => {
+      const res = await baseQuery(baseId, {
+        from: table1.id,
+        join: [
+          {
+            type: BaseQueryJoinType.Left,
+            table: table2.id,
+            on: [`${table1.fields[1].id}`, `${table2.fields[1].id}`],
+          },
+        ],
+        where: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              column: `${table2.fields[1].id}`,
+              type: BaseQueryColumnType.Field,
+              operator: isGreater.value,
+              value: 25,
+            },
+          ],
+        },
+        select: [
+          {
+            column: `${table1.fields[0].id}`,
+            type: BaseQueryColumnType.Field,
+          },
+          {
+            column: `${table2.fields[0].id}`,
+            type: BaseQueryColumnType.Field,
+          },
+        ],
+      });
+      expect(res.data.columns).toHaveLength(2);
+      expect(res.data.rows).toEqual([
+        {
+          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Bob',
+          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'Eve',
+        },
+      ]);
+    });
+  });
+});
