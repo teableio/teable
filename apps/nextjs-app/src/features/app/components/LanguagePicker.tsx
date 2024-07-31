@@ -26,8 +26,8 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
   const { i18n } = useTranslation();
   const setLanguage = (value: string) => {
     if (value === 'default') {
-      i18n.changeLanguage(i18n.languages[0]);
       setCookie();
+      window.location.reload();
     } else {
       setCookie(value);
       i18n.changeLanguage(value);
