@@ -260,7 +260,8 @@
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
       "userEmailRead": "Read user email",
-      "recordHistoryRead": "Read record history"
+      "recordHistoryRead": "Read record history",
+      "baseQuery": "Query base"
     }
   },
   "noun": {

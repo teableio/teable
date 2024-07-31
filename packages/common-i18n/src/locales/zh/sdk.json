@@ -272,7 +272,8 @@
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
       "userEmailRead": "查看用户电子邮件",
-      "recordHistoryRead": "查看记录历史"
+      "recordHistoryRead": "查看记录历史",
+      "baseQuery": "查询数据库"
     }
   },
   "formula": {
