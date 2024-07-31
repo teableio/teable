@@ -15,6 +15,7 @@ interface IFieldSelector {
   placeholder?: string;
   emptyHolder?: React.ReactNode;
   children?: React.ReactNode;
+  modal?: boolean;
 }
 
 export function FieldSelector(props: IFieldSelector) {
@@ -26,6 +27,7 @@ export function FieldSelector(props: IFieldSelector) {
     emptyHolder,
     onSelect,
     children,
+    modal = false,
   } = props;
 
   const [open, setOpen] = useState(false);
@@ -46,7 +48,7 @@ export function FieldSelector(props: IFieldSelector) {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
         {children ? (
           children
