@@ -461,8 +461,6 @@ export function useGridColumns(hasMenu?: boolean) {
   const filter = view?.filter;
   const isAutoSort = sort && !sort?.manualSort;
 
-  console.log('resolvedTheme', resolvedTheme);
-
   const sortFieldIds = useMemo(() => {
     if (!isAutoSort) return;
 

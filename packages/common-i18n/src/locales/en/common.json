@@ -91,7 +91,8 @@
       "dark": "Dark",
       "light": "Light",
       "system": "System",
-      "version": "App version"
+      "version": "App version",
+      "language": "Language"
     },
     "nav": {
       "settings": "Settings",

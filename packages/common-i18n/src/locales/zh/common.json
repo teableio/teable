@@ -91,7 +91,8 @@
       "dark": "深色",
       "light": "浅色",
       "version": "应用版本",
-      "system": "系统"
+      "system": "系统",
+      "language": "语言"
     },
     "nav": {
       "settings": "设置",
