@@ -33,7 +33,8 @@
       "title": "公式编辑器",
       "guideSyntax": "语法",
       "guideExample": "示例",
-      "helperExample": "示例："
+      "helperExample": "示例：",
+      "fieldValue": "返回 {{fieldName}} 字段的值."
     },
     "link": {
       "placeholder": "选择要链接的记录",

@@ -247,13 +247,13 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
     if (suggestionItemType === SuggestionItemType.Field) {
       return {
         name: suggestionItemName,
-        summary: `Returns the value to the cells of the ${suggestionItemName} field.`,
+        summary: t('editor.formula.fieldValue', { fieldName: suggestionItemName }),
         definition: `{${suggestionItemName}}`,
         example: `{${suggestionItemName}}`,
       } as Partial<IFunctionSchema<FunctionName>>;
     }
     return DEFAULT_FUNCTION_GUIDE as IFunctionSchema<FunctionName>;
-  }, [suggestionItemKey, suggestionItemName, suggestionItemType]);
+  }, [suggestionItemKey, suggestionItemName, suggestionItemType, t]);
 
   const onValueChange = useCallback(
     (value: string) => {

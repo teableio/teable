@@ -17,9 +17,10 @@
         "passwordTitle": "Enter a password",
         "passwordTips": "Password restrictions for accessing shared views",
         "embed": "Embed",
-        "embedPreview": "Embed Preview",
+        "embedPreview": "Embed preview",
         "hideToolbar": "Hide toolbar",
-        "URLSetting": "URL Config",
+        "URLSetting": "URL parameters config",
+        "URLSettingDescription": "Adjusting the following settings will not affect the shared links. You need to copy the link with new parameters to make it take effect",
         "cancel": "Cancel",
         "save": "Save"
       },
@@ -43,6 +44,120 @@
   "field": {
     "fieldManagement": "Field Management",
     "fieldManagementDesc": "Detailed properties for all fields of the current table",
+    "default": {
+      "singleLineText": {
+        "title": "Label"
+      },
+      "longText": {
+        "title": "Notes"
+      },
+      "number": {
+        "title": "Number",
+        "formatType": "Format Type",
+        "currencySymbol": "Currency Symbol",
+        "defaultSymbol": "$",
+        "precision": "Precision",
+        "decimalExample": "Decimal (1.0)",
+        "currencyExample": "Currency ($100)",
+        "percentExample": "Percent (20%)"
+      },
+      "singleSelect": {
+        "title": "Status",
+        "options": {
+          "todo": "To Do",
+          "inProgress": "In Progress",
+          "done": "Done"
+        }
+      },
+      "multipleSelect": {
+        "title": "Tags"
+      },
+      "attachment": {
+        "title": "Attachments"
+      },
+      "user": {
+        "title": "Collaborator"
+      },
+      "date": {
+        "title": "Date",
+        "dateFormatting": "Date Formatting",
+        "timeFormatting": "Time Formatting",
+        "timeZone": "Time Zone",
+        "yearMonth": "Year/Month",
+        "monthDay": "Month/Day",
+        "year": "Year",
+        "month": "Month",
+        "day": "Day",
+        "local": "Local",
+        "friendly": "Friendly",
+        "us": "US",
+        "european": "European",
+        "asia": "Asia",
+        "custom": "Custom",
+        "12Hour": "12 hour",
+        "24Hour": "24 hour",
+        "noDisplay": "No display"
+      },
+      "autoNumber": {
+        "title": "ID"
+      },
+      "createdTime": {
+        "title": "Created Time"
+      },
+      "lastModifiedTime": {
+        "title": "Last Modified Time"
+      },
+      "rating": {
+        "title": "Rating"
+      },
+      "checkbox": {
+        "title": "Done"
+      },
+      "formula": {
+        "title": "Calculation",
+        "formula": "Formula"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (from {{linkFieldName}})"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} Rollup (from {{linkFieldName}})",
+        "rollup": "Rollup",
+        "selectAnRollupFunction": "Select an rollup function",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Returns true if all the values are true",
+          "arrayCompact": "Removes empty strings and null values from the array. Keeps 'false' and strings that contain one or more blank characters.",
+          "arrayJoin": "Join all the values into a single comma-separated string.",
+          "arrayUnique": "Return only unique items.",
+          "average": "Mean average of the values.",
+          "concatenate": "Joins together the text values into a single text value.",
+          "count": "Count only non-empty numeric values. If you want to count all records, use COUNTALL.",
+          "countA": "Count the number of non-empty values. This function counts both numeric and text values.",
+          "countAll": "counts all values including blank records.",
+          "max": "Returns the largest of the given numbers.",
+          "min": "Returns the smallest of the given numbers.",
+          "or": "Returns true if any one of the values is true.",
+          "sum": "Sum together the values.",
+          "xor": "Returns true if and only if odd number of values are true."
+        }
+      }
+    },
     "editor": {
       "addField": "Add Field",
       "editField": "Edit Field",
@@ -70,10 +185,10 @@
       "maxNumber": "Max Number",
       "showNumber": "Show Number",
       "autoFillDate": "Auto Fill with current date",
-      "createSymmetricLink": "Create a symmetric link field in the link table",
-      "allowLinkMultipleRecords": "Allow linking to multiple records",
-      "allowLinkToDuplicateRecords": "Allows a record to be linked multiple times",
-      "allowSymmetricFieldLinkMultipleRecords": "Allow symmetric field linking to multiple records",
+      "createSymmetricLink": "Create a back link field in the link table",
+      "allowLinkMultipleRecords": "Allow multiple select",
+      "allowLinkToDuplicateRecords": "Allows records to be selected more than once",
+      "allowSymmetricFieldLinkMultipleRecords": "Allows records to be selected more than once",
       "oneToOne": "one-to-one",
       "oneToMany": "one-to-many",
       "manyToOne": "many-to-one",
@@ -98,7 +213,9 @@
       "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
       "fieldValidationRules": "Field value validation rules",
       "enableValidateFieldUnique": "Enable unique value validation",
-      "enableValidateFieldNotNull": "Enable not null value validation"
+      "enableValidateFieldNotNull": "Enable not null value validation",
+      "knowMore": "know more",
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link"
     },
     "subTitle": {
       "link": "Link to records in the table you choose",
@@ -125,6 +242,7 @@
       "lookup": "See values from a field in a linked record."
     },
     "fieldName": "Field Name",
+    "fieldNameOptional": "Field Name (Optional)",
     "fieldType": "Field Type"
   },
   "table": {

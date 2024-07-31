@@ -101,7 +101,7 @@ export const FieldEditor = (props: {
       <div className="relative flex w-full flex-col gap-2">
         <p className="label-text">{t('common:name')}</p>
         <Input
-          placeholder="Field name (optional)"
+          placeholder={t('table:field.fieldNameOptional')}
           className="h-8"
           value={field['name'] || ''}
           onChange={(e) => updateFieldProps({ name: e.target.value || undefined })}

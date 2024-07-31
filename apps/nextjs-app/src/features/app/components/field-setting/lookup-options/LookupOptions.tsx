@@ -3,9 +3,9 @@ import { FieldType } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useFields, useTable, useFieldStaticGetter, useBaseId } from '@teable/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable/sdk/model';
-import { Selector } from '@teable/ui-lib/base';
 import { Trans, useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { Selector } from '@/components/Selector';
 import { tableConfig } from '@/features/i18n/table.config';
 
 const SelectFieldByTableId: React.FC<{

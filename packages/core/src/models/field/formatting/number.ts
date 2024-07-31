@@ -42,8 +42,6 @@ export const defaultNumberFormatting: INumberFormatting = {
   precision: 2,
 };
 
-export const DEFAULT_CURRENCY_SYMBOL = '$';
-
 export const formatNumberToString = (value: number | undefined, formatting: INumberFormatting) => {
   if (value == null) {
     return '';
@@ -53,7 +51,7 @@ export const formatNumberToString = (value: number | undefined, formatting: INum
   const { type, precision } = formatting;
 
   if (type === NumberFormattingType.Currency) {
-    const symbol = formatting.symbol ?? DEFAULT_CURRENCY_SYMBOL;
+    const symbol = formatting.symbol ?? '$';
     const sign = cellValue < 0 ? '-' : '';
     const options =
       precision != null

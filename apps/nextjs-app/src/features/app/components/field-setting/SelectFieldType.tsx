@@ -1,9 +1,9 @@
 import { FieldType } from '@teable/core';
 import { FIELD_TYPE_ORDER, useFieldStaticGetter } from '@teable/sdk';
-import { Selector } from '@teable/ui-lib/base';
 import SearchIcon from '@teable/ui-lib/icons/app/search.svg';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
+import { Selector } from '@/components/Selector';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export const SelectFieldType = (props: {
