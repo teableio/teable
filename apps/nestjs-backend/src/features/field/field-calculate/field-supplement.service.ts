@@ -563,7 +563,7 @@ export class FieldSupplementService {
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(`Parse rollUp Error: ${e.message}`);
+      throw new BadRequestException(`Parse rollup Error: ${e.message}`);
     }
 
     const { cellValueType, isMultipleCellValue } = valueType;

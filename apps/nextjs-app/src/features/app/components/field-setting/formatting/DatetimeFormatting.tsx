@@ -1,15 +1,10 @@
 import type { IDatetimeFormatting } from '@teable/core';
 import { DateFormattingPreset, TIME_ZONE_LIST, TimeFormatting } from '@teable/core';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Selector,
-} from '@teable/ui-lib';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@teable/ui-lib';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import dayjs from 'dayjs';
+import { useTranslation } from 'next-i18next';
+import { Selector } from '@/components/Selector';
 import 'dayjs/plugin/utc';
 
 const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -67,11 +62,9 @@ function getFormatStringForLanguage(language: string, preset: { [key: string]: s
 }
 
 const useSelectInfoMap = (currentDateFormatting: string) => {
-  const friendlyDateFormatting = getFormatStringForLanguage(
-    navigator.language,
-    friendlyFormatStrings
-  );
-  const localDateFormatting = getFormatStringForLanguage(navigator.language, localFormatStrings);
+  const { t, i18n } = useTranslation(['common', 'table']);
+  const friendlyDateFormatting = getFormatStringForLanguage(i18n.language, friendlyFormatStrings);
+  const localDateFormatting = getFormatStringForLanguage(i18n.language, localFormatStrings);
 
   const optionsWithExample = (text: string, formatting: string) => {
     return {
@@ -81,56 +74,58 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
   };
 
   const dateFormattingPresetOptions = [
-    optionsWithExample('Local', localDateFormatting),
-    optionsWithExample('Friendly', friendlyDateFormatting),
-    optionsWithExample('US', DateFormattingPreset.US),
-    optionsWithExample('European', DateFormattingPreset.European),
-    optionsWithExample('Asia', DateFormattingPreset.Asian),
+    optionsWithExample(t('table:field.default.date.local'), localDateFormatting),
+    optionsWithExample(t('table:field.default.date.friendly'), friendlyDateFormatting),
+    optionsWithExample(t('table:field.default.date.us'), DateFormattingPreset.US),
+    optionsWithExample(t('table:field.default.date.european'), DateFormattingPreset.European),
+    optionsWithExample(t('table:field.default.date.asia'), DateFormattingPreset.Asian),
   ];
   if (localDateFormatting !== DateFormattingPreset.ISO) {
     dateFormattingPresetOptions.push(optionsWithExample('ISO', DateFormattingPreset.ISO));
   }
   dateFormattingPresetOptions.push(
-    optionsWithExample('Year/Month', DateFormattingPreset.YM),
-    optionsWithExample('Month/Day', DateFormattingPreset.MD),
-    optionsWithExample('Year', DateFormattingPreset.Y),
-    optionsWithExample('Month', DateFormattingPreset.M),
-    optionsWithExample('Day', DateFormattingPreset.D)
+    optionsWithExample(t('table:field.default.date.yearMonth'), DateFormattingPreset.YM),
+    optionsWithExample(t('table:field.default.date.monthDay'), DateFormattingPreset.MD),
+    optionsWithExample(t('table:field.default.date.year'), DateFormattingPreset.Y),
+    optionsWithExample(t('table:field.default.date.month'), DateFormattingPreset.M),
+    optionsWithExample(t('table:field.default.date.day'), DateFormattingPreset.D)
   );
 
   // add [Custom] option if currentDateFormatting not in the list
   if (!dateFormattingPresetOptions.find((option) => option.value === currentDateFormatting)) {
-    dateFormattingPresetOptions.push(optionsWithExample('Custom', currentDateFormatting));
+    dateFormattingPresetOptions.push(
+      optionsWithExample(t('table:field.default.date.custom'), currentDateFormatting)
+    );
   }
 
   const timeFormattingPresetOptions = [
     {
-      text: '24 hour',
+      text: t('table:field.default.date.24Hour'),
       value: TimeFormatting.Hour24,
     },
     {
-      text: '12 hour',
+      text: t('table:field.default.date.12Hour'),
       value: TimeFormatting.Hour12,
     },
     {
-      text: 'No display',
+      text: t('table:field.default.date.noDisplay'),
       value: TimeFormatting.None,
     },
   ];
 
   return {
     date: {
-      label: 'Date Formatting',
+      label: t('table:field.default.date.dateFormatting'),
       list: dateFormattingPresetOptions,
     },
     time: {
-      label: 'Time Formatting',
+      label: t('table:field.default.date.timeFormatting'),
       list: timeFormattingPresetOptions,
     },
     timeZone: {
-      label: 'Time Zone',
+      label: t('table:field.default.date.timeZone'),
       list: TIME_ZONE_LIST.map((item) => ({
-        text: `${item} (${systemTimeZone === item ? 'System' : getUTCOffset(item)})`,
+        text: `${item} (${systemTimeZone === item ? t('common:settings.setting.system') : getUTCOffset(item)})`,
         value: item,
       })),
     },

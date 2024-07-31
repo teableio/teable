@@ -10,5 +10,6 @@
     "jsxFragmentFactory": "",
     "paths": {}
   },
-  "exclude": ["**/*.stories.tsx", "**/*.stories.mdx", ".storybook/**", "**/*spec.ts"]
+  "exclude": ["**/*.stories.tsx", "**/*.stories.mdx", ".storybook/**", "**/*spec.ts"],
+  "include": ["./src"]
 }

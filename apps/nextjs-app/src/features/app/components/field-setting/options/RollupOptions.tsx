@@ -7,9 +7,10 @@ import {
   getFormattingSchema,
   getShowAsSchema,
 } from '@teable/core';
+import { BaseSingleSelect } from '@teable/sdk/components/filter/component';
 import { RollupField } from '@teable/sdk/model';
-import { Selector } from '@teable/ui-lib/base';
 import { isEmpty, isEqual } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
@@ -48,6 +49,7 @@ export const RollupOptions = (props: {
     onChange,
   } = props;
   const { expression, formatting, showAs } = options;
+  const { t } = useTranslation(['table']);
 
   const typedValue = isLookup
     ? { cellValueType, isMultipleCellValue }
@@ -91,69 +93,112 @@ export const RollupOptions = (props: {
   const candidates = useMemo(() => {
     return ROLLUP_FUNCTIONS.map((f) => {
       let name;
+      let description;
       switch (f) {
         case 'countall({values})':
-          name = 'Count All';
+          name = t('field.default.rollup.func.countAll');
+          description = t('field.default.rollup.funcDesc.countAll');
           break;
         case 'counta({values})':
-          name = 'CountA';
+          name = t('field.default.rollup.func.countA');
+          description = t('field.default.rollup.funcDesc.countA');
           break;
         case 'count({values})':
-          name = 'Count';
+          name = t('field.default.rollup.func.count');
+          description = t('field.default.rollup.funcDesc.count');
           break;
         case 'sum({values})':
-          name = 'Sum';
+          name = t('field.default.rollup.func.sum');
+          description = t('field.default.rollup.funcDesc.sum');
           break;
         case 'max({values})':
-          name = 'Max';
+          name = t('field.default.rollup.func.max');
+          description = t('field.default.rollup.funcDesc.max');
           break;
         case 'min({values})':
-          name = 'Min';
+          name = t('field.default.rollup.func.min');
+          description = t('field.default.rollup.funcDesc.min');
           break;
         case 'and({values})':
-          name = 'And';
+          name = t('field.default.rollup.func.and');
+          description = t('field.default.rollup.funcDesc.and');
           break;
         case 'or({values})':
-          name = 'Or';
+          name = t('field.default.rollup.func.or');
+          description = t('field.default.rollup.funcDesc.or');
           break;
         case 'xor({values})':
-          name = 'Xor';
+          name = t('field.default.rollup.func.xor');
+          description = t('field.default.rollup.funcDesc.xor');
           break;
         case 'array_join({values})':
-          name = 'Array Join';
+          name = t('field.default.rollup.func.arrayJoin');
+          description = t('field.default.rollup.funcDesc.arrayJoin');
           break;
         case 'array_unique({values})':
-          name = 'Array Unique';
+          name = t('field.default.rollup.func.arrayUnique');
+          description = t('field.default.rollup.funcDesc.arrayUnique');
           break;
         case 'array_compact({values})':
-          name = 'Array Compact';
+          name = t('field.default.rollup.func.arrayCompact');
+          description = t('field.default.rollup.funcDesc.arrayCompact');
           break;
         case 'concatenate({values})':
-          name = 'Concatenate';
+          name = t('field.default.rollup.func.concatenate');
+          description = t('field.default.rollup.funcDesc.concatenate');
           break;
         default:
           assertNever(f);
       }
       return {
-        id: f,
-        name,
+        value: f,
+        label: name,
+        description,
       };
     });
-  }, []);
+  }, [t]);
+
+  const displayRender = (option: (typeof candidates)[number]) => {
+    const { label } = option;
+    return (
+      <div className="flex items-center justify-start">
+        <div>
+          <div className="truncate pl-1 text-[13px]">{label}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const optionRender = (option: (typeof candidates)[number]) => {
+    const { label, description } = option;
+    return (
+      <div className="flex items-start justify-start">
+        <div className="pl-1">
+          <div className="truncate text-[13px]">{label}</div>
+          <span className="text-wrap text-xs text-primary/60" title={description}>
+            {description}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="w-full space-y-2" data-testid="rollup-options">
       {!isLookup && (
         <div className="space-y-2">
-          <span className="neutral-content label-text">Rollup</span>
-          <Selector
+          <span className="neutral-content label-text">{t('field.default.rollup.rollup')}</span>
+          <BaseSingleSelect
+            modal
             className="w-full"
-            placeholder="Select a rollup function"
-            selectedId={expression}
-            onChange={(id) => {
+            placeholder={t('field.default.rollup.selectAnRollupFunction')}
+            options={candidates}
+            value={expression || null}
+            onSelect={(id) => {
               onExpressionChange(id as IRollupFieldOptions['expression']);
             }}
-            candidates={candidates}
+            optionRender={optionRender}
+            displayRender={displayRender}
           />
         </div>
       )}

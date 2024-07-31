@@ -1,9 +1,5 @@
 import type { ICurrencyFormatting, INumberFormatting } from '@teable/core';
-import {
-  DEFAULT_CURRENCY_SYMBOL,
-  NumberFormattingType,
-  defaultNumberFormatting,
-} from '@teable/core';
+import { NumberFormattingType, defaultNumberFormatting } from '@teable/core';
 import { Input } from '@teable/ui-lib/shadcn';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import {
@@ -13,44 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@teable/ui-lib/shadcn/ui/select';
-
-export const NUMBER_FORMATTING_TYPE = [
-  {
-    text: 'Decimal (1.0)',
-    value: NumberFormattingType.Decimal,
-  },
-  {
-    text: 'Currency ($100)',
-    value: NumberFormattingType.Currency,
-  },
-  {
-    text: 'Percent (20%)',
-    value: NumberFormattingType.Percent,
-  },
-];
-
-export const NUMBER_FIELD_PRECISION = [
-  {
-    text: '1',
-    value: 0,
-  },
-  {
-    text: '1.0',
-    value: 1,
-  },
-  {
-    text: '1.00',
-    value: 2,
-  },
-  {
-    text: '1.000',
-    value: 3,
-  },
-  {
-    text: '1.0000',
-    value: 4,
-  },
-];
+import { useTranslation } from 'next-i18next';
 
 interface IProps {
   formatting?: INumberFormatting;
@@ -60,13 +19,14 @@ interface IProps {
 export const NumberFormatting: React.FC<IProps> = (props) => {
   const { formatting = defaultNumberFormatting, onChange } = props;
   const { type, precision } = formatting;
+  const { t } = useTranslation(['table']);
 
   const onFormattingTypeChange = (type: NumberFormattingType) => {
     const newFormatting =
       type === NumberFormattingType.Currency && (formatting as ICurrencyFormatting).symbol == null
         ? {
             type,
-            symbol: DEFAULT_CURRENCY_SYMBOL,
+            symbol: t('field.default.number.defaultSymbol'),
           }
         : { type };
     onChange?.({ ...formatting, ...newFormatting } as INumberFormatting);
@@ -88,10 +48,48 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
     } as ICurrencyFormatting);
   };
 
+  const NUMBER_FORMATTING_TYPE = [
+    {
+      text: t('field.default.number.decimalExample'),
+      value: NumberFormattingType.Decimal,
+    },
+    {
+      text: t('field.default.number.currencyExample'),
+      value: NumberFormattingType.Currency,
+    },
+    {
+      text: t('field.default.number.percentExample'),
+      value: NumberFormattingType.Percent,
+    },
+  ];
+
+  const NUMBER_FIELD_PRECISION = [
+    {
+      text: '1',
+      value: 0,
+    },
+    {
+      text: '1.0',
+      value: 1,
+    },
+    {
+      text: '1.00',
+      value: 2,
+    },
+    {
+      text: '1.000',
+      value: 3,
+    },
+    {
+      text: '1.0000',
+      value: 4,
+    },
+  ];
+
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="flex w-full flex-col gap-2">
-        <Label className="font-normal">Format type</Label>
+        <Label className="font-normal">{t('field.default.number.formatType')}</Label>
         <Select value={type} onValueChange={onFormattingTypeChange}>
           <SelectTrigger className="h-8 w-full">
             <SelectValue />
@@ -108,9 +106,9 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
       <>
         {type === NumberFormattingType.Currency && (
           <div className="flex w-full flex-col gap-2">
-            <Label className="font-normal">Currency symbol</Label>
+            <Label className="font-normal">{t('field.default.number.currencySymbol')}</Label>
             <Input
-              placeholder="Currency symbol"
+              placeholder={t('field.default.number.currencySymbol')}
               className="h-8"
               value={formatting.symbol}
               onChange={onSymbolChange}
@@ -119,7 +117,7 @@ export const NumberFormatting: React.FC<IProps> = (props) => {
         )}
       </>
       <div className="flex w-full flex-col gap-2">
-        <Label className="font-normal">Precision</Label>
+        <Label className="font-normal">{t('field.default.number.precision')}</Label>
         <Select value={precision.toString()} onValueChange={onPrecisionChange}>
           <SelectTrigger className="h-8 w-full">
             <SelectValue />

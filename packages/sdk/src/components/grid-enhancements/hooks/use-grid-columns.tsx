@@ -3,7 +3,7 @@ import { CellValueType, ColorUtils, FieldType } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
 import { LRUCache } from 'lru-cache';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs } from '../..';
 import {
@@ -15,6 +15,7 @@ import {
   convertNextImageUrl,
   onMixedTextClick,
 } from '../..';
+import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView, useFieldCellEditable } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
@@ -154,301 +155,313 @@ const generateColumns = ({
   })[];
 };
 
-export const createCellValue2GridDisplay =
-  (fields: IFieldInstance[], editable: (field: IFieldInstance) => boolean) =>
-  // eslint-disable-next-line sonarjs/cognitive-complexity
-  (record: Record, col: number): ICell => {
-    const field = fields[col];
+export const useCreateCellValue2GridDisplay = () => {
+  const { t } = useTranslation();
 
-    if (field == null) return { type: CellType.Loading };
+  return useCallback(
+    (fields: IFieldInstance[], editable: (field: IFieldInstance) => boolean) =>
+      // eslint-disable-next-line sonarjs/cognitive-complexity
+      (record: Record, col: number): ICell => {
+        const field = fields[col];
 
-    const { id: fieldId, type, isComputed, isMultipleCellValue: isMultiple, cellValueType } = field;
+        if (field == null) return { type: CellType.Loading };
 
-    let cellValue = record.getCellValue(fieldId);
-    const validateCellValue = field.validateCellValue(cellValue);
-    cellValue = validateCellValue.success ? validateCellValue.data : undefined;
-    const readonly = isComputed || !editable(field);
-    const cellId = `${record.id}-${fieldId}`;
-    const baseCellProps = { id: cellId, readonly };
+        const {
+          id: fieldId,
+          type,
+          isComputed,
+          isMultipleCellValue: isMultiple,
+          cellValueType,
+        } = field;
 
-    switch (type) {
-      case FieldType.SingleLineText: {
-        const { showAs } = field.options;
+        let cellValue = record.getCellValue(fieldId);
+        const validateCellValue = field.validateCellValue(cellValue);
+        cellValue = validateCellValue.success ? validateCellValue.data : undefined;
+        const readonly = isComputed || !editable(field);
+        const cellId = `${record.id}-${fieldId}`;
+        const baseCellProps = { id: cellId, readonly };
 
-        if (showAs != null) {
-          const { type } = showAs;
+        switch (type) {
+          case FieldType.SingleLineText: {
+            const { showAs } = field.options;
 
-          return {
-            ...baseCellProps,
-            type: CellType.Link,
-            data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
-            displayData: field.cellValue2String(cellValue),
-            onClick: (text) => onMixedTextClick(type, text),
-          };
-        }
+            if (showAs != null) {
+              const { type } = showAs;
 
-        return {
-          ...baseCellProps,
-          type: CellType.Text,
-          data: (cellValue as string) || '',
-          displayData: field.cellValue2String(cellValue),
-        };
-      }
-      case FieldType.LongText: {
-        return {
-          ...baseCellProps,
-          type: CellType.Text,
-          data: (cellValue as string) || '',
-          displayData: field.cellValue2String(cellValue),
-          isWrap: true,
-        };
-      }
-      case FieldType.Date:
-      case FieldType.CreatedTime:
-      case FieldType.LastModifiedTime: {
-        let displayData = '';
-        const { date, time, timeZone } = field.options.formatting;
-        const cacheKey = `${fieldId}-${cellValue}-${date}-${time}-${timeZone}`;
-
-        if (cellValueStringCache.has(cacheKey)) {
-          displayData = cellValueStringCache.get(cacheKey) || '';
-        } else {
-          displayData = field.cellValue2String(cellValue);
-          cellValueStringCache.set(cacheKey, displayData);
-        }
-        if (type === FieldType.CreatedTime || type === FieldType.LastModifiedTime) {
-          return {
-            ...baseCellProps,
-            type: CellType.Text,
-            data: (cellValue as string) || '',
-            displayData,
-          };
-        }
-        return {
-          ...baseCellProps,
-          type: CellType.Text,
-          data: (cellValue as string) || '',
-          displayData,
-          editorWidth: 250,
-          customEditor: (props, editorRef) => (
-            <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
-          ),
-        };
-      }
-      case FieldType.AutoNumber: {
-        return {
-          ...baseCellProps,
-          type: CellType.Number,
-          data: cellValue as number,
-          displayData: field.cellValue2String(cellValue),
-        };
-      }
-      case FieldType.Number:
-      case FieldType.Rollup:
-      case FieldType.Formula: {
-        if (cellValueType === CellValueType.Boolean) {
-          return {
-            ...baseCellProps,
-            type: CellType.Boolean,
-            data: (cellValue as boolean) || false,
-            isMultiple,
-          };
-        }
-
-        if (cellValueType === CellValueType.DateTime) {
-          return {
-            ...baseCellProps,
-            type: CellType.Text,
-            data: (cellValue as string) || '',
-            displayData: field.cellValue2String(cellValue),
-          };
-        }
-
-        if (cellValueType === CellValueType.String) {
-          const showAs = field.options.showAs as ISingleLineTextShowAs;
-
-          if (showAs != null) {
-            const { type } = showAs;
+              return {
+                ...baseCellProps,
+                type: CellType.Link,
+                data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
+                displayData: field.cellValue2String(cellValue),
+                onClick: (text) => onMixedTextClick(type, text),
+              };
+            }
 
             return {
               ...baseCellProps,
-              type: CellType.Link,
-              data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
+              type: CellType.Text,
+              data: (cellValue as string) || '',
               displayData: field.cellValue2String(cellValue),
-              onClick: (text) => onMixedTextClick(type, text),
             };
           }
+          case FieldType.LongText: {
+            return {
+              ...baseCellProps,
+              type: CellType.Text,
+              data: (cellValue as string) || '',
+              displayData: field.cellValue2String(cellValue),
+              isWrap: true,
+            };
+          }
+          case FieldType.Date:
+          case FieldType.CreatedTime:
+          case FieldType.LastModifiedTime: {
+            let displayData = '';
+            const { date, time, timeZone } = field.options.formatting;
+            const cacheKey = `${fieldId}-${cellValue}-${date}-${time}-${timeZone}`;
 
-          return {
-            ...baseCellProps,
-            type: CellType.Text,
-            data: (cellValue as string) || '',
-            displayData: field.cellValue2String(cellValue),
-          };
-        }
-
-        const optionShowAs = field.options.showAs as INumberShowAs;
-        const showAs =
-          optionShowAs == null
-            ? undefined
-            : {
-                ...optionShowAs,
-                color: ColorUtils.getHexForColor(optionShowAs.color),
+            if (cellValueStringCache.has(cacheKey)) {
+              displayData = cellValueStringCache.get(cacheKey) || '';
+            } else {
+              displayData = field.cellValue2String(cellValue);
+              cellValueStringCache.set(cacheKey, displayData);
+            }
+            if (type === FieldType.CreatedTime || type === FieldType.LastModifiedTime) {
+              return {
+                ...baseCellProps,
+                type: CellType.Text,
+                data: (cellValue as string) || '',
+                displayData,
               };
+            }
+            return {
+              ...baseCellProps,
+              type: CellType.Text,
+              data: (cellValue as string) || '',
+              displayData,
+              editorWidth: 250,
+              customEditor: (props, editorRef) => (
+                <GridDateEditor ref={editorRef} field={field} record={record} {...props} />
+              ),
+            };
+          }
+          case FieldType.AutoNumber: {
+            return {
+              ...baseCellProps,
+              type: CellType.Number,
+              data: cellValue as number,
+              displayData: field.cellValue2String(cellValue),
+            };
+          }
+          case FieldType.Number:
+          case FieldType.Rollup:
+          case FieldType.Formula: {
+            if (cellValueType === CellValueType.Boolean) {
+              return {
+                ...baseCellProps,
+                type: CellType.Boolean,
+                data: (cellValue as boolean) || false,
+                isMultiple,
+              };
+            }
 
-        if (showAs && isMultiple && Array.isArray(cellValue)) {
-          return {
-            ...baseCellProps,
-            type: CellType.Chart,
-            data: cellValue as number[],
-            displayData: cellValue.map((v) => field.item2String(v)),
-            chartType: showAs.type as unknown as ChartType,
-            color: showAs.color,
-          };
-        }
+            if (cellValueType === CellValueType.DateTime) {
+              return {
+                ...baseCellProps,
+                type: CellType.Text,
+                data: (cellValue as string) || '',
+                displayData: field.cellValue2String(cellValue),
+              };
+            }
 
-        return {
-          ...baseCellProps,
-          type: CellType.Number,
-          data: cellValue as number,
-          displayData:
-            isMultiple && Array.isArray(cellValue)
-              ? cellValue.map((v) => field.item2String(v))
-              : field.cellValue2String(cellValue),
-          showAs: showAs as unknown as IGridNumberShowAs,
-          customEditor: (props, editorRef) => (
-            <GridNumberEditor
-              ref={editorRef}
-              field={field as NumberField}
-              record={record}
-              {...props}
-            />
-          ),
-        };
-      }
-      case FieldType.MultipleSelect:
-      case FieldType.SingleSelect: {
-        const data = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        return {
-          ...baseCellProps,
-          type: CellType.Select,
-          data,
-          displayData: data,
-          choiceSorted: field.options.choices,
-          choiceMap: field.displayChoiceMap,
-          isMultiple,
-          editorWidth: 220,
-          isEditingOnClick: true,
-          customEditor: (props, editorRef) => (
-            <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
-          ),
-        };
-      }
-      case FieldType.Link: {
-        const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        const displayData = cv.map(({ title }) => title || 'Untitled');
-        const choices = cv.map(({ id, title }) => ({ id, name: title }));
-        return {
-          ...baseCellProps,
-          type: CellType.Select,
-          data: cv,
-          displayData,
-          choiceSorted: choices,
-          isMultiple,
-          customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
-        };
-      }
-      case FieldType.Attachment: {
-        const cv = (cellValue ?? []) as IAttachmentCellValue;
-        const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => {
-          const url = getFileCover(mimetype, presignedUrl);
-          return {
-            id,
-            url: isSystemFileIcon(mimetype)
-              ? url
-              : convertNextImageUrl({
-                  url,
-                  w: findClosestWidth(width as number, height as number),
-                  q: 75,
-                }),
-          };
-        });
-        const displayData = data.map(({ url }) => url);
-        return {
-          ...baseCellProps,
-          type: CellType.Image,
-          data,
-          displayData,
-          onPreview: (activeId: string) => {
-            expandPreviewModal({
-              activeId,
-              field,
-              record,
+            if (cellValueType === CellValueType.String) {
+              const showAs = field.options.showAs as ISingleLineTextShowAs;
+
+              if (showAs != null) {
+                const { type } = showAs;
+
+                return {
+                  ...baseCellProps,
+                  type: CellType.Link,
+                  data: cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [],
+                  displayData: field.cellValue2String(cellValue),
+                  onClick: (text) => onMixedTextClick(type, text),
+                };
+              }
+
+              return {
+                ...baseCellProps,
+                type: CellType.Text,
+                data: (cellValue as string) || '',
+                displayData: field.cellValue2String(cellValue),
+              };
+            }
+
+            const optionShowAs = field.options.showAs as INumberShowAs;
+            const showAs =
+              optionShowAs == null
+                ? undefined
+                : {
+                    ...optionShowAs,
+                    color: ColorUtils.getHexForColor(optionShowAs.color),
+                  };
+
+            if (showAs && isMultiple && Array.isArray(cellValue)) {
+              return {
+                ...baseCellProps,
+                type: CellType.Chart,
+                data: cellValue as number[],
+                displayData: cellValue.map((v) => field.item2String(v)),
+                chartType: showAs.type as unknown as ChartType,
+                color: showAs.color,
+              };
+            }
+
+            return {
+              ...baseCellProps,
+              type: CellType.Number,
+              data: cellValue as number,
+              displayData:
+                isMultiple && Array.isArray(cellValue)
+                  ? cellValue.map((v) => field.item2String(v))
+                  : field.cellValue2String(cellValue),
+              showAs: showAs as unknown as IGridNumberShowAs,
+              customEditor: (props, editorRef) => (
+                <GridNumberEditor
+                  ref={editorRef}
+                  field={field as NumberField}
+                  record={record}
+                  {...props}
+                />
+              ),
+            };
+          }
+          case FieldType.MultipleSelect:
+          case FieldType.SingleSelect: {
+            const data = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
+            return {
+              ...baseCellProps,
+              type: CellType.Select,
+              data,
+              displayData: data,
+              choiceSorted: field.options.choices,
+              choiceMap: field.displayChoiceMap,
+              isMultiple,
+              editorWidth: 220,
+              isEditingOnClick: true,
+              customEditor: (props, editorRef) => (
+                <GridSelectEditor ref={editorRef} field={field} record={record} {...props} />
+              ),
+            };
+          }
+          case FieldType.Link: {
+            const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
+            const displayData = cv.map(({ title }) => title || t('common.untitled'));
+            const choices = cv.map(({ id, title }) => ({ id, name: title }));
+            return {
+              ...baseCellProps,
+              type: CellType.Select,
+              data: cv,
+              displayData,
+              choiceSorted: choices,
+              isMultiple,
+              customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
+            };
+          }
+          case FieldType.Attachment: {
+            const cv = (cellValue ?? []) as IAttachmentCellValue;
+            const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => {
+              const url = getFileCover(mimetype, presignedUrl);
+              return {
+                id,
+                url: isSystemFileIcon(mimetype)
+                  ? url
+                  : convertNextImageUrl({
+                      url,
+                      w: findClosestWidth(width as number, height as number),
+                      q: 75,
+                    }),
+              };
             });
-          },
-          customEditor: (props) => (
-            <GridAttachmentEditor field={field} record={record} {...props} />
-          ),
-        };
-      }
-      case FieldType.Checkbox: {
-        return {
-          ...baseCellProps,
-          type: CellType.Boolean,
-          data: (cellValue as boolean) || false,
-          isMultiple,
-        };
-      }
-      case FieldType.Rating: {
-        const { icon, color, max } = field.options;
+            const displayData = data.map(({ url }) => url);
+            return {
+              ...baseCellProps,
+              type: CellType.Image,
+              data,
+              displayData,
+              onPreview: (activeId: string) => {
+                expandPreviewModal({
+                  activeId,
+                  field,
+                  record,
+                });
+              },
+              customEditor: (props) => (
+                <GridAttachmentEditor field={field} record={record} {...props} />
+              ),
+            };
+          }
+          case FieldType.Checkbox: {
+            return {
+              ...baseCellProps,
+              type: CellType.Boolean,
+              data: (cellValue as boolean) || false,
+              isMultiple,
+            };
+          }
+          case FieldType.Rating: {
+            const { icon, color, max } = field.options;
 
-        if (isMultiple) {
-          return {
-            ...baseCellProps,
-            type: CellType.Number,
-            data: cellValue as number,
-            displayData: field.cellValue2String(cellValue),
-          };
+            if (isMultiple) {
+              return {
+                ...baseCellProps,
+                type: CellType.Number,
+                data: cellValue as number,
+                displayData: field.cellValue2String(cellValue),
+              };
+            }
+
+            return {
+              ...baseCellProps,
+              type: CellType.Rating,
+              data: (cellValue as number) || 0,
+              icon,
+              color: ColorUtils.getHexForColor(color),
+              max,
+            };
+          }
+          case FieldType.User: {
+            const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
+            const data = cv.map((item) => {
+              const { title, avatarUrl } = item;
+              return {
+                ...item,
+                name: title,
+                avatarUrl: convertNextImageUrl({
+                  url: avatarUrl,
+                  w: 64,
+                  q: 100,
+                }),
+              };
+            });
+
+            return {
+              ...baseCellProps,
+              type: CellType.User,
+              data: data,
+              customEditor: (props, editorRef) => (
+                <GridUserEditor ref={editorRef} field={field} record={record} {...props} />
+              ),
+            };
+          }
+          default: {
+            return { type: CellType.Loading };
+          }
         }
-
-        return {
-          ...baseCellProps,
-          type: CellType.Rating,
-          data: (cellValue as number) || 0,
-          icon,
-          color: ColorUtils.getHexForColor(color),
-          max,
-        };
-      }
-      case FieldType.User: {
-        const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-        const data = cv.map((item) => {
-          const { title, avatarUrl } = item;
-          return {
-            ...item,
-            name: title,
-            avatarUrl: convertNextImageUrl({
-              url: avatarUrl,
-              w: 64,
-              q: 100,
-            }),
-          };
-        });
-
-        return {
-          ...baseCellProps,
-          type: CellType.User,
-          data: data,
-          customEditor: (props, editorRef) => (
-            <GridUserEditor ref={editorRef} field={field} record={record} {...props} />
-          ),
-        };
-      }
-      default: {
-        return { type: CellType.Loading };
-      }
-    }
-  };
+      },
+    [t]
+  );
+};
 
 export function useGridColumns(hasMenu?: boolean) {
   const view = useView() as GridView | undefined;
@@ -483,6 +496,7 @@ export function useGridColumns(hasMenu?: boolean) {
     if (filter == null) return;
     return getFilterFieldIds(filter?.filterSet, keyBy(totalFields, 'id'));
   }, [filter, totalFields]);
+  const createCellValue2GridDisplay = useCreateCellValue2GridDisplay();
 
   return useMemo(
     () => ({
@@ -500,12 +514,13 @@ export function useGridColumns(hasMenu?: boolean) {
     [
       fields,
       view,
-      hasMenu,
-      fieldEditable,
       resolvedTheme,
+      hasMenu,
       sortFieldIds,
       groupFieldIds,
       filterFieldIds,
+      createCellValue2GridDisplay,
+      fieldEditable,
     ]
   );
 }

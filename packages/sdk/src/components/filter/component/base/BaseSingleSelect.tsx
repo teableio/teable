@@ -32,6 +32,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     search = true,
     placeholder = t('common.search.placeholder'),
     cancelable = false,
+    modal,
   } = props;
   const [open, setOpen] = useState(false);
 
@@ -63,7 +64,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
