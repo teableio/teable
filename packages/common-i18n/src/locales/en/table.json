@@ -34,6 +34,12 @@
       }
     }
   },
+  "welcome": {
+    "title": "Welcome",
+    "description": "Click the + sign on the left sidebar to create a table.",
+    "help": "Visit the <HelpCenter /> for more information.",
+    "helpCenter": "Help Center"
+  },
   "field": {
     "fieldManagement": "Field Management",
     "fieldManagementDesc": "Detailed properties for all fields of the current table",

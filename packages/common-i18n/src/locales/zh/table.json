@@ -34,6 +34,12 @@
       }
     }
   },
+  "welcome": {
+    "title": "开始",
+    "description": "点击左侧 + 号创建或者导入表格。",
+    "help": "访问 <HelpCenter /> 获取更多信息。",
+    "helpCenter": "帮助中心"
+  },
   "field": {
     "fieldManagement": "字段管理",
     "fieldManagementDesc": "当前表格所有字段的详细信息",

@@ -1,30 +1,8 @@
 import { FieldType, type IGridViewOptions } from '@teable/core';
-import {
-  ArrowUpDown,
-  PaintBucket,
-  Filter as FilterIcon,
-  EyeOff,
-  LayoutList,
-  Share2,
-} from '@teable/icons';
-import {
-  Filter,
-  HideFields,
-  RowHeight,
-  useFields,
-  Sort,
-  Group,
-  useTableId,
-  Color,
-} from '@teable/sdk';
+import { ArrowUpDown, Filter as FilterIcon, EyeOff, LayoutList, Share2 } from '@teable/icons';
+import { Filter, HideFields, RowHeight, useFields, Sort, Group, useTableId } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  cn,
-} from '@teable/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { GUIDE_VIEW_FILTERING, GUIDE_VIEW_SORTING, GUIDE_VIEW_GROUPING } from '@/components/Guide';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -126,10 +104,12 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
           </ToolBarButton>
         )}
       </Group>
-      <TooltipProvider>
+      {/* <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            {/* disabled doesn't trigger the tooltip, so wrap div */}
+            {
+              // disabled doesn't trigger the tooltip, so wrap div
+            }
             <div>
               <Color>
                 {(text: string, isActive) => (
@@ -155,7 +135,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             <p>{t('table:toolbar.comingSoon')}</p>
           </TooltipContent>
         </Tooltip>
-      </TooltipProvider>
+      </TooltipProvider> */}
 
       <RowHeight
         rowHeight={(view?.options as IGridViewOptions)?.rowHeight || null}
