@@ -4,6 +4,7 @@ import { useToast } from '@teable/ui-lib';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import type { ICell, ICellItem, IGridRef, IRectangle } from '../../grid';
 import {
   CombinedSelection,
@@ -73,6 +74,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   const isSelectedType = type === LinkListType.Selected;
   const isExpandEnable = Boolean(onExpand);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const { recordMap, onReset, onForceUpdate, onVisibleRegionChanged } = useGridAsyncRecords(
     undefined,
@@ -163,7 +165,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
           loadingInProgress = true;
         }
         const id = record?.id;
-        const title = record?.name ?? 'Untitled';
+        const title = record?.name ?? t('common.untitled');
         return { id, title };
       })
       .filter((r) => r.id);
@@ -182,7 +184,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     const record = recordMap[rowIndex];
     if (record == null) return;
     if (record.isDenied) {
-      toast({ description: 'No permission to view this record.' });
+      toast({ description: t('editor.link.expandRecordError') });
       return;
     }
     onExpand?.(record.id);

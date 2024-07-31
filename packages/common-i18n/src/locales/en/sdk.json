@@ -43,7 +43,8 @@
       "title": "Formula Editor",
       "guideSyntax": "Syntax",
       "guideExample": "Example",
-      "helperExample": "Example: "
+      "helperExample": "Example: ",
+      "fieldValue": "Returns the value to the cells of the {{fieldName}} field."
     },
     "link": {
       "placeholder": "Select records to link",
@@ -66,7 +67,7 @@
     "addConditionGroup": "Add condition group",
     "linkInputPlaceholder": "Enter a value",
     "groupDescription": "Any of the following are true…",
-    "currentUser": "Me（current user）",
+    "currentUser": "Me (current user)",
     "tips": {
       "scope": "In this view, show records"
     },

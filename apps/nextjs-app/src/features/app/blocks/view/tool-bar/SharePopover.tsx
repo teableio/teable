@@ -230,7 +230,12 @@ export const SharePopover: React.FC<{
               </div>
             </div>
             <hr />
-            <p className="text-xs">{t('table:toolbar.others.share.URLSetting')}</p>
+            <div>
+              <p className="text-sm">{t('table:toolbar.others.share.URLSetting')}</p>
+              <p className="text-xs text-primary/60">
+                {t('table:toolbar.others.share.URLSettingDescription')}
+              </p>
+            </div>
             {view.type !== ViewType.Form && (
               <div className="flex items-center gap-2">
                 <Switch

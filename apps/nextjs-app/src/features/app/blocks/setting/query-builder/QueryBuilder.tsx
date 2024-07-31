@@ -3,13 +3,13 @@ import { CellFormat, FieldKeyType, type IFilterSet, type ISortItem } from '@teab
 import { getBaseAll, getTableList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { StandaloneViewProvider } from '@teable/sdk/context';
-import { Selector } from '@teable/ui-lib/base';
 import { Button, ToggleGroup, ToggleGroupItem } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { Selector } from '@/components/Selector';
 import { developerConfig } from '@/features/i18n/developer.config';
 import { SettingRight } from '../SettingRight';
 import { SettingRightTitle } from '../SettingRightTitle';

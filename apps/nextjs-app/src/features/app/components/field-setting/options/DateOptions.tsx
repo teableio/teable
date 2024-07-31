@@ -1,6 +1,7 @@
 import type { IDateFieldOptions, IDatetimeFormatting } from '@teable/core';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import { Switch } from '@teable/ui-lib/shadcn/ui/switch';
+import { useTranslation } from 'next-i18next';
 import { DatetimeFormatting } from '../formatting/DatetimeFormatting';
 
 export const DateOptions = (props: {
@@ -10,6 +11,7 @@ export const DateOptions = (props: {
 }) => {
   const { options = {}, isLookup, onChange } = props;
   const { defaultValue } = options;
+  const { t } = useTranslation(['table']);
 
   const onFormattingChange = (formatting: IDatetimeFormatting) => {
     onChange?.({
@@ -34,7 +36,7 @@ export const DateOptions = (props: {
             onCheckedChange={onDefaultValueChange}
           />
           <Label htmlFor="field-options-auto-fill" className="font-normal">
-            Auto Fill with current date
+            {t('field.editor.autoFillDate')}
           </Label>
         </div>
       )}

@@ -116,7 +116,10 @@ export const Selector: React.FC<ISelectorProps> = ({
                     id === selectedId ? 'opacity-100' : 'opacity-0'
                   )}
                 />
-                {icon} <span className="ml-2 truncate">{name ? name : defaultName}</span>
+                {icon}{' '}
+                <span className={cn('ml-2 truncate', name ? '' : 'text-primary/60')}>
+                  {name ? name : defaultName}
+                </span>
               </CommandItem>
             ))}
           </CommandList>

@@ -23,6 +23,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
+import { useDefaultFieldName } from './hooks/useDefaultFieldName';
 import type { IFieldEditorRo, IFieldSetting, IFieldSettingBase } from './type';
 import { FieldOperator } from './type';
 
@@ -31,6 +32,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const table = useTable();
   const view = useView();
+  const getDefaultFieldName = useDefaultFieldName();
 
   const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [processVisible, setProcessVisible] = useState<boolean>(false);
@@ -43,6 +45,11 @@ export const FieldSetting = (props: IFieldSetting) => {
     props.onCancel?.();
   };
 
+  const createNewField = async (field: IFieldRo) => {
+    const fieldName = field.name ?? (await getDefaultFieldName(field));
+    return await table?.createField({ ...field, name: fieldName });
+  };
+
   const performAction = async (field: IFieldRo) => {
     setGraphVisible(false);
     if (plan && (plan.estimateTime || 0) > 1000) {
@@ -50,11 +57,11 @@ export const FieldSetting = (props: IFieldSetting) => {
     }
     try {
       if (operator === FieldOperator.Add) {
-        await table?.createField(field);
+        await createNewField(field);
       }
 
       if (operator === FieldOperator.Insert) {
-        const result = await table?.createField(field);
+        const result = await createNewField(field);
         const fieldId = result?.data?.id;
         if (view && order != null && fieldId && table?.id) {
           await view.updateColumnMeta([{ fieldId, columnMeta: { order } }]);
