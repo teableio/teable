@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Gauge, Lock, Network } from '@teable/icons';
+import { Lock, Network } from '@teable/icons';
 import { getInstanceUsage, getSpaceUsage } from '@teable/openapi';
 import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
@@ -56,11 +56,6 @@ export const BaseSideBar = () => {
   }[] = useMemo(
     () =>
       [
-        {
-          href: `/base/${baseId}/dashboard`,
-          label: t('common:noun.dashboard'),
-          Icon: Gauge,
-        },
         {
           href: `/base/${baseId}/automation`,
           label: t('common:noun.automation'),

@@ -1,6 +1,7 @@
 import { useTheme } from '@teable/next-themes';
 import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { LanguagePicker } from '../LanguagePicker';
 
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
@@ -103,6 +104,12 @@ export const System: React.FC = () => {
             </span>
           </div>
         </RadioGroup>
+      </div>
+      <div>
+        <Label>{t('settings.setting.language')}</Label>
+        <div className="pt-2">
+          <LanguagePicker />
+        </div>
       </div>
       <div>
         <Label>{t('settings.setting.version')}</Label>
