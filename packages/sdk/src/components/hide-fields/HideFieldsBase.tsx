@@ -184,7 +184,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                                 </TooltipTrigger>
                                 {isPrimary ? (
                                   <TooltipContent>
-                                    <p>{t('hidden.forbidHiddenPrimaryTip')}</p>
+                                    <p>{t('hidden.primaryKey')}</p>
                                   </TooltipContent>
                                 ) : null}
                               </Tooltip>

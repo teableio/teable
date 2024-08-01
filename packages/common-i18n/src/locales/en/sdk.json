@@ -147,7 +147,7 @@
     "configLabel_other": "{{count}} hidden fields",
     "showAll": "Show All",
     "hideAll": "Hide All",
-    "forbidHiddenPrimaryTip": "Primary key: is used to identify records, could not to hidden"
+    "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
   },
   "expandRecord": {
     "copy": "Copy to clipboard"
