@@ -1,0 +1,21 @@
+{
+  "apiQueryBuilder": "API query builder",
+  "subTitle": "You can quickly build your query requests through a interactive UI and copy the code that can be run directly",
+  "apiList": "Complete API List",
+  "cellFormat": "Cell result format",
+  "fieldKeyType": "Field key type",
+  "fieldKeyTypeDesc": "The type of the field key in the result",
+  "chooseSource": "Choose a data source",
+  "action": {
+    "selectBase": "Select a database...",
+    "selectTable": "Select a table..."
+  },
+  "pickParams": "Select and configure the parameters",
+  "buildResult": "Build result",
+  "buildResultEmpty": "No result yet",
+  "previewReturnValue": "Return value preview",
+  "replaceToken": "Replace token",
+  "createNewToken": "Create new token",
+  "only10Records": "Only the first 10 records are displayed",
+  "addSort": "Add a sort"
+}
