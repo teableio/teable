@@ -44,6 +44,8 @@
   "field": {
     "fieldManagement": "Field Management",
     "fieldManagementDesc": "Detailed properties for all fields of the current table",
+    "advancedProps": "Advanced properties",
+    "hide": "hide",
     "default": {
       "singleLineText": {
         "title": "Label"
@@ -275,6 +277,11 @@
       "deleting": "Deleting...",
       "deleteSuccessful": "Delete successful",
       "pasteFileFailed": "Files can only be pasted into an attachment field"
+    },
+    "graph": {
+      "tableLabel": "Table label",
+      "effectCells": "May effect cells",
+      "estimatedTime": "Estimated time"
     }
   },
   "import": {

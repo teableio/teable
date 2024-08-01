@@ -44,6 +44,8 @@
   "field": {
     "fieldManagement": "字段管理",
     "fieldManagementDesc": "当前表格所有字段的详细信息",
+    "advancedProps": "高级属性",
+    "hide": "隐藏",
     "default": {
       "singleLineText": {
         "title": "标题"
@@ -274,6 +276,11 @@
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
       "pasteFileFailed": "文件只能粘贴到附件字段中"
+    },
+    "graph": {
+      "tableLabel": "表格名称",
+      "effectCells": "影响单元格数",
+      "estimatedTime": "预计完成"
     }
   },
   "import": {
