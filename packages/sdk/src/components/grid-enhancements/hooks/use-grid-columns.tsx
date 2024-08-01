@@ -110,49 +110,59 @@ const getColumnThemeByField = ({
   return customTheme;
 };
 
-const generateColumns = ({
-  fields,
-  view,
-  theme,
-  hasMenu = true,
-  sortFieldIds,
-  groupFieldIds,
-  filterFieldIds,
-}: IGenerateColumnsProps): (IGridColumn & { id: string })[] => {
-  return fields
-    .map((field) => {
-      if (!field) return undefined;
-      const columnMeta = view?.columnMeta[field.id] ?? null;
-      const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
-      const { id, type, name, description, isLookup, isPrimary, notNull } = field;
-      const customTheme = getColumnThemeByField({
-        field,
-        theme,
-        sortFieldIds,
-        groupFieldIds,
-        filterFieldIds,
-      });
+const useGenerateColumns = () => {
+  const { t } = useTranslation();
+  return useCallback(
+    ({
+      fields,
+      view,
+      theme,
+      hasMenu = true,
+      sortFieldIds,
+      groupFieldIds,
+      filterFieldIds,
+    }: IGenerateColumnsProps): (IGridColumn & { id: string })[] => {
+      return fields
+        .map((field, i) => {
+          if (!field) return undefined;
+          const columnMeta = view?.columnMeta[field.id] ?? null;
+          const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
+          const { id, type, name, description, isLookup, isPrimary, notNull } = field;
+          const customTheme = getColumnThemeByField({
+            field,
+            theme,
+            sortFieldIds,
+            groupFieldIds,
+            filterFieldIds,
+          });
 
-      return {
-        id,
-        name: notNull ? `${name} *` : name,
-        width,
-        description,
-        customTheme,
-        isPrimary,
-        hasMenu,
-        icon: iconString(type, isLookup),
-      };
-    })
-    .filter(Boolean)
-    .filter((field) => {
-      if (field) {
-        return !view?.columnMeta?.[field?.id]?.hidden;
-      }
-      return false;
-    }) as (IGridColumn & {
-    id: string;
-  })[];
+          return {
+            id,
+            name: notNull ? `${name} *` : name,
+            width,
+            description,
+            customTheme,
+            isPrimary,
+            hasMenu,
+            statisticLabel: {
+              showAlways: i === 0,
+              label: i === 0 ? t('common.summaryTip') : t('common.summary'),
+            },
+            icon: iconString(type, isLookup),
+          };
+        })
+        .filter(Boolean)
+        .filter((field) => {
+          if (field) {
+            return !view?.columnMeta?.[field?.id]?.hidden;
+          }
+          return false;
+        }) as (IGridColumn & {
+        id: string;
+      })[];
+    },
+    [t]
+  );
 };
 
 export const useCreateCellValue2GridDisplay = () => {
@@ -497,7 +507,7 @@ export function useGridColumns(hasMenu?: boolean) {
     return getFilterFieldIds(filter?.filterSet, keyBy(totalFields, 'id'));
   }, [filter, totalFields]);
   const createCellValue2GridDisplay = useCreateCellValue2GridDisplay();
-
+  const generateColumns = useGenerateColumns();
   return useMemo(
     () => ({
       columns: generateColumns({
@@ -519,6 +529,7 @@ export function useGridColumns(hasMenu?: boolean) {
       sortFieldIds,
       groupFieldIds,
       filterFieldIds,
+      generateColumns,
       createCellValue2GridDisplay,
       fieldEditable,
     ]

@@ -1,19 +1,49 @@
-import { statisticFunc2NameMap } from '@teable/core';
+import { NoneFunc, StatisticsFunc } from '@teable/core';
 import type { IAggregationVo } from '@teable/openapi';
 import { isEmpty, keyBy } from 'lodash';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { IColumnStatistics, IGridColumn } from '../..';
+import { useTranslation } from '../../../context/app/i18n';
 import { useAggregation } from '../../../hooks/use-aggregation';
 import { useFields } from '../../../hooks/use-fields';
 import { useViewId } from '../../../hooks/use-view-id';
 import { statisticsValue2DisplayValue } from '../../../utils';
+
+export const useStatisticFunc2NameMap = () => {
+  const { t } = useTranslation();
+  return useMemo(
+    () => ({
+      [NoneFunc.None]: t('statisticFunc.none'),
+      [StatisticsFunc.Empty]: t('statisticFunc.empty'),
+      [StatisticsFunc.Filled]: t('statisticFunc.filled'),
+      [StatisticsFunc.Unique]: t('statisticFunc.unique'),
+      [StatisticsFunc.Max]: t('statisticFunc.max'),
+      [StatisticsFunc.Min]: t('statisticFunc.min'),
+      [StatisticsFunc.Sum]: t('statisticFunc.sum'),
+      [StatisticsFunc.Average]: t('statisticFunc.average'),
+      [StatisticsFunc.Checked]: t('statisticFunc.checked'),
+      [StatisticsFunc.UnChecked]: t('statisticFunc.unChecked'),
+      [StatisticsFunc.PercentEmpty]: t('statisticFunc.percentEmpty'),
+      [StatisticsFunc.PercentFilled]: t('statisticFunc.percentFilled'),
+      [StatisticsFunc.PercentUnique]: t('statisticFunc.percentUnique'),
+      [StatisticsFunc.PercentChecked]: t('statisticFunc.percentChecked'),
+      [StatisticsFunc.PercentUnChecked]: t('statisticFunc.percentUnChecked'),
+      [StatisticsFunc.EarliestDate]: t('statisticFunc.earliestDate'),
+      [StatisticsFunc.LatestDate]: t('statisticFunc.latestDate'),
+      [StatisticsFunc.DateRangeOfDays]: t('statisticFunc.dateRangeOfDays'),
+      [StatisticsFunc.DateRangeOfMonths]: t('statisticFunc.dateRangeOfMonths'),
+      [StatisticsFunc.TotalAttachmentSize]: t('statisticFunc.totalAttachmentSize'),
+    }),
+    [t]
+  );
+};
 
 export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[]) {
   const viewId = useViewId();
   const fields = useFields({ withHidden: true, withDenied: true });
   const remoteStatistics = useAggregation();
   const [columnStatistics, setColumnStatistics] = useState<IColumnStatistics>({});
-
+  const statisticFunc2NameMap = useStatisticFunc2NameMap();
   const getColumnStatistics = useCallback(
     (source: IAggregationVo | null) => {
       if (source == null) return {};
@@ -47,7 +77,7 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
         return acc;
       }, {} as IColumnStatistics);
     },
-    [columns, fields]
+    [columns, fields, statisticFunc2NameMap]
   );
 
   useEffect(() => {
