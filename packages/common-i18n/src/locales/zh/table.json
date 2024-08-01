@@ -424,6 +424,10 @@
       "table": "表格视图",
       "form": "表单视图",
       "kanban": "看板视图"
+    },
+    "crash": {
+      "title": "页面崩溃!",
+      "description": "当前页面意外崩溃，请刷新重试，如果持续出现问题请咨询 support@teable.io 获取帮助"
     }
   },
   "lastModifiedTime": "修改时间",

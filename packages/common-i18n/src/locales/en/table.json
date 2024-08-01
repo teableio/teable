@@ -425,6 +425,10 @@
       "table": "Grid View",
       "form": "Form View",
       "kanban": "Kanban View"
+    },
+    "crash": {
+      "title": "Crash!",
+      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
     }
   },
   "lastModifiedTime": "Last modified time",
