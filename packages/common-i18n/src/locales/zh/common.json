@@ -90,8 +90,8 @@
       "themeDesc": "选择应用主题。",
       "dark": "深色",
       "light": "浅色",
-      "version": "应用版本",
       "system": "系统",
+      "version": "应用版本",
       "language": "语言"
     },
     "nav": {
@@ -163,7 +163,8 @@
   "invite": {
     "dialog": {
       "title": "{{spaceName}} 空间分享",
-      "desc": "这个空间有<b>{{count}} 个协作者</b>。添加一个空间协作者将使他们能够访问该空间内的所有数据库。",
+      "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all bases within this space.",
+      "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all bases within this space.",
       "tabEmail": "通过电子邮件邀请",
       "emailPlaceholder": "通过电子邮件邀请更多空间协作者",
       "tabLink": "通过链接邀请",
