@@ -1484,8 +1484,9 @@ export const drawColumnStatistics = (
       fill: rowHeaderTextColor,
     };
 
-    if (isHovered) {
-      !text && drawSingleLineText(ctx, { ...textProp, text: 'Summary' });
+    if (isHovered || column.statisticLabel?.showAlways) {
+      !text &&
+        drawSingleLineText(ctx, { ...textProp, text: column.statisticLabel?.label || 'Summary' });
     }
 
     if (text) {
