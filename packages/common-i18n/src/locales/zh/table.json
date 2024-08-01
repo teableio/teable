@@ -61,7 +61,6 @@
         "currencyExample": "货币 (￥100)",
         "percentExample": "百分比 (20%)"
       },
-
       "singleSelect": {
         "title": "状态",
         "options": {
@@ -126,33 +125,35 @@
         "rollup": "汇总",
         "selectAnRollupFunction": "选择一个汇总函数",
         "func": {
+          "and": "与",
+          "arrayCompact": "数组去空",
+          "arrayJoin": "数组连接",
+          "arrayUnique": "数组去重",
+          "average": "AVERAGE",
+          "concatenate": "连接",
           "count": "数值计数",
           "countA": "非空计数",
           "countAll": "全计数",
           "max": "最大值",
           "min": "最小值",
-          "sum": "求和",
-          "concatenate": "连接",
-          "arrayJoin": "数组连接",
-          "arrayUnique": "数组去重",
-          "arrayCompact": "数组去空",
-          "and": "与",
           "or": "或",
+          "sum": "求和",
           "xor": "异或"
         },
         "funcDesc": {
+          "and": "如果所有值都为真，则返回真",
+          "arrayCompact": "去除数组中的空值",
+          "arrayJoin": "将所有值连接为一个逗号分隔的字符串",
+          "arrayUnique": "去除数组中的重复值",
+          "average": "Mean average of the values.",
+          "concatenate": "将所有值连接为一个字符串",
           "count": "计算所有数字类型值的数量",
           "countA": "计算所有非空值的数量",
           "countAll": "计算所有值的数量",
           "max": "计算所有值的最大值",
           "min": "计算所有值的最小值",
-          "sum": "计算所有值的和",
-          "concatenate": "将所有值连接为一个字符串",
-          "arrayJoin": "将所有值连接为一个逗号分隔的字符串",
-          "arrayUnique": "去除数组中的重复值",
-          "arrayCompact": "去除数组中的空值",
-          "and": "如果所有值都为真，则返回真",
           "or": "如果有一个值为真，则返回真",
+          "sum": "计算所有值的和",
           "xor": "如果奇数个值为真，则返回真"
         }
       }
@@ -323,11 +324,11 @@
       "defaultFieldName": "字段",
       "error": {
         "urlEmptyTip": "URL不能为空！",
-        "fieldNameEmpty": "字段名不能为空",
         "errorFileFormat": "文件格式错误！",
         "uniqueFieldName": "字段名不能重复！",
-        "urlValidateTip": "不能解析该URL，请重新输入！",
-        "atLeastAImportField": "请至少设置一个导入字段！"
+        "fieldNameEmpty": "字段名不能为空",
+        "atLeastAImportField": "请至少设置一个导入字段！",
+        "urlValidateTip": "不能解析该URL，请重新输入！"
       },
       "option": {
         "doNotImport": "无需导入"
