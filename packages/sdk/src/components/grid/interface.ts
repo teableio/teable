@@ -84,6 +84,10 @@ export interface IGridColumn {
   readonly?: boolean;
   isPrimary?: boolean;
   description?: string;
+  statisticLabel?: {
+    showAlways: boolean;
+    label: string;
+  };
   customTheme?: Partial<IGridTheme>;
 }
 

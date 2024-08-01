@@ -2,7 +2,7 @@ import type { FunctionName } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import type { FC } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
-import { FORMULA_FUNCTIONS_MAP } from '../constants';
+import { useFormulaFunctionsMap } from '../constants';
 import type { IFuncHelpData, IFunctionSchema } from '../interface';
 
 interface ICodeHelperProps {
@@ -12,11 +12,12 @@ interface ICodeHelperProps {
 export const FunctionHelper: FC<ICodeHelperProps> = (props) => {
   const { funcHelpData } = props;
   const { t } = useTranslation();
+  const formulaFunctionMap = useFormulaFunctionsMap();
 
   if (funcHelpData == null) return null;
 
   const { funcName, focusParamIndex } = funcHelpData;
-  const helpFunc = FORMULA_FUNCTIONS_MAP.get(funcName) as IFunctionSchema<FunctionName>;
+  const helpFunc = formulaFunctionMap.get(funcName) as IFunctionSchema<FunctionName>;
 
   if (helpFunc == null) return null;
 
