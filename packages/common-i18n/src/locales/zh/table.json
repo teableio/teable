@@ -44,6 +44,8 @@
   "field": {
     "fieldManagement": "字段管理",
     "fieldManagementDesc": "当前表格所有字段的详细信息",
+    "advancedProps": "Advanced properties",
+    "hide": "hide",
     "default": {
       "singleLineText": {
         "title": "标题"
@@ -275,6 +277,11 @@
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
       "pasteFileFailed": "文件只能粘贴到附件字段中"
+    },
+    "graph": {
+      "tableLabel": "Table label",
+      "effectCells": "May effect cells",
+      "estimatedTime": "Estimated time"
     }
   },
   "import": {
@@ -418,6 +425,10 @@
       "table": "表格视图",
       "form": "表单视图",
       "kanban": "看板视图"
+    },
+    "crash": {
+      "title": "Crash!",
+      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
     }
   },
   "lastModifiedTime": "修改时间",
