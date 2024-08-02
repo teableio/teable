@@ -147,7 +147,7 @@
     "configLabel_other": "{{count}} hidden fields",
     "showAll": "Show All",
     "hideAll": "Hide All",
-    "forbidHiddenPrimaryTip": "Primary key: is used to identify records, could not to hidden"
+    "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
   },
   "expandRecord": {
     "copy": "Copy to clipboard"
@@ -198,8 +198,8 @@
       "viewer": "Viewer"
     },
     "description": {
-      "owner": "Can fully configure and edit bases, and manage space settings and billing",
-      "creator": "Can fully configure and edit bases",
+      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
+      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
       "editor": "Can edit records and views, but cannot configure tables or fields",
       "commenter": "Can comment on records",
       "viewer": "Cannot edit or comment"
