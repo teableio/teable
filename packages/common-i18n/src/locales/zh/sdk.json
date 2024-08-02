@@ -147,7 +147,7 @@
     "configLabel_other": "字段配置({{count}} 隐藏)",
     "showAll": "显示全部",
     "hideAll": "隐藏全部",
-    "forbidHiddenPrimaryTip": "主列：用于标识每条记录，不能隐藏"
+    "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
   },
   "expandRecord": {
     "copy": "复制到剪贴板"
@@ -198,8 +198,8 @@
       "viewer": "可查看"
     },
     "description": {
-      "owner": "具有完全配置和编辑数据库、管理空间设置和计费的权限",
-      "creator": "具有完全配置和编辑数据库的权限",
+      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
+      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
       "editor": "可以编辑记录和视图，但不能配置表格或字段",
       "commenter": "可以查看和评论记录，不可编辑",
       "viewer": "仅可查看记录无法编辑或评论"
