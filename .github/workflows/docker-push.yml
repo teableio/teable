@@ -11,6 +11,8 @@ on:
       - 'apps/nextjs-app/**'
       - 'packages/core/**'
       - 'packages/sdk/**'
+      - '.github/**'
+      - 'scripts/**'
 
 jobs:
   build-push:
@@ -66,10 +68,9 @@ jobs:
             ghcr.io/teableio/${{ matrix.image }}
             docker.io/teableio/${{ matrix.image }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            # set latest tag for default branch
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=long
+            type=raw,value=latest
+
       - name: ⚙️ Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: ⚙️ Set up Docker Buildx

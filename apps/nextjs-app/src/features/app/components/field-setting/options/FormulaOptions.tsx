@@ -11,6 +11,7 @@ import type { IFieldInstance } from '@teable/sdk/model';
 import { FormulaField } from '@teable/sdk/model';
 import { Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { isEmpty, isEqual, keyBy } from 'lodash';
+import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
@@ -35,6 +36,7 @@ export const FormulaOptionsInner = (props: {
   const { expression, formatting, showAs } = options;
   const fields = useFields({ withHidden: true, withDenied: true });
   const [visible, setVisible] = useState(false);
+  const { t } = useTranslation(['table']);
 
   const expressionByName = useMemo(() => {
     return expression
@@ -85,7 +87,7 @@ export const FormulaOptionsInner = (props: {
   return (
     <div className="w-full space-y-2">
       <div className="space-y-2">
-        <span className="neutral-content label-text">Formula</span>
+        <span className="neutral-content label-text">{t('field.default.formula.formula')}</span>
         <Dialog open={visible} onOpenChange={setVisible}>
           <DialogTrigger asChild>
             <code className="block min-h-[36px] cursor-pointer items-center whitespace-pre-wrap break-words rounded-md border border-input bg-background px-3 py-2 ring-offset-background">

@@ -1,8 +1,7 @@
-import { contractColorForTheme } from '@teable/core';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@teable/ui-lib';
 import colors from 'tailwindcss/colors';
 import type { IUser } from '../../context';
-import { useTheme, useSession } from '../../hooks';
+import { useSession } from '../../hooks';
 import { UserAvatar } from '../cell-value';
 
 export type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta' | 'hasPassword' | 'isAdmin'> & {
@@ -11,7 +10,6 @@ export type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta' | 'hasPasswor
 
 export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {
   const { id, name, avatar, email, borderColor } = props;
-  const { theme } = useTheme();
   const { user } = useSession();
 
   return (
@@ -23,9 +21,7 @@ export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {
             avatar={avatar}
             className="size-6 cursor-pointer border-2"
             style={{
-              borderColor: borderColor
-                ? contractColorForTheme(borderColor, theme)
-                : colors.gray[500],
+              borderColor: borderColor ?? colors.gray[500],
             }}
           />
         </div>

@@ -11,6 +11,7 @@ import {
   SelectValue,
   cn,
 } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 
 export const RATING_ICON_LIST = RATING_ICON_COLORS.map((colorKey) => {
   return [
@@ -71,6 +72,7 @@ export const RatingOptions = (props: {
   onChange?: (options: Partial<IRatingFieldOptions>) => void;
 }) => {
   const { options = RatingField.defaultOptions(), isLookup, onChange } = props;
+  const { t } = useTranslation(['table']);
 
   const { icon: selectedIcon, color: selectedColor, max } = options;
 
@@ -87,7 +89,7 @@ export const RatingOptions = (props: {
   return (
     <div className="form-control space-y-2">
       <div className="flex w-full flex-col gap-2">
-        <Label className="font-normal">Style</Label>
+        <Label className="font-normal">{t('field.editor.style')}</Label>
         <div className="flex w-full flex-col items-center">
           {RATING_ICON_LIST.map((group, index) => {
             return (
@@ -114,7 +116,7 @@ export const RatingOptions = (props: {
         </div>
       </div>
       <div className="flex w-full flex-col gap-2">
-        <Label className="font-normal">Maximum</Label>
+        <Label className="font-normal">{t('field.editor.maximum')}</Label>
         <Select value={max?.toString()} onValueChange={onMaximumChange}>
           <SelectTrigger className="h-8 w-full">
             <SelectValue />

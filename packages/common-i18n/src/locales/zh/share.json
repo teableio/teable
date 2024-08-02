@@ -7,5 +7,6 @@
   "toolbar": {
     "filterLinkSelectPlaceholder": "请选择..."
   },
+  "openOnNewPage": "在新页面查看",
   "errorTips": "分享来源已启用权限矩阵，无法查看"
 }

@@ -64,6 +64,7 @@ export function SearchInput({
         onSelect={(value) => {
           setFieldId(value);
         }}
+        modal
       />
       <input
         ref={ref}

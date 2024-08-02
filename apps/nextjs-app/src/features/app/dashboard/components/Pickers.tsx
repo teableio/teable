@@ -2,11 +2,11 @@ import { Filter as FilterIcon } from '@teable/icons';
 import type { IFilter } from '@teable/sdk/components';
 import { Filter } from '@teable/sdk/components';
 import { useTable, useTables, useView, useViews } from '@teable/sdk/hooks';
-import { Selector } from '@teable/ui-lib/base';
 import { Button, useToast } from '@teable/ui-lib/shadcn';
 import { useCallback, useEffect } from 'react';
 import z from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { Selector } from '@/components/Selector';
 
 export const Pickers: React.FC<{
   setAnchor(anchor: { tableId?: string; viewId?: string }): void;

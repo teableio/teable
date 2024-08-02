@@ -87,10 +87,12 @@
     "setting": {
       "title": "My Settings",
       "theme": "Theme",
-      "themeDesc": "Select the theme for the dashboard.",
+      "themeDesc": "Select the theme for the app.",
       "dark": "Dark",
       "light": "Light",
-      "system": "System"
+      "system": "System",
+      "version": "App version",
+      "language": "Language"
     },
     "nav": {
       "settings": "Settings",

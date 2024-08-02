@@ -1,6 +1,6 @@
 import { useViews } from '@teable/sdk/hooks';
-import { Selector } from '@teable/ui-lib/base';
 import { useTranslation } from 'next-i18next';
+import { Selector } from '@/components/Selector';
 import { developerConfig } from '@/features/i18n/developer.config';
 
 export const ViewBuilder = ({

@@ -18,7 +18,6 @@ import RouterProgressBar from '@/components/RouterProgress';
 import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
 import { colors } from '@/themes/colors';
-import { INITIAL_THEME } from '@/themes/initial';
 import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config.js';
 import { AppProviders } from '../AppProviders';
@@ -70,7 +69,6 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
         <MicrosoftClarity clarityId={env?.microsoftClarityId} />
-        <script dangerouslySetInnerHTML={{ __html: INITIAL_THEME }} />
         <script
           dangerouslySetInnerHTML={{
             __html: `

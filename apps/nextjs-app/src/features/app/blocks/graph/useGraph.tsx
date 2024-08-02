@@ -1,12 +1,11 @@
 import type { GraphData, Graph as IGraph } from '@antv/g6';
 import G6 from '@antv/g6';
-import { ThemeKey } from '@teable/sdk/context';
-import { useTheme } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/next-themes';
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useRef } from 'react';
 export const useGraph = (ref: RefObject<HTMLDivElement>) => {
   const graphRef = useRef<IGraph>();
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     if (!ref.current) {
@@ -19,14 +18,14 @@ export const useGraph = (ref: RefObject<HTMLDivElement>) => {
           'absolute flex gap-2 right-2 bottom-2 border rounded bg-background shadow p-1 pointer cursor-pointer',
       }),
     ];
-    if (theme === ThemeKey.Light) {
+    if (resolvedTheme === 'light') {
       plugins.push(
         new G6.Grid({
           follow: true,
         })
       );
     }
-    const textColor = theme === ThemeKey.Light ? '#000' : '#fff';
+    const textColor = resolvedTheme === 'light' ? '#000' : '#fff';
     const graph = new G6.Graph({
       plugins,
       container: element,
@@ -93,7 +92,7 @@ export const useGraph = (ref: RefObject<HTMLDivElement>) => {
         console.error(e);
       }
     };
-  }, [ref, theme]);
+  }, [ref, resolvedTheme]);
 
   const updateGraph = useCallback(async (data?: GraphData) => {
     const graph = graphRef.current;

@@ -21,7 +21,7 @@ interface IBaseOperatorSelectProps {
 export function BaseOperatorSelect(props: IBaseOperatorSelectProps) {
   const { onSelect, value, field } = props;
   const compact = useCompact();
-  const labelMapping = useOperatorI18nMap(field!);
+  const labelMapping = useOperatorI18nMap(field);
 
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
     if (field) {

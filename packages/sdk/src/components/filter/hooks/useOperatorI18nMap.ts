@@ -1,8 +1,8 @@
-import { FieldType } from '@teable/core';
+import { CellValueType } from '@teable/core';
 import { useTranslation } from '../../../context/app/i18n';
 import type { IFieldInstance } from '../../../model';
 
-export const useOperatorI18nMap = (field: IFieldInstance) => {
+export const useOperatorI18nMap = (field?: IFieldInstance) => {
   const { t } = useTranslation();
   const commonMap = {
     is: t('filter.operator.is'),
@@ -27,7 +27,7 @@ export const useOperatorI18nMap = (field: IFieldInstance) => {
     isOnOrBefore: t('filter.operator.isOnOrBefore'),
     isOnOrAfter: t('filter.operator.isOnOrAfter'),
   };
-  if (field.type === FieldType.Number) {
+  if (field?.cellValueType === CellValueType.Number) {
     return {
       ...commonMap,
       is: t('filter.operator.number.is'),

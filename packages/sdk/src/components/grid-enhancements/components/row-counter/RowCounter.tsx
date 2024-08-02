@@ -22,7 +22,7 @@ export const RowCounter = (props: IRowCounterProps) => {
   return (
     <div
       className={cn(
-        'flex items-center h-6 pl-2 text-xs bg-violet-200 dark:bg-zinc-600 rounded',
+        'flex items-center h-6 pl-2 ml-1 text-xs bg-violet-200 dark:bg-zinc-600 rounded',
         className
       )}
     >

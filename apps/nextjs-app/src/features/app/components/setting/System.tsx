@@ -1,11 +1,11 @@
-import { ThemeKey, useTheme } from '@teable/sdk';
+import { useTheme } from '@teable/next-themes';
 import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { LanguagePicker } from '../LanguagePicker';
 
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
-  const { theme, isAutoTheme, setTheme } = useTheme();
-  const value = isAutoTheme ? 'system' : theme;
+  const { theme, setTheme } = useTheme();
   return (
     <div className="space-y-6">
       <div>
@@ -19,15 +19,15 @@ export const System: React.FC = () => {
         </div>
         <RadioGroup
           className="grid max-w-screen-md grid-cols-3 gap-8 pt-2"
-          defaultValue={value}
+          defaultValue={theme}
           onValueChange={(value) => {
-            setTheme(value === 'system' ? null : (value as ThemeKey));
+            setTheme(value);
           }}
         >
           <div>
-            <RadioGroupItem value={ThemeKey.Light} id={ThemeKey.Light} className="peer sr-only" />
+            <RadioGroupItem value="light" id="light" className="peer sr-only" />
             <Label
-              htmlFor={ThemeKey.Light}
+              htmlFor="light"
               className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
             >
               <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
@@ -52,9 +52,9 @@ export const System: React.FC = () => {
             </span>
           </div>
           <div>
-            <RadioGroupItem value={ThemeKey.Dark} id={ThemeKey.Dark} className="peer sr-only" />
+            <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
             <Label
-              htmlFor={ThemeKey.Dark}
+              htmlFor="dark"
               className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
             >
               <div className="items-center rounded-md border-2 border-muted bg-popover p-1 hover:bg-accent hover:text-accent-foreground">
@@ -104,6 +104,16 @@ export const System: React.FC = () => {
             </span>
           </div>
         </RadioGroup>
+      </div>
+      <div>
+        <Label>{t('settings.setting.language')}</Label>
+        <div className="pt-2">
+          <LanguagePicker />
+        </div>
+      </div>
+      <div>
+        <Label>{t('settings.setting.version')}</Label>
+        <div className="text-sm">{process.env.NEXT_PUBLIC_BUILD_VERSION}</div>
       </div>
     </div>
   );

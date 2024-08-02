@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ILinkFieldOptionsRo } from '@teable/core';
 import { Relationship } from '@teable/core';
+import { ArrowUpRight } from '@teable/icons';
 import { getTablePermission } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useTableId, useTables } from '@teable/sdk/hooks';
-import { Selector } from '@teable/ui-lib/base';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
+import Link from 'next/link';
 import { Trans, useTranslation } from 'next-i18next';
+import { Selector } from '@/components/Selector';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export const LinkOptions = (props: {
@@ -140,6 +142,16 @@ export const LinkOptions = (props: {
           </p>
         </>
       )}
+      <div>
+        <Link
+          className="mt-4 flex items-center text-xs underline"
+          href={t('table:field.editor.linkFieldKnowMoreLink')}
+          target="_blank"
+        >
+          <ArrowUpRight className="size-4" />
+          {t('table:field.editor.knowMore')}
+        </Link>
+      </div>
     </div>
   );
 };

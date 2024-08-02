@@ -3,7 +3,6 @@ import { hasPermission } from '@teable/core';
 import { Database } from '@teable/icons';
 import { duplicateBase, getSpaceList, type IGetBaseVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { Selector } from '@teable/ui-lib/base';
 import {
   Button,
   Dialog,
@@ -20,6 +19,7 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
+import { Selector } from '@/components/Selector';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useDuplicateBaseStore } from './useDuplicateBaseStore';

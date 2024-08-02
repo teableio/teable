@@ -5,24 +5,23 @@ import type { EditorSelection } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import type { FunctionName } from '@teable/core';
 import { FormulaLexer } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { Button, cn } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
 import Fuse from 'fuse.js';
 import { keyBy } from 'lodash';
 import type { FC } from 'react';
 import { useRef, useState, useMemo, useCallback } from 'react';
-import { ThemeKey } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
-import { useFieldStaticGetter, useFields, useTheme } from '../../../hooks';
+import { useFieldStaticGetter, useFields } from '../../../hooks';
 import { FormulaField } from '../../../model';
 import type { ICodeEditorRef } from './components';
 import { FunctionGuide, FunctionHelper, CodeEditor } from './components';
 import {
   Type2IconMap,
   FOCUS_TOKENS_SET,
-  FORMULA_FUNCTIONS_MAP,
-  DEFAULT_FUNCTION_GUIDE,
-  getFunctionsDisplayMap,
+  useFunctionsDisplayMap,
+  useFormulaFunctionsMap,
 } from './constants';
 import { THEME_EXTENSIONS, TOKEN_EXTENSIONS, getVariableExtensions } from './extensions';
 import { SuggestionItemType } from './interface';
@@ -39,14 +38,12 @@ interface IFormulaEditorProps {
   onConfirm?: (expression: string) => void;
 }
 
-const Functions = Array.from(FORMULA_FUNCTIONS_MAP).map((item) => item[1]);
-
 export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const { expression, onConfirm } = props;
   const fields = useFields({ withHidden: true, withDenied: true });
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
   const { t } = useTranslation();
-  const isLightTheme = theme === ThemeKey.Light;
+  const isLightTheme = resolvedTheme === 'light';
   const getFieldStatic = useFieldStaticGetter();
   const listRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<ICodeEditorRef | null>(null);
@@ -60,6 +57,12 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
       : '';
   });
   const [errMsg, setErrMsg] = useState('');
+  const formulaFunctionsMap = useFormulaFunctionsMap();
+  const Functions = useMemo(
+    () => Array.from(formulaFunctionsMap).map((item) => item[1]),
+    [formulaFunctionsMap]
+  );
+  const functionsDisplayMap = useFunctionsDisplayMap();
 
   const filteredFields = useMemo(() => {
     const fuse = new Fuse(fields, {
@@ -86,7 +89,6 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
     searchValue =
       searchValue[searchValue.length - 1] === '}' ? searchValue.slice(0, -1) : searchValue;
 
-    const functionsDisplayMap = getFunctionsDisplayMap();
     const orderedFunctionList: IFunctionSchema<FunctionName>[] = [];
     const filteredFunctionList = searchValue
       ? fuse.search(searchValue).map((data) => data.item)
@@ -117,7 +119,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
       orderedFunctionList,
       formatFunctionList,
     };
-  }, [focusToken]);
+  }, [Functions, focusToken?.value, functionsDisplayMap]);
 
   const totalItemCount = filteredFields.length + orderedFunctionList.length;
 
@@ -238,22 +240,26 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
   const functionGuideData = useMemo(() => {
     if (
       suggestionItemType === SuggestionItemType.Function &&
-      FORMULA_FUNCTIONS_MAP.has(suggestionItemKey as FunctionName)
+      formulaFunctionsMap.has(suggestionItemKey as FunctionName)
     ) {
-      return FORMULA_FUNCTIONS_MAP.get(
+      return formulaFunctionsMap.get(
         suggestionItemKey as FunctionName
       ) as IFunctionSchema<FunctionName>;
     }
     if (suggestionItemType === SuggestionItemType.Field) {
       return {
         name: suggestionItemName,
-        summary: `Returns the value to the cells of the ${suggestionItemName} field.`,
+        summary: t('editor.formula.fieldValue', { fieldName: suggestionItemName }),
         definition: `{${suggestionItemName}}`,
         example: `{${suggestionItemName}}`,
       } as Partial<IFunctionSchema<FunctionName>>;
     }
-    return DEFAULT_FUNCTION_GUIDE as IFunctionSchema<FunctionName>;
-  }, [suggestionItemKey, suggestionItemName, suggestionItemType]);
+    return {
+      name: t('field.title.formula'),
+      summary: t('formula.FORMULA.summary'),
+      example: t('formula.FORMULA.example'),
+    } as unknown as IFunctionSchema<FunctionName>;
+  }, [formulaFunctionsMap, suggestionItemKey, suggestionItemName, suggestionItemType, t]);
 
   const onValueChange = useCallback(
     (value: string) => {
@@ -344,7 +350,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
         </div>
         <div>
           <Button size={'sm'} className="ml-2" onClick={onConfirmInner}>
-            Confirm
+            {t('common.confirm')}
           </Button>
         </div>
       </div>
@@ -355,7 +361,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
               {filteredFields.length > 0 && (
                 <div>
                   <h3 className="text- py-1 pl-2 text-[13px] font-semibold text-slate-500">
-                    Fields
+                    {t('functionType.fields')}
                   </h3>
                   {filteredFields.map((result, index: number) => {
                     const { id, name, type, isLookup } = result.item;

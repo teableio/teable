@@ -1,5 +1,6 @@
-import { getValidStatisticFunc, NoneFunc, statisticFunc2NameMap } from '@teable/core';
+import { getValidStatisticFunc, NoneFunc } from '@teable/core';
 import type { StatisticsFunc } from '@teable/core';
+import { useStatisticFunc2NameMap } from '@teable/sdk/components';
 import { useField, useView } from '@teable/sdk/hooks';
 import {
   Command,
@@ -28,6 +29,8 @@ export const StatisticMenu = () => {
 
   const field = useField(fieldId);
   const fieldStatisticRef = useRef<HTMLDivElement>(null);
+
+  const statisticFunc2NameMap = useStatisticFunc2NameMap();
 
   useClickAway(fieldStatisticRef, () => {
     closeStatisticMenu();

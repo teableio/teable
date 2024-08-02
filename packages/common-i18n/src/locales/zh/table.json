@@ -16,6 +16,11 @@
         "tips": "开启后将获取一个链接，此链接仅允许访问当前视图。",
         "passwordTitle": "设置访问密码",
         "passwordTips": "链接仅在正确密码输入后可访问",
+        "embed": "嵌入",
+        "embedPreview": "嵌入预览",
+        "hideToolbar": "隐藏工具栏",
+        "URLSetting": "链接参数设置",
+        "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，您需要复制带上新参数的链接以使其生效",
         "cancel": "取消",
         "save": "保存"
       },
@@ -30,9 +35,130 @@
       }
     }
   },
+  "welcome": {
+    "title": "开始",
+    "description": "点击左侧 + 号创建或者导入表格。",
+    "help": "访问 <HelpCenter /> 获取更多信息。",
+    "helpCenter": "帮助中心"
+  },
   "field": {
     "fieldManagement": "字段管理",
     "fieldManagementDesc": "当前表格所有字段的详细信息",
+    "advancedProps": "高级属性",
+    "hide": "隐藏",
+    "default": {
+      "singleLineText": {
+        "title": "标题"
+      },
+      "longText": {
+        "title": "描述"
+      },
+      "number": {
+        "title": "计数",
+        "formatType": "格式类型",
+        "currencySymbol": "货币符号",
+        "defaultSymbol": "￥",
+        "precision": "精度",
+        "decimalExample": "小数 (1.23)",
+        "currencyExample": "货币 (￥100)",
+        "percentExample": "百分比 (20%)"
+      },
+
+      "singleSelect": {
+        "title": "状态",
+        "options": {
+          "todo": "待开始",
+          "inProgress": "进行中",
+          "done": "已完成"
+        }
+      },
+      "multipleSelect": {
+        "title": "标签"
+      },
+      "attachment": {
+        "title": "附件"
+      },
+      "user": {
+        "title": "成员"
+      },
+      "date": {
+        "title": "日期",
+        "dateFormatting": "日期格式",
+        "timeFormatting": "时间格式",
+        "timeZone": "时区",
+        "yearMonth": "年/月",
+        "monthDay": "月/日",
+        "year": "年",
+        "month": "月",
+        "day": "日",
+        "local": "本地",
+        "friendly": "语义化",
+        "us": "美国",
+        "european": "欧洲",
+        "asia": "亚洲",
+        "custom": "自定义",
+        "12Hour": "12 时",
+        "24Hour": "24 时",
+        "noDisplay": "不显示"
+      },
+      "autoNumber": {
+        "title": "自动编号"
+      },
+      "createdTime": {
+        "title": "创建时间"
+      },
+      "lastModifiedTime": {
+        "title": "修改时间"
+      },
+      "rating": {
+        "title": "评分"
+      },
+      "checkbox": {
+        "title": "勾选"
+      },
+      "formula": {
+        "title": "计算",
+        "formula": "公式"
+      },
+      "lookup": {
+        "title": "从{{linkFieldName}}查找{{lookupFieldName}}"
+      },
+      "rollup": {
+        "title": "{{linkFieldName}}的{{lookupFieldName}}汇总",
+        "rollup": "汇总",
+        "selectAnRollupFunction": "选择一个汇总函数",
+        "func": {
+          "count": "数值计数",
+          "countA": "非空计数",
+          "countAll": "全计数",
+          "max": "最大值",
+          "min": "最小值",
+          "sum": "求和",
+          "concatenate": "连接",
+          "arrayJoin": "数组连接",
+          "arrayUnique": "数组去重",
+          "arrayCompact": "数组去空",
+          "and": "与",
+          "or": "或",
+          "xor": "异或"
+        },
+        "funcDesc": {
+          "count": "计算所有数字类型值的数量",
+          "countA": "计算所有非空值的数量",
+          "countAll": "计算所有值的数量",
+          "max": "计算所有值的最大值",
+          "min": "计算所有值的最小值",
+          "sum": "计算所有值的和",
+          "concatenate": "将所有值连接为一个字符串",
+          "arrayJoin": "将所有值连接为一个逗号分隔的字符串",
+          "arrayUnique": "去除数组中的重复值",
+          "arrayCompact": "去除数组中的空值",
+          "and": "如果所有值都为真，则返回真",
+          "or": "如果有一个值为真，则返回真",
+          "xor": "如果奇数个值为真，则返回真"
+        }
+      }
+    },
     "editor": {
       "addField": "添加字段",
       "editField": "编辑字段",
@@ -60,10 +186,10 @@
       "maxNumber": "最大值",
       "showNumber": "显示数值",
       "autoFillDate": "自动填充当前日期",
-      "createSymmetricLink": "在关联表中创建对称的关联字段",
-      "allowLinkMultipleRecords": "允许添加到多个记录到单元格",
-      "allowLinkToDuplicateRecords": "允许记录被多次关联",
-      "allowSymmetricFieldLinkMultipleRecords": "对称字段中允许添加到多个记录到单元格",
+      "createSymmetricLink": "双向关联",
+      "allowLinkMultipleRecords": "允许多选",
+      "allowLinkToDuplicateRecords": "允许重复值",
+      "allowSymmetricFieldLinkMultipleRecords": "允许重复值",
       "oneToOne": "一对一",
       "oneToMany": "一对多",
       "manyToOne": "多对一",
@@ -87,8 +213,10 @@
       "linkTable": "进行关联的表",
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
-      "enableValidateFieldUnique": "启用唯一值校验",
-      "enableValidateFieldNotNull": "启用非空值校验"
+      "enableValidateFieldUnique": "唯一值校验",
+      "enableValidateFieldNotNull": "非空值校验",
+      "knowMore": "了解更多",
+      "linkFieldKnowMoreLink": "https://help.teable.cn/ji-ben-gong-neng/zi-duan/gao-ji-zi-duan/guan-lian"
     },
     "subTitle": {
       "link": "在表之间创建关联关系",
@@ -115,6 +243,7 @@
       "lookup": "通过绑定一个关联字段，从关联表中查找已关联记录的信息。"
     },
     "fieldName": "字段名",
+    "fieldNameOptional": "字段名 (可选)",
     "fieldType": "字段类型"
   },
   "table": {
@@ -147,6 +276,11 @@
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
       "pasteFileFailed": "文件只能粘贴到附件字段中"
+    },
+    "graph": {
+      "tableLabel": "表格名称",
+      "effectCells": "影响单元格数",
+      "estimatedTime": "预计完成"
     }
   },
   "import": {
@@ -290,8 +424,12 @@
       "table": "表格视图",
       "form": "表单视图",
       "kanban": "看板视图"
+    },
+    "crash": {
+      "title": "页面崩溃!",
+      "description": "当前页面意外崩溃，请刷新重试，如果持续出现问题请咨询 support@teable.io 获取帮助"
     }
   },
-  "lastModifiedTime": "最近修改时间",
+  "lastModifiedTime": "修改时间",
   "lastModify": "上次修改："
 }

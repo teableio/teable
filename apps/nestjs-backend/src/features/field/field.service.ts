@@ -13,6 +13,7 @@ import type {
 } from '@teable/core';
 import {
   FieldOpBuilder,
+  HttpErrorCode,
   IdPrefix,
   OpName,
   checkFieldUniqueValidationEnabled,
@@ -25,6 +26,7 @@ import { Knex } from 'knex';
 import { keyBy, sortBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
@@ -308,7 +310,7 @@ export class FieldService implements IReadonlyAdapterService {
         select: { id: true, type: true, options: true, columnMeta: true },
       });
       if (!curView) {
-        throw new NotFoundException('view is not found');
+        throw new CustomHttpException('view is not found', HttpErrorCode.VIEW_NOT_FOUND);
       }
       const view = {
         id: viewId,
