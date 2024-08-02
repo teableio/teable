@@ -62,26 +62,26 @@ function ConditionGroup(props: IConditionGroupProps) {
                   >
                     <span>{t('filter.addCondition')}</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => addCondition(path, ConditionAddType.GROUP)}
-                    disabled={level > 0}
-                    className="text-[13px]"
-                  >
-                    {!(level > 0) ? (
-                      <span className="text-[13px]">{t('filter.addConditionGroup')}</span>
-                    ) : (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>{t('filter.addConditionGroup')}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{t('filter.addConditionGroup')}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </DropdownMenuItem>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <DropdownMenuItem
+                            onClick={() => addCondition(path, ConditionAddType.GROUP)}
+                            disabled={level > 0}
+                            className="text-[13px]"
+                          >
+                            <span className="text-[13px]">{t('filter.addConditionGroup')}</span>
+                          </DropdownMenuItem>
+                        </div>
+                      </TooltipTrigger>
+                      {level > 0 && (
+                        <TooltipContent hideWhenDetached={true}>
+                          <span>{t('filter.nestedLimitTip')}</span>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </DropdownMenuContent>
               </DropdownMenu>
 
