@@ -1,0 +1,12 @@
+{
+  "auth": {
+    "title": "Enter your password to view this page",
+    "submit": "Submit",
+    "password": "Password"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "Select..."
+  },
+  "openOnNewPage": "Open on new page",
+  "errorTips": "Sharing source has enabled a Authority Matrix, viewing is not allowed"
+}
