@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IFieldVo, IUpdateFieldRo } from '@teable/core';
+import type { IFieldRo, IFieldVo, IGetFieldsQuery, IUpdateFieldRo } from '@teable/core';
 import { FieldCore } from '@teable/core';
 import { createField, deleteField, getFields, convertField, updateField } from '@teable/openapi';
 import type { Doc } from 'sharedb/lib/client';
@@ -8,7 +8,9 @@ import { requestWrap } from '../../utils/requestWrap';
 export abstract class Field extends FieldCore {
   tableId!: string;
 
-  static getFields = requestWrap(getFields);
+  static getFields = requestWrap((tableId: string, query?: IGetFieldsQuery) =>
+    getFields(tableId, query)
+  );
 
   static createField = requestWrap(createField);
 

@@ -4,8 +4,8 @@ import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import type { IFieldInstance } from '../../../model';
 import { BaseSingleSelect } from '../component';
-import { useCompact } from '../hooks';
-import { getFieldOperatorMapping, shouldFilterByDefaultValue } from '../utils';
+import { useCompact, useOperatorI18nMap } from '../hooks';
+import { shouldFilterByDefaultValue } from '../utils';
 
 interface IOperatorOptions {
   value: IFilterOperator;
@@ -21,13 +21,16 @@ interface IBaseOperatorSelectProps {
 export function BaseOperatorSelect(props: IBaseOperatorSelectProps) {
   const { onSelect, value, field } = props;
   const compact = useCompact();
-  const labelMapping = useMemo(() => getFieldOperatorMapping(field?.type), [field]);
+  const labelMapping = useOperatorI18nMap(field!);
+
   const operatorOption = useMemo<IOperatorOptions[]>(() => {
     if (field) {
-      return getValidFilterOperators(field).map((operator) => ({
-        label: labelMapping[operator],
-        value: operator,
-      }));
+      return getValidFilterOperators(field).map((operator) => {
+        return {
+          label: labelMapping[operator],
+          value: operator,
+        };
+      });
     }
     return [] as IOperatorOptions[];
   }, [field, labelMapping]);

@@ -8,7 +8,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<
   IEditorRef<number>,
   ICellEditor<number | null> & { placeholder?: string }
 > = (props, ref) => {
-  const { value, onChange, className, readonly, style, saveOnBlur = true } = props;
+  const { value, onChange, className, readonly, style, saveOnBlur = true, placeholder } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [str, setStr] = useState<string | null>(value ? value.toString() : '');
 
@@ -39,6 +39,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<
       onChange={onChangeHandler}
       onBlur={() => saveOnBlur && saveValue()}
       disabled={readonly}
+      placeholder={placeholder}
     />
   );
 };

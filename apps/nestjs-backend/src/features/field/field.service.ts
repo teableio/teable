@@ -276,7 +276,7 @@ export class FieldService implements IReadonlyAdapterService {
     return rawField2FieldObj(field);
   }
 
-  async getFieldsByQuery(tableId: string, query?: IGetFieldsQuery) {
+  async getFieldsByQuery(tableId: string, query?: IGetFieldsQuery): Promise<IFieldVo[]> {
     const fieldsPlain = await this.prismaService.txClient().field.findMany({
       where: { tableId, deletedTime: null },
       orderBy: [

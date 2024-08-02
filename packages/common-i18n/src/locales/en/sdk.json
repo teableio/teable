@@ -17,7 +17,8 @@
     "selectPlaceHolder": "Select...",
     "loading": "Loading...",
     "loadMore": "Load more",
-    "uploadFailed": "Upload failed"
+    "uploadFailed": "Upload failed",
+    "rowCount": "{{count}} records"
   },
   "noun": {
     "table": "Table",
@@ -72,6 +73,65 @@
     "default": {
       "empty": "No filter conditions are applied",
       "placeholder": "Enter a value"
+    },
+    "conjunction": {
+      "and": "and",
+      "or": "or",
+      "where": "where"
+    },
+    "operator": {
+      "is": "is",
+      "isNot": "is not",
+      "contains": "contains",
+      "doesNotContain": "does not contain",
+      "isEmpty": "is empty",
+      "isNotEmpty": "is not empty",
+      "isGreater": "is greater than",
+      "isGreaterEqual": "is greater Equal",
+      "isLess": "is less than",
+      "isLessEqual": "is less Equal",
+      "isAnyOf": "is any of",
+      "isNoneOf": "is not any of",
+      "hasAnyOf": "has any of",
+      "hasAllOf": "has all of",
+      "hasNoneOf": "has none of",
+      "isExactly": "is exactly",
+      "isWithIn": "is with in",
+      "isBefore": "is before",
+      "isAfter": "is after",
+      "isOnOrBefore": "is on or before",
+      "isOnOrAfter": "is on or after",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "component": {
+      "date": {
+        "today": "today",
+        "tomorrow": "tomorrow",
+        "yesterday": "yesterday",
+        "oneWeekAgo": "one week ago",
+        "oneWeekFromNow": "one week from now",
+        "oneMonthAgo": "one month ago",
+        "oneMonthFromNow": "one month from now",
+        "daysAgo": "days ago",
+        "daysFromNow": "days from now",
+        "exactDate": "exact date",
+
+        "pastWeek": "past week",
+        "pastMonth": "past month",
+        "pastYear": "past year",
+        "nextWeek": "next week",
+        "nextMonth": "next Month",
+        "nextYear": "next Year",
+        "pastNumberOfDays": "past number of days",
+        "nextNumberOfDays": "next number of days"
+      }
     }
   },
   "color": {

@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { recordSchema } from '@teable/core';
-import { axios } from '../axios';
+import type { AxiosResponse, Axios } from 'axios';
+import { axios as axiosInstance } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { fieldKeyTypeRoSchema, typecastSchema } from './get';
@@ -87,6 +88,36 @@ export const CreateRecordRoute: RouteConfig = registerRoute({
   tags: ['record'],
 });
 
-export const createRecords = async (tableId: string, recordsRo: ICreateRecordsRo) => {
-  return axios.post<ICreateRecordsVo>(urlBuilder(CREATE_RECORD, { tableId }), recordsRo);
-};
+export async function createRecords(
+  tableId: string,
+  recordsRo: ICreateRecordsRo
+): Promise<AxiosResponse<ICreateRecordsVo>>;
+export async function createRecords(
+  axios: Axios,
+  tableId: string,
+  recordsRo: ICreateRecordsRo
+): Promise<AxiosResponse<ICreateRecordsVo>>;
+export async function createRecords(
+  axios: Axios | string,
+  tableId: string | ICreateRecordsRo,
+  recordsRo?: ICreateRecordsRo
+): Promise<AxiosResponse<ICreateRecordsVo>> {
+  let theAxios: Axios;
+  let theTableId: string;
+  let theRecordsRo: ICreateRecordsRo;
+
+  if (typeof axios === 'string') {
+    theAxios = axiosInstance;
+    theTableId = axios;
+    theRecordsRo = tableId as ICreateRecordsRo;
+  } else {
+    theAxios = axios;
+    theTableId = tableId as string;
+    theRecordsRo = recordsRo as ICreateRecordsRo;
+  }
+
+  return theAxios.post<ICreateRecordsVo>(
+    urlBuilder(CREATE_RECORD, { tableId: theTableId }),
+    theRecordsRo
+  );
+}

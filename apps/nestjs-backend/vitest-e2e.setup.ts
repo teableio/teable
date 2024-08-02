@@ -71,7 +71,7 @@ function compileWorkerFile() {
     outdir: outFile,
     bundle: true,
     platform: 'node',
-    target: 'node14',
+    target: 'node20',
   });
 }
 

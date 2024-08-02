@@ -1,5 +1,6 @@
 import { ArrowLeft } from '@teable/icons';
 import { Button } from '@teable/ui-lib/shadcn';
+import Head from 'next/head';
 
 interface ISettingRightTitle {
   title?: string | React.ReactNode;
@@ -14,6 +15,9 @@ export const SettingRightTitle = (props: ISettingRightTitle) => {
           <ArrowLeft />
         </Button>
       )}
+      <Head>
+        <title>{title}</title>
+      </Head>
       <h2 className="flex-1 text-base">{title}</h2>
     </div>
   );
