@@ -44,6 +44,8 @@
   "field": {
     "fieldManagement": "Field Management",
     "fieldManagementDesc": "Detailed properties for all fields of the current table",
+    "advancedProps": "Advanced properties",
+    "hide": "hide",
     "default": {
       "singleLineText": {
         "title": "Label"
@@ -277,6 +279,11 @@
       "duplicating": "Duplicat...",
       "duplicateSuccessful": "Duplicate successful",
       "pasteFileFailed": "Files can only be pasted into an attachment field"
+    },
+    "graph": {
+      "tableLabel": "Table label",
+      "effectCells": "May effect cells",
+      "estimatedTime": "Estimated time"
     }
   },
   "import": {
@@ -421,6 +428,10 @@
       "table": "Grid View",
       "form": "Form View",
       "kanban": "Kanban View"
+    },
+    "crash": {
+      "title": "Crash!",
+      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
     }
   },
   "lastModifiedTime": "Last modified time",

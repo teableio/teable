@@ -7,14 +7,16 @@ import {
   DialogFooter,
   DialogClose,
 } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { DynamicFieldGraph } from '../../graph/DynamicFieldGraph';
 export const FieldGraph = ({ fieldId }: { fieldId: string }) => {
   const table = useTable();
+  const { t } = useTranslation(['common', 'table']);
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button size={'xs'} variant={'outline'}>
-          Graph
+          {t('table:field.editor.graph')}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl">
@@ -22,7 +24,7 @@ export const FieldGraph = ({ fieldId }: { fieldId: string }) => {
         <DialogFooter>
           <DialogClose asChild>
             <Button type="button" variant="secondary">
-              Close
+              {t('common:actions.close')}
             </Button>
           </DialogClose>
         </DialogFooter>

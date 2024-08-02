@@ -1,11 +1,12 @@
 import type { IFieldVo } from '@teable/core';
 import { LocalStorageKeys } from '@teable/sdk/config/local-storage-keys';
+import { useTranslation } from 'next-i18next';
 import { useLocalStorage } from 'react-use';
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const SystemInfo: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) => {
   const [show, setShow] = useLocalStorage<boolean>(LocalStorageKeys.FieldSystem);
-
+  const { t } = useTranslation(['table']);
   if (!field.id) {
     return null;
   }
@@ -54,7 +55,7 @@ export const SystemInfo: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) =>
           role={'button'}
           className="cursor-pointer border-b border-solid border-slate-500 "
         >
-          Hide
+          {t('field.hide')}
         </span>
       </p>
     </div>
@@ -74,7 +75,7 @@ export const SystemInfo: React.FC<{ field: Partial<IFieldVo> }> = ({ field }) =>
           role={'button'}
           className="cursor-pointer border-b border-solid border-slate-500 "
         >
-          System Info
+          {t('field.advancedProps')}
         </span>
       </p>
     </div>

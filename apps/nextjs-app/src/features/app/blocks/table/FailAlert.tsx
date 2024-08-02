@@ -1,15 +1,15 @@
 import { Frown } from '@teable/icons';
 import { Alert, AlertDescription, AlertTitle } from '@teable/ui-lib/shadcn/ui/alert';
+import { useTranslation } from 'next-i18next';
 
 export const FailAlert: React.FC = () => {
+  const { t } = useTranslation(['table']);
   return (
     <div className="flex size-full items-center justify-center">
       <Alert className="w-[400px]">
         <Frown className="size-5" />
-        <AlertTitle>Crash!</AlertTitle>
-        <AlertDescription>
-          This view is broken. If the refresh still fails, run the data repair program.
-        </AlertDescription>
+        <AlertTitle>{t('view.crash.title')}</AlertTitle>
+        <AlertDescription>{t('view.crash.description')}</AlertDescription>
       </Alert>
     </div>
   );

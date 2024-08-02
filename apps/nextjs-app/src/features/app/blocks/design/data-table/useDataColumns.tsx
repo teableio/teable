@@ -2,6 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import type { IFieldVo } from '@teable/core';
 import { Checked, Lock } from '@teable/icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { Actions } from '../components/Actions';
 import { FieldPropertyEditor } from '../components/FieldPropertyEditor';
 import { FieldGraph } from './FieldGraph';
@@ -16,6 +17,7 @@ function checkBox(key: string) {
 }
 
 export function useDataColumns() {
+  const { t } = useTranslation(['sdk']);
   const columns: ColumnDef<IFieldVo>[] = [
     {
       accessorKey: 'isPrimary',
@@ -30,7 +32,7 @@ export function useDataColumns() {
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>is primary key</p>
+                <p>{t('hidden.primaryKey')}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
