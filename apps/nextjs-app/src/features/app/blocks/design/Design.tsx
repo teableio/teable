@@ -5,7 +5,6 @@ import type { Table } from '@teable/sdk';
 import { AnchorContext, FieldProvider, useTable, useTablePermission } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import { Button } from '@teable/ui-lib/shadcn';
-import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -35,13 +34,6 @@ export const Design: React.FC<IDesignProps> = ({ fieldServerData: fields }) => {
     <AnchorContext.Provider value={{ baseId, tableId }}>
       <TablePermissionProvider baseId={baseId}>
         <FieldProvider serverSideData={fields}>
-          <Head>
-            <title>
-              {table.name
-                ? `${table.icon ? table.icon + ' ' : ''}${table.name}`
-                : 'Teable' + ' - Designing'}
-            </title>
-          </Head>
           <div className="flex h-full grow basis-[500px] flex-col gap-4 overflow-auto p-4 pt-0">
             <h1 className="flex items-center gap-2 pt-2 text-xl font-bold tracking-tight">
               <Button size="xs" variant="ghost" asChild>

@@ -1,10 +1,12 @@
 import type { IFieldRo } from '@teable/core';
 import { ColorUtils } from '@teable/core';
+import { useLanDayjs } from '@teable/sdk/hooks';
 import { Badge } from '@teable/ui-lib/shadcn';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
+import { useTranslation } from 'next-i18next';
 import { useEffect, useRef, useState } from 'react';
 import { useGraph } from './useGraph';
 import { usePlan } from './usePlan';
@@ -12,16 +14,13 @@ import { usePlan } from './usePlan';
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
 
-function formatDuration(milliseconds: number) {
-  return dayjs().to(dayjs().add(milliseconds, 'millisecond'));
-}
-
 export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?: IFieldRo }) => {
   const ref = useRef(null);
   const planData = usePlan(params);
   const updateCellCount = planData?.updateCellCount;
   const estimateTime = planData?.estimateTime || 0;
-  const isCreate = !params.fieldId && params.fieldRo;
+  const { t, i18n } = useTranslation(['table']);
+  const dayjs = useLanDayjs();
 
   const [tables, setTables] = useState<{ name: string; color: string }[]>([]);
 
@@ -63,10 +62,12 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
     );
   }, [planData, updateGraph]);
 
+  const formatDuration = dayjs(Date.now() + estimateTime).fromNow();
+
   return (
     <div className="flex flex-col gap-2 pb-2">
-      <div className="flex items-center gap-2 pb-2 text-xs">
-        Table label:
+      <div className="flex items-center gap-2 pb-2 text-sm">
+        {t('table.graph.tableLabel')}
         {tables.map((table) => {
           return (
             <div
@@ -82,10 +83,14 @@ export const FieldGraph = (params: { tableId: string; fieldId?: string; fieldRo?
           );
         })}
       </div>
-      <div className="text-sm">
-        {isCreate ? 'Creating' : 'Modifying'} this field may affect{' '}
-        <Badge>{Intl.NumberFormat().format(updateCellCount || 0)}</Badge> cells and It should be
-        done <b>{formatDuration(estimateTime)}</b>
+      <div className="flex items-center gap-2 text-xs">
+        <div>
+          {t('table.graph.effectCells')}:{' '}
+          <Badge>{Intl.NumberFormat(i18n.language).format(updateCellCount || 0)}</Badge>
+        </div>
+        <div>
+          {t('table.graph.estimatedTime')}: <b>{formatDuration}</b>
+        </div>
       </div>
       <div className="relative flex h-[calc(100vh-400px)] max-h-[600px] w-full flex-col">
         <div ref={ref} className="grow rounded border shadow"></div>
