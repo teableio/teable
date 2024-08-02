@@ -27,19 +27,13 @@ interface ICellValueContainer extends ICellValue<unknown> {
 }
 
 export const CellValue = (props: ICellValueContainer) => {
-  const { field, value, className, itemClassName } = props;
+  const { field, value, maxWidth, maxLine, className, itemClassName } = props;
   const { type, options, cellValueType } = field;
 
   switch (type) {
     case FieldType.LongText:
     case FieldType.SingleLineText: {
-      return (
-        <CellText
-          value={value as string}
-          isMultipleRows={type === FieldType.LongText}
-          className={className}
-        />
-      );
+      return <CellText value={value as string} className={className} maxLine={maxLine} />;
     }
     case FieldType.Number: {
       return (
@@ -68,6 +62,7 @@ export const CellValue = (props: ICellValueContainer) => {
           options={transformSelectOptions(options)}
           className={className}
           itemClassName={itemClassName}
+          maxWidth={maxWidth}
         />
       );
     }
@@ -77,6 +72,7 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as IUserCellValue | IUserCellValue[]}
           className={className}
           itemClassName={itemClassName}
+          maxWidth={maxWidth}
         />
       );
     }
@@ -129,6 +125,7 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as ILinkCellValue | ILinkCellValue[]}
           className={className}
           itemClassName={itemClassName}
+          maxWidth={maxWidth}
         />
       );
     }

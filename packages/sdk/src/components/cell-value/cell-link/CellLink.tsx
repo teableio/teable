@@ -16,7 +16,7 @@ export const CellLink = (props: ICellLink) => {
   }, [value]);
 
   return (
-    <div className={cn('flex space-x-1', className)} style={style}>
+    <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
       {innerValue?.map((itemVal) => {
         const { id, title = 'Unnamed record' } = itemVal;
         return (

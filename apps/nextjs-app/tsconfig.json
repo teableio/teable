@@ -50,6 +50,6 @@
     "**/*.mjs",
     "**/*.jsx",
     "**/*.json",
-    ".next/types/**/*.ts",
+    ".next/types/**/*.ts", "../../packages/sdk/src/components/collaborator/CollaboratorWithHoverCard.tsx",
   ],
 }

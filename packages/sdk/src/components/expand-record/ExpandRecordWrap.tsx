@@ -7,15 +7,15 @@ export const ExpandRecordWrap: FC<
   PropsWithChildren<{
     model?: ExpandRecordModel;
     visible?: boolean;
-    showActivity?: boolean;
+    recordHistoryVisible?: boolean;
     onClose?: () => void;
   }>
 > = (props) => {
-  const { children, model, visible, showActivity, onClose } = props;
+  const { children, model, visible, recordHistoryVisible, onClose } = props;
 
   if (model === ExpandRecordModel.Modal)
     return (
-      <Modal visible={visible} showActivity={showActivity} onClose={onClose}>
+      <Modal visible={visible} recordHistoryVisible={recordHistoryVisible} onClose={onClose}>
         {children}
       </Modal>
     );

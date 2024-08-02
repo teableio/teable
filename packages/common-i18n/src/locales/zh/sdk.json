@@ -19,6 +19,16 @@
     "loadMore": "加载更多",
     "uploadFailed": "上传失败"
   },
+  "noun": {
+    "table": "表格",
+    "view": "视图",
+    "space": "空间",
+    "base": "数据库",
+    "field": "字段",
+    "record": "记录",
+    "automation": "自动化",
+    "user": "用户"
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "释放以上传文件",
@@ -88,7 +98,16 @@
     "forbidHiddenPrimaryTip": "主列：用于标识每条记录，不能隐藏"
   },
   "expandRecord": {
-    "copy": "复制到剪贴板"
+    "copy": "复制到剪贴板",
+    "copyRecordUrl": "复制记录链接",
+    "recordHistory": {
+      "hiddenRecordHistory": "隐藏记录历史",
+      "showRecordHistory": "显示记录历史",
+      "createdTime": "操作时间",
+      "createdBy": "操作人",
+      "before": "变更前",
+      "after": "变更后"
+    }
   },
   "sort": {
     "label": "排序",
@@ -187,15 +206,5 @@
       "automationUpdate": "更新自动化",
       "userEmailRead": "查看用户电子邮件"
     }
-  },
-  "noun": {
-    "table": "表格",
-    "view": "视图",
-    "space": "空间",
-    "base": "数据库",
-    "field": "字段",
-    "record": "记录",
-    "automation": "自动化",
-    "user": "用户"
   }
 }

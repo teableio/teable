@@ -4,12 +4,14 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   ICreateRecordsVo,
+  IGetRecordHistoryQuery,
   IRecord,
+  IRecordHistoryVo,
   IRecordInsertOrderRo,
   IUpdateRecordRo,
   IUpdateRecordsRo,
 } from '@teable/openapi';
-import { forEach, map } from 'lodash';
+import { forEach, keyBy, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
@@ -273,5 +275,79 @@ export class RecordOpenApiService {
 
       await this.recordService.batchDeleteRecords(tableId, recordIds);
     });
+  }
+
+  async getRecordHistory(
+    tableId: string,
+    recordId: string,
+    query: IGetRecordHistoryQuery
+  ): Promise<IRecordHistoryVo> {
+    const { cursor } = query;
+    const limit = 20;
+
+    const list = await this.prismaService.recordHistory.findMany({
+      where: {
+        tableId,
+        recordId,
+      },
+      select: {
+        id: true,
+        recordId: true,
+        fieldId: true,
+        before: true,
+        after: true,
+        createdTime: true,
+        createdBy: true,
+      },
+      take: limit + 1,
+      cursor: cursor ? { id: cursor } : undefined,
+      orderBy: {
+        createdTime: 'desc',
+      },
+    });
+
+    let nextCursor: typeof cursor | undefined = undefined;
+
+    if (list.length > limit) {
+      const nextItem = list.pop();
+      nextCursor = nextItem?.id;
+    }
+
+    const createdBySet: Set<string> = new Set();
+
+    const historyList = list.map(
+      ({ id, recordId, fieldId, before, after, createdTime, createdBy }) => {
+        createdBySet.add(createdBy);
+        return {
+          id,
+          recordId,
+          fieldId,
+          before: JSON.parse(before as string),
+          after: JSON.parse(after as string),
+          createdTime: createdTime.toISOString(),
+          createdBy,
+        };
+      }
+    );
+
+    const userList = await this.prismaService.user.findMany({
+      where: {
+        id: {
+          in: Array.from(createdBySet),
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+      },
+    });
+
+    return {
+      historyList,
+      userMap: keyBy(userList, 'id'),
+      nextCursor,
+    };
   }
 }

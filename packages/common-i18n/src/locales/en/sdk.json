@@ -98,7 +98,16 @@
     "forbidHiddenPrimaryTip": "Primary key: is used to identify records, could not to hidden"
   },
   "expandRecord": {
-    "copy": "Copy to clipboard"
+    "copy": "Copy to clipboard",
+    "copyRecordUrl": "Copy record URL",
+    "recordHistory": {
+      "hiddenRecordHistory": "Hide record history",
+      "showRecordHistory": "Show record history",
+      "createdTime": "Created Time",
+      "createdBy": "Created By",
+      "before": "Before",
+      "after": "After"
+    }
   },
   "sort": {
     "label": "Sort",

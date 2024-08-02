@@ -1,0 +1,240 @@
+import type { QueryFunctionContext } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { ArrowRight } from '@teable/icons';
+import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
+import { getRecordHistory } from '@teable/openapi';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@teable/ui-lib';
+import dayjs from 'dayjs';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactQueryKeys } from '../../config';
+import { useTranslation } from '../../context/app/i18n';
+import { useFieldStaticGetter, useIsHydrated, useTableId } from '../../hooks';
+import type { IFieldInstance } from '../../model';
+import { CellValue } from '../cell-value';
+import { OverflowTooltip } from '../cell-value/components';
+import { CollaboratorWithHoverCard } from '../collaborator';
+
+export const RecordHistory = ({ recordId }: { recordId: string }) => {
+  const tableId = useTableId() as string;
+  const { t } = useTranslation();
+  const isHydrated = useIsHydrated();
+  const getFieldStatic = useFieldStaticGetter();
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const [nextCursor, setNextCursor] = useState<string | null | undefined>();
+  const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
+
+  const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
+    const res = await getRecordHistory(queryKey[1] as string, queryKey[2] as string, {
+      cursor: pageParam,
+    });
+    setNextCursor(() => res.data.nextCursor);
+    setUserMap({ ...userMap, ...res.data.userMap });
+    return res.data.historyList;
+  };
+
+  const { data, isFetching, isLoading, fetchNextPage } = useInfiniteQuery({
+    queryKey: ReactQueryKeys.getRecordHistory(tableId, recordId),
+    queryFn,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    getNextPageParam: () => nextCursor,
+  });
+
+  const allRows = useMemo(() => (data ? data.pages.flatMap((d) => d) : []), [data]);
+
+  const fetchMoreOnBottomReached = useCallback(
+    (containerRefElement?: HTMLDivElement | null) => {
+      if (containerRefElement) {
+        const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
+        const isReachedThreshold = scrollHeight - scrollTop - clientHeight < 30;
+        if (!isFetching && nextCursor && isReachedThreshold) {
+          fetchNextPage();
+        }
+      }
+    },
+    [fetchNextPage, isFetching, nextCursor]
+  );
+
+  useEffect(() => {
+    fetchMoreOnBottomReached(listRef.current);
+  }, [fetchMoreOnBottomReached]);
+
+  const columns: ColumnDef<IRecordHistoryItemVo>[] = useMemo(
+    () => [
+      {
+        accessorKey: 'createdTime',
+        header: t('expandRecord.recordHistory.createdTime'),
+        size: 80,
+        cell: ({ row }) => {
+          const createdTime = row.getValue<string>('createdTime');
+          const createdDate = dayjs(createdTime);
+          const isToday = createdDate.isSame(dayjs(), 'day');
+          return (
+            <div className="text-xs">{createdDate.format(isToday ? 'HH:mm' : 'YYYY/MM/DD')}</div>
+          );
+        },
+      },
+      {
+        accessorKey: 'createdBy',
+        header: t('expandRecord.recordHistory.createdBy'),
+        size: 60,
+        cell: ({ row }) => {
+          const createdBy = row.getValue<string>('createdBy');
+          const user = userMap[createdBy];
+
+          if (!user) return null;
+
+          const { id, name, avatar, email } = user;
+
+          return (
+            <div className="flex justify-center">
+              <CollaboratorWithHoverCard id={id} name={name} avatar={avatar} email={email} />
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'field',
+        header: t('noun.field'),
+        size: 128,
+        cell: ({ row }) => {
+          const after = row.getValue<IRecordHistoryItemVo['after']>('after');
+          const { name: fieldName, type: fieldType } = after.meta;
+          const { Icon } = getFieldStatic(fieldType, false);
+          return (
+            <div className="flex items-center gap-x-1">
+              <Icon className="shrink-0" />
+              <OverflowTooltip text={fieldName} maxLine={1} className="flex-1 text-[13px]" />
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'before',
+        header: t('expandRecord.recordHistory.before'),
+        size: 220,
+        cell: ({ row }) => {
+          const before = row.getValue<IRecordHistoryItemVo['before']>('before');
+          return (
+            <Fragment>
+              {before.data != null ? (
+                <CellValue
+                  value={before.data}
+                  field={before.meta as IFieldInstance}
+                  maxLine={2}
+                  className="max-w-52"
+                />
+              ) : (
+                <span className="text-gray-500">{t('common.empty')}</span>
+              )}
+            </Fragment>
+          );
+        },
+      },
+      {
+        accessorKey: 'arrow',
+        header: '',
+        size: 40,
+        cell: () => {
+          return (
+            <div className="flex justify-center">
+              <ArrowRight className="text-gray-500" />
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: 'after',
+        header: t('expandRecord.recordHistory.after'),
+        size: 220,
+        cell: ({ row }) => {
+          const after = row.getValue<IRecordHistoryItemVo['after']>('after');
+          return (
+            <Fragment>
+              {after.data != null ? (
+                <CellValue
+                  value={after.data}
+                  field={after.meta as IFieldInstance}
+                  maxLine={2}
+                  className="max-w-52"
+                />
+              ) : (
+                <span className="text-gray-500">{t('common.empty')}</span>
+              )}
+            </Fragment>
+          );
+        },
+      },
+    ],
+    [getFieldStatic, t, userMap]
+  );
+
+  const table = useReactTable({
+    data: allRows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  if (!isHydrated || isLoading) return null;
+
+  return (
+    <div
+      ref={listRef}
+      className="relative size-full overflow-auto px-2 sm:overflow-x-hidden"
+      onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
+    >
+      <Table className="relative scroll-smooth">
+        <TableHeader className="sticky top-0 z-10 bg-background">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow
+              key={headerGroup.id}
+              className="flex h-10 bg-background text-[13px] hover:bg-background"
+            >
+              {headerGroup.headers.map((header) => {
+                return (
+                  <TableHead
+                    key={header.id}
+                    className="flex items-center"
+                    style={{
+                      width: header.getSize(),
+                    }}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                );
+              })}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows?.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id} className="flex text-[13px]">
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
+                    className="flex items-center"
+                    style={{
+                      width: cell.column.getSize(),
+                    }}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={columns.length} className="h-24 text-center">
+                {t('common.empty')}
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+};

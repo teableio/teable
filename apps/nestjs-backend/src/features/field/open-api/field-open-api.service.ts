@@ -3,7 +3,9 @@ import { FieldOpBuilder, IFieldRo } from '@teable/core';
 import type { IFieldVo, IConvertFieldRo, IUpdateFieldRo, IOtOperation } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
+import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
+import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { GraphService } from '../../graph/graph.service';
@@ -26,6 +28,7 @@ export class FieldOpenApiService {
     private readonly fieldConvertingService: FieldConvertingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
+    private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -155,6 +158,7 @@ export class FieldOpenApiService {
     // 1. stage analysis and collect field changes
     const { newField, oldField, modifiedOps, supplementChange } =
       await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
+    this.cls.set('oldField', oldField);
 
     // 2. stage alter field
     await this.prismaService.$tx(async () => {

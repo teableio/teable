@@ -271,6 +271,12 @@ export class EventEmitterService {
     const eventName = this.eventNameMapping[action]?.[docType];
     if (!eventName) return undefined;
 
+    const oldField = this.cls.get('oldField');
+
+    if (eventName === Events.TABLE_RECORD_UPDATE) {
+      payload.oldField = oldField;
+    }
+
     return match(docType)
       .with(IdPrefix.Table, () => TableEventFactory.create(eventName, payload, context))
       .with(IdPrefix.Field, () => FieldEventFactory.create(eventName, payload, context))

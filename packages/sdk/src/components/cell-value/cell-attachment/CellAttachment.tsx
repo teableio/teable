@@ -11,14 +11,17 @@ export const CellAttachment = (props: ICellAttachment) => {
   const { value, className, style, itemClassName } = props;
 
   return (
-    <div className={cn('flex space-x-1 h-7', className)} style={style}>
+    <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
       {value?.map((attachment) => {
         const { id, name, mimetype, presignedUrl } = attachment;
 
         return (
           <div
             key={id}
-            className={cn('h-full border rounded border-slate-200 overflow-hidden', itemClassName)}
+            className={cn(
+              'shrink-0 h-7 border rounded border-slate-200 overflow-hidden',
+              itemClassName
+            )}
           >
             <img
               className="size-full object-contain"

@@ -12,6 +12,8 @@ import {
   updateRecordRoSchema,
   deleteRecordsQuerySchema,
   IDeleteRecordsQuery,
+  getRecordHistoryQuerySchema,
+  IGetRecordHistoryQuery,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -99,5 +101,15 @@ export class RecordOpenApiController {
     @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
   ) {
     return this.recordService.getDocIdsByQuery(tableId, query);
+  }
+
+  @Permissions('record|read')
+  @Get('/:recordId/history')
+  async getRecordHistory(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Query(new ZodValidationPipe(getRecordHistoryQuerySchema)) query: IGetRecordHistoryQuery
+  ) {
+    return this.recordOpenApiService.getRecordHistory(tableId, recordId, query);
   }
 }
