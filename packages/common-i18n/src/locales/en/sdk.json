@@ -57,6 +57,7 @@
     "displayLabel_other": "Filter by {{fieldName}} and {{count}} other fields",
     "addCondition": "Add condition",
     "addConditionGroup": "Add condition group",
+    "nestedLimitTip": "Filter conditions can only be nested 3 levels deep",
     "linkInputPlaceholder": "Enter a value",
     "groupDescription": "Any of the following are true…",
     "currentUser": "Me (current user)",
