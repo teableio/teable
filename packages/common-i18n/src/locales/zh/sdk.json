@@ -57,6 +57,7 @@
     "displayLabel_other": "筛选({{count}})",
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
+    "nestedLimitTip": "条件组最多支持3层嵌套",
     "linkInputPlaceholder": "输入值",
     "groupDescription": "以下任一条件为真…",
     "currentUser": "我（当前用户）",
