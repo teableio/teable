@@ -1,84 +1,84 @@
 {
   "toolbar": {
-    "comingSoon": "Coming soon",
-    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
-    "createFieldButtonText": "Create a new <0/> field",
+    "comingSoon": "Скоро будет",
+    "viewFilterInShare": "Это представление используется в ссылке общего доступа к представлению. Изменения в конфигурации представления также изменят ссылку общего доступа к представлению.",
+    "createFieldButtonText": "Создание нового <0/> поля",
     "others": {
       "share": {
-        "label": "Share",
-        "statusLabel": "Sharing",
-        "shareLink": "Share Link",
-        "copied": "Copied",
-        "genLink": "Generate new link",
-        "allowCopy": "Allow viewers to copy data out of this view",
-        "showAllFields": "Show all fields in expanded records",
-        "restrict": "Restrict by password",
-        "tips": "People who have the link can see the view.",
-        "passwordTitle": "Enter a password",
-        "passwordTips": "Password restrictions for accessing shared views",
-        "embed": "Embed",
-        "embedPreview": "Embed preview",
-        "hideToolbar": "Hide toolbar",
-        "URLSetting": "URL parameters config",
-        "URLSettingDescription": "Adjusting the following settings will not affect the shared links. You need to copy the link with new parameters to make it take effect",
-        "cancel": "Cancel",
-        "save": "Save"
+        "label": "Поделиться",
+        "statusLabel": "Поделиться",
+        "shareLink": "Поделиться ссылкой",
+        "copied": "Скопировано",
+        "genLink": "Создать новую ссылку",
+        "allowCopy": "Разрешить просматривающим копировать данные из этого вида",
+        "showAllFields": "Разрешить просматривающим копировать данные из этого вида",
+        "restrict": "Ограничения пароля",
+        "tips": "Люди, получившие эту ссылку, могут просматривать этот вид в базе данных.",
+        "passwordTitle": "Введите пароль",
+        "passwordTips": "Добавить ограничение паролем для общего вида базы данных",
+        "embed": "Встроенная веб-страница",
+        "embedPreview": "Предварительный просмотр",
+        "hideToolbar": "Скрыть панель инструментов",
+        "URLSetting": "Конфигурация параметров URL-адреса",
+        "URLSettingDescription": "Изменение следующих настроек не повлияет на общую ссылку. Вам нужно скопировать ссылку с новыми параметрами, чтобы они вступили в силу",
+        "cancel": "Отменить",
+        "save": "Сохранить"
       },
       "extensions": {
-        "label": "Extensions",
-        "graph": "Graph"
+        "label": "Расширение",
+        "graph": "Схема отношений"
       },
       "api": {
         "label": "API",
         "restfulApi": "Restful API",
-        "databaseConnection": "Database Connection"
+        "databaseConnection": "Подключение к базе данных"
       }
     }
   },
   "welcome": {
-    "title": "Welcome",
-    "description": "Click the + sign on the left sidebar to create a table.",
-    "help": "Visit the <HelpCenter /> for more information.",
-    "helpCenter": "Help Center"
+    "title": "Добро пожаловать",
+    "description": "Нажмите на знак + в левой Боковой панели, чтобы создать таблицу данных.",
+    "help": "Посетите <HelpCenter />, чтобы получить более подробную информацию.",
+    "helpCenter": "Справочный центр"
   },
   "field": {
-    "fieldManagement": "Field Management",
-    "fieldManagementDesc": "Detailed properties for all fields of the current table",
-    "advancedProps": "Advanced properties",
-    "hide": "hide",
+    "fieldManagement": "Управление полями",
+    "fieldManagementDesc": "Подробные свойства всех полей текущей таблицы",
+    "advancedProps": "Расширенные свойства",
+    "hide": "скрыть",
     "default": {
       "singleLineText": {
-        "title": "Label"
+        "title": "Мультивыбор"
       },
       "longText": {
-        "title": "Notes"
+        "title": "Многострочный текст"
       },
       "number": {
-        "title": "Number",
-        "formatType": "Format Type",
-        "currencySymbol": "Currency Symbol",
+        "title": "Число",
+        "formatType": "Тип форматирования",
+        "currencySymbol": "Валютный знак",
         "defaultSymbol": "$",
-        "precision": "Precision",
-        "decimalExample": "Decimal (1.0)",
-        "currencyExample": "Currency ($100)",
-        "percentExample": "Percent (20%)"
+        "precision": "Точность",
+        "decimalExample": "Десятичный (1.0)",
+        "currencyExample": "Валюта ($100)",
+        "percentExample": "Процент (20%)"
       },
       "singleSelect": {
-        "title": "Status",
+        "title": "Одиночный выбор",
         "options": {
-          "todo": "To Do",
-          "inProgress": "In Progress",
-          "done": "Done"
+          "todo": "К выполнению",
+          "inProgress": "В процессе",
+          "done": "Выполнено"
         }
       },
       "multipleSelect": {
-        "title": "Tags"
+        "title": "Множественный выбор"
       },
       "attachment": {
-        "title": "Attachments"
+        "title": "Приложение"
       },
       "user": {
-        "title": "Collaborator"
+        "title": "Коллаборатор"
       },
       "date": {
         "title": "Date",
@@ -107,25 +107,25 @@
         "title": "Created Time"
       },
       "lastModifiedTime": {
-        "title": "Last Modified Time"
+        "title": "Время последнего изменения"
       },
       "rating": {
-        "title": "Rating"
+        "title": "Оценка"
       },
       "checkbox": {
-        "title": "Done"
+        "title": "Галочка"
       },
       "formula": {
-        "title": "Calculation",
-        "formula": "Formula"
+        "title": "Формула",
+        "formula": "Формула"
       },
       "lookup": {
-        "title": "{{lookupFieldName}} (from {{linkFieldName}})"
+        "title": "{{lookupFieldName}} (от {{linkFieldName}})"
       },
       "rollup": {
-        "title": "{{lookupFieldName}} Rollup (from {{linkFieldName}})",
-        "rollup": "Rollup",
-        "selectAnRollupFunction": "Select an rollup function",
+        "title": "{{lookupFieldName}} Сводка (от {{linkFieldName}})",
+        "rollup": "Сводка",
+        "selectAnRollupFunction": "Выберите функцию сводки",
         "func": {
           "and": "AND",
           "arrayCompact": "ARRAYCOMPACT",
@@ -143,13 +143,13 @@
           "xor": "XOR"
         },
         "funcDesc": {
-          "and": "Returns true if all the values are true",
-          "arrayCompact": "Removes empty strings and null values from the array. Keeps 'false' and strings that contain one or more blank characters.",
-          "arrayJoin": "Join all the values into a single comma-separated string.",
+          "and": "Если все значения true, то возвращается true",
+          "arrayCompact": "Удалите пустые строки и пустые значения из массива. Сохраняйте ‘false’ и строки, содержащие один или более пробельных символов.",
+          "arrayJoin": "Объединить все значения в одну строку, разделенную запятой.",
           "arrayUnique": "Return only unique items.",
-          "average": "Mean average of the values.",
-          "concatenate": "Joins together the text values into a single text value.",
-          "count": "Count only non-empty numeric values. If you want to count all records, use COUNTALL.",
+          "average": "Вычислить среднюю величину.",
+          "concatenate": "Объединить несколько текстовых значений в одно текстовое значение.",
+          "count": "Считать только непустые целые значения. Если требуется считать все записи, используйте COUNTALL.",
           "countA": "Count the number of non-empty values. This function counts both numeric and text values.",
           "countAll": "counts all values including blank records.",
           "max": "Returns the largest of the given numbers.",
@@ -183,13 +183,13 @@
       "text": "Text",
       "url": "Url",
       "email": "Email",
-      "phone": "Phone",
-      "maxNumber": "Max Number",
-      "showNumber": "Show Number",
-      "autoFillDate": "Auto Fill with current date",
-      "createSymmetricLink": "Create a back link field in the link table",
-      "allowLinkMultipleRecords": "Allow multiple select",
-      "allowLinkToDuplicateRecords": "Allows records to be selected more than once",
+      "phone": "Телефон",
+      "maxNumber": "Максимальный номер",
+      "showNumber": "Показать номер",
+      "autoFillDate": "Автозаполнение с текущей датой",
+      "createSymmetricLink": "В связанной таблице создать обратную связь",
+      "allowLinkMultipleRecords": "Разрешить множественный выбор",
+      "allowLinkToDuplicateRecords": "Разрешить повторяющиеся значения",
       "allowSymmetricFieldLinkMultipleRecords": "Allows records to be selected more than once",
       "oneToOne": "one-to-one",
       "oneToMany": "one-to-many",
