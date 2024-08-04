@@ -29,20 +29,20 @@
     "callbackUrl": {
       "label": "URL обратного вызова",
       "description": "Полный URL для перенаправления после того, как пользователь авторизует вашу интеграцию.",
-      "add": "Add Callback URL"
+      "add": "Добавить URL обратного вызова"
     },
     "scopes": {
-      "label": "Scopes",
-      "description": "The permissions your OAuth App needs."
+      "label": "Диапазоны",
+      "description": "Разрешения, необходимые вашему OAuth-приложению."
     },
     "secret": {
-      "label": "Client secrets",
-      "add": "Generate a new client secret",
-      "newDescription": "Make sure to copy your new client secret now. You won’t be able to see it again.",
-      "empty": "You need a client secret to authenticate as the application to the API.",
-      "lastUsed": "Last used at {{date}}",
-      "tag": "Client secret",
-      "neverUsed": "Never used"
+      "label": "Секреты клиента",
+      "add": "Сгенерировать новый секрет клиента",
+      "newDescription": "Убедитесь, что вы скопировали ваш новый секрет клиента сейчас. Вы больше не сможете увидеть его.",
+      "empty": "Вам нужен секрет клиента для аутентификации приложения в API.",
+      "lastUsed": "Последний раз использовано {{date}}",
+      "tag": "Секрет клиента",
+      "neverUsed": "Никогда не использовалось"
     },
     "clientId": {
       "label": "Client ID: "
