@@ -19,16 +19,16 @@
     },
     "logo": {
       "label": "Logo",
-      "description": "A square image is recommended.",
-      "placeholder": "Drag and drop your logo here or click to upload",
-      "button": "Upload a logo",
-      "clear": "Clear",
-      "lengthError": "Only one file is allowed.",
-      "typeError": "Only image file is allowed."
+      "description": "Рекомендуется квадратное изображение.",
+      "placeholder": "Перетащите ваш логотип сюда или нажмите, чтобы загрузить",
+      "button": "Загрузите логотип",
+      "clear": "Очистить",
+      "lengthError": "Разрешен только один файл.",
+      "typeError": "Разрешен только файл изображения."
     },
     "callbackUrl": {
-      "label": "Callback URL",
-      "description": "The full URL to redirect to after a user authorizing your integration.",
+      "label": "URL обратного вызова",
+      "description": "Полный URL для перенаправления после того, как пользователь авторизует вашу интеграцию.",
       "add": "Add Callback URL"
     },
     "scopes": {
