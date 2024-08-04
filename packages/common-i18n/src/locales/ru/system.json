@@ -1,16 +1,16 @@
 {
   "notFound": {
-    "title": "404 - Page Not Found"
+    "title": "404 - Страница не найдена"
   },
   "links": {
-    "backToHome": "Back to home"
+    "backToHome": "Вернуться на главную"
   },
   "forbidden": {
-    "title": "403 - Forbidden",
-    "description": "You don't have permission to access this page."
+    "title": "403 - Доступ запрещен",
+    "description": "У вас нет разрешения на доступ к этой странице."
   },
   "paymentRequired": {
-    "title": "402 - Subscription Upgrade Required",
-    "description": "Your current subscription does not support access to this feature. <br></br>Please upgrade your subscription to continue."
+    "title": "402 - Требуется обновление подписки",
+    "description": "Ваш текущий тарифный план не поддерживает доступа к этой функции. <br></br>Пожалуйста, обновите ваш тарифный план для продолжения."
   }
 }
