@@ -1,47 +1,47 @@
 {
-  "initialSpaceName": "{{name}}'s space",
+  "initialSpaceName": "Пространство {{name}}",
   "page": {
     "title": "Teable App"
   },
   "action": {
-    "createBase": "Create a base",
-    "createSpace": "Create a space",
-    "invite": "Invite"
+    "createBase": "Создать базу",
+    "createSpace": "Создать пространство",
+    "invite": "Пригласить"
   },
-  "allSpaces": "All spaces",
-  "spaceIsEmpty": "This space is empty",
+  "allSpaces": "Все пространства",
+  "spaceIsEmpty": "Это пространство пустое",
   "baseModal": {
-    "copy": "Copy",
-    "duplicate": "Duplicate \"{{baseName}}\"",
-    "createBaseFromTemplate": "Create base from template",
-    "duplicateRecords": "Duplicate records",
-    "duplicateRecordsTip": "Your revision history will not be duplicated.",
-    "toSpace": "To space",
-    "copyToSpace": "Copy to space",
-    "duplicateBase": "Duplicate base",
-    "missTargetTip": "Please select a space to duplicate the base.",
-    "copying": "Duplicating base, it may take a while...",
-    "copyingTemplate": "Creating base from template, it may take a while...",
-    "howToCreate": "How do you want to start?",
-    "fromScratch": "From scratch",
-    "fromTemplate": "From template"
+    "copy": "Копировать",
+    "duplicate": "Дублировать \"{{baseName}}\"",
+    "createBaseFromTemplate": "Создать базу из шаблона",
+    "duplicateRecords": "Дублировать записи",
+    "duplicateRecordsTip": "Ваша история редакций не будет дублироваться.",
+    "toSpace": "В пространство",
+    "copyToSpace": "Скопировать в пространство",
+    "duplicateBase": "Дублировать базу",
+    "missTargetTip": "Пожалуйста, выберите пространство для дублирования базы.",
+    "copying": "Дублируется база, это может занять некоторое время...",
+    "copyingTemplate": "Создается база из шаблона, это может занять некоторое время...",
+    "howToCreate": "Как вы хотите начать?",
+    "fromScratch": "С нуля",
+    "fromTemplate": "Из шаблона"
   },
   "spaceSetting": {
-    "title": "Space settings",
-    "general": "General",
-    "collaborators": "Collaborators",
-    "generalDescription": "Change the settings for your current space here",
-    "collaboratorDescription": "Manage collaborators of your space and set their access permission",
-    "spaceName": "Space Name",
-    "spaceId": "Space ID"
+    "title": "Настройки пространства",
+    "general": "Общие",
+    "collaborators": "Сотрудники",
+    "generalDescription": "Измените настройки для вашего текущего пространства здесь",
+    "collaboratorDescription": "Управляйте участниками вашего пространства и устанавливайте их права доступа",
+    "spaceName": "Название пространства",
+    "spaceId": "ID пространства"
   },
   "pin": {
-    "add": "Add to pin",
-    "remove": "Remove from pin",
-    "pin": "Pin",
-    "empty": "Your pined bases and space will appear here"
+    "add": "Добавить в избранное",
+    "remove": "Удалить из избранного",
+    "pin": "Избранное",
+    "empty": "Ваши закрепленные базы данных и сохраненные пространства появятся здесь"
   },
   "tip": {
-    "delete": "Are you sure you want to delete <0/>?"
+    "delete": "Вы уверены, что хотите удалить <0/>?"
   }
 }
