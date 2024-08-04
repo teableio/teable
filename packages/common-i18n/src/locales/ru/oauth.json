@@ -1,21 +1,21 @@
 {
-  "add": "New OAuth Apps",
+  "add": "Новые приложения OAuth",
   "title": {
-    "add": "New OAuth Apps",
-    "edit": "Edit OAuth Apps"
+    "add": "Новые приложения OAuth",
+    "edit": "Редактировать приложения OAuth"
   },
   "form": {
     "name": {
-      "label": "OAuth App name",
-      "description": "The name of your OAuth App."
+      "label": "Название приложения OAuth",
+      "description": "Название вашего приложения OAuth."
     },
     "description": {
-      "label": "Description",
-      "description": "A short description of your OAuth App."
+      "label": "Описание",
+      "description": "Краткое описание вашего приложения OAuth."
     },
     "homePageUrl": {
-      "label": "Homepage URL",
-      "description": "The full URL to your OAuth App’s website."
+      "label": "URL главной страницы",
+      "description": "Полный URL-адрес веб-сайта вашего приложения OAuth."
     },
     "logo": {
       "label": "Logo",
