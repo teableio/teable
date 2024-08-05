@@ -29,6 +29,23 @@ const killMe = async () => {
   await $`exit 0`;
 };
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const retryOperation = async (operation, maxRetries = 5, delay = 3000) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await operation();
+      return;
+    } catch (error) {
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      console.log(`Attempt ${attempt} failed. Retrying in ${delay/1000} seconds...`);
+      await sleep(delay);
+    }
+  }
+};
+
 console.log(`DB Migrate Version: ${buildVersion}`);
 await $`prisma -v`;
 
@@ -43,6 +60,8 @@ if (!driver || !adapters[driver]) {
   throw new Error(`Adapter ${driver} is not allowed`);
 }
 
+console.log(`wait-for  ${host}:${port} 【${driver}】deploying.`);
+
 const result =
   await $`scripts/wait-for ${host}:${port} --timeout=15 -- echo 'database driver:【${driver}】started successfully.'`;
 if (result.exitCode !== 0) {
@@ -53,9 +72,12 @@ if (result.exitCode !== 0) {
 console.log(`database driver:【${driver}】, ready to start migration.`);
 
 try {
-  await adapters[driver]();
-  console.log(`database driver:【${driver}】, migration success.`);
+  await retryOperation(async () => {
+    await adapters[driver]();
+    console.log(`database driver:【${driver}】, migration success.`);
+  });
 } catch (p) {
   console.error(`Exit code: ${p.exitCode}`);
   console.error(`Migrate Deploy Error: ${p.stderr}`);
+  await killMe();
 }
