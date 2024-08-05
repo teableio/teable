@@ -62,17 +62,17 @@ if (!driver || !adapters[driver]) {
 
 console.log(`wait-for  ${host}:${port} 【${driver}】deploying.`);
 
-const result =
-  await $`scripts/wait-for ${host}:${port} --timeout=15 -- echo 'database driver:【${driver}】started successfully.'`;
-if (result.exitCode !== 0) {
-  console.error(`database driver:【${driver}】, startup exception is about to exit.`);
-  await killMe();
-}
-
-console.log(`database driver:【${driver}】, ready to start migration.`);
-
 try {
   await retryOperation(async () => {
+    const result =
+    await $`scripts/wait-for ${host}:${port} --timeout=15 -- echo 'database driver:【${driver}】started successfully.'`;
+    if (result.exitCode !== 0) {
+      console.error(`database driver:【${driver}】, startup exception is about to exit.`);
+      throw new Error(result.stderr);
+    }
+
+    console.log(`database driver:【${driver}】, ready to start migration.`);
+
     await adapters[driver]();
     console.log(`database driver:【${driver}】, migration success.`);
   });
