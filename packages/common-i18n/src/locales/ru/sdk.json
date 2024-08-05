@@ -2,33 +2,33 @@
   "common": {
     "comingSoon": "Скоро будет доступно",
     "empty": "Пустой",
-    "noRecords": "No records available",
-    "unnamedRecord": "Unnamed record",
-    "untitled": "Untitled",
-    "cancel": "Cancel",
-    "confirm": "Confirm",
-    "back": "Back",
-    "done": "Done",
-    "create": "Create",
+    "noRecords": "Не найдено ни одной записи",
+    "unnamedRecord": "Неименованная запись",
+    "untitled": "Без названия",
+    "cancel": "Отменить",
+    "confirm": "Подтвердить",
+    "back": "Назад",
+    "done": "Готово",
+    "create": "Создать",
     "search": {
-      "placeholder": "Search...",
-      "empty": "No results found"
+      "placeholder": "Поиск...",
+      "empty": "Ничего не найдено"
     },
-    "selectPlaceHolder": "Select...",
-    "loading": "Loading...",
-    "loadMore": "Load more",
-    "uploadFailed": "Upload failed",
-    "rowCount": "{{count}} records",
-    "summary": "Summary",
-    "summaryTip": "Hover to select summary"
+    "selectPlaceHolder": "Выбрать...",
+    "loading": "Загрузка...",
+    "loadMore": "Загрузить еще",
+    "uploadFailed": "Загрузка не удалась",
+    "rowCount": "{{count}} записей",
+    "summary": "Загрузить еще",
+    "summaryTip": "Подведите курсор для выбора резюме"
   },
   "editor": {
     "attachment": {
-      "uploadDragOver": "Release to upload file",
-      "uploadDragDefault": "Paste or drag and drop to upload here"
+      "uploadDragOver": "Отпустить для загрузки файла",
+      "uploadDragDefault": "Пасть или перетащить и отпустить для загрузки сюда"
     },
     "date": {
-      "placeholder": "Pick a date",
+      "placeholder": "Выберите дату",
       "today": "Today"
     },
     "formula": {
