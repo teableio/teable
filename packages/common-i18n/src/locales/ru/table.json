@@ -104,7 +104,7 @@
         "title": "ID"
       },
       "createdTime": {
-        "title": "Created Time"
+        "title": "Время создания"
       },
       "lastModifiedTime": {
         "title": "Время последнего изменения"
@@ -146,30 +146,30 @@
           "and": "Если все значения true, то возвращается true",
           "arrayCompact": "Удалите пустые строки и пустые значения из массива. Сохраняйте ‘false’ и строки, содержащие один или более пробельных символов.",
           "arrayJoin": "Объединить все значения в одну строку, разделенную запятой.",
-          "arrayUnique": "Return only unique items.",
+          "arrayUnique": "Возвращать только уникальные элементы.",
           "average": "Вычислить среднюю величину.",
           "concatenate": "Объединить несколько текстовых значений в одно текстовое значение.",
           "count": "Считать только непустые целые значения. Если требуется считать все записи, используйте COUNTALL.",
-          "countA": "Count the number of non-empty values. This function counts both numeric and text values.",
-          "countAll": "counts all values including blank records.",
-          "max": "Returns the largest of the given numbers.",
-          "min": "Returns the smallest of the given numbers.",
-          "or": "Returns true if any one of the values is true.",
-          "sum": "Sum together the values.",
-          "xor": "Returns true if and only if odd number of values are true."
+          "countA": "Подсчитайте количество непустых значений. Эта функция считает как числовые, так и текстовые значения.",
+          "countAll": "подсчитывает все значения, включая пустые данные.",
+          "max": "Возвращает наибольшее из заданных чисел.",
+          "min": "Возвращает наименьшее из заданных чисел.",
+          "or": "Возвращает true, если хотя бы одно из значений является true.",
+          "sum": "Сложите значения вместе.",
+          "xor": "Возвращает true, если и только если количество значений true является нечетным."
         }
       }
     },
     "editor": {
-      "addField": "Add Field",
-      "editField": "Edit Field",
-      "insertField": "Insert Field",
-      "graph": "Graph",
-      "fieldUpdated": "Field has been updated",
-      "fieldCreated": "Field has been created",
-      "previewDependenciesGraph": "Preview Dependencies Graph",
-      "areYouSurePerformIt": "Are you sure you want to perform it?",
-      "addDescription": "Add Description",
+      "addField": "Добавить поле",
+      "editField": "Редактировать поле",
+      "insertField": "Вставить поле",
+      "graph": "Граф",
+      "fieldUpdated": "Поле было обновлено",
+      "fieldCreated": "Поле было создано",
+      "previewDependenciesGraph": "Просмотреть граф зависимостей",
+      "areYouSurePerformIt": "Вы уверены, что хотите это выполнить?",
+      "addDescription": "Добавить описание",
       "description": "Description",
       "descriptionPlaceholder": "Describe this field (optional)",
       "type": "Type",
