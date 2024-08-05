@@ -279,17 +279,18 @@ export class RecordOpenApiService {
 
   async getRecordHistory(
     tableId: string,
-    recordId: string,
     query: IGetRecordHistoryQuery
   ): Promise<IRecordHistoryVo> {
-    const { cursor } = query;
+    const { recordId, cursor } = query;
     const limit = 20;
 
     const list = await this.prismaService.recordHistory.findMany({
-      where: {
-        tableId,
-        recordId,
-      },
+      where: recordId
+        ? {
+            tableId,
+            recordId,
+          }
+        : { tableId },
       select: {
         id: true,
         recordId: true,

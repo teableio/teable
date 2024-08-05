@@ -331,6 +331,7 @@ export class BaseService {
       ...actionPrefixMap[ActionPrefix.Table],
       ...actionPrefixMap[ActionPrefix.Base],
       ...actionPrefixMap[ActionPrefix.Automation],
+      ...actionPrefixMap[ActionPrefix.RecordHistory],
     ]);
   }
 }

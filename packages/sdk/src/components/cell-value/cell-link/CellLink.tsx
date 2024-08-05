@@ -23,7 +23,10 @@ export const CellLink = (props: ICellLink) => {
           <span
             key={id}
             title={title}
-            className={cn('rounded-md bg-secondary px-2 h-6 leading-6 text-[13px]', itemClassName)}
+            className={cn(
+              'rounded-md bg-secondary px-2 h-6 leading-6 text-[13px] truncate',
+              itemClassName
+            )}
           >
             {title}
           </span>

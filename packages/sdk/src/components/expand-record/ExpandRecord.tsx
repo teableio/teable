@@ -112,7 +112,6 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     <ExpandRecordWrap
       model={isTouchDevice ? ExpandRecordModel.Drawer : model ?? ExpandRecordModel.Modal}
       visible={visible}
-      recordHistoryVisible={recordHistoryVisible}
       onClose={onClose}
     >
       <div className="flex h-full flex-col">
@@ -129,7 +128,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
         />
         <div className="relative flex flex-1 overflow-hidden">
           {recordHistoryVisible ? (
-            <div className="flex size-full overflow-hidden rounded-ee bg-background">
+            <div className="flex size-full overflow-hidden rounded-b bg-background">
               <RecordHistory recordId={recordId} />
             </div>
           ) : (

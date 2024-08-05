@@ -1,11 +1,12 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { IdPrefix, fieldVoSchema, recordSchema } from '@teable/core';
+import { IdPrefix, fieldVoSchema } from '@teable/core';
 import { axios } from '../axios';
 import { itemSpaceCollaboratorSchema } from '../space';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const getRecordHistoryQuerySchema = z.object({
+  recordId: z.string().startsWith(IdPrefix.Record).optional(),
   cursor: z.string().nullish(),
 });
 
@@ -53,7 +54,7 @@ export const recordHistoryVoSchema = z.object({
 
 export type IRecordHistoryVo = z.infer<typeof recordHistoryVoSchema>;
 
-export const GET_RECORD_HISTORY_URL = '/table/{tableId}/record/{recordId}/history';
+export const GET_RECORD_HISTORY_URL = '/table/{tableId}/record/history';
 
 export const GetRecordHistoryRoute: RouteConfig = registerRoute({
   method: 'get',
@@ -62,7 +63,6 @@ export const GetRecordHistoryRoute: RouteConfig = registerRoute({
   request: {
     params: z.object({
       tableId: z.string(),
-      recordId: z.string(),
     }),
   },
   responses: {
@@ -70,7 +70,7 @@ export const GetRecordHistoryRoute: RouteConfig = registerRoute({
       description: 'Get the history list for a record',
       content: {
         'application/json': {
-          schema: recordSchema,
+          schema: recordHistoryVoSchema,
         },
       },
     },
@@ -78,15 +78,10 @@ export const GetRecordHistoryRoute: RouteConfig = registerRoute({
   tags: ['record'],
 });
 
-export const getRecordHistory = async (
-  tableId: string,
-  recordId: string,
-  query: IGetRecordHistoryQuery
-) => {
+export const getRecordHistory = async (tableId: string, query: IGetRecordHistoryQuery) => {
   return axios.get<IRecordHistoryVo>(
     urlBuilder(GET_RECORD_HISTORY_URL, {
       tableId,
-      recordId,
     }),
     { params: query }
   );

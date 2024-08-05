@@ -20,7 +20,8 @@
     "uploadFailed": "上传失败",
     "rowCount": "{{count}}条记录",
     "summary": "统计",
-    "summaryTip": "点击此行进行统计"
+    "summaryTip": "点击此行进行统计",
+    "actions": "操作"
   },
   "noun": {
     "table": "表格",
@@ -30,7 +31,8 @@
     "field": "字段",
     "record": "记录",
     "automation": "自动化",
-    "user": "用户"
+    "user": "用户",
+    "recordHistory": "记录历史"
   },
   "editor": {
     "attachment": {
@@ -169,7 +171,8 @@
       "createdTime": "操作时间",
       "createdBy": "操作人",
       "before": "变更前",
-      "after": "变更后"
+      "after": "变更后",
+      "viewRecord": "查看记录"
     }
   },
   "sort": {
@@ -267,7 +270,8 @@
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
-      "userEmailRead": "查看用户电子邮件"
+      "userEmailRead": "查看用户电子邮件",
+      "recordHistoryRead": "查看记录历史"
     }
   },
   "formula": {

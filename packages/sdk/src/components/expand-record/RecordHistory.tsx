@@ -2,10 +2,18 @@ import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import { ArrowRight } from '@teable/icons';
+import { ArrowRight, ChevronRight } from '@teable/icons';
 import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
 import { getRecordHistory } from '@teable/openapi';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@teable/ui-lib';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+  Button,
+} from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactQueryKeys } from '../../config';
@@ -16,7 +24,13 @@ import { CellValue } from '../cell-value';
 import { OverflowTooltip } from '../cell-value/components';
 import { CollaboratorWithHoverCard } from '../collaborator';
 
-export const RecordHistory = ({ recordId }: { recordId: string }) => {
+interface IRecordHistoryProps {
+  recordId?: string;
+  onRecordClick?: (recordId: string) => void;
+}
+
+export const RecordHistory = (props: IRecordHistoryProps) => {
+  const { recordId, onRecordClick } = props;
   const tableId = useTableId() as string;
   const { t } = useTranslation();
   const isHydrated = useIsHydrated();
@@ -27,7 +41,8 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
 
   const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
-    const res = await getRecordHistory(queryKey[1] as string, queryKey[2] as string, {
+    const res = await getRecordHistory(queryKey[1] as string, {
+      recordId: queryKey[2] as string | undefined,
       cursor: pageParam,
     });
     setNextCursor(() => res.data.nextCursor);
@@ -62,8 +77,9 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
     fetchMoreOnBottomReached(listRef.current);
   }, [fetchMoreOnBottomReached]);
 
-  const columns: ColumnDef<IRecordHistoryItemVo>[] = useMemo(
-    () => [
+  const columns: ColumnDef<IRecordHistoryItemVo>[] = useMemo(() => {
+    const actionVisible = !recordId && onRecordClick;
+    const tableColumns: ColumnDef<IRecordHistoryItemVo>[] = [
       {
         accessorKey: 'createdTime',
         header: t('expandRecord.recordHistory.createdTime'),
@@ -73,7 +89,9 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
           const createdDate = dayjs(createdTime);
           const isToday = createdDate.isSame(dayjs(), 'day');
           return (
-            <div className="text-xs">{createdDate.format(isToday ? 'HH:mm' : 'YYYY/MM/DD')}</div>
+            <div className="text-xs" title={createdDate.format('YYYY/MM/DD HH:mm')}>
+              {createdDate.format(isToday ? 'HH:mm' : 'YYYY/MM/DD')}
+            </div>
           );
         },
       },
@@ -115,7 +133,7 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
       {
         accessorKey: 'before',
         header: t('expandRecord.recordHistory.before'),
-        size: 220,
+        size: actionVisible ? 220 : 280,
         cell: ({ row }) => {
           const before = row.getValue<IRecordHistoryItemVo['before']>('before');
           return (
@@ -124,8 +142,8 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
                 <CellValue
                   value={before.data}
                   field={before.meta as IFieldInstance}
-                  maxLine={2}
-                  className="max-w-52"
+                  maxLine={4}
+                  className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
                 />
               ) : (
                 <span className="text-gray-500">{t('common.empty')}</span>
@@ -140,7 +158,7 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
         size: 40,
         cell: () => {
           return (
-            <div className="flex justify-center">
+            <div className="flex w-full justify-center">
               <ArrowRight className="text-gray-500" />
             </div>
           );
@@ -149,7 +167,7 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
       {
         accessorKey: 'after',
         header: t('expandRecord.recordHistory.after'),
-        size: 220,
+        size: actionVisible ? 220 : 280,
         cell: ({ row }) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
           return (
@@ -158,8 +176,8 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
                 <CellValue
                   value={after.data}
                   field={after.meta as IFieldInstance}
-                  maxLine={2}
-                  className="max-w-52"
+                  maxLine={4}
+                  className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
                 />
               ) : (
                 <span className="text-gray-500">{t('common.empty')}</span>
@@ -168,9 +186,32 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
           );
         },
       },
-    ],
-    [getFieldStatic, t, userMap]
-  );
+    ];
+
+    if (actionVisible) {
+      tableColumns.push({
+        accessorKey: 'recordId',
+        header: t('common.actions'),
+        size: 120,
+        cell: ({ row }) => {
+          const recordId = row.getValue<string>('recordId');
+          return (
+            <Button
+              size="xs"
+              variant="secondary"
+              className="h-6 gap-1 font-normal"
+              onClick={() => onRecordClick(recordId)}
+            >
+              {t('expandRecord.recordHistory.viewRecord')}
+              <ChevronRight className="size-4" />
+            </Button>
+          );
+        },
+      });
+    }
+
+    return tableColumns;
+  }, [recordId, userMap, t, getFieldStatic, onRecordClick]);
 
   const table = useReactTable({
     data: allRows,
@@ -216,7 +257,7 @@ export const RecordHistory = ({ recordId }: { recordId: string }) => {
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className="flex items-center"
+                    className="flex min-h-[40px] items-center"
                     style={{
                       width: cell.column.getSize(),
                     }}
