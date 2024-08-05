@@ -5,7 +5,7 @@ import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
-import { useBaseId, useTableId } from '../../hooks';
+import { useBaseId, useBasePermission, useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
 
@@ -40,6 +40,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     props;
   const { toast } = useToast();
   const { t } = useTranslation();
+  const basePermission = useBasePermission();
   const [recordHistoryVisible, setRecordHistoryVisible] = useLocalStorage<boolean>(
     LocalStorageKeys.RecordHistoryVisible,
     false
@@ -72,7 +73,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           recordId={recordId}
           recordIds={recordIds}
           serverData={serverData?.id === recordId ? serverData : undefined}
-          recordHistoryVisible={recordHistoryVisible}
+          recordHistoryVisible={basePermission?.['record_history|read'] && recordHistoryVisible}
           onClose={onClose}
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}

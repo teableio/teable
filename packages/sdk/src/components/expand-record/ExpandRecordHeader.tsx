@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, History, Link, X } from '@teable/icons';
 import { Button, Separator, cn } from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
+import { useBasePermission } from '../../hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
@@ -34,6 +35,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onRecordHistoryToggle,
   } = props;
 
+  const basePermission = useBasePermission();
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
@@ -86,21 +88,23 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               <Link />
             </Button>
           </TooltipWrap>
-          <TooltipWrap
-            description={
-              recordHistoryVisible
-                ? t('expandRecord.recordHistory.hiddenRecordHistory')
-                : t('expandRecord.recordHistory.showRecordHistory')
-            }
-          >
-            <Button
-              variant={recordHistoryVisible ? 'secondary' : 'ghost'}
-              size={'xs'}
-              onClick={onRecordHistoryToggle}
+          {basePermission?.['record_history|read'] && (
+            <TooltipWrap
+              description={
+                recordHistoryVisible
+                  ? t('expandRecord.recordHistory.hiddenRecordHistory')
+                  : t('expandRecord.recordHistory.showRecordHistory')
+              }
             >
-              <History />
-            </Button>
-          </TooltipWrap>
+              <Button
+                variant={recordHistoryVisible ? 'secondary' : 'ghost'}
+                size={'xs'}
+                onClick={onRecordHistoryToggle}
+              >
+                <History />
+              </Button>
+            </TooltipWrap>
+          )}
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />
