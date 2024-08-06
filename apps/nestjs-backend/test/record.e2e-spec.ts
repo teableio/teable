@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import { getRecordHistory, recordHistoryVoSchema, type ITableFullVo } from '@teable/openapi';
 import {
   convertField,
   createField,
@@ -262,6 +262,77 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         ],
       });
+    });
+  });
+
+  describe('record history', () => {
+    let mainTable: ITableFullVo;
+    let foreignTable: ITableFullVo;
+
+    beforeEach(async () => {
+      mainTable = await createTable(baseId, { name: 'Main table' });
+      foreignTable = await createTable(baseId, { name: 'Foreign table' });
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, mainTable.id);
+      await deleteTable(baseId, foreignTable.id);
+    });
+
+    it('should get record history of changes in the base cell values', async () => {
+      const recordId = mainTable.records[0].id;
+      const textField = await createField(mainTable.id, {
+        type: FieldType.SingleLineText,
+      });
+
+      const { data: originRecordHistory } = await getRecordHistory(mainTable.id, { recordId });
+
+      expect(recordHistoryVoSchema.safeParse(originRecordHistory).success).toEqual(true);
+      expect(originRecordHistory.historyList.length).toEqual(0);
+
+      await updateRecord(mainTable.id, recordId, {
+        record: {
+          fields: {
+            [textField.id]: 'new value',
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const { data: recordHistory } = await getRecordHistory(mainTable.id, { recordId });
+      const { data: tableRecordHistory } = await getRecordHistory(mainTable.id, {});
+
+      expect(recordHistory.historyList.length).toEqual(1);
+      expect(tableRecordHistory.historyList.length).toEqual(1);
+    });
+
+    it('should get record history of changes in the link field cell values', async () => {
+      const recordId = mainTable.records[0].id;
+      const foreignRecordId = foreignTable.records[0].id;
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      await updateRecord(mainTable.id, recordId, {
+        record: {
+          fields: {
+            [linkField.id]: { id: foreignRecordId },
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const { data: mainTableRecordHistory } = await getRecordHistory(mainTable.id, { recordId });
+      const { data: foreignTableRecordHistory } = await getRecordHistory(foreignTable.id, {
+        recordId: foreignRecordId,
+      });
+
+      expect(mainTableRecordHistory.historyList.length).toEqual(1);
+      expect(foreignTableRecordHistory.historyList.length).toEqual(1);
     });
   });
 
