@@ -265,6 +265,7 @@
     },
     "actionTips": {
       "copyAndPasteEnvironment": "复制和粘贴功能仅在 HTTPS 或 localhost 环境下可用",
+      "copyAndPasteBrowser": "当前浏览器不支持复制和粘贴功能",
       "copying": "正在复制...",
       "copySuccessful": "复制成功",
       "copyFailed": "复制失败",
