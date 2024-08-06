@@ -107,44 +107,44 @@
     "component": {
       "date": {
         "today": "сегодня",
-        "tomorrow": "tomorrow",
-        "yesterday": "yesterday",
-        "oneWeekAgo": "one week ago",
-        "oneWeekFromNow": "one week from now",
-        "oneMonthAgo": "one month ago",
-        "oneMonthFromNow": "one month from now",
-        "daysAgo": "days ago",
-        "daysFromNow": "days from now",
-        "exactDate": "exact date",
-        "pastWeek": "past week",
-        "pastMonth": "past month",
-        "pastYear": "past year",
-        "nextWeek": "next week",
-        "nextMonth": "next Month",
-        "nextYear": "next Year",
-        "pastNumberOfDays": "past number of days",
-        "nextNumberOfDays": "next number of days"
+        "tomorrow": "завтра",
+        "yesterday": "вчера",
+        "oneWeekAgo": "неделю назад",
+        "oneWeekFromNow": "через неделю",
+        "oneMonthAgo": "месяц назад",
+        "oneMonthFromNow": "через месяц",
+        "daysAgo": "дни назад",
+        "daysFromNow": "через дни",
+        "exactDate": "точная дата",
+        "pastWeek": "прошедшая неделя",
+        "pastMonth": "прошедший месяц",
+        "pastYear": "прошедший год",
+        "nextWeek": "следующая неделя",
+        "nextMonth": "следующий месяц",
+        "nextYear": "следующий год",
+        "pastNumberOfDays": "прошедшее количество дней",
+        "nextNumberOfDays": "следующие количество дней"
       }
     }
   },
   "color": {
-    "label": "color"
+    "label": "цвет"
   },
   "rowHeight": {
-    "short": "short",
-    "medium": "medium",
-    "tall": "tall",
-    "extraTall": "extraTall"
+    "short": "короткий",
+    "medium": "средний",
+    "tall": "высокий",
+    "extraTall": "очень высокий"
   },
   "share": {
-    "title": "share"
+    "title": "поделиться"
   },
   "extensions": {
-    "title": "extensions"
+    "title": "расширения"
   },
   "hidden": {
-    "label": "Hidden Fields",
-    "configLabel_one": "{{count}} hidden field",
+    "label": "Скрытые поля",
+    "configLabel_one": "{{count}} скрытое поле",
     "configLabel_other": "{{count}} hidden fields",
     "showAll": "Show All",
     "hideAll": "Hide All",
