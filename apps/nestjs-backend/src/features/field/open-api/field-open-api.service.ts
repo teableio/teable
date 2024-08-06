@@ -156,7 +156,7 @@ export class FieldOpenApiService {
     updateFieldRo: IConvertFieldRo
   ): Promise<IFieldVo> {
     // 1. stage analysis and collect field changes
-    const { newField, oldField, modifiedOps, supplementChange } =
+    const { newField, oldField, modifiedOps, supplementChange, needSupplementFieldConstraint } =
       await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
     this.cls.set('oldField', oldField);
 
@@ -183,6 +183,11 @@ export class FieldOpenApiService {
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+
+    // 4. stage supplement field constraint
+    if (needSupplementFieldConstraint) {
+      await this.fieldConvertingService.supplementFieldConstraint(tableId, newField);
+    }
 
     return instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
   }
