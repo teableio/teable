@@ -266,6 +266,7 @@
     },
     "actionTips": {
       "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
+      "copyAndPasteBrowser": "Copy and paste not supported in this browser",
       "copying": "Copying...",
       "copySuccessful": "Copy successful",
       "copyFailed": "Copy failed",
