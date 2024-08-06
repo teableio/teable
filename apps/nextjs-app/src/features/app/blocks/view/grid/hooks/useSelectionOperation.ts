@@ -73,6 +73,19 @@ export const useSelectionOperation = (props?: {
       });
       return false;
     }
+    // browser not support clipboard
+    if (
+      !navigator.clipboard ||
+      !navigator.clipboard.write ||
+      !navigator.clipboard.read ||
+      typeof ClipboardItem === 'undefined'
+    ) {
+      toast({
+        variant: 'destructive',
+        description: t('table:table.actionTips.copyAndPasteBrowser'),
+      });
+      return false;
+    }
     return true;
   }, [toast, t]);
 
@@ -100,7 +113,11 @@ export const useSelectionOperation = (props?: {
 
       try {
         await copyHandler(getCopyDataInner);
-        toaster.update({ id: toaster.id, title: t('table:table.actionTips.copySuccessful') });
+        toaster.update({
+          id: toaster.id,
+          title: t('table:table.actionTips.copySuccessful'),
+          duration: 1500,
+        });
       } catch (e) {
         const error = e as Error;
         toaster.update({
@@ -135,6 +152,7 @@ export const useSelectionOperation = (props?: {
             return toaster.update({
               id: toaster.id,
               title: t('table:table.actionTips.pasteFileFailed'),
+              duration: 1500,
             });
           }
           await filePasteHandler({
@@ -163,7 +181,11 @@ export const useSelectionOperation = (props?: {
             }
           });
         }
-        toaster.update({ id: toaster.id, title: t('table:table.actionTips.pasteSuccessful') });
+        toaster.update({
+          id: toaster.id,
+          title: t('table:table.actionTips.pasteSuccessful'),
+          duration: 1500,
+        });
       } catch (e) {
         const error = e as Error;
         toaster.update({
@@ -193,7 +215,11 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({ id: toaster.id, title: t('table:table.actionTips.clearSuccessful') });
+      toaster.update({
+        id: toaster.id,
+        title: t('table:table.actionTips.clearSuccessful'),
+        duration: 1500,
+      });
     },
     [tableId, toast, viewId, clearReq, t]
   );
@@ -213,7 +239,11 @@ export const useSelectionOperation = (props?: {
         ...(type ? { type } : {}),
       });
 
-      toaster.update({ id: toaster.id, title: t('table:table.actionTips.deleteSuccessful') });
+      toaster.update({
+        id: toaster.id,
+        title: t('table:table.actionTips.deleteSuccessful'),
+        duration: 1500,
+      });
     },
     [deleteReq, tableId, toast, viewId, t]
   );
