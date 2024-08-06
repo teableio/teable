@@ -383,8 +383,8 @@ model RecordHistory {
   tableId          String    @map("table_id")
   recordId         String    @map("record_id")
   fieldId          String    @map("field_id")
-  before           String      @map("before")
-  after            String      @map("after")
+  before           String    @map("before")
+  after            String    @map("after")
   createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
 
