@@ -57,54 +57,61 @@ export class RecordHistoryListener {
     }));
 
     const fieldMap = new Map(fields.map((field) => [field.id, field]));
-    const recordHistoryList: Prisma.RecordHistoryCreateManyInput[] = [];
 
-    records.forEach((record) => {
-      const { id: recordId, fields } = record;
+    const batchSize = 5000;
+    const totalCount = records.length;
 
-      Object.entries(fields).forEach(([fieldId, changeValue]) => {
-        const field = fieldMap.get(fieldId);
+    for (let i = 0; i < totalCount; i += batchSize) {
+      const batch = records.slice(i, i + batchSize);
+      const recordHistoryList: Prisma.RecordHistoryCreateManyInput[] = [];
 
-        if (!field) return null;
+      batch.forEach((record) => {
+        const { id: recordId, fields } = record;
 
-        const oldField = _oldField ?? field;
-        const { type, name, cellValueType, isComputed } = field;
-        const { oldValue, newValue } = changeValue;
+        Object.entries(fields).forEach(([fieldId, changeValue]) => {
+          const field = fieldMap.get(fieldId);
 
-        if (oldField.isComputed && isComputed) {
-          return null;
-        }
+          if (!field) return null;
 
-        recordHistoryList.push({
-          tableId,
-          recordId,
-          fieldId,
-          before: JSON.stringify({
-            meta: {
-              type: oldField.type,
-              name: oldField.name,
-              options: this.minimizeFieldOptions(oldValue, oldField),
-              cellValueType: oldField.cellValueType,
-            },
-            data: oldValue,
-          }),
-          after: JSON.stringify({
-            meta: {
-              type,
-              name,
-              options: this.minimizeFieldOptions(newValue, field),
-              cellValueType,
-            },
-            data: newValue,
-          }),
-          createdBy: userId as string,
+          const oldField = _oldField ?? field;
+          const { type, name, cellValueType, isComputed } = field;
+          const { oldValue, newValue } = changeValue;
+
+          if (oldField.isComputed && isComputed) {
+            return null;
+          }
+
+          recordHistoryList.push({
+            tableId,
+            recordId,
+            fieldId,
+            before: JSON.stringify({
+              meta: {
+                type: oldField.type,
+                name: oldField.name,
+                options: this.minimizeFieldOptions(oldValue, oldField),
+                cellValueType: oldField.cellValueType,
+              },
+              data: oldValue,
+            }),
+            after: JSON.stringify({
+              meta: {
+                type,
+                name,
+                options: this.minimizeFieldOptions(newValue, field),
+                cellValueType,
+              },
+              data: newValue,
+            }),
+            createdBy: userId as string,
+          });
         });
       });
-    });
 
-    await this.prismaService.recordHistory.createMany({
-      data: recordHistoryList,
-    });
+      await this.prismaService.recordHistory.createMany({
+        data: recordHistoryList,
+      });
+    }
   }
 
   private minimizeFieldOptions(
