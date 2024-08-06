@@ -87,7 +87,7 @@ export class SelectionController {
   }
 
   @Permissions('record|create')
-  @Post()
+  @Post('/duplicate')
   async duplicate(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
