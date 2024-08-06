@@ -86,13 +86,16 @@ export class EventEmitterService {
 
     observable
       .pipe(
-        groupBy((event) => event.name),
+        groupBy((event) => {
+          const tableId = get(event, 'payload.tableId');
+          return tableId ? `${tableId}_${event.name}` : event.name;
+        }),
         mergeMap((project) => this.aggregateEventsByGroup(project))
       )
       .subscribe((next) => this.handleEventResult(next));
   }
 
-  private aggregateEventsByGroup(project: GroupedObservable<Events, OpEvent>): Observable<OpEvent> {
+  private aggregateEventsByGroup(project: GroupedObservable<string, OpEvent>): Observable<OpEvent> {
     return project.pipe(
       toArray(),
       map((groupedEvents) => this.combineEvents(groupedEvents)),
