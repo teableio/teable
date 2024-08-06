@@ -44,7 +44,6 @@ export class DbConnectionService {
   }
 
   async remove(baseId: string) {
-    const userId = this.cls.get('user.id'); // Assuming you have some user context
     if (this.dbProvider.driver !== DriverClient.Pg) {
       throw new BadRequestException(`Unsupported database driver: ${this.dbProvider.driver}`);
     }
@@ -55,7 +54,7 @@ export class DbConnectionService {
       // Verify if the base exists and if the user is the owner
       await prisma.base
         .findFirstOrThrow({
-          where: { id: baseId, createdBy: userId, deletedTime: null }, // TODO: change it to owner check
+          where: { id: baseId, deletedTime: null },
         })
         .catch(() => {
           throw new BadRequestException('Only the base owner can remove a db connection');
@@ -180,7 +179,6 @@ export class DbConnectionService {
    * limit role to only access the schema
    */
   async create(baseId: string) {
-    const userId = this.cls.get('user.id');
     if (this.dbProvider.driver === DriverClient.Pg) {
       const readOnlyRole = `read_only_role_${baseId}`;
       const schemaName = baseId;
@@ -199,7 +197,7 @@ export class DbConnectionService {
       return this.prismaService.$tx(async (prisma) => {
         await prisma.base
           .findFirstOrThrow({
-            where: { id: baseId, createdBy: userId, deletedTime: null }, // TODO: change it to owner check
+            where: { id: baseId, deletedTime: null },
           })
           .catch(() => {
             throw new BadRequestException('only base owner can public db connection');
