@@ -796,4 +796,14 @@ export class SelectionService {
     await this.recordOpenApiService.deleteRecords(tableId, recordIds);
     return { ids: recordIds };
   }
+
+  async duplicate(tableId: string, rangesRo: IRangesRo) {
+    const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
+    const createRecordsRo = {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      records: records,
+    };
+    await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
+  }
 }

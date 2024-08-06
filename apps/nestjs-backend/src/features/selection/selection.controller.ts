@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import type {
   ICopyVo,
   IRangesToIdVo,
@@ -84,5 +84,14 @@ export class SelectionController {
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
   ): Promise<IDeleteVo> {
     return this.selectionService.delete(tableId, rangesRo);
+  }
+
+  @Permissions('record|create')
+  @Post()
+  async duplicate(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
+  ) {
+    return this.selectionService.duplicate(tableId, rangesRo);
   }
 }
