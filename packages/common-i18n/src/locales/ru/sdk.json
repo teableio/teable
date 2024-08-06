@@ -29,53 +29,53 @@
     },
     "date": {
       "placeholder": "Выберите дату",
-      "today": "Today"
+      "today": "Сегодня"
     },
     "formula": {
-      "title": "Formula Editor",
-      "guideSyntax": "Syntax",
-      "guideExample": "Example",
-      "helperExample": "Example: ",
-      "fieldValue": "Returns the value to the cells of the {{fieldName}} field."
+      "title": "Редактор формул",
+      "guideSyntax": "Синтаксис",
+      "guideExample": "Пример",
+      "helperExample": "Пример: ",
+      "fieldValue": "Возвращает значение в ячейки поля {{fieldName}}."
     },
     "link": {
-      "placeholder": "Select records to link",
-      "searchPlaceholder": "Search records",
-      "create": "Add Record",
-      "selectRecord": "Select Record",
-      "unselected": "Unselected",
-      "selected": "Selected",
-      "expandRecordError": "No permission to view this record."
+      "placeholder": "Выберите записи для связывания",
+      "searchPlaceholder": "Поиск записей",
+      "create": "Добавить запись",
+      "selectRecord": "Выбрать запись",
+      "unselected": "Не выбрано",
+      "selected": "Выбранные",
+      "expandRecordError": "Нет разрешения на просмотр этой записи."
     },
     "user": {
-      "searchPlaceholder": "Find users by name"
+      "searchPlaceholder": "Найти пользователей по имени"
     }
   },
   "filter": {
-    "label": "Filter",
-    "displayLabel": "Filter by ",
-    "displayLabel_other": "Filter by {{fieldName}} and {{count}} other fields",
-    "addCondition": "Add condition",
-    "addConditionGroup": "Add condition group",
-    "nestedLimitTip": "Filter conditions can only be nested 3 levels deep",
-    "linkInputPlaceholder": "Enter a value",
-    "groupDescription": "Any of the following are true…",
-    "currentUser": "Me (current user)",
+    "label": "Фильтр",
+    "displayLabel": "Фильтровать по ",
+    "displayLabel_other": "Фильтровать по {{fieldName}} и {{count}} другим полям",
+    "addCondition": "Добавить условие",
+    "addConditionGroup": "Добавить группу условий",
+    "nestedLimitTip": "Условия фильтрации могут быть вложенными только на 3 уровня",
+    "linkInputPlaceholder": "Введите значение",
+    "groupDescription": "Любой из следующих условия верно…",
+    "currentUser": "Меня (текучего пользователя)",
     "tips": {
-      "scope": "In this view, show records"
+      "scope": "В этом представлении показать записи"
     },
     "default": {
-      "empty": "No filter conditions are applied",
-      "placeholder": "Enter a value"
+      "empty": "Не применено никаких условий фильтрации",
+      "placeholder": "Введите значение"
     },
     "conjunction": {
-      "and": "and",
-      "or": "or",
-      "where": "where"
+      "and": "и",
+      "or": "или",
+      "where": "где"
     },
     "operator": {
-      "is": "is",
-      "isNot": "is not",
+      "is": "является",
+      "isNot": "не является",
       "contains": "contains",
       "doesNotContain": "does not contain",
       "isEmpty": "is empty",
