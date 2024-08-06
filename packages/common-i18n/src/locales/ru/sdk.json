@@ -89,12 +89,12 @@
       "hasAnyOf": "имеет любой из",
       "hasAllOf": "имеет все из",
       "hasNoneOf": "не имеет ни одного из",
-      "isExactly": "is exactly",
-      "isWithIn": "is with in",
-      "isBefore": "is before",
-      "isAfter": "is after",
-      "isOnOrBefore": "is on or before",
-      "isOnOrAfter": "is on or after",
+      "isExactly": "является ровно",
+      "isWithIn": "находится в предела",
+      "isBefore": "находится перед",
+      "isAfter": "следует после",
+      "isOnOrBefore": "на или до",
+      "isOnOrAfter": "на или после",
       "number": {
         "is": "=",
         "isNot": "≠",
@@ -106,7 +106,7 @@
     },
     "component": {
       "date": {
-        "today": "today",
+        "today": "сегодня",
         "tomorrow": "tomorrow",
         "yesterday": "yesterday",
         "oneWeekAgo": "one week ago",
