@@ -27,9 +27,9 @@ export const QueryJoin = (props: IQueryEditorProps<IBaseQueryJoin[]>) => {
   const { value, onChange } = props;
 
   return (
-    <div className="flex flex-1 flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-4 overflow-y-hidden">
       {value?.map((join, index) => (
-        <div key={index} className="flex items-center gap-2">
+        <div key={index} className="flex items-center gap-2 overflow-auto">
           <QueryJoinItem
             value={join}
             onChange={(newValue) => {
@@ -83,25 +83,27 @@ const NewQueryJoin = (props: { onSubmit: (value: IBaseQueryJoin) => void }) => {
   };
   return (
     <NewPopover
-      className="w-auto"
+      className="w-auto max-w-[100vw]"
       addButton={{
         disabled,
       }}
       onSubmit={onAdd}
     >
-      <QueryJoinItem
-        className="min-w-[600px]"
-        value={{
-          type,
-          table,
-          on,
-        }}
-        onChange={(value) => {
-          setType(value.type ?? BaseQueryJoinType.Left);
-          setTable(value.table);
-          setOn(value.on);
-        }}
-      />
+      <div className="overflow-y-auto">
+        <QueryJoinItem
+          className="min-w-[700px]"
+          value={{
+            type,
+            table,
+            on,
+          }}
+          onChange={(value) => {
+            setType(value.type ?? BaseQueryJoinType.Left);
+            setTable(value.table);
+            setOn(value.on);
+          }}
+        />
+      </div>
     </NewPopover>
   );
 };
@@ -136,7 +138,7 @@ const QueryJoinItem = (props: {
         <Selector
           placeholder={t('common.selectPlaceHolder')}
           searchTip={t('common.search.placeholder')}
-          className="h-auto min-w-12 flex-1 gap-1 p-1 text-[13px]"
+          className="h-auto min-w-28 flex-1 gap-1 p-1 text-[13px]"
           candidates={tables.map((table) => ({ id: table.id, name: table.name, icon: table.icon }))}
           selectedId={value.table}
           onChange={(tableId) => onChange({ ...value, table: tableId })}

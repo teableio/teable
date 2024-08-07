@@ -66,6 +66,7 @@ const QueryBuilderContainer = forwardRef<
   const [childContext, setChildContext] = useState<IBaseQueryColumn[]>([]);
   const [joinContext, setJoinContext] = useState<IContextColumns>([]);
   const [aggregationContext, setAggregationContext] = useState<IBaseQueryColumn[]>([]);
+  const [canSelectedColumnIds, setCanSelectedColumnIds] = useState<string[]>();
   const tables = useTables();
   const formQueryRef = useRef<IBaseQueryBuilderRef>(null);
   const { validators } = useContext(QueryFormContext);
@@ -91,6 +92,13 @@ const QueryBuilderContainer = forwardRef<
       return true;
     },
   }));
+
+  const hasAggregation = !!query?.aggregation?.length;
+  useEffect(() => {
+    if (hasAggregation) {
+      setCanSelectedColumnIds(query?.groupBy?.map((group) => group.column) || []);
+    }
+  }, [hasAggregation, query?.groupBy]);
 
   useEffect(() => {
     const aggregationColumns = aggregationContext.map((aggregation) => ({
@@ -252,6 +260,7 @@ const QueryBuilderContainer = forwardRef<
       {validatedFrom && (
         <QueryEditorProvider
           columns={providerContextColumns}
+          canSelectedColumnIds={canSelectedColumnIds}
           defaultStatus={{
             join: !!query?.join,
             limit: !!query?.limit,

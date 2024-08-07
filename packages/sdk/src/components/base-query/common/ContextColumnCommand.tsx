@@ -1,6 +1,14 @@
 import { Check } from '@teable/icons';
 import type { IBaseQueryColumn } from '@teable/openapi';
-import { cn, Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@teable/ui-lib';
+import {
+  cn,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@teable/ui-lib';
 import { groupBy } from 'lodash';
 import { useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
@@ -8,6 +16,7 @@ import { useAllColumns } from './useAllColumns';
 
 export const ContextColumnsCommand = (props: {
   checked?: string[] | string;
+  isFilter?: boolean;
   onClick?: (
     column: IBaseQueryColumn,
     options: {
@@ -16,9 +25,9 @@ export const ContextColumnsCommand = (props: {
     }
   ) => void;
 }) => {
-  const { checked, onClick } = props;
+  const { checked, onClick, isFilter } = props;
   const { t } = useTranslation();
-  const columns = useAllColumns();
+  const columns = useAllColumns(isFilter);
   const checkedArray = useMemo(
     () => (typeof checked === 'string' && checked ? [checked] : checked) as string[],
     [checked]
@@ -51,6 +60,7 @@ export const ContextColumnsCommand = (props: {
       }}
     >
       <CommandInput placeholder={t('common.search.placeholder')} />
+      <CommandEmpty>{t('common.empty')}</CommandEmpty>
       <CommandList>
         <CommandGroup>
           {noGroupedColumns.map((column) => {

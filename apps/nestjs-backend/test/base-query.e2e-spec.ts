@@ -321,48 +321,6 @@ describe('BaseSqlQuery e2e', () => {
         ]);
       });
 
-      it('from query include aggregation and filter and orderBy', async () => {
-        const res = await baseQuery(baseId, {
-          select: [
-            {
-              column: `${table.fields[1].id}_${StatisticsFunc.Average}`,
-              type: BaseQueryColumnType.Aggregation,
-            },
-          ],
-          from: {
-            from: table.id,
-            aggregation: [
-              {
-                column: table.fields[1].id,
-                type: BaseQueryColumnType.Field,
-                statisticFunc: StatisticsFunc.Average,
-              },
-            ],
-            where: {
-              conjunction: 'and',
-              filterSet: [
-                {
-                  column: table.fields[1].id,
-                  type: BaseQueryColumnType.Field,
-                  operator: isGreater.value,
-                  value: 35,
-                },
-              ],
-            },
-            orderBy: [
-              {
-                column: table.fields[1].id,
-                type: BaseQueryColumnType.Field,
-                order: SortFunc.Desc,
-              },
-            ],
-          },
-        });
-        expect(res.data.columns).toHaveLength(1);
-        expect(res.data.rows).toEqual([
-          { [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 40 },
-        ]);
-      });
       it('from query include aggregation and filter and orderBy and groupBy', async () => {
         const res = await baseQuery(baseId, {
           select: [
@@ -393,14 +351,14 @@ describe('BaseSqlQuery e2e', () => {
             },
             orderBy: [
               {
-                column: table.fields[1].id,
+                column: table.fields[0].id,
                 type: BaseQueryColumnType.Field,
                 order: SortFunc.Desc,
               },
             ],
             groupBy: [
               {
-                column: table.fields[1].id,
+                column: table.fields[0].id,
                 type: BaseQueryColumnType.Field,
               },
             ],

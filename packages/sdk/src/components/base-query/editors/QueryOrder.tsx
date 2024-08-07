@@ -54,6 +54,7 @@ export const QueryOrder = (props: IQueryEditorProps<IBaseQueryOrderBy>) => {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-3">
               <ContextColumnSelector
+                isFilter
                 className="flex-1"
                 value={orderBy.column}
                 onChange={(column) => {
@@ -134,6 +135,7 @@ const NewQueryOrder = (props: { onSubmit: (orderBy: IBaseQueryOrderBy[number]) =
       <ContextColumnSelector
         className="flex-1"
         value={column}
+        isFilter
         onChange={(column, type) => {
           setColumn(column);
           setType(type);

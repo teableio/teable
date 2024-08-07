@@ -11,6 +11,7 @@ export interface IQueryEditorContext {
     from: IContextColumns;
     join: IContextColumns;
   };
+  canSelectedColumnIds?: string[];
   status: Record<QueryEditorKey, boolean>;
   setStatus: (key: QueryEditorKey, value: boolean) => void;
 }

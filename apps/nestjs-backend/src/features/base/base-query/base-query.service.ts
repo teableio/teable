@@ -189,7 +189,9 @@ export class BaseQueryService {
       new QuerySelect().parse(baseQuery.select, {
         queryBuilder: currentQueryBuilder,
         fieldMap: currentFieldMap,
+        // column must appear in the GROUP BY clause or be used in an aggregate function
         aggregation: baseQuery.aggregation,
+        groupBy: baseQuery.groupBy,
       });
 
     return { queryBuilder: selectedQueryBuilder, fieldMap: selectedFieldMap };

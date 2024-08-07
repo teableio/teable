@@ -4,10 +4,11 @@ import { QueryEditorContext } from './QueryEditorContext';
 
 export const QueryEditorProvider = (props: {
   columns: IQueryEditorContext['columns'];
+  canSelectedColumnIds?: IQueryEditorContext['canSelectedColumnIds'];
   children: React.ReactNode;
   defaultStatus?: IQueryEditorContext['status'];
 }) => {
-  const { defaultStatus, children, columns } = props;
+  const { defaultStatus, children, columns, canSelectedColumnIds } = props;
   const [status, setStatus] = useState<IQueryEditorContext['status']>(
     defaultStatus ?? {
       select: false,
@@ -26,6 +27,7 @@ export const QueryEditorProvider = (props: {
         status,
         setStatus: (type, value) => setStatus((prev) => ({ ...prev, [type]: value })),
         columns,
+        canSelectedColumnIds,
       }}
     >
       {children}

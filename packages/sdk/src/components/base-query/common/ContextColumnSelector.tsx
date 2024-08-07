@@ -8,12 +8,13 @@ import { useAllColumns } from './useAllColumns';
 
 export const ContextColumnSelector = (props: {
   className?: string;
+  isFilter?: boolean;
   value?: string;
   onChange: (value: string, type: BaseQueryColumnType) => void;
 }) => {
-  const { className, value, onChange } = props;
+  const { className, value, isFilter, onChange } = props;
   const [open, setOpen] = useState(false);
-  const columns = useAllColumns();
+  const columns = useAllColumns(isFilter);
   const { t } = useTranslation();
   return (
     <Popover open={open} onOpenChange={setOpen} modal>
@@ -34,6 +35,7 @@ export const ContextColumnSelector = (props: {
       </PopoverTrigger>
       <PopoverContent align="start" className="w-full max-w-[200px] p-0">
         <ContextColumnsCommand
+          isFilter={isFilter}
           onClick={(col) => {
             onChange(col.column, col.type);
             setOpen(false);

@@ -103,7 +103,11 @@ export const QuerySelect = (props: IQueryEditorProps<IBaseQuerySelect[]>) => {
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-full max-w-[200px] p-0">
-          <ContextColumnsCommand checked={value?.map((v) => v.column)} onClick={onSelect} />
+          <ContextColumnsCommand
+            isFilter
+            checked={value?.map((v) => v.column)}
+            onClick={onSelect}
+          />
         </PopoverContent>
       </Popover>
       <Error error={error} />

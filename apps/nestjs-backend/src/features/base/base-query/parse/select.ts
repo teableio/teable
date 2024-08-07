@@ -1,5 +1,5 @@
 import { BaseQueryColumnType } from '@teable/openapi';
-import type { IQueryAggregation, IBaseQuerySelect } from '@teable/openapi';
+import type { IQueryAggregation, IBaseQuerySelect, IBaseQueryGroupBy } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { cloneDeep, isEmpty } from 'lodash';
 import type { IFieldInstance } from '../../../field/model/factory';
@@ -12,12 +12,26 @@ export class QuerySelect {
       queryBuilder: Knex.QueryBuilder;
       fieldMap: Record<string, IFieldInstance>;
       aggregation: IQueryAggregation | undefined;
+      groupBy: IBaseQueryGroupBy | undefined;
     }
   ): { queryBuilder: Knex.QueryBuilder; fieldMap: Record<string, IFieldInstance> } {
-    const { queryBuilder, fieldMap } = content;
-    const currentFieldMap = cloneDeep(fieldMap);
-    const aggregationColumn =
-      content.aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
+    const { queryBuilder, fieldMap, groupBy, aggregation } = content;
+    let currentFieldMap = cloneDeep(fieldMap);
+    const allowSelectColumnIds = this.allowSelectedColumnIds(currentFieldMap, groupBy, aggregation);
+    // column must appear in the GROUP BY clause or be used in an aggregate function
+    if (aggregation?.length || groupBy?.length) {
+      currentFieldMap = Object.entries(currentFieldMap).reduce(
+        (acc, current) => {
+          const [key, value] = current;
+          if (allowSelectColumnIds.includes(key)) {
+            acc[key] = value;
+          }
+          return acc;
+        },
+        {} as Record<string, IFieldInstance>
+      );
+    }
+    const aggregationColumn = aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
     const aliasSelect = select
       ? select.reduce(
           (acc, cur) => {
@@ -66,5 +80,18 @@ export class QuerySelect {
       });
     }
     return { queryBuilder, fieldMap: currentFieldMap };
+  }
+
+  allowSelectedColumnIds(
+    fieldMap: Record<string, IFieldInstance>,
+    groupBy: IBaseQueryGroupBy | undefined,
+    aggregation: IQueryAggregation | undefined
+  ) {
+    if (!aggregation && !groupBy) {
+      return Object.keys(fieldMap);
+    }
+    const groupByColumns = groupBy?.map((v) => v.column) || [];
+    const aggregationColumns = aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
+    return [...groupByColumns, ...aggregationColumns];
   }
 }
