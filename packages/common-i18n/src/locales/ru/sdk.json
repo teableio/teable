@@ -163,46 +163,46 @@
   },
   "group": {
     "label": "Группировать",
-    "displayLabel_one": "Group by {{count}} fields",
-    "displayLabel_other": "Group by {{count}} fields",
-    "setTips": "Group by",
-    "addButton": "Add Subgroup"
+    "displayLabel_one": "Группировать по {{count}} полям",
+    "displayLabel_other": "Группировать по {{count}} полям",
+    "setTips": "Группировать по",
+    "addButton": "Добавить подгруппу"
   },
   "field": {
     "title": {
-      "singleLineText": "Single line text",
-      "longText": "Long text",
-      "singleSelect": "Single select",
-      "number": "Number",
-      "multipleSelect": "Multiple select",
-      "link": "Link",
-      "formula": "Formula",
-      "date": "Date",
-      "createdTime": "Created time",
-      "lastModifiedTime": "Last modified time",
-      "attachment": "Attachment",
-      "checkbox": "Checkbox",
-      "rollup": "Rollup",
-      "user": "User",
-      "rating": "Rating",
-      "autoNumber": "Auto number",
-      "lookup": "lookup to other table",
-      "button": "Button"
+      "singleLineText": "Однострочный текст",
+      "longText": "Длинный текст",
+      "singleSelect": "Выбор одного",
+      "number": "Число",
+      "multipleSelect": "Выбор нескольких",
+      "link": "Ссылка",
+      "formula": "Формула",
+      "date": "Дата",
+      "createdTime": "Время создания",
+      "lastModifiedTime": "Время последнего изменения",
+      "attachment": "Вложение",
+      "checkbox": "Флажок",
+      "rollup": "Сводная информация",
+      "user": "Пользователь",
+      "rating": "Рейтинг",
+      "autoNumber": "Автоматическое нумерация",
+      "lookup": "поиск в другой таблице",
+      "button": "Кнопка"
     }
   },
   "spaceRole": {
     "role": {
-      "owner": "Owner",
-      "creator": "Creator",
-      "editor": "Editor",
-      "commenter": "Commenter",
-      "viewer": "Viewer"
+      "owner": "Владелец",
+      "creator": "Создатель",
+      "editor": "Редактор",
+      "commenter": "Комментатор",
+      "viewer": "Просмотрщик"
     },
     "description": {
-      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
-      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
-      "editor": "Can edit records and views, but cannot configure tables or fields",
-      "commenter": "Can comment on records",
+      "owner": "Может полностью настраивать и редактировать базы данных, автоматизацию, матрицы полномочий, а также управлять настройками пространства и выставление счетов",
+      "creator": "Может полностью настраивать и редактировать базы данных и автоматизацию, а также включать матрицу полномочий",
+      "editor": "Может редактировать записи и представления, но не может настраивать таблицы или поля",
+      "commenter": "Может комментировать записи",
       "viewer": "Cannot edit or comment"
     }
   },
