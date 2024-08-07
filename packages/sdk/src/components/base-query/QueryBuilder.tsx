@@ -86,7 +86,7 @@ const QueryBuilderContainer = forwardRef<
         return false;
       }
       // validate all keys
-      if (QuerySortedKeys.some((key) => validators[key] && !validators[key]())) return false;
+      if (QuerySortedKeys.some((key) => validators[key] && !validators[key]?.())) return false;
 
       return true;
     },
