@@ -145,24 +145,24 @@
   "hidden": {
     "label": "Скрытые поля",
     "configLabel_one": "{{count}} скрытое поле",
-    "configLabel_other": "{{count}} hidden fields",
-    "showAll": "Show All",
-    "hideAll": "Hide All",
-    "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
+    "configLabel_other": "{{count}} скрытых полей",
+    "showAll": "Показать все",
+    "hideAll": "Скрыть все",
+    "primaryKey": "Основное поле: используется для идентификации записей, нельзя скрыть или удалять"
   },
   "expandRecord": {
-    "copy": "Copy to clipboard"
+    "copy": "Копировать в буфер обмена"
   },
   "sort": {
-    "label": "Sort",
-    "displayLabel_one": "Sort by {{count}} field",
-    "displayLabel_other": "Sort by {{count}} fields",
-    "setTips": "Sort by",
-    "addButton": "Add another sort",
-    "autoSort": "Automatically sort records"
+    "label": "Сортировать",
+    "displayLabel_one": "Сортировать по {{count}} полю",
+    "displayLabel_other": "Сортировать по {{count}} полям",
+    "setTips": "Сортировать по",
+    "addButton": "Добавить еще один критерий сортировки",
+    "autoSort": "Автоматически сортировать записи"
   },
   "group": {
-    "label": "Group",
+    "label": "Группировать",
     "displayLabel_one": "Group by {{count}} fields",
     "displayLabel_other": "Group by {{count}} fields",
     "setTips": "Group by",
