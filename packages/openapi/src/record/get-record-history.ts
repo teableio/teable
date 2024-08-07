@@ -7,6 +7,8 @@ import { z } from '../zod';
 
 export const getRecordHistoryQuerySchema = z.object({
   recordId: z.string().startsWith(IdPrefix.Record).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   cursor: z.string().nullish(),
 });
 

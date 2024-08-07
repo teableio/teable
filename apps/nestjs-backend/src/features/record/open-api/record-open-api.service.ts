@@ -281,16 +281,23 @@ export class RecordOpenApiService {
     tableId: string,
     query: IGetRecordHistoryQuery
   ): Promise<IRecordHistoryVo> {
-    const { recordId, cursor } = query;
+    const { recordId, cursor, startDate, endDate } = query;
     const limit = 20;
 
+    const dateFilter: { [key: string]: Date } = {};
+    if (startDate) {
+      dateFilter['gte'] = new Date(startDate);
+    }
+    if (endDate) {
+      dateFilter['lte'] = new Date(endDate);
+    }
+
     const list = await this.prismaService.recordHistory.findMany({
-      where: recordId
-        ? {
-            tableId,
-            recordId,
-          }
-        : { tableId },
+      where: {
+        tableId,
+        ...(recordId ? { recordId } : {}),
+        ...(Object.keys(dateFilter).length > 0 ? { createdTime: dateFilter } : {}),
+      },
       select: {
         id: true,
         recordId: true,
