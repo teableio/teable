@@ -36,3 +36,4 @@ export * from './ui/table';
 export * from './ui/context-menu';
 export * from './ui/carousel';
 export * from './ui/toggle-group';
+export * from './ui/chart';
