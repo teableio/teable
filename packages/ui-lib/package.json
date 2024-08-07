@@ -52,8 +52,8 @@
     "storybook": "start-storybook -p 6006",
     "build-storybook": "build-storybook --output-dir build/storybook",
     "serve-storybook": "sirv build/storybook --cors --port 8888",
-    "shadcn:ui": "node ./scripts/shadcn-ui.js",
-    "update-shadcn-ui": "node ./scripts/update-shadcn-ui"
+    "shadcn:ui": "node --trace-warnings ./scripts/shadcn-ui.mjs",
+    "update-shadcn-ui": "node  ./scripts/update-shadcn-ui.mjs"
   },
   "peerDependencies": {
     "@types/react": "^18.2.11",
