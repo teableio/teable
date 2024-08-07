@@ -48,18 +48,36 @@ export class BaseQueryService {
     });
   }
 
+  private handleBigIntRows(rows: { [key in string]: unknown }[]) {
+    return rows.map((row) => {
+      return Object.entries(row).reduce(
+        (acc, [key, value]) => {
+          if (typeof value === 'bigint') {
+            acc[key] = Number(value);
+          } else {
+            acc[key] = value;
+          }
+          return acc;
+        },
+        {} as { [key in string]: unknown }
+      );
+    });
+  }
+
   async baseQuery(baseId: string, baseQuery: IBaseQuery): Promise<IBaseQueryVo> {
     const { queryBuilder, fieldMap } = await this.parseBaseQuery(baseId, baseQuery, 0);
     const query = queryBuilder.toQuery();
     console.log('query', query);
     console.log('columns', this.convertFieldMapToColumn(fieldMap));
+    const rows = await this.prismaService
+      .$queryRawUnsafe<{ [key in string]: unknown }[]>(query)
+      .catch((e) => {
+        this.logger.error(e);
+        throw new BadRequestException(`Query failed: ${query}`);
+      });
+
     return {
-      rows: await this.prismaService
-        .$queryRawUnsafe<{ [key in string]: unknown }[]>(query)
-        .catch((e) => {
-          this.logger.error(e);
-          throw new BadRequestException(`Query failed: ${query}`);
-        }),
+      rows: this.handleBigIntRows(rows),
       columns: this.convertFieldMapToColumn(fieldMap),
     };
   }

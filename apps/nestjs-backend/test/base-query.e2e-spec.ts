@@ -412,7 +412,7 @@ describe('BaseSqlQuery e2e', () => {
         ]);
       });
 
-      it.only('from query include aggregation, filter query aggregation field', async () => {
+      it('from query include aggregation, filter query aggregation field', async () => {
         const res = await baseQuery(baseId, {
           select: [
             {

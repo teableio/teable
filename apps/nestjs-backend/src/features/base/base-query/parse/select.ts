@@ -48,6 +48,7 @@ export class QuerySelect {
             } else {
               // aggregation field id as alias
               currentFieldMap[cur.id].dbFieldName = cur.id;
+              !aggregationColumn.includes(cur.id) && queryBuilder.select(cur.id);
             }
             return acc;
           },
