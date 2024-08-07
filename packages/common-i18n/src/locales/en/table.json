@@ -320,8 +320,8 @@
       "notSupportFieldType": "Field type is not supported",
       "resultEmpty": "No results found.",
       "searchPlaceholder": "Search...",
-      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import result will be notify to you later. You'd better do not operate the table during the import, which may cause errors.",
-      "noTips": "I've know that, don't show again"
+      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The results of import process will be notified to you once completed. You should not use the table during the import as it may cause errors.",
+      "noTips": "I know that, don't show again"
     },
     "options": {
       "autoSelectFieldOptionName": "Auto-select field types",
