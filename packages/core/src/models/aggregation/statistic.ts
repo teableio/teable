@@ -1,9 +1,12 @@
 import { pullAll } from 'lodash';
-import type { FieldCore } from '../field';
 import { CellValueType, FieldType } from '../field';
 import { StatisticsFunc } from './statistics-func.enum';
 
-export const getValidStatisticFunc = (field?: FieldCore): StatisticsFunc[] => {
+export const getValidStatisticFunc = (field?: {
+  type: FieldType;
+  cellValueType: CellValueType;
+  isMultipleCellValue?: boolean;
+}): StatisticsFunc[] => {
   let statisticSet: StatisticsFunc[] = [];
   if (!field) {
     return statisticSet;

@@ -95,7 +95,7 @@ export const baseQueryNormalSqlQuery = z.object({
   limit: z.number().optional(),
   offset: z.number().optional(),
   aggregation: baseQueryAggregationSchema.optional(),
-  distinct: z.array(z.string()).optional(),
+  // distinct: z.array(z.string()).optional(),
 });
 
 export type IBaseQueryNormalSqlQuery = z.infer<typeof baseQueryNormalSqlQuery>;
