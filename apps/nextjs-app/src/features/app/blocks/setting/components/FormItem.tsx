@@ -1,7 +1,7 @@
+import { Error } from '@teable/ui-lib/base';
 import { Label } from '@teable/ui-lib/shadcn';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import type { z } from 'zod';
-import { Error } from '@/components/Error';
 import { RequireCom } from './RequireCom';
 
 interface IFormItemProps {
