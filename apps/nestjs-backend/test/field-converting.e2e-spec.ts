@@ -5,6 +5,7 @@ import type {
   IFieldVo,
   ILinkFieldOptions,
   ILookupOptionsRo,
+  IRecord,
   IRollupFieldOptions,
   ISelectFieldOptions,
 } from '@teable/core';
@@ -96,9 +97,11 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     }
     await convertField(table.id, sourceField.id, newFieldRo);
     const newField = await getField(table.id, sourceField.id);
-    const records = await Promise.all(
-      values.map((_, i) => getRecord(table.id, table.records[i].id))
-    );
+    const records: IRecord[] = [];
+    for (let i = 0; i < values.length; i++) {
+      const record = await getRecord(table.id, table.records[i].id);
+      records.push(record);
+    }
 
     const result = records.map((record) => record.fields[newField.id]);
     return {
