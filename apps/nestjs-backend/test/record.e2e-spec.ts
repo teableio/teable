@@ -3,6 +3,8 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
 import { getRecordHistory, recordHistoryVoSchema, type ITableFullVo } from '@teable/openapi';
+import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
+import { Events } from '../src/event-emitter/events';
 import {
   convertField,
   createField,
@@ -22,16 +24,40 @@ import {
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
+  let eventEmitterService: EventEmitterService;
   const baseId = globalThis.testConfig.baseId;
+
+  const promises: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [tableId: string]: { resolve: (value: any) => void; reject: (error: any) => void };
+  } = {};
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+
+    eventEmitterService = app.get(EventEmitterService);
+    eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, ({ payload }) => {
+      const tableId = payload?.tableId;
+
+      if (!promises[tableId]) return;
+
+      const { resolve } = promises[tableId];
+      resolve?.(payload);
+      delete promises[tableId];
+    });
   });
 
   afterAll(async () => {
+    eventEmitterService.eventEmitter.removeAllListeners(Events.TABLE_RECORD_UPDATE);
     await app.close();
   });
+
+  function createRecordHistoryPromise(tableId: string) {
+    return new Promise((resolve, reject) => {
+      promises[tableId] = { resolve, reject };
+    });
+  }
 
   describe('simple curd', () => {
     let table: ITableFullVo;
@@ -290,6 +316,8 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(recordHistoryVoSchema.safeParse(originRecordHistory).success).toEqual(true);
       expect(originRecordHistory.historyList.length).toEqual(0);
 
+      const waitMainTable = createRecordHistoryPromise(mainTable.id);
+
       await updateRecord(mainTable.id, recordId, {
         record: {
           fields: {
@@ -298,6 +326,8 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
         fieldKeyType: FieldKeyType.Id,
       });
+
+      await waitMainTable;
 
       const { data: recordHistory } = await getRecordHistory(mainTable.id, { recordId });
       const { data: tableRecordHistory } = await getRecordHistory(mainTable.id, {});
@@ -317,6 +347,9 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
       });
 
+      const waitMainTable = createRecordHistoryPromise(mainTable.id);
+      const waitForeignTable = createRecordHistoryPromise(foreignTable.id);
+
       await updateRecord(mainTable.id, recordId, {
         record: {
           fields: {
@@ -325,6 +358,9 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
         fieldKeyType: FieldKeyType.Id,
       });
+
+      await waitMainTable;
+      await waitForeignTable;
 
       const { data: mainTableRecordHistory } = await getRecordHistory(mainTable.id, { recordId });
       const { data: foreignTableRecordHistory } = await getRecordHistory(foreignTable.id, {
