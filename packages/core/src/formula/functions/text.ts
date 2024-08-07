@@ -378,7 +378,7 @@ export class Rept extends TextFunc {
 
     if (value == null) return null;
 
-    const count = Number(params[1]?.value ?? 1);
+    const count = Number(params[1]?.value ?? 0);
     if (count === 0) return null;
     return String(value).repeat(count);
   }
