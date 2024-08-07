@@ -318,8 +318,8 @@
       "notSupportFieldType": "字段类型不支持",
       "resultEmpty": "未查询到结果",
       "searchPlaceholder": "搜索...",
-      "importAlert": "一旦导入，不能中止，直到导入成功或失败中止，导入结果将会在推送到通知栏。导入期间，最好不要操作表格，可能会引起错误。",
-      "noTips": "我已知晓，不再提示"
+      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The results of import process will be notified to you once completed. You should not use the table during the import as it may cause errors.",
+      "noTips": "I know that, don't show again"
     },
     "options": {
       "autoSelectFieldOptionName": "自动预测类型",
