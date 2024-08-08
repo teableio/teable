@@ -218,7 +218,11 @@ export class ViewOpenApiController {
     @Body(new ZodValidationPipe(updateRecordOrdersRoSchema))
     updateRecordOrdersRo: IUpdateRecordOrdersRo
   ): Promise<void> {
-    return await this.viewOpenApiService.updateRecordOrders(tableId, viewId, updateRecordOrdersRo);
+    return await this.viewOpenApiService.updateRecordOrdersWithTransaction(
+      tableId,
+      viewId,
+      updateRecordOrdersRo
+    );
   }
 
   @Permissions('view|update')

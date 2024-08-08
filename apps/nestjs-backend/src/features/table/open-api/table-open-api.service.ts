@@ -249,7 +249,7 @@ export class TableOpenApiService {
         });
 
         if (arbitrary) {
-          const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
+          const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
             where: { id: tableId, deletedTime: null },
             select: { dbTableName: true },
           });
