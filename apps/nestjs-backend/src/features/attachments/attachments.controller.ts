@@ -55,16 +55,16 @@ export class AttachmentsController {
     }
     const { fileStream, headers } = await this.attachmentsService.readLocalFile(path, token);
     if (responseContentDisposition) {
-      // handle filename*=UTF-8''filename
-      const filenameRegex = /filename="(.+?)"/;
-      const match = responseContentDisposition.match(filenameRegex);
-      responseContentDisposition = match?.[1]
-        ? responseContentDisposition.replace(
-            filenameRegex,
-            `filename*=UTF-8''${encodeURIComponent(match[1])}`
-          )
-        : '';
-      headers['Content-Disposition'] = responseContentDisposition;
+      const fileNameMatch =
+        responseContentDisposition.match(/filename\*=UTF-8''([^;]+)/) ||
+        responseContentDisposition.match(/filename="?([^"]+)"?/);
+      if (fileNameMatch) {
+        const fileName = fileNameMatch[1] as string;
+        headers['Content-Disposition'] =
+          `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+      } else {
+        headers['Content-Disposition'] = responseContentDisposition;
+      }
     }
     res.set(headers);
     return new StreamableFile(fileStream);
