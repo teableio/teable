@@ -251,6 +251,7 @@
     "newTableLabel": "Новая таблица",
     "rename": "Переименовать",
     "design": "Дизайн",
+    "tableRecordHistory": "Table record history",
     "deleteConfirm": "Вы уверены, что хотите удалить \"{{tableName}}\"?",
     "dbTableName": "Имя таблицы в физической базе данных",
     "schemaName": "Имя схемы в физической базе данных",
