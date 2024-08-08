@@ -142,7 +142,7 @@ export class AttachmentsService {
     const filenameHeader = filename
       ? {
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
         }
       : {};
     return {
