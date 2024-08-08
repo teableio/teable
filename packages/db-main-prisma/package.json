@@ -47,8 +47,8 @@
     "nestjs-cls": "^4.0.0"
   },
   "dependencies": {
-    "@prisma/client": "5.18.0",
-    "prisma": "5.18.0",
+    "@prisma/client": "5.11.0",
+    "prisma": "5.11.0",
     "nanoid": "3.3.7"
   },
   "devDependencies": {

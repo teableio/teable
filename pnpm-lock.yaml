@@ -104,7 +104,7 @@ importers:
         version: 7.3.0(@nestjs/common@10.3.5)(@nestjs/core@10.3.5)(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)
       '@nestjs/terminus':
         specifier: 10.2.3
-        version: 10.2.3(@nestjs/axios@3.0.2)(@nestjs/common@10.3.5)(@nestjs/core@10.3.5)(@prisma/client@5.18.0)(reflect-metadata@0.2.1)(rxjs@7.8.1)
+        version: 10.2.3(@nestjs/axios@3.0.2)(@nestjs/common@10.3.5)(@nestjs/core@10.3.5)(@prisma/client@5.11.0)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       '@nestjs/websockets':
         specifier: 10.3.5
         version: 10.3.5(@nestjs/common@10.3.5)(@nestjs/core@10.3.5)(reflect-metadata@0.2.1)(rxjs@7.8.1)
@@ -136,11 +136,11 @@ importers:
         specifier: 1.22.0
         version: 1.22.0
       '@prisma/client':
-        specifier: 5.18.0
-        version: 5.18.0(prisma@5.18.0)
+        specifier: 5.11.0
+        version: 5.11.0(prisma@5.11.0)
       '@prisma/instrumentation':
-        specifier: 5.18.0
-        version: 5.18.0
+        specifier: 5.11.0
+        version: 5.11.0
       '@teable/common-i18n':
         specifier: workspace:^
         version: link:../../packages/common-i18n
@@ -1006,8 +1006,8 @@ importers:
         specifier: ^10.0.0
         version: 10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       '@prisma/client':
-        specifier: 5.18.0
-        version: 5.18.0(prisma@5.18.0)
+        specifier: 5.11.0
+        version: 5.11.0(prisma@5.11.0)
       nanoid:
         specifier: 3.3.7
         version: 3.3.7
@@ -1015,8 +1015,8 @@ importers:
         specifier: ^4.0.0
         version: 4.3.0(@nestjs/common@10.3.5)(@nestjs/core@10.3.5)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       prisma:
-        specifier: 5.18.0
-        version: 5.18.0
+        specifier: 5.11.0
+        version: 5.11.0
     devDependencies:
       '@faker-js/faker':
         specifier: 8.4.1
@@ -6446,7 +6446,7 @@ packages:
       swagger-ui-dist: 5.11.2
     dev: false
 
-  /@nestjs/terminus@10.2.3(@nestjs/axios@3.0.2)(@nestjs/common@10.3.5)(@nestjs/core@10.3.5)(@prisma/client@5.18.0)(reflect-metadata@0.2.1)(rxjs@7.8.1):
+  /@nestjs/terminus@10.2.3(@nestjs/axios@3.0.2)(@nestjs/common@10.3.5)(@nestjs/core@10.3.5)(@prisma/client@5.11.0)(reflect-metadata@0.2.1)(rxjs@7.8.1):
     resolution: {integrity: sha512-iX7gXtAooePcyQqFt57aDke5MzgdkBeYgF5YsFNNFwOiAFdIQEhfv3PR0G+HlH9F6D7nBCDZt9U87Pks/qHijg==}
     peerDependencies:
       '@grpc/grpc-js': '*'
@@ -6497,7 +6497,7 @@ packages:
       '@nestjs/axios': 3.0.2(@nestjs/common@10.3.5)(axios@1.6.8)(rxjs@7.8.1)
       '@nestjs/common': 10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       '@nestjs/core': 10.3.5(@nestjs/common@10.3.5)(@nestjs/platform-express@10.3.5)(@nestjs/websockets@10.3.5)(reflect-metadata@0.2.1)(rxjs@7.8.1)
-      '@prisma/client': 5.18.0(prisma@5.18.0)
+      '@prisma/client': 5.11.0(prisma@5.11.0)
       boxen: 5.1.2
       check-disk-space: 3.4.0
       reflect-metadata: 0.2.1
@@ -6731,13 +6731,6 @@ packages:
       '@opentelemetry/api': 1.8.0
     dev: false
 
-  /@opentelemetry/api-logs@0.50.0:
-    resolution: {integrity: sha512-JdZuKrhOYggqOpUljAq4WWNi5nB10PmgoF0y2CvedLGXd0kSawb/UBnWT8gg1ND3bHCNHStAIVT0ELlxJJRqrA==}
-    engines: {node: '>=14'}
-    dependencies:
-      '@opentelemetry/api': 1.8.0
-    dev: false
-
   /@opentelemetry/api@1.8.0:
     resolution: {integrity: sha512-I/s6F7yKUDdtMsoBWXJe8Qz40Tui5vsuKCWJEWVL+5q9sSWRzzx6v2KeNsOBEwd94j0eWkpWCH4yB6rZg9Mf0w==}
     engines: {node: '>=8.0.0'}
@@ -6760,16 +6753,6 @@ packages:
     dependencies:
       '@opentelemetry/api': 1.8.0
       '@opentelemetry/semantic-conventions': 1.22.0
-    dev: false
-
-  /@opentelemetry/core@1.23.0(@opentelemetry/api@1.8.0):
-    resolution: {integrity: sha512-hdQ/a9TMzMQF/BO8Cz1juA43/L5YGtCSiKoOHmrTEf7VMDAZgy8ucpWx3eQTnQ3gBloRcWtzvcrMZABC3PTSKQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.9.0'
-    dependencies:
-      '@opentelemetry/api': 1.8.0
-      '@opentelemetry/semantic-conventions': 1.23.0
     dev: false
 
   /@opentelemetry/exporter-trace-otlp-grpc@0.49.1(@opentelemetry/api@1.8.0):
@@ -6887,23 +6870,6 @@ packages:
       - supports-color
     dev: false
 
-  /@opentelemetry/instrumentation@0.50.0(@opentelemetry/api@1.8.0):
-    resolution: {integrity: sha512-bhGhbJiZKpuu7wTaSak4hyZcFPlnDeuSF/2vglze8B4w2LubcSbbOnkVTzTs5SXtzh4Xz8eRjaNnAm+u2GYufQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': ^1.3.0
-    dependencies:
-      '@opentelemetry/api': 1.8.0
-      '@opentelemetry/api-logs': 0.50.0
-      '@types/shimmer': 1.0.5
-      import-in-the-middle: 1.7.1
-      require-in-the-middle: 7.2.1
-      semver: 7.6.0
-      shimmer: 1.2.1
-    transitivePeerDependencies:
-      - supports-color
-    dev: false
-
   /@opentelemetry/otlp-exporter-base@0.49.1(@opentelemetry/api@1.8.0):
     resolution: {integrity: sha512-z6sHliPqDgJU45kQatAettY9/eVF58qVPaTuejw9YWfSRqid9pXPYeegDCSdyS47KAUgAtm+nC28K3pfF27HWg==}
     engines: {node: '>=14'}
@@ -6985,17 +6951,6 @@ packages:
       '@opentelemetry/semantic-conventions': 1.22.0
     dev: false
 
-  /@opentelemetry/resources@1.23.0(@opentelemetry/api@1.8.0):
-    resolution: {integrity: sha512-iPRLfVfcEQynYGo7e4Di+ti+YQTAY0h5mQEUJcHlU9JOqpb4x965O6PZ+wMcwYVY63G96KtdS86YCM1BF1vQZg==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.9.0'
-    dependencies:
-      '@opentelemetry/api': 1.8.0
-      '@opentelemetry/core': 1.23.0(@opentelemetry/api@1.8.0)
-      '@opentelemetry/semantic-conventions': 1.23.0
-    dev: false
-
   /@opentelemetry/sdk-logs@0.49.1(@opentelemetry/api-logs@0.49.1)(@opentelemetry/api@1.8.0):
     resolution: {integrity: sha512-gCzYWsJE0h+3cuh3/cK+9UwlVFyHvj3PReIOCDOmdeXOp90ZjKRoDOJBc3mvk1LL6wyl1RWIivR8Rg9OToyesw==}
     engines: {node: '>=14'}
@@ -7057,18 +7012,6 @@ packages:
       '@opentelemetry/semantic-conventions': 1.22.0
     dev: false
 
-  /@opentelemetry/sdk-trace-base@1.23.0(@opentelemetry/api@1.8.0):
-    resolution: {integrity: sha512-PzBmZM8hBomUqvCddF/5Olyyviayka44O5nDWq673np3ctnvwMOvNrsUORZjKja1zJbwEuD9niAGbnVrz3jwRQ==}
-    engines: {node: '>=14'}
-    peerDependencies:
-      '@opentelemetry/api': '>=1.0.0 <1.9.0'
-    dependencies:
-      '@opentelemetry/api': 1.8.0
-      '@opentelemetry/core': 1.23.0(@opentelemetry/api@1.8.0)
-      '@opentelemetry/resources': 1.23.0(@opentelemetry/api@1.8.0)
-      '@opentelemetry/semantic-conventions': 1.23.0
-    dev: false
-
   /@opentelemetry/sdk-trace-node@1.22.0(@opentelemetry/api@1.8.0):
     resolution: {integrity: sha512-gTGquNz7ue8uMeiWPwp3CU321OstQ84r7PCDtOaCicjbJxzvO8RZMlEC4geOipTeiF88kss5n6w+//A0MhP1lQ==}
     engines: {node: '>=14'}
@@ -7086,11 +7029,6 @@ packages:
 
   /@opentelemetry/semantic-conventions@1.22.0:
     resolution: {integrity: sha512-CAOgFOKLybd02uj/GhCdEeeBjOS0yeoDeo/CA7ASBSmenpZHAKGB3iDm/rv3BQLcabb/OprDEsSQ1y0P8A7Siw==}
-    engines: {node: '>=14'}
-    dev: false
-
-  /@opentelemetry/semantic-conventions@1.23.0:
-    resolution: {integrity: sha512-MiqFvfOzfR31t8cc74CTP1OZfz7MbqpAnLCra8NqQoaHJX6ncIRTdYOQYBDQ2uFISDq0WY8Y9dDTWvsgzzBYRg==}
     engines: {node: '>=14'}
     dev: false
 
@@ -7116,8 +7054,8 @@ packages:
     resolution: {integrity: sha512-j7P6Rgr3mmtdkeDGTe0E/aYyWEWVtc5yFXtHCRHs28/jptDEWfaVOc5T7cblqy1XKPPfCxJc/8DwQ5YgLOZOVQ==}
     dev: true
 
-  /@prisma/client@5.18.0(prisma@5.18.0):
-    resolution: {integrity: sha512-BWivkLh+af1kqC89zCJYkHsRcyWsM8/JHpsDMM76DjP3ZdEquJhXa4IeX+HkWPnwJ5FanxEJFZZDTWiDs/Kvyw==}
+  /@prisma/client@5.11.0(prisma@5.11.0):
+    resolution: {integrity: sha512-SWshvS5FDXvgJKM/a0y9nDC1rqd7KG0Q6ZVzd+U7ZXK5soe73DJxJJgbNBt2GNXOa+ysWB4suTpdK5zfFPhwiw==}
     engines: {node: '>=16.13'}
     requiresBuild: true
     peerDependencies:
@@ -7126,47 +7064,47 @@ packages:
       prisma:
         optional: true
     dependencies:
-      prisma: 5.18.0
+      prisma: 5.11.0
     dev: false
 
-  /@prisma/debug@5.18.0:
-    resolution: {integrity: sha512-f+ZvpTLidSo3LMJxQPVgAxdAjzv5OpzAo/eF8qZqbwvgi2F5cTOI9XCpdRzJYA0iGfajjwjOKKrVq64vkxEfUw==}
+  /@prisma/debug@5.11.0:
+    resolution: {integrity: sha512-N6yYr3AbQqaiUg+OgjkdPp3KPW1vMTAgtKX6+BiB/qB2i1TjLYCrweKcUjzOoRM5BriA4idrkTej9A9QqTfl3A==}
     dev: false
 
-  /@prisma/engines-version@5.18.0-25.4c784e32044a8a016d99474bd02a3b6123742169:
-    resolution: {integrity: sha512-a/+LpJj8vYU3nmtkg+N3X51ddbt35yYrRe8wqHTJtYQt7l1f8kjIBcCs6sHJvodW/EK5XGvboOiwm47fmNrbgg==}
+  /@prisma/engines-version@5.11.0-15.efd2449663b3d73d637ea1fd226bafbcf45b3102:
+    resolution: {integrity: sha512-WXCuyoymvrS4zLz4wQagSsc3/nE6CHy8znyiMv8RKazKymOMd5o9FP5RGwGHAtgoxd+aB/BWqxuP/Ckfu7/3MA==}
     dev: false
 
-  /@prisma/engines@5.18.0:
-    resolution: {integrity: sha512-ofmpGLeJ2q2P0wa/XaEgTnX/IsLnvSp/gZts0zjgLNdBhfuj2lowOOPmDcfKljLQUXMvAek3lw5T01kHmCG8rg==}
+  /@prisma/engines@5.11.0:
+    resolution: {integrity: sha512-gbrpQoBTYWXDRqD+iTYMirDlF9MMlQdxskQXbhARhG6A/uFQjB7DZMYocMQLoiZXO/IskfDOZpPoZE8TBQKtEw==}
     requiresBuild: true
     dependencies:
-      '@prisma/debug': 5.18.0
-      '@prisma/engines-version': 5.18.0-25.4c784e32044a8a016d99474bd02a3b6123742169
-      '@prisma/fetch-engine': 5.18.0
-      '@prisma/get-platform': 5.18.0
+      '@prisma/debug': 5.11.0
+      '@prisma/engines-version': 5.11.0-15.efd2449663b3d73d637ea1fd226bafbcf45b3102
+      '@prisma/fetch-engine': 5.11.0
+      '@prisma/get-platform': 5.11.0
     dev: false
 
-  /@prisma/fetch-engine@5.18.0:
-    resolution: {integrity: sha512-I/3u0x2n31rGaAuBRx2YK4eB7R/1zCuayo2DGwSpGyrJWsZesrV7QVw7ND0/Suxeo/vLkJ5OwuBqHoCxvTHpOg==}
+  /@prisma/fetch-engine@5.11.0:
+    resolution: {integrity: sha512-994viazmHTJ1ymzvWugXod7dZ42T2ROeFuH6zHPcUfp/69+6cl5r9u3NFb6bW8lLdNjwLYEVPeu3hWzxpZeC0w==}
     dependencies:
-      '@prisma/debug': 5.18.0
-      '@prisma/engines-version': 5.18.0-25.4c784e32044a8a016d99474bd02a3b6123742169
-      '@prisma/get-platform': 5.18.0
+      '@prisma/debug': 5.11.0
+      '@prisma/engines-version': 5.11.0-15.efd2449663b3d73d637ea1fd226bafbcf45b3102
+      '@prisma/get-platform': 5.11.0
     dev: false
 
-  /@prisma/get-platform@5.18.0:
-    resolution: {integrity: sha512-Tk+m7+uhqcKDgnMnFN0lRiH7Ewea0OEsZZs9pqXa7i3+7svS3FSCqDBCaM9x5fmhhkufiG0BtunJVDka+46DlA==}
+  /@prisma/get-platform@5.11.0:
+    resolution: {integrity: sha512-rxtHpMLxNTHxqWuGOLzR2QOyQi79rK1u1XYAVLZxDGTLz/A+uoDnjz9veBFlicrpWjwuieM4N6jcnjj/DDoidw==}
     dependencies:
-      '@prisma/debug': 5.18.0
+      '@prisma/debug': 5.11.0
     dev: false
 
-  /@prisma/instrumentation@5.18.0:
-    resolution: {integrity: sha512-r074avGkpPXItk+josQPhufZEmGhUCb16PQx4ITPS40vWTpTPET4VsgCBZB2alIN6SS7pRFod2vz2M2HHEEylQ==}
+  /@prisma/instrumentation@5.11.0:
+    resolution: {integrity: sha512-ou4nvDpNEY6+t3Dn9juOTz6tK33D0Y4XXkEZ2uPd8KH6Mqmc+4LYOOm470DP7noj7dyJjuGiM+wpPk//HKrcDg==}
     dependencies:
       '@opentelemetry/api': 1.8.0
-      '@opentelemetry/instrumentation': 0.50.0(@opentelemetry/api@1.8.0)
-      '@opentelemetry/sdk-trace-base': 1.23.0(@opentelemetry/api@1.8.0)
+      '@opentelemetry/instrumentation': 0.49.1(@opentelemetry/api@1.8.0)
+      '@opentelemetry/sdk-trace-base': 1.22.0(@opentelemetry/api@1.8.0)
     transitivePeerDependencies:
       - supports-color
     dev: false
@@ -23453,13 +23391,13 @@ packages:
       uuid: 9.0.1
     dev: false
 
-  /prisma@5.18.0:
-    resolution: {integrity: sha512-+TrSIxZsh64OPOmaSgVPH7ALL9dfU0jceYaMJXsNrTkFHO7/3RANi5K2ZiPB1De9+KDxCWn7jvRq8y8pvk+o9g==}
+  /prisma@5.11.0:
+    resolution: {integrity: sha512-KCLiug2cs0Je7kGkQBN9jDWoZ90ogE/kvZTUTgz2h94FEo8pczCkPH7fPNXkD1sGU7Yh65risGGD1HQ5DF3r3g==}
     engines: {node: '>=16.13'}
     hasBin: true
     requiresBuild: true
     dependencies:
-      '@prisma/engines': 5.18.0
+      '@prisma/engines': 5.11.0
     dev: false
 
   /prismjs@1.27.0:
