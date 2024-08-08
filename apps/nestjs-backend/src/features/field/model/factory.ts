@@ -1,7 +1,7 @@
 import type { IFieldVo, DbFieldType, CellValueType } from '@teable/core';
 import { assertNever, FieldType } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
-import { plainToInstance } from 'class-transformer';
+import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { AttachmentFieldDto } from './field-dto/attachment-field.dto';
 import { AutoNumberFieldDto } from './field-dto/auto-number-field.dto';
 import { CheckboxFieldDto } from './field-dto/checkbox-field.dto';
@@ -95,4 +95,8 @@ export type IFieldInstance = ReturnType<typeof createFieldInstanceByVo>;
 
 export interface IFieldMap {
   [fieldId: string]: IFieldInstance;
+}
+
+export function convertFieldInstanceToFieldVo(fieldInstance: IFieldInstance): IFieldVo {
+  return instanceToPlain(fieldInstance, { excludePrefixes: ['_'] }) as IFieldVo;
 }

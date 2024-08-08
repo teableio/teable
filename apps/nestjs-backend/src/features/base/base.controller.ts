@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import {
   createBaseRoSchema,
   duplicateBaseRoSchema,
@@ -11,6 +11,8 @@ import {
   ICreateBaseFromTemplateRo,
   updateOrderRoSchema,
   IUpdateOrderRo,
+  baseQuerySchemaRo,
+  IBaseQuerySchemaRo,
 } from '@teable/openapi';
 import type {
   ICreateBaseVo,
@@ -27,6 +29,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { BaseQueryService } from './base-query/base-query.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -35,7 +38,8 @@ export class BaseController {
   constructor(
     private readonly baseService: BaseService,
     private readonly dbConnectionService: DbConnectionService,
-    private readonly collaboratorService: CollaboratorService
+    private readonly collaboratorService: CollaboratorService,
+    private readonly baseQueryService: BaseQueryService
   ) {}
 
   @Post()
@@ -144,5 +148,13 @@ export class BaseController {
   @Get(':baseId/permission')
   async getPermission(@Param('baseId') baseId: string): Promise<IGetBasePermissionVo> {
     return await this.baseService.getPermission(baseId);
+  }
+
+  @Get(':baseId/query')
+  async sqlQuery(
+    @Param('baseId') baseId: string,
+    @Query(new ZodValidationPipe(baseQuerySchemaRo)) query: IBaseQuerySchemaRo
+  ) {
+    return await this.baseQueryService.baseQuery(baseId, query.query);
   }
 }

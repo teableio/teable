@@ -1,4 +1,4 @@
-import { cn } from '@teable/ui-lib/shadcn';
+import { cn } from '../shadcn';
 
 interface IErrorProps {
   className?: string;

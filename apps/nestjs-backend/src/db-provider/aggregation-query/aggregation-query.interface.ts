@@ -1,3 +1,5 @@
+import type { Knex } from 'knex';
+
 export interface IAggregationQueryInterface {
-  toQuerySql(): string;
+  appendBuilder(): Knex.QueryBuilder;
 }

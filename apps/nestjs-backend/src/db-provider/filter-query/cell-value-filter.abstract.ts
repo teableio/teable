@@ -39,13 +39,10 @@ import type { ICellValueFilterInterface } from './cell-value-filter.interface';
 export abstract class AbstractCellValueFilter implements ICellValueFilterInterface {
   protected tableColumnRef: string;
 
-  constructor(
-    protected readonly dbTableName: string,
-    protected readonly field: IFieldInstance
-  ) {
+  constructor(protected readonly field: IFieldInstance) {
     const { dbFieldName } = this.field;
 
-    this.tableColumnRef = `${this.dbTableName}.${dbFieldName}`;
+    this.tableColumnRef = dbFieldName;
   }
 
   compiler(builderClient: Knex.QueryBuilder, operator: IFilterOperator, value: IFilterValue) {

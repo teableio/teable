@@ -1,13 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
 import { resetPassword } from '@teable/openapi';
 import { passwordSchema } from '@teable/openapi/src/auth/types';
-import { Spin } from '@teable/ui-lib/base';
+import { Spin, Error } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
-import { Error } from '@/components/Error';
 import { authConfig } from '@/features/i18n/auth.config';
 import { LayoutMain } from '../components/LayoutMain';
 

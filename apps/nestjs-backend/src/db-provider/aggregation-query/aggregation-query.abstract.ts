@@ -19,11 +19,11 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
     protected readonly extra?: IAggregationQueryExtra
   ) {}
 
-  toQuerySql(): string {
+  appendBuilder(): Knex.QueryBuilder {
     const queryBuilder = this.originQueryBuilder;
 
     if (!this.aggregationFields || !this.aggregationFields.length) {
-      return queryBuilder.toQuery();
+      return queryBuilder;
     }
 
     this.validAggregationField(this.aggregationFields, this.extra);
@@ -36,10 +36,19 @@ export abstract class AbstractAggregationQuery implements IAggregationQueryInter
 
       this.getAggregationAdapter(field).compiler(queryBuilder, statisticFunc);
     });
-
-    const aggSql = queryBuilder.toQuery();
-    this.logger.debug('toQuerySql AggSql: %s', aggSql);
-    return aggSql;
+    if (this.extra?.groupBy) {
+      const groupByFields = this.extra.groupBy
+        .map((fieldId) => {
+          return this.fields ? this.fields[fieldId].dbFieldName : null;
+        })
+        .filter(Boolean) as string[];
+      if (!groupByFields.length) {
+        return queryBuilder;
+      }
+      queryBuilder.groupBy(groupByFields);
+      queryBuilder.select(groupByFields);
+    }
+    return queryBuilder;
   }
 
   private validAggregationField(

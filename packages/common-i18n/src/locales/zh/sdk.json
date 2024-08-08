@@ -272,7 +272,8 @@
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
       "userEmailRead": "查看用户电子邮件",
-      "recordHistoryRead": "查看记录历史"
+      "recordHistoryRead": "查看记录历史",
+      "baseQuery": "查询数据库"
     }
   },
   "formula": {
@@ -627,5 +628,51 @@
     "dateRangeOfDays": "时间范围 (日)",
     "dateRangeOfMonths": "时间范围 (月)",
     "totalAttachmentSize": "附件总大小"
+  },
+  "baseQuery": {
+    "add": "添加",
+    "error": {
+      "invalidCol": "无效的列，请重新选择",
+      "invalidCols": "无效的列：{{colNames}}",
+      "invalidTable": "无效的表格，请重新选择",
+      "requiredSelect": "必须选择一个"
+    },
+    "from": {
+      "title": "来源",
+      "fromTable": "选择表格",
+      "fromQuery": "从查询中"
+    },
+    "select": {
+      "title": "选择"
+    },
+    "where": {
+      "title": "条件"
+    },
+    "groupBy": {
+      "title": "分组依据"
+    },
+    "orderBy": {
+      "title": "排序依据",
+      "asc": "升序",
+      "desc": "降序"
+    },
+    "limit": {
+      "title": "限制"
+    },
+    "offset": {
+      "title": "偏移"
+    },
+    "join": {
+      "title": "连接",
+      "joinType": "连接类型",
+      "leftJoin": "左连接",
+      "rightJoin": "右连接",
+      "innerJoin": "内连接",
+      "fullJoin": "全连接",
+      "data": "数据来源"
+    },
+    "aggregation": {
+      "title": "聚合"
+    }
   }
 }

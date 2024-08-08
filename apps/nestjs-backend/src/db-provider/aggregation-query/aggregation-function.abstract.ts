@@ -16,7 +16,7 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
   ) {
     const { dbFieldName } = this.field;
 
-    this.tableColumnRef = `${this.dbTableName}.${dbFieldName}`;
+    this.tableColumnRef = `${dbFieldName}`;
   }
 
   compiler(builderClient: Knex.QueryBuilder, aggFunc: StatisticsFunc) {
