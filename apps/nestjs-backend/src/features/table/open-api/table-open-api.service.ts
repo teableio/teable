@@ -250,7 +250,7 @@ export class TableOpenApiService {
 
         if (arbitrary) {
           const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
-            where: { id: tableId, deletedTime: null },
+            where: { id: tableId },
             select: { dbTableName: true },
           });
           await prisma.$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
