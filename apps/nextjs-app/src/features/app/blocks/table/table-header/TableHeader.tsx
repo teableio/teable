@@ -1,7 +1,24 @@
-import { HelpCircle, MoreHorizontal, Settings, UserPlus } from '@teable/icons';
-import { useBase, useTableId } from '@teable/sdk/hooks';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
+import { HelpCircle, History, MoreHorizontal, Settings, UserPlus } from '@teable/icons';
+import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
+import { useBase, useBasePermission, useTableId } from '@teable/sdk/hooks';
+import {
+  Button,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTrigger,
+} from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -19,20 +36,57 @@ const RightList = ({
   className?: string;
   buttonClassName?: string;
 }) => {
+  const router = useRouter();
   const base = useBase();
   const tableId = useTableId();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const basePermission = useBasePermission();
+
+  const onRecordClick = (recordId: string) => {
+    router.push(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, recordId },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  };
+
   return (
     <div className={cn('flex', className)}>
       <Collaborators className="flex" />
       <div className="flex">
+        {basePermission?.['record_history|read'] && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                className={cn('flex', buttonClassName)}
+                title={t('table:table.tableRecordHistory')}
+              >
+                <History className="size-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="flex h-[90%] max-w-4xl flex-col gap-0 p-0">
+              <DialogHeader className="border-b p-4">
+                <DialogTitle>{t('table:table.tableRecordHistory')}</DialogTitle>
+              </DialogHeader>
+              <RecordHistory onRecordClick={onRecordClick} />
+            </DialogContent>
+          </Dialog>
+        )}
+
         <Button asChild variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
           <Link
             href={{
               pathname: '/base/[baseId]/[tableId]/design',
               query: { baseId: base.id, tableId },
             }}
-            title="Design"
+            title={t('table:table.design')}
           >
             <Settings className="size-4" />
           </Link>
@@ -60,9 +114,26 @@ const RightList = ({
 };
 
 const RightMenu = ({ className }: { className?: string }) => {
+  const router = useRouter();
   const base = useBase();
   const tableId = useTableId();
+  const basePermission = useBasePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  // eslint-disable-next-line sonarjs/no-identical-functions
+  const onRecordClick = (recordId: string) => {
+    router.push(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, recordId },
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  };
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -88,6 +159,26 @@ const RightMenu = ({ className }: { className?: string }) => {
               <UserPlus className="size-4" /> {t('space:action.invite')}
             </Button>
           </SpaceCollaboratorModalTrigger>
+          {basePermission?.['record_history|read'] && (
+            <Sheet modal={true}>
+              <SheetTrigger asChild>
+                <Button size="xs" variant="ghost" className="flex justify-start">
+                  <History className="size-4" />
+                  {t('table:table.tableRecordHistory')}
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                className="h-5/6 overflow-hidden rounded-t-lg p-0"
+                side="bottom"
+                closeable={false}
+              >
+                <SheetHeader className="h-16 justify-center border-b text-2xl">
+                  {t('table:table.tableRecordHistory')}
+                </SheetHeader>
+                <RecordHistory onRecordClick={onRecordClick} />
+              </SheetContent>
+            </Sheet>
+          )}
           <Button asChild variant="ghost" size="xs" className="flex justify-start">
             <Link
               href={{

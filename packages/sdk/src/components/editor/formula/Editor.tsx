@@ -9,7 +9,7 @@ import { useTheme } from '@teable/next-themes';
 import { Button, cn } from '@teable/ui-lib';
 import { CharStreams } from 'antlr4ts';
 import Fuse from 'fuse.js';
-import { keyBy } from 'lodash';
+import { cloneDeep, keyBy } from 'lodash';
 import type { FC } from 'react';
 import { useRef, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
@@ -94,15 +94,17 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
       ? fuse.search(searchValue).map((data) => data.item)
       : Functions;
 
+    const clonedFunctionsDisplayMap = cloneDeep(functionsDisplayMap);
+
     filteredFunctionList.forEach((item, index) => {
       const funcType = item.func.type;
-      functionsDisplayMap[funcType].list.push(item);
-      if (functionsDisplayMap[funcType].sortIndex === -1) {
-        functionsDisplayMap[funcType].sortIndex = index;
+      clonedFunctionsDisplayMap[funcType].list.push(item);
+      if (clonedFunctionsDisplayMap[funcType].sortIndex === -1) {
+        clonedFunctionsDisplayMap[funcType].sortIndex = index;
       }
     });
 
-    let formatFunctionList: IFunctionCollectionItem[] = Object.values(functionsDisplayMap)
+    let formatFunctionList: IFunctionCollectionItem[] = Object.values(clonedFunctionsDisplayMap)
       .filter((item) => item.list.length)
       .sort((prev, next) => prev.sortIndex - next.sortIndex);
 

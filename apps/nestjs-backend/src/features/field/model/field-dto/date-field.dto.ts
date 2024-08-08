@@ -20,6 +20,11 @@ export class DateFieldDto extends DateFieldCore implements FieldBase {
     if (value instanceof Date) {
       return value.toISOString();
     }
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      return new Date(value).toISOString();
+    }
+
     return value;
   }
 }

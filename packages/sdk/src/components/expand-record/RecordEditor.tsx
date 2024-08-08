@@ -21,7 +21,7 @@ export const RecordEditor = (props: {
   const [showHiddenFields, toggle] = useToggle(false);
 
   return (
-    <div ref={ref} className="max-w-2xl">
+    <div ref={ref} className="max-w-3xl">
       <div ref={wrapRef} className="mx-auto space-y-6">
         {fields.map((field) => (
           <RecordEditorItem

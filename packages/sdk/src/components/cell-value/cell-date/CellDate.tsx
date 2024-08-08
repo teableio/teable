@@ -3,6 +3,7 @@ import type { IDatetimeFormatting } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import { useMemo } from 'react';
+import { OverflowTooltip } from '../components';
 import type { ICellValue } from '../type';
 
 interface ICellDate extends ICellValue<string> {
@@ -10,7 +11,7 @@ interface ICellDate extends ICellValue<string> {
 }
 
 export const CellDate = (props: ICellDate) => {
-  const { value, formatting, className, style } = props;
+  const { value, formatting, maxLine, className, style } = props;
 
   const displayValue = useMemo(() => {
     if (value == null) return '';
@@ -19,8 +20,11 @@ export const CellDate = (props: ICellDate) => {
   }, [value, formatting]);
 
   return (
-    <div className={cn('text-sm', className)} style={style}>
-      {displayValue}
-    </div>
+    <OverflowTooltip
+      text={displayValue}
+      maxLine={maxLine}
+      className={cn('w-full text-[13px]', className)}
+      style={style}
+    />
   );
 };

@@ -1,20 +1,16 @@
 import { cn } from '@teable/ui-lib';
+import { OverflowTooltip } from '../components';
 import type { ICellValue } from '../type';
 
-interface ICellText extends ICellValue<string> {
-  isMultipleRows?: boolean;
-}
-
-export const CellText = (props: ICellText) => {
-  const { value, className, style, isMultipleRows } = props;
+export const CellText = (props: ICellValue<string>) => {
+  const { value, className, style, maxLine = 1 } = props;
 
   return (
-    <div
-      className={cn('w-full text-sm', isMultipleRows ? 'line-clamp-4' : 'truncate', className)}
+    <OverflowTooltip
+      text={value}
+      maxLine={maxLine}
+      className={cn('w-full text-[13px]', className)}
       style={style}
-      title={value}
-    >
-      {value}
-    </div>
+    />
   );
 };

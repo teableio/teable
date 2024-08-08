@@ -14,6 +14,8 @@ import {
   IDeleteRecordsQuery,
   recordInsertOrderRoSchema,
   IRecordInsertOrderRo,
+  getRecordHistoryQuerySchema,
+  IGetRecordHistoryQuery,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -27,6 +29,15 @@ export class RecordOpenApiController {
     private readonly recordService: RecordService,
     private readonly recordOpenApiService: RecordOpenApiService
   ) {}
+
+  @Permissions('record_history|read')
+  @Get('/history')
+  async getRecordHistory(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(getRecordHistoryQuerySchema)) query: IGetRecordHistoryQuery
+  ) {
+    return this.recordOpenApiService.getRecordHistory(tableId, query);
+  }
 
   @Permissions('record|read')
   @Get()

@@ -16,14 +16,17 @@ export const CellLink = (props: ICellLink) => {
   }, [value]);
 
   return (
-    <div className={cn('flex space-x-1', className)} style={style}>
+    <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
       {innerValue?.map((itemVal) => {
         const { id, title = 'Unnamed record' } = itemVal;
         return (
           <span
             key={id}
             title={title}
-            className={cn('rounded-md bg-secondary px-2 h-6 leading-6 text-[13px]', itemClassName)}
+            className={cn(
+              'text-[13px] rounded-md bg-secondary px-2 h-6 leading-6 truncate',
+              itemClassName
+            )}
           >
             {title}
           </span>

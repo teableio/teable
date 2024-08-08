@@ -1,11 +1,11 @@
 import type { IRecord } from '@teable/core';
 import { useToast } from '@teable/ui-lib';
-import { type FC, type PropsWithChildren } from 'react';
+import type { FC, PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
 import { useTranslation } from '../../context/app/i18n';
-import { useBaseId, useTableId } from '../../hooks';
+import { useBaseId, useBasePermission, useTableId } from '../../hooks';
 import { ExpandRecord } from './ExpandRecord';
 import type { ExpandRecordModel } from './type';
 
@@ -40,8 +40,9 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     props;
   const { toast } = useToast();
   const { t } = useTranslation();
-  const [showActivity, setShowActivity] = useLocalStorage<boolean>(
-    LocalStorageKeys.ShowActivity,
+  const basePermission = useBasePermission();
+  const [recordHistoryVisible, setRecordHistoryVisible] = useLocalStorage<boolean>(
+    LocalStorageKeys.RecordHistoryVisible,
     false
   );
 
@@ -59,8 +60,8 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     toast({ description: t('expandRecord.copy') });
   };
 
-  const onShowActivity = () => {
-    setShowActivity(!showActivity);
+  const onRecordHistoryToggle = () => {
+    setRecordHistoryVisible(!recordHistoryVisible);
   };
 
   return (
@@ -72,12 +73,12 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           recordId={recordId}
           recordIds={recordIds}
           serverData={serverData?.id === recordId ? serverData : undefined}
-          showActivity={showActivity}
+          recordHistoryVisible={basePermission?.['record_history|read'] && recordHistoryVisible}
           onClose={onClose}
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
-          onShowActivity={onShowActivity}
+          onRecordHistoryToggle={onRecordHistoryToggle}
         />
       </Wrap>
     </div>

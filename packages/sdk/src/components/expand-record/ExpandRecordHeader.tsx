@@ -1,19 +1,20 @@
-import { ChevronDown, ChevronUp, Link, MessageSquare, X } from '@teable/icons';
+import { ChevronDown, ChevronUp, History, Link, X } from '@teable/icons';
 import { Button, Separator, cn } from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
+import { useBasePermission } from '../../hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
   title?: string;
-  showActivity?: boolean;
+  recordHistoryVisible?: boolean;
   disabledPrev?: boolean;
   disabledNext?: boolean;
   onClose?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   onCopyUrl?: () => void;
-  onShowActivity?: () => void;
+  onRecordHistoryToggle?: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -24,16 +25,17 @@ const MIN_OPERATOR_WIDTH = 200;
 export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const {
     title,
-    showActivity,
+    recordHistoryVisible,
     disabledPrev,
     disabledNext,
     onPrev,
     onNext,
     onClose,
     onCopyUrl,
-    onShowActivity,
+    onRecordHistoryToggle,
   } = props;
 
+  const basePermission = useBasePermission();
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
@@ -81,20 +83,28 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
       )}
       {showOperator && (
         <div>
-          <TooltipWrap description="Copy record URL">
+          <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
             <Button variant={'ghost'} size={'xs'} onClick={onCopyUrl}>
               <Link />
             </Button>
           </TooltipWrap>
-          <TooltipWrap description={`${showActivity ? 'Hide' : 'Show'} activity`}>
-            <Button
-              variant={showActivity ? 'secondary' : 'ghost'}
-              size={'xs'}
-              onClick={onShowActivity}
+          {basePermission?.['record_history|read'] && (
+            <TooltipWrap
+              description={
+                recordHistoryVisible
+                  ? t('expandRecord.recordHistory.hiddenRecordHistory')
+                  : t('expandRecord.recordHistory.showRecordHistory')
+              }
             >
-              <MessageSquare />
-            </Button>
-          </TooltipWrap>
+              <Button
+                variant={recordHistoryVisible ? 'secondary' : 'ghost'}
+                size={'xs'}
+                onClick={onRecordHistoryToggle}
+              >
+                <History />
+              </Button>
+            </TooltipWrap>
+          )}
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />

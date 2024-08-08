@@ -48,7 +48,7 @@ const SelectEditorBase: ForwardRefRenderFunction<
       role="combobox"
       aria-expanded={open}
       className={cn(
-        'w-full h-auto min-h-[32px] flex py-1 flex-wrap justify-start hover:bg-transparent gap-1.5',
+        'w-full h-auto min-h-[32px] flex py-1 flex-wrap justify-start hover:bg-transparent gap-1.5 px-2',
         className
       )}
     >

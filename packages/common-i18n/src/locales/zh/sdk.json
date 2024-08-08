@@ -20,7 +20,19 @@
     "uploadFailed": "上传失败",
     "rowCount": "{{count}}条记录",
     "summary": "统计",
-    "summaryTip": "点击此行进行统计"
+    "summaryTip": "点击此行进行统计",
+    "actions": "操作"
+  },
+  "noun": {
+    "table": "表格",
+    "view": "视图",
+    "space": "空间",
+    "base": "数据库",
+    "field": "字段",
+    "record": "记录",
+    "automation": "自动化",
+    "user": "用户",
+    "recordHistory": "记录历史"
   },
   "editor": {
     "attachment": {
@@ -152,7 +164,17 @@
     "primaryKey": "主字段：用于标识每条记录，不能隐藏和删除"
   },
   "expandRecord": {
-    "copy": "复制到剪贴板"
+    "copy": "复制到剪贴板",
+    "copyRecordUrl": "复制记录链接",
+    "recordHistory": {
+      "hiddenRecordHistory": "隐藏记录历史",
+      "showRecordHistory": "显示记录历史",
+      "createdTime": "操作时间",
+      "createdBy": "操作人",
+      "before": "变更前",
+      "after": "变更后",
+      "viewRecord": "查看记录"
+    }
   },
   "sort": {
     "label": "排序",
@@ -249,18 +271,9 @@
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
-      "userEmailRead": "查看用户电子邮件"
+      "userEmailRead": "查看用户电子邮件",
+      "recordHistoryRead": "查看记录历史"
     }
-  },
-  "noun": {
-    "table": "表格",
-    "view": "视图",
-    "space": "空间",
-    "base": "数据库",
-    "field": "字段",
-    "record": "记录",
-    "automation": "自动化",
-    "user": "用户"
   },
   "formula": {
     "SUM": {
