@@ -67,8 +67,7 @@ export class BaseQueryService {
   async baseQuery(baseId: string, baseQuery: IBaseQuery): Promise<IBaseQueryVo> {
     const { queryBuilder, fieldMap } = await this.parseBaseQuery(baseId, baseQuery, 0);
     const query = queryBuilder.toQuery();
-    console.log('query', query);
-    console.log('columns', this.convertFieldMapToColumn(fieldMap));
+    this.logger.log('baseQuery SQL: ', query);
     const rows = await this.prismaService
       .$queryRawUnsafe<{ [key in string]: unknown }[]>(query)
       .catch((e) => {
