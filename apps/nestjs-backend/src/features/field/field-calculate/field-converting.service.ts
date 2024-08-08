@@ -788,10 +788,6 @@ export class FieldConvertingService {
 
     const composedOpsMap = composeOpMaps([recordOpsMap, calculatedOpsMap]);
 
-    // console.log('recordOpsMap', JSON.stringify(recordOpsMap));
-    // console.log('composedOpsMap', JSON.stringify(composedOpsMap));
-    // console.log('tableId2DbTableName', JSON.stringify(tableId2DbTableName));
-
     await this.batchService.updateRecords(composedOpsMap, fieldMap, tableId2DbTableName);
   }
 
@@ -1099,6 +1095,24 @@ export class FieldConvertingService {
     }
   }
 
+  async supplementFieldConstraint(tableId: string, field: IFieldInstance) {
+    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+
+    const { unique, notNull, dbFieldName } = field;
+
+    const fieldValidationQuery = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        if (unique) table.unique(dbFieldName);
+        if (notNull) table.dropNullable(dbFieldName);
+      })
+      .toQuery();
+
+    await this.prismaService.$executeRawUnsafe(fieldValidationQuery);
+  }
+
   async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
     if (!oldFieldVo) {
@@ -1119,21 +1133,17 @@ export class FieldConvertingService {
     const supplementChange = await this.fieldConvertingLinkService.analysisLink(newField, oldField);
 
     // 3. preprocessing field validation
+    let needSupplementFieldConstraint = false;
+
     if (majorFieldKeysChanged(oldField, newField) && (oldField.unique || oldField.notNull)) {
+      needSupplementFieldConstraint = true;
+
       const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
         where: { id: tableId },
         select: { dbTableName: true },
       });
 
       const { unique, notNull, dbFieldName } = oldField;
-
-      if (unique) {
-        oldField.unique = undefined;
-      }
-
-      if (notNull) {
-        oldField.notNull = undefined;
-      }
 
       const fieldValidationQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
@@ -1150,6 +1160,7 @@ export class FieldConvertingService {
       oldField,
       modifiedOps,
       supplementChange,
+      needSupplementFieldConstraint,
     };
   }
 

@@ -101,7 +101,7 @@ export class PermissionService {
   }
 
   async getUpperIdByTableId(tableId: string): Promise<{ spaceId: string; baseId: string }> {
-    const table = await this.prismaService.tableMeta.findFirst({
+    const table = await this.prismaService.txClient().tableMeta.findFirst({
       where: {
         id: tableId,
         deletedTime: null,

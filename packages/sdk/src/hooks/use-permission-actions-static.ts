@@ -134,6 +134,9 @@ const actionsI18nMap: Record<
   'user|email_read': {
     description: 'permission.actionDescription.userEmailRead',
   },
+  'record_history|read': {
+    description: 'permission.actionDescription.recordHistoryRead',
+  },
 };
 
 const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
@@ -160,6 +163,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   },
   [ActionPrefix.User]: {
     title: 'noun.user',
+  },
+  [ActionPrefix.RecordHistory]: {
+    title: 'noun.recordHistory',
   },
 };
 

@@ -11,6 +11,7 @@ import { AttachmentListener } from './listeners/attachment.listener';
 import { BasePermissionUpdateListener } from './listeners/base-permission-update.listener';
 import { CollaboratorNotificationListener } from './listeners/collaborator-notification.listener';
 import { PinListener } from './listeners/pin.listener';
+import { RecordHistoryListener } from './listeners/record-history.listener';
 
 export interface EventEmitterModuleOptions {
   global?: boolean;
@@ -40,6 +41,7 @@ export class EventEmitterModule extends EventEmitterModuleClass {
         AttachmentListener,
         BasePermissionUpdateListener,
         PinListener,
+        RecordHistoryListener,
       ],
       exports: [EventEmitterService],
     };

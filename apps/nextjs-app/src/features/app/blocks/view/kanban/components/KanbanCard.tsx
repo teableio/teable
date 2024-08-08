@@ -162,7 +162,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
                       <span className="text-xs">{name}</span>
                     </div>
                   )}
-                  <CellValue field={field} value={cellValue} />
+                  <CellValue field={field} value={cellValue} maxLine={4} />
                 </div>
               );
             })}

@@ -2,7 +2,9 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import { getRecordHistory, recordHistoryVoSchema, type ITableFullVo } from '@teable/openapi';
+import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
+import { Events } from '../src/event-emitter/events';
 import {
   convertField,
   createField,
@@ -22,16 +24,40 @@ import {
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
+  let eventEmitterService: EventEmitterService;
   const baseId = globalThis.testConfig.baseId;
+
+  const promises: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [tableId: string]: { resolve: (value: any) => void; reject: (error: any) => void };
+  } = {};
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+
+    eventEmitterService = app.get(EventEmitterService);
+    eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, ({ payload }) => {
+      const tableId = payload?.tableId;
+
+      if (!promises[tableId]) return;
+
+      const { resolve } = promises[tableId];
+      resolve?.(payload);
+      delete promises[tableId];
+    });
   });
 
   afterAll(async () => {
+    eventEmitterService.eventEmitter.removeAllListeners(Events.TABLE_RECORD_UPDATE);
     await app.close();
   });
+
+  function createRecordHistoryPromise(tableId: string) {
+    return new Promise((resolve, reject) => {
+      promises[tableId] = { resolve, reject };
+    });
+  }
 
   describe('simple curd', () => {
     let table: ITableFullVo;
@@ -262,6 +288,87 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         ],
       });
+    });
+  });
+
+  describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)('record history', () => {
+    let mainTable: ITableFullVo;
+    let foreignTable: ITableFullVo;
+
+    beforeEach(async () => {
+      mainTable = await createTable(baseId, { name: 'Main table' });
+      foreignTable = await createTable(baseId, { name: 'Foreign table' });
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, mainTable.id);
+      await deleteTable(baseId, foreignTable.id);
+    });
+
+    it('should get record history of changes in the base cell values', async () => {
+      const recordId = mainTable.records[0].id;
+      const textField = await createField(mainTable.id, {
+        type: FieldType.SingleLineText,
+      });
+
+      const { data: originRecordHistory } = await getRecordHistory(mainTable.id, { recordId });
+
+      expect(recordHistoryVoSchema.safeParse(originRecordHistory).success).toEqual(true);
+      expect(originRecordHistory.historyList.length).toEqual(0);
+
+      const waitMainTable = createRecordHistoryPromise(mainTable.id);
+
+      await updateRecord(mainTable.id, recordId, {
+        record: {
+          fields: {
+            [textField.id]: 'new value',
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      await waitMainTable;
+
+      const { data: recordHistory } = await getRecordHistory(mainTable.id, { recordId });
+      const { data: tableRecordHistory } = await getRecordHistory(mainTable.id, {});
+
+      expect(recordHistory.historyList.length).toEqual(1);
+      expect(tableRecordHistory.historyList.length).toEqual(1);
+    });
+
+    it('should get record history of changes in the link field cell values', async () => {
+      const recordId = mainTable.records[0].id;
+      const foreignRecordId = foreignTable.records[0].id;
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      const waitMainTable = createRecordHistoryPromise(mainTable.id);
+      const waitForeignTable = createRecordHistoryPromise(foreignTable.id);
+
+      await updateRecord(mainTable.id, recordId, {
+        record: {
+          fields: {
+            [linkField.id]: { id: foreignRecordId },
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      await waitMainTable;
+      await waitForeignTable;
+
+      const { data: mainTableRecordHistory } = await getRecordHistory(mainTable.id, { recordId });
+      const { data: foreignTableRecordHistory } = await getRecordHistory(foreignTable.id, {
+        recordId: foreignRecordId,
+      });
+
+      expect(recordHistoryVoSchema.safeParse(mainTableRecordHistory).success).toEqual(true);
+      expect(recordHistoryVoSchema.safeParse(foreignTableRecordHistory).success).toEqual(true);
     });
   });
 

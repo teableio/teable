@@ -250,6 +250,7 @@
     "newTableLabel": "表格",
     "rename": "重命名",
     "design": "设计",
+    "tableRecordHistory": "表格记录历史",
     "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",

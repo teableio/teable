@@ -20,7 +20,8 @@
     "uploadFailed": "Upload failed",
     "rowCount": "{{count}} records",
     "summary": "Summary",
-    "summaryTip": "Hover to select summary"
+    "summaryTip": "Hover to select summary",
+    "actions": "Actions"
   },
   "editor": {
     "attachment": {
@@ -151,7 +152,17 @@
     "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
   },
   "expandRecord": {
-    "copy": "Copy to clipboard"
+    "copy": "Copy to clipboard",
+    "copyRecordUrl": "Copy record URL",
+    "recordHistory": {
+      "hiddenRecordHistory": "Hide record history",
+      "showRecordHistory": "Show record history",
+      "createdTime": "Created time",
+      "createdBy": "Created by",
+      "before": "Before",
+      "after": "After",
+      "viewRecord": "View record"
+    }
   },
   "sort": {
     "label": "Sort",
@@ -248,7 +259,8 @@
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
-      "userEmailRead": "Read user email"
+      "userEmailRead": "Read user email",
+      "recordHistoryRead": "Read record history"
     }
   },
   "noun": {
@@ -259,7 +271,8 @@
     "field": "Field",
     "record": "Record",
     "automation": "Automation",
-    "user": "User"
+    "user": "User",
+    "recordHistory": "Record History"
   },
   "formula": {
     "SUM": {

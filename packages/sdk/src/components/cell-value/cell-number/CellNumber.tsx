@@ -2,6 +2,7 @@ import { formatNumberToString } from '@teable/core';
 import type { INumberFormatting } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
+import { OverflowTooltip } from '../components';
 import type { ICellValue } from '../type';
 
 interface ICellNumber extends ICellValue<number | number[]> {
@@ -9,7 +10,7 @@ interface ICellNumber extends ICellValue<number | number[]> {
 }
 
 export const CellNumber = (props: ICellNumber) => {
-  const { value, formatting, className, style } = props;
+  const { value, formatting, maxLine, className, style } = props;
 
   const displayValue = useMemo(() => {
     if (value == null) return;
@@ -23,8 +24,11 @@ export const CellNumber = (props: ICellNumber) => {
   }, [formatting, value]);
 
   return (
-    <div className={cn('w-full text-sm truncate', className)} style={style} title={displayValue}>
-      {displayValue}
-    </div>
+    <OverflowTooltip
+      text={displayValue}
+      maxLine={maxLine}
+      className={cn('w-full text-[13px]', className)}
+      style={style}
+    />
   );
 };

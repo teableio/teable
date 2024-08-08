@@ -73,4 +73,7 @@ export const ReactQueryKeys = {
 
   getTablePermission: (baseId: string, tableId: string) =>
     ['table-permission', baseId, tableId] as const,
+
+  getRecordHistory: (tableId: string, recordId?: string) =>
+    ['record-history', tableId, recordId] as const,
 };

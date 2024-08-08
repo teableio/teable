@@ -18,7 +18,7 @@ export class SpaceService {
 
   async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
     return await this.prismaService.$tx(async () => {
-      const result = await this.prismaService.space.create({
+      const result = await this.prismaService.txClient().space.create({
         select: {
           id: true,
           name: true,

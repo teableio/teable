@@ -235,7 +235,7 @@ export class CsvImporter extends Importer {
               }
 
               recordBuffer.push(...newChunk);
-              totalRowCount += recordBuffer.length;
+              totalRowCount += newChunk.length;
 
               if (this.config.maxRowCount && totalRowCount > this.config.maxRowCount) {
                 isAbort = true;
