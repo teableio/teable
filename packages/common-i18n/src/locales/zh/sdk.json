@@ -20,7 +20,8 @@
     "uploadFailed": "上传失败",
     "rowCount": "{{count}}条记录",
     "summary": "统计",
-    "summaryTip": "点击此行进行统计"
+    "summaryTip": "点击此行进行统计",
+    "actions": "Actions"
   },
   "editor": {
     "attachment": {
@@ -151,7 +152,17 @@
     "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
   },
   "expandRecord": {
-    "copy": "复制到剪贴板"
+    "copy": "复制到剪贴板",
+    "copyRecordUrl": "Copy record URL",
+    "recordHistory": {
+      "hiddenRecordHistory": "Hide record history",
+      "showRecordHistory": "Show record history",
+      "createdTime": "Created time",
+      "createdBy": "Created by",
+      "before": "Before",
+      "after": "After",
+      "viewRecord": "View record"
+    }
   },
   "sort": {
     "label": "排序",
@@ -248,7 +259,8 @@
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",
       "automationUpdate": "更新自动化",
-      "userEmailRead": "查看用户电子邮件"
+      "userEmailRead": "查看用户电子邮件",
+      "recordHistoryRead": "Read record history"
     }
   },
   "noun": {
@@ -259,7 +271,8 @@
     "field": "字段",
     "record": "记录",
     "automation": "自动化",
-    "user": "用户"
+    "user": "用户",
+    "recordHistory": "Record History"
   },
   "formula": {
     "SUM": {
