@@ -10,7 +10,7 @@ export const baseConfig = registerAs('base', () => ({
   storagePrefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN,
   secretKey: process.env.SECRET_KEY ?? 'defaultSecretKey',
   publicDatabaseProxy: process.env.PUBLIC_DATABASE_PROXY,
-  defaultMaxBaseDBConnections: Number(process.env.DEFAULT_MAX_BASE_DB_CONNECTIONS ?? 3),
+  defaultMaxBaseDBConnections: Number(process.env.DEFAULT_MAX_BASE_DB_CONNECTIONS ?? 20),
   templateSpaceId: process.env.TEMPLATE_SPACE_ID,
 }));
 
