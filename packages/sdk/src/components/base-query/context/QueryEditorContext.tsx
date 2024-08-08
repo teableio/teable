@@ -4,7 +4,7 @@ import React from 'react';
 
 export type QueryEditorKey = Exclude<keyof IBaseQuery, 'from'>;
 
-export type IContextColumns = (IBaseQueryColumn & { group?: { id: string; name: string } })[];
+export type IContextColumns = (IBaseQueryColumn & { groupTableId?: string })[];
 
 export interface IQueryEditorContext {
   columns: {

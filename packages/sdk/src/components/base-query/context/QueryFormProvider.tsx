@@ -12,6 +12,7 @@ export const QueryFormProvider = (props: { children: React.ReactNode }) => {
     limit: undefined,
     offset: undefined,
     aggregation: undefined,
+    from: undefined,
   });
 
   const registerValidator = useCallback((key: IQueryValidatorKey, fn?: () => boolean) => {

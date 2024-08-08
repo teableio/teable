@@ -21,7 +21,7 @@ export const QueryOperators = () => {
   }
 
   return (
-    <div className="flex gap-4 px-4">
+    <div className="flex flex-wrap gap-4 gap-y-2 px-4">
       {queryButtons.map(
         (button) =>
           !status[button.key] && (

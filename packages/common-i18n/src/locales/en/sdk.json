@@ -632,7 +632,9 @@
     "add": "Add",
     "error": {
       "invalidCol": "Invalid column, please reselect",
-      "invalidCols": "Invalid columns: {{colNames}}"
+      "invalidCols": "Invalid columns: {{colNames}}",
+      "invalidTable": "Invalid table, please reselect",
+      "requiredSelect": "You must select one"
     },
     "from": {
       "title": "From",

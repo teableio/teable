@@ -12,6 +12,7 @@ import {
 import { groupBy } from 'lodash';
 import { useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
+import { useTables } from '../../../hooks';
 import { useAllColumns } from './useAllColumns';
 
 export const ContextColumnsCommand = (props: {
@@ -28,16 +29,17 @@ export const ContextColumnsCommand = (props: {
   const { checked, onClick, isFilter } = props;
   const { t } = useTranslation();
   const columns = useAllColumns(isFilter);
+  const tables = useTables();
   const checkedArray = useMemo(
     () => (typeof checked === 'string' && checked ? [checked] : checked) as string[],
     [checked]
   );
 
   const { noGroupedColumns, groupedColumns, columnMap } = useMemo(() => {
-    const noGroupedColumns = columns.filter((column) => !column.group);
+    const noGroupedColumns = columns.filter((column) => !column.groupTableId);
     const groupedColumns = groupBy(
-      columns.filter((column) => column.group),
-      (column) => column.group?.id
+      columns.filter((column) => column.groupTableId),
+      'groupTableId'
     );
     const columnMap = columns.reduce(
       (pre, cur) => {
@@ -48,6 +50,16 @@ export const ContextColumnsCommand = (props: {
     );
     return { noGroupedColumns, groupedColumns, columnMap };
   }, [columns]);
+
+  const groupMap = useMemo(() => {
+    return tables.reduce(
+      (pre, cur) => {
+        pre[cur.id] = cur;
+        return pre;
+      },
+      {} as Record<string, { id: string; name: string }>
+    );
+  }, [tables]);
 
   return (
     <Command
@@ -87,7 +99,7 @@ export const ContextColumnsCommand = (props: {
           })}
         </CommandGroup>
         {Object.keys(groupedColumns).map((group) => (
-          <CommandGroup key={group} heading={groupedColumns[group][0].group?.name}>
+          <CommandGroup key={group} heading={groupMap[group].name}>
             {groupedColumns[group].map((column) => {
               const isSelected = checkedArray?.some((item) => item === column.column);
               return (
@@ -97,7 +109,10 @@ export const ContextColumnsCommand = (props: {
                   onSelect={() => {
                     onClick?.(column, {
                       preSelected: isSelected,
-                      group: column.group,
+                      group: {
+                        id: group,
+                        name: groupMap[group].name,
+                      },
                     });
                   }}
                 >

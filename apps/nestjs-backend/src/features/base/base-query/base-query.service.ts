@@ -73,7 +73,7 @@ export class BaseQueryService {
       .$queryRawUnsafe<{ [key in string]: unknown }[]>(query)
       .catch((e) => {
         this.logger.error(e);
-        throw new BadRequestException(`Query failed: ${query}`);
+        throw new BadRequestException(`Query failed: ${query}, ${e.message}`);
       });
 
     return {

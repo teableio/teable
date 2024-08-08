@@ -2,7 +2,7 @@ import { noop } from 'lodash';
 import { createContext } from 'react';
 import type { QuerySortedKeys } from '../constant';
 
-export type IQueryValidatorKey = (typeof QuerySortedKeys)[number];
+export type IQueryValidatorKey = (typeof QuerySortedKeys)[number] | 'from';
 
 export interface IQueryFormContext {
   validators: Record<IQueryValidatorKey, (() => boolean) | undefined>;
@@ -11,6 +11,7 @@ export interface IQueryFormContext {
 
 export const QueryFormContext = createContext<IQueryFormContext>({
   validators: {
+    from: undefined,
     join: undefined,
     select: undefined,
     groupBy: undefined,

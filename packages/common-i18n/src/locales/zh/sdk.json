@@ -633,7 +633,9 @@
     "add": "添加",
     "error": {
       "invalidCol": "无效的列，请重新选择",
-      "invalidCols": "无效的列：{{colNames}}"
+      "invalidCols": "无效的列：{{colNames}}",
+      "invalidTable": "无效的表格，请重新选择",
+      "requiredSelect": "必须选择一个"
     },
     "from": {
       "title": "来源",

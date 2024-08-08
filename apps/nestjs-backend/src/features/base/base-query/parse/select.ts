@@ -39,6 +39,7 @@ export class QuerySelect {
             if (field && getQueryColumnTypeByFieldInstance(field) === BaseQueryColumnType.Field) {
               if (cur.alias) {
                 acc[cur.alias] = field.dbFieldName;
+                currentFieldMap[cur.column].name = cur.alias;
                 currentFieldMap[cur.column].dbFieldName = cur.alias;
               } else {
                 const alias = `${field.id}_${field.name}`;

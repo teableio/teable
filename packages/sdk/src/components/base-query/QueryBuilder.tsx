@@ -1,12 +1,12 @@
 import { X } from '@teable/icons';
-import { BaseQueryColumnType, baseQuerySchema, getFields } from '@teable/openapi';
+import { BaseQueryColumnType, getFields } from '@teable/openapi';
 import type {
   IBaseQueryColumn,
   IBaseQuery,
   IBaseQueryJoin,
   IQueryAggregation,
 } from '@teable/openapi';
-import { Badge, Button } from '@teable/ui-lib';
+import { Button, cn } from '@teable/ui-lib';
 import {
   forwardRef,
   useCallback,
@@ -17,16 +17,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useTranslation } from '../../context/app/i18n';
-import { useTables } from '../../hooks';
 import { QuerySortedKeys } from './constant';
 import type { IContextColumns } from './context/QueryEditorContext';
 import { QueryEditorProvider } from './context/QueryEditorProvider';
 import { QueryFormContext } from './context/QueryFormContext';
 import { QueryFormProvider } from './context/QueryFormProvider';
-import { FormItem } from './FormItem';
+import { QueryFrom } from './query-from/QueryFrom';
+import { QueryFromTableValue } from './query-from/QueryFromValue';
 import { QueryEditorContainer } from './QueryEditorContainer';
-import { QueryFrom } from './QueryFom';
 import { QueryOperators } from './QueryOperators';
 
 export interface IBaseQueryBuilderRef {
@@ -38,6 +36,7 @@ export const BaseQueryBuilder = forwardRef<
   {
     className?: string;
     query?: IBaseQuery;
+    maxDepth?: number;
     onChange: (query?: IBaseQuery) => void;
   }
 >((props, ref) => {
@@ -58,36 +57,32 @@ const QueryBuilderContainer = forwardRef<
     onChange: (query?: IBaseQuery) => void;
     getContextFromChild?: (context: IBaseQueryColumn[]) => void;
     depth?: number;
+    maxDepth?: number;
   }
 >((props, ref) => {
-  const { query, onChange, depth = 0, getContextFromChild } = props;
-  const { t } = useTranslation();
+  const { className, query, onChange, depth = 0, getContextFromChild, maxDepth = 3 } = props;
   const [fromType, setFromType] = useState<'table' | 'query'>();
   const [childContext, setChildContext] = useState<IBaseQueryColumn[]>([]);
   const [joinContext, setJoinContext] = useState<IContextColumns>([]);
   const [aggregationContext, setAggregationContext] = useState<IBaseQueryColumn[]>([]);
   const [canSelectedColumnIds, setCanSelectedColumnIds] = useState<string[]>();
-  const tables = useTables();
   const formQueryRef = useRef<IBaseQueryBuilderRef>(null);
   const { validators } = useContext(QueryFormContext);
 
   useImperativeHandle(ref, () => ({
     validateQuery: () => {
       // validate from
-      // zod
-      if (
-        !query?.from ||
-        (typeof query.from === 'string' && !tables.some((table) => table.id === query.from)) ||
-        (typeof query.from !== 'string' && !baseQuerySchema.safeParse(query.from).success)
-      ) {
-        return false;
-      }
       // context validators
       if (formQueryRef.current && !formQueryRef.current.validateQuery()) {
         return false;
       }
       // validate all keys
-      if (QuerySortedKeys.some((key) => validators[key] && !validators[key]?.())) return false;
+      if (
+        (['from', ...QuerySortedKeys] as const).some(
+          (key) => validators[key] && !validators[key]?.()
+        )
+      )
+        return false;
 
       return true;
     },
@@ -97,16 +92,27 @@ const QueryBuilderContainer = forwardRef<
   useEffect(() => {
     if (hasAggregation) {
       setCanSelectedColumnIds(query?.groupBy?.map((group) => group.column) || []);
+    } else {
+      setCanSelectedColumnIds(undefined);
     }
   }, [hasAggregation, query?.groupBy]);
 
   useEffect(() => {
+    if (childContext.length === 0) {
+      return getContextFromChild?.([]);
+    }
     const aggregationColumns = aggregationContext.map((aggregation) => ({
       column: aggregation.column,
       type: BaseQueryColumnType.Aggregation,
       name: aggregation.name,
     }));
-    const allColumns = [...childContext, ...aggregationColumns, ...joinContext];
+    const allColumns = canSelectedColumnIds
+      ? [
+          ...childContext.filter(({ column }) => canSelectedColumnIds.includes(column)),
+          ...aggregationColumns,
+          ...joinContext.filter(({ column }) => canSelectedColumnIds.includes(column)),
+        ]
+      : [...childContext, ...aggregationColumns, ...joinContext];
     if (!query?.select) {
       return getContextFromChild?.(allColumns);
     }
@@ -118,101 +124,113 @@ const QueryBuilderContainer = forwardRef<
           .filter(Boolean) as IBaseQueryColumn[]
       )
     );
-  }, [aggregationContext, childContext, getContextFromChild, joinContext, query?.select]);
-
-  const onFormChange = async (type: string, tableId?: string) => {
-    if (type === 'table' && tableId) {
-      setFromType('table');
-      const context = await getContextWithTableIds([tableId]);
-      setChildContext(context);
-      return onChange({ ...query, from: tableId });
-    }
-    setFromType('query');
-  };
-
-  const clearFrom = () => {
-    setFromType(undefined);
-    onChange({ from: '' });
-  };
+  }, [
+    aggregationContext,
+    childContext,
+    getContextFromChild,
+    joinContext,
+    query?.select,
+    canSelectedColumnIds,
+  ]);
 
   const getContextWithTableIds = async (tableIds: string[]) => {
-    const fields = await Promise.all(
-      tableIds.map((tableId) =>
-        getFields(tableId).then((res) => res.data.map((v) => ({ ...v, tableId })))
-      )
+    const tableFields = await Promise.all(
+      tableIds.map((tableId) => getFields(tableId).then((res) => res.data))
     );
-    return fields.flat().map(
-      (field) =>
-        ({
-          column: field.id,
-          type: BaseQueryColumnType.Field,
-          name: field.name,
-          fieldSource: field,
-          tableId: field.tableId,
-        }) as IBaseQueryColumn & { tableId: string }
+    return tableFields.map((fields) =>
+      fields.map(
+        (field) =>
+          ({
+            column: field.id,
+            type: BaseQueryColumnType.Field,
+            name: field.name,
+            fieldSource: field,
+          }) as IBaseQueryColumn
+      )
     );
   };
 
-  const onSourceChange = async (source?: IBaseQuery) => {
-    if (!source) {
-      return clearFrom();
+  const collectContext = async <T extends keyof IBaseQuery>(key: T, value: IBaseQuery[T]) => {
+    switch (key) {
+      case 'join':
+        {
+          if (!value) {
+            return setJoinContext([]);
+          }
+          const join = value as IBaseQueryJoin[];
+          const tableIds = join.map((v) => v.table).filter((v) => !!v) as string[];
+          const tablesContext = await getContextWithTableIds(tableIds);
+          setJoinContext(
+            tablesContext
+              .map((context, i) =>
+                context.map((v) => ({
+                  ...v,
+                  groupTableId: tableIds[i],
+                }))
+              )
+              .flat()
+          );
+        }
+        break;
+      case 'aggregation':
+        {
+          if (!value) {
+            return setAggregationContext([]);
+          }
+          const aggregations = value as IQueryAggregation;
+          setAggregationContext(
+            aggregations
+              .map((aggregation) => {
+                const column = [...joinContext, ...childContext].find(
+                  (v) => v.column === aggregation.column
+                );
+                if (!column) return;
+                return {
+                  name: `${column.name}_${aggregation.statisticFunc}`,
+                  type: column.type,
+                  column: `${aggregation.column}_${aggregation.statisticFunc}`,
+                  fieldSource: column.fieldSource,
+                };
+              })
+              .filter(Boolean) as IBaseQueryColumn[]
+          );
+        }
+        break;
+      case 'from':
+        {
+          if (!value) {
+            setChildContext([]);
+            return;
+          }
+          if (typeof value === 'string') {
+            const context = await getContextWithTableIds([value]);
+            setChildContext(context.flat());
+          }
+        }
+        break;
     }
-    onChange({ ...query, from: source ?? '' });
   };
 
   const onQueryChange = async <T extends keyof IBaseQuery>(key: T, value: IBaseQuery[T]) => {
-    if (!query) return;
     // collect context
-    if (key === 'join' && value) {
-      const join = value as IBaseQueryJoin[];
-      const context = await getContextWithTableIds(
-        join.map((v) => v.table).filter((v) => !!v) as string[]
-      );
-      setJoinContext(
-        context.map((v) => ({
-          ...v,
-          group: {
-            id: v.tableId,
-            name: tables.find((table) => table.id === v.tableId)?.name ?? v.tableId,
-          },
-        }))
-      );
-    }
-    if (key === 'aggregation' && value) {
-      const aggregations = value as IQueryAggregation;
-      setAggregationContext(
-        aggregations
-          .map((aggregation) => {
-            const column = [...joinContext, ...childContext].find(
-              (v) => v.column === aggregation.column
-            );
-            if (!column) return;
-            return {
-              name: `${column.name}_${aggregation.statisticFunc}`,
-              type: column.type,
-              column: `${aggregation.column}_${aggregation.statisticFunc}`,
-              fieldSource: column.fieldSource,
-            };
-          })
-          .filter(Boolean) as IBaseQueryColumn[]
-      );
-    }
+    collectContext(key, value);
     console.log(depth, 'onQueryChange', key, value);
-    onChange({ ...query, [key]: value });
+    if (!query) {
+      key === 'from' &&
+        onChange({
+          from: value as IBaseQuery['from'],
+        });
+      return;
+    }
+    onChange({
+      ...query,
+      [key]: value,
+    });
   };
 
   const handleGetContextFromChild = useCallback((childContext: IBaseQueryColumn[]) => {
     setChildContext(childContext);
   }, []);
-
-  const validatedFrom = useMemo(
-    () =>
-      query?.from &&
-      (typeof query.from === 'string'
-        ? tables.some((table) => table.id === query.from)
-        : baseQuerySchema.safeParse(query.from).success),
-    [query?.from, tables]
-  );
 
   const providerContextColumns = useMemo(() => {
     return {
@@ -221,8 +239,31 @@ const QueryBuilderContainer = forwardRef<
     };
   }, [childContext, joinContext]);
 
+  const onFromChange = async (type: string, tableId?: string) => {
+    if (type === 'query') {
+      onQueryChange('from', '');
+      setFromType('query');
+      return;
+    }
+    if (tableId) {
+      onQueryChange('from', tableId);
+      setFromType('table');
+      return;
+    }
+    setFromType(undefined);
+    onQueryChange('from', '');
+  };
+
+  const onFromQueryChange = (query?: IBaseQuery) => {
+    if (!query) {
+      onQueryChange('from', '');
+      setFromType(undefined);
+      return;
+    }
+    onQueryChange('from', query ?? '');
+  };
   return (
-    <div className="relative rounded border p-4 px-2">
+    <div className={cn('relative rounded border py-4 px-2', className)}>
       {depth > 0 && (
         <Button
           className="absolute right-1 top-1 h-auto rounded-full p-0.5 text-[13px]"
@@ -233,31 +274,28 @@ const QueryBuilderContainer = forwardRef<
           <X />
         </Button>
       )}
-      <div className="mb-4 flex gap-5 text-sm">
-        <FormItem label={t('baseQuery.from.title')}>
-          <div className="group relative min-h-7 flex-1">
-            {!query?.from && !fromType && <QueryFrom onClick={onFormChange} />}
-            {query?.from && fromType === 'table' && (
-              <Badge variant={'outline'} className="mt-0.5 h-6 gap-1">
-                {tables.find((table) => table.id === query.from)?.name}
-                <X className="cursor-pointer" onClick={clearFrom} />
-              </Badge>
-            )}
-            {fromType === 'query' && (
+      <QueryFrom addButton={!fromType} maxDepth={maxDepth <= depth + 1} onClick={onFromChange}>
+        <QueryFromTableValue
+          from={query?.from}
+          onChange={(from) => onFromChange('from', from)}
+          component={
+            fromType === 'query' ? (
               <QueryFormProvider>
                 <QueryBuilderContainer
                   ref={formQueryRef}
+                  className="py-6"
                   query={query?.from as IBaseQuery}
-                  onChange={onSourceChange}
+                  onChange={onFromQueryChange}
                   depth={depth + 1}
+                  maxDepth={maxDepth}
                   getContextFromChild={handleGetContextFromChild}
                 />
               </QueryFormProvider>
-            )}
-          </div>
-        </FormItem>
-      </div>
-      {validatedFrom && (
+            ) : undefined
+          }
+        />
+      </QueryFrom>
+      {query?.from && (
         <QueryEditorProvider
           columns={providerContextColumns}
           canSelectedColumnIds={canSelectedColumnIds}
