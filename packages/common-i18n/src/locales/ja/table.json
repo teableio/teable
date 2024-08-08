@@ -251,6 +251,7 @@
     "newTableLabel": "New table",
     "rename": "Rename",
     "design": "Design",
+    "tableRecordHistory": "Table record history",
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
