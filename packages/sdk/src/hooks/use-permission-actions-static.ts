@@ -137,6 +137,9 @@ const actionsI18nMap: Record<
   'record_history|read': {
     description: 'permission.actionDescription.recordHistoryRead',
   },
+  'base|query_data': {
+    description: 'permission.actionDescription.baseQuery',
+  },
 };
 
 const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {

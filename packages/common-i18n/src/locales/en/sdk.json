@@ -260,7 +260,8 @@
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
       "userEmailRead": "Read user email",
-      "recordHistoryRead": "Read record history"
+      "recordHistoryRead": "Read record history",
+      "baseQuery": "Query base"
     }
   },
   "noun": {
@@ -626,5 +627,51 @@
     "dateRangeOfDays": "Date Range (days)",
     "dateRangeOfMonths": "Date Range (months)",
     "totalAttachmentSize": "Total Attachment Size"
+  },
+  "baseQuery": {
+    "add": "Add",
+    "error": {
+      "invalidCol": "Invalid column, please reselect",
+      "invalidCols": "Invalid columns: {{colNames}}",
+      "invalidTable": "Invalid table, please reselect",
+      "requiredSelect": "You must select one"
+    },
+    "from": {
+      "title": "From",
+      "fromTable": "Select Table",
+      "fromQuery": "From Query"
+    },
+    "select": {
+      "title": "Select"
+    },
+    "where": {
+      "title": "Where"
+    },
+    "groupBy": {
+      "title": "Group By"
+    },
+    "orderBy": {
+      "title": "Order By",
+      "asc": "Ascending",
+      "desc": "Descending"
+    },
+    "limit": {
+      "title": "Limit"
+    },
+    "offset": {
+      "title": "Offset"
+    },
+    "join": {
+      "title": "Join",
+      "joinType": "Join Type",
+      "leftJoin": "Left Join",
+      "rightJoin": "Right Join",
+      "innerJoin": "Inner Join",
+      "fullJoin": "Full Join",
+      "data": "From"
+    },
+    "aggregation": {
+      "title": "Aggregation"
+    }
   }
 }

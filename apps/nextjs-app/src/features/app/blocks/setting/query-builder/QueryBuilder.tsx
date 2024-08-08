@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { CellFormat, FieldKeyType, type IFilterSet, type ISortItem } from '@teable/core';
+import { ArrowUpRight } from '@teable/icons';
 import { getBaseAll, getTableList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { Button, ToggleGroup, ToggleGroupItem } from '@teable/ui-lib/shadcn';
-import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';

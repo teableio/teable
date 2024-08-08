@@ -21,7 +21,6 @@ import { colors } from '@/themes/colors';
 import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config.js';
 import { AppProviders } from '../AppProviders';
-
 dayjs.extend(utc);
 dayjs.extend(timezone);
 extendZodWithOpenApi(z);
@@ -31,6 +30,7 @@ extendZodWithOpenApi(z);
  * i.e.: import '@/assets/theme/style.scss'
  */
 import '../styles/global.css';
+import '../features/app/blocks/chart/chart-show/theme.css';
 
 import '@fontsource-variable/inter';
 

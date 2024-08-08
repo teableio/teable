@@ -9,7 +9,7 @@ export class MultipleBooleanCellValueFilterAdapter extends CellValueFilterPostgr
     operator: IFilterOperator,
     value: IFilterValue
   ): Knex.QueryBuilder {
-    return new BooleanCellValueFilterAdapter(this.dbTableName, this.field).isOperatorHandler(
+    return new BooleanCellValueFilterAdapter(this.field).isOperatorHandler(
       builderClient,
       operator,
       value

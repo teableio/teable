@@ -16,3 +16,4 @@ export * from './record-list';
 export * from './create-record';
 export * from './collaborator';
 export * from './color';
+export * from './base-query';

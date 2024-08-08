@@ -2,14 +2,13 @@ import { useMutation } from '@tanstack/react-query';
 import type { HttpError } from '@teable/core';
 import type { ISignin } from '@teable/openapi';
 import { signup, signin, signinSchema, signupSchema } from '@teable/openapi';
-import { Spin } from '@teable/ui-lib/base';
+import { Spin, Error as ErrorCom } from '@teable/ui-lib/base';
 import { Button, Input, Label, cn } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
-import { Error as ErrorCom } from '@/components/Error';
 import { authConfig } from '../../i18n/auth.config';
 
 export interface ISignForm {

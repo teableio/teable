@@ -83,32 +83,43 @@ export const baseFilterOperatorSchema = z.object({
   operator: operators,
 });
 
-export const filterOperatorSchema = baseFilterOperatorSchema.superRefine((val, ctx) => {
-  if (!val.value) {
-    return z.NEVER;
-  }
-
-  if (operatorsExpectingNull.includes(val.operator)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `For the operator '${val.operator}', the 'value' should be null`,
-    });
-  }
-
-  if (operatorsExpectingArray.includes(val.operator) && !Array.isArray(val.value)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `For the operator '${val.operator}', the 'value' should be an array`,
-    });
-  }
-
-  if (!operatorsExpectingArray.includes(val.operator) && Array.isArray(val.value)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `For the operator '${val.operator}', the 'value' should not be an array`,
-    });
-  }
+const filterOperatorRefineBase = z.object({
+  value: filterValueSchema,
+  operator: operators,
 });
+
+export const refineExtendedFilterOperatorSchema = <
+  T extends z.infer<typeof filterOperatorRefineBase>,
+>(
+  schema: z.ZodSchema<T>
+): z.ZodSchema<T> =>
+  schema.superRefine((val, ctx) => {
+    if (!val.value) {
+      return z.NEVER;
+    }
+    if (operatorsExpectingNull.includes(val.operator)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `For the operator '${val.operator}', the 'value' should be null`,
+      });
+    }
+
+    if (operatorsExpectingArray.includes(val.operator) && !Array.isArray(val.value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `For the operator '${val.operator}', the 'value' should be an array`,
+      });
+    }
+
+    if (!operatorsExpectingArray.includes(val.operator) && Array.isArray(val.value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `For the operator '${val.operator}', the 'value' should not be an array`,
+      });
+    }
+  });
+
+export const filterOperatorSchema = refineExtendedFilterOperatorSchema(baseFilterOperatorSchema);
 
 export const filterSymbolOperatorSchema = z.object({
   isSymbol: z.literal(true),

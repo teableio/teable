@@ -19,7 +19,7 @@ export type ISortQueryExtra = {
   [key: string]: unknown;
 };
 
-export type IAggregationQueryExtra = { filter?: IFilter } & IFilterQueryExtra;
+export type IAggregationQueryExtra = { filter?: IFilter; groupBy?: string[] } & IFilterQueryExtra;
 
 export interface IDbProvider {
   driver: DriverClient;
