@@ -1,0 +1,258 @@
+{
+  "toolbar": {
+    "comingSoon": "Arrivera bientôt",
+    "viewFilterInShare": "Cette vue est utilisée dans un lien de partage de vue. Les modifications apportées à la configuration de la vue modifieront également le lien de partage de la vue.",
+    "createFieldButtonText": "Créer un nouveau champ <0/>",
+    "others": {
+      "share": {
+        "label": "Partager",
+        "statusLabel": "Partage",
+        "shareLink": "Lien de partage",
+        "copied": "Copié",
+        "genLink": "Générer un nouveau lien",
+        "allowCopy": "Autoriser les visiteurs à copier les données de cette vue",
+        "showAllFields": "Afficher tous les champs dans les enregistrements étendus",
+        "restrict": "Restreindre par mot de passe",
+        "tips": "Les personnes ayant le lien peuvent voir la vue.",
+        "passwordTitle": "Entrez un mot de passe",
+        "passwordTips": "Restrictions de mot de passe pour accéder aux vues partagées",
+        "embed": "Intégrer",
+        "embedPreview": "Aperçu de l'intégration",
+        "hideToolbar": "Masquer la barre d'outils",
+        "URLSetting": "Configuration des paramètres URL",
+        "URLSettingDescription": "L'ajustement des paramètres suivants n'affectera pas les liens partagés. Vous devez copier le lien avec les nouveaux paramètres pour qu'ils prennent effet",
+        "cancel": "Annuler",
+        "save": "Enregistrer"
+      },
+      "extensions": {
+        "label": "Extensions",
+        "graph": "Graphique"
+      },
+      "api": {
+        "label": "API",
+        "restfulApi": "API RESTful",
+        "databaseConnection": "Connexion à la base de données"
+      }
+    }
+  },
+  "welcome": {
+    "title": "Bienvenue",
+    "description": "Cliquez sur le signe + dans la barre latérale gauche pour créer une table.",
+    "help": "Visitez le <HelpCenter /> pour plus d'informations.",
+    "helpCenter": "Centre d'aide"
+  },
+  "field": {
+    "fieldManagement": "Gestion des champs",
+    "fieldManagementDesc": "Propriétés détaillées pour tous les champs de la table actuelle",
+    "advancedProps": "Propriétés avancées",
+    "hide": "masquer",
+    "default": {
+      "singleLineText": {
+        "title": "Étiquette"
+      },
+      "longText": {
+        "title": "Notes"
+      },
+      "number": {
+        "title": "Nombre",
+        "formatType": "Type de format",
+        "currencySymbol": "Symbole de la devise",
+        "defaultSymbol": "$",
+        "precision": "Précision",
+        "decimalExample": "Décimal (1,0)",
+        "currencyExample": "Devise (100 $)",
+        "percentExample": "Pourcentage (20%)"
+      },
+      "singleSelect": {
+        "title": "Statut",
+        "options": {
+          "todo": "À faire",
+          "inProgress": "En cours",
+          "done": "Fait"
+        }
+      },
+      "multipleSelect": {
+        "title": "Étiquettes"
+      },
+      "attachment": {
+        "title": "Pièces jointes"
+      },
+      "user": {
+        "title": "Collaborateur"
+      },
+      "date": {
+        "title": "Date",
+        "dateFormatting": "Format de date",
+        "timeFormatting": "Format d'heure",
+        "timeZone": "Fuseau horaire",
+        "yearMonth": "Année/Mois",
+        "monthDay": "Mois/Jour",
+        "year": "Année",
+        "month": "Mois",
+        "day": "Jour",
+        "local": "Local",
+        "friendly": "Amical",
+        "us": "US",
+        "european": "Européen",
+        "asia": "Asie",
+        "custom": "Personnalisé",
+        "12Hour": "12 heures",
+        "24Hour": "24 heures",
+        "noDisplay": "Aucun affichage"
+      },
+      "autoNumber": {
+        "title": "ID"
+      },
+      "createdTime": {
+        "title": "Date de création"
+      },
+      "lastModifiedTime": {
+        "title": "Dernière modification"
+      },
+      "rating": {
+        "title": "Évaluation"
+      },
+      "checkbox": {
+        "title": "Fait"
+      },
+      "formula": {
+        "title": "Calcul",
+        "formula": "Formule"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (depuis {{linkFieldName}})"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} Rollup (depuis {{linkFieldName}})",
+        "rollup": "Rollup",
+        "selectAnRollupFunction": "Sélectionner une fonction rollup",
+        "func": {
+          "and": "ET",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "MOYENNE",
+          "concatenate": "CONCATÉNER",
+          "count": "COMPTER",
+          "countA": "COMPTERA",
+          "countAll": "COMPTERTOUT",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OU",
+          "sum": "SOMME",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Retourne vrai si toutes les valeurs sont vraies",
+          "arrayCompact": "Supprime les chaînes vides et les valeurs nulles du tableau. Garde les valeurs 'false' et les chaînes contenant un ou plusieurs caractères vides.",
+          "arrayJoin": "Joint toutes les valeurs en une seule chaîne séparée par des virgules.",
+          "arrayUnique": "Retourne uniquement les éléments uniques.",
+          "average": "Moyenne des valeurs.",
+          "concatenate": "Joint les valeurs textuelles en une seule valeur textuelle.",
+          "count": "Compte uniquement les valeurs numériques non vides. Si vous voulez compter tous les enregistrements, utilisez COUNTALL.",
+          "countA": "Compte le nombre de valeurs non vides. Cette fonction compte les valeurs numériques et textuelles.",
+          "countAll": "Compte toutes les valeurs y compris les enregistrements vides.",
+          "max": "Retourne le plus grand des nombres donnés.",
+          "min": "Retourne le plus petit des nombres donnés.",
+          "or": "Retourne vrai si l'une des valeurs est vraie.",
+          "sum": "Additionne les valeurs.",
+          "xor": "Retourne vrai si et seulement si un nombre impair de valeurs sont vraies."
+        }
+      }
+    },
+    "editor": {
+      "addField": "Ajouter un champ",
+      "editField": "Modifier le champ",
+      "insertField": "Insérer un champ",
+      "graph": "Graphique",
+      "fieldUpdated": "Le champ a été mis à jour",
+      "fieldCreated": "Le champ a été créé",
+      "previewDependenciesGraph": "Aperçu du graphique des dépendances",
+      "areYouSurePerformIt": "Êtes-vous sûr de vouloir effectuer cette action ?",
+      "addDescription": "Ajouter une description",
+      "description": "Description",
+      "descriptionPlaceholder": "Décrire ce champ (optionnel)",
+      "type": "Type",
+      "showAs": "Afficher comme",
+      "color": "Couleur",
+      "number": "Nombre",
+      "chartBar": "Graphique à barres",
+      "chartLine": "Graphique linéaire",
+      "ring": "Anneau",
+      "bar": "Barre",
+      "text": "Texte",
+      "url": "URL",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "maxNumber": "Nombre maximum",
+      "showNumber": "Afficher le nombre",
+      "autoFillDate": "Remplir automatiquement avec la date actuelle",
+      "createSymmetricLink": "Créer un champ de lien réciproque dans la table de lien",
+      "allowLinkMultipleRecords": "Autoriser la sélection multiple",
+      "allowLinkToDuplicateRecords": "Autoriser la sélection des enregistrements plus d'une fois",
+      "allowSymmetricFieldLinkMultipleRecords": "Autorise la sélection des enregistrements plus d'une fois",
+      "oneToOne": "un-à-un",
+      "oneToMany": "un-à-plusieurs",
+      "manyToOne": "plusieurs-à-un",
+      "manyToMany": "plusieurs-à-plusieurs",
+      "self": "Soit",
+      "selectTable": "Sélectionner une table...",
+      "inSelfLink": "dans le lien auto-référencé",
+      "betweenTwoTables": "entre deux tables",
+      "linkTipMessage": "Conseils : cette configuration représente une relation <br></br> <b>{{relationship}}</b> <span>{{linkType}}</span>",
+      "style": "Style",
+      "maximum": "Maximum",
+      "addOption": "Ajouter une option",
+      "allowMultiUsers": "Autoriser l'ajout de plusieurs utilisateurs",
+      "notifyUsers": "Notifier les utilisateurs",
+      "searchOptions": "Options de recherche",
+      "chooseTable": "Choisir une table",
+      "fieldRequired": "Champ requis",
+      "linkToAnotherTable": "Lier à une autre table",
+      "linkDescription": "Vous pouvez lier ce champ à un autre champ",
+      "linkDescriptionTips": "Crée une nouvelle table et lie ce champ à celle-ci",
+      "createNewTable": "Créer une nouvelle table",
+      "addRecord": "Ajouter un enregistrement",
+      "editRecord": "Modifier l'enregistrement",
+      "removeRecord": "Supprimer l'enregistrement",
+      "fieldHelpText": "Texte d'aide du champ",
+      "display": "Afficher",
+      "privacySetting": "Paramètre de confidentialité",
+      "summary": "Résumé",
+      "externalLink": "Lien externe",
+      "externalLinkURL": "URL du lien externe",
+      "externalLinkTitle": "Titre du lien externe",
+      "customLink": "Lien personnalisé",
+      "customLinkURL": "URL du lien personnalisé",
+      "customLinkTitle": "Titre du lien personnalisé",
+      "size": "Taille",
+      "option1": "Option 1",
+      "option2": "Option 2",
+      "option3": "Option 3",
+      "option4": "Option 4",
+      "placeholder": "Texte de remplacement",
+      "format": "Format",
+      "default": "Défaut",
+      "required": "Requis",
+      "show": "Afficher",
+      "hidden": "Caché",
+      "visible": "Visible",
+      "showTooltip": "Afficher l'info-bulle",
+      "removeField": "Supprimer le champ",
+      "linkTo": "Lier à",
+      "validation": "Validation",
+      "unique": "Unique",
+      "conditional": "Conditionnel",
+      "dateRange": "Plage de dates",
+      "dateRangeOptions": {
+        "last7Days": "Les 7 derniers jours",
+        "last30Days": "Les 30 derniers jours",
+        "last90Days": "Les 90 derniers jours",
+        "thisMonth": "Ce mois-ci",
+        "lastMonth": "Le mois dernier",
+        "thisYear": "Cette année",
+        "lastYear": "L'année dernière"
+      }
+    }
+  }
+}

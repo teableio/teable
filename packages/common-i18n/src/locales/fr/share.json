@@ -1,0 +1,12 @@
+{
+  "auth": {
+    "title": "Entrez votre mot de passe pour afficher cette page",
+    "submit": "Soumettre",
+    "password": "Mot de passe"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "Sélectionner..."
+  },
+  "openOnNewPage": "Ouvrir dans une nouvelle page",
+  "errorTips": "La source de partage a activé une Matrice d'Autorité, la visualisation n'est pas autorisée"
+}
