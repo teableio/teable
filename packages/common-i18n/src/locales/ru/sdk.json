@@ -20,7 +20,8 @@
     "uploadFailed": "Загрузка не удалась",
     "rowCount": "{{count}} записей",
     "summary": "Загрузить еще",
-    "summaryTip": "Подведите курсор для выбора резюме"
+    "summaryTip": "Подведите курсор для выбора резюме",
+    "actions": "Actions"
   },
   "editor": {
     "attachment": {
@@ -151,7 +152,17 @@
     "primaryKey": "Основное поле: используется для идентификации записей, нельзя скрыть или удалять"
   },
   "expandRecord": {
-    "copy": "Копировать в буфер обмена"
+    "copy": "Копировать в буфер обмена",
+    "copyRecordUrl": "Copy record URL",
+    "recordHistory": {
+      "hiddenRecordHistory": "Hide record history",
+      "showRecordHistory": "Show record history",
+      "createdTime": "Created time",
+      "createdBy": "Created by",
+      "before": "Before",
+      "after": "After",
+      "viewRecord": "View record"
+    }
   },
   "sort": {
     "label": "Сортировать",
@@ -248,7 +259,8 @@
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",
       "automationUpdate": "Update automation",
-      "userEmailRead": "Read user email"
+      "userEmailRead": "Read user email",
+      "recordHistoryRead": "Read record history"
     }
   },
   "noun": {
@@ -259,7 +271,8 @@
     "field": "Field",
     "record": "Record",
     "automation": "Automation",
-    "user": "User"
+    "user": "User",
+    "recordHistory": "Record History"
   },
   "formula": {
     "SUM": {
