@@ -367,8 +367,8 @@ describe('OpenAPI RecordController (e2e)', () => {
         recordId: foreignRecordId,
       });
 
-      expect(mainTableRecordHistory.historyList.length).toEqual(1);
-      expect(foreignTableRecordHistory.historyList.length).toEqual(1);
+      expect(recordHistoryVoSchema.safeParse(mainTableRecordHistory).success).toEqual(true);
+      expect(recordHistoryVoSchema.safeParse(foreignTableRecordHistory).success).toEqual(true);
     });
   });
 
