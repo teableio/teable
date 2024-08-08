@@ -438,16 +438,6 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateRecordOrdersWithTransaction(
-    tableId: string,
-    viewId: string,
-    orderRo: IUpdateRecordOrdersRo
-  ) {
-    await this.prismaService.$tx(async () => {
-      await this.updateRecordOrders(tableId, viewId, orderRo);
-    });
-  }
-
   async updateRecordOrders(tableId: string, viewId: string, orderRo: IUpdateRecordOrdersRo) {
     const dbTableName = await this.recordService.getDbTableName(tableId);
 
@@ -467,17 +457,19 @@ export class ViewOpenApiService {
           newValue: new Date().toISOString(),
         });
 
-        await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-        for (let i = 0; i < recordIds.length; i++) {
-          const recordId = recordIds[i];
-          const updateRecordSql = this.knex(dbTableName)
-            .update({
-              [indexField]: indexes[i],
-            })
-            .where('__id', recordId)
-            .toQuery();
-          await this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
-        }
+        await this.prismaService.$tx(async (prisma) => {
+          await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+          for (let i = 0; i < recordIds.length; i++) {
+            const recordId = recordIds[i];
+            const updateRecordSql = this.knex(dbTableName)
+              .update({
+                [indexField]: indexes[i],
+              })
+              .where('__id', recordId)
+              .toQuery();
+            await prisma.$executeRawUnsafe(updateRecordSql);
+          }
+        });
       },
     });
   }
