@@ -28,5 +28,5 @@ export const GetBaseAllRoute: RouteConfig = registerRoute({
 });
 
 export const getBaseAll = async () => {
-  return axios.get<IGetBaseAllVo[]>(GET_BASE_ALL);
+  return axios.get<IGetBaseAllVo>(GET_BASE_ALL);
 };
