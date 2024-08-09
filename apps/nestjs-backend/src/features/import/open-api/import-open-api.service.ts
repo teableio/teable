@@ -14,7 +14,7 @@ import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
-import { DEFAULT_VIEWS } from '../../table/constant';
+import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
 import { importerFactory, getWorkerPath } from './import.class';
 import type { CsvImporter, ExcelImporter } from './import.class';
@@ -51,41 +51,42 @@ export class ImportOpenApiService {
       maxRowCount,
     });
 
+    // only record base table info, not include records
     const tableResult = [];
 
     for (const [sheetKey, value] of Object.entries(worksheets)) {
-      const { importData, useFirstRowAsHeader, columns: columnInfo, name } = value;
+      const { importData, useFirstRowAsHeader, columns, name } = value;
+
+      const columnInfo = columns.length ? columns : [...DEFAULT_FIELDS];
       const fieldsRo = columnInfo.map((col, index) => {
-        const result: IImportColumn & {
+        const result: IFieldRo & {
           isPrimary?: boolean;
         } = {
           ...col,
         };
+
         if (index === 0) {
           result.isPrimary = true;
         }
+
+        // Date Field should have default tz
+        if (col.type === FieldType.Date) {
+          result.options = {
+            formatting: {
+              timeZone: tz,
+              date: 'YYYY-MM-DD',
+              time: 'None',
+            },
+          };
+        }
+
         return result;
       });
 
       // create table with column
       const table = await this.tableOpenApiService.createTable(baseId, {
         name: name,
-        fields: fieldsRo.map((col) => {
-          const fieldItem: IFieldRo = {
-            ...col,
-          };
-          if (col.type === FieldType.Date) {
-            // give default date format
-            fieldItem.options = {
-              formatting: {
-                timeZone: tz,
-                date: 'YYYY-MM-DD',
-                time: 'None',
-              },
-            };
-          }
-          return fieldItem;
-        }),
+        fields: fieldsRo,
         views: DEFAULT_VIEWS,
         records: [],
       });
@@ -94,7 +95,9 @@ export class ImportOpenApiService {
 
       const { fields } = table;
 
+      // if columns is empty, then skip import data
       importData &&
+        columns.length &&
         this.importRecords(
           baseId,
           table,
@@ -102,7 +105,7 @@ export class ImportOpenApiService {
           importer,
           { skipFirstNLines: useFirstRowAsHeader ? 1 : 0, sheetKey, notification },
           {
-            columnInfo,
+            columnInfo: columns,
             fields: fields.map((f) => ({ id: f.id, type: f.type })),
           }
         );
