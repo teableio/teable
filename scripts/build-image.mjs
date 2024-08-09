@@ -80,7 +80,7 @@ const {
   'cache-to': cacheToArg,
   tag,
   'tag-suffix': tagSuffix,
-  platforms: platformsArg,
+  platform: platformArg,
   push: pushArg,
 } = argv;
 
@@ -88,11 +88,11 @@ const buildArgs = toArray(buildArg);
 const cacheFrom = toArray(cacheFromArg);
 const cacheTo = toArray(cacheToArg);
 const tags = toArray(tag, false, true);
-const platforms = toArray(platformsArg, true);
+const platform = platformArg;
 const push = toBoolean(pushArg);
 const remotes = Array.from(new Set(tags.map((tag) => tag.split(':')[0])));
 
-const command = ['docker', 'buildx', 'build'];
+const command = ['docker', 'build'];
 
 // BUILD_VERSION - this is a default behavior
 const semver = await getSemver();
@@ -111,16 +111,18 @@ await asyncForEach(cacheTo, async (cacheTo) => {
 if (file) {
   command.push('--file', file);
 }
-if (platforms.length > 0) {
-  command.push('--platform', platforms.join(','));
+if (platform) {
+  command.push('--platform', platform);
 }
 
+const arch = platform.split('/')[1];
+
 remotes.forEach((remote) => {
-  command.push('--tag', `${remote}:${dockerSemver}`);
+  command.push('--tag', `${remote}:${dockerSemver}-${arch}`);
 });
 
 tags.forEach((tag) => {
-  command.push('--tag', `${tag}${tagSuffix ?? ''}`);
+  command.push('--tag', `${tag}-${arch}${tagSuffix ?? ''}`);
 });
 
 if (push) {
@@ -128,7 +130,6 @@ if (push) {
 }
 
 command.push('.');
-command.push('--progress=plain');
 
 console.log('command: ', command.join(' '));
 await $`${command}`;
