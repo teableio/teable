@@ -3,7 +3,7 @@ name: Build and Push to Docker Registry
 on:
   push:
     branches:
-      - build/remove-buildx
+      - develop
     tags:
       - 'v*'
     paths:
@@ -19,12 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [db-migrate]
+        target: [app, db-migrate]
         arch: [amd64, arm64]
         include:
-          # - target: app
-          #   file: Dockerfile
-          #   image: teable
+          - target: app
+            file: Dockerfile
+            image: teable
           - target: db-migrate
             file: Dockerfile.db-migrate
             image: teable-db-migrate
@@ -87,10 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [db-migrate]
+        target: [app, db-migrate]
         include:
-          # - target: app
-          #   image: teable
+          - target: app
+            image: teable
           - target: db-migrate
             image: teable-db-migrate
 
