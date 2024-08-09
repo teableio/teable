@@ -7,6 +7,8 @@ import { getBaseItemSchema } from './get';
 
 export const GET_BASE_ALL = '/base/access/all';
 
+export type IGetBaseAllVo = Omit<IGetBaseVo, 'isUnrestricted'>[];
+
 export const GetBaseAllRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_BASE_ALL,
@@ -26,5 +28,5 @@ export const GetBaseAllRoute: RouteConfig = registerRoute({
 });
 
 export const getBaseAll = async () => {
-  return axios.get<IGetBaseVo[]>(GET_BASE_ALL);
+  return axios.get<IGetBaseAllVo[]>(GET_BASE_ALL);
 };

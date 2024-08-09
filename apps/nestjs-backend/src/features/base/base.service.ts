@@ -6,6 +6,7 @@ import {
   actionPrefixMap,
   generateBaseId,
   getPermissionMap,
+  isUnrestrictedRole,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -63,9 +64,11 @@ export class BaseService {
     if (!base) {
       throw new NotFoundException('Base not found');
     }
+    const role = roleMap[base.id] || roleMap[base.spaceId];
     return {
       ...base,
-      role: roleMap[base.id] || roleMap[base.spaceId],
+      role: role,
+      isUnrestricted: isUnrestrictedRole(role),
     };
   }
 
