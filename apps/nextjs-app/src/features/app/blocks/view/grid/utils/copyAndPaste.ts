@@ -25,10 +25,9 @@ export const rangeTypes = {
 export const isSafari = () => /^(?:(?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 export const copyHandler = async (getCopyData: () => Promise<ICopyVo>) => {
-  const { header, content } = await getCopyData();
-
   // Can't await asynchronous action before navigator.clipboard.write in safari
   if (!isSafari()) {
+    const { header, content } = await getCopyData();
     await navigator.clipboard.write([
       new ClipboardItem({
         [ClipboardTypes.text]: new Blob([content], { type: ClipboardTypes.text }),
@@ -41,10 +40,13 @@ export const copyHandler = async (getCopyData: () => Promise<ICopyVo>) => {
   }
 
   const getText = async () => {
+    const { content } = await getCopyData();
+
     return new Blob([content], { type: ClipboardTypes.text });
   };
 
   const getHtml = async () => {
+    const { header, content } = await getCopyData();
     return new Blob([serializerHtml(content, header)], { type: ClipboardTypes.html });
   };
 
