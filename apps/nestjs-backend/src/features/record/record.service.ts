@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import {
   BadRequestException,
   Injectable,
@@ -849,37 +850,44 @@ export class RecordService {
       if (field.type === FieldType.Attachment) {
         const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
         for (const record of records) {
-          let cellValue = record.data.fields[fieldKey];
-          if (cellValue == null) {
-            continue;
-          }
-          const attachmentCellValue = cellValue as IAttachmentCellValue;
-          cellValue = await Promise.all(
-            attachmentCellValue.map(async (item) => {
-              const { path, mimetype, token } = item;
-              const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
-                StorageAdapter.getBucket(UploadType.Table),
-                path,
-                token,
-                undefined,
-                {
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  'Content-Type': mimetype,
-                  // eslint-disable-next-line @typescript-eslint/naming-convention
-                  'Content-Disposition': `attachment; filename="${item.name}"`,
-                }
-              );
-              return {
-                ...item,
-                presignedUrl,
-              };
-            })
+          const cellValue = record.data.fields[fieldKey];
+          const presignedCellValue = await this.getAttachmentPresignedCellValue(
+            cellValue as IAttachmentCellValue
           );
-          record.data.fields[fieldKey] = cellValue;
+
+          if (presignedCellValue == null) continue;
+
+          record.data.fields[fieldKey] = presignedCellValue;
         }
       }
     }
     return records;
+  }
+
+  async getAttachmentPresignedCellValue(cellValue: IAttachmentCellValue | null) {
+    if (cellValue == null) {
+      return null;
+    }
+
+    return await Promise.all(
+      cellValue.map(async (item) => {
+        const { path, mimetype, token } = item;
+        const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
+          StorageAdapter.getBucket(UploadType.Table),
+          path,
+          token,
+          undefined,
+          {
+            'Content-Type': mimetype,
+            'Content-Disposition': `attachment; filename="${item.name}"`,
+          }
+        );
+        return {
+          ...item,
+          presignedUrl,
+        };
+      })
+    );
   }
 
   async getSnapshotBulk(
