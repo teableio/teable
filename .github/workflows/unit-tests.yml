@@ -44,19 +44,4 @@ jobs:
 
       - name: 🧪 Run Tests
         run: |
-          pnpm -F "!@teable/backend" -r --parralel test-unit-cover
-
-      - name: Coveralls Parallel
-        uses: coverallsapp/github-action@v2
-        with:
-          flag-name: run-${{ join(matrix.*, '-') }}
-          parallel: true
-
-  finish:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Coveralls Finished
-        uses: coverallsapp/github-action@v2
-        with:
-          parallel-finished: true
+          pnpm -F "!@teable/backend" -r --parralel test-unit
