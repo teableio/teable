@@ -2,65 +2,62 @@
   "folders": [
     {
       "name": "nextjs-app",
-      "path": "apps/nextjs-app"
+      "path": "apps/nextjs-app",
     },
     {
       "name": "nestjs-backend",
-      "path": "apps/nestjs-backend"
+      "path": "apps/nestjs-backend",
     },
     {
       "name": "common-i18n",
-      "path": "packages/common-i18n"
+      "path": "packages/common-i18n",
     },
     {
       "name": "sdk",
-      "path": "packages/sdk"
+      "path": "packages/sdk",
     },
     {
       "name": "core",
-      "path": "packages/core"
+      "path": "packages/core",
     },
     {
       "name": "db-main-prisma",
-      "path": "packages/db-main-prisma"
+      "path": "packages/db-main-prisma",
     },
     {
       "name": "eslint-config-bases",
-      "path": "packages/eslint-config-bases"
+      "path": "packages/eslint-config-bases",
     },
     {
       "name": "ui-lib",
-      "path": "packages/ui-lib"
+      "path": "packages/ui-lib",
     },
     {
       "name": "icons",
-      "path": "packages/icons"
+      "path": "packages/icons",
     },
     {
       "name": "openapi",
-      "path": "packages/openapi"
+      "path": "packages/openapi",
     },
     {
       "name": "root",
-      "path": "."
-    }
+      "path": ".",
+    },
   ],
   "extensions": {
-    "recommendations": [
-      "dbaeumer.vscode-eslint",
-      "esbenp.prettier-vscode",
-    ]
+    "recommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],
   },
   "settings": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": "explicit"
+      "source.fixAll.eslint": "explicit",
     },
     // Disable vscode formatting for js,jsx,ts,tsx files
     // to allow dbaeumer.vscode-eslint to format them
     "[javascript]": {
-      "editor.formatOnSave": false
+      "editor.formatOnSave": false,
     },
     "eslint.alwaysShowStatus": true,
     // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
@@ -73,11 +70,8 @@
       "./packages/icons",
       "./packages/db-main-prisma",
       "./packages/eslint-config-bases",
-      "./packages/ui-lib"
+      "./packages/ui-lib",
     ],
-    "cSpell.words": [
-      "sharedb",
-      "Teable"
-    ],
-  }
+    "cSpell.words": ["jschardet", "sharedb", "Teable"],
+  },
 }

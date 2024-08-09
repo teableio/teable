@@ -28,7 +28,7 @@ const UploadPanel = (props: IUploadPanelProps) => {
       {!file ? (
         <Trigger
           fileType={fileType}
-          onChange={(file) => {
+          onChange={async (file) => {
             if (file) {
               attchmentManager.upload(
                 [{ id: generateAttachmentId(), instance: file }],
