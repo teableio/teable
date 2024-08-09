@@ -23,6 +23,7 @@ export const recordHistoryItemStateVoSchema = z.object({
 
 export const recordHistoryItemVoSchema = z.object({
   id: z.string(),
+  tableId: z.string(),
   recordId: z.string(),
   fieldId: z.string(),
   before: recordHistoryItemStateVoSchema,

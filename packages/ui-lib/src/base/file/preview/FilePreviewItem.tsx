@@ -33,7 +33,7 @@ export const FilePreviewItem = (props: IFilePreviewItem) => {
 
   return (
     <div
-      className={cn(className, 'h-full w-full')}
+      className={cn('size-full', className)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

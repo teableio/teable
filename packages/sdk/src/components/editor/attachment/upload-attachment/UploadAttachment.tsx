@@ -170,11 +170,6 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                         />
                       </FilePreviewItem>
                       <ul className="absolute right-0 top-0 hidden w-full justify-end space-x-1 bg-black/40 p-1 group-hover:flex">
-                        {/* <li>
-                      <button className="btn btn-xs btn-circle bg-neutral/50 border-none">
-                        <FullscreenIcon />
-                      </button>
-                    </li> */}
                         <li>
                           <Button
                             variant={'ghost'}
