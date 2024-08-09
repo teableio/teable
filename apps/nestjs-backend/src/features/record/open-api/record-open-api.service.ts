@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FieldKeyType } from '@teable/core';
+import type { IAttachmentCellValue } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { UploadType } from '@teable/openapi';
 import type {
+  IRecordHistoryItemVo,
   ICreateRecordsRo,
   ICreateRecordsVo,
   IGetRecordHistoryQuery,
@@ -13,6 +16,8 @@ import type {
 } from '@teable/openapi';
 import { forEach, keyBy, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
+import StorageAdapter from '../../attachments/plugins/adapter';
+import { getFullStorageUrl } from '../../attachments/plugins/utils';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
@@ -322,21 +327,42 @@ export class RecordOpenApiService {
     }
 
     const createdBySet: Set<string> = new Set();
+    const historyList: IRecordHistoryItemVo[] = [];
 
-    const historyList = list.map(
-      ({ id, recordId, fieldId, before, after, createdTime, createdBy }) => {
-        createdBySet.add(createdBy);
-        return {
-          id,
-          recordId,
-          fieldId,
-          before: JSON.parse(before as string),
-          after: JSON.parse(after as string),
-          createdTime: createdTime.toISOString(),
-          createdBy,
-        };
+    for (const item of list) {
+      const { id, recordId, fieldId, before, after, createdTime, createdBy } = item;
+
+      createdBySet.add(createdBy);
+      const beforeObj = JSON.parse(before as string);
+      const afterObj = JSON.parse(after as string);
+      const { meta: beforeMeta, data: beforeData } = beforeObj as IRecordHistoryItemVo['before'];
+      const { meta: afterMeta, data: afterData } = afterObj as IRecordHistoryItemVo['after'];
+      const { type: beforeType } = beforeMeta;
+      const { type: afterType } = afterMeta;
+
+      if (beforeType === FieldType.Attachment) {
+        beforeObj.data = await this.recordService.getAttachmentPresignedCellValue(
+          beforeData as IAttachmentCellValue
+        );
       }
-    );
+
+      if (afterType === FieldType.Attachment) {
+        afterObj.data = await this.recordService.getAttachmentPresignedCellValue(
+          afterData as IAttachmentCellValue
+        );
+      }
+
+      historyList.push({
+        id,
+        tableId,
+        recordId,
+        fieldId,
+        before: beforeObj,
+        after: afterObj,
+        createdTime: createdTime.toISOString(),
+        createdBy,
+      });
+    }
 
     const userList = await this.prismaService.user.findMany({
       where: {
@@ -352,9 +378,17 @@ export class RecordOpenApiService {
       },
     });
 
+    const handledUserList = userList.map((user) => {
+      const { avatar } = user;
+      return {
+        ...user,
+        avatar: avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
+      };
+    });
+
     return {
       historyList,
-      userMap: keyBy(userList, 'id'),
+      userMap: keyBy(handledUserList, 'id'),
       nextCursor,
     };
   }

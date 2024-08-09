@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
-import { X, ChevronRight } from '@teable/icons';
+import { X, ChevronRight, Download } from '@teable/icons';
 import { useContext, useMemo } from 'react';
 import { Dialog, DialogContent, DialogTrigger, cn } from '../../../shadcn';
 import { FilePreview } from './FilePreview';
@@ -11,7 +11,7 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
   const { container } = props;
   const { files, currentFile, openPreview, closePreview, onPrev, onNext } =
     useContext(FilePreviewContext);
-  const { name, fileId } = currentFile || {};
+  const { name, fileId, src } = currentFile || {};
   const open = Boolean(fileId);
 
   const hiddenLeft = useMemo(() => {
@@ -25,6 +25,15 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
     if ('id' in e.target && e.target.id === 'file-box') {
       closePreview();
     }
+  };
+
+  const onDownload = () => {
+    if (!name || !src) return;
+    const downloadLink = document.createElement('a');
+    downloadLink.href = src || '';
+    downloadLink.target = '_blank';
+    downloadLink.download = name;
+    downloadLink.click();
   };
 
   return (
@@ -57,6 +66,17 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
               }}
             >
               <X className="text-xl" />
+            </button>
+            <button
+              className="absolute top-4 left-5 p-1 rounded-md hover:bg-black/40"
+              onClick={onDownload}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onDownload();
+                }
+              }}
+            >
+              <Download className="text-xl" />
             </button>
           </div>
           <div className="flex-1 relative px-20 overflow-hidden">
