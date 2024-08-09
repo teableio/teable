@@ -17,6 +17,7 @@ import {
 import type {
   ICreateBaseVo,
   IDbConnectionVo,
+  IGetBaseAllVo,
   IGetBasePermissionVo,
   IGetBaseVo,
   IUpdateBaseVo,
@@ -102,8 +103,8 @@ export class BaseController {
   }
 
   @Get('access/all')
-  async getAllBase(): Promise<IGetBaseVo[]> {
-    return await this.baseService.getAllBaseList();
+  async getAllBase(): Promise<IGetBaseAllVo> {
+    return this.baseService.getAllBaseList();
   }
 
   @Get('access/list')

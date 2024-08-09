@@ -12,6 +12,7 @@ export const getBaseItemSchema = z.object({
   spaceId: z.string(),
   icon: z.string().nullable(),
   role: spaceRolesSchema,
+  isUnrestricted: z.boolean().optional(),
 });
 
 export const getBaseVoSchema = getBaseItemSchema;
