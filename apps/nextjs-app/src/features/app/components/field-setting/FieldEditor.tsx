@@ -1,5 +1,9 @@
 import type { IFieldOptionsRo, IFieldVo } from '@teable/core';
-import { FieldType } from '@teable/core';
+import {
+  FieldType,
+  checkFieldNotNullValidationEnabled,
+  checkFieldUniqueValidationEnabled,
+} from '@teable/core';
 import { useFieldStaticGetter } from '@teable/sdk';
 import { Textarea } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
@@ -13,7 +17,8 @@ import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
 import { LookupOptions } from './lookup-options/LookupOptions';
 import { SelectFieldType } from './SelectFieldType';
 import { SystemInfo } from './SystemInfo';
-import type { FieldOperator, IFieldEditorRo } from './type';
+import { FieldOperator } from './type';
+import type { IFieldEditorRo } from './type';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
 export const FieldEditor = (props: {
@@ -47,6 +52,8 @@ export const FieldEditor = (props: {
         type: FieldType.SingleLineText, // reset fieldType to default
         options: undefined, // reset options
         isLookup: true,
+        unique: undefined,
+        notNull: undefined,
       });
     }
 
@@ -56,6 +63,11 @@ export const FieldEditor = (props: {
       isLookup: undefined,
       lookupOptions: undefined,
       options: getFieldStatic(type, false).defaultOptions as IFieldOptionsRo,
+      unique: checkFieldUniqueValidationEnabled(type, field.isLookup) ? field.unique : undefined,
+      notNull:
+        operator === FieldOperator.Edit && checkFieldNotNullValidationEnabled(type, field.isLookup)
+          ? field.notNull
+          : undefined,
     });
   };
 
