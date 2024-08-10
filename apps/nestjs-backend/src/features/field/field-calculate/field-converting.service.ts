@@ -418,7 +418,7 @@ export class FieldConvertingService {
   /**
    * modify a field will causes the properties of the field that depend on it to change
    * example：
-   * 1. modify a field's type will cause the the lookup field's type change
+   * 1. modify a field's type will cause the lookup field's type change
    * 2. cellValueType / isMultipleCellValue change will cause the formula / rollup / lookup field's cellValueType / formatting change
    * 3. options change will cause the lookup field options change
    * 4. options in link field change may cause all lookup field run in to error, should mark them as error
