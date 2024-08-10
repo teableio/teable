@@ -155,12 +155,12 @@
     "copy": "Копировать в буфер обмена",
     "copyRecordUrl": "Копировать URL записи",
     "recordHistory": {
-      "hiddenRecordHistory": "Hide record history",
-      "showRecordHistory": "Show record history",
-      "createdTime": "Created time",
-      "createdBy": "Created by",
-      "before": "Before",
-      "after": "After",
+      "hiddenRecordHistory": "Скрыть запись",
+      "showRecordHistory": "Показать запись",
+      "createdTime": "Время создания",
+      "createdBy": "Создано кем",
+      "before": "До",
+      "after": "После",
       "viewRecord": "View record"
     }
   },
