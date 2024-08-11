@@ -369,91 +369,91 @@
       "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
     },
     "LEFT": {
-      "summary": "Extract howMany characters from the beginning of the string.",
+      "summary": "Извлечь символ howmany из начала строки.",
       "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
     },
     "RIGHT": {
-      "summary": "Extract howMany characters from the ending of the string.",
+      "summary": "Сколько символов извлекается из конца строки.",
       "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
     },
     "REPLACE": {
-      "summary": "Replaces the number of characters beginning with the start character with the replacement text.\n(If you are looking for a way to find and replace all occurrences of old_text with new_text, see SUBSTITUTE().)",
+      "summary": "Заменить текст символом, начинающимся с начального символа.\n(Если вы ищете способ найти все появляющиеся Old text и заменить их новостями text, см. статью SUBSTITUTE ().)",
       "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
     },
     "REGEXP_REPLACE": {
-      "summary": "Replaces all substrings matching regular expression with replacement.",
+      "summary": "Заменить все строки, соответствующие регулярному выражению, на replace.",
       "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
     },
     "SUBSTITUTE": {
-      "summary": "Replaces occurrences of old_text with new_text.\nYou can optionally specify an index number (starting from 1) to replace just a specific occurrence of old_text. If no index number is specified, then all occurrences of old_text will be replaced.",
+      "summary": "Заменить существующий Old text новым text.\nВы можете указать кавычки (начиная с 1) для замены конкретного появления old text. Если кавычки не указаны, все появляющиеся Old text будут заменены.",
       "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
     },
     "LOWER": {
-      "summary": "Makes a string lowercase.",
+      "summary": "Приводит строку к нижнему регистру.",
       "example": "LOWER(\"Hello Teable\") => \"hello teable\""
     },
     "UPPER": {
-      "summary": "Makes a string uppercase.",
+      "summary": "Приводит строку к верхнему регистру.",
       "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
     },
     "REPT": {
-      "summary": "Repeats string by the specified number of times.",
+      "summary": "Повторяет строку указанное количество раз.",
       "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
     },
     "TRIM": {
-      "summary": "Removes whitespace at the beginning and end of string.",
+      "summary": "Удаляет пробелы в начале и в конце строки.",
       "example": "TRIM(\" Hello \") => \"Hello\""
     },
     "LEN": {
-      "summary": "Extract howMany characters from the beginning of the string.",
+      "summary": "Извлекает {{howMany}} символов с начала строки.",
       "example": "LEN(\"Hello\") => 5"
     },
     "T": {
-      "summary": "Returns the argument if it is text and blank otherwise.",
+      "summary": "Возвращает аргумент, если это текст, иначе возвращает пустое значение.",
       "example": "T(\"Hello\") => \"Hello\"\nT(100) => null"
     },
     "ENCODE_URL_COMPONENT": {
-      "summary": "Replaces certain characters with encoded equivalents for use in constructing URLs or URIs. Does not encode the following characters: - _ . ~",
+      "summary": "Заменяет определённые символы на закодированные эквиваленты для использования в создании URL или URI. Не кодирует следующие символы: - _. ~",
       "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
     },
     "IF": {
-      "summary": "Returns value1 if the logical argument is true, otherwise it returns value2. Can also be used to make nested IF statements.\nCan also be used to check if a cell is blank/is empty.",
+      "summary": "Возвращает значение value1, если логическое выражение истинно, в противном случае возвращает значение value2. Также можно использовать для создания вложенных операторов IF. Можно также использовать для проверки, пустая ли ячейка.",
       "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
     },
     "SWITCH": {
-      "summary": "Takes an expression, a list of possible values for that expression, and for each one, a value that the expression should take in that case. It can also take a default value if the expression input does not match any of the defined patterns. In many cases, SWITCH() can be used instead of a nested IF() formula.",
+      "summary": "Принимает выражение, список возможных значений для этого выражения и соответствующее значение для каждого из них. Также можно задать значение по умолчанию, если введённое выражение не соответствует ни одному из определённых шаблонов. В многих случаях функцию SWITCH() можно использовать вместо вложенной формулы IF().",
       "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
     },
     "AND": {
-      "summary": "Returns true if all the arguments are true, returns false otherwise.",
+      "summary": "Возвращает true, если все аргументы истинны, иначе возвращает false.",
       "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
     },
     "OR": {
-      "summary": "Returns true if any one of the arguments is true.",
+      "summary": "Возвращает true, если хотя бы один из аргументов иссинён, иначе возвращает false.",
       "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
     },
     "XOR": {
-      "summary": "Returns true if an odd number of arguments are true.",
+      "summary": "Возвращает true, если нечетное количество аргументов истинно, иначе возвращает false.",
       "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
     },
     "NOT": {
-      "summary": "Reverses the logical value of its argument.",
+      "summary": "Обращает логическое значение аргумента.",
       "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
     },
     "BLANK": {
-      "summary": "Returns a blank value.",
+      "summary": "Возвращает пустое значение.",
       "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
     },
     "ERROR": {
-      "summary": "Returns the error value.",
+      "summary": "Возвращает значение ошибки.",
       "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
     },
     "IS_ERROR": {
-      "summary": "Returns true if the expression causes an error.",
+      "summary": "Возвращает true, если выражение вызывает ошибку, иначе возвращает false.",
       "example": "IS_ERROR(ERROR()) => true"
     },
     "TODAY": {
-      "summary": "Returns the current date.",
+      "summary": "Возвращает текущую дату.",
       "example": "TODAY() => \"2023-09-08 00:00\""
     },
     "NOW": {
