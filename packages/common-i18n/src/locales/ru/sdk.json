@@ -277,95 +277,95 @@
   },
   "formula": {
     "SUM": {
-      "summary": "Sum together the numbers. Equivalent to number1 + number2 + ...",
+      "summary": "Сумма чисел. Эквивалент number1 + number2 + ...",
       "example": "SUM(100, 200, 300) => 600"
     },
     "AVERAGE": {
-      "summary": "Returns the average of the numbers.",
+      "summary": "Возвращает среднее арифметическое чисел.",
       "example": "AVERAGE(100, 200, 300) => 200"
     },
     "MAX": {
-      "summary": "Returns the largest of the given numbers.",
+      "summary": "Возвращает максимальное значение из данных чисел.",
       "example": "MAX(100, 200, 300) => 300"
     },
     "MIN": {
-      "summary": "Returns the smallest of the given numbers.",
+      "summary": "Возвращает минимальное значение из данных чисел.",
       "example": "MIN(100, 200, 300) => 100"
     },
     "ROUND": {
-      "summary": "Rounds the value to the number of decimal places given by \"precision\" (Specifically, ROUND will round to the nearest integer at the specified precision, with ties broken by rounding half up toward positive infinity.)",
+      "summary": "Округляет значение до количества заданных десятичных мест, определяемых параметром \"precision\" (В частности, ROUND округляет до ближайшего целого числа с указанной точностью, при равных значениях округляя половину в сторону положительного бесконечности.)",
       "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
     },
     "ROUNDUP": {
-      "summary": "Rounds the value to the number of decimal places given by \"precision\" always rounding up, i.e., away from zero. (You must give a value for the precision or the function will not work.)",
+      "summary": "Округляет значение до количества заданных десятичных мест, определяемых параметром \"precision\", всегда округляя вверх, т.е. от нуля. (Вы должны указать значение для точности, иначе функция не будет работать.)",
       "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
     },
     "ROUNDDOWN": {
-      "summary": "Rounds the value to the number of decimal places given by \"precision\" always rounding down, i.e., toward zero. (You must give a value for the precision or the function will not work.)",
+      "summary": "Округляет значение до количества заданных десятичных мест, определяемых параметром \"precision\", всегда округляя вниз, т.е. к нулю. (Вы должны указать значение для точности, иначе функция не будет работать.)",
       "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
     },
     "CEILING": {
-      "summary": "Returns the nearest integer multiple of significance that is greater than or equal to the value. If no significance is provided, a significance of 1 is assumed.",
+      "summary": "Возвращает ближайшее целое кратное значения \"значимости\", которое больше или равно исходному значению. Если значение \"значимости\" не предоставлено, то предполагается значение 1.",
       "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
     },
     "FLOOR": {
-      "summary": "Returns the nearest integer multiple of significance that is less than or equal to the value. If no significance is provided, a significance of 1 is assumed.",
+      "summary": "Возвращает ближайшее целое кратное значения \"значимости\", которое меньше или равно исходному значению. Если значение \"значимости\" не предоставлено, то предполагается значение 1.",
       "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
     },
     "EVEN": {
-      "summary": "Returns the smallest even integer that is greater than or equal to the specified value.",
+      "summary": "Возвращает наименьшее четное целое число, которое больше или равно указанному значению.",
       "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
     },
     "ODD": {
-      "summary": "Rounds positive value up the nearest odd number and negative value down to the nearest odd number.",
+      "summary": "Округляет положительное значение вверх до ближайшего нечетного числа, а отрицательное значение вниз до ближайшего нечетного числа.",
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Returns number1 if the logical argument is true, otherwise it returns number2. Can also be used to make nested IF statements.\nCan also be used to check if a cell is blank/is empty.",
+      "summary": "Если логический аргумент истинный, возвращает number1, в противном случае возвращает number2. Также можно использовать для создания вложенных IF-заявлений.\nТакже можно использовать для проверки, пуста ли ячейка/есть ли в ней значение.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
-      "summary": "Returns the absolute value.",
+      "summary": "Возвращает абсолютное значение.",
       "example": "ABS(-1) => 1"
     },
     "SQRT": {
-      "summary": "Returns the square root of a nonnegative number.",
+      "summary": "Возвращает квадратный корень неотрицательного числа.",
       "example": "SQRT(4) => 2"
     },
     "POWER": {
-      "summary": "Computes the specified base to the specified power.",
+      "summary": "Вычисляет указанную основание в степени, равной заданному значению.",
       "example": "POWER(2) => 4"
     },
     "EXP": {
-      "summary": "Computes Euler number (e) to the specified power.",
+      "summary": "Вычисляет число Эйлера (e) в степени, равной заданному значению.",
       "example": "EXP(0) => 1\nEXP(1) => 2.718"
     },
     "LOG": {
-      "summary": "Computes the logarithm of the value in provided base. The base defaults to 10 if not specified.",
+      "summary": "Вычисляет логарифм значения в заданной основании. Если основа не указана, то по умолчанию используется 10.",
       "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
     },
     "MOD": {
-      "summary": "Returns the remainder after dividing the first argument by the second.",
+      "summary": "Возвращает остаток от деления первого аргумента на второй.",
       "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
     },
     "VALUE": {
-      "summary": "Converts the text string to a number.",
+      "summary": "Преобразует текстовую строку в число.",
       "example": "VALUE(\"$1,000,000\") => 1000000"
     },
     "CONCATENATE": {
-      "summary": "Joins together various value types arguments into a single text value.",
+      "summary": "Объединяет различные аргументы типа значения в один текстовый значение.",
       "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
     },
     "FIND": {
-      "summary": "Finds an occurrence of stringToFind in whereToSearch string starting from an optional startFromPosition.(startFromPosition is 0 by default.) If no occurrence of stringToFind is found, the result will be 0.",
+      "summary": "Находит вхождение строки stringToFind в строке whereToSearch, начиная от необязательного позиции startFromPosition (по умолчанию startFromPosition равно 0). Если вхождение строки stringToFind не найдено, то результат будет 0.",
       "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
     },
     "SEARCH": {
-      "summary": "Searches for an occurrence of stringToFind in whereToSearch string starting from an optional startFromPosition. (startFromPosition is 0 by default.) If no occurrence of stringToFind is found, the result will be empty.\nSimilar to FIND(), though FIND() returns 0 rather than empty if no occurrence of stringToFind is found.",
+      "summary": "Ищет вхождение строки stringToFind в строке whereToSearch, начиная от необязательного позиции startFromPosition (по умолчанию startFromPosition равно 0). Если вхождение строки stringToFind не найдено, то результат будет пустой.\n\nЭто похоже на функцию FIND(), хотя если вхождение stringToFind не найдено, FIND() возвращает 0, а не пустое значение.",
       "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
     },
     "MID": {
-      "summary": "Extract a substring of count characters starting at whereToStart.",
+      "summary": "Извлечь строку счисления, начинающуюся с where tostart.",
       "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
     },
     "LEFT": {
