@@ -161,7 +161,7 @@
       "createdBy": "Создано кем",
       "before": "До",
       "after": "После",
-      "viewRecord": "View record"
+      "viewRecord": "Просмотреть запись"
     }
   },
   "sort": {
@@ -233,15 +233,15 @@
       "baseInviteEmail": "Пригласить по электронной почте на работу в системе/приложении, которая/которое использует базу данных",
       "baseInviteLink": "Пригласить по ссылке в систему/приложение, которое работает с базой данных",
       "baseTableImport": "Импортировать данные в базу данных",
-      "baseTableExport": "Export data from base",
-      "baseAuthorityMatrixConfig": "Configure authority matrix",
-      "baseDbConnect": "Connect to database",
-      "tableCreate": "Create table",
-      "tableRead": "Read table",
-      "tableDelete": "Delete table",
-      "tableUpdate": "Update table",
-      "tableImport": "Import data into table",
-      "tableExport": "export table data",
+      "baseTableExport": "Экспортировать данные из базы",
+      "baseAuthorityMatrixConfig": "Настроить матрицу полномочий",
+      "baseDbConnect": "Подключиться к базе данных",
+      "tableCreate": "Создать таблицу",
+      "tableRead": "Читать таблицу",
+      "tableDelete": "Удалить таблицу",
+      "tableUpdate": "Обновить таблицу",
+      "tableImport": "Импортировать данные в таблицу",
+      "tableExport": "экспортировать данные таблицы",
       "viewCreate": "Create view",
       "viewDelete": "Delete view",
       "viewRead": "Read view",
