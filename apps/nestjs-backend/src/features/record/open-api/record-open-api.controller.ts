@@ -28,13 +28,23 @@ export class RecordOpenApiController {
     private readonly recordOpenApiService: RecordOpenApiService
   ) {}
 
+  @Permissions('record|update')
+  @Get(':recordId/history')
+  async getRecordHistory(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Query(new ZodValidationPipe(getRecordHistoryQuerySchema)) query: IGetRecordHistoryQuery
+  ) {
+    return this.recordOpenApiService.getRecordHistory(tableId, recordId, query);
+  }
+
   @Permissions('record_history|read')
   @Get('/history')
-  async getRecordHistory(
+  async getRecordListHistory(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(getRecordHistoryQuerySchema)) query: IGetRecordHistoryQuery
   ) {
-    return this.recordOpenApiService.getRecordHistory(tableId, query);
+    return this.recordOpenApiService.getRecordHistory(tableId, undefined, query);
   }
 
   @Permissions('record|read')

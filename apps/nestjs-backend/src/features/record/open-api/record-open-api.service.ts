@@ -284,9 +284,10 @@ export class RecordOpenApiService {
 
   async getRecordHistory(
     tableId: string,
+    recordId: string | undefined,
     query: IGetRecordHistoryQuery
   ): Promise<IRecordHistoryVo> {
-    const { recordId, cursor, startDate, endDate } = query;
+    const { cursor, startDate, endDate } = query;
     const limit = 20;
 
     const dateFilter: { [key: string]: Date } = {};

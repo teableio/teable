@@ -2,7 +2,7 @@ import { ChevronDown, ChevronUp, History, Link, X } from '@teable/icons';
 import { Button, Separator, cn } from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useBasePermission } from '../../hooks';
+import { useTablePermission } from '../../hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
@@ -35,7 +35,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onRecordHistoryToggle,
   } = props;
 
-  const basePermission = useBasePermission();
+  const permission = useTablePermission();
+  const editable = Boolean(permission['record|update']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
@@ -88,7 +89,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               <Link />
             </Button>
           </TooltipWrap>
-          {basePermission?.['record_history|read'] && (
+          {editable && (
             <TooltipWrap
               description={
                 recordHistoryVisible

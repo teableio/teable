@@ -2,7 +2,12 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import { getRecordHistory, recordHistoryVoSchema, type ITableFullVo } from '@teable/openapi';
+import {
+  getRecordHistory,
+  getRecordListHistory,
+  recordHistoryVoSchema,
+  type ITableFullVo,
+} from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import {
@@ -311,7 +316,7 @@ describe('OpenAPI RecordController (e2e)', () => {
         type: FieldType.SingleLineText,
       });
 
-      const { data: originRecordHistory } = await getRecordHistory(mainTable.id, { recordId });
+      const { data: originRecordHistory } = await getRecordHistory(mainTable.id, recordId, {});
 
       expect(recordHistoryVoSchema.safeParse(originRecordHistory).success).toEqual(true);
       expect(originRecordHistory.historyList.length).toEqual(0);
@@ -329,8 +334,8 @@ describe('OpenAPI RecordController (e2e)', () => {
 
       await waitMainTable;
 
-      const { data: recordHistory } = await getRecordHistory(mainTable.id, { recordId });
-      const { data: tableRecordHistory } = await getRecordHistory(mainTable.id, {});
+      const { data: recordHistory } = await getRecordHistory(mainTable.id, recordId, {});
+      const { data: tableRecordHistory } = await getRecordListHistory(mainTable.id, {});
 
       expect(recordHistory.historyList.length).toEqual(1);
       expect(tableRecordHistory.historyList.length).toEqual(1);
@@ -362,10 +367,12 @@ describe('OpenAPI RecordController (e2e)', () => {
       await waitMainTable;
       await waitForeignTable;
 
-      const { data: mainTableRecordHistory } = await getRecordHistory(mainTable.id, { recordId });
-      const { data: foreignTableRecordHistory } = await getRecordHistory(foreignTable.id, {
-        recordId: foreignRecordId,
-      });
+      const { data: mainTableRecordHistory } = await getRecordHistory(mainTable.id, recordId, {});
+      const { data: foreignTableRecordHistory } = await getRecordHistory(
+        foreignTable.id,
+        foreignRecordId,
+        {}
+      );
 
       expect(recordHistoryVoSchema.safeParse(mainTableRecordHistory).success).toEqual(true);
       expect(recordHistoryVoSchema.safeParse(foreignTableRecordHistory).success).toEqual(true);
