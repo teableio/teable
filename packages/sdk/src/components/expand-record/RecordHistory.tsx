@@ -4,7 +4,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowRight, ChevronRight } from '@teable/icons';
 import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
-import { getRecordHistory } from '@teable/openapi';
+import { getRecordHistory, getRecordListHistory } from '@teable/openapi';
 import {
   Table,
   TableHeader,
@@ -41,10 +41,14 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
 
   const queryFn = async ({ queryKey, pageParam }: QueryFunctionContext) => {
-    const res = await getRecordHistory(queryKey[1] as string, {
-      recordId: queryKey[2] as string | undefined,
-      cursor: pageParam,
-    });
+    const recordId = queryKey[2] as string | undefined;
+    const res = recordId
+      ? await getRecordHistory(queryKey[1] as string, recordId, {
+          cursor: pageParam,
+        })
+      : await getRecordListHistory(queryKey[1] as string, {
+          cursor: pageParam,
+        });
     setNextCursor(() => res.data.nextCursor);
     setUserMap({ ...userMap, ...res.data.userMap });
     return res.data.historyList;
