@@ -1,22 +1,14 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { BaseRole, SpaceRole } from '@teable/core';
-import {
-  ActionPrefix,
-  RoleType,
-  actionPrefixMap,
-  generateBaseId,
-  getPermissionMap,
-  isUnrestrictedRole,
-} from '@teable/core';
+import { ActionPrefix, actionPrefixMap, generateBaseId, isUnrestrictedRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateBaseFromTemplateRo,
   ICreateBaseRo,
   IDuplicateBaseRo,
+  IGetBasePermissionVo,
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
@@ -323,18 +315,16 @@ export class BaseService {
     });
   }
 
-  async getPermission(baseId: string) {
-    const { role } = await this.getBaseById(baseId);
-    return this.getPermissionByRole(role);
-  }
-
-  async getPermissionByRole(role: SpaceRole | BaseRole) {
-    const permissionMap = getPermissionMap(RoleType.Base, role);
-    return pick(permissionMap, [
+  async getPermission() {
+    const permissions = this.cls.get('permissions');
+    return [
       ...actionPrefixMap[ActionPrefix.Table],
       ...actionPrefixMap[ActionPrefix.Base],
       ...actionPrefixMap[ActionPrefix.Automation],
       ...actionPrefixMap[ActionPrefix.RecordHistory],
-    ]);
+    ].reduce((acc, action) => {
+      acc[action] = permissions.includes(action);
+      return acc;
+    }, {} as IGetBasePermissionVo);
   }
 }
