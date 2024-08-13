@@ -104,10 +104,16 @@
         "title": "ID"
       },
       "createdTime": {
-        "title": "Время создания"
+        "title": "Created time"
       },
       "lastModifiedTime": {
-        "title": "Время последнего изменения"
+        "title": "Last modified time"
+      },
+      "createdBy": {
+        "title": "Created by"
+      },
+      "lastModifiedBy": {
+        "title": "Last modified by"
       },
       "rating": {
         "title": "Оценка"
