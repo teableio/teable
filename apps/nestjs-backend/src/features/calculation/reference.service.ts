@@ -440,11 +440,11 @@ export class ReferenceService {
         return record.fields[field.id];
       }
 
-      return {
+      return field.convertDBValue2CellValue({
         id: user.id,
         title: user.name,
         email: user.email,
-      };
+      });
     }
 
     if (
