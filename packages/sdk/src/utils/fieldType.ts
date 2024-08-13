@@ -17,4 +17,6 @@ export const FIELD_TYPE_ORDER = [
   FieldType.AutoNumber,
   FieldType.CreatedTime,
   FieldType.LastModifiedTime,
+  FieldType.CreatedBy,
+  FieldType.LastModifiedBy,
 ];

@@ -66,7 +66,9 @@ export const CellValue = (props: ICellValueContainer) => {
         />
       );
     }
-    case FieldType.User: {
+    case FieldType.User:
+    case FieldType.CreatedBy:
+    case FieldType.LastModifiedBy: {
       return (
         <CellUser
           value={value as IUserCellValue | IUserCellValue[]}

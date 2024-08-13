@@ -7,6 +7,8 @@ import type {
   SingleSelectField,
   UserField,
   NumberField,
+  CreatedByField,
+  LastModifiedByField,
 } from '../../../model';
 
 export interface IWrapperEditorProps {
@@ -17,6 +19,8 @@ export interface IWrapperEditorProps {
     | DateField
     | LinkField
     | UserField
+    | CreatedByField
+    | LastModifiedByField
     | NumberField;
   record: Record;
   style?: React.CSSProperties;

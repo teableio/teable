@@ -8,6 +8,7 @@ import type {
 } from '@teable/core';
 import { evaluate, FieldType, isMultiValueLink, RecordOpBuilder, Relationship } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IUserInfoVo } from '@teable/openapi';
 import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { cloneDeep, difference, groupBy, isEmpty, keyBy, unionWith, uniq } from 'lodash';
@@ -372,10 +373,25 @@ export class ReferenceService {
     return false;
   }
 
+  private getComputedUsers(
+    field: IFieldInstance,
+    record: IRecord,
+    userMap: { [userId: string]: IUserInfoVo }
+  ) {
+    if (field.type === FieldType.CreatedBy) {
+      return record.createdBy ? userMap[record.createdBy] : undefined;
+    }
+    if (field.type === FieldType.LastModifiedBy) {
+      return record.lastModifiedBy ? userMap[record.lastModifiedBy] : undefined;
+    }
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private calculateComputeField(
     field: IFieldInstance,
     fieldMap: IFieldMap,
-    recordItem: IRecordItem
+    recordItem: IRecordItem,
+    userMap?: { [userId: string]: IUserInfoVo }
   ) {
     const record = recordItem.record;
 
@@ -413,6 +429,22 @@ export class ReferenceService {
         record,
         this.joinOriginLookup(lookedField, lookupValues)
       );
+    }
+
+    if (field.type === FieldType.CreatedBy || field.type === FieldType.LastModifiedBy) {
+      if (!userMap) {
+        return record.fields[field.id];
+      }
+      const user = this.getComputedUsers(field, record, userMap);
+      if (!user) {
+        return record.fields[field.id];
+      }
+
+      return {
+        id: user.id,
+        title: user.name,
+        email: user.email,
+      };
     }
 
     if (
@@ -625,7 +657,8 @@ export class ReferenceService {
   collectChanges(
     orders: ITopoItemWithRecords[],
     fieldMap: IFieldMap,
-    fieldId2TableId: { [fieldId: string]: string }
+    fieldId2TableId: { [fieldId: string]: string },
+    userMap?: { [userId: string]: IUserInfoVo }
   ) {
     // detail changes
     const changes: ICellChange[] = [];
@@ -639,7 +672,7 @@ export class ReferenceService {
           return;
         }
 
-        const value = this.calculateComputeField(field, fieldMap, recordItem);
+        const value = this.calculateComputeField(field, fieldMap, recordItem, userMap);
         // console.log(
         //   `calculated: ${field.type}.${field.id}.${record.id}`,
         //   recordItem.record.fields,

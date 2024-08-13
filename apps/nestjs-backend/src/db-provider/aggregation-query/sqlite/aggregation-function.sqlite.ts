@@ -5,7 +5,10 @@ import { AbstractAggregationFunction } from '../aggregation-function.abstract';
 export class AggregationFunctionSqlite extends AbstractAggregationFunction {
   unique(): string {
     const { type, isMultipleCellValue } = this.field;
-    if (type !== FieldType.User || isMultipleCellValue) {
+    if (
+      ![FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(type) ||
+      isMultipleCellValue
+    ) {
       return super.unique();
     }
 
@@ -16,7 +19,10 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
 
   percentUnique(): string {
     const { type, isMultipleCellValue } = this.field;
-    if (type !== FieldType.User || isMultipleCellValue) {
+    if (
+      ![FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(type) ||
+      isMultipleCellValue
+    ) {
       return super.percentUnique();
     }
 

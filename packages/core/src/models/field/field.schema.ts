@@ -26,6 +26,8 @@ import {
   lastModifiedTimeFieldOptionsRoSchema,
   autoNumberFieldOptionsRoSchema,
   userFieldOptionsSchema,
+  createdByFieldOptionsSchema,
+  lastModifiedByFieldOptionsSchema,
 } from './derivate';
 import { unionFormattingSchema } from './formatting';
 import { unionShowAsSchema } from './show-as';
@@ -67,6 +69,8 @@ export const unionFieldOptions = z.union([
   singlelineTextFieldOptionsSchema.strict(),
   ratingFieldOptionsSchema.strict(),
   userFieldOptionsSchema.strict(),
+  createdByFieldOptionsSchema.strict(),
+  lastModifiedByFieldOptionsSchema.strict(),
 ]);
 
 export const unionFieldOptionsVoSchema = z.union([
@@ -258,10 +262,12 @@ export const getOptionsSchema = (type: FieldType) => {
       return lastModifiedTimeFieldOptionsRoSchema;
     case FieldType.AutoNumber:
       return autoNumberFieldOptionsRoSchema;
+    case FieldType.CreatedBy:
+      return createdByFieldOptionsSchema;
+    case FieldType.LastModifiedBy:
+      return lastModifiedByFieldOptionsSchema;
     case FieldType.Duration:
     case FieldType.Count:
-    case FieldType.CreatedBy:
-    case FieldType.LastModifiedBy:
     case FieldType.Button:
       throw new Error('no implementation');
     default:

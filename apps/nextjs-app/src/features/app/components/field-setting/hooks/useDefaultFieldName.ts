@@ -62,6 +62,10 @@ export const useDefaultFieldName = () => {
           return t('field.default.createdTime.title');
         case FieldType.LastModifiedTime:
           return t('field.default.lastModifiedTime.title');
+        case FieldType.CreatedBy:
+          return t('field.default.createdBy.title');
+        case FieldType.LastModifiedBy:
+          return t('field.default.lastModifiedBy.title');
         case FieldType.Rating:
           return t('field.default.rating.title');
         case FieldType.Checkbox:

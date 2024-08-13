@@ -165,7 +165,10 @@ export abstract class AbstractFilterQuery implements IFilterQueryInterface {
   ): void {
     const { value } = filterItem;
 
-    if (field.type === FieldType.User && replaceUserId) {
+    if (
+      [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type) &&
+      replaceUserId
+    ) {
       filterItem.value = Array.isArray(value)
         ? (value.map((v) => (isMeTag(v as string) ? replaceUserId : v)) as ILiteralValueList)
         : isMeTag(value as string)

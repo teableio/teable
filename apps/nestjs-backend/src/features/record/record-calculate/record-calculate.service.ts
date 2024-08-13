@@ -100,8 +100,10 @@ export class RecordCalculateService {
     const cellChanges = derivate?.cellChanges || [];
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
-    const composedOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
-    const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(composedOpsMap);
+    const manualOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
+    const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(manualOpsMap);
+    const composedOpsMap = composeOpMaps([manualOpsMap, systemFieldOpsMap]);
+    // console.log('composedOpsMap', JSON.stringify(composedOpsMap, null, 2));
 
     // calculate by origin ops and link derivation
     const {
@@ -112,7 +114,7 @@ export class RecordCalculateService {
 
     // console.log('opsMapByCalculation', JSON.stringify(opsMapByCalculation, null, 2));
     return {
-      opsMap: composeOpMaps([opsMapOrigin, opsMapByLink, opsMapByCalculation, systemFieldOpsMap]),
+      opsMap: composeOpMaps([composedOpsMap, opsMapByCalculation]),
       fieldMap,
       tableId2DbTableName,
     };

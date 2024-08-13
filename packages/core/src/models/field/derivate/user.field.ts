@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { IdPrefix } from '../../../utils';
-import type { CellValueType, FieldType } from '../constant';
-import { FieldCore } from '../field';
+import type { FieldType } from '../constant';
+import type { IUserCellValue } from './abstract/user.field.abstract';
+import { UserAbstractCore } from './abstract/user.field.abstract';
 
 interface IUser {
   id: string;
@@ -24,47 +24,17 @@ export const userFieldOptionsSchema = z.object({
 
 export type IUserFieldOptions = z.infer<typeof userFieldOptionsSchema>;
 
-export const userCellValueSchema = z.object({
-  id: z.string().startsWith(IdPrefix.User),
-  title: z.string(),
-  email: z.string().optional(),
-  avatarUrl: z.string().optional().nullable(),
-});
-
-export type IUserCellValue = z.infer<typeof userCellValueSchema>;
-
 export const defaultUserFieldOptions: IUserFieldOptions = {
   isMultiple: false,
   shouldNotify: true,
 };
 
-export class UserFieldCore extends FieldCore {
+export class UserFieldCore extends UserAbstractCore {
   type!: FieldType.User;
   options!: IUserFieldOptions;
-  cellValueType!: CellValueType.String;
 
   static defaultOptions() {
     return defaultUserFieldOptions;
-  }
-
-  item2String(value: unknown) {
-    if (value == null) {
-      return '';
-    }
-
-    const { title } = value as IUserCellValue;
-
-    if (this.isMultipleCellValue && title?.includes(',')) {
-      return `"${title}"`;
-    }
-    return title || '';
-  }
-
-  cellValue2String(cellValue?: unknown) {
-    if (Array.isArray(cellValue)) {
-      return cellValue.map((v) => this.item2String(v)).join(', ');
-    }
-    return this.item2String(cellValue);
   }
 
   /*
@@ -119,12 +89,5 @@ export class UserFieldCore extends FieldCore {
 
   validateOptions() {
     return userFieldOptionsSchema.safeParse(this.options);
-  }
-
-  validateCellValue(cellValue: unknown) {
-    if (this.isMultipleCellValue) {
-      return z.array(userCellValueSchema).nonempty().nullable().safeParse(cellValue);
-    }
-    return userCellValueSchema.nullable().safeParse(cellValue);
   }
 }

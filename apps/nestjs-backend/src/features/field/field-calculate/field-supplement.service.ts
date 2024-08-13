@@ -732,6 +732,32 @@ export class FieldSupplementService {
     };
   }
 
+  private prepareCreatedByField(field: IFieldRo) {
+    const { name, options = {} } = field;
+
+    return {
+      ...field,
+      isComputed: true,
+      name: name ?? `Created by`,
+      options: options,
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Json,
+    };
+  }
+
+  private prepareLastModifiedByField(field: IFieldRo) {
+    const { name, options = {} } = field;
+
+    return {
+      ...field,
+      isComputed: true,
+      name: name ?? `Last modified by`,
+      options: options,
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Json,
+    };
+  }
+
   private prepareDateField(field: IFieldRo) {
     const { name, options } = field;
 
@@ -838,6 +864,10 @@ export class FieldSupplementService {
         return this.prepareCreatedTimeField(fieldRo);
       case FieldType.LastModifiedTime:
         return this.prepareLastModifiedTimeField(fieldRo);
+      case FieldType.CreatedBy:
+        return this.prepareCreatedByField(fieldRo);
+      case FieldType.LastModifiedBy:
+        return this.prepareLastModifiedByField(fieldRo);
       case FieldType.Checkbox:
         return this.prepareCheckboxField(fieldRo);
       default:
@@ -888,6 +918,10 @@ export class FieldSupplementService {
         return this.prepareLastModifiedTimeField(fieldRo);
       case FieldType.Checkbox:
         return this.prepareCheckboxField(fieldRo);
+      case FieldType.LastModifiedBy:
+        return this.prepareLastModifiedByField(fieldRo);
+      case FieldType.CreatedBy:
+        return this.prepareCreatedByField(fieldRo);
       default:
         throw new Error('invalid field type');
     }

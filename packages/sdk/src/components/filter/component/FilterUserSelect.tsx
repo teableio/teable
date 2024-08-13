@@ -7,13 +7,13 @@ import { ReactQueryKeys } from '../../../config/react-query-keys';
 import { useTranslation } from '../../../context/app/i18n';
 import { useBaseId } from '../../../hooks/use-base-id';
 import { useSession } from '../../../hooks/use-session';
-import type { UserField } from '../../../model';
+import type { CreatedByField, LastModifiedByField, UserField } from '../../../model';
 import { UserTag } from '../../cell-value';
 import { UserOption } from '../../editor';
 import { BaseMultipleSelect, BaseSingleSelect } from './base';
 
 interface IFilterUserProps {
-  field: UserField;
+  field: UserField | CreatedByField | LastModifiedByField;
   operator: string;
   value: string[] | string | null;
   onSelect: (value: string[] | string | null) => void;

@@ -19,6 +19,8 @@ import {
   History as LastModifiedTimeIcon,
   ListOrdered as AutoNumberIcon,
   User as UserIcon,
+  UserPlus as CreatedByIcon,
+  UserEdit as LastModifiedByIcon,
 } from '@teable/icons';
 
 import { useCallback } from 'react';
@@ -153,6 +155,18 @@ export const useFieldStaticGetter = () => {
             title: t('field.title.autoNumber'),
             defaultOptions: AutoNumberField.defaultOptions(),
             Icon: isLookup ? SearchIcon : AutoNumberIcon,
+          };
+        case FieldType.CreatedBy:
+          return {
+            title: t('field.title.createdBy'),
+            defaultOptions: {},
+            Icon: isLookup ? SearchIcon : CreatedByIcon,
+          };
+        case FieldType.LastModifiedBy:
+          return {
+            title: t('field.title.lastModifiedBy'),
+            defaultOptions: {},
+            Icon: isLookup ? SearchIcon : LastModifiedByIcon,
           };
         default:
           throw new Error(`field type: ${type} has not define statics`);

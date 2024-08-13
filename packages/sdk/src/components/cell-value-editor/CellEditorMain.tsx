@@ -189,7 +189,9 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         />
       );
     }
-    case FieldType.User: {
+    case FieldType.User:
+    case FieldType.CreatedBy:
+    case FieldType.LastModifiedBy: {
       return (
         <UserEditor
           className={className}
