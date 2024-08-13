@@ -3,6 +3,7 @@ import type { IRecord } from '@teable/core';
 import { RecordCore, FieldKeyType, RecordOpBuilder, FieldType } from '@teable/core';
 import type { ICreateRecordsRo, IGetRecordsRo, IUpdateRecordRo } from '@teable/openapi';
 import { createRecords, getRecords, updateRecord, updateRecordOrders } from '@teable/openapi';
+import { isEqual } from 'lodash';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
 import type { IFieldInstance } from '../field/factory';
@@ -46,16 +47,16 @@ export class Record extends RecordCore {
   }
 
   private updateComputedField = async (fieldIds: string[], record: IRecord) => {
-    const operations = fieldIds.map((fieldId) => {
-      const operation = RecordOpBuilder.editor.setRecord.build({
-        fieldId,
-        newCellValue: record.fields[fieldId],
-        oldCellValue: this.doc.data.fields[fieldId],
-      });
+    const changeCellFieldIds = fieldIds.filter(
+      (fieldId) => !isEqual(this.fields[fieldId], record.fields[fieldId])
+    );
+    if (!changeCellFieldIds.length) {
+      return;
+    }
+    changeCellFieldIds.forEach((fieldId) => {
       this.doc.data.fields[fieldId] = record.fields[fieldId];
-      return operation;
     });
-    this.doc.emit('op batch', operations, false);
+    this.doc.emit('op batch', [], false);
   };
 
   async updateCell(fieldId: string, cellValue: unknown) {
