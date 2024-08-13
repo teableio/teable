@@ -37,13 +37,13 @@ export const useRecord = (recordId: string | undefined, initData?: IRecord) => {
     };
 
     doc.subscribe(() => {
-      doc.on('op', listeners);
+      doc.on('op batch', listeners);
     });
 
     return () => {
-      doc.removeListener('op', listeners);
-      doc.listenerCount('op') === 0 && doc.unsubscribe();
-      doc.listenerCount('op') === 0 && doc.destroy();
+      doc.removeListener('op batch', listeners);
+      doc.listenerCount('op batch') === 0 && doc.unsubscribe();
+      doc.listenerCount('op batch') === 0 && doc.destroy();
     };
   }, [connection, recordId, tableId]);
 
