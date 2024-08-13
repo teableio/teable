@@ -49,7 +49,8 @@
       "expandRecordError": "No permission to view this record."
     },
     "user": {
-      "searchPlaceholder": "Find users by name"
+      "searchPlaceholder": "Find users by name",
+      "notify": "Notify users once they're selected"
     }
   },
   "filter": {
@@ -186,7 +187,7 @@
       "singleSelect": "Single select",
       "number": "Number",
       "multipleSelect": "Multiple select",
-      "link": "Link",
+      "link": "Link to another record",
       "formula": "Formula",
       "date": "Date",
       "createdTime": "Created time",
@@ -197,8 +198,10 @@
       "user": "User",
       "rating": "Rating",
       "autoNumber": "Auto number",
-      "lookup": "lookup to other table",
-      "button": "Button"
+      "lookup": "Lookup",
+      "button": "Button",
+      "createdBy": "Created by",
+      "lastModifiedBy": "Last modified by"
     }
   },
   "spaceRole": {
