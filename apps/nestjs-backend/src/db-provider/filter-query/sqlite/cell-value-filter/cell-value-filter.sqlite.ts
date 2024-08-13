@@ -54,7 +54,7 @@ export class CellValueFilterSqlite extends AbstractCellValueFilter {
 
       return `json_extract(${object}, '${path}')`;
     }
-    if (field.type === FieldType.User) {
+    if ([FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)) {
       const object = field.isMultipleCellValue ? defaultJsonColumn : field.dbFieldName;
       const path = '$.id';
 

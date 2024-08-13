@@ -25,6 +25,8 @@ export const FIELD_HEIGHT_MAP: { [key in FieldType]?: number } = {
   [FieldType.MultipleSelect]: 24,
   [FieldType.Link]: 24,
   [FieldType.User]: 24,
+  [FieldType.CreatedBy]: 24,
+  [FieldType.LastModifiedBy]: 24,
   [FieldType.Rating]: 16,
 };
 

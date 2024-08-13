@@ -1,6 +1,7 @@
 import type { IFilterOperator, IFilterValue, ILiteralValue, ILiteralValueList } from '@teable/core';
 import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
+import { isUserOrLink } from '../../../../../utils/is-user-or-link';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
@@ -11,7 +12,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(`??::jsonb @\\? '$.id \\? (@ == "${value}")'`, [this.tableColumnRef]);
     } else {
       builderClient.whereRaw(`??::jsonb @\\? '$[*] \\? (@ == "${value}")'`, [this.tableColumnRef]);
@@ -26,7 +27,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(`NOT COALESCE(??, '{}')::jsonb @\\? '$.id \\? (@ == "${value}")'`, [
         this.tableColumnRef,
       ]);
@@ -45,7 +46,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(
         `jsonb_extract_path_text(??::jsonb, 'id') IN (${this.createSqlPlaceholders(value)})`,
         [this.tableColumnRef, ...value]
@@ -66,7 +67,7 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
   ): Knex.QueryBuilder {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(
         `COALESCE(jsonb_extract_path_text(COALESCE(??, '{}')::jsonb, 'id'), '') NOT IN (${this.createSqlPlaceholders(
           value

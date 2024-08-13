@@ -2,6 +2,7 @@
 import type { IFieldRo, IUserFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { Input, Label, Switch } from '@teable/ui-lib';
+import { useTranslation } from '../../context/app/i18n';
 
 interface IFieldCreatorProps {
   field: IFieldRo;
@@ -11,6 +12,7 @@ interface IFieldCreatorProps {
 export const FieldCreator = (props: IFieldCreatorProps) => {
   const { field, setField } = props;
   const { name, type, options } = field;
+  const { t } = useTranslation();
 
   const onNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -40,7 +42,7 @@ export const FieldCreator = (props: IFieldCreatorProps) => {
                 onCheckedChange={(checked) => onOptionChange(checked, 'shouldNotify')}
               />
               <Label htmlFor="user-field-options-should-notify" className="font-normal">
-                Notify users once they're selected
+                {t('editor.user.notify')}
               </Label>
             </div>
           </div>

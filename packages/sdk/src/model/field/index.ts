@@ -16,3 +16,5 @@ export * from './rollup.field';
 export * from './rating.field';
 export * from './auto-number.field';
 export * from './user.field';
+export * from './last-modified-by.field';
+export * from './created-by.field';

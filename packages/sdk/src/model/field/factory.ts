@@ -5,9 +5,11 @@ import type { Doc } from 'sharedb/lib/client';
 import { AttachmentField } from './attachment.field';
 import { AutoNumberField } from './auto-number.field';
 import { CheckboxField } from './checkbox.field';
+import { CreatedByField } from './created-by.field';
 import { CreatedTimeField } from './created-time.field';
 import { DateField } from './date.field';
 import { FormulaField } from './formula.field';
+import { LastModifiedByField } from './last-modified-by.field';
 import { LastModifiedTimeField } from './last-modified-time.field';
 import { LinkField } from './link.field';
 import { LongTextField } from './long-text.field';
@@ -54,9 +56,11 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(LastModifiedTimeField, field);
       case FieldType.User:
         return plainToInstance(UserField, field);
-      case FieldType.Button:
       case FieldType.CreatedBy:
+        return plainToInstance(CreatedByField, field);
       case FieldType.LastModifiedBy:
+        return plainToInstance(LastModifiedByField, field);
+      case FieldType.Button:
       case FieldType.Count:
       case FieldType.Duration:
         return plainToInstance(SingleLineTextField, { ...field, type: FieldType.SingleLineText });

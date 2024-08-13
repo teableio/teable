@@ -110,6 +110,12 @@
       "lastModifiedTime": {
         "title": "修改时间"
       },
+      "createdBy": {
+        "title": "创建人"
+      },
+      "lastModifiedBy": {
+        "title": "修改人"
+      },
       "rating": {
         "title": "评分"
       },

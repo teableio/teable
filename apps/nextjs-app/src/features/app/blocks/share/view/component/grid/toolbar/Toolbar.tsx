@@ -30,6 +30,8 @@ export const Toolbar = () => {
       <Filter
         components={{
           [FieldType.User]: FilterUser,
+          [FieldType.CreatedBy]: FilterUser,
+          [FieldType.LastModifiedBy]: FilterUser,
           [FieldType.Link]: FilterLink,
         }}
         filters={view?.filter || null}

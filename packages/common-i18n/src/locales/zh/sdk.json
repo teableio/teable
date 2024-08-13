@@ -60,7 +60,8 @@
       "expandRecordError": "无权查看此记录"
     },
     "user": {
-      "searchPlaceholder": "通过姓名查找用户"
+      "searchPlaceholder": "通过姓名查找用户",
+      "notify": "通知被选择的用户"
     }
   },
   "filter": {
@@ -210,7 +211,9 @@
       "rating": "评分",
       "autoNumber": "自增数字",
       "lookup": "从关联的表中查找",
-      "button": "按钮"
+      "button": "按钮",
+      "createdBy": "创建人",
+      "lastModifiedBy": "最近修改人"
     }
   },
   "spaceRole": {

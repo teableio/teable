@@ -243,7 +243,9 @@ const useGenerateGroupCellFn = () => {
               max,
             };
           }
-          case FieldType.User: {
+          case FieldType.User:
+          case FieldType.CreatedBy:
+          case FieldType.LastModifiedBy: {
             const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
             const data = cv.map(({ id, title }) => ({ id, name: title }));
 

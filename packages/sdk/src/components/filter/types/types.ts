@@ -1,5 +1,11 @@
 import type { IFilter, IFilterItem, IFilterSet, IConjunction, FieldType } from '@teable/core';
-import type { IFieldInstance, LinkField, UserField } from '../../../model';
+import type {
+  IFieldInstance,
+  LinkField,
+  UserField,
+  CreatedByField,
+  LastModifiedByField,
+} from '../../../model';
 
 enum ConditionAddType {
   ITEM = 'item',
@@ -55,7 +61,22 @@ interface IFilterEditorProps<T = unknown, F = IFieldInstance> {
 
 interface IFilterComponents {
   [FieldType.User]?: (
-    props: IFilterEditorProps<string | string[] | null, UserField>
+    props: IFilterEditorProps<
+      string | string[] | null,
+      UserField | CreatedByField | LastModifiedByField
+    >
+  ) => JSX.Element;
+  [FieldType.CreatedBy]?: (
+    props: IFilterEditorProps<
+      string | string[] | null,
+      UserField | CreatedByField | LastModifiedByField
+    >
+  ) => JSX.Element;
+  [FieldType.LastModifiedBy]?: (
+    props: IFilterEditorProps<
+      string | string[] | null,
+      UserField | CreatedByField | LastModifiedByField
+    >
   ) => JSX.Element;
   [FieldType.Link]?: (
     props: IFilterEditorProps<string | string[] | null, LinkField>

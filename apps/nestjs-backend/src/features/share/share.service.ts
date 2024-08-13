@@ -284,8 +284,8 @@ export class ShareService {
     // user field check
     const field = await this.fieldService.getField(tableId, fieldId);
     // All user field, contains lastModifiedBy, createdBy
-    if (field.type !== FieldType.User) {
-      throw new ForbiddenException('field type is not user field');
+    if (![FieldType.User, FieldType.LastModifiedBy, FieldType.CreatedBy].includes(field.type)) {
+      throw new ForbiddenException('field type is not user-related field');
     }
 
     return this.getViewFilterCollaborators(shareInfo, field);
@@ -358,7 +358,11 @@ export class ShareService {
       filterHidden: !view.shareMeta?.includeHiddenField,
     });
     // If there is no user field, return an empty array
-    if (!fields.some((field) => field.type === FieldType.User)) {
+    if (
+      !fields.some((field) =>
+        [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)
+      )
+    ) {
       return [];
     }
     const { baseId } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({

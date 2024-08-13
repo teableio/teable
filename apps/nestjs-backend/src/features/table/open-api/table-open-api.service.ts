@@ -225,7 +225,6 @@ export class TableOpenApiService {
 
     return await this.prismaService.$tx(
       async (prisma) => {
-        console.log('detachLink', tableId);
         await this.tableService.deleteTable(baseId, tableId);
 
         // delete field for table
