@@ -49,7 +49,8 @@
       "expandRecordError": "无权查看此记录"
     },
     "user": {
-      "searchPlaceholder": "通过姓名查找用户"
+      "searchPlaceholder": "通过姓名查找用户",
+      "notify": "Notify users once they're selected"
     }
   },
   "filter": {
@@ -186,7 +187,7 @@
       "singleSelect": "单选",
       "number": "数字",
       "multipleSelect": "多选",
-      "link": "关联",
+      "link": "Link to another record",
       "formula": "公式",
       "date": "日期",
       "createdTime": "创建时间",
@@ -197,8 +198,10 @@
       "user": "用户",
       "rating": "评分",
       "autoNumber": "自增数字",
-      "lookup": "从关联的表中查找",
-      "button": "按钮"
+      "lookup": "Lookup",
+      "button": "按钮",
+      "createdBy": "Created by",
+      "lastModifiedBy": "Last modified by"
     }
   },
   "spaceRole": {
