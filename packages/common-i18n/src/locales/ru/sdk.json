@@ -49,7 +49,8 @@
       "expandRecordError": "Нет разрешения на просмотр этой записи."
     },
     "user": {
-      "searchPlaceholder": "Найти пользователей по имени"
+      "searchPlaceholder": "Найти пользователей по имени",
+      "notify": "Notify users once they're selected"
     }
   },
   "filter": {
@@ -186,7 +187,7 @@
       "singleSelect": "Выбор одного",
       "number": "Число",
       "multipleSelect": "Выбор нескольких",
-      "link": "Ссылка",
+      "link": "Link to another record",
       "formula": "Формула",
       "date": "Дата",
       "createdTime": "Время создания",
@@ -197,8 +198,10 @@
       "user": "Пользователь",
       "rating": "Рейтинг",
       "autoNumber": "Автоматическое нумерация",
-      "lookup": "поиск в другой таблице",
-      "button": "Кнопка"
+      "lookup": "Lookup",
+      "button": "Кнопка",
+      "createdBy": "Created by",
+      "lastModifiedBy": "Last modified by"
     }
   },
   "spaceRole": {
