@@ -147,8 +147,8 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId/permission')
-  async getPermission(@Param('baseId') baseId: string): Promise<IGetBasePermissionVo> {
-    return await this.baseService.getPermission(baseId);
+  async getPermission(): Promise<IGetBasePermissionVo> {
+    return await this.baseService.getPermission();
   }
 
   @Get(':baseId/query')
