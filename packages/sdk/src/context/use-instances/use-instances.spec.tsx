@@ -205,7 +205,9 @@ describe('useInstances hook', () => {
     });
 
     act(() => {
-      const opListener = result.current[0].doc.on.mock.calls.find((args: any) => args[0] === 'op');
+      const opListener = result.current[0].doc.on.mock.calls.find(
+        (args: any) => args[0] === 'op batch'
+      );
       opListener[1](['op op op']);
     });
     expect(createTestInstance).toHaveBeenCalledWith(

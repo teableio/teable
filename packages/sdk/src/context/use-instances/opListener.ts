@@ -8,14 +8,14 @@ export class OpListenersManager<T> {
     this.collection = collection;
   }
 
-  add(doc: Doc<T>, handler: (op: [unknown]) => void) {
+  add(doc: Doc<T>, handler: (op: unknown[]) => void) {
     if (this.opListeners.has(doc.id)) {
       this.remove(doc);
     }
-    doc.on('op', handler);
+    doc.on('op batch', handler);
     this.opListeners.set(doc.id, () => {
-      doc.removeListener('op', handler);
-      doc.listenerCount('op') === 0 && doc.destroy();
+      doc.removeListener('op batch', handler);
+      doc.listenerCount('op batch') === 0 && doc.destroy();
     });
   }
 
