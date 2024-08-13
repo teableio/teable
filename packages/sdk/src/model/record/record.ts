@@ -46,20 +46,15 @@ export class Record extends RecordCore {
   }
 
   private updateComputedField = async (fieldIds: string[], record: IRecord) => {
-    const operations = fieldIds
-      .filter(
-        (fieldId) =>
-          JSON.stringify(record.fields[fieldId]) !== JSON.stringify(this.doc.data.fields[fieldId])
-      )
-      .map((fieldId) => {
-        const operation = RecordOpBuilder.editor.setRecord.build({
-          fieldId,
-          newCellValue: record.fields[fieldId],
-          oldCellValue: this.doc.data.fields[fieldId],
-        });
-        this.doc.data.fields[fieldId] = record.fields[fieldId];
-        return operation;
+    const operations = fieldIds.map((fieldId) => {
+      const operation = RecordOpBuilder.editor.setRecord.build({
+        fieldId,
+        newCellValue: record.fields[fieldId],
+        oldCellValue: this.doc.data.fields[fieldId],
       });
+      this.doc.data.fields[fieldId] = record.fields[fieldId];
+      return operation;
+    });
     this.doc.emit('op batch', operations, false);
   };
 
