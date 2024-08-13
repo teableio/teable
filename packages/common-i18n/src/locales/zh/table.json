@@ -104,10 +104,16 @@
         "title": "自动编号"
       },
       "createdTime": {
-        "title": "创建时间"
+        "title": "Created time"
       },
       "lastModifiedTime": {
-        "title": "修改时间"
+        "title": "Last modified time"
+      },
+      "createdBy": {
+        "title": "Created by"
+      },
+      "lastModifiedBy": {
+        "title": "Last modified by"
       },
       "rating": {
         "title": "评分"
