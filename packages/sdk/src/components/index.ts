@@ -1,6 +1,5 @@
 export * from './grid';
 export * from './editor';
-export * from './filter';
 export * from './sort';
 export * from './group';
 export * from './field';
@@ -17,3 +16,4 @@ export * from './create-record';
 export * from './collaborator';
 export * from './color';
 export * from './base-query';
+export * from './filter';

@@ -66,6 +66,8 @@
     "tips": {
       "scope": "In this view, show records"
     },
+    "invalidateSelected": "Invalid value",
+    "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "default": {
       "empty": "No filter conditions are applied",
       "placeholder": "Enter a value"
