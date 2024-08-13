@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { IRecord } from '@teable/core';
+import { FieldType, type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IUserInfoVo } from '@teable/openapi';
 import { Knex } from 'knex';
-import { groupBy, isEmpty, uniq } from 'lodash';
+import { groupBy, isEmpty, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { Observable } from 'rxjs';
 import { concatMap, from, lastValueFrom, map, range, toArray } from 'rxjs';
@@ -21,6 +22,7 @@ import { nameConsole } from './utils/name-console';
 
 export interface ITopoOrdersContext {
   fieldMap: IFieldMap;
+  userMap?: { [userId: string]: IUserInfoVo };
   allFieldIds: string[];
   startFieldIds: string[];
   directedGraph: IGraphItem[];
@@ -69,6 +71,31 @@ export class FieldCalculationService {
     await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
   }
 
+  async getUserMap(tableId: string) {
+    const {
+      base: { spaceId },
+    } = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: {
+        base: {
+          select: { spaceId: true },
+        },
+      },
+    });
+
+    const collaborators = await this.prismaService.collaborator.findMany({
+      where: { spaceId },
+      select: { userId: true },
+    });
+
+    const users = await this.prismaService.user.findMany({
+      where: { id: { in: collaborators.map((c) => c.userId) } },
+      select: { id: true, name: true, avatar: true },
+    });
+
+    return keyBy(users, 'id');
+  }
+
   async getTopoOrdersContext(
     fieldIds: string[],
     customGraph?: IGraphItem[]
@@ -91,10 +118,20 @@ export class FieldCalculationService {
     const topoOrdersByFieldId = this.referenceService.getTopoOrdersMap(fieldIds, directedGraph);
     // nameConsole('topoOrdersByFieldId', topoOrdersByFieldId, fieldMap);
 
+    const computedUserFieldId = fieldIds.find(
+      (fieldId) =>
+        fieldMap[fieldId].type === FieldType.CreatedBy ||
+        fieldMap[fieldId].type === FieldType.LastModifiedBy
+    );
+    const userMap = computedUserFieldId
+      ? await this.getUserMap(fieldId2TableId[computedUserFieldId])
+      : undefined;
+
     return {
       startFieldIds: fieldIds,
       allFieldIds,
       fieldMap,
+      userMap,
       directedGraph,
       topoOrdersByFieldId,
       tableId2DbTableName,
@@ -285,6 +322,7 @@ export class FieldCalculationService {
   ) {
     const {
       fieldMap,
+      userMap,
       startFieldIds,
       directedGraph,
       topoOrdersByFieldId,
@@ -334,7 +372,7 @@ export class FieldCalculationService {
         relatedRecordItemsIndexed,
       });
       return pre.concat(
-        this.referenceService.collectChanges(orderWithRecords, fieldMap, fieldId2TableId)
+        this.referenceService.collectChanges(orderWithRecords, fieldMap, fieldId2TableId, userMap)
       );
     }, []);
   }

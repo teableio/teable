@@ -43,6 +43,8 @@ export const KanbanToolbar: React.FC<{ disabled?: boolean }> = (props) => {
       <Filter
         components={{
           [FieldType.User]: FilterUser,
+          [FieldType.LastModifiedBy]: FilterUser,
+          [FieldType.CreatedBy]: FilterUser,
           [FieldType.Link]: FilterLink,
         }}
         filters={view?.filter || null}

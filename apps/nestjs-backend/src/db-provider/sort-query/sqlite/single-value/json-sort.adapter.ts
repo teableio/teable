@@ -1,12 +1,12 @@
-import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
+import { isUserOrLink } from '../../../../utils/is-user-or-link';
 import { SortFunctionSqlite } from '../sort-query.function';
 
 export class JsonSortAdapter extends SortFunctionSqlite {
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.orderByRaw(`json_extract(??, '$.title') ASC NULLS FIRST`, [this.columnName]);
     } else {
       builderClient.orderByRaw(`?? ASC NULLS FIRST`, [this.columnName]);
@@ -17,7 +17,7 @@ export class JsonSortAdapter extends SortFunctionSqlite {
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.orderByRaw(`json_extract(??, '$.title') DESC NULLS LAST`, [this.columnName]);
     } else {
       builderClient.orderByRaw(`?? DESC NULLS LAST`, [this.columnName]);
@@ -28,7 +28,7 @@ export class JsonSortAdapter extends SortFunctionSqlite {
   getAscSQL() {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       return this.knex
         .raw(`json_extract(??, '$.title') ASC NULLS FIRST`, [this.columnName])
         .toQuery();
@@ -40,7 +40,7 @@ export class JsonSortAdapter extends SortFunctionSqlite {
   getDescSQL() {
     const { type } = this.field;
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       return this.knex
         .raw(`json_extract(??, '$.title') DESC NULLS LAST`, [this.columnName])
         .toQuery();

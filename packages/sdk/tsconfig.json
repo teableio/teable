@@ -22,7 +22,7 @@
       "@teable/ui-lib": ["../ui-lib/src"],
       "@teable/openapi": ["../openapi/src"]
     },
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": ["src", "../icons/src", "../core/src", "../ui-lib/src", "../openapi/src"]

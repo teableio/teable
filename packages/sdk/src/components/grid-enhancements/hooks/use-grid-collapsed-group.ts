@@ -12,13 +12,19 @@ import { useGridCollapsedGroupStore } from '../store';
 const FILTER_RELATED_FILED_TYPE_SET = new Set([
   FieldType.MultipleSelect,
   FieldType.User,
+  FieldType.CreatedBy,
+  FieldType.LastModifiedBy,
   FieldType.Link,
 ]);
 
 export const cellValue2FilterValue = (cellValue: unknown, field: IFieldInstance) => {
   const { type, isMultipleCellValue } = field;
 
-  if (cellValue == null || ![FieldType.User, FieldType.Link].includes(type)) return cellValue;
+  if (
+    cellValue == null ||
+    ![FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy, FieldType.Link].includes(type)
+  )
+    return cellValue;
 
   if (isMultipleCellValue) {
     return (cellValue as (IUserCellValue | ILinkCellValue)[])?.map((v) => v.id);

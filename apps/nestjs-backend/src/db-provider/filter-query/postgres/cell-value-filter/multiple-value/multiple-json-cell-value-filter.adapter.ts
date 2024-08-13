@@ -1,6 +1,7 @@
 import type { IFilterOperator, ILiteralValue, ILiteralValueList } from '@teable/core';
 import { FieldType } from '@teable/core';
 import type { Knex } from 'knex';
+import { isUserOrLink } from '../../../../../utils/is-user-or-link';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
 export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres {
@@ -49,7 +50,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') @> to_jsonb(ARRAY[${sqlPlaceholders}]) AND to_jsonb(ARRAY[${sqlPlaceholders}]) @> jsonb_path_query_array(??::jsonb, '$[*].id')`,
         [this.tableColumnRef, ...value, ...value, this.tableColumnRef]
@@ -71,7 +72,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') \\?| ARRAY[${sqlPlaceholders}]`,
         [this.tableColumnRef, ...value]
@@ -93,7 +94,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(
         `NOT jsonb_path_query_array(COALESCE(??, '[]')::jsonb, '$[*].id') \\?| ARRAY[${sqlPlaceholders}]`,
         [this.tableColumnRef, ...value]
@@ -115,7 +116,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     const { type } = this.field;
     const sqlPlaceholders = this.createSqlPlaceholders(value);
 
-    if (type === FieldType.Link || type === FieldType.User) {
+    if (isUserOrLink(type)) {
       builderClient.whereRaw(
         `jsonb_path_query_array(??::jsonb, '$[*].id') @> to_jsonb(ARRAY[${sqlPlaceholders}])`,
         [this.tableColumnRef, ...value]

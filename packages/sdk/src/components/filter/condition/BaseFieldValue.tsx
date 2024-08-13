@@ -155,7 +155,9 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           iconClassName="w-4 h-4 mr-1"
         />
       );
-    case FieldType.User: {
+    case FieldType.User:
+    case FieldType.CreatedBy:
+    case FieldType.LastModifiedBy: {
       const props = {
         field,
         onSelect: (value: string[] | string | null) =>

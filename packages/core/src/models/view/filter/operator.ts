@@ -337,6 +337,8 @@ export function getValidFilterOperators(field: FieldCore): IOperator[] {
       break;
     }
     case FieldType.User:
+    case FieldType.CreatedBy:
+    case FieldType.LastModifiedBy:
     case FieldType.Link: {
       operationSet = isMultipleCellValue
         ? [hasAnyOf.value, hasAllOf.value, isExactly.value, hasNoneOf.value]

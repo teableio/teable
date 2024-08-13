@@ -25,7 +25,7 @@
     "test": "run test-unit",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
-    "typecheck": "tsc --project ./tsconfig.build.json --noEmit"
+    "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "6.4.0",

@@ -1,12 +1,10 @@
 import type { IUserCellValue } from '@teable/core';
-import { UserFieldCore } from '@teable/core';
-import { UploadType } from '@teable/openapi';
+import { CreatedByFieldCore } from '@teable/core';
 import { omit } from 'lodash';
-import StorageAdapter from '../../../attachments/plugins/adapter';
-import { getFullStorageUrl } from '../../../attachments/plugins/utils';
 import type { FieldBase } from '../field-base';
+import { UserFieldDto } from './user-field.dto';
 
-export class UserFieldDto extends UserFieldCore implements FieldBase {
+export class CreatedByFieldDto extends CreatedByFieldCore implements FieldBase {
   get isStructuredCellValue() {
     return true;
   }
@@ -28,16 +26,6 @@ export class UserFieldDto extends UserFieldCore implements FieldBase {
     const parsedValue: IUserCellValue | IUserCellValue[] =
       typeof value === 'string' ? JSON.parse(value) : value;
     return this.applyTransformation<IUserCellValue>(parsedValue, UserFieldDto.fullAvatarUrl);
-  }
-
-  static fullAvatarUrl(cellValue: IUserCellValue) {
-    if (cellValue?.id) {
-      const bucket = StorageAdapter.getBucket(UploadType.Avatar);
-      const path = `${StorageAdapter.getDir(UploadType.Avatar)}/${cellValue.id}`;
-
-      cellValue.avatarUrl = getFullStorageUrl(bucket, path);
-    }
-    return cellValue;
   }
 
   applyTransformation<T>(value: T | T[], transform: (item: T) => void): T | T[] {
