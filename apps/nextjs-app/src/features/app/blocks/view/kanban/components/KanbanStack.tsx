@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Draggable, Droppable } from '@hello-pangea/dnd';
+import type { IFilter } from '@teable/core';
 import { and, isEmpty, is, FieldType, mergeFilter } from '@teable/core';
-import type { IFilter, ISelectChoice } from '@teable/sdk/components';
+import type { ISelectChoice } from '@teable/sdk/components';
 import { useRecords } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';

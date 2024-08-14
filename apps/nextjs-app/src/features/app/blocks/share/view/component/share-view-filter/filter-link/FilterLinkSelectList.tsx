@@ -1,7 +1,7 @@
 import type { QueryFunctionContext } from '@tanstack/react-query';
 import { getShareViewLinkRecords } from '@teable/openapi';
 import { ApiRecordList } from '@teable/sdk/components';
-import type { IFilterLinkSelectListProps } from '@teable/sdk/components/filter/component/filter-link/types';
+import type { IFilterLinkSelectListProps } from '@teable/sdk/components/filter/view-filter/component/filter-link/types';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useCallback, useContext, useState } from 'react';
 import { ShareViewPageContext } from '../../../ShareViewPageContext';
