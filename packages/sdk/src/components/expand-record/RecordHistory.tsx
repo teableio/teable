@@ -87,7 +87,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'createdTime',
         header: t('expandRecord.recordHistory.createdTime'),
-        size: 80,
+        size: 90,
         cell: ({ row }) => {
           const createdTime = row.getValue<string>('createdTime');
           const createdDate = dayjs(createdTime);
@@ -102,7 +102,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'createdBy',
         header: t('expandRecord.recordHistory.createdBy'),
-        size: 60,
+        size: 80,
         cell: ({ row }) => {
           const createdBy = row.getValue<string>('createdBy');
           const user = userMap[createdBy];
@@ -121,7 +121,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       {
         accessorKey: 'field',
         header: t('noun.field'),
-        size: 128,
+        size: 116,
         cell: ({ row }) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
           const { name: fieldName, type: fieldType } = after.meta;
@@ -242,7 +242,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                 return (
                   <TableHead
                     key={header.id}
-                    className="flex items-center"
+                    className="flex items-center px-0"
                     style={{
                       width: header.getSize(),
                     }}
@@ -261,7 +261,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                 {row.getVisibleCells().map((cell) => (
                   <TableCell
                     key={cell.id}
-                    className="flex min-h-[40px] items-center"
+                    className="flex min-h-[40px] items-center px-0"
                     style={{
                       width: cell.column.getSize(),
                     }}

@@ -537,9 +537,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     if (event.button === MouseButtonType.Right) return;
     const mouseState = getMouseState();
     setMouseState(mouseState);
-    const { rowIndex: hoverRowIndex, columnIndex } = mouseState;
+    const { rowIndex: hoverRowIndex, columnIndex, type } = mouseState;
     const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
-    if (!(isCellSelection && isEqual(selectionRanges[0], [columnIndex, rowIndex]))) {
+    if (
+      !(
+        isCellSelection &&
+        isEqual(selectionRanges[0], [columnIndex, rowIndex]) &&
+        type === RegionType.Cell
+      )
+    ) {
       setEditing(false);
       editorContainerRef.current?.saveValue?.();
     }

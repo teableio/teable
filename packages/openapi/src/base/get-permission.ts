@@ -2,7 +2,7 @@ import type {
   BaseActions,
   TableActions,
   AutomationActions,
-  RecordHistoryActions,
+  TableRecordHistoryActions,
 } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
@@ -11,7 +11,7 @@ import { z } from '../zod';
 export const GET_BASE_PERMISSION = '/base/{baseId}/permission';
 
 export const GetBasePermissionVoSchema = z.record(
-  z.custom<TableActions | BaseActions | AutomationActions | RecordHistoryActions>(),
+  z.custom<TableActions | BaseActions | AutomationActions | TableRecordHistoryActions>(),
   z.boolean()
 );
 

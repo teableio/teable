@@ -59,7 +59,7 @@ const RightList = ({
     <div className={cn('flex', className)}>
       <Collaborators className="flex" />
       <div className="flex">
-        {basePermission?.['record_history|read'] && (
+        {basePermission?.['table_record_history|read'] && (
           <Dialog>
             <DialogTrigger asChild>
               <Button
@@ -159,7 +159,7 @@ const RightMenu = ({ className }: { className?: string }) => {
               <UserPlus className="size-4" /> {t('space:action.invite')}
             </Button>
           </SpaceCollaboratorModalTrigger>
-          {basePermission?.['record_history|read'] && (
+          {basePermission?.['table_record_history|read'] && (
             <Sheet modal={true}>
               <SheetTrigger asChild>
                 <Button size="xs" variant="ghost" className="flex justify-start">

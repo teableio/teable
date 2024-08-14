@@ -79,7 +79,13 @@ export const CellValue = (props: ICellValueContainer) => {
       );
     }
     case FieldType.Attachment: {
-      return <CellAttachment value={value as IAttachmentCellValue} className={className} />;
+      return (
+        <CellAttachment
+          value={value as IAttachmentCellValue}
+          className={className}
+          itemClassName={itemClassName}
+        />
+      );
     }
     case FieldType.Rating: {
       return (
