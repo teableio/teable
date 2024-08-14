@@ -7,7 +7,7 @@ import { ReactQueryKeys } from '../../../../config/react-query-keys';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useBaseId } from '../../../../hooks/use-base-id';
 import { useSession } from '../../../../hooks/use-session';
-import type { UserField } from '../../../../model';
+import type { UserField, CreatedByField, LastModifiedByField } from '../../../../model';
 import { UserTag } from '../../../cell-value';
 import { UserOption } from '../../../editor';
 import { BaseMultipleSelect, BaseSingleSelect } from './base';

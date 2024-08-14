@@ -1,5 +1,5 @@
+import type { IFilter } from '@teable/core';
 import { Filter as FilterIcon } from '@teable/icons';
-import type { IFilter } from '@teable/sdk/components';
 import { ViewFilter } from '@teable/sdk/components';
 import { useTable, useTables, useView, useViews } from '@teable/sdk/hooks';
 import { Button, useToast } from '@teable/ui-lib/shadcn';

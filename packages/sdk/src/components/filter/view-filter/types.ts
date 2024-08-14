@@ -7,6 +7,7 @@ import type {
   LastModifiedByField,
 } from '../../../model';
 import type { IBaseFilterValue, IConditionItemProperty } from '../types';
+import type { ILinkContext } from './component/filter-link/context';
 
 export interface IViewFilterConditionItem extends IConditionItemProperty {
   field: string | null;
@@ -48,12 +49,4 @@ export interface IFilterComponents {
   ) => JSX.Element;
 }
 
-export interface IViewFilterLinkContext {
-  isLoading?: boolean;
-  data?:
-    | {
-        tableId: string;
-        data: Record<string, string | undefined>;
-      }[]
-    | undefined;
-}
+export type IViewFilterLinkContext = ILinkContext;
