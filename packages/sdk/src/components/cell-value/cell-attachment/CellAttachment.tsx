@@ -1,6 +1,6 @@
 import type { IAttachmentCellValue } from '@teable/core';
 import { FilePreviewItem, FilePreviewProvider, cn } from '@teable/ui-lib';
-import { getFileCover } from '../../editor/attachment';
+import { getFileCover, isSystemFileIcon } from '../../editor/attachment';
 import type { ICellValue } from '../type';
 
 interface ICellAttachment extends ICellValue<IAttachmentCellValue> {
@@ -20,7 +20,10 @@ export const CellAttachment = (props: ICellAttachment) => {
             <FilePreviewItem
               key={id}
               className={cn(
-                'shrink-0 h-7 max-w-full w-auto border rounded border-slate-200 overflow-hidden',
+                'shrink-0 size-7 border rounded border-slate-200 overflow-hidden cursor-pointer',
+                {
+                  'border-none': isSystemFileIcon(attachment.mimetype),
+                },
                 itemClassName
               )}
               src={presignedUrl || ''}

@@ -10,7 +10,7 @@ export enum ActionPrefix {
   Field = 'field',
   Automation = 'automation',
   User = 'user',
-  RecordHistory = 'record_history',
+  TableRecordHistory = 'table_record_history',
 }
 
 const defaultActionsSchema = z.enum(['create', 'update', 'delete', 'read']);
@@ -62,8 +62,8 @@ export type UserActions = `${ActionPrefix.User}|${z.infer<typeof userActionsSche
 
 export const recordHistoryActionsSchema = z.enum(['read']);
 
-export type RecordHistoryActions =
-  `${ActionPrefix.RecordHistory}|${z.infer<typeof recordHistoryActionsSchema>}`;
+export type TableRecordHistoryActions =
+  `${ActionPrefix.TableRecordHistory}|${z.infer<typeof recordHistoryActionsSchema>}`;
 
 export type AllActions =
   | SpaceActions
@@ -74,7 +74,7 @@ export type AllActions =
   | RecordActions
   | AutomationActions
   | UserActions
-  | RecordHistoryActions;
+  | TableRecordHistoryActions;
 
 export type ActionPrefixMap = {
   [ActionPrefix.Space]: SpaceActions[];
@@ -85,7 +85,7 @@ export type ActionPrefixMap = {
   [ActionPrefix.Record]: RecordActions[];
   [ActionPrefix.Automation]: AutomationActions[];
   [ActionPrefix.User]: UserActions[];
-  [ActionPrefix.RecordHistory]: RecordHistoryActions[];
+  [ActionPrefix.TableRecordHistory]: TableRecordHistoryActions[];
 };
 
 export const actionPrefixMap: ActionPrefixMap = {
@@ -123,6 +123,6 @@ export const actionPrefixMap: ActionPrefixMap = {
     'automation|read',
     'automation|update',
   ],
-  [ActionPrefix.RecordHistory]: ['record_history|read'],
+  [ActionPrefix.TableRecordHistory]: ['table_record_history|read'],
   [ActionPrefix.User]: ['user|email_read'],
 };
