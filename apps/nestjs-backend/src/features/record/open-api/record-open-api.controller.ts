@@ -38,7 +38,7 @@ export class RecordOpenApiController {
     return this.recordOpenApiService.getRecordHistory(tableId, recordId, query);
   }
 
-  @Permissions('record_history|read')
+  @Permissions('table_record_history|read')
   @Get('/history')
   async getRecordListHistory(
     @Param('tableId') tableId: string,

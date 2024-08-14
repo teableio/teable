@@ -80,6 +80,9 @@ const actionsI18nMap: Record<
   'table|export': {
     description: 'permission.actionDescription.tableExport',
   },
+  'table_record_history|read': {
+    description: 'permission.actionDescription.recordHistoryRead',
+  },
   'view|create': {
     description: 'permission.actionDescription.viewCreate',
   },
@@ -134,9 +137,6 @@ const actionsI18nMap: Record<
   'user|email_read': {
     description: 'permission.actionDescription.userEmailRead',
   },
-  'record_history|read': {
-    description: 'permission.actionDescription.recordHistoryRead',
-  },
   'base|query_data': {
     description: 'permission.actionDescription.baseQuery',
   },
@@ -167,7 +167,7 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   [ActionPrefix.User]: {
     title: 'noun.user',
   },
-  [ActionPrefix.RecordHistory]: {
+  [ActionPrefix.TableRecordHistory]: {
     title: 'noun.recordHistory',
   },
 };
