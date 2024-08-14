@@ -27,6 +27,8 @@ import {
   RowCounter,
   useGridColumnOrder,
   generateLocalId,
+  useGridTooltipStore,
+  RegionType,
 } from '@teable/sdk/components';
 import {
   useGroupPoint,
@@ -40,10 +42,12 @@ import {
   useView,
 } from '@teable/sdk/hooks';
 import { Skeleton, useToast } from '@teable/ui-lib/shadcn';
+import { uniqueId } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { StatisticMenu } from '@/features/app/blocks/view/grid/components';
+import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
 import type { IExpandRecordContainerRef } from '@/features/app/components/ExpandRecordContainer/types';
 import { useHiddenFields } from '@/features/app/hooks/useHiddenFields';
@@ -74,6 +78,7 @@ export const GridViewBase = () => {
   const { searchQuery: search } = useSearch();
   const hiddenFields = useHiddenFields();
   const customIcons = useGridIcons();
+  const { openTooltip, closeTooltip } = useGridTooltipStore();
 
   const prepare = isHydrated && view && columns.length;
   const { filter, sort, group } = view ?? {};
@@ -204,6 +209,23 @@ export const GridViewBase = () => {
     [columns, openStatisticMenu]
   );
 
+  const componentId = useMemo(() => uniqueId('shared-grid-view-'), []);
+
+  const onItemHovered = (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => {
+    const [columnIndex] = cellItem;
+    const { description } = columns[columnIndex] ?? {};
+
+    closeTooltip();
+
+    if (type === RegionType.ColumnDescription && description) {
+      openTooltip({
+        id: componentId,
+        text: description,
+        position: bounds,
+      });
+    }
+  };
+
   return (
     <div ref={container} className="relative size-full overflow-hidden">
       {prepare ? (
@@ -231,6 +253,7 @@ export const GridViewBase = () => {
             onVisibleRegionChanged={onVisibleRegionChanged}
             onSelectionChanged={onSelectionChanged}
             onCopy={onCopy}
+            onItemHovered={onItemHovered}
             onRowExpand={onRowExpandInner}
             onColumnResize={onColumnResize}
             onColumnOrdered={onColumnOrdered}
@@ -249,6 +272,7 @@ export const GridViewBase = () => {
         </div>
       )}
       <StatisticMenu />
+      <DomBox id={componentId} />
       <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />
     </div>
   );
