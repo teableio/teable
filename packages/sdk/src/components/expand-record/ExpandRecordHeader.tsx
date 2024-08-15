@@ -4,15 +4,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Separator,
   cn,
 } from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useTablePermission } from '../../hooks';
+import { usePermissionActionsStatic, useTablePermission } from '../../hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
@@ -45,6 +43,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onRecordHistoryToggle,
   } = props;
 
+  const { actionStaticMap } = usePermissionActionsStatic();
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
@@ -121,10 +120,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               <Ellipsis />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem>
-                <Button variant="destructive" onClick={onRecordHistoryToggle}>
-                  <Trash2 /> {t('permission.actionDescription.recordDelete')}
-                </Button>
+              <DropdownMenuItem className="aria-selected: flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500">
+                <Trash2 /> {actionStaticMap['record|delete'].description}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
