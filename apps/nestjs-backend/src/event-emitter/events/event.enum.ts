@@ -27,6 +27,10 @@ export enum Events {
   TABLE_VIEW_DELETE = 'table.view.delete',
   TABLE_VIEW_UPDATE = 'table.view.update',
 
+  CONTROLLER_RECORDS_CREATE = 'controller.records.create',
+  CONTROLLER_RECORDS_UPDATE = 'controller.records.update',
+  CONTROLLER_RECORDS_DELETE = 'controller.records.delete',
+
   TABLE_USER_RENAME_COMPLETE = 'table.user.rename.complete',
 
   SHARED_VIEW_CREATE = 'shared.view.create',
