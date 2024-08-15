@@ -93,7 +93,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
             <CommandInput placeholder={placeholder} className="placeholder:text-[13px]" />
           ) : null}
           <CommandEmpty>{notFoundText}</CommandEmpty>
-          <CommandList>
+          <CommandList className="mt-1">
             {options?.map((option) => (
               <CommandItem
                 key={option.value}

@@ -84,9 +84,9 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           size="sm"
           aria-expanded={open}
           disabled={disabled}
-          className={cn('w-32 justify-between overflow-hidden px-2', className)}
+          className={cn('justify-between overflow-hidden px-2', className)}
         >
-          <div className="flex shrink gap-1 overflow-hidden whitespace-nowrap">
+          <div className="flex shrink gap-1 overflow-auto whitespace-nowrap">
             {selectedValues?.length ? (
               selectedValues?.map(
                 (value, index) =>
@@ -107,7 +107,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
       </PopoverTrigger>
       <PopoverContent className={cn('p-1', popoverClassName)}>
         <Command className="rounded-sm" filter={commandFilter}>
-          <CommandList>
+          <CommandList className="mt-1">
             <CommandInput
               placeholder={t('common.search.placeholder')}
               className="placeholder:text-[13px]"

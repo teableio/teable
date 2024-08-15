@@ -37,9 +37,15 @@ export const UserOption = (props: IUserTagProps) => {
   return (
     <div className={cn('flex items-center gap-4', className)}>
       <Avatar className="box-content size-7 cursor-pointer border">{avatarCom}</Avatar>
-      <div>
-        <p className="text-sm font-medium leading-none">{name}</p>
-        {email && <p className="text-sm text-muted-foreground">{email}</p>}
+      <div className="flex-1 truncate">
+        <p className="truncate text-sm font-medium leading-none" title={name}>
+          {name}
+        </p>
+        {email && (
+          <p className="truncate text-sm text-muted-foreground" title={email}>
+            {email}
+          </p>
+        )}
       </div>
     </div>
   );

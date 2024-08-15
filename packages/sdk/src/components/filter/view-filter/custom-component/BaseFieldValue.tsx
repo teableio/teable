@@ -46,7 +46,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       placeholder={t('filter.default.placeholder')}
       value={value as string}
       onChange={onSelect}
-      className="min-w-24 max-w-40"
+      className="min-w-28 max-w-40"
     />
   );
 
@@ -56,7 +56,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         <NumberEditor
           value={value as number}
           onChange={onSelect as (value?: number | null) => void}
-          className="min-w-24 max-w-40 placeholder:text-xs"
+          className="min-w-28 max-w-40 placeholder:text-xs"
           placeholder={t('filter.default.placeholder')}
         />
       );
@@ -66,8 +66,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           field={field}
           value={value as string[]}
           onSelect={(value) => onSelect(value as IFilterItem['value'])}
-          className="min-w-24 max-w-64"
-          popoverClassName="max-w-64 min-w-24"
+          className="min-w-28 max-w-64"
+          popoverClassName="max-w-64 min-w-28"
         />
       ) : (
         <FilterSingleSelect
@@ -75,8 +75,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           value={value as string}
           onSelect={onSelect}
           operator={operator}
-          className="min-w-24 max-w-64"
-          popoverClassName="max-w-64 min-w-24"
+          className="min-w-28 max-w-64"
+          popoverClassName="max-w-64 min-w-28"
         />
       );
     case FieldType.MultipleSelect:
@@ -85,8 +85,8 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           field={field}
           value={value as string[]}
           onSelect={(value) => onSelect(value as IFilterItem['value'])}
-          className="min-w-24 max-w-64"
-          popoverClassName="min-w-24 max-w-64"
+          className="min-w-28 max-w-64"
+          popoverClassName="min-w-28 max-w-64"
         />
       );
     case FieldType.Date:

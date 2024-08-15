@@ -34,11 +34,27 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     return (
       <div
         key={value?.value}
-        className={cn('px-2 rounded-lg')}
+        className={cn('px-2 rounded-lg flex-1')}
         style={{
           backgroundColor: ColorUtils.getHexForColor(value.color),
           color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
         }}
+        title={value.label}
+      >
+        {value.label}
+      </div>
+    );
+  };
+  const optionRender = (value: IColorOption) => {
+    return (
+      <div
+        key={value?.value}
+        className={cn('px-2 rounded-lg truncate')}
+        style={{
+          backgroundColor: ColorUtils.getHexForColor(value.color),
+          color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
+        }}
+        title={value.label}
       >
         {value.label}
       </div>
@@ -51,7 +67,7 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
       onSelect={onSelect}
       value={values}
       displayRender={displayRender}
-      optionRender={displayRender}
+      optionRender={optionRender}
       className={className}
       popoverClassName={popoverClassName}
       defaultLabel={<DefaultErrorLabel />}
