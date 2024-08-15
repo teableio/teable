@@ -1,12 +1,12 @@
 import { ChevronDown, ChevronUp, Ellipsis, History, Link, Trash2, X } from '@teable/icons';
 import {
   Button,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   Separator,
-  cn,
 } from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
@@ -23,6 +23,7 @@ interface IExpandRecordHeader {
   onNext?: () => void;
   onCopyUrl?: () => void;
   onRecordHistoryToggle?: () => void;
+  onDelete?: () => Promise<void>;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -41,6 +42,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onClose,
     onCopyUrl,
     onRecordHistoryToggle,
+    onDelete,
   } = props;
 
   const { actionStaticMap } = usePermissionActionsStatic();
@@ -99,32 +101,41 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </Button>
           </TooltipWrap>
           {editable && (
-            <TooltipWrap
-              description={
-                recordHistoryVisible
-                  ? t('expandRecord.recordHistory.hiddenRecordHistory')
-                  : t('expandRecord.recordHistory.showRecordHistory')
-              }
-            >
-              <Button
-                variant={recordHistoryVisible ? 'secondary' : 'ghost'}
-                size={'xs'}
-                onClick={onRecordHistoryToggle}
+            <>
+              <TooltipWrap
+                description={
+                  recordHistoryVisible
+                    ? t('expandRecord.recordHistory.hiddenRecordHistory')
+                    : t('expandRecord.recordHistory.showRecordHistory')
+                }
               >
-                <History />
-              </Button>
-            </TooltipWrap>
+                <Button
+                  variant={recordHistoryVisible ? 'secondary' : 'ghost'}
+                  size={'xs'}
+                  onClick={onRecordHistoryToggle}
+                >
+                  <History />
+                </Button>
+              </TooltipWrap>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger className="px-2">
+                  <Ellipsis />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    className="aria-selected: flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
+                    onClick={async () => {
+                      await onDelete?.();
+                      onClose?.();
+                    }}
+                  >
+                    <Trash2 /> {actionStaticMap['record|delete'].description}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="px-2">
-              <Ellipsis />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem className="aria-selected: flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500">
-                <Trash2 /> {actionStaticMap['record|delete'].description}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />

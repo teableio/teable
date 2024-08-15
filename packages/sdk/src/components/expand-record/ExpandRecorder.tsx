@@ -33,11 +33,20 @@ interface IExpandRecorderProps {
   serverData?: IRecord;
   onClose?: () => void;
   onUpdateRecordIdCallback?: (recordId: string) => void;
+  onDelete?: () => Promise<void>;
 }
 
 export const ExpandRecorder = (props: IExpandRecorderProps) => {
-  const { model, tableId, recordId, recordIds, serverData, onClose, onUpdateRecordIdCallback } =
-    props;
+  const {
+    model,
+    tableId,
+    recordId,
+    recordIds,
+    serverData,
+    onClose,
+    onUpdateRecordIdCallback,
+    onDelete,
+  } = props;
   const { toast } = useToast();
   const { t } = useTranslation();
   const permission = useTablePermission();
@@ -80,6 +89,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
           onRecordHistoryToggle={onRecordHistoryToggle}
+          onDelete={onDelete}
         />
       </Wrap>
     </div>
