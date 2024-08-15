@@ -60,9 +60,9 @@ export class FieldDeletingService {
     }
   }
 
-  async delateFieldItem(tableId: string, field: IFieldInstance) {
+  async deleteFieldItem(tableId: string, field: IFieldInstance) {
     await this.cleanRef(field);
-    await this.viewService.deleteColumnMetaOrder(tableId, [field.id]);
+    await this.viewService.deleteViewRelativeByFields(tableId, [field.id]);
     await this.fieldService.batchDeleteFields(tableId, [field.id]);
   }
 
@@ -89,11 +89,11 @@ export class FieldDeletingService {
       const linkFieldOptions = field.options;
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
       await this.fieldSupplementService.cleanForeignKey(linkFieldOptions);
-      await this.delateFieldItem(tableId, field);
+      await this.deleteFieldItem(tableId, field);
 
       if (symmetricFieldId) {
         const symmetricField = await this.getField(foreignTableId, symmetricFieldId);
-        symmetricField && (await this.delateFieldItem(foreignTableId, symmetricField));
+        symmetricField && (await this.deleteFieldItem(foreignTableId, symmetricField));
         return [
           { tableId, fieldId },
           { tableId: foreignTableId, fieldId: symmetricFieldId },
@@ -102,7 +102,7 @@ export class FieldDeletingService {
       return [{ tableId, fieldId }];
     }
 
-    await this.delateFieldItem(tableId, field);
+    await this.deleteFieldItem(tableId, field);
     return [{ tableId, fieldId }];
   }
 }

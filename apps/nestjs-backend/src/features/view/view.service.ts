@@ -10,6 +10,11 @@ import type {
   IColumnMeta,
   IViewPropertyKeys,
   IFormViewOptions,
+  IGroup,
+  IViewOptions,
+  IFilter,
+  IKanbanViewOptions,
+  IFilterSet,
 } from '@teable/core';
 import {
   getUniqName,
@@ -502,10 +507,18 @@ export class ViewService implements IReadonlyAdapterService {
     }
   }
 
-  async deleteColumnMetaOrder(tableId: string, fieldIds: string[]) {
+  async deleteViewRelativeByFields(tableId: string, fieldIds: string[]) {
     // 1. get all views id and column meta by tableId
     const view = await this.prismaService.view.findMany({
-      select: { columnMeta: true, id: true },
+      select: {
+        columnMeta: true,
+        group: true,
+        options: true,
+        sort: true,
+        filter: true,
+        id: true,
+        type: true,
+      },
       where: { tableId: tableId },
     });
 
@@ -516,18 +529,110 @@ export class ViewService implements IReadonlyAdapterService {
     for (let i = 0; i < view.length; i++) {
       const ops: IOtOperation[] = [];
       const viewId = view[i].id;
+      const viewType = view[i].type;
+
       const curColumnMeta: IColumnMeta = JSON.parse(view[i].columnMeta);
+      const curSort: ISort = view[i].sort ? JSON.parse(view[i].sort!) : null;
+      const curGroup: IGroup = view[i].group ? JSON.parse(view[i].group!) : null;
+      const curOptions: IViewOptions = view[i].options ? JSON.parse(view[i].options!) : null;
+      const curFilter: IFilter = view[i].filter ? JSON.parse(view[i].filter!) : null;
+
       fieldIds.forEach((fieldId) => {
-        const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
-          fieldId: fieldId,
-          newColumnMeta: null,
-          oldColumnMeta: { ...curColumnMeta[fieldId] },
-        });
-        ops.push(op);
+        const columnOps = this.getDeleteColumnMetaByFieldIdOps(curColumnMeta, fieldId);
+        ops.push(columnOps);
+
+        // filter
+        if (view[i].filter && view[i].filter?.includes(fieldId) && curFilter) {
+          const filterOps = this.getDeleteFilterByFieldIdOps(curFilter, fieldId);
+          ops.push(filterOps);
+        }
+
+        // sort
+        if (curSort && Array.isArray(curSort.sortObjs)) {
+          const sortOps = this.getDeleteSortByFieldIdOps(curSort, fieldId);
+          ops.push(sortOps);
+        }
+
+        // group
+        if (curGroup && Array.isArray(curGroup)) {
+          const groupOps = this.getDeleteGroupByFieldIdOps(curGroup, fieldId);
+          ops.push(groupOps);
+        }
+
+        // options for kanban view stackFieldId
+        if (viewType === ViewType.Kanban && curOptions) {
+          const optionsOps = this.getDeleteOptionByFieldIdOps(curOptions, fieldId);
+          ops.push(optionsOps);
+        }
       });
 
       // 2. build update ops and emit
       await this.updateViewByOps(tableId, viewId, ops);
     }
+  }
+
+  private getDeleteFilterByFieldIdOps(filter: IFilterSet, fieldId: string) {
+    const removeItemsByFieldId = (filter: IFilterSet, fieldId: string) => {
+      if (Array.isArray(filter.filterSet)) {
+        filter.filterSet = filter.filterSet.filter((item) => {
+          if ('fieldId' in item && item.fieldId === fieldId) {
+            return false;
+          }
+          if ('filterSet' in item && item.filterSet) {
+            removeItemsByFieldId(item, fieldId);
+            return item.filterSet.length > 0;
+          }
+          return true;
+        });
+      }
+      return filter;
+    };
+
+    const newFilter = removeItemsByFieldId(filter, fieldId) as IFilter;
+    return ViewOpBuilder.editor.setViewProperty.build({
+      key: 'filter',
+      newValue: newFilter?.filterSet?.length ? newFilter : null,
+      oldValue: filter,
+    });
+  }
+  private getDeleteSortByFieldIdOps(sort: NonNullable<ISort>, fieldId: string) {
+    const newSort: ISort = {
+      sortObjs: sort.sortObjs.filter((sortItem) => sortItem.fieldId !== fieldId),
+      manualSort: !!sort.manualSort,
+    };
+    return ViewOpBuilder.editor.setViewProperty.build({
+      key: 'sort',
+      newValue: newSort?.sortObjs.length ? newSort : null,
+      oldValue: sort,
+    });
+  }
+  private getDeleteGroupByFieldIdOps(group: NonNullable<IGroup>, fieldId: string) {
+    const newGroup: IGroup = group.filter((groupItem) => groupItem.fieldId !== fieldId);
+    return ViewOpBuilder.editor.setViewProperty.build({
+      key: 'group',
+      newValue: newGroup?.length ? newGroup : null,
+      oldValue: group,
+    });
+  }
+  private getDeleteColumnMetaByFieldIdOps(columnMeta: NonNullable<IColumnMeta>, fieldId: string) {
+    return ViewOpBuilder.editor.updateViewColumnMeta.build({
+      fieldId: fieldId,
+      newColumnMeta: null,
+      oldColumnMeta: { ...columnMeta[fieldId] },
+    });
+  }
+  private getDeleteOptionByFieldIdOps(options: IViewOptions, fieldId: string) {
+    const newOptions = { ...options } as IKanbanViewOptions;
+    if (newOptions.stackFieldId === fieldId) {
+      delete newOptions.stackFieldId;
+    }
+    if (newOptions.coverFieldId === fieldId) {
+      delete newOptions.coverFieldId;
+    }
+    return ViewOpBuilder.editor.setViewProperty.build({
+      key: 'options',
+      newValue: newOptions,
+      oldValue: options,
+    });
   }
 }
