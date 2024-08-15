@@ -1,5 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseInterceptors,
+} from '@nestjs/common';
 import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/openapi';
 import {
   createRecordsRoSchema,
@@ -15,6 +25,11 @@ import {
   getRecordHistoryQuerySchema,
   IGetRecordHistoryQuery,
 } from '@teable/openapi';
+import {
+  EmitEvent,
+  EventEmitterInterceptor,
+} from '../../../event-emitter/decorators/event-emitter.interceptor';
+import { Events } from '../../../event-emitter/events';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { RecordService } from '../record.service';
@@ -22,6 +37,7 @@ import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
 
 @Controller('api/table/:tableId/record')
+@UseInterceptors(EventEmitterInterceptor)
 export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,
@@ -78,6 +94,7 @@ export class RecordOpenApiController {
 
   @Permissions('record|create')
   @Post()
+  @EmitEvent(Events.CONTROLLER_RECORDS_CREATE)
   async createRecords(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo

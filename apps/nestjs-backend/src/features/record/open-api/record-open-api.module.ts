@@ -8,6 +8,7 @@ import { RecordCalculateModule } from '../record-calculate/record-calculate.modu
 import { RecordModule } from '../record.module';
 import { RecordOpenApiController } from './record-open-api.controller';
 import { RecordOpenApiService } from './record-open-api.service';
+import { RecordUndoRedoService } from './record-undo-redo-service';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { RecordOpenApiService } from './record-open-api.service';
     ViewOpenApiModule,
   ],
   controllers: [RecordOpenApiController],
-  providers: [RecordOpenApiService],
+  providers: [RecordOpenApiService, RecordUndoRedoService],
   exports: [RecordOpenApiService],
 })
 export class RecordOpenApiModule {}
