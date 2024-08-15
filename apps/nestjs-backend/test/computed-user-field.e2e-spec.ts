@@ -1,10 +1,27 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo } from '@teable/core';
-import { FieldKeyType, FieldType } from '@teable/core';
-import { getRecord, getRecords, updateRecord, type ITableFullVo } from '@teable/openapi';
-import { createField, createTable, deleteTable, initApp } from './utils/init-app';
+import type { IFieldRo, IFieldVo } from '@teable/core';
+import { FieldKeyType, FieldType, SpaceRole } from '@teable/core';
+import {
+  deleteSpaceCollaborator,
+  emailSpaceInvitation,
+  getRecord,
+  getRecords,
+  updateRecord,
+  USER_ME,
+  deleteTable,
+  UPDATE_USER_NAME,
+  urlBuilder,
+  CREATE_FIELD,
+  CREATE_TABLE,
+} from '@teable/openapi';
+import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
+import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
+import { Events } from '../src/event-emitter/events';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { createField, createTable, initApp } from './utils/init-app';
 
-describe('OpenAPI FieldController (e2e)', () => {
+describe('Computed user field (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
   const userName = globalThis.testConfig.userName;
@@ -197,6 +214,123 @@ describe('OpenAPI FieldController (e2e)', () => {
       expect(updatedRecord.data.fields[formulaField.id]).toEqual(
         updatedRecord.data.lastModifiedTime
       );
+    });
+  });
+
+  describe('rename', () => {
+    let user2Request: AxiosInstance;
+    let user2: IUserMeVo;
+    let table1: ITableFullVo;
+    let eventEmitterService: EventEmitterService;
+
+    const promises: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      [key: string]: { resolve: (value: any) => void; reject: (error: any) => void };
+    } = {};
+
+    function createRenamePromise(userId: string) {
+      return new Promise((resolve, reject) => {
+        promises[userId] = { resolve, reject };
+      });
+    }
+
+    beforeAll(async () => {
+      user2Request = await createNewUserAxios({
+        email: 'renameUser@example.com',
+        password: '12345678',
+      });
+
+      user2Request.patch<void>(urlBuilder(UPDATE_USER_NAME), { name: 'default' });
+      user2 = (await user2Request.get<IUserMeVo>(USER_ME)).data;
+
+      await emailSpaceInvitation({
+        spaceId: globalThis.testConfig.spaceId,
+        emailSpaceInvitationRo: { role: SpaceRole.Creator, emails: ['renameUser@example.com'] },
+      });
+      table1 = (
+        await user2Request.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), {
+          name: 'table1',
+        })
+      ).data;
+
+      eventEmitterService = app.get(EventEmitterService);
+      eventEmitterService.eventEmitter.on(Events.TABLE_USER_RENAME_COMPLETE, (payload) => {
+        const userId = payload?.id;
+
+        if (!promises[userId]) return;
+
+        const { resolve } = promises[userId];
+        resolve?.(payload);
+        delete promises[userId];
+      });
+    });
+
+    afterAll(async () => {
+      await deleteSpaceCollaborator({
+        spaceId: globalThis.testConfig.spaceId,
+        userId: user2.id,
+      });
+      await deleteTable(baseId, table1.id);
+      eventEmitterService.eventEmitter.removeAllListeners(Events.TABLE_USER_RENAME_COMPLETE);
+    });
+
+    it('should update createdBy fields when user rename', async () => {
+      const fieldRo: IFieldRo = {
+        type: FieldType.CreatedBy,
+      };
+
+      const field = await user2Request
+        .post<IFieldVo>(urlBuilder(CREATE_FIELD, { tableId: table1.id }), fieldRo)
+        .then((res) => res.data);
+
+      const promise = createRenamePromise(user2.id);
+      user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name' });
+      await promise;
+
+      const getRecordsResponse = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+
+      getRecordsResponse.data.records.forEach((record) => {
+        expect(record.fields[field.id]).toMatchObject({
+          title: 'new name',
+        });
+      });
+    });
+
+    it('should update user fields when user rename', async () => {
+      const fieldRo: IFieldRo = {
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          shouldNotify: false,
+        },
+      };
+
+      const field = (
+        await user2Request.post<IFieldVo>(urlBuilder(CREATE_FIELD, { tableId: table1.id }), fieldRo)
+      ).data;
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        record: {
+          fields: {
+            [field.id]: [globalThis.testConfig.userId, user2.id],
+          },
+        },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+
+      await user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name 2' });
+
+      const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+
+      expect(records.data.records[0].fields[field.id]).toMatchObject([
+        {
+          title: 'test',
+        },
+        {
+          title: 'new name 2',
+        },
+      ]);
     });
   });
 });

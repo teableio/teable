@@ -36,6 +36,22 @@ export interface IDbProvider {
 
   dropColumn(tableName: string, columnName: string): string[];
 
+  updateJsonColumn(
+    tableName: string,
+    columnName: string,
+    id: string,
+    key: string,
+    value: string
+  ): string;
+
+  updateJsonArrayColumn(
+    tableName: string,
+    columnName: string,
+    id: string,
+    key: string,
+    value: string
+  ): string;
+
   // sql response format: { name: string }[], name for columnName.
   columnInfo(tableName: string): string;
 

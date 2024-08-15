@@ -33,5 +33,5 @@ export const UpdateUserNameRoute: RouteConfig = registerRoute({
 });
 
 export const updateUserName = async (updateUserNameRo: IUpdateUserNameRo) => {
-  return axios.patch<void>(urlBuilder(UPDATE_USER_NAME), updateUserNameRo);
+  return axios.patch<void>(UPDATE_USER_NAME, updateUserNameRo);
 };
