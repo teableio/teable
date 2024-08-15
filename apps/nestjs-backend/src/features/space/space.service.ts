@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { SpaceRole, generateSpaceId, getUniqName } from '@teable/core';
+import type { IRole } from '@teable/core';
+import { Role, generateSpaceId, getUniqName } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable/openapi';
@@ -28,7 +29,7 @@ export class SpaceService {
       await this.collaboratorService.createSpaceCollaborator(
         spaceCreateInput.createdBy,
         result.id,
-        SpaceRole.Owner
+        Role.Owner
       );
       return result;
     });
@@ -65,7 +66,7 @@ export class SpaceService {
     }
     return {
       ...space,
-      role: collaborator.roleName as SpaceRole,
+      role: collaborator.roleName as IRole,
     };
   }
 
@@ -92,7 +93,7 @@ export class SpaceService {
     const roleMap = keyBy(collaboratorSpaceList, 'spaceId');
     return spaceList.map((space) => ({
       ...space,
-      role: roleMap[space.id].roleName as SpaceRole,
+      role: roleMap[space.id].roleName as IRole,
     }));
   }
 

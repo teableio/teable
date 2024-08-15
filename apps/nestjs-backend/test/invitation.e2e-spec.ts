@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { SpaceRole } from '@teable/core';
+import { Role } from '@teable/core';
 import type { CreateSpaceInvitationLinkVo, ListSpaceCollaboratorVo } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -38,7 +38,7 @@ describe('OpenAPI InvitationController (e2e)', () => {
   it('/api/invitation/link/accept (POST)', async () => {
     const invitationLinkRes = await apiCreateSpaceInvitationLink({
       spaceId,
-      createSpaceInvitationLinkRo: { role: SpaceRole.Owner },
+      createSpaceInvitationLinkRo: { role: Role.Owner },
     });
 
     const { invitationId, invitationCode } = invitationLinkRes.data as CreateSpaceInvitationLinkVo;
@@ -48,6 +48,6 @@ describe('OpenAPI InvitationController (e2e)', () => {
     const collaborators: ListSpaceCollaboratorVo = (await apiGetSpaceCollaboratorList(spaceId))
       .data;
     const collaborator = collaborators.find(({ email }) => email === 'newuser@example.com');
-    expect(collaborator?.role).toEqual(SpaceRole.Owner);
+    expect(collaborator?.role).toEqual(Role.Owner);
   });
 });

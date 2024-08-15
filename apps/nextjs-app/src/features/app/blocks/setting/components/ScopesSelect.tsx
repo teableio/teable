@@ -1,36 +1,36 @@
 import { actionPrefixMap } from '@teable/core';
-import type { ActionPrefix, AllActions } from '@teable/core';
+import type { ActionPrefix, Action } from '@teable/core';
 import { usePermissionActionsStatic } from '@teable/sdk/hooks';
 import { Checkbox, Label } from '@teable/ui-lib/shadcn';
 import { useMemo, useState } from 'react';
 
 interface IScopesSelectProps {
-  initValue?: AllActions[];
+  initValue?: Action[];
   onChange?: (value: string[]) => void;
   actionsPrefixes?: ActionPrefix[];
 }
 
 export const ScopesSelect = (props: IScopesSelectProps) => {
   const { onChange, initValue, actionsPrefixes } = props;
-  const [value, setValue] = useState<Record<AllActions, boolean>>(() => {
+  const [value, setValue] = useState<Record<Action, boolean>>(() => {
     if (initValue) {
       return initValue.reduce(
         (acc, cur) => {
           acc[cur] = true;
           return acc;
         },
-        {} as Record<AllActions, boolean>
+        {} as Record<Action, boolean>
       );
     }
-    return {} as Record<AllActions, boolean>;
+    return {} as Record<Action, boolean>;
   });
   const { actionPrefixStaticMap, actionStaticMap } = usePermissionActionsStatic();
 
-  const onCheckBoxChange = (status: boolean, val: AllActions) => {
+  const onCheckBoxChange = (status: boolean, val: Action) => {
     const actionMap = { ...value };
     actionMap[val] = status;
     setValue(actionMap);
-    const actions = Object.keys(actionMap).filter((key) => actionMap[key as AllActions]);
+    const actions = Object.keys(actionMap).filter((key) => actionMap[key as Action]);
     onChange?.(actions);
   };
 

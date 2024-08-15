@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable/core';
-import { FieldKeyType, FieldType, SpaceRole } from '@teable/core';
+import { FieldKeyType, FieldType, Role } from '@teable/core';
 import {
   deleteSpaceCollaborator,
   emailSpaceInvitation,
@@ -245,7 +245,7 @@ describe('Computed user field (e2e)', () => {
 
       await emailSpaceInvitation({
         spaceId: globalThis.testConfig.spaceId,
-        emailSpaceInvitationRo: { role: SpaceRole.Creator, emails: ['renameUser@example.com'] },
+        emailSpaceInvitationRo: { role: Role.Creator, emails: ['renameUser@example.com'] },
       });
       table1 = (
         await user2Request.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), {

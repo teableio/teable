@@ -1,4 +1,4 @@
-import type { PermissionAction } from '@teable/core';
+import type { Action } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import type { ClsStore } from 'nestjs-cls';
 import type { IFieldInstance } from '../features/field/model/factory';
@@ -23,7 +23,7 @@ export interface IClsStore extends ClsStore {
     rawOpMaps?: IRawOpMap[];
   };
   shareViewId?: string;
-  permissions: PermissionAction[];
+  permissions: Action[];
   // for share db adapter
   cookie?: string;
   oldField?: IFieldInstance;

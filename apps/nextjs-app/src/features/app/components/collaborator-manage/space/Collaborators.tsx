@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import { hasPermission } from '@teable/core';
 import { X } from '@teable/icons';
 import type { ListSpaceCollaboratorVo } from '@teable/openapi';
@@ -26,7 +26,7 @@ import { RoleSelect } from './RoleSelect';
 
 interface ICollaborators {
   spaceId: string;
-  role: SpaceRole;
+  role: IRole;
 }
 
 const filterCollaborators = (search: string, collaborators?: ListSpaceCollaboratorVo) => {

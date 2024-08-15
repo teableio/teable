@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { spaceRolesSchema } from '@teable/core';
+import { roleSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -8,7 +8,7 @@ export const LIST_SPACE_INVITATION_LINK = '/space/{spaceId}/invitation/link';
 
 export const itemSpaceInvitationLinkVoSchema = z.object({
   invitationId: z.string(),
-  role: spaceRolesSchema,
+  role: roleSchema,
   inviteUrl: z.string(),
   invitationCode: z.string(),
   createdBy: z.string(),

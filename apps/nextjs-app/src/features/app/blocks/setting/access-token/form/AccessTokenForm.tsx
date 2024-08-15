@@ -1,4 +1,4 @@
-import { ActionPrefix, type AllActions } from '@teable/core';
+import { ActionPrefix, type Action } from '@teable/core';
 import {
   createAccessTokenRoSchema,
   type CreateAccessTokenRo,
@@ -152,7 +152,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
           </div>
         </Label>
         <ScopesSelect
-          initValue={scopes as AllActions[]}
+          initValue={scopes as Action[]}
           onChange={setScopes}
           actionsPrefixes={actionsPrefixes}
         />

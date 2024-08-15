@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { AllActions } from '@teable/core';
+import type { Action } from '@teable/core';
 import {
   UploadType,
   oauthCreateRoSchema,
@@ -222,7 +222,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
         </div>
         <ScopesSelect
           actionsPrefixes={OAuthActionsPrefixes}
-          initValue={form.scopes as AllActions[]}
+          initValue={form.scopes as Action[]}
           onChange={(value) => updateForm('scopes', value)}
         />
       </div>

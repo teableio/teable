@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { SpaceRole } from '@teable/core';
+import { Role } from '@teable/core';
 import type {
   CreateAccessTokenVo,
   ICreateSpaceVo,
@@ -188,7 +188,7 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
 
       const spaceId = newUserSpace.id;
       await newUserAxios.post(urlBuilder(EMAIL_SPACE_INVITATION, { spaceId }), {
-        role: SpaceRole.Viewer,
+        role: Role.Viewer,
         emails: [email],
       });
 

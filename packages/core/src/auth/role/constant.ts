@@ -1,21 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { z } from '../../zod';
-import type { AllActions } from '../actions';
+import type { Action } from '../actions';
+import { Role, type IRole } from './types';
 
-export enum SpaceRole {
-  Owner = 'owner',
-  Creator = 'creator',
-  Editor = 'editor',
-  Commenter = 'commenter',
-  Viewer = 'viewer',
-}
-
-export const spaceRolesSchema = z.nativeEnum(SpaceRole);
-
-export type SpacePermission = AllActions;
-
-export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean>> = {
-  owner: {
+export const RolePermission: Record<IRole, Record<Action, boolean>> = {
+  [Role.Owner]: {
     'space|create': true,
     'space|delete': true,
     'space|read': true,
@@ -60,7 +48,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|update': true,
     'user|email_read': true,
   },
-  creator: {
+  [Role.Creator]: {
     'space|create': false,
     'space|delete': false,
     'space|update': false,
@@ -105,7 +93,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|update': true,
     'user|email_read': true,
   },
-  editor: {
+  [Role.Editor]: {
     'space|create': false,
     'space|delete': false,
     'space|update': false,
@@ -150,7 +138,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|update': false,
     'user|email_read': true,
   },
-  commenter: {
+  [Role.Commenter]: {
     'space|create': false,
     'space|delete': false,
     'space|update': false,
@@ -195,7 +183,7 @@ export const spacePermissions: Record<SpaceRole, Record<SpacePermission, boolean
     'automation|update': false,
     'user|email_read': true,
   },
-  viewer: {
+  [Role.Viewer]: {
     'space|create': false,
     'space|delete': false,
     'space|update': false,
