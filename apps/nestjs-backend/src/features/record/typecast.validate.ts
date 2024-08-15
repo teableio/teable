@@ -24,6 +24,39 @@ interface IServices {
   collaboratorService: CollaboratorService;
 }
 
+interface IObjectType {
+  id?: string;
+  title?: string;
+  name?: string;
+  email?: string;
+}
+
+const convertUser = (input: unknown): string | undefined => {
+  if (typeof input === 'string') return input;
+
+  if (Array.isArray(input)) {
+    if (input.every((item) => typeof item === 'string')) {
+      return input.join();
+    }
+    if (input.every((item) => typeof item === 'object' && item !== null)) {
+      return (
+        input
+          .map((item) => convertUser(item as IObjectType))
+          .filter(Boolean)
+          .join() || undefined
+      );
+    }
+    return undefined;
+  }
+
+  if (typeof input === 'object' && input !== null) {
+    const obj = input as IObjectType;
+    return obj.id ?? obj.email ?? obj.title ?? obj.name ?? undefined;
+  }
+
+  return undefined;
+};
+
 /**
  * Cell type conversion:
  * Because there are some merge operations, we choose column-by-column conversion here.
@@ -216,9 +249,11 @@ export class TypeCastAndValidate {
 
   private async castToUser(cellValues: unknown[]): Promise<unknown[]> {
     const ctx = await this.services.collaboratorService.getBaseCollabsWithPrimary(this.tableId);
+
     return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
-      if (typeof cellValue === 'string') {
-        const cv = (this.field as UserFieldCore).convertStringToCellValue(cellValue, {
+      const strValue = convertUser(cellValue);
+      if (strValue) {
+        const cv = (this.field as UserFieldCore).convertStringToCellValue(strValue, {
           userSets: ctx,
         });
         if (Array.isArray(cv)) {

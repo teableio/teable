@@ -97,6 +97,54 @@ export class SqliteProvider implements IDbProvider {
     return this.knex.raw(`PRAGMA table_info(??)`, [tableName]).toQuery();
   }
 
+  updateJsonColumn(
+    tableName: string,
+    columnName: string,
+    id: string,
+    key: string,
+    value: string
+  ): string {
+    return this.knex(tableName)
+      .where(this.knex.raw(`json_extract(${columnName}, '$.id') = ?`, [id]))
+      .update({
+        [columnName]: this.knex.raw(
+          `
+          json_patch(${columnName}, json_object(?, ?))
+        `,
+          [key, value]
+        ),
+      })
+      .toQuery();
+  }
+
+  updateJsonArrayColumn(
+    tableName: string,
+    columnName: string,
+    id: string,
+    key: string,
+    value: string
+  ): string {
+    return this.knex(tableName)
+      .update({
+        [columnName]: this.knex.raw(
+          `
+          (
+            SELECT json_group_array(
+              CASE
+                WHEN json_extract(value, '$.id') = ?
+                THEN json_patch(value, json_object(?, ?))
+                ELSE value
+              END
+            )
+            FROM json_each(${columnName})
+          )
+        `,
+          [id, key, value]
+        ),
+      })
+      .toQuery();
+  }
+
   duplicateTable(
     fromSchema: string,
     toSchema: string,

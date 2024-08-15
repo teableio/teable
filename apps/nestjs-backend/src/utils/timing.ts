@@ -22,13 +22,14 @@ export function Timing(customLoggerKey?: string): MethodDecorator {
 
       const printLog = () => {
         const end = process.hrtime.bigint();
-        logger.verbose(
-          `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${
-            (end - start) / BigInt(1000000)
-          } ms; Heap Usage: ${
-            Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
-          } MB`
-        );
+        const gap = (end - start) / BigInt(1000000);
+        if (gap > 100) {
+          logger.log(
+            `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${gap} ms; Heap Usage: ${
+              Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
+            } MB`
+          );
+        }
       };
 
       if (result instanceof Promise) {

@@ -76,12 +76,15 @@ export class InvitationService {
       throw new BadRequestException('Space not found');
     }
 
+    const invitationEmails = data.emails.map((email) => email.toLowerCase());
     const sendUsers = await this.prismaService.user.findMany({
       select: { id: true, name: true, email: true },
-      where: { email: { in: data.emails } },
+      where: { email: { in: invitationEmails } },
     });
 
-    const noExistEmails = data.emails.filter((email) => !sendUsers.find((u) => u.email === email));
+    const noExistEmails = invitationEmails.filter(
+      (email) => !sendUsers.find((u) => u.email.toLowerCase() === email.toLowerCase())
+    );
 
     return await this.prismaService.$tx(async () => {
       // create user if not exist

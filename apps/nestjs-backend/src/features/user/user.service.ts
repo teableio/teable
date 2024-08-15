@@ -10,7 +10,8 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { type ICreateSpaceRo, type IUserNotifyMeta, UploadType } from '@teable/openapi';
+import { UploadType } from '@teable/openapi';
+import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
@@ -150,12 +151,19 @@ export class UserService {
   }
 
   async updateUserName(id: string, name: string) {
-    await this.prismaService.txClient().user.update({
+    const user: IUserInfoVo = await this.prismaService.txClient().user.update({
       data: {
         name,
       },
       where: { id, deletedTime: null },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+      },
     });
+    this.eventEmitterService.emitAsync(Events.USER_RENAME, user);
   }
 
   async updateAvatar(id: string, avatarFile: { path: string; mimetype: string; size: number }) {
