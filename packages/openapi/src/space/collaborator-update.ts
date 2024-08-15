@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { spaceRolesSchema } from '@teable/core';
+import { roleSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -8,7 +8,7 @@ export const UPDATE_SPACE_COLLABORATE = '/space/{spaceId}/collaborators';
 
 export const updateSpaceCollaborateRoSchema = z.object({
   userId: z.string(),
-  role: spaceRolesSchema,
+  role: roleSchema,
 });
 
 export type UpdateSpaceCollaborateRo = z.infer<typeof updateSpaceCollaborateRoSchema>;

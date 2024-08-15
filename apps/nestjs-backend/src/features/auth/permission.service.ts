@@ -1,10 +1,9 @@
 import { ForbiddenException, NotFoundException, Injectable } from '@nestjs/common';
-import type { BaseRole, PermissionAction, SpaceRole } from '@teable/core';
+import type { IBaseRole, Action, IRole } from '@teable/core';
 import { IdPrefix, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { intersection } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-import { RoleType } from '../../../../../packages/core/src/auth/types';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()
@@ -29,7 +28,7 @@ export class PermissionService {
     if (!collaborator) {
       throw new ForbiddenException(`can't find collaborator`);
     }
-    return collaborator.roleName as SpaceRole;
+    return collaborator.roleName as IRole;
   }
 
   async getRoleByBaseId(baseId: string) {
@@ -47,7 +46,7 @@ export class PermissionService {
     if (!collaborator) {
       return null;
     }
-    return collaborator.roleName as BaseRole;
+    return collaborator.roleName as IBaseRole;
   }
 
   async getOAuthAccessBy(userId: string) {
@@ -83,7 +82,7 @@ export class PermissionService {
       where: { id: accessTokenId },
       select: { scopes: true, spaceIds: true, baseIds: true, clientId: true, userId: true },
     });
-    const scopes = JSON.parse(stringifyScopes) as PermissionAction[];
+    const scopes = JSON.parse(stringifyScopes) as Action[];
     if (clientId) {
       const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
         await this.getOAuthAccessBy(userId);
@@ -186,13 +185,13 @@ export class PermissionService {
 
   private async getPermissionBySpaceId(spaceId: string) {
     const role = await this.getRoleBySpaceId(spaceId);
-    return getPermissions(RoleType.Space, role);
+    return getPermissions(role);
   }
 
   private async getPermissionByBaseId(baseId: string) {
     const role = await this.getRoleByBaseId(baseId);
     if (role) {
-      return getPermissions(RoleType.Base, role);
+      return getPermissions(role);
     }
     return this.getPermissionBySpaceId((await this.getUpperIdByBaseId(baseId)).spaceId);
   }
@@ -227,11 +226,7 @@ export class PermissionService {
     return userPermissions;
   }
 
-  async validPermissions(
-    resourceId: string,
-    permissions: PermissionAction[],
-    accessTokenId?: string
-  ) {
+  async validPermissions(resourceId: string, permissions: Action[], accessTokenId?: string) {
     const ownPermissions = await this.getPermissions(resourceId, accessTokenId);
     if (permissions.every((permission) => ownPermissions.includes(permission))) {
       return ownPermissions;

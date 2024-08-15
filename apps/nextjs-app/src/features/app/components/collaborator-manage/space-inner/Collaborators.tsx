@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import { getSpaceCollaboratorList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk';
 import { useTranslation } from 'next-i18next';
@@ -8,7 +8,7 @@ import { UserAvatar } from '@/features/app/components/user/UserAvatar';
 
 interface SpaceInnerCollaboratorProps {
   spaceId: string;
-  role?: SpaceRole;
+  role?: IRole;
 }
 
 export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {

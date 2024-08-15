@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import type { IGetSpaceVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 
@@ -10,7 +10,7 @@ export const spaceRoleChecker = ({
 }: {
   queryClient: QueryClient;
   spaceId: string;
-  roles: SpaceRole[];
+  roles: IRole[];
 }) => {
   const role = (queryClient.getQueryState(ReactQueryKeys.space(spaceId))?.data as IGetSpaceVo)
     ?.role;

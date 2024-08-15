@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import { Copy, X } from '@teable/icons';
 import {
   deleteSpaceInvitationLink,
@@ -24,7 +24,7 @@ import { getRolesWithLowerPermissions } from './utils';
 
 interface IInviteLink {
   spaceId: string;
-  role: SpaceRole;
+  role: IRole;
 }
 
 export const InviteLink: React.FC<IInviteLink> = (props) => {

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   UploadType,
@@ -30,7 +30,7 @@ export class CollaboratorService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  async createSpaceCollaborator(userId: string, spaceId: string, role: SpaceRole) {
+  async createSpaceCollaborator(userId: string, spaceId: string, role: IRole) {
     const currentUserId = this.cls.get('user.id');
     const exist = await this.prismaService
       .txClient()
@@ -181,17 +181,17 @@ export class CollaboratorService {
         spaceId: true,
       },
     });
-    const roleMap: Record<string, SpaceRole> = {};
+    const roleMap: Record<string, IRole> = {};
     const baseIds = new Set<string>();
     const spaceIds = new Set<string>();
     collaborators.forEach(({ baseId, spaceId, roleName }) => {
       if (baseId) {
         baseIds.add(baseId);
-        roleMap[baseId] = roleName as SpaceRole;
+        roleMap[baseId] = roleName as IRole;
       }
       if (spaceId) {
         spaceIds.add(spaceId);
-        roleMap[spaceId] = roleName as SpaceRole;
+        roleMap[spaceId] = roleName as IRole;
       }
     });
     return {

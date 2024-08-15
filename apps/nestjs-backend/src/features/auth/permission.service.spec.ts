@@ -3,8 +3,8 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { AllActions } from '@teable/core';
-import { RoleType, SpaceRole, getPermissions } from '@teable/core';
+import type { Action } from '@teable/core';
+import { Role, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -218,7 +218,7 @@ describe('PermissionService', () => {
     it('should return scopes when resourceId is a valid spaceId and allowed', async () => {
       const resourceId = 'spcxxxxxxx';
       const accessTokenId = 'validAccessTokenId';
-      const scopes: AllActions[] = ['table|create', 'table|update'];
+      const scopes: Action[] = ['table|create', 'table|update'];
       const spaceIds = ['spcxxxxxxx'];
 
       vi.spyOn(service, 'getAccessToken').mockResolvedValueOnce({
@@ -288,7 +288,7 @@ describe('PermissionService', () => {
     it('should return permissions for a user', async () => {
       const resourceId = 'bsexxxxxx';
       vi.spyOn(service, 'getPermissionsByResourceId').mockResolvedValue(
-        getPermissions(RoleType.Space, SpaceRole.Editor)
+        getPermissions(Role.Editor)
       );
       const result = await service.getPermissions(resourceId);
       expect(result.includes('view|create')).toEqual(true);
@@ -298,7 +298,7 @@ describe('PermissionService', () => {
     it('should return permissions for access token', async () => {
       const resourceId = 'bsexxxxxx';
       vi.spyOn(service, 'getPermissionsByResourceId').mockResolvedValue(
-        getPermissions(RoleType.Space, SpaceRole.Editor)
+        getPermissions(Role.Editor)
       );
       vi.spyOn(service, 'getPermissionsByAccessToken').mockResolvedValue([
         'view|create',
@@ -313,7 +313,7 @@ describe('PermissionService', () => {
 
   describe('validPermissions', () => {
     it('should return true if user has all required permissions', async () => {
-      const permissions = getPermissions(RoleType.Space, SpaceRole.Creator);
+      const permissions = getPermissions(Role.Creator);
       vi.spyOn(service, 'getPermissions').mockResolvedValue(permissions);
       const resourceId = 'bsexxxxxx';
       const result = await service.validPermissions(resourceId, ['base|create']);
@@ -321,9 +321,7 @@ describe('PermissionService', () => {
     });
 
     it('should throw an error if user does not have all required permissions', async () => {
-      vi.spyOn(service, 'getPermissions').mockResolvedValue(
-        getPermissions(RoleType.Space, SpaceRole.Editor)
-      );
+      vi.spyOn(service, 'getPermissions').mockResolvedValue(getPermissions(Role.Editor));
       const resourceId = 'bsexxxxxx';
       await expect(service.validPermissions(resourceId, ['space|create'])).rejects.toThrowError(
         new ForbiddenException(`not allowed to operate space|create on ${resourceId}`)

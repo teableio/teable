@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { SpaceRole, hasPermission } from '@teable/core';
+import type { IRole } from '@teable/core';
+import { Role, hasPermission } from '@teable/core';
 import { X } from '@teable/icons';
 import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable/openapi';
 import { ReactQueryKeys, useSpaceRoleStatic } from '@teable/sdk';
@@ -14,7 +15,7 @@ import { getRolesWithLowerPermissions } from './utils';
 interface IInvite {
   className?: string;
   spaceId: string;
-  role: SpaceRole;
+  role: IRole;
 }
 
 export const Invite: React.FC<IInvite> = (props) => {
@@ -23,7 +24,7 @@ export const Invite: React.FC<IInvite> = (props) => {
   const { t } = useTranslation('common');
 
   const [inviteType, setInviteType] = useState<'link' | 'email'>('email');
-  const [inviteRole, setInviteRole] = useState<SpaceRole>(role);
+  const [inviteRole, setInviteRole] = useState<IRole>(role);
   const [email, setEmail] = useState<string>('');
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
 
@@ -54,12 +55,12 @@ export const Invite: React.FC<IInvite> = (props) => {
 
   const createInviteLink = async () => {
     await createInviteLinkRequest({ spaceId, createSpaceInvitationLinkRo: { role: inviteRole } });
-    setInviteRole(SpaceRole.Creator);
+    setInviteRole(Role.Creator);
   };
 
   const changeInviteType = (inviteType: 'link' | 'email') => {
     initEmail();
-    setInviteRole(SpaceRole.Creator);
+    setInviteRole(Role.Creator);
     setInviteType(inviteType);
   };
 

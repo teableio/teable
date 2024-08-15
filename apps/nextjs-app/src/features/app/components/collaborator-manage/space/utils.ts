@@ -1,8 +1,8 @@
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import type { ISpaceRoleStatic } from '@teable/sdk/hooks';
 
 export const getRolesWithLowerPermissions = (
-  role: SpaceRole,
+  role: IRole,
   spaceRoleStatic: ISpaceRoleStatic[],
   includeRole: boolean = true
 ) => {
@@ -16,7 +16,7 @@ export const getRolesWithLowerPermissions = (
 };
 
 export const getRolesWithHigherPermissions = (
-  role: SpaceRole,
+  role: IRole,
   spaceRoleStatic: ISpaceRoleStatic[],
   includeRole: boolean = true
 ) => {

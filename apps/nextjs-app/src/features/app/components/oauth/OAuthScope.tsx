@@ -1,4 +1,4 @@
-import type { AllActions } from '@teable/core';
+import type { Action } from '@teable/core';
 import { ActionPrefix } from '@teable/core';
 import { Hash, PackageCheck, Sheet, Square, Table2, User } from '@teable/icons';
 import { usePermissionActionsStatic } from '@teable/sdk/hooks';
@@ -32,7 +32,7 @@ export const OAuthScope = (props: {
             return acc;
           }
           const prefix = scope.split('|')[0] as ActionPrefix;
-          const scopeDesc = actionStaticMap[scope as AllActions].description;
+          const scopeDesc = actionStaticMap[scope as Action].description;
           if (acc[prefix]) {
             acc[prefix].push(scopeDesc);
           } else {

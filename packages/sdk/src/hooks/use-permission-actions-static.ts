@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { AllActions } from '@teable/core';
+import type { Action } from '@teable/core';
 import { ActionPrefix } from '@teable/core';
 import { useMemo } from 'react';
 import { useTranslation } from '../context/app/i18n';
 import type { TKey } from '../context/app/i18n';
 
 const actionsI18nMap: Record<
-  AllActions,
+  Action,
   {
     description: TKey;
   }
@@ -177,13 +177,13 @@ export const usePermissionActionsStatic = () => {
   return useMemo(() => {
     const actionStaticMap = Object.keys(actionsI18nMap).reduce(
       (acc, key) => {
-        const action = key as AllActions;
+        const action = key as Action;
         acc[action] = {
           description: t(actionsI18nMap[action].description),
         };
         return acc;
       },
-      {} as Record<AllActions, { description: string }>
+      {} as Record<Action, { description: string }>
     );
     const actionPrefixStaticMap = Object.values(ActionPrefix).reduce(
       (acc, prefix) => {

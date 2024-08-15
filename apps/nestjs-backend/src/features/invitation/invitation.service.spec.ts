@@ -2,7 +2,7 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { getPermissions, RoleType, SpaceRole } from '@teable/core';
+import { getPermissions, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
@@ -63,11 +63,11 @@ describe('InvitationService', () => {
       {
         user: mockUser,
         tx: {},
-        permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+        permissions: getPermissions(Role.Owner),
       },
       async () => {
         await invitationService.generateInvitationBySpace('link', mockSpace.id, {
-          role: SpaceRole.Owner,
+          role: Role.Owner,
         });
       }
     );
@@ -77,7 +77,7 @@ describe('InvitationService', () => {
         id: expect.anything(),
         invitationCode: expect.anything(),
         spaceId: mockSpace.id,
-        role: SpaceRole.Owner,
+        role: Role.Owner,
         type: 'link',
         expiredTime: null,
         createdBy: mockUser.id,
@@ -92,7 +92,7 @@ describe('InvitationService', () => {
       await expect(
         invitationService.emailInvitationBySpace(mockSpace.id, {
           emails: ['notfound@example.com'],
-          role: SpaceRole.Owner,
+          role: Role.Owner,
         })
       ).rejects.toThrow('Space not found');
     });
@@ -110,19 +110,19 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () =>
           await invitationService.emailInvitationBySpace(mockSpace.id, {
             emails: [mockInvitedUser.email],
-            role: SpaceRole.Owner,
+            role: Role.Owner,
           })
       );
 
       expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalledWith(
         mockInvitedUser.id,
         mockSpace.id,
-        SpaceRole.Owner
+        Role.Owner
       );
       expect(prismaService.invitationRecord.create).toHaveBeenCalledWith({
         data: {
@@ -145,7 +145,7 @@ describe('InvitationService', () => {
       await expect(
         invitationService.emailInvitationBySpace(mockSpace.id, {
           emails: [mockInvitedUser.email],
-          role: SpaceRole.Owner,
+          role: Role.Owner,
         })
       ).rejects.toThrow('tx error');
     });
@@ -167,7 +167,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () =>
           await expect(() =>
@@ -182,7 +182,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () =>
           await expect(() =>
@@ -200,7 +200,7 @@ describe('InvitationService', () => {
         baseId: null,
         deletedTime: null,
         createdTime: new Date('2022-01-02'),
-        role: SpaceRole.Owner,
+        role: Role.Owner,
         createdBy: mockUser.id,
         lastModifiedBy: null,
         lastModifiedTime: null,
@@ -209,7 +209,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () =>
           await expect(() =>
@@ -227,7 +227,7 @@ describe('InvitationService', () => {
         baseId: null,
         deletedTime: null,
         createdTime: new Date(),
-        role: SpaceRole.Owner,
+        role: Role.Owner,
         createdBy: mockUser.id,
         lastModifiedBy: null,
         lastModifiedTime: null,
@@ -237,7 +237,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
       );
@@ -250,7 +250,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
       );
@@ -266,7 +266,7 @@ describe('InvitationService', () => {
         baseId: null,
         deletedTime: null,
         createdTime: new Date('2022-01-02'),
-        role: SpaceRole.Owner,
+        role: Role.Owner,
         createdBy: 'createdBy',
         lastModifiedBy: null,
         lastModifiedTime: null,
@@ -278,7 +278,7 @@ describe('InvitationService', () => {
         {
           user: mockUser,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () => await invitationService.acceptInvitationLink(acceptInvitationLinkRo)
       );

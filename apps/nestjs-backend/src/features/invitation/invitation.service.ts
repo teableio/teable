@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import { generateInvitationId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -136,7 +136,7 @@ export class InvitationService {
       await this.generateInvitationBySpace('link', spaceId, data);
     return {
       invitationId: id,
-      role: role as SpaceRole,
+      role: role as IRole,
       createdBy,
       createdTime: createdTime.toISOString(),
       inviteUrl: this.generateInviteUrl(id, invitationCode),
@@ -184,7 +184,7 @@ export class InvitationService {
     });
     return {
       invitationId: id,
-      role: role as SpaceRole,
+      role: role as IRole,
     };
   }
 
@@ -195,7 +195,7 @@ export class InvitationService {
     });
     return data.map(({ id, role, createdBy, createdTime, invitationCode }) => ({
       invitationId: id,
-      role: role as SpaceRole,
+      role: role as IRole,
       createdBy,
       createdTime: createdTime.toISOString(),
       invitationCode,
