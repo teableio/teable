@@ -13,6 +13,7 @@ const languages = [
   { key: 'zh', title: '中文' },
   { key: 'en', title: 'English' },
   { key: 'default', title: 'Default' },
+  { key: 'fr', title: 'Français' },
 ];
 
 const setCookie = (locale?: string) => {
