@@ -104,6 +104,58 @@ export class PostgresProvider implements IDbProvider {
       .toQuery();
   }
 
+  updateJsonColumn(
+    tableName: string,
+    columnName: string,
+    id: string,
+    key: string,
+    value: string
+  ): string {
+    return this.knex(tableName)
+      .where(this.knex.raw(`"${columnName}"->>'id' = ?`, [id]))
+      .update({
+        [columnName]: this.knex.raw(
+          `
+        jsonb_set(
+          "${columnName}",
+          '{${key}}',
+          to_jsonb(?::text)
+        )
+      `,
+          [value]
+        ),
+      })
+      .toQuery();
+  }
+
+  updateJsonArrayColumn(
+    tableName: string,
+    columnName: string,
+    id: string,
+    key: string,
+    value: string
+  ): string {
+    return this.knex(tableName)
+      .update({
+        [columnName]: this.knex.raw(
+          `
+          (
+            SELECT jsonb_agg(
+              CASE
+                WHEN elem->>'id' = ?
+                THEN jsonb_set(elem, '{${key}}', to_jsonb(?::text))
+                ELSE elem
+              END
+            )
+            FROM jsonb_array_elements("${columnName}") AS elem
+          )
+        `,
+          [id, value]
+        ),
+      })
+      .toQuery();
+  }
+
   modifyColumnSchema(tableName: string, columnName: string, schemaType: SchemaType): string[] {
     return [
       this.knex.schema

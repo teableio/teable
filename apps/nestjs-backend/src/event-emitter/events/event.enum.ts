@@ -27,14 +27,16 @@ export enum Events {
   TABLE_VIEW_DELETE = 'table.view.delete',
   TABLE_VIEW_UPDATE = 'table.view.update',
 
+  TABLE_USER_RENAME_COMPLETE = 'table.user.rename.complete',
+
   SHARED_VIEW_CREATE = 'shared.view.create',
   SHARED_VIEW_DELETE = 'shared.view.delete',
   SHARED_VIEW_UPDATE = 'shared.view.update',
 
   USER_SIGNIN = 'user.signin',
   USER_SIGNUP = 'user.signup',
+  USER_RENAME = 'user.rename',
   USER_SIGNOUT = 'user.signout',
-  USER_UPDATE = 'user.update',
   USER_DELETE = 'user.delete',
 
   // USER_PASSWORD_RESET = 'user.password.reset',
