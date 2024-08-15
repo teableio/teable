@@ -1,19 +1,19 @@
 import type {
-  AutomationActions,
-  FieldActions,
-  RecordActions,
-  TableActions,
-  UserActions,
-  ViewActions,
+  AutomationAction,
+  FieldAction,
+  RecordAction,
+  TableAction,
+  UserAction,
+  ViewAction,
 } from './actions';
 
 export const OAUTH_ACTIONS: (
-  | TableActions
-  | ViewActions
-  | FieldActions
-  | RecordActions
-  | UserActions
-  | AutomationActions
+  | TableAction
+  | ViewAction
+  | FieldAction
+  | RecordAction
+  | UserAction
+  | AutomationAction
 )[] = [
   'table|create',
   'table|delete',

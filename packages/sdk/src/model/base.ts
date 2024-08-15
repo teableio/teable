@@ -1,4 +1,4 @@
-import type { SpaceRole } from '@teable/core';
+import type { IRole } from '@teable/core';
 import type { IGetBaseVo, ICreateTableRo } from '@teable/openapi';
 import { Table } from './table/table';
 
@@ -7,7 +7,7 @@ export class Base implements IGetBaseVo {
   name: string;
   spaceId: string;
   icon: string | null;
-  role: SpaceRole;
+  role: IRole;
 
   constructor(base: IGetBaseVo) {
     const { id, name, spaceId, icon, role } = base;

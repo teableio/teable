@@ -6,7 +6,7 @@ import {
   generateSpaceId,
   generateUserId,
   minidenticon,
-  SpaceRole,
+  Role,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -74,7 +74,7 @@ export class UserService {
     await this.prismaService.txClient().collaborator.create({
       data: {
         spaceId: space.id,
-        roleName: SpaceRole.Owner,
+        roleName: Role.Owner,
         userId,
         createdBy: userId,
       },

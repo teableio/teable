@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import type { AllActions } from '@teable/core';
+import type { Action } from '@teable/core';
 import { generateAccessTokenId, getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -34,7 +34,7 @@ export class AccessTokenService {
     return {
       ...accessTokenEntity,
       description: description || undefined,
-      scopes: JSON.parse(scopes) as AllActions[],
+      scopes: JSON.parse(scopes) as Action[],
       spaceIds: spaceIds ? (JSON.parse(spaceIds) as string[]) : undefined,
       baseIds: baseIds ? (JSON.parse(baseIds) as string[]) : undefined,
       createdTime: createdTime?.toISOString(),

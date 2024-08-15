@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { HttpError } from '@teable/core';
-import { IdPrefix, SpaceRole } from '@teable/core';
+import { IdPrefix, Role } from '@teable/core';
 import type { ListSpaceCollaboratorVo, ListSpaceInvitationLinkVo } from '@teable/openapi';
 import {
   createSpace as apiCreateSpace,
@@ -115,7 +115,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
     it('/api/space/:spaceId/invitation/link (POST)', async () => {
       const res = await apiCreateSpaceInvitationLink({
         spaceId,
-        createSpaceInvitationLinkRo: { role: SpaceRole.Owner },
+        createSpaceInvitationLinkRo: { role: Role.Owner },
       });
 
       expect(createSpaceInvitationLinkVoSchema.safeParse(res.data).success).toEqual(true);
@@ -124,16 +124,16 @@ describe('OpenAPI SpaceController (e2e)', () => {
     it('/api/space/:spaceId/invitation/link/:invitationId (PATCH)', async () => {
       const res = await apiCreateSpaceInvitationLink({
         spaceId,
-        createSpaceInvitationLinkRo: { role: SpaceRole.Owner },
+        createSpaceInvitationLinkRo: { role: Role.Owner },
       });
       const newInvitationId = res.data.invitationId;
 
       const newSpaceUpdate = await apiUpdateSpaceInvitationLink({
         spaceId,
         invitationId: newInvitationId,
-        updateSpaceInvitationLinkRo: { role: SpaceRole.Editor },
+        updateSpaceInvitationLinkRo: { role: Role.Editor },
       });
-      expect(newSpaceUpdate.data.role).toEqual(SpaceRole.Editor);
+      expect(newSpaceUpdate.data.role).toEqual(Role.Editor);
 
       await apiDeleteSpaceInvitationLink({ spaceId, invitationId: newInvitationId });
     });
@@ -146,7 +146,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
     it('/api/space/:spaceId/invitation/link/:invitationId (DELETE)', async () => {
       const res = await apiCreateSpaceInvitationLink({
         spaceId,
-        createSpaceInvitationLinkRo: { role: SpaceRole.Owner },
+        createSpaceInvitationLinkRo: { role: Role.Owner },
       });
       const newInvitationId = res.data.invitationId;
 
@@ -159,7 +159,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
     it('/api/space/:spaceId/invitation/email (POST)', async () => {
       await apiEmailSpaceInvitation({
         spaceId,
-        emailSpaceInvitationRo: { role: SpaceRole.Owner, emails: [newUserEmail] },
+        emailSpaceInvitationRo: { role: Role.Owner, emails: [newUserEmail] },
       });
 
       const collaborators: ListSpaceCollaboratorVo = (await apiGetSpaceCollaboratorList(spaceId))
@@ -168,7 +168,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
       const newCollaboratorInfo = collaborators.find(({ email }) => email === newUserEmail);
 
       expect(newCollaboratorInfo).not.toBeUndefined();
-      expect(newCollaboratorInfo?.role).toEqual(SpaceRole.Owner);
+      expect(newCollaboratorInfo?.role).toEqual(Role.Owner);
     });
   });
 });

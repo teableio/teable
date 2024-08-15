@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AllActions } from '@teable/core';
+import type { Action } from '@teable/core';
 import { ArrowUpRight, Plus } from '@teable/icons';
 import { deleteAccessToken, listAccessToken } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -143,7 +143,7 @@ export const AccessTokenList = (props: { newToken?: string }) => {
                   <TableCell title={scopes.join('; ')}>
                     {scopes
                       .slice(0, 2)
-                      .map((action) => actionStaticMap[action as AllActions].description)
+                      .map((action) => actionStaticMap[action as Action].description)
                       .join('; ')}
                     {scopesMoreLen ? ` ${t('token:moreScopes', { len: scopesMoreLen })}` : ''}
                   </TableCell>

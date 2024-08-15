@@ -13,116 +13,110 @@ export enum ActionPrefix {
   TableRecordHistory = 'table_record_history',
 }
 
-const defaultActionsSchema = z.enum(['create', 'update', 'delete', 'read']);
+export const spaceActions = [
+  'space|create',
+  'space|delete',
+  'space|read',
+  'space|update',
+  'space|invite_email',
+  'space|invite_link',
+  'space|grant_role',
+] as const;
+export const spaceActionSchema = z.enum(spaceActions);
+export type SpaceAction = z.infer<typeof spaceActionSchema>;
 
-export const spaceActionsSchema = defaultActionsSchema.or(
-  z.enum(['invite_email', 'invite_link', 'grant_role'])
-);
+export const baseActions = [
+  'base|create',
+  'base|delete',
+  'base|read',
+  'base|update',
+  'base|invite_email',
+  'base|invite_link',
+  'base|table_import',
+  'base|table_export',
+  'base|authority_matrix_config',
+  'base|db_connection',
+  'base|query_data',
+] as const;
+export const baseActionSchema = z.enum(baseActions);
+export type BaseAction = z.infer<typeof baseActionSchema>;
 
-export type SpaceActions = `${ActionPrefix.Space}|${z.infer<typeof spaceActionsSchema>}`;
+export const tableActions = [
+  'table|create',
+  'table|delete',
+  'table|read',
+  'table|update',
+  'table|import',
+  'table|export',
+] as const;
+export const tableActionSchema = z.enum(tableActions);
+export type TableAction = z.infer<typeof tableActionSchema>;
 
-export const baseActionsSchema = defaultActionsSchema.or(
-  z.enum([
-    'invite_email',
-    'invite_link',
-    'table_import',
-    'table_export',
-    'authority_matrix_config',
-    'db_connection',
-    'query_data',
-  ])
-);
+export const viewActions = ['view|create', 'view|delete', 'view|read', 'view|update'] as const;
+export const viewActionSchema = z.enum(viewActions);
+export type ViewAction = z.infer<typeof viewActionSchema>;
 
-export type BaseActions = `${ActionPrefix.Base}|${z.infer<typeof baseActionsSchema>}`;
+export const fieldActions = ['field|create', 'field|delete', 'field|read', 'field|update'] as const;
+export const fieldActionSchema = z.enum(fieldActions);
+export type FieldAction = z.infer<typeof fieldActionSchema>;
 
-export const tableActionsSchema = defaultActionsSchema.or(z.enum(['import', 'export']));
+export const recordActions = [
+  'record|create',
+  'record|delete',
+  'record|read',
+  'record|update',
+  'record|comment',
+] as const;
+export const recordActionSchema = z.enum(recordActions);
+export type RecordAction = z.infer<typeof recordActionSchema>;
 
-export type TableActions = `${ActionPrefix.Table}|${z.infer<typeof tableActionsSchema>}`;
+export const automationActions = [
+  'automation|create',
+  'automation|delete',
+  'automation|read',
+  'automation|update',
+] as const;
+export const automationActionSchema = z.enum(automationActions);
+export type AutomationAction = z.infer<typeof automationActionSchema>;
 
-export const viewActionsSchema = defaultActionsSchema;
+export const userActions = ['user|email_read'] as const;
+export const userActionSchema = z.enum(userActions);
+export type UserAction = z.infer<typeof userActionSchema>;
 
-export type ViewActions = `${ActionPrefix.View}|${z.infer<typeof viewActionsSchema>}`;
+export const tableRecordHistoryActions = ['table_record_history|read'] as const;
+export const tableRecordHistoryActionSchema = z.enum(tableRecordHistoryActions);
+export type TableRecordHistoryAction = z.infer<typeof tableRecordHistoryActionSchema>;
 
-export const fieldActionsSchema = defaultActionsSchema;
-
-export type FieldActions = `${ActionPrefix.Field}|${z.infer<typeof fieldActionsSchema>}`;
-
-export const recordActionsSchema = defaultActionsSchema.or(z.enum(['comment']));
-
-export type RecordActions = `${ActionPrefix.Record}|${z.infer<typeof recordActionsSchema>}`;
-
-export const automationActionsSchema = defaultActionsSchema;
-
-export type AutomationActions =
-  `${ActionPrefix.Automation}|${z.infer<typeof automationActionsSchema>}`;
-
-export const userActionsSchema = z.enum(['email_read']);
-
-export type UserActions = `${ActionPrefix.User}|${z.infer<typeof userActionsSchema>}`;
-
-export const recordHistoryActionsSchema = z.enum(['read']);
-
-export type TableRecordHistoryActions =
-  `${ActionPrefix.TableRecordHistory}|${z.infer<typeof recordHistoryActionsSchema>}`;
-
-export type AllActions =
-  | SpaceActions
-  | BaseActions
-  | TableActions
-  | ViewActions
-  | FieldActions
-  | RecordActions
-  | AutomationActions
-  | UserActions
-  | TableRecordHistoryActions;
+export type Action =
+  | SpaceAction
+  | BaseAction
+  | TableAction
+  | ViewAction
+  | FieldAction
+  | RecordAction
+  | AutomationAction
+  | UserAction
+  | TableRecordHistoryAction;
 
 export type ActionPrefixMap = {
-  [ActionPrefix.Space]: SpaceActions[];
-  [ActionPrefix.Base]: BaseActions[];
-  [ActionPrefix.Table]: TableActions[];
-  [ActionPrefix.View]: ViewActions[];
-  [ActionPrefix.Field]: FieldActions[];
-  [ActionPrefix.Record]: RecordActions[];
-  [ActionPrefix.Automation]: AutomationActions[];
-  [ActionPrefix.User]: UserActions[];
-  [ActionPrefix.TableRecordHistory]: TableRecordHistoryActions[];
+  [ActionPrefix.Space]: SpaceAction[];
+  [ActionPrefix.Base]: BaseAction[];
+  [ActionPrefix.Table]: TableAction[];
+  [ActionPrefix.View]: ViewAction[];
+  [ActionPrefix.Field]: FieldAction[];
+  [ActionPrefix.Record]: RecordAction[];
+  [ActionPrefix.Automation]: AutomationAction[];
+  [ActionPrefix.User]: UserAction[];
+  [ActionPrefix.TableRecordHistory]: TableRecordHistoryAction[];
 };
-
 export const actionPrefixMap: ActionPrefixMap = {
-  [ActionPrefix.Space]: ['space|create', 'space|delete', 'space|read', 'space|update'],
-  [ActionPrefix.Base]: [
-    'base|create',
-    'base|delete',
-    'base|read',
-    'base|update',
-    'base|table_import',
-    'base|table_export',
-    'base|db_connection',
-    'base|authority_matrix_config',
-  ],
-  [ActionPrefix.Table]: [
-    'table|create',
-    'table|delete',
-    'table|read',
-    'table|update',
-    'table|import',
-    'table|export',
-  ],
-  [ActionPrefix.View]: ['view|create', 'view|delete', 'view|read', 'view|update'],
-  [ActionPrefix.Field]: ['field|create', 'field|delete', 'field|read', 'field|update'],
-  [ActionPrefix.Record]: [
-    'record|create',
-    'record|delete',
-    'record|read',
-    'record|update',
-    'record|comment',
-  ],
-  [ActionPrefix.Automation]: [
-    'automation|create',
-    'automation|delete',
-    'automation|read',
-    'automation|update',
-  ],
-  [ActionPrefix.TableRecordHistory]: ['table_record_history|read'],
-  [ActionPrefix.User]: ['user|email_read'],
+  [ActionPrefix.Space]: [...spaceActions],
+  [ActionPrefix.Base]: [...baseActions],
+  [ActionPrefix.Table]: [...tableActions],
+  [ActionPrefix.View]: [...viewActions],
+  [ActionPrefix.Field]: [...fieldActions],
+  [ActionPrefix.Record]: [...recordActions],
+  [ActionPrefix.Automation]: [...automationActions],
+  [ActionPrefix.TableRecordHistory]: [...tableRecordHistoryActions],
+  [ActionPrefix.User]: [...userActions],
 };

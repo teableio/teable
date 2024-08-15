@@ -1,5 +1,5 @@
 import { QueryClient, dehydrate } from '@tanstack/react-query';
-import { SpaceRole } from '@teable/core';
+import { Role } from '@teable/core';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
@@ -25,7 +25,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   spaceRoleChecker({
     queryClient,
     spaceId: spaceId as string,
-    roles: [SpaceRole.Owner],
+    roles: [Role.Owner],
   });
 
   return {

@@ -17,8 +17,7 @@ import {
   defaultUserFieldOptions,
   getPermissions,
   nullsToUndefined,
-  SpaceRole,
-  RoleType,
+  Role,
   DateFormattingPreset,
   TimeFormatting,
 } from '@teable/core';
@@ -148,7 +147,7 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
       );
@@ -159,7 +158,7 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Editor),
+          permissions: getPermissions(Role.Editor),
         },
         async () => selectionService['calculateExpansion'](tableSize, cell, tableDataSize)
       );
@@ -533,7 +532,7 @@ describe('selectionService', () => {
         {
           user: {} as any,
           tx: {},
-          permissions: getPermissions(RoleType.Space, SpaceRole.Owner),
+          permissions: getPermissions(Role.Owner),
         },
         async () => await selectionService.paste(tableId, { viewId, ...pasteRo })
       );

@@ -1,24 +1,22 @@
 import { BadRequestException, NotFoundException, Injectable, Logger } from '@nestjs/common';
 import type {
-  BaseRole,
-  FieldActions,
+  FieldAction,
   IFieldRo,
   IFieldVo,
   ILinkFieldOptions,
   ILookupOptionsVo,
   IViewRo,
-  RecordActions,
-  SpaceRole,
-  TableActions,
-  ViewActions,
+  RecordAction,
+  IRole,
+  TableAction,
+  ViewAction,
 } from '@teable/core';
 import {
   ActionPrefix,
   FieldKeyType,
   FieldType,
-  RoleType,
   actionPrefixMap,
-  getPermissionMap,
+  getBasePermission,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -454,7 +452,7 @@ export class TableOpenApiService {
   }
 
   async getPermission(baseId: string, tableId: string): Promise<ITablePermissionVo> {
-    let role: SpaceRole | BaseRole | null = await this.permissionService.getRoleByBaseId(baseId);
+    let role: IRole | null = await this.permissionService.getRoleByBaseId(baseId);
     if (!role) {
       const { spaceId } = await this.permissionService.getUpperIdByBaseId(baseId);
       role = await this.permissionService.getRoleBySpaceId(spaceId);
@@ -465,21 +463,21 @@ export class TableOpenApiService {
     return this.getPermissionByRole(tableId, role);
   }
 
-  async getPermissionByRole(tableId: string, role: SpaceRole | BaseRole) {
-    const permissionMap = getPermissionMap(RoleType.Base, role);
+  async getPermissionByRole(tableId: string, role: IRole) {
+    const permissionMap = getBasePermission(role);
     const tablePermission = actionPrefixMap[ActionPrefix.Table].reduce(
       (acc, action) => {
         acc[action] = permissionMap[action];
         return acc;
       },
-      {} as Record<TableActions, boolean>
+      {} as Record<TableAction, boolean>
     );
     const viewPermission = actionPrefixMap[ActionPrefix.View].reduce(
       (acc, action) => {
         acc[action] = permissionMap[action];
         return acc;
       },
-      {} as Record<ViewActions, boolean>
+      {} as Record<ViewAction, boolean>
     );
 
     const recordPermission = actionPrefixMap[ActionPrefix.Record].reduce(
@@ -487,7 +485,7 @@ export class TableOpenApiService {
         acc[action] = permissionMap[action];
         return acc;
       },
-      {} as Record<RecordActions, boolean>
+      {} as Record<RecordAction, boolean>
     );
 
     const fields = await this.prismaService.field.findMany({
@@ -507,11 +505,11 @@ export class TableOpenApiService {
             acc[action] = permissionMap[action];
             return acc;
           },
-          {} as Record<FieldActions, boolean>
+          {} as Record<FieldAction, boolean>
         );
         return acc;
       },
-      {} as Record<string, Record<FieldActions, boolean>>
+      {} as Record<string, Record<FieldAction, boolean>>
     );
 
     return {

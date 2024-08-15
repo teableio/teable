@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IRecord, IUpdateFieldRo, IViewRo, TableActions } from '@teable/core';
+import type { IFieldRo, IRecord, IUpdateFieldRo, IViewRo, TableAction } from '@teable/core';
 import { FieldKeyType, TableCore } from '@teable/core';
 import type { IUpdateOrderRo, IRecordInsertOrderRo, ITableVo } from '@teable/openapi';
 import {
@@ -38,7 +38,7 @@ export class Table extends TableCore {
 
   baseId!: string;
 
-  permission?: { [key in TableActions]: boolean };
+  permission?: { [key in TableAction]: boolean };
 
   async getViews() {
     return View.getViews(this.id);

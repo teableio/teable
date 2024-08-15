@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { type PermissionAction } from '@teable/core';
+import { type Action } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
 import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
@@ -48,10 +48,7 @@ export class PermissionGuard {
     return true;
   }
 
-  protected async resourcePermission(
-    resourceId: string | undefined,
-    permissions: PermissionAction[]
-  ) {
+  protected async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
     if (!resourceId) {
       throw new ForbiddenException('permission check ID does not exist');
     }
@@ -66,10 +63,10 @@ export class PermissionGuard {
   }
 
   protected async permissionCheck(context: ExecutionContext) {
-    const permissions = this.reflector.getAllAndOverride<PermissionAction[] | undefined>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()]
-    );
+    const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId && !permissions?.length) {

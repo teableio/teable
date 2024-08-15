@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { spaceRolesSchema } from '@teable/core';
+import { roleSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -10,7 +10,7 @@ export const itemSpaceCollaboratorSchema = z.object({
   userId: z.string(),
   userName: z.string(),
   email: z.string(),
-  role: spaceRolesSchema,
+  role: roleSchema,
   avatar: z.string().nullable(),
   createdTime: z.string(),
 });
