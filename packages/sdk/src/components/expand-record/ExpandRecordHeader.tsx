@@ -1,5 +1,15 @@
-import { ChevronDown, ChevronUp, History, Link, X } from '@teable/icons';
-import { Button, Separator, cn } from '@teable/ui-lib';
+import { ChevronDown, ChevronUp, Ellipsis, History, Link, Trash2, X } from '@teable/icons';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Separator,
+  cn,
+} from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { useTablePermission } from '../../hooks';
@@ -83,7 +93,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
         </h4>
       )}
       {showOperator && (
-        <div>
+        <div className="flex items-center">
           <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
             <Button variant={'ghost'} size={'xs'} onClick={onCopyUrl}>
               <Link />
@@ -106,6 +116,18 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               </Button>
             </TooltipWrap>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger className="px-2">
+              <Ellipsis />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem>
+                <Button variant="destructive" onClick={onRecordHistoryToggle}>
+                  <Trash2 /> {t('permission.actionDescription.recordDelete')}
+                </Button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />
