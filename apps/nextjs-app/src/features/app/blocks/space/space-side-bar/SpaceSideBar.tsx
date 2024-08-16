@@ -26,7 +26,7 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
     },
     {
       href: '/space/shared-base',
-      text: t('space:sharedBase'),
+      text: t('space:sharedBase.title'),
       Icon: Database,
     },
     {

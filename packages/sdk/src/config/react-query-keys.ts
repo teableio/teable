@@ -76,4 +76,6 @@ export const ReactQueryKeys = {
 
   getRecordHistory: (tableId: string, recordId?: string) =>
     ['record-history', tableId, recordId] as const,
+
+  getSharedBase: () => ['shared-base-list'] as const,
 };

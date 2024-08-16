@@ -15,6 +15,7 @@ import type {
   IUserMeVo,
   IRecordsVo,
   ITableVo,
+  IGetSharedBaseVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -25,6 +26,7 @@ import {
   GET_RECORDS_URL,
   GET_RECORD_URL,
   GET_SETTING,
+  GET_SHARED_BASE,
   GET_SPACE,
   GET_SPACE_LIST,
   GET_TABLE,
@@ -154,5 +156,9 @@ export class SsrApi {
 
   async getUserMe() {
     return this.axios.get<IUserMeVo>(USER_ME).then(({ data }) => data);
+  }
+
+  async getSharedBase() {
+    return this.axios.get<IGetSharedBaseVo[]>(GET_SHARED_BASE).then(({ data }) => data);
   }
 }

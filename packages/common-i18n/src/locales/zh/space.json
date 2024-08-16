@@ -44,5 +44,9 @@
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？"
   },
-  "sharedBase": "共享数据库"
+  "sharedBase": {
+    "title": "共享数据库",
+    "description": "与您共享的数据库将显示在这里",
+    "empty": "暂无共享数据库"
+  }
 }
