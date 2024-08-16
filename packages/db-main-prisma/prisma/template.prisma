@@ -193,6 +193,7 @@ model User {
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
 
   accounts         Account[]
+  collaborators    Collaborator[]
   @@map("users")
 }
 
@@ -246,15 +247,17 @@ model AttachmentsTable {
 model Collaborator {
   id               String    @id @default(cuid())
   roleName         String    @map("role_name")
-  baseId           String?   @map("base_id")
-  spaceId          String?   @map("space_id")
+  resourceType     String    @map("resource_type")
+  resourceId       String    @map("resource_id")
   userId           String    @map("user_id")
-  deletedTime      DateTime? @map("deleted_time")
   createdBy        String    @map("created_by")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
 
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([resourceType, resourceId, userId])
   @@map("collaborator")
 }
 

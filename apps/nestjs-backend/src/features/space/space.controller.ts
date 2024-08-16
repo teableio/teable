@@ -24,6 +24,7 @@ import {
   createSpaceInvitationLinkRoSchema,
   updateSpaceCollaborateRoSchema,
   UpdateSpaceCollaborateRo,
+  CollaboratorType,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
@@ -88,10 +89,11 @@ export class SpaceController {
     @Body(new ZodValidationPipe(createSpaceInvitationLinkRoSchema))
     spaceInvitationLinkRo: CreateSpaceInvitationLinkRo
   ): Promise<CreateSpaceInvitationLinkVo> {
-    return await this.invitationService.generateInvitationLinkBySpace(
-      spaceId,
-      spaceInvitationLinkRo
-    );
+    return this.invitationService.generateInvitationLink({
+      resourceId: spaceId,
+      resourceType: CollaboratorType.Space,
+      role: spaceInvitationLinkRo.role,
+    });
   }
 
   @Permissions('space|invite_link')
@@ -100,7 +102,11 @@ export class SpaceController {
     @Param('spaceId') spaceId: string,
     @Param('invitationId') invitationId: string
   ): Promise<void> {
-    return await this.invitationService.deleteInvitationLinkBySpace(spaceId, invitationId);
+    return this.invitationService.deleteInvitationLink({
+      resourceId: spaceId,
+      resourceType: CollaboratorType.Space,
+      invitationId,
+    });
   }
 
   @Permissions('base|read')
@@ -117,11 +123,12 @@ export class SpaceController {
     @Body(new ZodValidationPipe(updateSpaceInvitationLinkRoSchema))
     updateSpaceInvitationLinkRo: UpdateSpaceInvitationLinkRo
   ): Promise<UpdateSpaceInvitationLinkVo> {
-    return await this.invitationService.updateInvitationLinkBySpace(
-      spaceId,
+    return this.invitationService.updateInvitationLink({
       invitationId,
-      updateSpaceInvitationLinkRo
-    );
+      resourceId: spaceId,
+      resourceType: CollaboratorType.Space,
+      role: updateSpaceInvitationLinkRo.role,
+    });
   }
 
   @Permissions('space|invite_link')
@@ -129,7 +136,7 @@ export class SpaceController {
   async listInvitationLinkBySpace(
     @Param('spaceId') spaceId: string
   ): Promise<ListSpaceInvitationLinkVo> {
-    return await this.invitationService.getInvitationLinkBySpace(spaceId);
+    return this.invitationService.getInvitationLink(spaceId, CollaboratorType.Space);
   }
 
   @Permissions('space|invite_email')
@@ -139,7 +146,7 @@ export class SpaceController {
     @Body(new ZodValidationPipe(emailSpaceInvitationRoSchema))
     emailSpaceInvitationRo: EmailSpaceInvitationRo
   ): Promise<EmailInvitationVo> {
-    return await this.invitationService.emailInvitationBySpace(spaceId, emailSpaceInvitationRo);
+    return this.invitationService.emailInvitationBySpace(spaceId, emailSpaceInvitationRo);
   }
 
   @Permissions('space|read')
@@ -148,22 +155,29 @@ export class SpaceController {
     return await this.collaboratorService.getListBySpace(spaceId);
   }
 
-  @Permissions('space|grant_role')
   @Patch(':spaceId/collaborators')
   async updateCollaborator(
     @Param('spaceId') spaceId: string,
     @Body(new ZodValidationPipe(updateSpaceCollaborateRoSchema))
     updateSpaceCollaborateRo: UpdateSpaceCollaborateRo
   ): Promise<void> {
-    await this.collaboratorService.updateCollaborator(spaceId, updateSpaceCollaborateRo);
+    await this.collaboratorService.updateCollaborator({
+      resourceId: spaceId,
+      resourceType: CollaboratorType.Space,
+      userId: updateSpaceCollaborateRo.userId,
+      role: updateSpaceCollaborateRo.role,
+    });
   }
 
-  @Permissions('space|delete')
   @Delete(':spaceId/collaborators')
   async deleteCollaborator(
     @Param('spaceId') spaceId: string,
     @Query('userId') userId: string
   ): Promise<void> {
-    await this.collaboratorService.deleteCollaborator(spaceId, userId);
+    await this.collaboratorService.deleteCollaborator({
+      resourceId: spaceId,
+      resourceType: CollaboratorType.Space,
+      userId,
+    });
   }
 }

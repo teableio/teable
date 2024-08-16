@@ -204,22 +204,6 @@
       "lastModifiedBy": "Last modified by"
     }
   },
-  "spaceRole": {
-    "role": {
-      "owner": "Owner",
-      "creator": "Creator",
-      "editor": "Editor",
-      "commenter": "Commenter",
-      "viewer": "Viewer"
-    },
-    "description": {
-      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
-      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
-      "editor": "Can edit records and views, but cannot configure tables or fields",
-      "commenter": "Can comment on records",
-      "viewer": "Cannot edit or comment"
-    }
-  },
   "permission": {
     "actionDescription": {
       "spaceCreate": "Create space",

@@ -166,7 +166,7 @@
       "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all bases within this space.",
       "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all bases within this space.",
       "tabEmail": "Invite by email",
-      "emailPlaceholder": "Invite more space collaborators via email",
+      "emailPlaceholder": "Invite more collaborators via email",
       "tabLink": "Invite by link",
       "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
       "emailSend": "Send invite",
@@ -179,6 +179,13 @@
       "linkCreatedTime": "created {{createdTime}}",
       "linkCopySuccess": "Link copied",
       "linkRemove": "Remove link"
+    },
+    "base": {
+      "title": "Share {{baseName}}",
+      "desc_one": "This base is shared with {{count}} collaborator.",
+      "desc_other": "This base is shared with {{count}} collaborators.",
+      "baseTitle": "Base collaborators",
+      "collaboratorSearchPlaceholder": "Find a base collaborator by name or email"
     }
   },
   "help": {
@@ -231,5 +238,21 @@
     "changeSetting": "Change page notification settings",
     "new": "new {{count}}",
     "showMore": "Show more"
+  },
+  "role": {
+    "title": {
+      "owner": "Owner",
+      "creator": "Creator",
+      "editor": "Editor",
+      "commenter": "Commenter",
+      "viewer": "Viewer"
+    },
+    "description": {
+      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
+      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
+      "editor": "Can edit records and views, but cannot configure tables or fields",
+      "commenter": "Can comment on records",
+      "viewer": "Cannot edit or comment"
+    }
   }
 }

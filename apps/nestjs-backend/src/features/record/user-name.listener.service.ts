@@ -23,13 +23,13 @@ export class UserNameListener {
 
   private async getFieldsForUser(userId: string) {
     const query = this.knex('collaborator')
-      .join('space', 'collaborator.space_id', 'space.id')
+      .join('space', 'collaborator.resource_id', 'space.id')
+      .join('base', 'collaborator.resource_id', 'base.id')
       .join('base', 'space.id', 'base.space_id')
       .join('table_meta', 'base.id', 'table_meta.base_id')
       .join('field', 'table_meta.id', 'field.table_id')
       .where('collaborator.user_id', userId)
       .whereIn('field.type', ['user', 'createdBy', 'lastModifiedBy'])
-      .whereNull('collaborator.deleted_time')
       .whereNull('space.deleted_time')
       .whereNull('base.deleted_time')
       .whereNull('table_meta.deleted_time')

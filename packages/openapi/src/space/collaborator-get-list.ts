@@ -6,6 +6,11 @@ import { z } from '../zod';
 
 export const SPACE_COLLABORATE_LIST = '/space/{spaceId}/collaborators';
 
+export enum CollaboratorType {
+  Space = 'space',
+  Base = 'base',
+}
+
 export const itemSpaceCollaboratorSchema = z.object({
   userId: z.string(),
   userName: z.string(),
