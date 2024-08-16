@@ -38,6 +38,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
   const { t } = useTranslation();
   const {
     onChange,
+    maxDepth = 2,
     defaultValue,
     value: valueProp,
     defaultItemValue,
@@ -136,6 +137,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
   return (
     <BaseFilterContext.Provider
       value={{
+        maxDepth: maxDepth,
         onChange: onChangeHandler,
         onDelete: onDeleteHandler,
         createCondition: createCondition,

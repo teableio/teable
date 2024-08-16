@@ -2,13 +2,17 @@ import { Plus, Trash2 } from '@teable/icons';
 import {
   Button,
   DropdownMenu,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@teable/ui-lib';
 import { isValidElement, Children } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
-import { useCrud } from '../../hooks';
+import { useCrud, useDepth } from '../../hooks';
 import type {
   IComponentWithChildren,
   IBaseFilterComponentProps,
@@ -21,7 +25,8 @@ interface IConditionGroupProps
     IBaseConditionProps {}
 
 export const ConditionGroup = (props: IConditionGroupProps) => {
-  const { children, path, index } = props;
+  const { children, path, index, depth } = props;
+  const maxDepth = useDepth();
   const { onDelete, createCondition } = useCrud();
   const { t } = useTranslation();
 
@@ -43,13 +48,27 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
             >
               {t('filter.addCondition')}
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                createCondition([...path, 'children'], 'group');
-              }}
-            >
-              {t('filter.addConditionGroup')}
-            </DropdownMenuItem>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuItem
+                      disabled={depth + 1 > maxDepth}
+                      onClick={() => {
+                        createCondition([...path, 'children'], 'group');
+                      }}
+                    >
+                      {t('filter.addConditionGroup')}
+                    </DropdownMenuItem>
+                  </div>
+                </TooltipTrigger>
+                {depth + 1 > maxDepth && (
+                  <TooltipContent hideWhenDetached={true}>
+                    <span>{t('filter.nestedLimitTip', { depth: maxDepth + 1 })}</span>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </DropdownMenuContent>
         </DropdownMenu>
 

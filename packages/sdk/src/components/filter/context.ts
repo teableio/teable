@@ -7,6 +7,7 @@ import type {
 } from './types';
 
 export interface IBaseFilterContext<T extends IConditionItemProperty = IConditionItemProperty> {
+  maxDepth?: number;
   getValue: () => IBaseFilterValue;
   onDelete: (path: IFilterPath, index: number) => void;
   onChange: (path: IFilterPath, value: unknown) => void;
