@@ -1,0 +1,235 @@
+{
+  "brand": "Teable",
+  "actions": {
+    "save": "Sauvegarder",
+    "doNotSave": "Ne pas sauvegarder",
+    "submit": "Soumettre",
+    "confirm": "Confirmer",
+    "close": "Fermer",
+    "edit": "Éditer",
+    "fill": "Remplir",
+    "update": "Mettre à jour",
+    "create": "Créer",
+    "delete": "Supprimer",
+    "cancel": "Annuler",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "back": "Retour",
+    "saveSucceed": "Sauvegarde réussie !",
+    "submitSucceed": "Soumission réussie !",
+    "editSucceed": "Édition réussie !",
+    "updateSucceed": "Mise à jour réussie !",
+    "deleteSucceed": "Suppression réussie !",
+    "loading": "Chargement...",
+    "refreshPage": "Rafraîchir la page",
+    "yesDelete": "Oui, supprimer",
+    "rename": "Renommer",
+    "duplicate": "Dupliquer",
+    "change": "Changer",
+    "upgrade": "Mettre à niveau",
+    "search": "Rechercher",
+    "loadMore": "Charger plus",
+    "collapseSidebar": "Réduire la barre latérale"
+  },
+  "quickAction": {
+    "title": "Actions rapides...",
+    "placeHolder": "Tapez une commande ou recherchez..."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "back": "Retour à l'accueil",
+    "account": {
+      "title": "Mon profil",
+      "tab": "Mon compte",
+      "updatePhoto": "Mettre à jour la photo",
+      "updateNameDesc": "Votre nom sera affiché dans les contributions et les mentions. Vous pouvez le changer à tout moment.",
+      "securityTitle": "Sécurité du compte",
+      "email": "Email",
+      "password": "Mot de passe",
+      "passwordDesc": "Définissez un mot de passe permanent pour vous connecter à votre compte.",
+      "changePassword": {
+        "title": "Changer le mot de passe",
+        "desc": "Veuillez entrer votre mot de passe actuel et votre nouveau mot de passe.",
+        "current": "Entrez votre mot de passe actuel",
+        "new": "Entrez votre nouveau mot de passe",
+        "confirm": "Confirmez votre nouveau mot de passe"
+      },
+      "changePasswordError": {
+        "disMatch": "Votre nouveau mot de passe ne correspond pas.",
+        "equal": "Votre nouveau mot de passe doit être différent de votre mot de passe actuel.",
+        "invalid": "Votre mot de passe actuel est invalide.",
+        "invalidNew": "Votre nouveau mot de passe est invalide, minimum 8 caractères."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Mot de passe changé avec succès.",
+        "desc": "Vous serez redirigé vers la page de connexion dans 2 secondes."
+      },
+      "manageToken": "Jeton d'accès",
+      "addPassword": {
+        "title": "Ajouter un mot de passe",
+        "desc": "Définissez un mot de passe permanent pour vous connecter à votre compte.",
+        "password": "Entrez votre mot de passe",
+        "confirm": "Confirmez votre mot de passe"
+      },
+      "addPasswordError": {
+        "disMatch": "Votre mot de passe ne correspond pas.",
+        "invalid": "Votre mot de passe est invalide, minimum 8 caractères."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Mot de passe ajouté avec succès."
+      }
+    },
+    "notify": {
+      "title": "Mes notifications",
+      "label": "Activité dans votre espace",
+      "desc": "Recevez des emails lorsque vous recevez des commentaires, des mentions, des invitations à des pages, des rappels, des demandes d'accès et des modifications de propriété."
+    },
+    "setting": {
+      "title": "Mes paramètres",
+      "theme": "Thème",
+      "themeDesc": "Sélectionnez le thème pour l'application.",
+      "dark": "Sombre",
+      "light": "Clair",
+      "system": "Système",
+      "version": "Version de l'application",
+      "language": "Langue"
+    },
+    "nav": {
+      "settings": "Paramètres",
+      "logout": "Déconnexion"
+    },
+    "integration": {
+      "title": "Intégrations",
+      "description": "Vous avez accordé l'accès à {{count}} applications à votre compte.",
+      "lastUsed": "Dernière utilisation à {{date}}",
+      "revoke": "Révoquer",
+      "owner": "Propriétaire par {{user}}",
+      "revokeTitle": "Êtes-vous sûr de vouloir révoquer l'autorisation ?",
+      "revokeDesc": "{{name}} ne pourra plus accéder à l'API Teable. Vous ne pouvez pas annuler cette action.",
+      "scopeTitle": "Autorisations",
+      "scopeDesc": "Cette application pourra obtenir les autorisations suivantes :"
+    }
+  },
+  "noun": {
+    "table": "Table",
+    "view": "Vue",
+    "space": "Espace",
+    "base": "Base",
+    "field": "Champ",
+    "record": "Enregistrement",
+    "dashboard": "Tableau de bord",
+    "automation": "Automatisation",
+    "authorityMatrix": "Matrice d'autorité",
+    "adminPanel": "Panneau d'administration",
+    "license": "Licence",
+    "instanceId": "ID d'instance",
+    "beta": "Bêta"
+  },
+  "level": {
+    "free": "Gratuit",
+    "plus": "Plus",
+    "pro": "Pro",
+    "enterprise": "Entreprise"
+  },
+  "noResult": "Aucun résultat.",
+  "untitled": "Sans titre",
+  "name": "Nom",
+  "description": "Description",
+  "required": "Requis",
+  "guide": {
+    "prev": "Précédent",
+    "next": "Suivant",
+    "done": "Terminé",
+    "skip": "Passer",
+    "createSpaceTooltipTitle": "Créer un espace",
+    "createSpaceTooltipContent": "Teable est organisé en espaces, où chaque espace invite les utilisateurs à collaborer. <br></br>Les espaces dans Teable servent d'élément de navigation principal dans la barre de menu, offrant une plateforme fondamentale pour que les utilisateurs ajoutent et gèrent des bases de données selon leurs besoins.",
+    "createBaseTooltipTitle": "Créer une base",
+    "createBaseTooltipContent": "Une base (abrégé de \"base de données\") est un endroit pour stocker des données importantes et les flux de travail qui en dépendent.",
+    "createTableTooltipTitle": "Créer une table",
+    "createTableTooltipContent": "Les tables sont conçues pour gérer efficacement des ensembles de données divers, offrant un affichage polyvalent des informations à travers différents types de données.",
+    "createViewTooltipTitle": "Créer une vue",
+    "createViewTooltipContent": "Actuellement, les utilisateurs peuvent créer des vues en Grille et en Formulaire, avec des vues Galerie, Kanban et Calendrier prévues pour les futures versions. <br></br>Cette variété fournit aux utilisateurs un ensemble complet d'outils pour diverses tâches de gestion des données.",
+    "viewFilteringTooltipTitle": "Filtrage des enregistrements",
+    "viewFilteringTooltipContent": "L'une des fonctionnalités principales des vues est la capacité à filtrer les enregistrements d'une vue selon les conditions que vous définissez. <br></br>Lorsqu'un enregistrement est filtré en fonction d'une condition, il n'est pas supprimé—il est juste masqué de la vue particulière que vous utilisez pour consulter votre table.",
+    "viewSortingTooltipTitle": "Triage des enregistrements",
+    "viewSortingTooltipContent": "Lorsque vous êtes dans une vue, vous pouvez trier vos enregistrements afin qu'ils apparaissent dans un ordre particulier en fonction des valeurs dans des champs spécifiques. <br></br>Trier vos enregistrements dans une vue n'affecte pas l'ordre des enregistrements dans d'autres vues—cela s'applique uniquement à la vue que vous utilisez actuellement pour consulter votre table.",
+    "viewGroupingTooltipTitle": "Groupement des enregistrements",
+    "viewGroupingTooltipContent": "Le groupement des enregistrements permet aux créateurs de construire un ensemble d'une ou plusieurs conditions qui aideront à catégoriser l'ensemble de données présenté dans une vue particulière.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable propose une API puissante qui prend en charge presque toutes les fonctionnalités du produit, permettant aux développeurs de faire des appels en utilisant un <a>Jeton</a>."
+  },
+  "token": "Jeton",
+  "poweredBy": "Propulsé par <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "Partage de l'espace {{spaceName}}",
+      "desc_one": "Cet espace a <b>{{count}} collaborateur</b>. Ajouter un collaborateur à l'espace lui donnera accès à toutes les bases au sein de cet espace.",
+      "desc_other": "Cet espace a <b>{{count}} collaborateurs</b>. Ajouter un collaborateur à l'espace lui donnera accès à toutes les bases au sein de cet espace.",
+      "tabEmail": "Inviter par email",
+      "emailPlaceholder": "Inviter plus de collaborateurs via email",
+      "tabLink": "Inviter par lien",
+      "linkPlaceholder": "Créer un lien d'invitation qui accorde <0/> l'accès à quiconque l'ouvre.",
+      "emailSend": "Envoyer l'invitation",
+      "linkSend": "Créer le lien",
+      "spaceTitle": "Collaborateurs de l'espace",
+      "collaboratorSearchPlaceholder": "Trouver un collaborateur par nom ou email",
+      "collaboratorJoin": "a rejoint {{joinTime}}",
+      "collaboratorRemove": "Supprimer le collaborateur",
+      "linkTitle": "Liens d'invitation",
+      "linkCreatedTime": "créé {{createdTime}}",
+      "linkCopySuccess": "Lien copié",
+      "linkRemove": "Supprimer le lien"
+    }
+  },
+  "help": {
+    "title": "Aide",
+    "mainLink": "https://help.teable.io",
+    "apiLink": "https://help.teable.io/developer/api"
+  },
+  "pagePermissionChangeTip": "Les autorisations de la page ont été mises à jour. Veuillez rafraîchir la page pour voir le contenu le plus récent.",
+  "listEmptyTips": "La liste est vide",
+  "billing": {
+    "overLimits": "Dépassement des limites",
+    "overLimitsDescription": "Votre abonnement actuel a dépassé sa limite d'utilisation. Veuillez mettre à niveau votre plan pour continuer à utiliser cette fonctionnalité sans interruption.",
+    "userLimitExceededDescription": "L'instance actuelle a atteint le nombre maximum d'utilisateurs autorisés par votre licence. Veuillez désactiver certains utilisateurs ou mettre à niveau la licence.",
+    "unavailableInPlanTips": "Le plan d'abonnement actuel ne prend pas en charge cette fonctionnalité",
+    "levelTips": "Cet espace est actuellement sur le plan {{level}}",
+    "spaceSubscriptionModal": {
+      "title": "Mettre à niveau le plan d'abonnement de l'espace",
+      "description": "Vous ne pouvez mettre à niveau que les espaces où vous êtes propriétaire"
+    },
+    "status": {
+      "active": "Actif",
+      "canceled": "Annulé",
+      "incomplete": "Incomplet",
+      "incompleteExpired": "Incomplet Expiré",
+      "trialing": "En essai",
+      "pastDue": "En retard",
+      "unpaid": "Non payé",
+      "paused": "En pause",
+      "seatLimitExceeded": "Limite de sièges dépassée"
+    }
+  },
+  "admin": {
+    "setting": {
+      "description": "Modifier les paramètres de votre instance actuelle",
+      "allowSignUp": "Autoriser la création de nouveaux comptes",
+      "allowSignUpDescription": "Désactiver cette option interdira les nouvelles inscriptions d'utilisateur, et le bouton d'inscription n'apparaîtra plus sur la page de connexion.",
+      "allowSpaceInvitation": "Autoriser l'envoi d'invitations à des espaces",
+      "allowSpaceInvitationDescription": "Désactiver cette option empêchera les utilisateurs autres que les administrateurs d'inviter d'autres personnes à rejoindre des espaces. Activer cette option permettra aux utilisateurs invités directement de créer un compte même si l'inscription de nouveaux comptes est désactivée.",
+      "allowSpaceCreation": "Autoriser tout le monde à créer de nouveaux espaces",
+      "allowSpaceCreationDescription": "Désactiver cette option empêchera les utilisateurs autres que les administrateurs de créer de nouveaux espaces."
+    }
+  },
+  "notification": {
+    "title": "Notifications",
+    "unread": "Non lu",
+    "read": "Lu",
+    "markAs": "Marquer cette notification comme {{status}}",
+    "markAllAsRead": "Marquer tout comme lu",
+    "noUnread": "Pas de notifications {{status}}",
+    "changeSetting": "Modifier les paramètres des notifications de la page",
+    "new": "nouveau {{count}}",
+    "showMore": "Voir plus"
+  }
+}

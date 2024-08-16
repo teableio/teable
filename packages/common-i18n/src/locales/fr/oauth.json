@@ -1,0 +1,63 @@
+{
+  "add": "Nouvelle application OAuth",
+  "title": {
+    "add": "Nouvelle application OAuth",
+    "edit": "Modifier l'application OAuth"
+  },
+  "form": {
+    "name": {
+      "label": "Nom de l'application OAuth",
+      "description": "Le nom de votre application OAuth."
+    },
+    "description": {
+      "label": "Description",
+      "description": "Une brève description de votre application OAuth."
+    },
+    "homePageUrl": {
+      "label": "URL de la page d'accueil",
+      "description": "L'URL complète du site web de votre application OAuth."
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "Une image carrée est recommandée.",
+      "placeholder": "Glissez-déposez votre logo ici ou cliquez pour télécharger",
+      "button": "Télécharger un logo",
+      "clear": "Effacer",
+      "lengthError": "Un seul fichier est autorisé.",
+      "typeError": "Seul un fichier image est autorisé."
+    },
+    "callbackUrl": {
+      "label": "URL de rappel",
+      "description": "L'URL complète à laquelle rediriger après qu'un utilisateur a autorisé votre intégration.",
+      "add": "Ajouter une URL de rappel"
+    },
+    "scopes": {
+      "label": "Périmètres",
+      "description": "Les autorisations dont votre application OAuth a besoin."
+    },
+    "secret": {
+      "label": "Secrets du client",
+      "add": "Générer un nouveau secret client",
+      "newDescription": "Assurez-vous de copier votre nouveau secret client maintenant. Vous ne pourrez plus le voir par la suite.",
+      "empty": "Vous avez besoin d'un secret client pour vous authentifier en tant qu'application auprès de l'API.",
+      "lastUsed": "Dernière utilisation le {{date}}",
+      "tag": "Secret client",
+      "neverUsed": "Jamais utilisé"
+    },
+    "clientId": {
+      "label": "ID Client : "
+    }
+  },
+  "formType": {
+    "basic": "Informations de base",
+    "scopes": "Périmètres",
+    "identify": "Identification et autorisation des utilisateurs",
+    "clientInfo": "Informations sur le client"
+  },
+  "decision": {
+    "title": "{{name}} demande l'accès à votre compte",
+    "scopes": "Cette application pourra obtenir les périmètres suivants :",
+    "redirectDescription": "L'autorisation redirigera vers",
+    "authorize": "Autoriser"
+  }
+}
