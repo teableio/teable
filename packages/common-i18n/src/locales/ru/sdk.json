@@ -155,6 +155,7 @@
   "expandRecord": {
     "copy": "Копировать в буфер обмена",
     "copyRecordUrl": "Копировать URL записи",
+    "deleteRecord": "Delete record",
     "recordHistory": {
       "hiddenRecordHistory": "Скрыть запись",
       "showRecordHistory": "Показать запись",
