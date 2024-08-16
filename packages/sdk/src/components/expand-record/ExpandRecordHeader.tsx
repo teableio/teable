@@ -132,7 +132,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                     onClose?.();
                   }}
                 >
-                  <Trash2 /> {actionStaticMap['record|delete'].description}
+                  <Trash2 /> {t('expandRecord.deleteRecord')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
