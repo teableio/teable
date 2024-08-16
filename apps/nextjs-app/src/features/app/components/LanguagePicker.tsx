@@ -12,8 +12,8 @@ import { useTranslation } from 'next-i18next';
 const languages = [
   { key: 'zh', title: '中文' },
   { key: 'en', title: 'English' },
-  { key: 'default', title: 'Default' },
   { key: 'fr', title: 'Français' },
+  { key: 'default', title: 'Default' },
 ];
 
 const setCookie = (locale?: string) => {
