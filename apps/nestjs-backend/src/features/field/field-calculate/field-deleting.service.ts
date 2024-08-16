@@ -2,7 +2,6 @@ import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { FieldOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Timing } from '../../../utils/timing';
-import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
@@ -16,7 +15,6 @@ export class FieldDeletingService {
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldBatchCalculationService: FieldCalculationService,
     private readonly viewService: ViewService
   ) {}
 

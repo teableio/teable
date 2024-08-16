@@ -571,7 +571,7 @@ export class ViewService implements IReadonlyAdapterService {
     }
   }
 
-  private getDeleteFilterByFieldIdOps(filter: IFilterSet, fieldId: string) {
+  getDeleteFilterByFieldIdOps(filter: IFilterSet, fieldId: string) {
     const removeItemsByFieldId = (filter: IFilterSet, fieldId: string) => {
       if (Array.isArray(filter.filterSet)) {
         filter.filterSet = filter.filterSet.filter((item) => {
@@ -588,7 +588,7 @@ export class ViewService implements IReadonlyAdapterService {
       return filter;
     };
 
-    const newFilter = removeItemsByFieldId(filter, fieldId) as IFilter;
+    const newFilter = removeItemsByFieldId({ ...filter }, fieldId) as IFilter;
     return ViewOpBuilder.editor.setViewProperty.build({
       key: 'filter',
       newValue: newFilter?.filterSet?.length ? newFilter : null,
