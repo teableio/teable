@@ -804,6 +804,7 @@ export class SelectionService {
     });
 
     const createRecordsRo = {
+      fieldKeyType: FieldKeyType.Id,
       records: fields,
     };
     await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
