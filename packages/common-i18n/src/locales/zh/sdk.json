@@ -155,6 +155,7 @@
   "expandRecord": {
     "copy": "复制到剪贴板",
     "copyRecordUrl": "Copy record URL",
+    "deleteRecord": "Delete record",
     "recordHistory": {
       "hiddenRecordHistory": "Hide record history",
       "showRecordHistory": "Show record history",
