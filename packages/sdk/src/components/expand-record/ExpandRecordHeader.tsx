@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Ellipsis, History, Link, Trash2, X } from '@teable/icons';
+import { ChevronDown, ChevronUp, History, Link, MoreHorizontal, Trash2, X } from '@teable/icons';
 import {
   Button,
   cn,
@@ -120,7 +120,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger className="px-2">
-                  <Ellipsis />
+                  <MoreHorizontal />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem
