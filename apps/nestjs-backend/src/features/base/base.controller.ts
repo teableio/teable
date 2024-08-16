@@ -32,6 +32,7 @@ import type {
   IGetBaseAllVo,
   IGetBasePermissionVo,
   IGetBaseVo,
+  IGetSharedBaseVo,
   IUpdateBaseVo,
   ListBaseCollaboratorVo,
   ListBaseInvitationLinkVo,
@@ -110,6 +111,11 @@ export class BaseController {
     @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
   ) {
     return await this.baseService.updateOrder(baseId, updateOrderRo);
+  }
+
+  @Get('shared-base')
+  async getSharedBase(): Promise<IGetSharedBaseVo> {
+    return this.collaboratorService.getSharedBase();
   }
 
   @Permissions('base|read')

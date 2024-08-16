@@ -16,3 +16,4 @@ export * from './invitation-delete-link';
 export * from './invitation-get-link-list';
 export * from './invitation-update-link';
 export * from './invitation-email';
+export * from './get-shared-base';

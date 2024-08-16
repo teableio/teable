@@ -32,7 +32,7 @@ export const SpaceRenaming: React.FC<SpaceRenamingProps> = (props) => {
       {isRenaming ? (
         <Input
           ref={inputRef}
-          className="h-7 flex-1"
+          className="m-0.5 h-6 flex-1"
           value={spaceName}
           onKeyDown={handleKeyDown}
           onChange={onChange}

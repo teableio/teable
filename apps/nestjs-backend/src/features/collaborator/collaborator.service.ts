@@ -318,4 +318,41 @@ export class CollaboratorService {
       },
     });
   }
+
+  async getSharedBase() {
+    const userId = this.cls.get('user.id');
+    const coll = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        userId,
+        resourceType: CollaboratorType.Base,
+      },
+      select: {
+        resourceId: true,
+        roleName: true,
+      },
+    });
+
+    if (!coll.length) {
+      return [];
+    }
+
+    const roleMap: Record<string, IRole> = {};
+    const baseIds = coll.map((c) => {
+      roleMap[c.resourceId] = c.roleName as IRole;
+      return c.resourceId;
+    });
+    const bases = await this.prismaService.txClient().base.findMany({
+      where: {
+        id: { in: baseIds },
+        deletedTime: null,
+      },
+    });
+    return bases.map((base) => ({
+      id: base.id,
+      name: base.name,
+      role: roleMap[base.id],
+      icon: base.icon,
+      spaceId: base.spaceId,
+    }));
+  }
 }
