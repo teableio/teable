@@ -1,4 +1,5 @@
 import type { IRecord } from '@teable/core';
+import { deleteRecord } from '@teable/openapi';
 import { useToast } from '@teable/ui-lib';
 import type { FC, PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -42,6 +43,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const { t } = useTranslation();
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
+  const canDelete = Boolean(permission['record|delete']);
   const [recordHistoryVisible, setRecordHistoryVisible] = useLocalStorage<boolean>(
     LocalStorageKeys.RecordHistoryVisible,
     false
@@ -80,6 +82,9 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
           onRecordHistoryToggle={onRecordHistoryToggle}
+          onDelete={async () => {
+            if (canDelete) await deleteRecord(tableId, recordId);
+          }}
         />
       </Wrap>
     </div>

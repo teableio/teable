@@ -1,8 +1,16 @@
-import { ChevronDown, ChevronUp, History, Link, X } from '@teable/icons';
-import { Button, Separator, cn } from '@teable/ui-lib';
+import { ChevronDown, ChevronUp, History, Link, MoreHorizontal, Trash2, X } from '@teable/icons';
+import {
+  Button,
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Separator,
+} from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useTablePermission } from '../../hooks';
+import { usePermissionActionsStatic, useTablePermission } from '../../hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
@@ -15,6 +23,7 @@ interface IExpandRecordHeader {
   onNext?: () => void;
   onCopyUrl?: () => void;
   onRecordHistoryToggle?: () => void;
+  onDelete?: () => Promise<void>;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -33,10 +42,13 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onClose,
     onCopyUrl,
     onRecordHistoryToggle,
+    onDelete,
   } = props;
 
+  const { actionStaticMap } = usePermissionActionsStatic();
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
+  const canDelete = Boolean(permission['record|delete']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
@@ -83,7 +95,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
         </h4>
       )}
       {showOperator && (
-        <div>
+        <div className="flex items-center">
           <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
             <Button variant={'ghost'} size={'xs'} onClick={onCopyUrl}>
               <Link />
@@ -106,6 +118,25 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
               </Button>
             </TooltipWrap>
           )}
+
+          {canDelete ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="px-2">
+                <MoreHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
+                  onClick={async () => {
+                    await onDelete?.();
+                    onClose?.();
+                  }}
+                >
+                  <Trash2 /> {t('expandRecord.deleteRecord')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />
