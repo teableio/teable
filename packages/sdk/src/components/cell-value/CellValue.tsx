@@ -100,7 +100,8 @@ export const CellValue = (props: ICellValueContainer) => {
     case FieldType.Checkbox: {
       return <CellCheckbox value={value as boolean | boolean[]} className={className} />;
     }
-    case FieldType.Formula: {
+    case FieldType.Formula:
+    case FieldType.Rollup: {
       if (cellValueType === CellValueType.Boolean) {
         return <CellCheckbox value={value as boolean | boolean[]} className={className} />;
       }
@@ -138,6 +139,6 @@ export const CellValue = (props: ICellValueContainer) => {
       );
     }
     default:
-      throw new Error(`The field type (${type}) is not implemented editor`);
+      throw new Error(`The field type (${type}) is not implemented cell value`);
   }
 };
