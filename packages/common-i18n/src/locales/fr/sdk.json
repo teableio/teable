@@ -155,6 +155,7 @@
   "expandRecord": {
     "copy": "Copy to clipboard",
     "copyRecordUrl": "Copy record URL",
+    "deleteRecord": "Delete record",
     "recordHistory": {
       "hiddenRecordHistory": "Hide record history",
       "showRecordHistory": "Show record history",
