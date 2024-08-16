@@ -233,6 +233,11 @@ export class RecordCalculateService {
     recordsRo: {
       id?: string;
       fields: Record<string, unknown>;
+      createdBy?: string;
+      lastModifiedBy?: string;
+      createdTime?: string;
+      lastModifiedTime?: string;
+      autoNumber?: number;
     }[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     orderIndex?: { viewId: string; indexes: number[] }
@@ -245,7 +250,7 @@ export class RecordCalculateService {
       const recordId = record.id || generateRecordId();
       return {
         id: recordId,
-        fields: record.fields,
+        ...record,
       };
     });
 

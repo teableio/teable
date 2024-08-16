@@ -792,7 +792,10 @@ export class RecordService {
 
         return {
           __id: snapshot.id,
-          __created_by: userId,
+          __created_by: snapshot.createdBy || userId,
+          __last_modified_by: snapshot.lastModifiedBy || undefined,
+          __created_time: snapshot.createdTime || undefined,
+          __last_modified_time: snapshot.lastModifiedTime || undefined,
           __version: 1,
           ...order,
           ...dbFieldValueMap,

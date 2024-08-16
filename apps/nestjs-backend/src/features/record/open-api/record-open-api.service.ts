@@ -88,7 +88,16 @@ export class RecordOpenApiService {
 
   async createRecords(
     tableId: string,
-    createRecordsRo: ICreateRecordsRo
+    createRecordsRo: ICreateRecordsRo & {
+      records: {
+        fields: Record<string, unknown>;
+        createdBy?: string;
+        lastModifiedBy?: string;
+        createdTime?: string;
+        lastModifiedTime?: string;
+        autoNumber?: number;
+      }[];
+    }
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
 

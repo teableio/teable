@@ -27,10 +27,15 @@ export class EventEmitterInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap((result) => {
-        const payload: { result: unknown; params: Record<string, unknown> } = {
+        const payload: { result: unknown; params: Record<string, unknown>; windowId?: string } = {
           result,
           params: {},
         };
+
+        const windowId = req.headers['x-window-id'];
+        if (windowId) {
+          payload.windowId = windowId;
+        }
 
         if (paramNames && paramNames.length > 0) {
           paramNames.forEach((paramName) => {

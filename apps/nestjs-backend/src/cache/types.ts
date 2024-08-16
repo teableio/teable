@@ -15,6 +15,9 @@ export interface ICacheStore {
   [key: `workflow:repeatKey:${string}`]: string;
   [key: `oauth:code:${string}`]: IOAuthCodeState;
   [key: `oauth:txn:${string}`]: IOAuthTxnStore;
+  // userId:tableId:windowId
+  [key: `operations:undo:${string}:${string}:${string}`]: IUndoRedoOperation[];
+  [key: `operations:redo:${string}:${string}:${string}`]: IUndoRedoOperation[];
 }
 
 export interface IAttachmentSignatureCache {
@@ -66,4 +69,9 @@ export interface IOAuthTxnStore {
   scopes: string[];
   userId: string;
   state?: string;
+}
+
+export interface IUndoRedoOperation {
+  params: Record<string, unknown>;
+  result: unknown;
 }
