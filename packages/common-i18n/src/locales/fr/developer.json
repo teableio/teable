@@ -1,0 +1,21 @@
+{
+  "apiQueryBuilder": "Générateur de requêtes API",
+  "subTitle": "Vous pouvez rapidement créer vos requêtes via une interface interactive et copier le code qui peut être exécuté directement",
+  "apiList": "Liste complète des API",
+  "cellFormat": "Format de résultat de la cellule",
+  "fieldKeyType": "Type de clé du champ",
+  "fieldKeyTypeDesc": "Le type de la clé du champ dans le résultat",
+  "chooseSource": "Choisissez une source de données",
+  "action": {
+    "selectBase": "Sélectionnez une base de données...",
+    "selectTable": "Sélectionnez une table..."
+  },
+  "pickParams": "Sélectionnez et configurez les paramètres",
+  "buildResult": "Construire le résultat",
+  "buildResultEmpty": "Aucun résultat pour l'instant",
+  "previewReturnValue": "Aperçu de la valeur de retour",
+  "replaceToken": "Remplacer le jeton",
+  "createNewToken": "Créer un nouveau jeton",
+  "only10Records": "Seuls les 10 premiers enregistrements sont affichés",
+  "addSort": "Ajouter un tri"
+}

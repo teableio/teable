@@ -1,0 +1,16 @@
+{
+  "notFound": {
+    "title": "404 - Page non trouvée"
+  },
+  "links": {
+    "backToHome": "Retour à l'accueil"
+  },
+  "forbidden": {
+    "title": "403 - Accès interdit",
+    "description": "Vous n'avez pas la permission d'accéder à cette page."
+  },
+  "paymentRequired": {
+    "title": "402 - Mise à niveau de l'abonnement requise",
+    "description": "Votre abonnement actuel ne permet pas d'accéder à cette fonctionnalité. <br></br>Veuillez mettre à niveau votre abonnement pour continuer."
+  }
+}

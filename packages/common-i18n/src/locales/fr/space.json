@@ -1,0 +1,47 @@
+{
+  "initialSpaceName": "Espace de {{name}}",
+  "page": {
+    "title": "Application Teable"
+  },
+  "action": {
+    "createBase": "Créer une base",
+    "createSpace": "Créer un espace",
+    "invite": "Inviter"
+  },
+  "allSpaces": "Tous les espaces",
+  "spaceIsEmpty": "Cet espace est vide",
+  "baseModal": {
+    "copy": "Copier",
+    "duplicate": "Dupliquer \"{{baseName}}\"",
+    "createBaseFromTemplate": "Créer une base à partir d'un modèle",
+    "duplicateRecords": "Dupliquer les enregistrements",
+    "duplicateRecordsTip": "Votre historique des révisions ne sera pas dupliqué.",
+    "toSpace": "Vers l'espace",
+    "copyToSpace": "Copier vers l'espace",
+    "duplicateBase": "Dupliquer la base",
+    "missTargetTip": "Veuillez sélectionner un espace pour dupliquer la base.",
+    "copying": "Duplication de la base, cela peut prendre un certain temps...",
+    "copyingTemplate": "Création de la base à partir d'un modèle, cela peut prendre un certain temps...",
+    "howToCreate": "Comment souhaitez-vous commencer ?",
+    "fromScratch": "À partir de zéro",
+    "fromTemplate": "À partir d'un modèle"
+  },
+  "spaceSetting": {
+    "title": "Paramètres de l'espace",
+    "general": "Général",
+    "collaborators": "Collaborateurs",
+    "generalDescription": "Modifiez ici les paramètres de votre espace actuel",
+    "collaboratorDescription": "Gérez les collaborateurs de votre espace et définissez leurs permissions d'accès",
+    "spaceName": "Nom de l'espace",
+    "spaceId": "ID de l'espace"
+  },
+  "pin": {
+    "add": "Ajouter aux favoris",
+    "remove": "Retirer des favoris",
+    "pin": "Épingler",
+    "empty": "Vos bases et espaces favoris apparaîtront ici"
+  },
+  "tip": {
+    "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?"
+  }
+}

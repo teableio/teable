@@ -1,0 +1,113 @@
+{
+  "errors": {
+    "invalid_type": "Type attendu : {{expected}}, reçu : {{received}}",
+    "invalid_type_received_undefined": "Requis",
+    "invalid_type_received_null": "Requis",
+    "invalid_literal": "Valeur littérale invalide, attendu : {{expected}}",
+    "unrecognized_keys": "Clé(s) non reconnue(s) dans l'objet : {{- keys}}",
+    "invalid_union": "Entrée invalide",
+    "invalid_union_discriminator": "Valeur de discriminant invalide. Attendu : {{- options}}",
+    "invalid_enum_value": "Valeur d'énumération invalide. Attendu : {{- options}}, reçu : '{{received}}'",
+    "invalid_arguments": "Arguments de fonction invalides",
+    "invalid_return_type": "Type de retour de fonction invalide",
+    "invalid_date": "Date invalide",
+    "custom": "Entrée invalide",
+    "invalid_intersection_types": "Les résultats d'intersection n'ont pas pu être fusionnés",
+    "not_multiple_of": "Le nombre doit être un multiple de {{multipleOf}}",
+    "not_finite": "Le nombre doit être fini",
+    "invalid_string": {
+      "email": "{{validation}} invalide",
+      "url": "{{validation}} invalide",
+      "uuid": "{{validation}} invalide",
+      "cuid": "{{validation}} invalide",
+      "regex": "Invalide",
+      "datetime": "{{validation}} invalide",
+      "startsWith": "Entrée invalide : doit commencer par \"{{startsWith}}\"",
+      "endsWith": "Entrée invalide : doit se terminer par \"{{endsWith}}\""
+    },
+    "too_small": {
+      "array": {
+        "exact": "Le tableau doit contenir exactement {{minimum}} élément(s)",
+        "inclusive": "Le tableau doit contenir au moins {{minimum}} élément(s)",
+        "not_inclusive": "Le tableau doit contenir plus de {{minimum}} élément(s)"
+      },
+      "string": {
+        "exact": "La chaîne doit contenir exactement {{minimum}} caractère(s)",
+        "inclusive": "La chaîne doit contenir au moins {{minimum}} caractère(s)",
+        "not_inclusive": "La chaîne doit contenir plus de {{minimum}} caractère(s)"
+      },
+      "number": {
+        "exact": "Le nombre doit être exactement {{minimum}}",
+        "inclusive": "Le nombre doit être supérieur ou égal à {{minimum}}",
+        "not_inclusive": "Le nombre doit être supérieur à {{minimum}}"
+      },
+      "set": {
+        "exact": "Entrée invalide",
+        "inclusive": "Entrée invalide",
+        "not_inclusive": "Entrée invalide"
+      },
+      "date": {
+        "exact": "La date doit être exactement {{- minimum, datetime}}",
+        "inclusive": "La date doit être postérieure ou égale à {{- minimum, datetime}}",
+        "not_inclusive": "La date doit être postérieure à {{- minimum, datetime}}"
+      }
+    },
+    "too_big": {
+      "array": {
+        "exact": "Le tableau doit contenir exactement {{maximum}} élément(s)",
+        "inclusive": "Le tableau doit contenir au maximum {{maximum}} élément(s)",
+        "not_inclusive": "Le tableau doit contenir moins de {{maximum}} élément(s)"
+      },
+      "string": {
+        "exact": "La chaîne doit contenir exactement {{maximum}} caractère(s)",
+        "inclusive": "La chaîne doit contenir au maximum {{maximum}} caractère(s)",
+        "not_inclusive": "La chaîne doit contenir moins de {{maximum}} caractère(s)"
+      },
+      "number": {
+        "exact": "Le nombre doit être exactement {{maximum}}",
+        "inclusive": "Le nombre doit être inférieur ou égal à {{maximum}}",
+        "not_inclusive": "Le nombre doit être inférieur à {{maximum}}"
+      },
+      "set": {
+        "exact": "Entrée invalide",
+        "inclusive": "Entrée invalide",
+        "not_inclusive": "Entrée invalide"
+      },
+      "date": {
+        "exact": "La date doit être exactement {{- maximum, datetime}}",
+        "inclusive": "La date doit être antérieure ou égale à {{- maximum, datetime}}",
+        "not_inclusive": "La date doit être antérieure à {{- maximum, datetime}}"
+      }
+    }
+  },
+  "validations": {
+    "email": "email",
+    "url": "url",
+    "uuid": "uuid",
+    "cuid": "cuid",
+    "regex": "regex",
+    "datetime": "datetime"
+  },
+  "types": {
+    "function": "fonction",
+    "number": "nombre",
+    "string": "chaîne",
+    "nan": "nan",
+    "integer": "entier",
+    "float": "flottant",
+    "boolean": "booléen",
+    "date": "date",
+    "bigint": "bigint",
+    "undefined": "indéfini",
+    "symbol": "symbole",
+    "null": "nul",
+    "array": "tableau",
+    "object": "objet",
+    "unknown": "inconnu",
+    "promise": "promesse",
+    "void": "vide",
+    "never": "jamais",
+    "map": "map",
+    "set": "set"
+  }
+}
