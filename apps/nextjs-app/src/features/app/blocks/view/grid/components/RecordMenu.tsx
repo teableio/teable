@@ -1,4 +1,4 @@
-import { Trash, ArrowUp, ArrowDown } from '@teable/icons';
+import { Trash, ArrowUp, ArrowDown, Copy } from '@teable/icons';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import {
   cn,
@@ -33,6 +33,7 @@ enum MenuItemType {
   Delete = 'Delete',
   InsertAbove = 'InsertAbove',
   InsertBelow = 'InsertBelow',
+  Duplicate = 'duplicate',
 }
 
 const iconClassName = 'mr-2 h-4 w-4';
@@ -87,6 +88,19 @@ export const RecordMenu = () => {
         onClick: async () => {
           if (!tableId || !viewId || !record) return;
           insertRecord?.(record.id, 'after');
+        },
+      },
+      {
+        type: MenuItemType.Duplicate,
+        name: t('table:menu.duplicate'),
+        icon: <Copy className={iconClassName} />,
+        hidden: isMultipleSelected || !permission['record|create'],
+        disabled: isAutoSort,
+        onClick: async () => {
+          if (recordMenu && tableId && recordMenu.duplicateRecords && selection) {
+            // console.log("duplicate record",selection);
+            recordMenu.duplicateRecords(selection);
+          }
         },
       },
     ],

@@ -800,10 +800,14 @@ export class SelectionService {
   async duplicate(tableId: string, rangesRo: IRangesRo) {
     const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const createRecordsRo = {
-      fieldKeyType: FieldKeyType.Id,
+      fieldKeyType: FieldKeyType.Name,
       typecast: true,
       records: records,
     };
-    await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
+
+    // console.log("seleciton-service duplicate",tableId,createRecordsRo,records);
+    await this.prismaService.$tx(async () => {
+      await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
+    });
   }
 }

@@ -146,6 +146,8 @@
       "clearSuccessful": "清除成功",
       "deleting": "正在删除...",
       "deleteSuccessful": "删除成功",
+      "duplicating": "正在复制...",
+      "duplicateSuccessful": "复制成功",
       "pasteFileFailed": "文件只能粘贴到附件字段中"
     }
   },
@@ -261,6 +263,7 @@
     "insertRecordBelow": "在下方插入记录",
     "copyCells": "复制单元格",
     "deleteRecord": "删除记录",
+    "duplicate": "复制记录",
     "deleteAllSelectedRecords": "删除所有选定的记录",
     "editField": "编辑字段",
     "insertFieldLeft": "在左侧插入字段",

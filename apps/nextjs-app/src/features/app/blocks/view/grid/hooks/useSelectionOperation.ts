@@ -2,7 +2,7 @@ import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
 import type { IFilter } from '@teable/core';
 import type { ICopyVo, IPasteRo, IRangesRo, ITemporaryPasteRo } from '@teable/openapi';
-import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
+import { clear, copy, deleteSelection, paste, temporaryPaste, duplicate } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
 import { useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
 import { useToast } from '@teable/ui-lib';
@@ -58,6 +58,11 @@ export const useSelectionOperation = (props?: {
   const { mutateAsync: deleteReq } = useMutation({
     mutationFn: (deleteRo: IRangesRo) =>
       deleteSelection(tableId!, { ...deleteRo, viewId, groupBy, filter, search }),
+  });
+
+  const { mutateAsync: duplicateReq } = useMutation({
+    mutationFn: (duplicateRo: IRangesRo) =>
+      duplicate(tableId!, { ...duplicateRo, viewId, groupBy, filter, search }),
   });
 
   const { toast } = useToast();
@@ -217,13 +222,32 @@ export const useSelectionOperation = (props?: {
     },
     [deleteReq, tableId, toast, viewId, t]
   );
-  // TODO
-  // const doDuplicate = useCallback()
+
+  const doDuplicate = useCallback(
+    async (selection: CombinedSelection) => {
+      if (!viewId || !tableId) return;
+
+      const toaster = toast({
+        title: t('table:table.actionTips.duplicating'),
+      });
+      const ranges = selection.serialize();
+      const type = rangeTypes[selection.type];
+
+      await duplicateReq({
+        ranges,
+        ...(type ? { type } : {}),
+      });
+
+      toaster.update({ id: toaster.id, title: t('table:table.actionTips.duplicateSuccessful') });
+    },
+    [duplicateReq, tableId, toast, viewId, t]
+  );
 
   return {
     copy: doCopy,
     paste: doPaste,
     clear: doClear,
     deleteRecords: doDelete,
+    duplicateRecords: doDuplicate,
   };
 };

@@ -146,6 +146,8 @@
       "clearSuccessful": "Clear successful",
       "deleting": "Deleting...",
       "deleteSuccessful": "Delete successful",
+      "duplicating": "Duplicat...",
+      "duplicateSuccessful": "Duplicate successful",
       "pasteFileFailed": "Files can only be pasted into an attachment field"
     }
   },
@@ -261,6 +263,7 @@
     "insertRecordBelow": "Insert record below",
     "copyCells": "Copy cells",
     "deleteRecord": "Delete record",
+    "duplicate": "Duplicate record",
     "deleteAllSelectedRecords": "Delete all selected records",
     "editField": "Edit field",
     "insertFieldLeft": "Insert left",
