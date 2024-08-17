@@ -59,13 +59,15 @@
     "displayLabel_other": "Фильтровать по {{fieldName}} и {{count}} другим полям",
     "addCondition": "Добавить условие",
     "addConditionGroup": "Добавить группу условий",
-    "nestedLimitTip": "Условия фильтрации могут быть вложенными только на 3 уровня",
+    "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
     "linkInputPlaceholder": "Введите значение",
     "groupDescription": "Любой из следующих условия верно…",
     "currentUser": "Меня (текучего пользователя)",
     "tips": {
       "scope": "В этом представлении показать записи"
     },
+    "invalidateSelected": "Invalid value",
+    "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "default": {
       "empty": "Не применено никаких условий фильтрации",
       "placeholder": "Введите значение"
