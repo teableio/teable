@@ -292,7 +292,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             generateRecord({}, Math.max(targetIndex, 0), { anchorId, position });
           },
           duplicateRecords: async (selection) => {
-            console.log('GridViewBase-duplicateRecords', selection);
             duplicateRecords(selection);
             gridRef.current?.setSelection(emptySelection);
           },
@@ -712,6 +711,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             <PrefillingRowContainer
               style={prefillingRowStyle}
               onClickOutside={async () => {
+                console.log('onClickOutside');
                 await mutateCreateRecord();
               }}
               onCancel={() => {

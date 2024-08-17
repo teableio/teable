@@ -98,7 +98,6 @@ export const RecordMenu = () => {
         disabled: isAutoSort,
         onClick: async () => {
           if (recordMenu && tableId && recordMenu.duplicateRecords && selection) {
-            // console.log("duplicate record",selection);
             recordMenu.duplicateRecords(selection);
           }
         },
