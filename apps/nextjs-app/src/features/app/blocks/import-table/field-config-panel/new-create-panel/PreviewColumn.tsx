@@ -3,7 +3,7 @@ import type { FieldType } from '@teable/core';
 import { Trash, Lock } from '@teable/icons';
 import type { IImportColumn } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk';
-import { BaseSingleSelect } from '@teable/sdk/components/filter/component';
+import { BaseSingleSelect } from '@teable/sdk/components/filter/view-filter/component/base/BaseSingleSelect';
 import {
   Table,
   TableBody,
@@ -69,7 +69,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
             </TableCell>
             <TableCell className="w-full max-w-md">
               <BaseSingleSelect
-                className="w-full"
+                className="m-1 w-full"
                 options={candidates}
                 popoverClassName="w-96 truncate"
                 value={column.type}

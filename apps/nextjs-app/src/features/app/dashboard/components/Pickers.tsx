@@ -1,6 +1,6 @@
+import type { IFilter } from '@teable/core';
 import { Filter as FilterIcon } from '@teable/icons';
-import type { IFilter } from '@teable/sdk/components';
-import { Filter } from '@teable/sdk/components';
+import { ViewFilter } from '@teable/sdk/components';
 import { useTable, useTables, useView, useViews } from '@teable/sdk/hooks';
 import { Button, useToast } from '@teable/ui-lib/shadcn';
 import { useCallback, useEffect } from 'react';
@@ -61,14 +61,14 @@ export const Pickers: React.FC<{
         candidates={views}
         placeholder="Select view..."
       />
-      <Filter filters={view?.filter as IFilter} onChange={onFilterChange}>
+      <ViewFilter filters={view?.filter as IFilter} onChange={onFilterChange}>
         {(text) => (
           <Button variant={'outline'} className={'font-normal'}>
             <FilterIcon className="size-4 text-sm" />
             <span className="truncate">{text}</span>
           </Button>
         )}
-      </Filter>
+      </ViewFilter>
     </div>
   );
 };

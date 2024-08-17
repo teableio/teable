@@ -7,7 +7,8 @@ import {
   getFormattingSchema,
   getShowAsSchema,
 } from '@teable/core';
-import { BaseSingleSelect } from '@teable/sdk/components/filter/component';
+import { BaseSingleSelect } from '@teable/sdk/components/filter/view-filter/component/base/BaseSingleSelect';
+
 import { RollupField } from '@teable/sdk/model';
 import { isEmpty, isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
@@ -190,7 +191,7 @@ export const RollupOptions = (props: {
           <span className="neutral-content label-text">{t('field.default.rollup.rollup')}</span>
           <BaseSingleSelect
             modal
-            className="w-full"
+            className="m-1 w-full"
             placeholder={t('field.default.rollup.selectAnRollupFunction')}
             options={candidates}
             value={expression || null}

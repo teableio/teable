@@ -19,7 +19,7 @@ import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView, useFieldCellEditable } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record } from '../../../model';
 import type { GridView } from '../../../model/view';
-import { getFilterFieldIds } from '../../filter/utils';
+import { getFilterFieldIds } from '../../filter/view-filter/utils';
 import type { IGridTheme } from '../../grid/configs';
 import { GRID_DEFAULT } from '../../grid/configs';
 import {

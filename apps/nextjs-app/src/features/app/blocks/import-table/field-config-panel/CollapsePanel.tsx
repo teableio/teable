@@ -1,6 +1,6 @@
 import { ChevronRight } from '@teable/icons';
 import type { IImportOptionRo } from '@teable/openapi';
-import { BaseSingleSelect } from '@teable/sdk/components/filter/component';
+import { BaseSingleSelect } from '@teable/sdk/components/filter/view-filter/component/base/BaseSingleSelect';
 import {
   Button,
   cn,
@@ -120,9 +120,9 @@ export const InplaceImportOptionPanel = (props: IInplaceCollapsePanel) => {
               onSelect={(value) => {
                 onChangeHandler('sourceWorkSheetKey', value || '');
               }}
-              className="w-56 truncate"
+              className="m-1 w-56 truncate"
               popoverClassName="w-56"
-            ></BaseSingleSelect>
+            />
           </div>
         ) : null}
 
