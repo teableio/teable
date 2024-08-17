@@ -11,7 +11,7 @@ import {
 import type { IFieldInstance, IFieldCreateOrSelectModalRef, KanbanView } from '@teable/sdk';
 import {
   Sort,
-  Filter,
+  ViewFilter,
   useFields,
   useTableId,
   VisibleFields,
@@ -36,7 +36,6 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
-import { useViewFilterLinkContext } from '../useViewFilterLinkContext';
 import { CoverFieldSelect } from './CoverFieldSelect';
 
 const KANBAN_STACKED_BY_FIELD_TYPES = [FieldType.SingleSelect, FieldType.User];
@@ -50,7 +49,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
-  const viewFilerContext = useViewFilterLinkContext(tableId, view?.id, { disabled });
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
 
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
@@ -172,7 +170,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           </ToolBarButton>
         )}
       </VisibleFields>
-      <Filter
+      <ViewFilter
         filters={view?.filter || null}
         onChange={onFilterChange}
         contentHeader={
@@ -183,9 +181,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             </div>
           )
         }
-        context={{
-          [FieldType.Link]: viewFilerContext,
-        }}
       >
         {(text, isActive) => (
           <ToolBarButton
@@ -203,7 +198,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             <FilterIcon className="size-4 text-sm" />
           </ToolBarButton>
         )}
-      </Filter>
+      </ViewFilter>
       <Sort sorts={view?.sort || null} onChange={onSortChange}>
         {(text: string, isActive) => (
           <ToolBarButton

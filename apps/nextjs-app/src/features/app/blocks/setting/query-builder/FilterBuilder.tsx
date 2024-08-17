@@ -1,6 +1,6 @@
 import type { IFilterSet } from '@teable/core';
-import { FilterMain } from '@teable/sdk/components';
-import { useFields } from '@teable/sdk/hooks';
+import { BaseViewFilter, useViewFilterLinkContext } from '@teable/sdk';
+import { useFields, useViewId, useTableId, useTablePermission } from '@teable/sdk/hooks';
 
 export const FilterBuilder = ({
   filter,
@@ -11,5 +11,19 @@ export const FilterBuilder = ({
 }) => {
   const fields = useFields({ withHidden: true, withDenied: true });
 
-  return <FilterMain filters={filter} onChange={onChange} fields={fields} />;
+  const viewId = useViewId();
+  const tableId = useTableId();
+  const permission = useTablePermission();
+  const viewFilterLinkContext = useViewFilterLinkContext(tableId, viewId, {
+    disabled: !permission['view|update'],
+  });
+
+  return (
+    <BaseViewFilter
+      value={filter}
+      onChange={onChange}
+      fields={fields}
+      viewFilterLinkContext={viewFilterLinkContext}
+    />
+  );
 };

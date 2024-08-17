@@ -93,7 +93,8 @@ export const FieldSetting = (props: IFieldSetting) => {
           props.field?.id as string,
           fieldRo
         ),
-        queryFn: ({ queryKey }) => planFieldConvert(queryKey[1], queryKey[2], queryKey[3]),
+        queryFn: ({ queryKey }) =>
+          planFieldConvert(queryKey[1], queryKey[2], queryKey[3]).then((data) => data.data),
       });
     }
     return queryClient.ensureQueryData({
@@ -107,7 +108,7 @@ export const FieldSetting = (props: IFieldSetting) => {
       return onCancel();
     }
 
-    const plan = (await getPlan(fieldRo)).data;
+    const plan = (await getPlan(fieldRo)) as IPlanFieldConvertVo;
     setFieldRo(fieldRo);
     setPlan(plan);
     if (plan && (plan.estimateTime || 0) > 1000) {

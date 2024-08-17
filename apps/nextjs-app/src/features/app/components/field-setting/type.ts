@@ -1,9 +1,9 @@
 import type { CellValueType, IFieldRo, IFieldVo } from '@teable/core';
 
 export enum FieldOperator {
-  Add,
-  Edit,
-  Insert,
+  Add = 'add',
+  Edit = 'edit',
+  Insert = 'insert',
 }
 
 export interface IFieldSetting {

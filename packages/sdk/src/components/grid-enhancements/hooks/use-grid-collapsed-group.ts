@@ -6,7 +6,7 @@ import { zonedTimeToUtc } from 'date-fns-tz';
 import { useCallback, useMemo } from 'react';
 import { useFields, useView, useViewId } from '../../../hooks';
 import type { GridView, IFieldInstance } from '../../../model';
-import { shouldFilterByDefaultValue } from '../../filter/utils';
+import { shouldFilterByDefaultValue } from '../../filter/view-filter/utils';
 import { useGridCollapsedGroupStore } from '../store';
 
 const FILTER_RELATED_FILED_TYPE_SET = new Set([

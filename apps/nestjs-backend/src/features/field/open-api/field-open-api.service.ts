@@ -169,6 +169,7 @@ export class FieldOpenApiService {
         oldField,
         supplementChange
       );
+      await this.fieldConvertingService.convertFieldRelative(tableId, newField, oldField);
     });
 
     // 3. stage apply record changes and calculate field

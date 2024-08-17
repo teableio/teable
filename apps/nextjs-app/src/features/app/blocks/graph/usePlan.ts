@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import type { IFieldRo } from '@teable/core';
 import { planField, planFieldCreate, planFieldConvert } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useEffect } from 'react';
 
 export function usePlan({
   tableId,
@@ -13,45 +12,27 @@ export function usePlan({
   fieldId?: string;
   fieldRo?: IFieldRo;
 }) {
-  const { data: updatePlan, refetch: planUpdate } = useQuery({
+  const { data: updatePlan } = useQuery({
     queryKey: ReactQueryKeys.planFieldConvert(tableId, fieldId as string, fieldRo as IFieldRo),
     queryFn: ({ queryKey }) =>
       planFieldConvert(queryKey[1], queryKey[2], queryKey[3]).then((data) => data.data),
     refetchOnWindowFocus: false,
-    enabled: false,
+    enabled: !!(fieldId && fieldRo),
   });
 
-  const { data: createPlan, refetch: planCreate } = useQuery({
+  const { data: createPlan } = useQuery({
     queryKey: ReactQueryKeys.planFieldCreate(tableId, fieldRo as IFieldRo),
     queryFn: ({ queryKey }) => planFieldCreate(queryKey[1], queryKey[2]).then((data) => data.data),
     refetchOnWindowFocus: false,
-    enabled: false,
+    enabled: !!(!fieldId && fieldRo),
   });
 
-  const { data: staticPlan, refetch: planStatic } = useQuery({
+  const { data: staticPlan } = useQuery({
     queryKey: ReactQueryKeys.planField(tableId, fieldId as string),
     queryFn: ({ queryKey }) => planField(queryKey[1], queryKey[2]).then((data) => data.data),
     refetchOnWindowFocus: false,
-    enabled: false,
+    enabled: !!(fieldId && !fieldRo),
   });
-
-  const isUpdate = fieldId && fieldRo;
-  const isStatic = fieldId && !fieldRo;
-  const isCreate = !fieldId && fieldRo;
-
-  useEffect(() => {
-    if (isUpdate) {
-      planUpdate();
-    }
-
-    if (isCreate) {
-      planCreate();
-    }
-
-    if (isStatic) {
-      planStatic();
-    }
-  }, [isCreate, isStatic, isUpdate, planCreate, planStatic, planUpdate]);
 
   return createPlan || staticPlan || updatePlan;
 }

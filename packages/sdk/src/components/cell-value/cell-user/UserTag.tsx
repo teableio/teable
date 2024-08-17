@@ -13,9 +13,9 @@ export const UserTag = (props: IUserTag) => {
   const { name, avatar, suffix, className } = props;
 
   return (
-    <div className={cn('flex items-center text-sm', className)}>
+    <div className={cn('flex items-center text-sm flex-1 truncate', className)}>
       <UserAvatar name={name} avatar={avatar} />
-      <div className="-ml-3 flex items-center overflow-hidden rounded-[6px] bg-secondary pl-4 pr-2 text-secondary-foreground">
+      <div className="-ml-3 flex flex-1 items-center overflow-hidden rounded-[6px] bg-secondary pl-4 pr-2 text-secondary-foreground">
         <p className="flex-1 truncate" title={name}>
           {name}
         </p>
