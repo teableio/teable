@@ -59,13 +59,15 @@
     "displayLabel_other": "筛选({{count}})",
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
-    "nestedLimitTip": "Filter conditions can only be nested 3 levels deep",
+    "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
     "linkInputPlaceholder": "输入值",
     "groupDescription": "以下任一条件为真…",
     "currentUser": "我（当前用户）",
     "tips": {
       "scope": "仅作用于当前视图的记录"
     },
+    "invalidateSelected": "Invalid value",
+    "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "default": {
       "empty": "当前没有应用任何筛选条件",
       "placeholder": "请输入"
