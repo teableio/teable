@@ -1,3 +1,4 @@
+import { FieldType } from '@teable/core';
 import type { SortFunc } from '@teable/core';
 import { Checked, Square } from '@teable/icons';
 import {
@@ -30,6 +31,7 @@ function OrderSelect(props: IOrderProps) {
 
   const options = useMemo(() => {
     const cellValueType = field?.cellValueType;
+    const fieldType = field?.type;
 
     const DEFAULTOPTIONS = [
       {
@@ -53,16 +55,16 @@ function OrderSelect(props: IOrderProps) {
       },
     ];
 
-    // const SELECTOPTIONS = [
-    //   {
-    //     value: 'asc',
-    //     label: 'first → last',
-    //   },
-    //   {
-    //     value: 'desc',
-    //     label: 'last → first',
-    //   },
-    // ];
+    const SELECTOPTIONS = [
+      {
+        value: 'asc',
+        label: t('sort.selectASCLabel'),
+      },
+      {
+        value: 'desc',
+        label: t('sort.selectDESCLabel'),
+      },
+    ];
 
     const CHECKBOXOPTIONS = [
       {
@@ -105,13 +107,12 @@ function OrderSelect(props: IOrderProps) {
     }
 
     /**
-     * todo
      * for select type
      * sort should sort by option's order
      */
-    // if (type === FieldType.SingleSelect || type === FieldType.MultipleSelect) {
-    //   option = SELECTOPTIONS;
-    // }
+    if (fieldType === FieldType.SingleSelect || fieldType === FieldType.MultipleSelect) {
+      option = SELECTOPTIONS;
+    }
 
     return option || DEFAULTOPTIONS;
   }, [field]);

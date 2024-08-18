@@ -186,7 +186,9 @@
     "displayLabel_other": "排序({{count}})",
     "setTips": "设置排序条件",
     "addButton": "添加另一个排序",
-    "autoSort": "自动排序"
+    "autoSort": "自动排序",
+    "selectASCLabel": "选项顺序",
+    "selectDESCLabel": "选项倒序"
   },
   "group": {
     "label": "分组",

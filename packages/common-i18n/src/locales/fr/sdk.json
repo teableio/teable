@@ -171,7 +171,9 @@
     "displayLabel_other": "Trier par {{count}} champs",
     "setTips": "Trier par",
     "addButton": "Ajouter un autre tri",
-    "autoSort": "Trier automatiquement les enregistrements"
+    "autoSort": "Trier automatiquement les enregistrements",
+    "selectASCLabel": "Ordre d'options",
+    "selectDESCLabel": "Options dans l'ordre inverse"
   },
   "group": {
     "label": "Grouper",
