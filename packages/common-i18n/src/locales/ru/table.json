@@ -104,16 +104,16 @@
         "title": "ID"
       },
       "createdTime": {
-        "title": "Created time"
+        "title": "Время создания"
       },
       "lastModifiedTime": {
-        "title": "Last modified time"
+        "title": "Время последнего изменения"
       },
       "createdBy": {
-        "title": "Created by"
+        "title": "Создано"
       },
       "lastModifiedBy": {
-        "title": "Last modified by"
+        "title": "Последнее изменение сделано"
       },
       "rating": {
         "title": "Оценка"
@@ -257,48 +257,48 @@
     "newTableLabel": "Новая таблица",
     "rename": "Переименовать",
     "design": "Дизайн",
-    "tableRecordHistory": "Table record history",
+    "tableRecordHistory": "История записей таблицы",
     "deleteConfirm": "Вы уверены, что хотите удалить \"{{tableName}}\"?",
     "dbTableName": "Имя таблицы в физической базе данных",
     "schemaName": "Имя схемы в физической базе данных",
-    "tableInfo": "Table Info",
-    "tableInfoDetail": "Basic information for the table",
-    "typeOfDatabase": "Type of database",
-    "descriptionForTable": "Description for this table",
-    "nameForTable": "Name for this table",
-    "deleteTip1": "Link fields linked with this table in other tables will be converted to text fields.",
-    "deleteTip2": "This operation cannot be undone.",
+    "tableInfo": "Информация о таблице",
+    "tableInfoDetail": "Основная информация для таблицы",
+    "typeOfDatabase": "Тип базы данных",
+    "descriptionForTable": "Описание этой таблицы",
+    "nameForTable": "Название для этой таблицы",
+    "deleteTip1": "Связанные с этой таблицей поля в других таблицах будут преобразованы в текстовые поля.",
+    "deleteTip2": "Эта операция не может быть отменена.",
     "operator": {
-      "createBlank": "Create a blank table"
+      "createBlank": "Создайте пустую таблицу"
     },
     "actionTips": {
-      "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
-      "copyAndPasteBrowser": "Copy and paste not supported in this browser",
-      "copying": "Copying...",
-      "copySuccessful": "Copy successful",
-      "copyFailed": "Copy failed",
-      "pasting": "Pasting...",
-      "pasteSuccessful": "Paste successful",
-      "pasteFailed": "Paste failed",
-      "clearing": "Clearing...",
-      "clearSuccessful": "Clear successful",
-      "deleting": "Deleting...",
-      "deleteSuccessful": "Delete successful",
-      "pasteFileFailed": "Files can only be pasted into an attachment field"
+      "copyAndPasteEnvironment": "Копирование и вставка работает только через HTTPS или localhost",
+      "copyAndPasteBrowser": "Копирование и вставка не поддерживаются в этом браузере",
+      "copying": "Копирование...",
+      "copySuccessful": "Копирование выполнено успешно",
+      "copyFailed": "Копирование не удалось",
+      "pasting": "Вставка...",
+      "pasteSuccessful": "Вставка выполнена успешно",
+      "pasteFailed": "Вставка не удалась",
+      "clearing": "Очистка...",
+      "clearSuccessful": "Очистка выполнена успешно",
+      "deleting": "Удаление...",
+      "deleteSuccessful": "Удаление выполнено успешно",
+      "pasteFileFailed": "Файлы можно вставлять только в поле вложений"
     },
     "graph": {
-      "tableLabel": "Table label",
-      "effectCells": "May effect cells",
-      "estimatedTime": "Estimated time"
+      "tableLabel": "Метка таблицы",
+      "effectCells": "Может повлиять на ячейки",
+      "estimatedTime": "Оцененное время"
     }
   },
   "import": {
     "title": {
-      "upload": "Upload",
-      "import": "Import",
-      "localFile": "Local Files",
-      "linkUrl": "Link(URL)",
-      "linkUrlInputTitle": "Add file from URL",
+      "upload": "Загрузка",
+      "import": "Импорт",
+      "localFile": "Локальные файлы",
+      "linkUrl": "Ссылка (URL)",
+      "linkUrlInputTitle": "Добавить файл из URL",
       "importTitle": "Create a new table",
       "incrementImportTitle": "Import Into — ",
       "optionsTitle": "Import option",
