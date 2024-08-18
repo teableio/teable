@@ -174,7 +174,9 @@
     "displayLabel_other": "Sort by {{count}} fields",
     "setTips": "Sort by",
     "addButton": "Add another sort",
-    "autoSort": "Automatically sort records"
+    "autoSort": "Automatically sort records",
+    "selectASCLabel": "first → last",
+    "selectDESCLabel": "last → first"
   },
   "group": {
     "label": "Group",

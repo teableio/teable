@@ -49,7 +49,9 @@ export const ViewFilter = (props: IViewFilterProps) => {
 
   useDebounce(
     () => {
-      onChange(filter);
+      if (!isEqual(filter, latestValue.current)) {
+        onChange(filter);
+      }
     },
     300,
     [filter]
