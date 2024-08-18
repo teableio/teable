@@ -174,7 +174,9 @@
     "displayLabel_other": "Сортировать по {{count}} полям",
     "setTips": "Сортировать по",
     "addButton": "Добавить еще один критерий сортировки",
-    "autoSort": "Автоматически сортировать записи"
+    "autoSort": "Автоматически сортировать записи",
+    "selectASCLabel": "first → last",
+    "selectDESCLabel": "last → first"
   },
   "group": {
     "label": "Группировать",
