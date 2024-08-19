@@ -22,16 +22,25 @@ export class UserNameListener {
   ) {}
 
   private async getFieldsForUser(userId: string) {
-    const query = this.knex('collaborator')
+    const spaceBaseQuery = this.knex('collaborator')
       .join('space', 'collaborator.resource_id', 'space.id')
-      .join('base', 'collaborator.resource_id', 'base.id')
       .join('base', 'space.id', 'base.space_id')
-      .join('table_meta', 'base.id', 'table_meta.base_id')
-      .join('field', 'table_meta.id', 'field.table_id')
-      .where('collaborator.user_id', userId)
-      .whereIn('field.type', ['user', 'createdBy', 'lastModifiedBy'])
       .whereNull('space.deleted_time')
       .whereNull('base.deleted_time')
+      .where('collaborator.user_id', userId)
+      .select('base.id as base_id', 'collaborator.user_id as user_id');
+    const baseQuery = this.knex('collaborator')
+      .join('base', 'collaborator.resource_id', 'base.id')
+      .join('space', 'base.space_id', 'space.id')
+      .whereNull('space.deleted_time')
+      .whereNull('base.deleted_time')
+      .select('base.id as base_id', 'collaborator.user_id as user_id');
+    const query = this.knex
+      .with('c', this.knex.union([spaceBaseQuery, baseQuery]))
+      .join('table_meta', 'c.base_id', 'table_meta.base_id')
+      .join('field', 'table_meta.id', 'field.table_id')
+      .from('c')
+      .whereIn('field.type', ['user', 'createdBy', 'lastModifiedBy'])
       .whereNull('table_meta.deleted_time')
       .whereNull('field.deleted_time')
       .select({
@@ -42,7 +51,6 @@ export class UserNameListener {
         isMultipleCellValue: 'field.is_multiple_cell_value',
       })
       .toQuery();
-
     return this.prismaService.$queryRawUnsafe<Field[]>(query);
   }
 
