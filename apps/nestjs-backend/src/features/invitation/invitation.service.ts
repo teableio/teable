@@ -77,8 +77,7 @@ export class InvitationService {
           },
         },
       })
-      .catch((error) => {
-        console.log(error, userId, resourceId, resourceType);
+      .catch(() => {
         throw new BadRequestException('User not found in collaborator');
       });
     const userRole = coll.roleName as IRole;
@@ -148,7 +147,7 @@ export class InvitationService {
       (email) => !sendUsers.find((u) => u.email.toLowerCase() === email.toLowerCase())
     );
 
-    return await this.prismaService.$tx(async () => {
+    return this.prismaService.$tx(async () => {
       // create user if not exist
       const newUsers = await this.createNotExistedUser(noExistEmails);
       sendUsers.push(...newUsers);

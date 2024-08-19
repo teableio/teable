@@ -110,6 +110,7 @@ describe('InvitationService', () => {
         id: mockInvitationId,
         invitationCode: mockInvitationCode,
       } as any);
+      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
 
       const result = await clsService.runWith(
         {
@@ -147,13 +148,24 @@ describe('InvitationService', () => {
       prismaService.space.findFirst.mockResolvedValue(mockSpace as any);
       prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
       prismaService.$tx.mockRejectedValue(new Error('tx error'));
+      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
+      vi.spyOn(invitationService as any, 'checkSpaceInvitation').mockResolvedValue(true);
 
-      await expect(
-        invitationService.emailInvitationBySpace(mockSpace.id, {
-          emails: [mockInvitedUser.email],
-          role: Role.Owner,
-        })
-      ).rejects.toThrow('tx error');
+      await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(Role.Owner),
+        },
+        async () => {
+          await expect(
+            invitationService.emailInvitationBySpace(mockSpace.id, {
+              emails: [mockInvitedUser.email],
+              role: Role.Owner,
+            })
+          ).rejects.toThrow('tx error');
+        }
+      );
     });
   });
 
@@ -177,6 +189,7 @@ describe('InvitationService', () => {
         id: mockInvitationId,
         invitationCode: mockInvitationCode,
       } as any);
+      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
 
       const result = await clsService.runWith(
         {
@@ -214,13 +227,23 @@ describe('InvitationService', () => {
       prismaService.base.findFirst.mockResolvedValue({ id: 'base1' } as any);
       prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
       prismaService.$tx.mockRejectedValue(new Error('tx error'));
-
-      await expect(
-        invitationService.emailInvitationByBase('base1', {
-          emails: [mockInvitedUser.email],
-          role: Role.Creator,
-        })
-      ).rejects.toThrow('tx error');
+      vi.spyOn(invitationService as any, 'validateUserInviteRole').mockResolvedValue(true);
+      vi.spyOn(invitationService as any, 'checkSpaceInvitation').mockResolvedValue(true);
+      await clsService.runWith(
+        {
+          user: mockUser,
+          tx: {},
+          permissions: getPermissions(Role.Owner),
+        },
+        async () => {
+          await expect(
+            invitationService.emailInvitationByBase('base1', {
+              emails: [mockInvitedUser.email],
+              role: Role.Creator,
+            })
+          ).rejects.toThrow('tx error');
+        }
+      );
     });
   });
 
