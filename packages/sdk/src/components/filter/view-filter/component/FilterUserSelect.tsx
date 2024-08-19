@@ -82,6 +82,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
                 )
               }
               name={option.label}
+              className="flex-1 truncate"
             />
           </div>
         </div>
