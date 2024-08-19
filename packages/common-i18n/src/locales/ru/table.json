@@ -324,15 +324,15 @@
       "analyzing": "анализируется",
       "notSupportFieldType": "Тип поля не поддерживается",
       "resultEmpty": "Результатов не найдено.",
-      "searchPlaceholder": "Search...",
-      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The results of import process will be notified to you once completed. You should not use the table during the import as it may cause errors.",
-      "noTips": "I know that, don't show again"
+      "searchPlaceholder": "Поиск...",
+      "importAlert": "После начала импорта его нельзя остановить до тех пор, пока он не будет успешно завершен или прерван из-за ошибки. Результаты процесса импорта будут уведомлены вам по завершении. Во время импорта не используйте таблицу, это может привести к ошибкам.",
+      "noTips": "Я знаю, не показывайте снова"
     },
     "options": {
-      "autoSelectFieldOptionName": "Auto-select field types",
-      "useFirstRowAsHeaderOptionName": "Use first row as header",
-      "importDataOptionName": "Import Data",
-      "sheetKey": "SheetName: ",
+      "autoSelectFieldOptionName": "Автоматическое выбора типов полей",
+      "useFirstRowAsHeaderOptionName": "Использовать первую строку в качестве заголовка",
+      "importDataOptionName": "Импорт данных",
+      "sheetKey": "Название листа: ",
       "excludeFirstRow": "Exclude first row in import"
     },
     "form": {
