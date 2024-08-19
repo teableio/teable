@@ -1262,13 +1262,14 @@ export class FieldConvertingService {
         return;
       }
       await this.convertSelectChoiceOps(views, tableId, fieldId, updateNameOptions, deleteOptions);
+      return;
     }
 
-    // judge the operator is same groups or cellValueType is same, otherwise delete the filter
+    // judge the operator is same groups or cellValueType is same, otherwise delete the filter item
     if (
-      newField.type !== oldField.type &&
-      !isEqual(oldOperators, newOperators) &&
-      oldField.cellValueType !== newField.cellValueType
+      (newField.type !== oldField.type && !isEqual(oldOperators, newOperators)) ||
+      oldField.cellValueType !== newField.cellValueType ||
+      oldField?.isMultipleCellValue !== newField?.isMultipleCellValue
     ) {
       for (let i = 0; i < views.length; i++) {
         const viewId = views[i].id;
