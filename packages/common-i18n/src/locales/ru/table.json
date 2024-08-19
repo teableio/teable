@@ -332,77 +332,77 @@
       "autoSelectFieldOptionName": "Автоматическое выбора типов полей",
       "useFirstRowAsHeaderOptionName": "Использовать первую строку в качестве заголовка",
       "importDataOptionName": "Импорт данных",
-      "sheetKey": "Название листа: ",
-      "excludeFirstRow": "Exclude first row in import"
+      "sheetKey": "Имя листа: ",
+      "excludeFirstRow": "Исключить первую строку при импорте"
     },
     "form": {
-      "defaultFieldName": "Field",
+      "defaultFieldName": "Поле",
       "error": {
-        "urlEmptyTip": "URL should not be empty!",
-        "errorFileFormat": "File format is incorrect!",
-        "uniqueFieldName": "Field name should be unique!",
-        "fieldNameEmpty": "Field name should not be empty!",
-        "atLeastAImportField": "Please set a import field at least",
-        "urlValidateTip": "Couldn't parse URL. Try a different URL!"
+        "urlEmptyTip": "URL не должен быть пустым!",
+        "errorFileFormat": "Неверный формат файла!",
+        "uniqueFieldName": "Имя поля должно быть уникальным!",
+        "fieldNameEmpty": "Имя поля не должно быть пустым!",
+        "atLeastAImportField": "Пожалуйста, установите поле для импорта по крайней мере",
+        "urlValidateTip": "Не удалось обработать URL. Попробуйте другой URL!"
       },
       "option": {
-        "doNotImport": "Do not import"
+        "doNotImport": "Не импортировать"
       }
     }
   },
   "export": {
     "menu": {
-      "exportCsv": "Download Csv"
+      "exportCsv": "Скачать Csv"
     }
   },
   "grid": {
-    "prefillingRowTitle": "Add new record",
-    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row."
+    "prefillingRowTitle": "Добавить новую запись",
+    "prefillingRowTooltip": "Пожалуйста, введите данные новой записи ниже. Запись будет сохранена автоматически, как только вы нажмете вне этой строки."
   },
   "form": {
-    "fieldsManagement": "Fields",
-    "addAll": "Add All",
-    "removeAll": "Remove All",
-    "hideFieldTip": "Hide the field to here",
-    "unableAddFieldTip": "Unable to add this type field",
-    "removeFromFormTip": "Remove from the form",
-    "descriptionPlaceholder": "Enter from description",
-    "dragToFormTip": "Drag the field here to add it to the form"
+    "fieldsManagement": "Поля",
+    "addAll": "Добавить все",
+    "removeAll": "Удалить все",
+    "hideFieldTip": "Скрыть поле здесь",
+    "unableAddFieldTip": "Невозможно добавить поле этого типа",
+    "removeFromFormTip": "Удалить из формы",
+    "descriptionPlaceholder": "Введите из описания",
+    "dragToFormTip": "Перетащите поле сюда, чтобы добавить его в форму"
   },
   "kanban": {
     "toolbar": {
-      "hideFieldName": "Hide field name",
-      "customizeCards": "Customize cards",
-      "stackedBy": "Stacked by <0/>",
-      "chooseStackingField": "Choose a stacking field",
-      "chooseStackingFieldDescription": "Which single select or user field would you like to use for this kanban view? Your records will be stacked based on this field.",
-      "hideEmptyStack": "Hide empty stack",
-      "imageSetting": "Image Setting",
-      "fit": "Fit",
-      "noImage": "No image",
-      "chooseAttachmentField": "Choose attachment field"
+      "hideFieldName": "Скрыть имя поля",
+      "customizeCards": "Настроить карты",
+      "stackedBy": "Сгруппировано по <0/>",
+      "chooseStackingField": "Выберите поле для группировки",
+      "chooseStackingFieldDescription": "Какое одиночное поле или поле пользователя вы хотите использовать для этого представления канбана? Ваши записи будут складываться на основе этого поля.",
+      "hideEmptyStack": "Скрыть пустой стек",
+      "imageSetting": "Настройки изображения",
+      "fit": "Подогнать",
+      "noImage": "Нет изображения",
+      "chooseAttachmentField": "Выберите поле вложения"
     },
     "stack": {
-      "addStack": "Add Stack",
-      "noCards": "No cards",
-      "uncategorized": "Uncategorized"
+      "addStack": "Добавить стек",
+      "noCards": "Нет карт",
+      "uncategorized": "Без категории"
     },
     "stackMenu": {
-      "collapseStack": "Collapse stack",
-      "renameStack": "Rename stack",
-      "deleteStack": "Delete stack"
+      "collapseStack": "Свернуть стек",
+      "renameStack": "Переименовать стек",
+      "deleteStack": "Удалить стек"
     },
     "cardMenu": {
-      "insertCardAbove": "Insert card above",
-      "insertCardBelow": "Insert card below",
-      "expandCard": "Expand card",
-      "deleteCard": "Delete card"
+      "insertCardAbove": "Вставить карту выше",
+      "insertCardBelow": "Вставить карту ниже",
+      "expandCard": "Раскрыть карту",
+      "deleteCard": "Удалить карту"
     }
   },
   "menu": {
-    "insertRecordAbove": "Insert record above",
-    "insertRecordBelow": "Insert record below",
-    "copyCells": "Copy cells",
+    "insertRecordAbove": "Вставить запись выше",
+    "insertRecordBelow": "Вставить запись ниже",
+    "copyCells": "Копировать ячейки",
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
     "editField": "Edit field",
