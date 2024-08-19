@@ -150,16 +150,21 @@ export class SpaceService {
     const userId = this.cls.get('user.id');
 
     await this.prismaService.$tx(async () => {
-      await this.prismaService.txClient().space.update({
-        data: {
-          deletedTime: new Date(),
-          lastModifiedBy: userId,
-        },
-        where: {
-          id: spaceId,
-          deletedTime: null,
-        },
-      });
+      await this.prismaService
+        .txClient()
+        .space.update({
+          data: {
+            deletedTime: new Date(),
+            lastModifiedBy: userId,
+          },
+          where: {
+            id: spaceId,
+            deletedTime: null,
+          },
+        })
+        .catch(() => {
+          throw new NotFoundException('Space not found');
+        });
     });
   }
 
