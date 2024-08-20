@@ -387,6 +387,18 @@ export class BatchService {
       };
     });
 
+    // delete history op when doc is deleted
+    const deleteIds = rawOps
+      .filter(({ rawOp }) => 'del' in rawOp && rawOp.del)
+      .map(({ docId }) => docId);
+
+    const deleteOpsSql = this.knex('ops')
+      .where('collection', collectionId)
+      .whereIn('doc_id', deleteIds)
+      .delete()
+      .toQuery();
+    await this.prismaService.txClient().$executeRawUnsafe(deleteOpsSql);
+
     const batchInsertOpsSql = this.dbProvider.batchInsertSql('ops', insertRowsData);
     return this.prismaService.txClient().$executeRawUnsafe(batchInsertOpsSql);
   }

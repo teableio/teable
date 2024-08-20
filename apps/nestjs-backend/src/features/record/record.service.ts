@@ -54,6 +54,10 @@ import { IFieldRaws } from './type';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
+function removeUndefined<T extends Record<string, unknown>>(obj: T) {
+  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined)) as T;
+}
+
 @Injectable()
 export class RecordService {
   private logger = new Logger(RecordService.name);
@@ -790,16 +794,17 @@ export class RecordService {
           {} as Record<string, unknown>
         );
 
-        return {
+        return removeUndefined({
           __id: snapshot.id,
           __created_by: snapshot.createdBy || userId,
           __last_modified_by: snapshot.lastModifiedBy || undefined,
           __created_time: snapshot.createdTime || undefined,
           __last_modified_time: snapshot.lastModifiedTime || undefined,
+          __auto_number: snapshot.autoNumber == null ? undefined : snapshot.autoNumber,
           __version: 1,
           ...order,
           ...dbFieldValueMap,
-        };
+        });
       });
 
     const sql = this.dbProvider.batchInsertSql(dbTableName, snapshots);

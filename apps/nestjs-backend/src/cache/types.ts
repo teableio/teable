@@ -1,3 +1,4 @@
+import type { IRecord, IRecordInsertOrderRo } from '@teable/openapi';
 import type { ISessionData } from '../types/session';
 
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -71,7 +72,44 @@ export interface IOAuthTxnStore {
   state?: string;
 }
 
-export interface IUndoRedoOperation {
+export enum OperationName {
+  CreateRecords = 'createRecords',
+  UpdateRecord = 'updateRecord',
+  DeleteRecord = 'deleteRecord',
+  DeleteRecords = 'deleteRecords',
+  CreateField = 'createField',
+  UpdateField = 'updateField',
+  DeleteField = 'deleteField',
+  Paste = 'paste',
+}
+
+export interface IUndoRedoOperationBase {
+  name: OperationName;
   params: Record<string, unknown>;
   result: unknown;
 }
+
+export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
+  name: OperationName.CreateRecords;
+  params: {
+    tableId: string;
+    order?: IRecordInsertOrderRo;
+  };
+  result: {
+    records: IRecord[];
+  };
+}
+
+export interface IDeleteRecordOperation extends IUndoRedoOperationBase {
+  name: OperationName.DeleteRecord;
+  params: {
+    tableId: string;
+    recordId: string;
+    order?: IRecordInsertOrderRo;
+  };
+  result: {
+    record: IRecord;
+  };
+}
+
+export type IUndoRedoOperation = ICreateRecordsOperation | IDeleteRecordOperation;

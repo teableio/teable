@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
-import { OperationListener } from './operation.listener';
+import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
+import { RecordModule } from '../../record/record.module';
+import { UndoRedoOperationService } from './undo-redo-operation.service';
 import { UndoRedoStackService } from './undo-redo-stack.service';
 
 @Module({
-  providers: [UndoRedoStackService, OperationListener],
-  exports: [UndoRedoStackService],
+  imports: [RecordModule, RecordOpenApiModule],
+  providers: [UndoRedoStackService, UndoRedoOperationService],
+  exports: [UndoRedoStackService, UndoRedoOperationService],
 })
 export class UndoRedoStackModule {}

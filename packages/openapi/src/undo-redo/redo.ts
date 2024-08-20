@@ -5,7 +5,7 @@ import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { undoVoSchema } from './undo';
 
-export const OPERATION_REDO = '/table/{tableId}/operation/redo';
+export const OPERATION_REDO = '/table/{tableId}/undo-redo/redo';
 
 export const redoVoSchema = undoVoSchema;
 

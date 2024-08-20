@@ -1,76 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
-import { ClsService } from 'nestjs-cls';
-import { CacheService } from '../../../cache/cache.service';
-import type { IUndoRedoOperation } from '../../../cache/types';
-import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
-import type { IClsStore } from '../../../types/cls';
+import { OperationName } from '../../../cache/types';
+import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
+import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
 
 @Injectable()
 export class UndoRedoService {
   constructor(
-    private readonly cls: ClsService<IClsStore>,
-    private readonly cacheService: CacheService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    private readonly undoRedoStackService: UndoRedoStackService,
+    private readonly undoRedoOperationService: UndoRedoOperationService
   ) {}
 
-  private async getUndoStack(userId: string, tableId: string, windowId: string) {
-    return (await this.cacheService.get(`operations:undo:${userId}:${tableId}:${windowId}`)) || [];
-  }
-
-  private async getRedoStack(userId: string, tableId: string, windowId: string) {
-    return (await this.cacheService.get(`operations:redo:${userId}:${tableId}:${windowId}`)) || [];
-  }
-
-  private async setUndoStack(
-    userId: string,
-    tableId: string,
-    windowId: string,
-    undoStack: IUndoRedoOperation[]
-  ) {
-    await this.cacheService.set(
-      `operations:undo:${userId}:${tableId}:${windowId}`,
-      undoStack,
-      this.thresholdConfig.undoExpirationTime
-    );
-  }
-
-  private async setRedoStack(
-    userId: string,
-    tableId: string,
-    windowId: string,
-    redoStack: IUndoRedoOperation[]
-  ) {
-    await this.cacheService.set(
-      `operations:redo:${userId}:${tableId}:${windowId}`,
-      redoStack,
-      this.thresholdConfig.undoExpirationTime
-    );
-  }
-
-  async push(tableId: string, windowId: string, operation: IUndoRedoOperation): Promise<void> {
-    const userId = this.cls.get('user.id');
-    const maxUndoStackSize = this.thresholdConfig.maxUndoStackSize;
-    let undoStack = await this.getUndoStack(userId, tableId, windowId);
-
-    undoStack.push(operation);
-    if (undoStack.length > this.thresholdConfig.maxUndoStackSize) {
-      undoStack = undoStack.slice(-maxUndoStackSize);
-    }
-
-    await this.setUndoStack(userId, tableId, windowId, undoStack);
-
-    // Clear redo stack when a new operation is pushed
-    await this.cacheService.del(`operations:redo:${userId}:${tableId}:${windowId}`);
-  }
-
   async undo(tableId: string, windowId: string): Promise<IUndoVo> {
-    const userId = this.cls.get('user.id');
-    const undoStack = await this.getUndoStack(userId, tableId, windowId);
-    const redoStack = await this.getRedoStack(userId, tableId, windowId);
+    const { operation, save } = await this.undoRedoStackService.undo(tableId, windowId);
 
-    const operation = undoStack.pop();
-
+    console.log('startUndo:', tableId, windowId, operation);
     if (!operation) {
       return {
         status: 'empty',
@@ -78,10 +22,14 @@ export class UndoRedoService {
     }
 
     try {
-      redoStack.push(operation);
-
-      await this.setUndoStack(userId, tableId, windowId, undoStack);
-      await this.setRedoStack(userId, tableId, windowId, redoStack);
+      switch (operation.name) {
+        case OperationName.CreateRecords:
+          await this.undoRedoOperationService.createRecords.undo(operation);
+          break;
+        case OperationName.DeleteRecord:
+          // await this.undoDeleteRecord(operation);
+          break;
+      }
     } catch (e) {
       return {
         status: 'failed',
@@ -89,29 +37,30 @@ export class UndoRedoService {
       };
     }
 
+    await save();
     return {
       status: 'fulfilled',
     };
   }
 
   async redo(tableId: string, windowId: string): Promise<IRedoVo> {
-    const userId = this.cls.get('user.id');
-    const undoStack = await this.getUndoStack(userId, tableId, windowId);
-    const redoStack = await this.getRedoStack(userId, tableId, windowId);
-
-    const operation = redoStack.pop();
-
+    const { operation, save } = await this.undoRedoStackService.redo(tableId, windowId);
     if (!operation) {
       return {
         status: 'empty',
       };
     }
+    console.log('startRedo:', tableId, windowId, operation);
 
     try {
-      undoStack.push(operation);
-
-      await this.setUndoStack(userId, tableId, windowId, undoStack);
-      await this.setRedoStack(userId, tableId, windowId, redoStack);
+      switch (operation.name) {
+        case OperationName.CreateRecords:
+          await this.undoRedoOperationService.createRecords.redo(operation);
+          break;
+        case OperationName.DeleteRecord:
+          // await this.undoUpdateRecord(operation);
+          break;
+      }
     } catch (e) {
       return {
         status: 'failed',
@@ -119,6 +68,7 @@ export class UndoRedoService {
       };
     }
 
+    await save();
     return {
       status: 'fulfilled',
     };

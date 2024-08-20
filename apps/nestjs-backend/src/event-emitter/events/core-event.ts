@@ -1,5 +1,6 @@
 import type { IncomingHttpHeaders } from 'http';
 import type { OpName } from '@teable/core';
+import type { IUserInfoVo } from '@teable/openapi';
 import { nanoid } from 'nanoid';
 import type { Events } from './event.enum';
 
@@ -18,6 +19,15 @@ export interface IEventContext {
     name: OpName;
     propertyKey?: string;
   };
+}
+
+export interface IEventRawContext {
+  reqUser?: IUserInfoVo;
+  reqHeaders: Record<string, unknown>;
+  reqParams?: unknown;
+  reqQuery?: unknown;
+  reqBody?: unknown;
+  resolveData: unknown;
 }
 
 export abstract class CoreEvent<Payload extends object = object> {

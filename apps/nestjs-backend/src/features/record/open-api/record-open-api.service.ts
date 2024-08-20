@@ -91,6 +91,7 @@ export class RecordOpenApiService {
     createRecordsRo: ICreateRecordsRo & {
       records: {
         fields: Record<string, unknown>;
+        id?: string;
         createdBy?: string;
         lastModifiedBy?: string;
         createdTime?: string;

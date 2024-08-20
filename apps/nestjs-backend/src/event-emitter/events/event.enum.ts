@@ -29,7 +29,10 @@ export enum Events {
 
   CONTROLLER_RECORDS_CREATE = 'controller.records.create',
   CONTROLLER_RECORDS_UPDATE = 'controller.records.update',
+  CONTROLLER_RECORD_DELETE = 'controller.record.delete',
   CONTROLLER_RECORDS_DELETE = 'controller.records.delete',
+
+  OPERATION_PUSH = 'operation.push',
 
   TABLE_USER_RENAME_COMPLETE = 'table.user.rename.complete',
 
