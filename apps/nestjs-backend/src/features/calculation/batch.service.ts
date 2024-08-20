@@ -272,13 +272,9 @@ export class BatchService {
       return;
     }
 
-    const userId = this.cls.get('user.id');
-    const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
-
     const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
-    const shouldUpdateLastModified = fieldIds.some((id) => !fieldMap[id].isComputed);
     const data = opsData.map((data) => {
-      const { recordId, updateParam, version, lastModifiedTime, lastModifiedBy } = data;
+      const { recordId, updateParam, version } = data;
 
       return {
         id: recordId,
@@ -293,8 +289,6 @@ export class BatchService {
             {}
           ),
           __version: version + 1,
-          __last_modified_time: shouldUpdateLastModified ? timeStr : lastModifiedTime,
-          __last_modified_by: shouldUpdateLastModified ? userId : lastModifiedBy,
         },
       };
     });

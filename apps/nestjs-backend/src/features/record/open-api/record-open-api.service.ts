@@ -18,6 +18,7 @@ import { forEach, keyBy, map } from 'lodash';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { getFullStorageUrl } from '../../attachments/plugins/utils';
+import { SystemFieldService } from '../../calculation/system-field.service';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
@@ -34,6 +35,7 @@ export class RecordOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly fieldConvertingService: FieldConvertingService,
+    private readonly systemFieldService: SystemFieldService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly collaboratorService: CollaboratorService,
     private readonly viewService: ViewService,
@@ -155,10 +157,15 @@ export class RecordOpenApiService {
         updateRecordsRo.typecast
       );
 
+      const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
+        tableId,
+        typecastRecords
+      );
+
       await this.recordCalculateService.calculateUpdatedRecord(
         tableId,
         updateRecordsRo.fieldKeyType,
-        typecastRecords
+        preparedRecords
       );
 
       const snapshots = await this.recordService.getSnapshotBulk(
@@ -278,10 +285,15 @@ export class RecordOpenApiService {
         typecast
       );
 
+      const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
+        tableId,
+        typecastRecords
+      );
+
       await this.recordCalculateService.calculateUpdatedRecord(
         tableId,
         fieldKeyType,
-        typecastRecords
+        preparedRecords
       );
 
       // return record result

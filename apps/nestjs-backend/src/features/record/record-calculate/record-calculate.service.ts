@@ -9,7 +9,6 @@ import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
-import { SystemFieldService } from '../../calculation/system-field.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { RecordService } from '../record.service';
@@ -23,8 +22,7 @@ export class RecordCalculateService {
     private readonly recordService: RecordService,
     private readonly linkService: LinkService,
     private readonly referenceService: ReferenceService,
-    private readonly fieldCalculationService: FieldCalculationService,
-    private readonly systemFieldService: SystemFieldService
+    private readonly fieldCalculationService: FieldCalculationService
   ) {}
 
   async multipleCreateRecords(
@@ -101,8 +99,6 @@ export class RecordCalculateService {
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
     const manualOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
-    const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(manualOpsMap);
-    const composedOpsMap = composeOpMaps([manualOpsMap, systemFieldOpsMap]);
     // console.log('composedOpsMap', JSON.stringify(composedOpsMap, null, 2));
 
     // calculate by origin ops and link derivation
@@ -110,11 +106,11 @@ export class RecordCalculateService {
       opsMap: opsMapByCalculation,
       fieldMap,
       tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
+    } = await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.saveForeignKeyToDb);
 
     // console.log('opsMapByCalculation', JSON.stringify(opsMapByCalculation, null, 2));
     return {
-      opsMap: composeOpMaps([composedOpsMap, opsMapByCalculation]),
+      opsMap: composeOpMaps([manualOpsMap, opsMapByCalculation]),
       fieldMap,
       tableId2DbTableName,
     };
