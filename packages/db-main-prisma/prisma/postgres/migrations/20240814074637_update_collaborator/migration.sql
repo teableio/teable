@@ -17,13 +17,15 @@ ALTER TABLE "collaborator"
 DROP COLUMN "deleted_time";
 
 -- AlterTable
-ALTER TABLE "collaborator" ADD COLUMN "resource_id" TEXT NOT NULL,
-ADD COLUMN "resource_type" TEXT NOT NULL;
+ALTER TABLE "collaborator" ADD COLUMN "resource_id" TEXT,
+ADD COLUMN "resource_type" TEXT;
 
 UPDATE "collaborator" SET "resource_id" = "space_id";
 UPDATE "collaborator" SET "resource_type" = 'space';
 
 ALTER TABLE "collaborator" DROP COLUMN "base_id",
+ALTER COLUMN "resource_id" SET NOT NULL,
+ALTER COLUMN "resource_type" SET NOT NULL,
 DROP COLUMN "space_id";
 -- CreateIndex
 CREATE UNIQUE INDEX "collaborator_resource_type_resource_id_user_id_key" ON "collaborator"("resource_type", "resource_id", "user_id");
