@@ -166,7 +166,7 @@
       "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all bases within this space.",
       "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all bases within this space.",
       "tabEmail": "通过电子邮件邀请",
-      "emailPlaceholder": "通过电子邮件邀请更多空间协作者",
+      "emailPlaceholder": "Invite more collaborators via email",
       "tabLink": "通过链接邀请",
       "linkPlaceholder": "创建一个邀请链接，让任何打开它的人获得<0/>权限。",
       "emailSend": "发送邀请",
@@ -179,6 +179,13 @@
       "linkCreatedTime": "创建于 {{createdTime}}",
       "linkCopySuccess": "链接已复制",
       "linkRemove": "移除链接"
+    },
+    "base": {
+      "title": "Share {{baseName}}",
+      "desc_one": "This base is shared with {{count}} collaborator.",
+      "desc_other": "This base is shared with {{count}} collaborators.",
+      "baseTitle": "Base collaborators",
+      "collaboratorSearchPlaceholder": "Find a base collaborator by name or email"
     }
   },
   "help": {
@@ -231,5 +238,21 @@
     "changeSetting": "更改页面通知设置",
     "new": "新消息{{count}}条",
     "showMore": "显示更多"
+  },
+  "role": {
+    "title": {
+      "owner": "Owner",
+      "creator": "Creator",
+      "editor": "Editor",
+      "commenter": "Commenter",
+      "viewer": "Viewer"
+    },
+    "description": {
+      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
+      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
+      "editor": "Can edit records and views, but cannot configure tables or fields",
+      "commenter": "Can comment on records",
+      "viewer": "Cannot edit or comment"
+    }
   }
 }
