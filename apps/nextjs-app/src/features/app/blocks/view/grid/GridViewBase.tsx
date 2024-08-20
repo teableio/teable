@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IFieldVo } from '@teable/core';
+import type { IFieldVo, IFilterItem, IFilterSet } from '@teable/core';
 import {
   FieldKeyType,
   RowHeightLevel,
@@ -85,6 +85,33 @@ interface IGridViewProps {
 
 const { scrollBuffer, columnAppendBtnWidth } = GRID_DEFAULT;
 
+function extractDefaultFieldsFromFilters(filters: IFilterSet | null | undefined): {
+  [fieldId: string]: unknown;
+} {
+  const result: { [fieldId: string]: unknown } = {};
+  const repeatedFieldIds = new Set<string>();
+
+  function handleFilterItem(filter: IFilterItem | null | undefined) {
+    if (filter?.operator === 'is' && filter.fieldId) {
+      if (filter.fieldId in result) {
+        // mark as repeat and delete
+        delete result[filter.fieldId];
+        repeatedFieldIds.add(filter.fieldId);
+      } else if (!repeatedFieldIds.has(filter.fieldId)) result[filter.fieldId] = filter.value;
+    }
+  }
+
+  // recursively traverse the filters object
+  function traverse(filter: IFilterSet | IFilterItem | null | undefined) {
+    if (filter && 'filterSet' in filter) filter.filterSet.forEach(traverse);
+    else if (filter) handleFilterItem(filter);
+  }
+
+  traverse(filters);
+
+  return result;
+}
+
 export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) => {
   const { onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -153,15 +180,17 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   } = useGridPrefillingRow(columns);
 
   const { mutate: mutateCreateRecord } = useMutation({
-    mutationFn: () =>
-      createRecords(tableId!, {
-        records: [{ fields: prefillingFieldValueMap! }],
+    mutationFn: () => {
+      const defaultFieldValues = extractDefaultFieldsFromFilters(view?.filter);
+      return createRecords(tableId!, {
+        records: [{ fields: { ...defaultFieldValues, ...prefillingFieldValueMap } }],
         fieldKeyType: FieldKeyType.Id,
         order:
           activeViewId && prefillingRowOrder
             ? { ...prefillingRowOrder, viewId: activeViewId }
             : undefined,
-      }),
+      });
+    },
     onSuccess: () => {
       setPrefillingRowIndex(undefined);
       setPrefillingFieldValueMap(undefined);
