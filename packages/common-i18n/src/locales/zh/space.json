@@ -43,5 +43,10 @@
   },
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？"
+  },
+  "sharedBase": {
+    "title": "Shared bases",
+    "description": "Bases shared with you will appear here",
+    "empty": "No shared bases yet"
   }
 }
