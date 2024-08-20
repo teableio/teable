@@ -35,6 +35,7 @@ import type {
   IRangesRo,
   IDeleteVo,
   ITemporaryPasteVo,
+  IDuplicateVo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
@@ -797,7 +798,7 @@ export class SelectionService {
     return { ids: recordIds };
   }
 
-  async duplicate(tableId: string, rangesRo: IRangesRo) {
+  async duplicate(tableId: string, rangesRo: IRangesRo): Promise<IDuplicateVo> {
     const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fields = records.map(({ fields }) => {
       return { fields: fields };
@@ -807,6 +808,6 @@ export class SelectionService {
       fieldKeyType: FieldKeyType.Id,
       records: fields,
     };
-    await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
+    return await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
   }
 }

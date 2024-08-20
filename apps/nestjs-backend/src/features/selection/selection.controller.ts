@@ -6,6 +6,7 @@ import type {
   IPasteVo,
   IDeleteVo,
   ITemporaryPasteVo,
+  IDuplicateVo,
 } from '@teable/openapi';
 import {
   IRangesToIdQuery,
@@ -91,7 +92,7 @@ export class SelectionController {
   async duplicate(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
-  ) {
-    return this.selectionService.duplicate(tableId, rangesRo);
+  ): Promise<IDuplicateVo> {
+    return await this.selectionService.duplicate(tableId, rangesRo);
   }
 }

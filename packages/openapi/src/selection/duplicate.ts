@@ -1,15 +1,15 @@
 import { axios } from '../axios';
+import type { ICreateRecordsVo } from '../record/create';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import type { IRangesRo } from './range';
-
 export const DUPLICATE_URL = '/table/{tableId}/selection/duplicate';
 
 export const duplicateVoSchema = z.object({
   ids: z.array(z.string()),
 });
 
-export type IDuplicateVo = z.infer<typeof duplicateVoSchema>;
+export type IDuplicateVo = ICreateRecordsVo;
 
 export const duplicateRoute = registerRoute({
   method: 'get',
