@@ -221,22 +221,6 @@
       "lastModifiedBy": "最近修改人"
     }
   },
-  "spaceRole": {
-    "role": {
-      "owner": "可管理",
-      "creator": "可搭建",
-      "editor": "可编辑",
-      "commenter": "可查看与评论",
-      "viewer": "可查看"
-    },
-    "description": {
-      "owner": "具有完全配置和编辑数据库、自动化、权限矩阵、管理空间设置和计费的权限",
-      "creator": "具有完全配置和编辑数据库、自动化和启用权限矩阵的权限",
-      "editor": "可以编辑记录和视图，不能配置表格或字段",
-      "commenter": "可以查看和评论记录，不能编辑记录",
-      "viewer": "仅可查看记录，不能编辑或评论记录"
-    }
-  },
   "permission": {
     "actionDescription": {
       "spaceCreate": "创建空间",

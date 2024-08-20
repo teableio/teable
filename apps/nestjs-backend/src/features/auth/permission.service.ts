@@ -2,6 +2,7 @@ import { ForbiddenException, NotFoundException, Injectable } from '@nestjs/commo
 import type { IBaseRole, Action, IRole } from '@teable/core';
 import { IdPrefix, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { CollaboratorType } from '@teable/openapi';
 import { intersection } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -19,9 +20,8 @@ export class PermissionService {
     const collaborator = await this.prismaService.collaborator.findFirst({
       where: {
         userId,
-        spaceId,
-        baseId: null,
-        deletedTime: null,
+        resourceId: spaceId,
+        resourceType: CollaboratorType.Space,
       },
       select: { roleName: true },
     });
@@ -37,9 +37,8 @@ export class PermissionService {
     const collaborator = await this.prismaService.collaborator.findFirst({
       where: {
         userId,
-        spaceId: null,
-        baseId,
-        deletedTime: null,
+        resourceId: baseId,
+        resourceType: CollaboratorType.Base,
       },
       select: { roleName: true },
     });
@@ -53,18 +52,17 @@ export class PermissionService {
     const collaborator = await this.prismaService.txClient().collaborator.findMany({
       where: {
         userId,
-        deletedTime: null,
       },
-      select: { roleName: true, spaceId: true, baseId: true },
+      select: { roleName: true, resourceId: true, resourceType: true },
     });
 
     const spaceIds: string[] = [];
     const baseIds: string[] = [];
-    collaborator.forEach(({ baseId, spaceId }) => {
-      if (baseId) {
-        baseIds.push(baseId);
-      } else if (spaceId) {
-        spaceIds.push(spaceId);
+    collaborator.forEach(({ resourceId, resourceType }) => {
+      if (resourceType === CollaboratorType.Base) {
+        baseIds.push(resourceId);
+      } else if (resourceType === CollaboratorType.Space) {
+        spaceIds.push(resourceId);
       }
     });
 

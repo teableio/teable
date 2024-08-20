@@ -20,7 +20,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { BaseCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/base/BaseCollaboratorModal';
 import { tableConfig } from '@/features/i18n/table.config';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
 import { ViewList } from '../../view/list/ViewList';
@@ -97,18 +97,18 @@ const RightList = ({
           </a>
         </Button>
       </div>
-      <SpaceCollaboratorModalTrigger
-        space={{
+      <BaseCollaboratorModalTrigger
+        base={{
           name: base.name,
           role: base.role,
-          id: base.spaceId,
+          id: base.id,
         }}
       >
         <Button variant="default" size="xs" className="flex">
           <UserPlus className="size-4" />{' '}
           <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
         </Button>
-      </SpaceCollaboratorModalTrigger>
+      </BaseCollaboratorModalTrigger>
     </div>
   );
 };
@@ -148,17 +148,17 @@ const RightMenu = ({ className }: { className?: string }) => {
       <PopoverContent side="bottom" align="start" className="w-32 p-0">
         <div className="flex flex-col">
           <Collaborators className="flex p-2" />
-          <SpaceCollaboratorModalTrigger
-            space={{
+          <BaseCollaboratorModalTrigger
+            base={{
               name: base.name,
               role: base.role,
-              id: base.spaceId,
+              id: base.id,
             }}
           >
             <Button variant="ghost" size="xs" className="flex justify-start">
               <UserPlus className="size-4" /> {t('space:action.invite')}
             </Button>
-          </SpaceCollaboratorModalTrigger>
+          </BaseCollaboratorModalTrigger>
           {basePermission?.['table_record_history|read'] && (
             <Sheet modal={true}>
               <SheetTrigger asChild>

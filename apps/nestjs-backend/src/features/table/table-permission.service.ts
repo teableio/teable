@@ -41,9 +41,8 @@ export class TablePermissionService {
       .txClient()
       .collaborator.findFirstOrThrow({
         where: {
-          deletedTime: null,
           userId,
-          OR: [{ baseId }, { spaceId: base.spaceId }],
+          resourceId: { in: [baseId, base.spaceId] },
         },
       })
       .catch(() => {

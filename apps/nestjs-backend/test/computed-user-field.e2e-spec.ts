@@ -13,6 +13,7 @@ import {
   urlBuilder,
   CREATE_FIELD,
   CREATE_TABLE,
+  emailBaseInvitation,
 } from '@teable/openapi';
 import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
@@ -289,6 +290,38 @@ describe('Computed user field (e2e)', () => {
 
       const getRecordsResponse = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
+      getRecordsResponse.data.records.forEach((record) => {
+        expect(record.fields[field.id]).toMatchObject({
+          title: 'new name',
+        });
+      });
+    });
+
+    it('should update createBy fields when user rename - base collaborator', async () => {
+      const user3Request = await createNewUserAxios({
+        email: 'renameUser3@example.com',
+        password: '12345678',
+      });
+      const user3 = (await user3Request.get<IUserMeVo>(USER_ME)).data;
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: { role: Role.Creator, emails: ['renameUser3@example.com'] },
+      });
+      const table = (
+        await user3Request.post<ITableFullVo>(urlBuilder(CREATE_TABLE, { baseId }), {
+          name: 'table2',
+        })
+      ).data;
+      const field = await user3Request
+        .post<IFieldVo>(urlBuilder(CREATE_FIELD, { tableId: table.id }), {
+          type: FieldType.CreatedBy,
+        })
+        .then((res) => res.data);
+      const promise = createRenamePromise(user3.id);
+      user3Request.patch<void>(UPDATE_USER_NAME, { name: 'new name' });
+      await promise;
+
+      const getRecordsResponse = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
       getRecordsResponse.data.records.forEach((record) => {
         expect(record.fields[field.id]).toMatchObject({
           title: 'new name',

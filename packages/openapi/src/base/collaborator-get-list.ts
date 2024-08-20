@@ -1,12 +1,16 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { itemSpaceCollaboratorSchema } from '../space';
+import { CollaboratorType, itemSpaceCollaboratorSchema } from '../space/collaborator-get-list';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const BASE_COLLABORATE_LIST = '/base/{baseId}/collaborators';
 
-export const listBaseCollaboratorVoSchema = z.array(itemSpaceCollaboratorSchema);
+export const itemBaseCollaboratorSchema = itemSpaceCollaboratorSchema.extend({
+  resourceType: z.nativeEnum(CollaboratorType),
+});
+
+export const listBaseCollaboratorVoSchema = z.array(itemBaseCollaboratorSchema);
 
 export type ListBaseCollaboratorVo = z.infer<typeof listBaseCollaboratorVoSchema>;
 
