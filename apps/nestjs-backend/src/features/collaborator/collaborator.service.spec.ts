@@ -2,6 +2,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { Role, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { CollaboratorType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { mockDeep } from 'vitest-mock-extended';
 import { GlobalModule } from '../../global/global.module';
@@ -31,12 +32,18 @@ describe('CollaboratorService', () => {
     prismaService.txClient.mockImplementation(() => {
       return prismaService;
     });
+
+    prismaService.$tx.mockImplementation(async (fn, _options) => {
+      return await fn(prismaService);
+    });
   });
 
   describe('createSpaceCollaborator', () => {
     it('should create collaborator correctly', async () => {
       prismaService.collaborator.count.mockResolvedValue(0);
-
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      prismaService.base.findMany.mockResolvedValue([{ id: 'base1' }] as any);
+      prismaService.collaborator.deleteMany.mockResolvedValue({ count: 0 });
       await clsService.runWith(
         {
           user: mockUser,
@@ -48,9 +55,18 @@ describe('CollaboratorService', () => {
         }
       );
 
+      expect(prismaService.collaborator.deleteMany).toBeCalledWith({
+        where: {
+          userId: mockUser.id,
+          resourceId: { in: ['base1'] },
+          resourceType: CollaboratorType.Base,
+        },
+      });
+
       expect(prismaService.collaborator.create).toBeCalledWith({
         data: {
-          spaceId: mockSpace.id,
+          resourceId: mockSpace.id,
+          resourceType: CollaboratorType.Space,
           roleName: Role.Owner,
           userId: mockUser.id,
           createdBy: mockUser.id,

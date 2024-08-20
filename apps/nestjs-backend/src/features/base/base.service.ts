@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { IRole } from '@teable/core';
 import { ActionPrefix, actionPrefixMap, generateBaseId, isUnrestrictedRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -35,28 +36,35 @@ export class BaseService {
 
   async getBaseById(baseId: string) {
     const userId = this.cls.get('user.id');
-    const { spaceIds, roleMap } =
-      await this.collaboratorService.getCollaboratorsBaseAndSpaceArray(userId);
 
-    const base = await this.prismaService.base.findFirst({
-      select: {
-        id: true,
-        name: true,
-        icon: true,
-        spaceId: true,
-      },
-      where: {
-        id: baseId,
-        deletedTime: null,
-        spaceId: {
-          in: spaceIds,
+    const base = await this.prismaService.base
+      .findFirstOrThrow({
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          spaceId: true,
         },
-      },
-    });
-    if (!base) {
-      throw new NotFoundException('Base not found');
-    }
-    const role = roleMap[base.id] || roleMap[base.spaceId];
+        where: {
+          id: baseId,
+          deletedTime: null,
+        },
+      })
+      .catch(() => {
+        throw new NotFoundException('Base not found');
+      });
+    const collaborator = await this.prismaService.collaborator
+      .findFirstOrThrow({
+        where: {
+          resourceId: { in: [baseId, base.spaceId] },
+          userId,
+        },
+      })
+      .catch(() => {
+        throw new ForbiddenException('cannot access base');
+      });
+
+    const role = collaborator.roleName as IRole;
     return {
       ...base,
       role: role,

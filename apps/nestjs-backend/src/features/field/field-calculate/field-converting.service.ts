@@ -10,6 +10,10 @@ import type {
   IOtOperation,
   ISelectFieldChoice,
   IConvertFieldRo,
+  IFilterSet,
+  ISelectFieldOptionsRo,
+  ISelectFieldOptions,
+  IFilterItem,
 } from '@teable/core';
 import {
   ColorUtils,
@@ -20,10 +24,12 @@ import {
   generateChoiceId,
   isMultiValueLink,
   RecordOpBuilder,
+  getValidFilterOperators,
+  ViewOpBuilder,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
+import { difference, intersection, isEmpty, isEqual, keyBy, set, find, differenceBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
@@ -35,6 +41,7 @@ import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
+import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
@@ -58,10 +65,11 @@ export class FieldConvertingService {
   private readonly logger = new Logger(FieldConvertingService.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
-    private readonly fieldService: FieldService,
+    private readonly viewService: ViewService,
     private readonly linkService: LinkService,
+    private readonly fieldService: FieldService,
     private readonly batchService: BatchService,
+    private readonly prismaService: PrismaService,
     private readonly referenceService: ReferenceService,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
@@ -1204,5 +1212,178 @@ export class FieldConvertingService {
 
     // calculate computed fields
     await this.calculateField(tableId, newField, oldField);
+  }
+
+  async convertFieldRelative(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
+    const oldOperators = getValidFilterOperators(oldField);
+    const newOperators = getValidFilterOperators(newField);
+    const views = await this.prismaService.view.findMany({
+      select: {
+        filter: true,
+        id: true,
+        type: true,
+      },
+      where: { tableId: tableId },
+    });
+
+    if (!views?.length) {
+      return;
+    }
+
+    if (
+      newField.type === oldField.type &&
+      [FieldType.SingleSelect, FieldType.MultipleSelect].includes(newField.type) &&
+      !isEqual(
+        (oldField.options as ISelectFieldOptions).choices,
+        (newField.options as ISelectFieldOptionsRo).choices
+      )
+    ) {
+      const fieldId = newField.id;
+      const oldOptions = (oldField.options as ISelectFieldOptions).choices;
+      const newOptions = (newField.options as ISelectFieldOptionsRo).choices;
+      // delete old options, delete filter item
+      // value is array, delete the item in array, value is string, delete the item
+      const updateNameOptions = newOptions
+        .filter((choice) => {
+          if (!choice.id) return false;
+          const originalChoice = find(oldOptions, ['id', choice.id]);
+          return originalChoice && originalChoice.name !== choice.name;
+        })
+        .map((item) => {
+          const { id, name } = item;
+          return {
+            id,
+            oldName: oldOptions.find((option) => option?.id === id)?.name as string,
+            newName: name,
+          };
+        });
+      const deleteOptions = differenceBy(oldOptions, newOptions, 'id');
+      if (!deleteOptions?.length && !updateNameOptions?.length) {
+        return;
+      }
+      await this.convertSelectChoiceOps(views, tableId, fieldId, updateNameOptions, deleteOptions);
+      return;
+    }
+
+    // judge the operator is same groups or cellValueType is same, otherwise delete the filter item
+    if (
+      (newField.type !== oldField.type && !isEqual(oldOperators, newOperators)) ||
+      oldField.cellValueType !== newField.cellValueType ||
+      oldField?.isMultipleCellValue !== newField?.isMultipleCellValue
+    ) {
+      for (let i = 0; i < views.length; i++) {
+        const viewId = views[i].id;
+        const filter = views[i].filter;
+        if (!filter) {
+          continue;
+        }
+        const ops = this.viewService.getDeleteFilterByFieldIdOps(JSON.parse(filter), newField.id);
+        await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+      }
+    }
+  }
+
+  private async convertSelectChoiceOps(
+    views: {
+      type: string;
+      id: string;
+      filter: string | null;
+    }[],
+    tableId: string,
+    fieldId: string,
+    updateNameOptions: { id?: string; oldName: string; newName: string }[],
+    deleteOptions: ISelectFieldOptions['choices']
+  ) {
+    const updateAndDeleteFilterValues = (
+      data: IFilterSet,
+      updateNameOptions: { id?: string; oldName: string; newName: string }[],
+      deleteOptions: ISelectFieldOptions['choices']
+    ): IFilterSet => {
+      const updateMap = new Map(updateNameOptions.map((opt) => [opt.oldName, opt.newName]));
+      const deleteSet = new Set(deleteOptions.map((opt) => opt.name));
+
+      const transformValue = (value: unknown): unknown => {
+        if (Array.isArray(value)) {
+          const newValue = value.filter((v) => !deleteSet.has(v)).map((v) => updateMap.get(v) || v);
+          return newValue.length > 0 ? newValue : null;
+        } else if (typeof value === 'string') {
+          if (deleteSet.has(value)) return null;
+          return updateMap.get(value) || value;
+        }
+        return value;
+      };
+
+      const transformFilter = (filter: IFilterSet | IFilterItem): IFilterSet | IFilterItem => {
+        if ('filterSet' in filter) {
+          return {
+            conjunction: filter.conjunction,
+            filterSet: filter.filterSet.map(transformFilter),
+          };
+        } else {
+          // target item
+          if (filter.fieldId === fieldId) {
+            const newValue = transformValue(filter.value);
+            return {
+              ...filter,
+              value: filter.value !== null ? newValue : null,
+              shouldDelete: newValue === null,
+            } as IFilterItem & {
+              shouldDelete: boolean;
+            };
+          }
+          return {
+            ...filter,
+          };
+        }
+      };
+
+      const deleteConvertEmptyFilterItem = (
+        filter: IFilterSet | IFilterItem
+      ): IFilterSet | IFilterItem => {
+        if ('filterSet' in filter) {
+          return {
+            conjunction: filter.conjunction,
+            filterSet: filter.filterSet
+              .filter((item) => {
+                if (!Array.isArray(item)) {
+                  return !(
+                    item as IFilterItem & {
+                      shouldDelete: boolean;
+                    }
+                  ).shouldDelete;
+                }
+                return true;
+              })
+              .filter(transformFilter),
+          };
+        } else {
+          return {
+            ...filter,
+          };
+        }
+      };
+
+      return deleteConvertEmptyFilterItem(transformFilter(data)) as IFilterSet;
+    };
+
+    for (let i = 0; i < views.length; i++) {
+      const viewId = views[i].id;
+      const filter = views[i].filter;
+      if (!filter || !filter?.includes(fieldId)) {
+        continue;
+      }
+      const curFilter = JSON.parse(filter);
+      const newFilter = updateAndDeleteFilterValues(
+        { ...curFilter },
+        updateNameOptions,
+        deleteOptions
+      );
+      const ops = ViewOpBuilder.editor.setViewProperty.build({
+        key: 'filter',
+        newValue: newFilter?.filterSet?.length ? newFilter : null,
+        oldValue: curFilter,
+      });
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    }
   }
 }

@@ -59,13 +59,15 @@
     "displayLabel_other": "Filter by {{fieldName}} and {{count}} other fields",
     "addCondition": "Add condition",
     "addConditionGroup": "Add condition group",
-    "nestedLimitTip": "Filter conditions can only be nested 3 levels deep",
+    "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
     "linkInputPlaceholder": "Enter a value",
     "groupDescription": "Any of the following are true…",
     "currentUser": "Me (current user)",
     "tips": {
       "scope": "In this view, show records"
     },
+    "invalidateSelected": "Invalid value",
+    "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "default": {
       "empty": "No filter conditions are applied",
       "placeholder": "Enter a value"
@@ -172,7 +174,9 @@
     "displayLabel_other": "Sort by {{count}} fields",
     "setTips": "Sort by",
     "addButton": "Add another sort",
-    "autoSort": "Automatically sort records"
+    "autoSort": "Automatically sort records",
+    "selectASCLabel": "first → last",
+    "selectDESCLabel": "last → first"
   },
   "group": {
     "label": "Group",
@@ -203,22 +207,6 @@
       "button": "Button",
       "createdBy": "Created by",
       "lastModifiedBy": "Last modified by"
-    }
-  },
-  "spaceRole": {
-    "role": {
-      "owner": "Owner",
-      "creator": "Creator",
-      "editor": "Editor",
-      "commenter": "Commenter",
-      "viewer": "Viewer"
-    },
-    "description": {
-      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
-      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
-      "editor": "Can edit records and views, but cannot configure tables or fields",
-      "commenter": "Can comment on records",
-      "viewer": "Cannot edit or comment"
     }
   },
   "permission": {

@@ -165,7 +165,7 @@
       "title": "{{spaceName}} 空间分享",
       "desc": "这个空间有<b>{{count}} 个协作者</b>。添加一个空间协作者将使他们能够访问该空间内的所有数据库。",
       "tabEmail": "通过电子邮件邀请",
-      "emailPlaceholder": "通过电子邮件邀请更多空间协作者",
+      "emailPlaceholder": "通过电子邮件邀请更多协作者",
       "tabLink": "通过链接邀请",
       "linkPlaceholder": "创建一个邀请链接，让任何打开它的人获得<0/>权限。",
       "emailSend": "发送邀请",
@@ -230,5 +230,21 @@
     "changeSetting": "更改页面通知设置",
     "new": "新消息{{count}}条",
     "showMore": "显示更多"
+  },
+  "role": {
+    "title": {
+      "owner": "可管理",
+      "creator": "可搭建",
+      "editor": "可编辑",
+      "commenter": "可查看与评论",
+      "viewer": "可查看"
+    },
+    "description": {
+      "owner": "具有完全配置和编辑数据库、自动化、权限矩阵、管理空间设置和计费的权限",
+      "creator": "具有完全配置和编辑数据库、自动化和启用权限矩阵的权限",
+      "editor": "可以编辑记录和视图，不能配置表格或字段",
+      "commenter": "可以查看和评论记录，不能编辑记录",
+      "viewer": "仅可查看记录，不能编辑或评论记录"
+    }
   }
 }

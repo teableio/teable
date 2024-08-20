@@ -2,7 +2,6 @@ import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { FieldOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Timing } from '../../../utils/timing';
-import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
@@ -16,7 +15,6 @@ export class FieldDeletingService {
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly fieldSupplementService: FieldSupplementService,
-    private readonly fieldBatchCalculationService: FieldCalculationService,
     private readonly viewService: ViewService
   ) {}
 
@@ -60,9 +58,9 @@ export class FieldDeletingService {
     }
   }
 
-  async delateFieldItem(tableId: string, field: IFieldInstance) {
+  async deleteFieldItem(tableId: string, field: IFieldInstance) {
     await this.cleanRef(field);
-    await this.viewService.deleteColumnMetaOrder(tableId, [field.id]);
+    await this.viewService.deleteViewRelativeByFields(tableId, [field.id]);
     await this.fieldService.batchDeleteFields(tableId, [field.id]);
   }
 
@@ -89,11 +87,11 @@ export class FieldDeletingService {
       const linkFieldOptions = field.options;
       const { foreignTableId, symmetricFieldId } = linkFieldOptions;
       await this.fieldSupplementService.cleanForeignKey(linkFieldOptions);
-      await this.delateFieldItem(tableId, field);
+      await this.deleteFieldItem(tableId, field);
 
       if (symmetricFieldId) {
         const symmetricField = await this.getField(foreignTableId, symmetricFieldId);
-        symmetricField && (await this.delateFieldItem(foreignTableId, symmetricField));
+        symmetricField && (await this.deleteFieldItem(foreignTableId, symmetricField));
         return [
           { tableId, fieldId },
           { tableId: foreignTableId, fieldId: symmetricFieldId },
@@ -102,7 +100,7 @@ export class FieldDeletingService {
       return [{ tableId, fieldId }];
     }
 
-    await this.delateFieldItem(tableId, field);
+    await this.deleteFieldItem(tableId, field);
     return [{ tableId, fieldId }];
   }
 }

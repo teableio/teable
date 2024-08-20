@@ -4,6 +4,7 @@ import {
   FieldKeyType,
   RowHeightLevel,
   contractColorForTheme,
+  extractDefaultFieldsFromFilters,
   fieldVoSchema,
   stringifyClipboardText,
 } from '@teable/core';
@@ -46,7 +47,6 @@ import {
   useGridPrefillingRow,
   SelectableType,
 } from '@teable/sdk';
-import { extractDefaultFieldsFromFilters } from '@teable/sdk/components/filter/utils';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import {

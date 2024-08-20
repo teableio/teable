@@ -5,8 +5,8 @@ import { getSpaceCollaboratorList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk';
 import { Trans, useTranslation } from 'next-i18next';
 import { Collaborators } from './Collaborators';
-import { Invite } from './Invite';
-import { InviteLink } from './InviteLink';
+import { SpaceInvite } from './SpaceInvite';
+import { SpaceInviteLink } from './SpaceInviteLink';
 
 interface ISpaceCollaboratorModal {
   space: IGetSpaceVo;
@@ -37,8 +37,10 @@ export const SpaceCollaboratorModal: React.FC<ISpaceCollaboratorModal> = (props)
         />
       </div>
       <div className="space-y-8">
-        <Invite spaceId={spaceId} role={role} />
-        {hasPermission(role, 'space|invite_link') && <InviteLink spaceId={spaceId} role={role} />}
+        <SpaceInvite spaceId={spaceId} role={role} />
+        {hasPermission(role, 'space|invite_link') && (
+          <SpaceInviteLink spaceId={spaceId} role={role} />
+        )}
         <div className="w-full">
           <div className="mb-3 text-sm text-muted-foreground">{t('invite.dialog.spaceTitle')}</div>
           <Collaborators spaceId={spaceId} role={role} />

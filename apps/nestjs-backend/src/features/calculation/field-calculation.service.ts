@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FieldType, type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IUserInfoVo } from '@teable/openapi';
+import { type IUserInfoVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -73,18 +73,18 @@ export class FieldCalculationService {
 
   async getUserMap(tableId: string) {
     const {
+      baseId,
       base: { spaceId },
     } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: {
-        base: {
-          select: { spaceId: true },
-        },
+        baseId: true,
+        base: { select: { spaceId: true } },
       },
     });
 
     const collaborators = await this.prismaService.collaborator.findMany({
-      where: { spaceId },
+      where: { resourceId: { in: [spaceId, baseId] } },
       select: { userId: true },
     });
 

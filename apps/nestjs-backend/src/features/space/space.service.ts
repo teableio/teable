@@ -3,7 +3,7 @@ import type { IRole } from '@teable/core';
 import { Role, generateSpaceId, getUniqName } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable/openapi';
+import { CollaboratorType, type ICreateSpaceRo, type IUpdateSpaceRo } from '@teable/openapi';
 import { keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -56,9 +56,8 @@ export class SpaceService {
         roleName: true,
       },
       where: {
-        spaceId,
+        resourceId: spaceId,
         userId,
-        deletedTime: null,
       },
     });
     if (!collaborator) {
@@ -75,22 +74,21 @@ export class SpaceService {
 
     const collaboratorSpaceList = await this.prismaService.collaborator.findMany({
       select: {
-        spaceId: true,
+        resourceId: true,
         roleName: true,
       },
       where: {
         userId,
-        spaceId: { not: null },
-        deletedTime: null,
+        resourceType: CollaboratorType.Space,
       },
     });
-    const spaceIds = map(collaboratorSpaceList, 'spaceId') as string[];
+    const spaceIds = map(collaboratorSpaceList, 'resourceId') as string[];
     const spaceList = await this.prismaService.space.findMany({
-      where: { id: { in: spaceIds } },
+      where: { id: { in: spaceIds }, deletedTime: null },
       select: { id: true, name: true },
       orderBy: { createdTime: 'asc' },
     });
-    const roleMap = keyBy(collaboratorSpaceList, 'spaceId');
+    const roleMap = keyBy(collaboratorSpaceList, 'resourceId');
     return spaceList.map((space) => ({
       ...space,
       role: roleMap[space.id].roleName as IRole,
@@ -152,17 +150,21 @@ export class SpaceService {
     const userId = this.cls.get('user.id');
 
     await this.prismaService.$tx(async () => {
-      await this.prismaService.txClient().space.update({
-        data: {
-          deletedTime: new Date(),
-          lastModifiedBy: userId,
-        },
-        where: {
-          id: spaceId,
-          deletedTime: null,
-        },
-      });
-      await this.collaboratorService.deleteBySpaceId(spaceId);
+      await this.prismaService
+        .txClient()
+        .space.update({
+          data: {
+            deletedTime: new Date(),
+            lastModifiedBy: userId,
+          },
+          where: {
+            id: spaceId,
+            deletedTime: null,
+          },
+        })
+        .catch(() => {
+          throw new NotFoundException('Space not found');
+        });
     });
   }
 

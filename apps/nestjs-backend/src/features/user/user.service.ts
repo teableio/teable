@@ -10,7 +10,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
+import { CollaboratorType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import sharp from 'sharp';
@@ -73,7 +73,8 @@ export class UserService {
     });
     await this.prismaService.txClient().collaborator.create({
       data: {
-        spaceId: space.id,
+        resourceId: space.id,
+        resourceType: CollaboratorType.Space,
         roleName: Role.Owner,
         userId,
         createdBy: userId,

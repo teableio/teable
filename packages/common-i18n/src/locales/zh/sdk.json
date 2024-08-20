@@ -70,13 +70,15 @@
     "displayLabel_other": "筛选({{count}})",
     "addCondition": "添加条件",
     "addConditionGroup": "添加条件组",
-    "nestedLimitTip": "条件组最多支持3层嵌套",
+    "nestedLimitTip": "条件组最多支持{{depth}}层嵌套",
     "linkInputPlaceholder": "输入值",
     "groupDescription": "以下任一条件为真…",
     "currentUser": "我（当前用户）",
     "tips": {
       "scope": "仅作用于当前视图的记录"
     },
+    "invalidateSelected": "已删除选项",
+    "invalidateSelectedTips": "该选项已被删除，请重新选择",
     "default": {
       "empty": "当前没有应用任何筛选条件",
       "placeholder": "请输入"
@@ -99,7 +101,7 @@
       "isLessEqual": "小于等于",
       "isAnyOf": "属于",
       "isNoneOf": "不属于",
-      "hasAnyOf": "包含",
+      "hasAnyOf": "包含任意一个",
       "hasAllOf": "包含所有",
       "hasNoneOf": "不包含",
       "isExactly": "等于",
@@ -184,7 +186,9 @@
     "displayLabel_other": "排序({{count}})",
     "setTips": "设置排序条件",
     "addButton": "添加另一个排序",
-    "autoSort": "自动排序"
+    "autoSort": "自动排序",
+    "selectASCLabel": "选项顺序",
+    "selectDESCLabel": "选项倒序"
   },
   "group": {
     "label": "分组",
@@ -215,22 +219,6 @@
       "button": "按钮",
       "createdBy": "创建人",
       "lastModifiedBy": "最近修改人"
-    }
-  },
-  "spaceRole": {
-    "role": {
-      "owner": "可管理",
-      "creator": "可搭建",
-      "editor": "可编辑",
-      "commenter": "可查看与评论",
-      "viewer": "可查看"
-    },
-    "description": {
-      "owner": "具有完全配置和编辑数据库、自动化、权限矩阵、管理空间设置和计费的权限",
-      "creator": "具有完全配置和编辑数据库、自动化和启用权限矩阵的权限",
-      "editor": "可以编辑记录和视图，不能配置表格或字段",
-      "commenter": "可以查看和评论记录，不能编辑记录",
-      "viewer": "仅可查看记录，不能编辑或评论记录"
     }
   },
   "permission": {

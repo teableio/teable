@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { FieldKeyType } from '@teable/core';
+import { extractDefaultFieldsFromFilters, FieldKeyType } from '@teable/core';
 import { createRecords } from '@teable/openapi';
 import { Dialog, DialogTrigger, DialogContent, Spin, Button } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
@@ -10,7 +10,6 @@ import { useFields, useTableId, useView, useViewId } from '../../hooks';
 import type { IFieldInstance, KanbanView, Record } from '../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../model';
 import { RecordEditor } from '../expand-record/RecordEditor';
-import { extractDefaultFieldsFromFilters } from '../filter/utils';
 
 interface ICreateRecordModalProps {
   children?: React.ReactNode;

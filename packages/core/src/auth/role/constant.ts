@@ -106,7 +106,7 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'base|read': true,
     'base|update': false,
     'base|invite_email': true,
-    'base|invite_link': true,
+    'base|invite_link': false,
     'base|table_import': true,
     'base|table_export': true,
     'base|authority_matrix_config': false,
