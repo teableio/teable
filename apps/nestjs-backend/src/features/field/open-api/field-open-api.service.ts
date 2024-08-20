@@ -40,6 +40,7 @@ export class FieldOpenApiService {
     return await this.graphService.planFieldCreate(tableId, fieldRo);
   }
 
+  // TODO add delete relative check
   async planFieldConvert(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }

@@ -572,6 +572,14 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   getDeleteFilterByFieldIdOps(filter: IFilterSet, fieldId: string) {
+    const newFilter = this.getDeletedFilterByFieldId(filter, fieldId);
+    return ViewOpBuilder.editor.setViewProperty.build({
+      key: 'filter',
+      newValue: newFilter,
+      oldValue: filter,
+    });
+  }
+  getDeletedFilterByFieldId(filter: IFilterSet, fieldId: string) {
     const removeItemsByFieldId = (filter: IFilterSet, fieldId: string) => {
       if (Array.isArray(filter.filterSet)) {
         filter.filterSet = filter.filterSet.filter((item) => {
@@ -587,13 +595,8 @@ export class ViewService implements IReadonlyAdapterService {
       }
       return filter;
     };
-
     const newFilter = removeItemsByFieldId({ ...filter }, fieldId) as IFilter;
-    return ViewOpBuilder.editor.setViewProperty.build({
-      key: 'filter',
-      newValue: newFilter?.filterSet?.length ? newFilter : null,
-      oldValue: filter,
-    });
+    return newFilter?.filterSet?.length ? newFilter : null;
   }
   private getDeleteSortByFieldIdOps(sort: NonNullable<ISort>, fieldId: string) {
     const newSort: ISort = {
