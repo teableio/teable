@@ -1,4 +1,4 @@
-import type { IFilter } from '@teable/core';
+import type { IFilter, IFilterItem, IFilterSet } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../model';
 import { EMPTY_OPERATORS } from './constant';
@@ -40,3 +40,30 @@ export const getFilterFieldIds = (
 
   return filterIds;
 };
+
+export function extractDefaultFieldsFromFilters(filters: IFilterSet | null | undefined): {
+  [fieldId: string]: unknown;
+} {
+  const result: { [fieldId: string]: unknown } = {};
+  const repeatedFieldIds = new Set<string>();
+
+  function handleFilterItem(filter: IFilterItem | null | undefined) {
+    if (filter?.operator === 'is' && filter.fieldId) {
+      if (filter.fieldId in result) {
+        // mark as repeat and delete
+        delete result[filter.fieldId];
+        repeatedFieldIds.add(filter.fieldId);
+      } else if (!repeatedFieldIds.has(filter.fieldId)) result[filter.fieldId] = filter.value;
+    }
+  }
+
+  // recursively traverse the filters object
+  function traverse(filter: IFilterSet | IFilterItem | null | undefined) {
+    if (filter && 'filterSet' in filter) filter.filterSet.forEach(traverse);
+    else if (filter) handleFilterItem(filter);
+  }
+
+  traverse(filters);
+
+  return result;
+}

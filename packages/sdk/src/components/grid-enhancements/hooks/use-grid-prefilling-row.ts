@@ -17,8 +17,6 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
     { [fieldId: string]: unknown } | undefined
   >();
 
-  console.log({ prefillingFieldValueMap });
-
   const localRecord = useMemo(() => {
     if (prefillingFieldValueMap == null) {
       return null;
