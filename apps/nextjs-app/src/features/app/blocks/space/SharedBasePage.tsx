@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getSharedBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'next-i18next';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { BaseCard } from './BaseCard';
 
