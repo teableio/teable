@@ -6,10 +6,11 @@ import { isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCounter } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { useFields, useTableId, useViewId } from '../../hooks';
-import type { IFieldInstance, Record } from '../../model';
+import { useFields, useTableId, useView, useViewId } from '../../hooks';
+import type { IFieldInstance, KanbanView, Record } from '../../model';
 import { createRecordInstance, recordInstanceFieldMap } from '../../model';
 import { RecordEditor } from '../expand-record/RecordEditor';
+import { extractDefaultFieldsFromFilters } from '../filter/utils';
 
 interface ICreateRecordModalProps {
   children?: React.ReactNode;
@@ -19,6 +20,7 @@ interface ICreateRecordModalProps {
 export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const { children, callback } = props;
   const tableId = useTableId();
+  const view = useView() as KanbanView | undefined;
   const viewId = useViewId();
   const showFields = useFields();
   const [open, setOpen] = useState(false);
@@ -28,11 +30,21 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   const [record, setRecord] = useState<Record | undefined>(undefined);
 
   const { mutate: createRecord, isLoading } = useMutation({
-    mutationFn: (fields: { [fieldId: string]: unknown }) =>
-      createRecords(tableId!, {
-        records: [{ fields }],
+    mutationFn: (fields: { [fieldId: string]: unknown }) => {
+      const defaultFields = extractDefaultFieldsFromFilters(view?.filter);
+
+      // remove null fields
+      Object.keys(fields).forEach((key) => {
+        if (fields[key] === null) {
+          delete fields[key];
+        }
+      });
+
+      return createRecords(tableId!, {
+        records: [{ fields: { ...defaultFields, ...fields } }],
         fieldKeyType: FieldKeyType.Id,
-      }),
+      });
+    },
     onSuccess: (data) => {
       setOpen(false);
       callback?.(data.data.records[0].id);
