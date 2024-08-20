@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldModule } from '../field/field.module';
+import { InvitationModule } from '../invitation/invitation.module';
 import { TableModule } from '../table/table.module';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseQueryService } from './base-query/base-query.service';
@@ -11,7 +12,7 @@ import { DbConnectionService } from './db-connection.service';
 
 @Module({
   controllers: [BaseController],
-  imports: [CollaboratorModule, FieldModule, TableModule],
+  imports: [CollaboratorModule, FieldModule, TableModule, InvitationModule],
   providers: [DbProvider, BaseService, DbConnectionService, BaseDuplicateService, BaseQueryService],
   exports: [BaseService, DbConnectionService, BaseDuplicateService],
 })

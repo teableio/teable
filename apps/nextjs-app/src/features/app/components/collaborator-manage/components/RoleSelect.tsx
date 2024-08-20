@@ -1,5 +1,4 @@
 import { Role, type IRole } from '@teable/core';
-import { useSpaceRoleStatic } from '@teable/sdk/hooks';
 import {
   cn,
   Select,
@@ -11,27 +10,24 @@ import {
 } from '@teable/ui-lib';
 import { find } from 'lodash';
 import React, { useMemo } from 'react';
+import type { IRoleStatic } from '../types';
+import { useRoleStatic } from '../useRoleStatic';
+
 interface IRoleSelect {
   className?: string;
   value?: IRole;
   defaultValue?: IRole;
   disabled?: boolean;
-  filterRoles?: IRole[];
+  options: IRoleStatic[];
   onChange?: (value: IRole) => void;
 }
 
-export const RoleSelect: React.FC<IRoleSelect> = (props) => {
-  const { className, value, defaultValue, disabled, filterRoles, onChange } = props;
-  const spaceRoleList = useSpaceRoleStatic();
-  const filteredRoleList = useMemo(() => {
-    return filterRoles
-      ? spaceRoleList.filter(({ role }) => filterRoles.includes(role))
-      : spaceRoleList;
-  }, [filterRoles, spaceRoleList]);
-
+export const RoleSelect = (props: IRoleSelect) => {
+  const { className, value, defaultValue, disabled, options, onChange } = props;
+  const roleStatic = useRoleStatic();
   const showSelectedRoleValue = useMemo(
-    () => find(filteredRoleList, ({ role }) => role === value)?.name,
-    [value, filteredRoleList]
+    () => find(roleStatic, ({ role }) => role === value)?.name,
+    [value, roleStatic]
   );
 
   return (
@@ -44,7 +40,7 @@ export const RoleSelect: React.FC<IRoleSelect> = (props) => {
         <SelectValue>{showSelectedRoleValue}</SelectValue>
       </SelectTrigger>
       <SelectContent className=" w-72">
-        {filteredRoleList.map(({ role, name, description }) => (
+        {options.map(({ role, name, description }) => (
           <div key={role}>
             {role === Role.Owner && <Separator />}
             <SelectItem value={role}>

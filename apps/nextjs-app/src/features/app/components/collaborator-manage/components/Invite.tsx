@@ -1,66 +1,40 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { IRole } from '@teable/core';
-import { Role, hasPermission } from '@teable/core';
 import { X } from '@teable/icons';
-import { createSpaceInvitationLink, emailSpaceInvitation } from '@teable/openapi';
-import { ReactQueryKeys, useSpaceRoleStatic } from '@teable/sdk';
 import { Button, cn } from '@teable/ui-lib';
-import { map } from 'lodash';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
-import { RoleSelect } from './RoleSelect';
-import { getRolesWithLowerPermissions } from './utils';
 
 interface IInvite {
   className?: string;
-  spaceId: string;
-  role: IRole;
+  disabledLink?: boolean;
+  loading: {
+    sendInviteEmail?: boolean;
+    createInviteLink?: boolean;
+  };
+  roleSelect: React.ReactNode;
+  sendInviteEmail: (emails: string[]) => Promise<void>;
+  createInviteLink: () => Promise<void>;
 }
 
-export const Invite: React.FC<IInvite> = (props) => {
-  const { className, spaceId, role } = props;
-  const queryClient = useQueryClient();
+export const Invite = (props: IInvite) => {
+  const { className, disabledLink, loading, roleSelect, sendInviteEmail, createInviteLink } = props;
   const { t } = useTranslation('common');
 
   const [inviteType, setInviteType] = useState<'link' | 'email'>('email');
-  const [inviteRole, setInviteRole] = useState<IRole>(role);
   const [email, setEmail] = useState<string>('');
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
 
-  const { mutate: emailInvitation, isLoading: updateCollaboratorLoading } = useMutation({
-    mutationFn: emailSpaceInvitation,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries(ReactQueryKeys.spaceCollaboratorList(spaceId));
-    },
-  });
-
-  const sendInviteEmail = async () => {
-    await emailInvitation({
-      spaceId,
-      emailSpaceInvitationRo: {
-        emails: inviteEmails.length ? inviteEmails : [email],
-        role: inviteRole,
-      },
-    });
+  const innerSendInviteEmail = async () => {
+    await sendInviteEmail(inviteEmails);
     initEmail();
   };
 
-  const { mutate: createInviteLinkRequest, isLoading: createInviteLinkLoading } = useMutation({
-    mutationFn: createSpaceInvitationLink,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
-    },
-  });
-
-  const createInviteLink = async () => {
-    await createInviteLinkRequest({ spaceId, createSpaceInvitationLinkRo: { role: inviteRole } });
-    setInviteRole(Role.Creator);
+  const innerCreateInviteLink = async () => {
+    await createInviteLink();
   };
 
   const changeInviteType = (inviteType: 'link' | 'email') => {
     initEmail();
-    setInviteRole(Role.Creator);
     setInviteType(inviteType);
   };
 
@@ -90,12 +64,6 @@ export const Invite: React.FC<IInvite> = (props) => {
     setInviteEmails((inviteEmails) => inviteEmails.filter((inviteEmail) => email !== inviteEmail));
   };
 
-  const spaceRoleStatic = useSpaceRoleStatic();
-  const filterRoles = useMemo(
-    () => map(getRolesWithLowerPermissions(role, spaceRoleStatic), 'role'),
-    [role, spaceRoleStatic]
-  );
-
   const isEmailInputValid = useMemo(() => z.string().email().safeParse(email).success, [email]);
 
   const EmailInvite = (
@@ -120,16 +88,22 @@ export const Invite: React.FC<IInvite> = (props) => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => {
+              if (isEmailInputValid) {
+                setInviteEmails(inviteEmails.concat(email));
+                setEmail('');
+              }
+            }}
             onKeyDown={emailInputChange}
           />
         </div>
-        <RoleSelect value={inviteRole} filterRoles={filterRoles} onChange={setInviteRole} />
+        {roleSelect}
       </div>
       <Button
         className="mt-2"
         size={'sm'}
-        disabled={(!isEmailInputValid && inviteEmails.length === 0) || updateCollaboratorLoading}
-        onClick={sendInviteEmail}
+        disabled={(!isEmailInputValid && inviteEmails.length === 0) || loading.sendInviteEmail}
+        onClick={innerSendInviteEmail}
       >
         {t('invite.dialog.emailSend')}
       </Button>
@@ -140,28 +114,21 @@ export const Invite: React.FC<IInvite> = (props) => {
     <div>
       <div className="flex items-center text-sm">
         <Trans ns="common" i18nKey={'invite.dialog.linkPlaceholder'}>
-          <RoleSelect
-            className="mx-1"
-            filterRoles={filterRoles}
-            value={inviteRole}
-            onChange={setInviteRole}
-          />
+          {roleSelect}
         </Trans>
       </div>
       <Button
         className="mt-2"
         size={'sm'}
-        disabled={createInviteLinkLoading}
-        onClick={createInviteLink}
+        disabled={loading.createInviteLink}
+        onClick={innerCreateInviteLink}
       >
         {t('invite.dialog.linkSend')}
       </Button>
     </div>
   );
 
-  const showLink = hasPermission(role, 'space|invite_link');
-
-  if (!showLink) {
+  if (disabledLink) {
     return <div className={cn(className, 'rounded bg-muted px-4 py-2')}>{EmailInvite}</div>;
   }
 

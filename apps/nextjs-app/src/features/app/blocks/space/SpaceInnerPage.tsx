@@ -66,6 +66,7 @@ export const SpaceInnerPage: React.FC = () => {
     mutationFn: updateSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
     },
   });
 
