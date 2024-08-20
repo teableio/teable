@@ -43,5 +43,10 @@
   },
   "tip": {
     "delete": "Are you sure you want to delete <0/>?"
+  },
+  "sharedBase": {
+    "title": "Shared bases",
+    "description": "Bases shared with you will appear here",
+    "empty": "No shared bases yet"
   }
 }
