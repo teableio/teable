@@ -50,7 +50,7 @@
     },
     "user": {
       "searchPlaceholder": "Найти пользователей по имени",
-      "notify": "Notify users once they're selected"
+      "notify": "Уведомить пользователей после их выбора"
     }
   },
   "filter": {
@@ -59,15 +59,15 @@
     "displayLabel_other": "Фильтровать по {{fieldName}} и {{count}} другим полям",
     "addCondition": "Добавить условие",
     "addConditionGroup": "Добавить группу условий",
-    "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
+    "nestedLimitTip": "Условия фильтрации могут быть вложенными только на {{depth}} уровнях глубины",
     "linkInputPlaceholder": "Введите значение",
     "groupDescription": "Любой из следующих условия верно…",
     "currentUser": "Меня (текучего пользователя)",
     "tips": {
       "scope": "В этом представлении показать записи"
     },
-    "invalidateSelected": "Invalid value",
-    "invalidateSelectedTips": "The selected value has been deleted, please select again",
+    "invalidateSelected": "Недопустимое значение",
+    "invalidateSelectedTips": "Выбранное значение было удалено, пожалуйста, выберите еще раз",
     "default": {
       "empty": "Не применено никаких условий фильтрации",
       "placeholder": "Введите значение"
@@ -157,7 +157,7 @@
   "expandRecord": {
     "copy": "Копировать в буфер обмена",
     "copyRecordUrl": "Копировать URL записи",
-    "deleteRecord": "Delete record",
+    "deleteRecord": "Удалить запись",
     "recordHistory": {
       "hiddenRecordHistory": "Скрыть запись",
       "showRecordHistory": "Показать запись",
@@ -175,8 +175,8 @@
     "setTips": "Сортировать по",
     "addButton": "Добавить еще один критерий сортировки",
     "autoSort": "Автоматически сортировать записи",
-    "selectASCLabel": "first → last",
-    "selectDESCLabel": "last → first"
+    "selectASCLabel": "первый → последний",
+    "selectDESCLabel": "последний → первый"
   },
   "group": {
     "label": "Группировать",
@@ -192,7 +192,7 @@
       "singleSelect": "Выбор одного",
       "number": "Число",
       "multipleSelect": "Выбор нескольких",
-      "link": "Link to another record",
+      "link": "Ссылка на другую запись",
       "formula": "Формула",
       "date": "Дата",
       "createdTime": "Время создания",
@@ -203,7 +203,7 @@
       "user": "Пользователь",
       "rating": "Рейтинг",
       "autoNumber": "Автоматическое нумерация",
-      "lookup": "Lookup",
+      "lookup": "Поиск",
       "button": "Кнопка",
       "createdBy": "Created by",
       "lastModifiedBy": "Last modified by"
