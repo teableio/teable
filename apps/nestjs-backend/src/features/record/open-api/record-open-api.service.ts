@@ -312,14 +312,16 @@ export class RecordOpenApiService {
   }
 
   async deleteRecord(tableId: string, recordId: string) {
-    return this.deleteRecords(tableId, [recordId]);
+    const data = await this.deleteRecords(tableId, [recordId]);
+    return data.records[0];
   }
 
   async deleteRecords(tableId: string, recordIds: string[]) {
     return await this.prismaService.$tx(async () => {
       await this.recordCalculateService.calculateDeletedRecord(tableId, recordIds);
-
+      const records = await this.recordService.getRecordsById(tableId, recordIds);
       await this.recordService.batchDeleteRecords(tableId, recordIds);
+      return records;
     });
   }
 

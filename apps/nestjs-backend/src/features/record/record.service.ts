@@ -515,54 +515,28 @@ export class RecordService {
     return { queryBuilder, dbTableName };
   }
 
-  async setRecord(
-    version: number,
-    tableId: string,
-    dbTableName: string,
-    recordId: string,
-    contexts: { fieldId: string; newCellValue: unknown }[]
-  ) {
-    const userId = this.cls.get('user.id');
-    const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
-
-    const fieldIds = Array.from(
-      contexts.reduce((acc, cur) => {
-        return acc.add(cur.fieldId);
-      }, new Set<string>())
-    );
-
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, id: { in: fieldIds } },
-    });
-    const fieldInstances = fieldRaws.map((field) => createFieldInstanceByRaw(field));
-    const fieldInstanceMap = keyBy(fieldInstances, 'id');
-
-    const recordFieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>(
-      (pre, ctx) => {
-        const fieldInstance = fieldInstanceMap[ctx.fieldId];
-        pre[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(ctx.newCellValue);
-        return pre;
-      },
-      {}
-    );
-
-    const updateRecordSql = this.knex(dbTableName)
-      .update({
-        ...recordFieldsByDbFieldName,
-        __last_modified_by: userId,
-        __last_modified_time: timeStr,
-        __version: version,
-      })
-      .where({ __id: recordId })
-      .toQuery();
-    return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
-  }
-
   convertProjection(fieldKeys?: string[]) {
     return fieldKeys?.reduce<Record<string, boolean>>((acc, cur) => {
       acc[cur] = true;
       return acc;
     }, {});
+  }
+
+  async getRecordsById(tableId: string, recordIds: string[]): Promise<IRecordsVo> {
+    const recordSnapshot = await this.getSnapshotBulk(
+      tableId,
+      recordIds,
+      undefined,
+      FieldKeyType.Id
+    );
+
+    if (!recordSnapshot.length) {
+      throw new NotFoundException('Can not get records');
+    }
+
+    return {
+      records: recordSnapshot.map((r) => r.data),
+    };
   }
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
@@ -919,6 +893,8 @@ export class RecordService {
       .$queryRawUnsafe<
         ({ [fieldName: string]: unknown } & IVisualTableDefaultField)[]
       >(nativeQuery);
+
+    console.log('getSnapshotBulk:result', result);
 
     const recordIdsMap = recordIds.reduce(
       (acc, recordId, currentIndex) => {

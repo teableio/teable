@@ -105,7 +105,7 @@ export class RecordOpenApiController {
   async deleteRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string
-  ): Promise<void> {
+  ): Promise<IRecord> {
     return await this.recordOpenApiService.deleteRecord(tableId, recordId);
   }
 
@@ -114,7 +114,7 @@ export class RecordOpenApiController {
   async deleteRecords(
     @Param('tableId') tableId: string,
     @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery
-  ): Promise<void> {
+  ): Promise<IRecordsVo> {
     return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds);
   }
 

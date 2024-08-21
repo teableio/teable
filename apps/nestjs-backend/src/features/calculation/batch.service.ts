@@ -27,8 +27,6 @@ export interface IOpsData {
     [dbFieldName: string]: unknown;
   };
   version: number;
-  lastModifiedTime: string;
-  lastModifiedBy: string;
 }
 
 @Injectable()
@@ -159,8 +157,6 @@ export class BatchService {
       {
         __version: number;
         __id: string;
-        __last_modified_time: Date;
-        __last_modified_by: string;
       }[]
     >(querySql);
   }
@@ -171,8 +167,6 @@ export class BatchService {
       [recordId: string]: {
         __version: number;
         __id: string;
-        __last_modified_time: Date;
-        __last_modified_by: string;
       };
     }
   ) {
@@ -189,14 +183,10 @@ export class BatchService {
       }, {});
 
       const version = versionGroup[recordId].__version;
-      const lastModifiedTime = versionGroup[recordId].__last_modified_time?.toISOString();
-      const lastModifiedBy = versionGroup[recordId].__last_modified_by;
 
       opsData.push({
         recordId,
         version,
-        lastModifiedTime,
-        lastModifiedBy,
         updateParam,
       });
     }
@@ -299,8 +289,6 @@ export class BatchService {
         return { dbFieldName, schemaType: dbType2knexFormat(this.knex, dbFieldType) };
       }),
       { dbFieldName: '__version', schemaType: SchemaType.Integer },
-      { dbFieldName: '__last_modified_time', schemaType: SchemaType.Datetime },
-      { dbFieldName: '__last_modified_by', schemaType: SchemaType.String },
     ];
 
     await this.batchUpdateDB(dbTableName, '__id', schemas, data);
