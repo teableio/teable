@@ -178,6 +178,13 @@
       "linkCreatedTime": "创建于 {{createdTime}}",
       "linkCopySuccess": "链接已复制",
       "linkRemove": "移除链接"
+    },
+    "base": {
+      "title": "分享{{baseName}}",
+      "desc_one": "此数据库与 {{count}} 位协作者共享。",
+      "desc_other": "此数据库与 {{count}} 位协作者共享。",
+      "baseTitle": "此数据库协作者",
+      "collaboratorSearchPlaceholder": "通过姓名或电子邮件查找数据库协作者"
     }
   },
   "help": {

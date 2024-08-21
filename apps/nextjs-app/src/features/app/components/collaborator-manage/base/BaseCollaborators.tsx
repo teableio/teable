@@ -8,6 +8,7 @@ import {
   updateBaseCollaborator,
 } from '@teable/openapi';
 import { ReactQueryKeys, useSession } from '@teable/sdk';
+import { Badge } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useMemo } from 'react';
@@ -78,7 +79,9 @@ export const BaseCollaborators = (props: { baseId: string; role: IRole }) => {
               deletable={!deleteCollaboratorLoading && canOperator}
               collaboratorTips={
                 resourceType === CollaboratorType.Space && (
-                  <span className="ml-2 text-xs text-muted-foreground">{t('noun.space')}</span>
+                  <Badge className="ml-2 text-muted-foreground" variant={'outline'}>
+                    {t('noun.space')}
+                  </Badge>
                 )
               }
             >
