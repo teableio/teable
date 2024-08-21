@@ -45,19 +45,19 @@
       "neverUsed": "Никогда не использовалось"
     },
     "clientId": {
-      "label": "Client ID: "
+      "label": "ID клиента: "
     }
   },
   "formType": {
-    "basic": "Basic information",
-    "scopes": "Scopes",
-    "identify": "Identifying and authorizing users",
-    "clientInfo": "Client information"
+    "basic": "Основная информация",
+    "scopes": "Диапазоны",
+    "identify": "Определение и авторизация пользователей",
+    "clientInfo": "Информация о клиенте"
   },
   "decision": {
-    "title": "{{name}} is requesting access to your account",
-    "scopes": "This application will be able to get the following scopes:",
-    "redirectDescription": "Authorizing will redirect to",
-    "authorize": "Authorize"
+    "title": "{{name}} запрашивает доступ к вашей учетной записи",
+    "scopes": "Это приложение сможет получить следующие области:",
+    "redirectDescription": "Авторизация будет перенаправлена на",
+    "authorize": "Авторизация"
   }
 }
