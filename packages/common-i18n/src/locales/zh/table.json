@@ -113,7 +113,7 @@
         "title": "创建者"
       },
       "lastModifiedBy": {
-        "title": "Last modified by"
+        "title": "最后修改人"
       },
       "rating": {
         "title": "评分"
@@ -137,7 +137,7 @@
           "arrayCompact": "数组去空",
           "arrayJoin": "数组连接",
           "arrayUnique": "数组去重",
-          "average": "AVERAGE",
+          "average": "平均值",
           "concatenate": "连接",
           "count": "数值计数",
           "countA": "非空计数",
@@ -153,7 +153,7 @@
           "arrayCompact": "去除数组中的空值",
           "arrayJoin": "将所有值连接为一个逗号分隔的字符串",
           "arrayUnique": "去除数组中的重复值",
-          "average": "Mean average of the values.",
+          "average": "平均值。",
           "concatenate": "将所有值连接为一个字符串",
           "count": "计算所有数字类型值的数量",
           "countA": "计算所有非空值的数量",
@@ -257,7 +257,7 @@
     "newTableLabel": "表格",
     "rename": "重命名",
     "design": "设计",
-    "tableRecordHistory": "Table record history",
+    "tableRecordHistory": "数据表行日志",
     "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
@@ -273,7 +273,7 @@
     },
     "actionTips": {
       "copyAndPasteEnvironment": "复制和粘贴功能仅在 HTTPS 或 localhost 环境下可用",
-      "copyAndPasteBrowser": "Copy and paste not supported in this browser",
+      "copyAndPasteBrowser": "此浏览器不支持复制和粘贴",
       "copying": "正在复制...",
       "copySuccessful": "复制成功",
       "copyFailed": "复制失败",
@@ -287,9 +287,9 @@
       "pasteFileFailed": "文件只能粘贴到附件字段中"
     },
     "graph": {
-      "tableLabel": "Table label",
-      "effectCells": "May effect cells",
-      "estimatedTime": "Estimated time"
+      "tableLabel": "表格标签",
+      "effectCells": "可能影响到的单元格",
+      "estimatedTime": "预计用时"
     }
   },
   "import": {
