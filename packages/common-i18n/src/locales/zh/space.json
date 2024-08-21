@@ -45,8 +45,8 @@
     "delete": "确定要删除 \"<0/>\" 空间吗？"
   },
   "sharedBase": {
-    "title": "Shared bases",
-    "description": "Bases shared with you will appear here",
-    "empty": "No shared bases yet"
+    "title": "共享的应用",
+    "description": "与您共享的应用将出现在这里",
+    "empty": "还没有共享的应用"
   }
 }
