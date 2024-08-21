@@ -205,8 +205,8 @@
       "autoNumber": "Автоматическое нумерация",
       "lookup": "Поиск",
       "button": "Кнопка",
-      "createdBy": "Created by",
-      "lastModifiedBy": "Last modified by"
+      "createdBy": "Создано автором",
+      "lastModifiedBy": "Последнее изменение автором"
     }
   },
   "permission": {
@@ -449,79 +449,79 @@
       "example": "TODAY() => \"2023-09-08 00:00\""
     },
     "NOW": {
-      "summary": "Returns the current date and time.",
+      "summary": "Возвращает текучую дату и время.",
       "example": "NOW() => \"2023-09-08 16:50\""
     },
     "YEAR": {
-      "summary": "Returns the four-digit year of a datetime.",
+      "summary": "Возвращает четырехзначное годовое значение даты и времени.",
       "example": "YEAR(\"2023-09-08\") => 2023"
     },
     "MONTH": {
-      "summary": "Returns the month of a datetime as a number between 1 (January) and 12 (December).",
+      "summary": "Возвращает месяц даты и времени в виде числа от 1 (январь) до 12 (декабрь).",
       "example": "MONTH(\"2023-09-08\") => 9"
     },
     "WEEKNUM": {
-      "summary": "Returns the week number in a year.",
+      "summary": "Возвращает номер недели в году.",
       "example": "WEEKNUM(\"2023-09-08\") => 36"
     },
     "WEEKDAY": {
-      "summary": "Returns the day of the week as an integer between 0 and 6, inclusive. You may optionally provide a second argument (either \"Sunday\" or \"Monday\") to start weeks on that day. If omitted, weeks start on Sunday by default. Example:\nWEEKDAY(TODAY(), \"Monday\")",
+      "summary": "Возвращает день недели в виде целого числа от 0 до 6 включительно. Опционально можно указать второй аргумент (\"Воскресенье\" или \"Понедельник\"), чтобы недели начинались с этого дня. Если опущен, недели по умолчанию начинаются с воскресенья. Пример:\nWEEKDAY(TODAY(), \"Monday\")",
       "example": "WEEKNUM(\"2023-09-08\") => 5"
     },
     "DAY": {
-      "summary": "Returns the day of the month of a datetime in the form of a number between 1-31.",
+      "summary": "Возвращает день месяца даты и времени в виде числа от 1 до 31.",
       "example": "DAY(\"2023-09-08\") => 8"
     },
     "HOUR": {
-      "summary": "Returns the hour of a datetime as a number between 0 (12:00am) and 23 (11:00pm).",
+      "summary": "Возвращает час даты и времени в виде числа от 0 (полночь) до 23 (23:00).",
       "example": "HOUR(\"2023-09-08 16:50\") => 16"
     },
     "MINUTE": {
-      "summary": "Returns the minute of a datetime as an integer between 0 and 59.",
+      "summary": "Возвращает минуту даты и времени в виде целого числа от 0 до 59.",
       "example": "MINUTE(\"2023-09-08 16:50\") => 50"
     },
     "SECOND": {
-      "summary": "Returns the second of a datetime as an integer between 0 and 59.",
+      "summary": "Возвращает минуту даты и времени в виде целого числа от 0 до 59.",
       "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
     },
     "FROMNOW": {
-      "summary": "Calculates the number of days between the current date and another date.",
+      "summary": "Вычисляет количество дней между текучей датой и другой датой.",
       "example": "FROMNOW({Date}, \"day\") => 25"
     },
     "TONOW": {
-      "summary": "Calculates the number of days between the current date and another date.",
+      "summary": "Вычисляет разницу в количестве дней между текучей датой и другой датой.",
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Returns the difference between datetimes in specified units. Default units are seconds. (See list of unit specifiers here.)\nThe difference between datetimes is determined by subtracting [date2] from [date1]. This means that if [date2] is later than [date1], the resulting value will be negative.",
+      "summary": "Возвращает разницу между датами и временами в заданных единицах измерения. По умолчанию единицы измерения - секунды. (Список спецификаторов единиц измерения см. здесь.)\nРазница между датами и временами определяется путем вычитания [date2] из [date1]. Это означает, что если [date2] позже, чем [date1], то результирующее значение будет отрицательным.",
       "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
     },
     "WORKDAY": {
-      "summary": "Returns the workday to the start date, excluding the specified holidays",
+      "summary": "Возвращает рабочий день, начиная от даты начала, исключая указанные праздничные дни",
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "Returns the number of working days between date1 and date2. Working days exclude weekends and an optional list of holidays, formatted as a comma-separated string of ISO-formatted dates.",
+      "summary": "Возвращает количество рабочих дней между date1 и date2. Рабочие дни не включают выходные и, по желанию, список праздничных дней, отформатированный в виде строки с датами в формате ISO, разделенных запятыми.",
       "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
     },
     "IS_SAME": {
-      "summary": "Compares two dates up to a unit and determines whether they are identical. Returns true if yes, false if no.",
+      "summary": "Сравнивает две даты до указанной единицы и определяет, являются ли они идентичными. Возвращает true, если даты идентичны, и false, если нет.",
       "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
     },
     "IS_AFTER": {
-      "summary": "Determines if date1 is later than date2. Returns true if yes, false if no.",
+      "summary": "Определяет, является ли date1 позднее, чем date2. Возвращает true, если дата позднее, и false, если нет.",
       "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
     },
     "IS_BEFORE": {
-      "summary": "Determines if date1 is earlier than date2. Returns true if yes, false if no.",
+      "summary": "Определяет, является ли date1 раньше, чем date2. Возвращает true, если дата раньше, и false, если нет.",
       "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
     },
     "DATE_ADD": {
-      "summary": "Adds specified \"count\" units to a datetime.",
+      "summary": "Добавляет заданное количество \"count\" единиц к дате и времени.",
       "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
     },
     "DATESTR": {
-      "summary": "Formats a datetime into a string (YYYY-MM-DD).",
+      "summary": "Преобразует дату и время в строку (ГГГГ-ММ-ДД).",
       "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
     },
     "TIMESTR": {
@@ -610,45 +610,45 @@
     "checked": "Checked",
     "unChecked": "Unchecked",
     "percentEmpty": "Percent Empty",
-    "percentFilled": "Percent Filled",
-    "percentUnique": "Percent Unique",
-    "percentChecked": "Percent Checked",
-    "percentUnChecked": "Percent Unchecked",
-    "earliestDate": "Earliest Date",
-    "latestDate": "Latest Date",
-    "dateRangeOfDays": "Date Range (days)",
-    "dateRangeOfMonths": "Date Range (months)",
-    "totalAttachmentSize": "Total Attachment Size"
+    "percentFilled": "Заполненность в процентах",
+    "percentUnique": "Уникальность в процентах",
+    "percentChecked": "Проверенность в процентах",
+    "percentUnChecked": "Непроверенность в процентах",
+    "earliestDate": "Самая ранняя дата",
+    "latestDate": "Самая поздняя дата",
+    "dateRangeOfDays": "Диапазон дат (в днях)",
+    "dateRangeOfMonths": "Диапазон дат (в месяцах)",
+    "totalAttachmentSize": "Общий размер вложений"
   },
   "baseQuery": {
-    "add": "Add",
+    "add": "Добавить",
     "error": {
-      "invalidCol": "Invalid column, please reselect",
-      "invalidCols": "Invalid columns: {{colNames}}",
-      "invalidTable": "Invalid table, please reselect",
-      "requiredSelect": "You must select one"
+      "invalidCol": "Неверная колонка, попробуйте выбрать заново",
+      "invalidCols": "Неверные колонки: {{colNames}}",
+      "invalidTable": "Неверная таблица, попробуйте выбрать заново",
+      "requiredSelect": "Вы должны выбрать один"
     },
     "from": {
-      "title": "From",
-      "fromTable": "Select Table",
-      "fromQuery": "From Query"
+      "title": "Из",
+      "fromTable": "Выберите таблицу",
+      "fromQuery": "Из запроса"
     },
     "select": {
-      "title": "Select"
+      "title": "Выберите"
     },
     "where": {
-      "title": "Where"
+      "title": "Где"
     },
     "groupBy": {
-      "title": "Group By"
+      "title": "ГРУППИРОВАТЬ ПО"
     },
     "orderBy": {
-      "title": "Order By",
-      "asc": "Ascending",
-      "desc": "Descending"
+      "title": "СОРТИРОВАТЬ ПО",
+      "asc": "ПО ВОЗРАСТАНИЮ",
+      "desc": "ПО УБЫВАНИЮ"
     },
     "limit": {
-      "title": "Limit"
+      "title": "ОГРАНИЧИТЬ КОЛИЧЕСТВО"
     },
     "offset": {
       "title": "Offset"
