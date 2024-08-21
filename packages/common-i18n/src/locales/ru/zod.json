@@ -1,82 +1,82 @@
 {
   "errors": {
-    "invalid_type": "Expected {{expected}}, received {{received}}",
-    "invalid_type_received_undefined": "Required",
-    "invalid_type_received_null": "Required",
-    "invalid_literal": "Invalid literal value, expected {{expected}}",
-    "unrecognized_keys": "Unrecognized key(s) in object: {{- keys}}",
-    "invalid_union": "Invalid input",
-    "invalid_union_discriminator": "Invalid discriminator value. Expected {{- options}}",
-    "invalid_enum_value": "Invalid enum value. Expected {{- options}}, received '{{received}}'",
-    "invalid_arguments": "Invalid function arguments",
-    "invalid_return_type": "Invalid function return type",
-    "invalid_date": "Invalid date",
-    "custom": "Invalid input",
-    "invalid_intersection_types": "Intersection results could not be merged",
-    "not_multiple_of": "Number must be a multiple of {{multipleOf}}",
-    "not_finite": "Number must be finite",
+    "invalid_type": "Ожидаемая {{expected}}, полученная {{received}}",
+    "invalid_type_received_undefined": "Требуется",
+    "invalid_type_received_null": "Требуется",
+    "invalid_literal": "Недопустимое значение литерала, ожидается {{expected}}",
+    "unrecognized_keys": "Неопознанный ключ (ключи) в объекте: {{- keys}}",
+    "invalid_union": "Неверный ввод",
+    "invalid_union_discriminator": "Недопустимое значение дискриминатора. Ожидается {{- options}}",
+    "invalid_enum_value": "Недопустимое значение enum. Ожидалось {{- options}}, получено '{{received}}'",
+    "invalid_arguments": "Недопустимые аргументы функции",
+    "invalid_return_type": "Недопустимый тип возврата функции",
+    "invalid_date": "Неверная дата",
+    "custom": "Неверный ввод",
+    "invalid_intersection_types": "Не удалось объединить результаты пересечения",
+    "not_multiple_of": "Номер должен быть кратен от {{multipleOf}}",
+    "not_finite": "Число должно быть конечным",
     "invalid_string": {
-      "email": "Invalid {{validation}}",
-      "url": "Invalid {{validation}}",
-      "uuid": "Invalid {{validation}}",
-      "cuid": "Invalid {{validation}}",
-      "regex": "Invalid",
-      "datetime": "Invalid {{validation}}",
-      "startsWith": "Invalid input: must start with \"{{startsWith}}\"",
-      "endsWith": "Invalid input: must end with \"{{endsWith}}\""
+      "email": "Недопустимый {{validation}}",
+      "url": "Недопустимый {{validation}}",
+      "uuid": "Недопустимый {{validation}}",
+      "cuid": "Недопустимый {{validation}}",
+      "regex": "Некорректный",
+      "datetime": "Недопустимый {{validation}}",
+      "startsWith": "Неверный ввод: должен начинаться с \"{{startsWith}}\"",
+      "endsWith": "Неверный ввод: должен заканчиваться \"{{endsWith}}\""
     },
     "too_small": {
       "array": {
-        "exact": "Array must contain exactly {{minimum}} element(s)",
-        "inclusive": "Array must contain at least {{minimum}} element(s)",
-        "not_inclusive": "Array must contain more than {{minimum}} element(s)"
+        "exact": "Массив должен содержать ровно {{minimum}} элемент(ов)",
+        "inclusive": "Массив должен содержать как минимум {{minimum}} элемент(ов)",
+        "not_inclusive": "Массив должен содержать более {{minimum}} элемент(ов)"
       },
       "string": {
-        "exact": "String must contain exactly {{minimum}} character(s)",
-        "inclusive": "String must contain at least {{minimum}} character(s)",
-        "not_inclusive": "String must contain over {{minimum}} character(s)"
+        "exact": "Строка должна содержать ровно {{minimum}} символ(ы)",
+        "inclusive": "Строка должна содержать по крайней мере {{minimum}} символ(ов)",
+        "not_inclusive": "Строка должна содержать более чем {{minimum}} символ(ы)"
       },
       "number": {
-        "exact": "Number must be exactly {{minimum}}",
-        "inclusive": "Number must be greater than or equal to {{minimum}}",
-        "not_inclusive": "Number must be greater than {{minimum}}"
+        "exact": "Номер должен быть ровно {{minimum}}",
+        "inclusive": "Число должно быть больше или равно {{minimum}}",
+        "not_inclusive": "Число должно быть больше чем {{minimum}}"
       },
       "set": {
-        "exact": "Invalid input",
-        "inclusive": "Invalid input",
-        "not_inclusive": "Invalid input"
+        "exact": "Неверный ввод",
+        "inclusive": "Неверный ввод",
+        "not_inclusive": "Неверный ввод"
       },
       "date": {
-        "exact": "Date must be exactly {{- minimum, datetime}}",
-        "inclusive": "Date must be greater than or equal to {{- minimum, datetime}}",
-        "not_inclusive": "Date must be greater than {{- minimum, datetime}}"
+        "exact": "Дата должна быть ровно {{- minimum, datetime}}",
+        "inclusive": "Дата должна быть больше или равна {{- minimum, datetime}}",
+        "not_inclusive": "Дата должна быть больше чем {{- minimum, datetime}}"
       }
     },
     "too_big": {
       "array": {
-        "exact": "Array must contain exactly {{maximum}} element(s)",
-        "inclusive": "Array must contain at most {{maximum}} element(s)",
-        "not_inclusive": "Array must contain less than {{maximum}} element(s)"
+        "exact": "Массив должен содержать ровно {{maximum}} элемент(ов)",
+        "inclusive": "Массив должен содержать максимум {{maximum}} элемент(ов)",
+        "not_inclusive": "Массив должен содержать меньше {{maximum}} элемента(ов)"
       },
       "string": {
-        "exact": "String must contain exactly {{maximum}} character(s)",
-        "inclusive": "String must contain at most {{maximum}} character(s)",
-        "not_inclusive": "String must contain under {{maximum}} character(s)"
+        "exact": "Строка должна содержать ровно {{maximum}} символ(ы)",
+        "inclusive": "Строка должна содержать не более {{maximum}} символ(ов)",
+        "not_inclusive": "Строка должна содержать под символом {{maximum}}"
       },
       "number": {
-        "exact": "Number must be exactly {{maximum}}",
-        "inclusive": "Number must be less than or equal to {{maximum}}",
-        "not_inclusive": "Number must be less than {{maximum}}"
+        "exact": "Номер должен быть ровно {{maximum}}",
+        "inclusive": "Число должно быть меньше или равно {{maximum}}",
+        "not_inclusive": "Число должно быть меньше, чем {{maximum}}"
       },
       "set": {
-        "exact": "Invalid input",
-        "inclusive": "Invalid input",
-        "not_inclusive": "Invalid input"
+        "exact": "Неверный ввод",
+        "inclusive": "Неверный ввод",
+        "not_inclusive": "Неверный ввод"
       },
       "date": {
-        "exact": "Date must be exactly {{- maximum, datetime}}",
-        "inclusive": "Date must be smaller than or equal to {{- maximum, datetime}}",
-        "not_inclusive": "Date must be smaller than {{- maximum, datetime}}"
+        "exact": "Дата должна быть ровно {{- maximum, datetime}}",
+        "inclusive": "Дата должна быть меньше или равна {{- maximum, datetime}}",
+        "not_inclusive": "Дата должна быть меньше, чем {{- maximum, datetime}}"
       }
     }
   },
@@ -86,28 +86,28 @@
     "uuid": "uuid",
     "cuid": "cuid",
     "regex": "regex",
-    "datetime": "datetime"
+    "datetime": "Дата и время"
   },
   "types": {
-    "function": "function",
-    "number": "number",
-    "string": "string",
+    "function": "функция",
+    "number": "число",
+    "string": "строка",
     "nan": "nan",
-    "integer": "integer",
-    "float": "float",
+    "integer": "целое число",
+    "float": "поплавок",
     "boolean": "boolean",
-    "date": "date",
+    "date": "дата",
     "bigint": "bigint",
-    "undefined": "undefined",
+    "undefined": "не определено",
     "symbol": "symbol",
     "null": "null",
-    "array": "array",
+    "array": "массив",
     "object": "object",
-    "unknown": "unknown",
+    "unknown": "неизвестно",
     "promise": "promise",
     "void": "void",
-    "never": "never",
-    "map": "map",
+    "never": "никогда",
+    "map": "карта",
     "set": "set"
   }
 }
