@@ -651,19 +651,19 @@
       "title": "ОГРАНИЧИТЬ КОЛИЧЕСТВО"
     },
     "offset": {
-      "title": "Offset"
+      "title": "Пропустить ПЕРВЫЕ {N} СТРОК"
     },
     "join": {
-      "title": "Join",
-      "joinType": "Join Type",
-      "leftJoin": "Left Join",
-      "rightJoin": "Right Join",
-      "innerJoin": "Inner Join",
-      "fullJoin": "Full Join",
-      "data": "From"
+      "title": "Соединить",
+      "joinType": "Тип соединения",
+      "leftJoin": "Левое соединение",
+      "rightJoin": "Правое соединение",
+      "innerJoin": "Внутреннее соединение",
+      "fullJoin": "Полное соединение",
+      "data": "От"
     },
     "aggregation": {
-      "title": "Aggregation"
+      "title": "Агрегирование"
     }
   }
 }
