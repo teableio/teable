@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Lock, Network } from '@teable/icons';
-import { getInstanceUsage, getSpaceUsage } from '@teable/openapi';
+import { getBaseUsage, getInstanceUsage } from '@teable/openapi';
 import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
   Tooltip,
@@ -31,11 +31,9 @@ export const BaseSideBar = () => {
   const base = useBase();
   const basePermission = useBasePermission();
 
-  const spaceId = base.spaceId;
-
-  const { data: spaceUsage } = useQuery({
-    queryKey: ['space-usage', spaceId],
-    queryFn: ({ queryKey }) => getSpaceUsage(queryKey[1]).then(({ data }) => data),
+  const { data: baseUsage } = useQuery({
+    queryKey: ['base-usage', base.id],
+    queryFn: ({ queryKey }) => getBaseUsage(queryKey[1]).then(({ data }) => data),
     enabled: isCloud,
   });
 
@@ -45,7 +43,7 @@ export const BaseSideBar = () => {
     enabled: isEE,
   });
 
-  const usage = instanceUsage ?? spaceUsage;
+  const usage = instanceUsage ?? baseUsage;
   const { automationEnable = true, advancedPermissionsEnable = true } = usage?.limit ?? {};
 
   const pageRoutes: {
