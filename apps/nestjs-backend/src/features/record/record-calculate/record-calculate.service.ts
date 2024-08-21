@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { IMakeOptional } from '@teable/core';
 import { FieldKeyType, generateRecordId, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/openapi';
@@ -11,6 +12,7 @@ import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
+import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import type { IFieldRaws } from '../type';
 
@@ -226,17 +228,8 @@ export class RecordCalculateService {
 
   async createRecords(
     tableId: string,
-    recordsRo: {
-      id?: string;
-      fields: Record<string, unknown>;
-      createdBy?: string;
-      lastModifiedBy?: string;
-      createdTime?: string;
-      lastModifiedTime?: string;
-      autoNumber?: number;
-    }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    orderIndex?: { viewId: string; indexes: number[] }
+    recordsRo: IMakeOptional<IRecordInnerRo, 'id'>[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ICreateRecordsVo> {
     if (recordsRo.length === 0) {
       throw new BadRequestException('Create records is empty');
@@ -245,8 +238,8 @@ export class RecordCalculateService {
     const records = recordsRo.map((record) => {
       const recordId = record.id || generateRecordId();
       return {
-        id: recordId,
         ...record,
+        id: recordId,
       };
     });
 
@@ -264,13 +257,7 @@ export class RecordCalculateService {
       },
     });
 
-    await this.recordService.batchCreateRecords(
-      tableId,
-      records,
-      fieldKeyType,
-      fieldRaws,
-      orderIndex
-    );
+    await this.recordService.batchCreateRecords(tableId, records, fieldKeyType, fieldRaws);
 
     // submit auto fill changes
     const plainRecords = await this.appendDefaultValue(records, fieldKeyType, fieldRaws);

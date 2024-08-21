@@ -2,6 +2,7 @@ import { FieldKeyType } from '@teable/core';
 import type { ICreateRecordsRo, IRecordsVo } from '@teable/openapi';
 import { OperationName, type ICreateRecordsOperation } from '../../../cache/types';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import type { RecordService } from '../../record/record.service';
 
 export interface ICreateRecordsPayload {
   reqParams: { tableId: string };
@@ -10,20 +11,27 @@ export interface ICreateRecordsPayload {
 }
 
 export class CreateRecordsOperation {
-  constructor(private readonly recordOpenApiService: RecordOpenApiService) {}
+  constructor(
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly recordService: RecordService
+  ) {}
 
   async event2Operation(payload: ICreateRecordsPayload): Promise<ICreateRecordsOperation> {
     console.log(payload);
-    const { reqParams, reqBody, resolveData } = payload;
+    const { reqParams, resolveData } = payload;
+    const { tableId } = reqParams;
+    const { records } = resolveData;
 
+    const recordIds = records.map((record) => record.id);
+
+    const indexes = await this.recordService.getRecordIndexes(tableId, recordIds);
     return {
       name: OperationName.CreateRecords,
       params: {
-        tableId: reqParams.tableId,
-        order: reqBody.order,
+        tableId: tableId,
       },
       result: {
-        records: resolveData.records,
+        records: records.map((r, i) => ({ ...r, order: indexes[i] })),
       },
     };
   }
@@ -43,7 +51,6 @@ export class CreateRecordsOperation {
 
     await this.recordOpenApiService.createRecords(params.tableId, {
       fieldKeyType: FieldKeyType.Id,
-      order: params.order,
       records: result.records,
     });
   }

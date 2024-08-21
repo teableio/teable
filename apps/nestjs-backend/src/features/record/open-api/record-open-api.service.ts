@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IAttachmentCellValue } from '@teable/core';
+import type { IAttachmentCellValue, IMakeOptional } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -15,6 +15,10 @@ import type {
   IUpdateRecordsRo,
 } from '@teable/openapi';
 import { forEach, keyBy, map } from 'lodash';
+import { ClsService } from 'nestjs-cls';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
+import type { IClsStore } from '../../../types/cls';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { getFullStorageUrl } from '../../attachments/plugins/utils';
@@ -25,6 +29,7 @@ import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
+import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
 
@@ -39,7 +44,9 @@ export class RecordOpenApiService {
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly collaboratorService: CollaboratorService,
     private readonly viewService: ViewService,
-    private readonly viewOpenApiService: ViewOpenApiService
+    private readonly viewOpenApiService: ViewOpenApiService,
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async multipleCreateRecords(
@@ -88,18 +95,29 @@ export class RecordOpenApiService {
     return indexes;
   }
 
+  private async appendRecordOrderIndexes(
+    tableId: string,
+    records: IMakeOptional<IRecordInnerRo, 'id'>[],
+    order: IRecordInsertOrderRo | undefined
+  ) {
+    if (!order) {
+      return records;
+    }
+    const indexes = order && (await this.getRecordOrderIndexes(tableId, order, records.length));
+    return records.map((record, i) => ({
+      ...record,
+      order: indexes
+        ? {
+            [order.viewId]: indexes[i],
+          }
+        : undefined,
+    }));
+  }
+
   async createRecords(
     tableId: string,
     createRecordsRo: ICreateRecordsRo & {
-      records: {
-        fields: Record<string, unknown>;
-        id?: string;
-        createdBy?: string;
-        lastModifiedBy?: string;
-        createdTime?: string;
-        lastModifiedTime?: string;
-        autoNumber?: number;
-      }[];
+      records: IMakeOptional<IRecordInnerRo, 'id'>[];
     }
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
@@ -111,15 +129,9 @@ export class RecordOpenApiService {
       typecast
     );
 
-    const indexes = order && (await this.getRecordOrderIndexes(tableId, order, records.length));
-    const orderIndex = indexes ? { viewId: order.viewId, indexes } : undefined;
+    const preparedRecords = await this.appendRecordOrderIndexes(tableId, typecastRecords, order);
 
-    return await this.recordCalculateService.createRecords(
-      tableId,
-      typecastRecords,
-      fieldKeyType,
-      orderIndex
-    );
+    return await this.recordCalculateService.createRecords(tableId, preparedRecords, fieldKeyType);
   }
 
   private async createPureRecords(
@@ -311,8 +323,23 @@ export class RecordOpenApiService {
     });
   }
 
-  async deleteRecord(tableId: string, recordId: string) {
+  async deleteRecord(tableId: string, recordId: string, windowId?: string) {
+    const orderIndexes = windowId
+      ? await this.recordService.getRecordIndexes(tableId, [recordId])
+      : undefined;
+
     const data = await this.deleteRecords(tableId, [recordId]);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.CONTROLLER_RECORD_DELETE, {
+        windowId,
+        tableId,
+        record: data.records[0],
+        userId: this.cls.get('user.id'),
+        order: orderIndexes?.[0],
+      });
+    }
+
     return data.records[0];
   }
 

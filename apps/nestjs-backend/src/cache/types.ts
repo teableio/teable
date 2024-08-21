@@ -1,4 +1,4 @@
-import type { IRecord, IRecordInsertOrderRo } from '@teable/openapi';
+import type { IRecord } from '@teable/openapi';
 import type { ISessionData } from '../types/session';
 
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -93,10 +93,9 @@ export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
   name: OperationName.CreateRecords;
   params: {
     tableId: string;
-    order?: IRecordInsertOrderRo;
   };
   result: {
-    records: IRecord[];
+    records: (IRecord & { order: Record<string, number> })[];
   };
 }
 
@@ -105,10 +104,9 @@ export interface IDeleteRecordOperation extends IUndoRedoOperationBase {
   params: {
     tableId: string;
     recordId: string;
-    order?: IRecordInsertOrderRo;
   };
   result: {
-    record: IRecord;
+    record: IRecord & { order: Record<string, number> };
   };
 }
 

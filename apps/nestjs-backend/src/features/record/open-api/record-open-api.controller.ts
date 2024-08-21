@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common';
 import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/openapi';
 import {
   createRecordsRoSchema,
@@ -101,12 +101,12 @@ export class RecordOpenApiController {
 
   @Permissions('record|delete')
   @Delete(':recordId')
-  @EmitControllerEvent(Events.CONTROLLER_RECORD_DELETE)
   async deleteRecord(
     @Param('tableId') tableId: string,
-    @Param('recordId') recordId: string
+    @Param('recordId') recordId: string,
+    @Headers('x-window-id') windowId: string
   ): Promise<IRecord> {
-    return await this.recordOpenApiService.deleteRecord(tableId, recordId);
+    return await this.recordOpenApiService.deleteRecord(tableId, recordId, windowId);
   }
 
   @Permissions('record|delete')

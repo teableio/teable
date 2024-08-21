@@ -1,12 +1,11 @@
+import type { IRecord } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
-import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { OperationName, type IDeleteRecordOperation } from '../../../cache/types';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { RecordService } from '../../record/record.service';
 
 export interface IDeleteRecordPayload {
   reqParams: { tableId: string; recordId: string };
-  reqQuery: { order?: IRecordInsertOrderRo };
 }
 
 export class DeleteRecordOperation {
@@ -15,25 +14,21 @@ export class DeleteRecordOperation {
     private readonly recordService: RecordService
   ) {}
 
-  async event2Operation(payload: IDeleteRecordPayload): Promise<IDeleteRecordOperation> {
-    console.log(payload);
-
-    const { reqParams, reqQuery } = payload;
-    const { tableId, recordId } = reqParams;
-
-    const record = await this.recordService.getRecord(tableId, recordId, {
-      fieldKeyType: FieldKeyType.Id,
-    });
-
+  async event2Operation(payload: {
+    windowId: string;
+    record: IRecord;
+    tableId: string;
+    userId: string;
+    order: Record<string, number>;
+  }): Promise<IDeleteRecordOperation> {
     return {
       name: OperationName.DeleteRecord,
       params: {
-        tableId: reqParams.tableId,
-        recordId: reqParams.recordId,
-        order: reqQuery.order,
+        tableId: payload.tableId,
+        recordId: payload.record.id,
       },
       result: {
-        record: record,
+        record: { ...payload.record, order: payload.order },
       },
     };
   }
@@ -43,15 +38,17 @@ export class DeleteRecordOperation {
 
     await this.recordOpenApiService.createRecords(params.tableId, {
       fieldKeyType: FieldKeyType.Id,
-      order: params.order,
       records: [result.record],
     });
+
+    return operation;
   }
 
   async redo(operation: IDeleteRecordOperation) {
     const { params } = operation;
     const { tableId, recordId } = params;
-
     await this.recordOpenApiService.deleteRecord(tableId, recordId);
+
+    return operation;
   }
 }

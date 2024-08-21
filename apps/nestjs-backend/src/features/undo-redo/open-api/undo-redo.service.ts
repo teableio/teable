@@ -27,7 +27,7 @@ export class UndoRedoService {
           await this.undoRedoOperationService.createRecords.undo(operation);
           break;
         case OperationName.DeleteRecord:
-          // await this.undoDeleteRecord(operation);
+          await this.undoRedoOperationService.deleteRecord.undo(operation);
           break;
       }
     } catch (e) {
@@ -58,7 +58,7 @@ export class UndoRedoService {
           await this.undoRedoOperationService.createRecords.redo(operation);
           break;
         case OperationName.DeleteRecord:
-          // await this.undoUpdateRecord(operation);
+          await this.undoRedoOperationService.deleteRecord.redo(operation);
           break;
       }
     } catch (e) {
