@@ -6,9 +6,11 @@ import {
   createField,
   createRecords,
   deleteRecord,
+  getRecord,
   getRecords,
   redo,
   undo,
+  updateRecord,
   type ITableFullVo,
 } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -137,5 +139,41 @@ describe('Undo Redo (e2e)', () => {
     });
     expect(allRecordsAfterRedo.data.records).toHaveLength(3);
     expect(allRecordsAfterRedo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
+  });
+
+  it('should undo / redo update record', async () => {
+    await createField(table.id, { type: FieldType.CreatedTime });
+    await createField(table.id, { type: FieldType.LastModifiedTime });
+
+    const promise = createEventPromise(eventEmitterService, Events.OPERATION_PUSH);
+    const updatedRecord = (
+      await updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [table.fields[0].id]: 'record1' } },
+      })
+    ).data;
+    await promise;
+
+    expect(updatedRecord.fields[table.fields[0].id]).toEqual('record1');
+
+    await undo(table.id);
+
+    const updatedRecordAfter = (
+      await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+
+    expect(updatedRecordAfter.fields[table.fields[0].id]).toBeUndefined();
+
+    await redo(table.id);
+
+    const updatedRecordAfterRedo = (
+      await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+
+    expect(updatedRecordAfterRedo.fields[table.fields[0].id]).toEqual('record1');
   });
 });

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
+import type { IUndoRedoOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
 import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
@@ -11,8 +12,20 @@ export class UndoRedoService {
     private readonly undoRedoOperationService: UndoRedoOperationService
   ) {}
 
+  private async performUndo(operation: IUndoRedoOperation): Promise<IUndoRedoOperation> {
+    switch (operation.name) {
+      case OperationName.CreateRecords:
+        return this.undoRedoOperationService.createRecords.undo(operation);
+      case OperationName.DeleteRecord:
+        return this.undoRedoOperationService.deleteRecord.undo(operation);
+      case OperationName.UpdateRecord:
+        return this.undoRedoOperationService.updateRecord.undo(operation);
+    }
+    throw new Error('Operation not found');
+  }
+
   async undo(tableId: string, windowId: string): Promise<IUndoVo> {
-    const { operation, save } = await this.undoRedoStackService.undo(tableId, windowId);
+    const { operation, push } = await this.undoRedoStackService.undo(tableId, windowId);
 
     console.log('startUndo:', tableId, windowId, operation);
     if (!operation) {
@@ -22,14 +35,8 @@ export class UndoRedoService {
     }
 
     try {
-      switch (operation.name) {
-        case OperationName.CreateRecords:
-          await this.undoRedoOperationService.createRecords.undo(operation);
-          break;
-        case OperationName.DeleteRecord:
-          await this.undoRedoOperationService.deleteRecord.undo(operation);
-          break;
-      }
+      const newOperation = await this.performUndo(operation);
+      await push(newOperation);
     } catch (e) {
       return {
         status: 'failed',
@@ -37,14 +44,25 @@ export class UndoRedoService {
       };
     }
 
-    await save();
     return {
       status: 'fulfilled',
     };
   }
 
+  private async performRedo(operation: IUndoRedoOperation): Promise<IUndoRedoOperation> {
+    switch (operation.name) {
+      case OperationName.CreateRecords:
+        return this.undoRedoOperationService.createRecords.redo(operation);
+      case OperationName.DeleteRecord:
+        return this.undoRedoOperationService.deleteRecord.redo(operation);
+      case OperationName.UpdateRecord:
+        return this.undoRedoOperationService.updateRecord.redo(operation);
+    }
+    throw new Error('Operation not found');
+  }
+
   async redo(tableId: string, windowId: string): Promise<IRedoVo> {
-    const { operation, save } = await this.undoRedoStackService.redo(tableId, windowId);
+    const { operation, push } = await this.undoRedoStackService.redo(tableId, windowId);
     if (!operation) {
       return {
         status: 'empty',
@@ -53,14 +71,8 @@ export class UndoRedoService {
     console.log('startRedo:', tableId, windowId, operation);
 
     try {
-      switch (operation.name) {
-        case OperationName.CreateRecords:
-          await this.undoRedoOperationService.createRecords.redo(operation);
-          break;
-        case OperationName.DeleteRecord:
-          await this.undoRedoOperationService.deleteRecord.redo(operation);
-          break;
-      }
+      const newOperation = await this.performRedo(operation);
+      await push(newOperation);
     } catch (e) {
       return {
         status: 'failed',
@@ -68,7 +80,6 @@ export class UndoRedoService {
       };
     }
 
-    await save();
     return {
       status: 'fulfilled',
     };

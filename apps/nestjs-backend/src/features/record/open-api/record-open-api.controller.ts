@@ -75,9 +75,15 @@ export class RecordOpenApiController {
   async updateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
-    @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
+    @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IRecord> {
-    return await this.recordOpenApiService.updateRecord(tableId, recordId, updateRecordRo);
+    return await this.recordOpenApiService.updateRecord(
+      tableId,
+      recordId,
+      updateRecordRo,
+      windowId
+    );
   }
 
   @Permissions('record|update')
@@ -104,7 +110,7 @@ export class RecordOpenApiController {
   async deleteRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
-    @Headers('x-window-id') windowId: string
+    @Headers('x-window-id') windowId?: string
   ): Promise<IRecord> {
     return await this.recordOpenApiService.deleteRecord(tableId, recordId, windowId);
   }

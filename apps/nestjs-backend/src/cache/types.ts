@@ -89,6 +89,19 @@ export interface IUndoRedoOperationBase {
   result: unknown;
 }
 
+export interface IUpdateRecordOperation extends IUndoRedoOperationBase {
+  name: OperationName.UpdateRecord;
+  params: {
+    tableId: string;
+    recordId: string;
+  };
+  result: {
+    // fieldId: cellValue
+    before: Record<string, unknown>;
+    after: Record<string, unknown>;
+  };
+}
+
 export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
   name: OperationName.CreateRecords;
   params: {
@@ -110,4 +123,7 @@ export interface IDeleteRecordOperation extends IUndoRedoOperationBase {
   };
 }
 
-export type IUndoRedoOperation = ICreateRecordsOperation | IDeleteRecordOperation;
+export type IUndoRedoOperation =
+  | IUpdateRecordOperation
+  | ICreateRecordsOperation
+  | IDeleteRecordOperation;

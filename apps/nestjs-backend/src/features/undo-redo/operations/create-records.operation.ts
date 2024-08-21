@@ -42,6 +42,7 @@ export class CreateRecordsOperation {
     const recordIds = result.records.map((record) => record.id);
 
     await this.recordOpenApiService.deleteRecords(params.tableId, recordIds);
+    return operation;
   }
 
   async redo(operation: ICreateRecordsOperation) {
@@ -53,5 +54,6 @@ export class CreateRecordsOperation {
       fieldKeyType: FieldKeyType.Id,
       records: result.records,
     });
+    return operation;
   }
 }

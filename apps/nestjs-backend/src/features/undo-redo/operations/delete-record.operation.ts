@@ -5,7 +5,11 @@ import type { RecordOpenApiService } from '../../record/open-api/record-open-api
 import type { RecordService } from '../../record/record.service';
 
 export interface IDeleteRecordPayload {
-  reqParams: { tableId: string; recordId: string };
+  windowId: string;
+  record: IRecord;
+  tableId: string;
+  userId: string;
+  order: Record<string, number>;
 }
 
 export class DeleteRecordOperation {
@@ -14,13 +18,7 @@ export class DeleteRecordOperation {
     private readonly recordService: RecordService
   ) {}
 
-  async event2Operation(payload: {
-    windowId: string;
-    record: IRecord;
-    tableId: string;
-    userId: string;
-    order: Record<string, number>;
-  }): Promise<IDeleteRecordOperation> {
+  async event2Operation(payload: IDeleteRecordPayload): Promise<IDeleteRecordOperation> {
     return {
       name: OperationName.DeleteRecord,
       params: {

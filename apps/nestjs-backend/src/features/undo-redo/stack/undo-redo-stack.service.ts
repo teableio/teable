@@ -83,11 +83,11 @@ export class UndoRedoStackService {
 
     return {
       operation,
-      save: async () => {
-        if (!operation) {
+      push: async (newOperation: IUndoRedoOperation) => {
+        if (!newOperation) {
           throw new InternalServerErrorException('No operation to undo');
         }
-        redoStack.push(operation);
+        redoStack.push(newOperation);
         await this.setUndoStack(userId, tableId, windowId, undoStack);
         await this.setRedoStack(userId, tableId, windowId, redoStack);
       },
@@ -103,11 +103,11 @@ export class UndoRedoStackService {
 
     return {
       operation,
-      save: async () => {
-        if (!operation) {
+      push: async (newOperation: IUndoRedoOperation) => {
+        if (!newOperation) {
           throw new InternalServerErrorException('No operation to redo');
         }
-        undoStack.push(operation);
+        undoStack.push(newOperation);
         await this.setUndoStack(userId, tableId, windowId, undoStack);
         await this.setRedoStack(userId, tableId, windowId, redoStack);
       },

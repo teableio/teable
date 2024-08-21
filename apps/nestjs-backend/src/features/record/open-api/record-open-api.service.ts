@@ -275,9 +275,10 @@ export class RecordOpenApiService {
   async updateRecord(
     tableId: string,
     recordId: string,
-    updateRecordRo: IUpdateRecordRo
+    updateRecordRo: IUpdateRecordRo,
+    windowId?: string
   ): Promise<IRecord> {
-    return await this.prismaService.$tx(async () => {
+    const { originCellContexts, record } = await this.prismaService.$tx(async () => {
       const { order, ...recordRo } = updateRecordRo;
       if (order != null) {
         const { viewId, anchorId, position } = order;
@@ -302,7 +303,7 @@ export class RecordOpenApiService {
         typecastRecords
       );
 
-      await this.recordCalculateService.calculateUpdatedRecord(
+      const originCellContexts = await this.recordCalculateService.calculateUpdatedRecord(
         tableId,
         fieldKeyType,
         preparedRecords
@@ -319,8 +320,21 @@ export class RecordOpenApiService {
       if (snapshots.length !== 1) {
         throw new Error('update record failed');
       }
-      return snapshots[0].data;
+      return { originCellContexts, record: snapshots[0].data };
     });
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.CONTROLLER_RECORD_UPDATE, {
+        tableId,
+        recordId,
+        windowId,
+        record,
+        userId: this.cls.get('user.id'),
+        originCellContexts,
+      });
+    }
+
+    return record;
   }
 
   async deleteRecord(tableId: string, recordId: string, windowId?: string) {

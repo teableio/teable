@@ -161,7 +161,7 @@ export class RecordCalculateService {
     isNewRecord?: boolean
   ) {
     // 1. generate Op by origin submit
-    const opsContexts = await this.generateCellContexts(
+    const originCellContexts = await this.generateCellContexts(
       tableId,
       fieldKeyType,
       records,
@@ -169,7 +169,7 @@ export class RecordCalculateService {
     );
 
     const opsMapOrigin = formatChangesToOps(
-      opsContexts.map((data) => {
+      originCellContexts.map((data) => {
         return {
           tableId,
           recordId: data.recordId,
@@ -184,7 +184,7 @@ export class RecordCalculateService {
     const { opsMap, fieldMap, tableId2DbTableName } = await this.getRecordUpdateDerivation(
       tableId,
       opsMapOrigin,
-      opsContexts
+      originCellContexts
     );
 
     // console.log('final:opsMap', JSON.stringify(opsMap, null, 2));
@@ -193,6 +193,7 @@ export class RecordCalculateService {
     if (!isEmpty(opsMap)) {
       await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
     }
+    return originCellContexts;
   }
 
   private async appendDefaultValue(
