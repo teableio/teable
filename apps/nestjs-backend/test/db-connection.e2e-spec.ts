@@ -21,24 +21,22 @@ describe.skip('OpenAPI Db Connection (e2e)', () => {
     await app.close();
   });
 
-  it('should manage a db connection', async () => {
-    console.log('PUBLIC_DATABASE_PROXY', process.env.PUBLIC_DATABASE_PROXY);
+  it.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)(
+    'should manage a db connection',
+    async () => {
+      console.log('PUBLIC_DATABASE_PROXY', process.env.PUBLIC_DATABASE_PROXY);
 
-    if (globalThis.testConfig.driver !== DriverClient.Pg) {
-      expect(true).toBeTruthy();
-      return;
+      const postResult = (await apiCreateDbConnection(baseId)).data as IDbConnectionVo;
+      expect(postResult.url).toEqual(expect.stringContaining('postgresql://'));
+      expect(postResult.dsn.driver).toEqual('postgresql');
+
+      const getResult = (await apiGetDbConnection(baseId)).data as IDbConnectionVo;
+      expect(getResult.url).toEqual(postResult.url);
+      expect(getResult.dsn).toEqual(postResult.dsn);
+
+      expect((await apiDeleteDbConnection(baseId)).status).toEqual(200);
+      const result = (await apiGetDbConnection(baseId)).data;
+      expect(result).to.be.oneOf([undefined, '', {}]);
     }
-
-    const postResult = (await apiCreateDbConnection(baseId)).data as IDbConnectionVo;
-    expect(postResult.url).toEqual(expect.stringContaining('postgresql://'));
-    expect(postResult.dsn.driver).toEqual('postgresql');
-
-    const getResult = (await apiGetDbConnection(baseId)).data as IDbConnectionVo;
-    expect(getResult.url).toEqual(postResult.url);
-    expect(getResult.dsn).toEqual(postResult.dsn);
-
-    expect((await apiDeleteDbConnection(baseId)).status).toEqual(200);
-    const result = (await apiGetDbConnection(baseId)).data;
-    expect(result).to.be.oneOf([undefined, '', {}]);
-  });
+  );
 });

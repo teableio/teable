@@ -31,6 +31,7 @@ export enum Events {
   CONTROLLER_RECORD_UPDATE = 'controller.record.update',
   CONTROLLER_RECORD_DELETE = 'controller.record.delete',
   CONTROLLER_RECORDS_DELETE = 'controller.records.delete',
+  CONTROLLER_RECORDS_CLEAR = 'controller.records.clear',
 
   OPERATION_PUSH = 'operation.push',
 

@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Query, Headers } from '@nestjs/common';
 import type {
   ICopyVo,
   IRangesToIdVo,
@@ -70,10 +70,10 @@ export class SelectionController {
   @Patch('/clear')
   async clear(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(rangesRoSchema), TqlPipe)
-    rangesRo: IRangesRo
+    @Body(new ZodValidationPipe(rangesRoSchema), TqlPipe) rangesRo: IRangesRo,
+    @Headers('x-window-id') windowId?: string
   ) {
-    await this.selectionService.clear(tableId, rangesRo);
+    await this.selectionService.clear(tableId, rangesRo, windowId);
     return null;
   }
 

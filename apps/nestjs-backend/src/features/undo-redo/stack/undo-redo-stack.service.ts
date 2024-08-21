@@ -30,7 +30,6 @@ export class UndoRedoStackService {
     windowId: string,
     undoStack: IUndoRedoOperation[]
   ) {
-    console.log('setUndoStack', userId, tableId, windowId, undoStack);
     await this.cacheService.set(
       `operations:undo:${userId}:${tableId}:${windowId}`,
       undoStack,
@@ -70,11 +69,10 @@ export class UndoRedoStackService {
     // Clear redo stack when a new operation is pushed
     await this.cacheService.del(`operations:redo:${userId}:${tableId}:${windowId}`);
 
-    console.log('push:', userId, tableId, windowId, operation);
     this.eventEmitterService.emit(Events.OPERATION_PUSH, operation);
   }
 
-  async undo(tableId: string, windowId: string) {
+  async popUndo(tableId: string, windowId: string) {
     const userId = this.cls.get('user.id');
     const undoStack = await this.getUndoStack(userId, tableId, windowId);
     const redoStack = await this.getRedoStack(userId, tableId, windowId);
@@ -94,7 +92,7 @@ export class UndoRedoStackService {
     };
   }
 
-  async redo(tableId: string, windowId: string) {
+  async popRedo(tableId: string, windowId: string) {
     const userId = this.cls.get('user.id');
     const undoStack = await this.getUndoStack(userId, tableId, windowId);
     const redoStack = await this.getRedoStack(userId, tableId, windowId);

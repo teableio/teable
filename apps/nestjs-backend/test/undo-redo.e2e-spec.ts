@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType, getRandomString } from '@teable/core';
 import {
   axios,
+  clear,
   createField,
   createRecords,
   deleteRecord,
@@ -202,5 +203,50 @@ describe('Undo Redo (e2e)', () => {
     ).data;
 
     expect(updatedRecordAfterRedo2.fields[table.fields[0].id]).toEqual('B');
+  });
+
+  it('should undo / redo clear records', async () => {
+    await awaitWithEvent(() =>
+      updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [table.fields[0].id]: 'A' } },
+      })
+    );
+
+    await awaitWithEvent(() =>
+      clear(table.id, {
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 0],
+          [1, 0],
+        ],
+      })
+    );
+
+    const record = await getRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    expect(record.data.fields[table.fields[0].id]).toBeUndefined();
+
+    await undo(table.id);
+
+    const updatedRecordAfter = (
+      await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+
+    expect(updatedRecordAfter.fields[table.fields[0].id]).toEqual('A');
+
+    await redo(table.id);
+
+    const updatedRecordAfterRedo = (
+      await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+
+    expect(updatedRecordAfterRedo.fields[table.fields[0].id]).toBeUndefined();
   });
 });

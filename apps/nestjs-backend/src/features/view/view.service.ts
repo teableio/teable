@@ -123,14 +123,11 @@ export class ViewService implements IReadonlyAdapterService {
       })
       .toQuery();
     await prisma.$executeRawUnsafe(createRowIndexSQL);
-    console.log('addRowIndexColumnSql', addRowIndexColumnSql);
-    console.log('createViewIndexField', createRowIndexSQL);
     return rowIndexFieldName;
   }
 
   async getOrCreateViewIndexField(dbTableName: string, viewId: string) {
     const indexFieldName = await this.existIndex(dbTableName, viewId);
-    console.log('exits', indexFieldName);
     if (indexFieldName) {
       return indexFieldName;
     }

@@ -40,6 +40,8 @@ import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
@@ -61,6 +63,7 @@ export class SelectionService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
+    private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -777,7 +780,7 @@ export class SelectionService {
     return updateRange;
   }
 
-  async clear(tableId: string, rangesRo: IRangesRo) {
+  async clear(tableId: string, rangesRo: IRangesRo, windowId?: string) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const updateRecords = await this.tableDataToRecords({
@@ -788,6 +791,15 @@ export class SelectionService {
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
     await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.CONTROLLER_RECORDS_CLEAR, {
+        windowId,
+        tableId,
+        userId: this.cls.get('user.id'),
+        records,
+      });
+    }
   }
 
   async delete(tableId: string, rangesRo: IRangesRo): Promise<IDeleteVo> {

@@ -77,6 +77,7 @@ export enum OperationName {
   UpdateRecord = 'updateRecord',
   DeleteRecord = 'deleteRecord',
   DeleteRecords = 'deleteRecords',
+  ClearRecords = 'clearRecords',
   CreateField = 'createField',
   UpdateField = 'updateField',
   DeleteField = 'deleteField',
@@ -99,6 +100,16 @@ export interface IUpdateRecordOperation extends IUndoRedoOperationBase {
     // fieldId: cellValue
     before: Record<string, unknown>;
     after: Record<string, unknown>;
+  };
+}
+
+export interface IClearRecordsOperation extends IUndoRedoOperationBase {
+  name: OperationName.ClearRecords;
+  params: {
+    tableId: string;
+  };
+  result: {
+    records: IRecord[];
   };
 }
 
@@ -125,5 +136,6 @@ export interface IDeleteRecordOperation extends IUndoRedoOperationBase {
 
 export type IUndoRedoOperation =
   | IUpdateRecordOperation
+  | IClearRecordsOperation
   | ICreateRecordsOperation
   | IDeleteRecordOperation;

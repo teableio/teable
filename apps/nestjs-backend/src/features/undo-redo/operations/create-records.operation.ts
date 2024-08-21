@@ -17,7 +17,6 @@ export class CreateRecordsOperation {
   ) {}
 
   async event2Operation(payload: ICreateRecordsPayload): Promise<ICreateRecordsOperation> {
-    console.log(payload);
     const { reqParams, resolveData } = payload;
     const { tableId } = reqParams;
     const { records } = resolveData;
@@ -47,8 +46,6 @@ export class CreateRecordsOperation {
 
   async redo(operation: ICreateRecordsOperation) {
     const { params, result } = operation;
-
-    console.log('redoOperation:', result);
 
     await this.recordOpenApiService.createRecords(params.tableId, {
       fieldKeyType: FieldKeyType.Id,
