@@ -30,7 +30,7 @@
       },
       "api": {
         "label": "API 接口",
-        "restfulApi": "Restful API",
+        "restfulApi": "RESTful API",
         "databaseConnection": "数据库连接"
       }
     }
@@ -44,8 +44,8 @@
   "field": {
     "fieldManagement": "字段管理",
     "fieldManagementDesc": "当前表格所有字段的详细信息",
-    "advancedProps": "Advanced properties",
-    "hide": "hide",
+    "advancedProps": "高级属性",
+    "hide": "隐藏",
     "default": {
       "singleLineText": {
         "title": "标题"
@@ -104,13 +104,13 @@
         "title": "自动编号"
       },
       "createdTime": {
-        "title": "Created time"
+        "title": "创建时间"
       },
       "lastModifiedTime": {
-        "title": "Last modified time"
+        "title": "最近修改时间"
       },
       "createdBy": {
-        "title": "Created by"
+        "title": "创建者"
       },
       "lastModifiedBy": {
         "title": "Last modified by"
