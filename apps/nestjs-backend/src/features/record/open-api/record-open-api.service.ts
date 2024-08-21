@@ -330,7 +330,7 @@ export class RecordOpenApiService {
         windowId,
         record,
         userId: this.cls.get('user.id'),
-        originCellContexts,
+        cellContexts: originCellContexts,
       });
     }
 

@@ -15,13 +15,14 @@ import {
 } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
-import { createEventPromise } from './utils/event-promise';
+import { createAwaitWithEvent } from './utils/event-promise';
 import { initApp, deleteTable, createTable } from './utils/init-app';
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
   let table: ITableFullVo;
   let eventEmitterService: EventEmitterService;
+  let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<T>;
   const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
@@ -33,6 +34,7 @@ describe('Undo Redo (e2e)', () => {
       config.headers['X-Window-Id'] = windowId;
       return config;
     });
+    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
   });
 
   afterAll(async () => {
@@ -51,19 +53,19 @@ describe('Undo Redo (e2e)', () => {
     await createField(table.id, { type: FieldType.CreatedTime });
     await createField(table.id, { type: FieldType.LastModifiedTime });
 
-    const promise = createEventPromise(eventEmitterService, Events.OPERATION_PUSH);
     const record1 = (
-      await createRecords(table.id, {
-        fieldKeyType: FieldKeyType.Id,
-        records: [{ fields: { [table.fields[0].id]: 'record1' } }],
-        order: {
-          viewId: table.views[0].id,
-          anchorId: table.records[0].id,
-          position: 'after',
-        },
-      })
+      await awaitWithEvent(() =>
+        createRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [table.fields[0].id]: 'record1' } }],
+          order: {
+            viewId: table.views[0].id,
+            anchorId: table.records[0].id,
+            position: 'after',
+          },
+        })
+      )
     ).data.records[0];
-    await promise;
 
     const allRecords = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -109,9 +111,7 @@ describe('Undo Redo (e2e)', () => {
       })
     ).data.records[0];
 
-    const promise = createEventPromise(eventEmitterService, Events.OPERATION_PUSH);
-    await deleteRecord(table.id, record1.id);
-    await promise;
+    await awaitWithEvent(() => deleteRecord(table.id, record1.id));
 
     const allRecords = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -145,16 +145,23 @@ describe('Undo Redo (e2e)', () => {
     await createField(table.id, { type: FieldType.CreatedTime });
     await createField(table.id, { type: FieldType.LastModifiedTime });
 
-    const promise = createEventPromise(eventEmitterService, Events.OPERATION_PUSH);
-    const updatedRecord = (
-      await updateRecord(table.id, table.records[0].id, {
+    await awaitWithEvent(() =>
+      updateRecord(table.id, table.records[0].id, {
         fieldKeyType: FieldKeyType.Id,
-        record: { fields: { [table.fields[0].id]: 'record1' } },
+        record: { fields: { [table.fields[0].id]: 'A' } },
       })
-    ).data;
-    await promise;
+    );
 
-    expect(updatedRecord.fields[table.fields[0].id]).toEqual('record1');
+    const updatedRecord = (
+      await awaitWithEvent(() =>
+        updateRecord(table.id, table.records[0].id, {
+          fieldKeyType: FieldKeyType.Id,
+          record: { fields: { [table.fields[0].id]: 'B' } },
+        })
+      )
+    ).data;
+
+    expect(updatedRecord.fields[table.fields[0].id]).toEqual('B');
 
     await undo(table.id);
 
@@ -164,7 +171,17 @@ describe('Undo Redo (e2e)', () => {
       })
     ).data;
 
-    expect(updatedRecordAfter.fields[table.fields[0].id]).toBeUndefined();
+    expect(updatedRecordAfter.fields[table.fields[0].id]).toEqual('A');
+
+    await undo(table.id);
+
+    const updatedRecordAfter2 = (
+      await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+
+    expect(updatedRecordAfter2.fields[table.fields[0].id]).toBeUndefined();
 
     await redo(table.id);
 
@@ -174,6 +191,16 @@ describe('Undo Redo (e2e)', () => {
       })
     ).data;
 
-    expect(updatedRecordAfterRedo.fields[table.fields[0].id]).toEqual('record1');
+    expect(updatedRecordAfterRedo.fields[table.fields[0].id]).toEqual('A');
+
+    await redo(table.id);
+
+    const updatedRecordAfterRedo2 = (
+      await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+      })
+    ).data;
+
+    expect(updatedRecordAfterRedo2.fields[table.fields[0].id]).toEqual('B');
   });
 });

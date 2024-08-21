@@ -14,3 +14,12 @@ export function createEventPromise(eventEmitterService: EventEmitterService, eve
 
   return promise;
 }
+
+export function createAwaitWithEvent(eventEmitterService: EventEmitterService, event: Events) {
+  return async function fn<T>(fn: () => Promise<T>) {
+    const promise = createEventPromise(eventEmitterService, event);
+    const result = await fn();
+    await promise;
+    return result;
+  };
+}
