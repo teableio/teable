@@ -1,6 +1,6 @@
 {
   "toolbar": {
-    "comingSoon": "Скоро будет",
+    "comingSoon": "В разработке",
     "viewFilterInShare": "Это представление используется в ссылке общего доступа к представлению. Изменения в конфигурации представления также изменят ссылку общего доступа к представлению.",
     "createFieldButtonText": "Создание нового <0/> поля",
     "others": {
@@ -403,42 +403,42 @@
     "insertRecordAbove": "Вставить запись выше",
     "insertRecordBelow": "Вставить запись ниже",
     "copyCells": "Копировать ячейки",
-    "deleteRecord": "Delete record",
-    "deleteAllSelectedRecords": "Delete all selected records",
-    "editField": "Edit field",
-    "insertFieldLeft": "Insert left",
-    "insertFieldRight": "Insert right",
-    "freezeUpField": "Freeze up to this field",
-    "hideField": "Hide field",
-    "deleteField": "Delete field",
-    "deleteAllSelectedFields": "Delete all selected fields"
+    "deleteRecord": "Удалить запись",
+    "deleteAllSelectedRecords": "Удалить все выбранные записи",
+    "editField": "Поле редактирования",
+    "insertFieldLeft": "Вставить слева",
+    "insertFieldRight": "Вставить справа",
+    "freezeUpField": "Заморозить до этого поля",
+    "hideField": "Скрыть поле",
+    "deleteField": "Удалить поле",
+    "deleteAllSelectedFields": "Удалить все выбранные поля"
   },
   "connection": {
-    "title": "Database Connection",
-    "description": "You can access the database directly through the database connection, including all the tables under the current base",
-    "noPermission": "You don't have permission to access the database",
-    "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
+    "title": "Подключение к базе данных",
+    "description": "Вы можете получить доступ к базе данных непосредственно через соединение с базой данных, включая все таблицы под текущей базой",
+    "noPermission": "У вас нет разрешения на доступ к базе данных",
+    "connectionCountTip": "Максимальное количество подключений к базе данных <b>{{max}}</b> и текущее соединение <b>{{current}}</b>",
     "helpLink": "https://help.teable.io/developer/database-connection"
   },
   "view": {
-    "addRecord": "Add record",
-    "searchView": "Search view...",
-    "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
-    "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
+    "addRecord": "Добавить запись",
+    "searchView": "Поиск вида...",
+    "dragToolTip": "Автоматическая сортировка включена, перетаскивание вручную недоступно",
+    "insertToolTip": "Автоматическая сортировка включена, вставка с порядком недоступна",
     "action": {
-      "rename": "Rename view",
-      "delete": "Delete view"
+      "rename": "Переименовать представления",
+      "delete": "Удалить представление"
     },
     "category": {
-      "table": "Grid View",
-      "form": "Form View",
-      "kanban": "Kanban View"
+      "table": "Сетка",
+      "form": "Форма просмотра",
+      "kanban": "Kanban Просмотр"
     },
     "crash": {
-      "title": "Crash!",
-      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
+      "title": "Повреждение!",
+      "description": "Этот вид нарушен. Если обновление до сих пор не удалось, пожалуйста, свяжитесь с нами support@teable.io"
     }
   },
-  "lastModifiedTime": "Last modified time",
-  "lastModify": "Last modify: "
+  "lastModifiedTime": "Время последнего изменения",
+  "lastModify": "Последнее изменение: "
 }
