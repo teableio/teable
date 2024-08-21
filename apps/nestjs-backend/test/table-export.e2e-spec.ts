@@ -2,7 +2,8 @@ import fs from 'fs';
 import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Colors, Relationship } from '@teable/core';
+import type { IFieldVo } from '@teable/core';
+import { FieldType, Colors, Relationship, ViewType } from '@teable/core';
 import type { INotifyVo } from '@teable/openapi';
 import {
   exportCsvFromTable as apiExportCsvFromTable,
@@ -16,12 +17,14 @@ import {
   UploadType,
 } from '@teable/openapi';
 
-import { initApp } from './utils/init-app';
+import { createView, initApp, getTable } from './utils/init-app';
 
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
 const userId = globalThis.testConfig.userId;
 let txtFileData: INotifyVo;
+const contentDispositionKey = 'content-disposition';
+const contentTypeKey = 'content-type';
 
 const subFields = [
   {
@@ -93,6 +96,87 @@ const mainFields = [
     },
   },
 ];
+
+const createTables = async (mainTableName?: string, subTableName?: string) => {
+  const finalMainTableName = mainTableName ?? 'mainTable';
+  const finalSubTableName = subTableName ?? 'subTable';
+  const mainTable = await apiCreateTable(baseId, {
+    name: finalMainTableName,
+    fields: [
+      {
+        type: FieldType.SingleLineText,
+        name: 'Text field',
+      },
+    ],
+    records: [],
+  });
+
+  for (let i = 0; i < mainFields.length; i++) {
+    await apiCreateField(mainTable.data.id, mainFields[i]);
+  }
+
+  const subTable = await apiCreateTable(baseId, {
+    name: finalSubTableName,
+    fields: subFields,
+    records: [
+      {
+        fields: {
+          ['sub_Name']: 'Name1',
+          ['sub_Number']: 1,
+          ['sub_Checkbox']: true,
+          ['sub_SingleSelect']: 'sub_y',
+        },
+      },
+      {
+        fields: {
+          ['sub_Name']: 'Name2',
+          ['sub_Number']: 2,
+          ['sub_Checkbox']: true,
+          ['sub_SingleSelect']: 'sub_x',
+        },
+      },
+      {
+        fields: {
+          ['sub_Name']: 'Name3',
+          ['sub_Number']: 3,
+        },
+      },
+    ],
+  });
+
+  const {
+    data: { id: linkFieldId },
+  } = await apiCreateField(mainTable.data.id, {
+    type: FieldType.Link,
+    name: 'Link field',
+    options: {
+      relationship: Relationship.ManyMany,
+      foreignTableId: subTable.data.id,
+      isOneWay: false,
+    },
+  });
+
+  for (let i = 0; i < subFields.length; i++) {
+    const { name, type } = subFields[i];
+    await apiCreateField(mainTable.data.id, {
+      name: `Link field from lookups ${name}`,
+      type: type,
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId: subTable.data.id,
+        lookupFieldId: subTable.data.fields[i].id,
+        linkFieldId: linkFieldId,
+      },
+    });
+  }
+
+  await createRecordsWithLink(mainTable.data.id, subTable.data.records[0].id);
+
+  const latestMainTable = await getTable(baseId, mainTable.data.id, { includeContent: true });
+  const latestSubTable = await getTable(baseId, subTable.data.id, { includeContent: true });
+
+  return { mainTable: latestMainTable, subTable: latestSubTable };
+};
 
 beforeAll(async () => {
   const appCtx = await initApp();
@@ -175,87 +259,17 @@ const createRecordsWithLink = async (mainTableId: string, subTableId: string) =>
 
 describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from table (Get) ', () => {
   it(`should return a csv stream from table and compatible all fields`, async () => {
-    const mainTable = await apiCreateTable(baseId, {
-      name: 'main',
-      fields: [
-        {
-          type: FieldType.SingleLineText,
-          name: 'Text field',
-        },
-      ],
-      records: [],
-    });
+    const { mainTable, subTable } = await createTables();
 
-    for (let i = 0; i < mainFields.length; i++) {
-      await apiCreateField(mainTable.data.id, mainFields[i]);
-    }
-
-    const subTable = await apiCreateTable(baseId, {
-      name: 'subTable',
-      fields: subFields,
-      records: [
-        {
-          fields: {
-            ['sub_Name']: 'Name1',
-            ['sub_Number']: 1,
-            ['sub_Checkbox']: true,
-            ['sub_SingleSelect']: 'sub_y',
-          },
-        },
-        {
-          fields: {
-            ['sub_Name']: 'Name2',
-            ['sub_Number']: 2,
-            ['sub_Checkbox']: true,
-            ['sub_SingleSelect']: 'sub_x',
-          },
-        },
-        {
-          fields: {
-            ['sub_Name']: 'Name3',
-            ['sub_Number']: 3,
-          },
-        },
-      ],
-    });
-
-    const {
-      data: { id: linkFieldId },
-    } = await apiCreateField(mainTable.data.id, {
-      type: FieldType.Link,
-      name: 'Link field',
-      options: {
-        relationship: Relationship.ManyMany,
-        foreignTableId: subTable.data.id,
-        isOneWay: false,
-      },
-    });
-
-    for (let i = 0; i < subFields.length; i++) {
-      const { name, type } = subFields[i];
-      await apiCreateField(mainTable.data.id, {
-        name: `Link field from lookups ${name}`,
-        type: type,
-        isLookup: true,
-        lookupOptions: {
-          foreignTableId: subTable.data.id,
-          lookupFieldId: subTable.data.fields[i].id,
-          linkFieldId: linkFieldId,
-        },
-      });
-    }
-
-    await createRecordsWithLink(mainTable.data.id, subTable.data.records[0].id);
-
-    const exportRes = await apiExportCsvFromTable(mainTable.data.id);
-    const disposition = exportRes?.headers['content-disposition'];
-    const contentType = exportRes?.headers['content-type'];
+    const exportRes = await apiExportCsvFromTable(mainTable.id);
+    const disposition = exportRes?.headers[contentDispositionKey];
+    const contentType = exportRes?.headers[contentTypeKey];
     const { data: csvData } = exportRes;
 
-    await apiDeleteTable(baseId, mainTable.data.id);
-    await apiDeleteTable(baseId, subTable.data.id);
+    await apiDeleteTable(baseId, mainTable.id);
+    await apiDeleteTable(baseId, subTable.id);
 
-    expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.data.name)}.csv`);
+    expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
     expect(contentType).toBe('text/csv');
     expect(csvData).toBe(
       `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
@@ -263,88 +277,48 @@ describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from 
   });
 
   it(`should return a csv stream from table with special character table name`, async () => {
-    const mainTable = await apiCreateTable(baseId, {
-      name: '测试😄',
-      fields: [
-        {
-          type: FieldType.SingleLineText,
-          name: 'Text field',
-        },
-      ],
-      records: [],
-    });
+    const { mainTable, subTable } = await createTables('测试😄', 'subTable');
 
-    for (let i = 0; i < mainFields.length; i++) {
-      await apiCreateField(mainTable.data.id, mainFields[i]);
-    }
-
-    const subTable = await apiCreateTable(baseId, {
-      name: 'subTable',
-      fields: subFields,
-      records: [
-        {
-          fields: {
-            ['sub_Name']: 'Name1',
-            ['sub_Number']: 1,
-            ['sub_Checkbox']: true,
-            ['sub_SingleSelect']: 'sub_y',
-          },
-        },
-        {
-          fields: {
-            ['sub_Name']: 'Name2',
-            ['sub_Number']: 2,
-            ['sub_Checkbox']: true,
-            ['sub_SingleSelect']: 'sub_x',
-          },
-        },
-        {
-          fields: {
-            ['sub_Name']: 'Name3',
-            ['sub_Number']: 3,
-          },
-        },
-      ],
-    });
-
-    const {
-      data: { id: linkFieldId },
-    } = await apiCreateField(mainTable.data.id, {
-      type: FieldType.Link,
-      name: 'Link field',
-      options: {
-        relationship: Relationship.ManyMany,
-        foreignTableId: subTable.data.id,
-        isOneWay: false,
-      },
-    });
-
-    for (let i = 0; i < subFields.length; i++) {
-      const { name, type } = subFields[i];
-      await apiCreateField(mainTable.data.id, {
-        name: `Link field from lookups ${name}`,
-        type: type,
-        isLookup: true,
-        lookupOptions: {
-          foreignTableId: subTable.data.id,
-          lookupFieldId: subTable.data.fields[i].id,
-          linkFieldId: linkFieldId,
-        },
-      });
-    }
-
-    await createRecordsWithLink(mainTable.data.id, subTable.data.records[0].id);
-
-    const exportRes = await apiExportCsvFromTable(mainTable.data.id);
+    const exportRes = await apiExportCsvFromTable(mainTable.id);
     const disposition = exportRes?.headers['content-disposition'];
     const contentType = exportRes?.headers['content-type'];
     const { data: csvData } = exportRes;
 
-    await apiDeleteTable(baseId, mainTable.data.id);
-    await apiDeleteTable(baseId, subTable.data.id);
+    await apiDeleteTable(baseId, mainTable.id);
+    await apiDeleteTable(baseId, subTable.id);
 
-    expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.data.name)}.csv`);
+    expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
     expect(contentType).toBe('text/csv');
+    expect(csvData).toBe(
+      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
+    );
+  });
+
+  it(`should return a csv stream from a particular view`, async () => {
+    const { mainTable, subTable } = await createTables();
+
+    const numberField = mainTable?.fields?.find(
+      (field) => field.name === 'Number field'
+    ) as IFieldVo;
+
+    const oldColumnMeta = mainTable?.views?.[0]?.columnMeta;
+    const view2 = await createView(mainTable.id, {
+      columnMeta: {
+        ...oldColumnMeta,
+        [numberField.id]: {
+          ...oldColumnMeta?.[numberField.id],
+          order: 0.5,
+        },
+      },
+      type: ViewType.Grid,
+    });
+
+    const exportRes = await apiExportCsvFromTable(mainTable.id, view2.id);
+    const { data: csvData } = exportRes;
+
+    await apiDeleteTable(baseId, mainTable.id);
+    await apiDeleteTable(baseId, subTable.id);
+
     expect(csvData).toBe(
       `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
     );

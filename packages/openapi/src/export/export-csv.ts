@@ -13,6 +13,9 @@ export const ExportCsvFromTableRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
     }),
+    query: z.object({
+      viewId: z.string().optional(),
+    }),
   },
   responses: {
     200: {
@@ -22,6 +25,8 @@ export const ExportCsvFromTableRoute: RouteConfig = registerRoute({
   tags: ['export'],
 });
 
-export const exportCsvFromTable = async (tableId: string) => {
-  return axios.get(urlBuilder(EXPORT_CSV_FROM_TABLE, { tableId }));
+export const exportCsvFromTable = async (tableId: string, viewId?: string) => {
+  return axios.get(urlBuilder(EXPORT_CSV_FROM_TABLE, { tableId }), {
+    params: { viewId },
+  });
 };
