@@ -194,6 +194,8 @@ export class ImportOpenApiService {
       },
     });
 
+    // record count for error notification
+    let count = 1;
     worker.on('message', async (result) => {
       const { type, data, chunkId, id } = result;
       switch (type) {
@@ -225,6 +227,7 @@ export class ImportOpenApiService {
             }
             return res;
           });
+          count += records.length;
           if (records.length === 0) {
             return;
           }
@@ -240,7 +243,17 @@ export class ImportOpenApiService {
               }));
             worker.postMessage({ type: 'done', chunkId });
           } catch (e) {
-            this.logger.error((e as Error)?.message, (e as Error)?.stack);
+            const error = e as Error;
+            this.logger.error(error?.message, error?.stack);
+            notification &&
+              this.notificationService.sendImportResultNotify({
+                baseId,
+                tableId: table.id,
+                toUserId: userId,
+                message: `❌ ${table.name} import aborted: ${error.message} fail row range: [${count - records.length}, ${count - 1}]. Please check the data for this range and retry.
+                `,
+              });
+            worker.terminate();
             throw e;
           }
           break;
