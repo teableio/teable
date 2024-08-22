@@ -2,7 +2,6 @@ import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { FieldOpBuilder, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Timing } from '../../../utils/timing';
-import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import { IFieldInstance, createFieldInstanceByRaw } from '../model/factory';
 import { FieldSupplementService } from './field-supplement.service';
@@ -14,8 +13,7 @@ export class FieldDeletingService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
-    private readonly fieldSupplementService: FieldSupplementService,
-    private readonly viewService: ViewService
+    private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
   private async markFieldsAsError(tableId: string, fieldIds: string[]) {
@@ -60,7 +58,6 @@ export class FieldDeletingService {
 
   async deleteFieldItem(tableId: string, field: IFieldInstance) {
     await this.cleanRef(field);
-    await this.viewService.deleteViewRelativeByFields(tableId, [field.id]);
     await this.fieldService.batchDeleteFields(tableId, [field.id]);
   }
 
