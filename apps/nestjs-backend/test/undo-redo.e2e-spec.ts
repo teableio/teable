@@ -95,6 +95,11 @@ describe('Undo Redo (e2e)', () => {
 
     // back to index 1
     expect(allRecordsAfterRedo.data.records[1]).toMatchObject(record1);
+
+    await updateRecord(table.id, record1.id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: { fields: { [table.fields[0].id]: 'new value' } },
+    });
   });
 
   it('should undo / redo delete record', async () => {

@@ -27,11 +27,9 @@ export enum Events {
   TABLE_VIEW_DELETE = 'table.view.delete',
   TABLE_VIEW_UPDATE = 'table.view.update',
 
-  CONTROLLER_RECORDS_CREATE = 'controller.records.create',
-  CONTROLLER_RECORD_UPDATE = 'controller.record.update',
-  CONTROLLER_RECORD_DELETE = 'controller.record.delete',
-  CONTROLLER_RECORDS_DELETE = 'controller.records.delete',
-  CONTROLLER_RECORDS_CLEAR = 'controller.records.clear',
+  OPERATION_RECORDS_CREATE = 'operation.records.create',
+  OPERATION_RECORDS_DELETE = 'operation.records.delete',
+  OPERATION_RECORDS_UPDATE = 'operation.records.update',
 
   OPERATION_PUSH = 'operation.push',
 

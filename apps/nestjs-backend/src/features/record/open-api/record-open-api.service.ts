@@ -149,18 +149,8 @@ export class RecordOpenApiService {
     await this.recordService.createRecordsOnlySql(tableId, typecastRecords);
   }
 
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo): Promise<IRecord[]> {
-    return await this.prismaService.$tx(async () => {
-      const { order, records } = updateRecordsRo;
-      const recordIds = records.map((record) => record.id);
-      if (order != null) {
-        const { viewId, anchorId, position } = order;
-        await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
-          anchorId,
-          position,
-          recordIds,
-        });
-      }
+  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo, windowId?: string) {
+    const { originCellContexts } = await this.prismaService.$tx(async () => {
       // validate cellValue and typecast
       const typecastRecords = await this.validateFieldsAndTypecast(
         tableId,
@@ -174,21 +164,34 @@ export class RecordOpenApiService {
         typecastRecords
       );
 
-      await this.recordCalculateService.calculateUpdatedRecord(
+      const originCellContexts = await this.recordCalculateService.calculateUpdatedRecord(
         tableId,
         updateRecordsRo.fieldKeyType,
         preparedRecords
       );
 
-      const snapshots = await this.recordService.getSnapshotBulk(
-        tableId,
-        recordIds,
-        undefined,
-        updateRecordsRo.fieldKeyType
-      );
-
-      return snapshots.map((snapshot) => snapshot.data);
+      return { originCellContexts };
     });
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
+        tableId,
+        windowId,
+        userId: this.cls.get('user.id'),
+        recordIds: updateRecordsRo.records.map((r) => r.id),
+        fieldIds: Object.keys(updateRecordsRo.records[0].fields),
+        cellContexts: originCellContexts,
+      });
+    }
+
+    const snapshots = await this.recordService.getSnapshotBulk(
+      tableId,
+      updateRecordsRo.records.map((r) => r.id),
+      undefined,
+      updateRecordsRo.fieldKeyType
+    );
+
+    return snapshots.map((snapshot) => snapshot.data);
   }
 
   private async getEffectFieldInstances(
@@ -324,12 +327,12 @@ export class RecordOpenApiService {
     });
 
     if (windowId) {
-      this.eventEmitterService.emitAsync(Events.CONTROLLER_RECORD_UPDATE, {
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
         tableId,
-        recordId,
         windowId,
-        record,
         userId: this.cls.get('user.id'),
+        recordIds: [recordId],
+        fieldIds: originCellContexts.map((cellContext) => cellContext.fieldId),
         cellContexts: originCellContexts,
       });
     }
@@ -345,12 +348,14 @@ export class RecordOpenApiService {
     const data = await this.deleteRecords(tableId, [recordId]);
 
     if (windowId) {
-      this.eventEmitterService.emitAsync(Events.CONTROLLER_RECORD_DELETE, {
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
         windowId,
         tableId,
-        record: data.records[0],
         userId: this.cls.get('user.id'),
-        order: orderIndexes?.[0],
+        records: data.records.map((record, index) => ({
+          ...record,
+          order: orderIndexes?.[index],
+        })),
       });
     }
 
@@ -369,7 +374,7 @@ export class RecordOpenApiService {
     });
 
     if (windowId) {
-      this.eventEmitterService.emitAsync(Events.CONTROLLER_RECORDS_DELETE, {
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
         windowId,
         tableId,
         userId: this.cls.get('user.id'),

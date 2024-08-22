@@ -41,7 +41,6 @@ import { isNumber, isString, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
-import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
@@ -790,16 +789,7 @@ export class SelectionService {
       headerFields: undefined,
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
-
-    if (windowId) {
-      this.eventEmitterService.emitAsync(Events.CONTROLLER_RECORDS_CLEAR, {
-        windowId,
-        tableId,
-        userId: this.cls.get('user.id'),
-        records,
-      });
-    }
+    await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId);
   }
 
   async delete(tableId: string, rangesRo: IRangesRo, windowId?: string): Promise<IDeleteVo> {

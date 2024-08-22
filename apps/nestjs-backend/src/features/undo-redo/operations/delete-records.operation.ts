@@ -33,7 +33,7 @@ export class DeleteRecordsOperation {
   async undo(operation: IDeleteRecordsOperation) {
     const { params, result } = operation;
 
-    await this.recordOpenApiService.createRecords(params.tableId, {
+    await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
       fieldKeyType: FieldKeyType.Id,
       records: result.records,
     });

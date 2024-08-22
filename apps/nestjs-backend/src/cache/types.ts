@@ -1,4 +1,5 @@
 import type { IRecord } from '@teable/openapi';
+import type { ICellContext } from '../features/calculation/utils/changes';
 import type { ISessionData } from '../types/session';
 
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -74,10 +75,8 @@ export interface IOAuthTxnStore {
 
 export enum OperationName {
   CreateRecords = 'createRecords',
-  UpdateRecord = 'updateRecord',
-  DeleteRecord = 'deleteRecord',
   DeleteRecords = 'deleteRecords',
-  ClearRecords = 'clearRecords',
+  UpdateRecords = 'updateRecords',
   CreateField = 'createField',
   UpdateField = 'updateField',
   DeleteField = 'deleteField',
@@ -90,26 +89,15 @@ export interface IUndoRedoOperationBase {
   result: unknown;
 }
 
-export interface IUpdateRecordOperation extends IUndoRedoOperationBase {
-  name: OperationName.UpdateRecord;
+export interface IUpdateRecordsOperation extends IUndoRedoOperationBase {
+  name: OperationName.UpdateRecords;
   params: {
     tableId: string;
-    recordId: string;
+    recordIds: string[];
+    fieldIds: string[];
   };
   result: {
-    // fieldId: cellValue
-    before: Record<string, unknown>;
-    after: Record<string, unknown>;
-  };
-}
-
-export interface IClearRecordsOperation extends IUndoRedoOperationBase {
-  name: OperationName.ClearRecords;
-  params: {
-    tableId: string;
-  };
-  result: {
-    records: IRecord[];
+    cellContexts: ICellContext[];
   };
 }
 
@@ -120,17 +108,6 @@ export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
   };
   result: {
     records: (IRecord & { order: Record<string, number> | undefined })[];
-  };
-}
-
-export interface IDeleteRecordOperation extends IUndoRedoOperationBase {
-  name: OperationName.DeleteRecord;
-  params: {
-    tableId: string;
-    recordId: string;
-  };
-  result: {
-    record: IRecord & { order: Record<string, number> };
   };
 }
 
@@ -145,8 +122,6 @@ export interface IDeleteRecordsOperation extends IUndoRedoOperationBase {
 }
 
 export type IUndoRedoOperation =
-  | IUpdateRecordOperation
-  | IClearRecordsOperation
+  | IUpdateRecordsOperation
   | ICreateRecordsOperation
-  | IDeleteRecordOperation
   | IDeleteRecordsOperation;

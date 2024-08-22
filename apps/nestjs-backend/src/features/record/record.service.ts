@@ -691,7 +691,7 @@ export class RecordService {
 
     const dataList = snapshots.map((snapshot) => ({
       docId: snapshot.__id,
-      version: 0,
+      version: snapshot.__version == null ? 0 : snapshot.__version - 1,
     }));
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Record, dataList);
@@ -850,10 +850,6 @@ export class RecordService {
     const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
 
     await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
-  }
-
-  async del(_version: number, tableId: string, recordId: string) {
-    await this.batchDel(tableId, [recordId]);
   }
 
   private async getFieldsByProjection(

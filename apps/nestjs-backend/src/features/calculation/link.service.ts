@@ -11,7 +11,7 @@ import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { SchemaType } from '../field/util';
 import { BatchService } from './batch.service';
-import type { ICellChange } from './utils/changes';
+import type { ICellChange, ICellContext } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
 
 export interface IFkRecordMap {
@@ -44,13 +44,6 @@ export interface ILinkCellContext {
   fieldId: string;
   newValue?: { id: string }[] | { id: string };
   oldValue?: { id: string }[] | { id: string };
-}
-
-export interface ICellContext {
-  recordId: string;
-  fieldId: string;
-  newValue?: unknown;
-  oldValue?: unknown;
 }
 
 @Injectable()

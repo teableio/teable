@@ -97,7 +97,7 @@ export class RecordOpenApiController {
 
   @Permissions('record|create')
   @Post()
-  @EmitControllerEvent(Events.CONTROLLER_RECORDS_CREATE)
+  @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
   async createRecords(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo

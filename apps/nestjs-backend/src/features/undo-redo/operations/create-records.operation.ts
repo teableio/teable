@@ -47,7 +47,7 @@ export class CreateRecordsOperation {
   async redo(operation: ICreateRecordsOperation) {
     const { params, result } = operation;
 
-    await this.recordOpenApiService.createRecords(params.tableId, {
+    await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
       fieldKeyType: FieldKeyType.Id,
       records: result.records,
     });
