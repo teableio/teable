@@ -1,7 +1,7 @@
 import { Worker } from 'worker_threads';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldType, FieldKeyType, getRandomString } from '@teable/core';
+import { FieldType, FieldKeyType, getRandomString, getActionTriggerChannel } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
@@ -11,6 +11,9 @@ import type {
 } from '@teable/openapi';
 import { toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import type { CreateOp } from 'sharedb';
+
+import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -27,7 +30,8 @@ export class ImportOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly prismaService: PrismaService,
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly shareDbService: ShareDbService
   ) {}
 
   async analyze(analyzeRo: IAnalyzeRo) {
@@ -242,6 +246,7 @@ export class ImportOpenApiService {
                 records,
               }));
             worker.postMessage({ type: 'done', chunkId });
+            this.updateRowCount(table.id);
           } catch (e) {
             const error = e as Error;
             this.logger.error(error?.message, error?.stack);
@@ -292,5 +297,28 @@ export class ImportOpenApiService {
     worker.on('exit', (code) => {
       this.logger.log(`Worker stopped with exit code ${code}`);
     });
+  }
+
+  private updateRowCount(tableId: string) {
+    const channel = getActionTriggerChannel(tableId);
+    const presence = this.shareDbService.connect().getPresence(channel);
+    const localPresence = presence.create(tableId);
+    localPresence.submit(['addRecord'], (error) => {
+      error && this.logger.error(error);
+    });
+
+    const updateEmptyOps = {
+      src: 'unknown',
+      seq: 1,
+      m: {
+        ts: Date.now(),
+      },
+      create: {
+        type: 'json0',
+        data: undefined,
+      },
+      v: 0,
+    } as CreateOp;
+    this.shareDbService.publishRecordChannel(tableId, updateEmptyOps);
   }
 }

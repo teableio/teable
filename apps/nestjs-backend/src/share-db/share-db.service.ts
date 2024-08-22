@@ -92,6 +92,11 @@ export class ShareDbService extends ShareDBClass {
     }
   }
 
+  // for update record when import
+  publishRecordChannel(tableId: string, rawOp: EditOp | CreateOp | DeleteOp) {
+    this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
+  }
+
   private shouldPublishAction(rawOp: EditOp | CreateOp | DeleteOp) {
     const viewKeys = ['filter', 'sort', 'group', 'lastModifiedTime'];
     const fieldKeys = ['options'];
