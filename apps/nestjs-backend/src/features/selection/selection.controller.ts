@@ -81,8 +81,9 @@ export class SelectionController {
   @Delete('/delete')
   async delete(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
+    @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IDeleteVo> {
-    return this.selectionService.delete(tableId, rangesRo);
+    return this.selectionService.delete(tableId, rangesRo, windowId);
   }
 }

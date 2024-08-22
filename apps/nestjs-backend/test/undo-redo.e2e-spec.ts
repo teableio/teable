@@ -7,6 +7,8 @@ import {
   createField,
   createRecords,
   deleteRecord,
+  deleteRecords,
+  deleteSelection,
   getRecord,
   getRecords,
   redo,
@@ -118,6 +120,116 @@ describe('Undo Redo (e2e)', () => {
       fieldKeyType: FieldKeyType.Id,
       viewId: table.views[0].id,
     });
+    // 4 -> 3
+    expect(allRecords.data.records).toHaveLength(3);
+
+    await undo(table.id);
+
+    const allRecordsAfterUndo = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      viewId: table.views[0].id,
+    });
+    // 3 -> 4
+    expect(allRecordsAfterUndo.data.records).toHaveLength(4);
+    // back to index 1
+    expect(allRecordsAfterUndo.data.records[1]).toMatchObject(record1);
+
+    await redo(table.id);
+
+    const allRecordsAfterRedo = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      viewId: table.views[0].id,
+    });
+    expect(allRecordsAfterRedo.data.records).toHaveLength(3);
+    expect(allRecordsAfterRedo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
+  });
+
+  it('should undo / redo delete selection records', async () => {
+    await createField(table.id, { type: FieldType.CreatedTime });
+    await createField(table.id, { type: FieldType.LastModifiedTime });
+
+    // index 1
+    const record1 = (
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [table.fields[0].id]: 'record1' } }],
+        order: {
+          viewId: table.views[0].id,
+          anchorId: table.records[0].id,
+          position: 'after',
+        },
+      })
+    ).data.records[0];
+
+    // delete index 1
+    await awaitWithEvent(() =>
+      deleteSelection(table.id, {
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 1],
+          [1, 1],
+        ],
+      })
+    );
+
+    const allRecords = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      viewId: table.views[0].id,
+    });
+
+    expect(allRecords.data.records.find((r) => r.id === record1.id)).toBeUndefined();
+
+    // 4 -> 3
+    expect(allRecords.data.records).toHaveLength(3);
+
+    await undo(table.id);
+
+    const allRecordsAfterUndo = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      viewId: table.views[0].id,
+    });
+    // 3 -> 4
+    expect(allRecordsAfterUndo.data.records).toHaveLength(4);
+    // back to index 1
+    expect(allRecordsAfterUndo.data.records[1]).toMatchObject(record1);
+
+    await redo(table.id);
+
+    const allRecordsAfterRedo = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      viewId: table.views[0].id,
+    });
+    expect(allRecordsAfterRedo.data.records).toHaveLength(3);
+    expect(allRecordsAfterRedo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
+  });
+
+  it('should undo / redo delete multiple records', async () => {
+    await createField(table.id, { type: FieldType.CreatedTime });
+    await createField(table.id, { type: FieldType.LastModifiedTime });
+
+    // index 1
+    const record1 = (
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [table.fields[0].id]: 'record1' } }],
+        order: {
+          viewId: table.views[0].id,
+          anchorId: table.records[0].id,
+          position: 'after',
+        },
+      })
+    ).data.records[0];
+
+    // delete index 1
+    await awaitWithEvent(() => deleteRecords(table.id, [record1.id]));
+
+    const allRecords = await getRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      viewId: table.views[0].id,
+    });
+
+    expect(allRecords.data.records.find((r) => r.id === record1.id)).toBeUndefined();
+
     // 4 -> 3
     expect(allRecords.data.records).toHaveLength(3);
 

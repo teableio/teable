@@ -134,8 +134,19 @@ export interface IDeleteRecordOperation extends IUndoRedoOperationBase {
   };
 }
 
+export interface IDeleteRecordsOperation extends IUndoRedoOperationBase {
+  name: OperationName.DeleteRecords;
+  params: {
+    tableId: string;
+  };
+  result: {
+    records: (IRecord & { order: Record<string, number> })[];
+  };
+}
+
 export type IUndoRedoOperation =
   | IUpdateRecordOperation
   | IClearRecordsOperation
   | ICreateRecordsOperation
-  | IDeleteRecordOperation;
+  | IDeleteRecordOperation
+  | IDeleteRecordsOperation;

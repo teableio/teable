@@ -802,10 +802,10 @@ export class SelectionService {
     }
   }
 
-  async delete(tableId: string, rangesRo: IRangesRo): Promise<IDeleteVo> {
+  async delete(tableId: string, rangesRo: IRangesRo, windowId?: string): Promise<IDeleteVo> {
     const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const recordIds = records.map(({ id }) => id);
-    await this.recordOpenApiService.deleteRecords(tableId, recordIds);
+    await this.recordOpenApiService.deleteRecords(tableId, recordIds, windowId);
     return { ids: recordIds };
   }
 }

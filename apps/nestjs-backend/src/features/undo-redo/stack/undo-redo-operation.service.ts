@@ -10,6 +10,10 @@ import { ClearRecordsOperation, IClearRecordsPayload } from '../operations/clear
 import type { ICreateRecordsPayload } from '../operations/create-records.operation';
 import { CreateRecordsOperation } from '../operations/create-records.operation';
 import { DeleteRecordOperation, IDeleteRecordPayload } from '../operations/delete-record.operation';
+import {
+  DeleteRecordsOperation,
+  IDeleteRecordsPayload,
+} from '../operations/delete-records.operation';
 import { IUpdateRecordPayload, UpdateRecordOperation } from '../operations/update-record.operation';
 import { UndoRedoStackService } from './undo-redo-stack.service';
 
@@ -17,6 +21,7 @@ import { UndoRedoStackService } from './undo-redo-stack.service';
 export class UndoRedoOperationService {
   createRecords: CreateRecordsOperation;
   deleteRecord: DeleteRecordOperation;
+  deleteRecords: DeleteRecordsOperation;
   updateRecord: UpdateRecordOperation;
   clearRecords: ClearRecordsOperation;
 
@@ -27,6 +32,7 @@ export class UndoRedoOperationService {
   ) {
     this.createRecords = new CreateRecordsOperation(this.recordOpenApiService, this.recordService);
     this.deleteRecord = new DeleteRecordOperation(this.recordOpenApiService, this.recordService);
+    this.deleteRecords = new DeleteRecordsOperation(this.recordOpenApiService, this.recordService);
     this.updateRecord = new UpdateRecordOperation(this.recordOpenApiService, this.recordService);
     this.clearRecords = new ClearRecordsOperation(this.recordOpenApiService, this.recordService);
   }
@@ -37,6 +43,8 @@ export class UndoRedoOperationService {
         return this.createRecords.undo(operation);
       case OperationName.DeleteRecord:
         return this.deleteRecord.undo(operation);
+      case OperationName.DeleteRecords:
+        return this.deleteRecords.undo(operation);
       case OperationName.UpdateRecord:
         return this.updateRecord.undo(operation);
       case OperationName.ClearRecords:
@@ -52,6 +60,8 @@ export class UndoRedoOperationService {
         return this.createRecords.redo(operation);
       case OperationName.DeleteRecord:
         return this.deleteRecord.redo(operation);
+      case OperationName.DeleteRecords:
+        return this.deleteRecords.redo(operation);
       case OperationName.UpdateRecord:
         return this.updateRecord.redo(operation);
       case OperationName.ClearRecords:
@@ -77,6 +87,14 @@ export class UndoRedoOperationService {
     const { windowId, userId, tableId } = payload;
 
     const operation = await this.deleteRecord.event2Operation(payload);
+    await this.undoRedoStackService.push(userId, tableId, windowId, operation);
+  }
+
+  @OnEvent(Events.CONTROLLER_RECORDS_DELETE)
+  private async onDeleteRecords(payload: IDeleteRecordsPayload) {
+    const { windowId, userId, tableId } = payload;
+
+    const operation = await this.deleteRecords.event2Operation(payload);
     await this.undoRedoStackService.push(userId, tableId, windowId, operation);
   }
 

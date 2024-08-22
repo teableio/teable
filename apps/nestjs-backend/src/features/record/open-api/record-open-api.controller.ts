@@ -119,9 +119,10 @@ export class RecordOpenApiController {
   @Delete()
   async deleteRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery
+    @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IRecordsVo> {
-    return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds);
+    return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds, windowId);
   }
 
   @Permissions('record|read')
