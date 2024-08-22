@@ -119,7 +119,7 @@ export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
     tableId: string;
   };
   result: {
-    records: (IRecord & { order: Record<string, number> })[];
+    records: (IRecord & { order: Record<string, number> | undefined })[];
   };
 }
 

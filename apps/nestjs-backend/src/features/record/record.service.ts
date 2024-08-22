@@ -637,7 +637,10 @@ export class RecordService {
     await this.batchDel(tableId, recordIds);
   }
 
-  async getRecordIndexes(tableId: string, recordIds: string[]) {
+  async getRecordIndexes(
+    tableId: string,
+    recordIds: string[]
+  ): Promise<Record<string, number>[] | undefined> {
     const dbTableName = await this.getDbTableName(tableId);
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
     const columns = await this.prismaService
@@ -648,7 +651,7 @@ export class RecordService {
     );
 
     if (!viewIndexColumns.length) {
-      return {};
+      return;
     }
 
     // get all viewIndexColumns value for __id in recordIds

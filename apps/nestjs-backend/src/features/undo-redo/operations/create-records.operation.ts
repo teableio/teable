@@ -30,7 +30,7 @@ export class CreateRecordsOperation {
         tableId: tableId,
       },
       result: {
-        records: records.map((r, i) => ({ ...r, order: indexes[i] })),
+        records: records.map((r, i) => ({ ...r, order: indexes?.[i] })),
       },
     };
   }
