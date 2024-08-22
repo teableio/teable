@@ -33,6 +33,8 @@ export enum IdPrefix {
   License = 'lic',
 
   OAuthClient = 'clt',
+
+  Window = 'win',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -84,6 +86,10 @@ export function generateWorkflowDecisionId() {
 
 export function generateUserId() {
   return IdPrefix.User + getRandomString(16);
+}
+
+export function generateWindowId() {
+  return IdPrefix.Window + getRandomString(16);
 }
 
 export function identify(id: string): IdPrefix | undefined {

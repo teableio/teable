@@ -1,5 +1,8 @@
+import { generateWindowId } from '@teable/core';
+import { axios } from '@teable/openapi';
 import { useIsTouchDevice } from '@teable/sdk/hooks';
 import { useEffect, type FC, type PropsWithChildren } from 'react';
+import { useMount } from 'react-use';
 import { MainLayout } from '@/components/layout';
 
 export const AppLayout: FC<PropsWithChildren> = (props) => {
@@ -7,6 +10,14 @@ export const AppLayout: FC<PropsWithChildren> = (props) => {
 
   // Determine whether it is a touch device
   const isTouchDevice = useIsTouchDevice();
+
+  useMount(() => {
+    const windowId = generateWindowId();
+    axios.interceptors.request.use((config) => {
+      config.headers['X-Window-Id'] = windowId;
+      return config;
+    });
+  });
 
   // Solve the problem that the page will be pushed up after the input is focused on touch devices
   useEffect(() => {

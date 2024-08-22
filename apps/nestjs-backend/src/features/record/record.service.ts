@@ -647,6 +647,10 @@ export class RecordService {
       column.name.startsWith(ROW_ORDER_FIELD_PREFIX)
     );
 
+    if (!viewIndexColumns.length) {
+      return {};
+    }
+
     // get all viewIndexColumns value for __id in recordIds
     const indexQuery = this.knex(dbTableName)
       .select(

@@ -1,13 +1,6 @@
 import type { IFieldVo } from '@teable/core';
 import { FieldType } from '@teable/core';
-import {
-  ArrowUpDown,
-  Filter as FilterIcon,
-  Share2,
-  Layers,
-  Settings,
-  PaintBucket,
-} from '@teable/icons';
+import { ArrowUpDown, Filter as FilterIcon, Share2, Layers, Settings, Plus } from '@teable/icons';
 import type { IFieldInstance, IFieldCreateOrSelectModalRef, KanbanView } from '@teable/sdk';
 import {
   Sort,
@@ -18,17 +11,10 @@ import {
   generateLocalId,
   FieldCreateOrSelectModal,
   useTablePermission,
+  CreateRecordModal,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import {
-  Label,
-  Switch,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  cn,
-} from '@teable/ui-lib/shadcn';
+import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
 import { GUIDE_VIEW_FILTERING, GUIDE_VIEW_SORTING } from '@/components/Guide';
@@ -37,6 +23,7 @@ import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
+import { UndoRedoButtons } from './UndoRedoButtons';
 
 const KANBAN_STACKED_BY_FIELD_TYPES = [FieldType.SingleSelect, FieldType.User];
 
@@ -92,7 +79,20 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   if (!view) return null;
 
   return (
-    <div className="flex gap-1">
+    <div className="flex items-center gap-2">
+      <UndoRedoButtons />
+      <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
+      <CreateRecordModal>
+        <Button
+          className="size-6 shrink-0 rounded-full p-0"
+          size={'xs'}
+          variant={'outline'}
+          disabled={!permission['record|create']}
+        >
+          <Plus className="size-4" />
+        </Button>
+      </CreateRecordModal>
+      <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
       <FieldCreateOrSelectModal
         ref={dialogRef}
         title={t('table:kanban.toolbar.chooseStackingField')}
@@ -217,18 +217,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           </ToolBarButton>
         )}
       </Sort>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <ToolBarButton className="opacity-30" text="Color" textClassName="@2xl/toolbar:inline">
-              <PaintBucket className="size-4 text-sm" />
-            </ToolBarButton>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{t('table:toolbar.comingSoon')}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
     </div>
   );
 };
