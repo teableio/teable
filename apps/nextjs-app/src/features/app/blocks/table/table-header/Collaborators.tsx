@@ -3,15 +3,7 @@ import { useTheme } from '@teable/next-themes';
 import type { ICollaboratorUser } from '@teable/sdk';
 import { useSession, CollaboratorWithHoverCard } from '@teable/sdk';
 import { useConnection } from '@teable/sdk/hooks';
-import {
-  cn,
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@teable/ui-lib/shadcn';
+import { cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { chunk, isEmpty } from 'lodash';
 import { useRouter } from 'next/router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -91,32 +83,17 @@ export const Collaborators: React.FC<CollaboratorsProps> = ({ className, maxAvat
 
   return (
     <div className={cn('gap-1 items-center flex', className)}>
-      {boardUsers?.map(({ id, name, avatar, email }, index) => {
+      {boardUsers?.map(({ id, name, avatar, email }) => {
         const borderColor = ColorUtils.getRandomHexFromStr(`${tableId}_${id}`);
-
         return (
-          <HoverCard key={`${id}_${index}`}>
-            <HoverCardTrigger asChild>
-              <div className="relative overflow-hidden">
-                <CollaboratorWithHoverCard
-                  id={id}
-                  name={name}
-                  avatar={avatar}
-                  email={email}
-                  borderColor={contractColorForTheme(borderColor, resolvedTheme)}
-                />
-              </div>
-            </HoverCardTrigger>
-            <HoverCardContent className="flex w-max max-w-[160px] flex-col justify-center truncate p-2 text-sm">
-              <div className="truncate">
-                <span title={name}>{name}</span>
-                <span className="pl-1">{id === user.id ? '(You)' : null}</span>
-              </div>
-              <div className="truncate">
-                <span title={email}>{email}</span>
-              </div>
-            </HoverCardContent>
-          </HoverCard>
+          <CollaboratorWithHoverCard
+            key={id}
+            id={id}
+            name={name}
+            avatar={avatar}
+            email={email}
+            borderColor={contractColorForTheme(borderColor, resolvedTheme)}
+          />
         );
       })}
       {hiddenUser ? (
