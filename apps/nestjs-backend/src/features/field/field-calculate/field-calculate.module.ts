@@ -10,23 +10,26 @@ import { FieldConvertingService } from './field-converting.service';
 import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
 import { FieldSupplementService } from './field-supplement.service';
+import { FieldViewSyncService } from './field-view-sync.service';
 
 @Module({
   imports: [FieldModule, CalculationModule, RecordCalculateModule, ViewModule, CollaboratorModule],
   providers: [
     DbProvider,
-    FieldConvertingLinkService,
-    FieldConvertingService,
-    FieldCreatingService,
     FieldDeletingService,
+    FieldCreatingService,
+    FieldConvertingService,
     FieldSupplementService,
+    FieldConvertingLinkService,
+    FieldViewSyncService,
   ],
   exports: [
-    FieldConvertingLinkService,
-    FieldConvertingService,
-    FieldCreatingService,
     FieldDeletingService,
+    FieldCreatingService,
+    FieldConvertingService,
     FieldSupplementService,
+    FieldViewSyncService,
+    FieldConvertingLinkService,
   ],
 })
 export class FieldCalculateModule {}
