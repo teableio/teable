@@ -13,6 +13,7 @@ import { FieldConvertingService } from '../field-calculate/field-converting.serv
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
 import { FieldDeletingService } from '../field-calculate/field-deleting.service';
 import { FieldSupplementService } from '../field-calculate/field-supplement.service';
+import { FieldViewSyncService } from '../field-calculate/field-view-sync.service';
 import { FieldService } from '../field.service';
 import { createFieldInstanceByVo } from '../model/factory';
 
@@ -28,6 +29,7 @@ export class FieldOpenApiService {
     private readonly fieldConvertingService: FieldConvertingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
+    private readonly fieldViewSyncService: FieldViewSyncService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -40,6 +42,7 @@ export class FieldOpenApiService {
     return await this.graphService.planFieldCreate(tableId, fieldRo);
   }
 
+  // TODO add delete relative check
   async planFieldConvert(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }
@@ -74,6 +77,7 @@ export class FieldOpenApiService {
     }
 
     await this.prismaService.$tx(async () => {
+      await this.fieldViewSyncService.deleteViewRelativeByFields(tableId, [fieldId]);
       await this.fieldDeletingService.alterDeleteField(tableId, field);
     });
   }
@@ -162,6 +166,7 @@ export class FieldOpenApiService {
 
     // 2. stage alter field
     await this.prismaService.$tx(async () => {
+      await this.fieldViewSyncService.convertFieldRelative(tableId, newField, oldField);
       await this.fieldConvertingService.stageAlter(tableId, newField, oldField, modifiedOps);
       await this.fieldConvertingService.alterSupplementLink(
         tableId,
@@ -169,7 +174,6 @@ export class FieldOpenApiService {
         oldField,
         supplementChange
       );
-      await this.fieldConvertingService.convertFieldRelative(tableId, newField, oldField);
     });
 
     // 3. stage apply record changes and calculate field
