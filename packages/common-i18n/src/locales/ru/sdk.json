@@ -525,91 +525,91 @@
       "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
     },
     "TIMESTR": {
-      "summary": "Formats a datetime into a time-only string (HH:mm:ss).",
+      "summary": "Форматирует дату и время в строку, содержащую только время (ЧЧ:мм:сс).",
       "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
-      "summary": "Formats a datetime into a specified string. For an explanation of how to use this function with date fields, click here. For a list of supported format specifiers, please click here.",
+      "summary": "Форматирует дату и время в указанную строку. Для объяснения, как использовать эту функцию с полями даты, нажмите здесь. Для списка поддерживаемых спецификаторов формата, пожалуйста, нажмите здесь.",
       "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
     },
     "DATETIME_PARSE": {
-      "summary": "Interprets a text string as a structured date, with optional input format and locale parameters. The output format will always be formatted \"M/D/YYYY h:mm a\".",
+      "summary": "Интерпретирует текстовую строку как структурированную дату с дополнительными параметрами ввода, такими как формат и региональные настройки. Выходной формат всегда будет \"M/D/YYYY h:mm a\".",
       "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
     },
     "CREATED_TIME": {
-      "summary": "Returns the creation time of the current record.",
+      "summary": "Возвращает время создания текущей записи.",
       "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
     },
     "LAST_MODIFIED_TIME": {
-      "summary": "Returns the date and time of the most recent modification made by a user in a non-computed field in the table.",
+      "summary": "Возвращает дату и время последнего изменения, сделанного пользователем в не вычисляемом поле таблицы.",
       "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
     },
     "COUNTALL": {
-      "summary": "Returns the number of all elements including text and blanks.",
+      "summary": "Возвращает количество всех элементов, включая текст и пустые значения.",
       "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
     },
     "COUNTA": {
-      "summary": "Returns the number of non-empty values. This function counts both numeric and text values.",
+      "summary": "Возвращает количество непустых значений. Эта функция учитывает как числовые, так и текстовые значения.",
       "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
     },
     "COUNT": {
-      "summary": "Returns the number of numeric items.",
+      "summary": "Возвращает количество числовых элементов.",
       "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
     },
     "ARRAY_JOIN": {
-      "summary": "Join the array of rollup items into a string with a separator.",
+      "summary": "Объединяет массив элементов сводной таблицы в строку с разделителем.",
       "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
     },
     "ARRAY_UNIQUE": {
-      "summary": "Returns only unique items in the array.",
+      "summary": "Возвращает только уникальные элементы в массиве.",
       "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
     },
     "ARRAY_FLATTEN": {
-      "summary": "Flattens the array by removing any array nesting. All items become elements of a single array.",
+      "summary": "Уплощает массив, удаляя любое вложение массивов. Все элементы становятся частью одного массива.",
       "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
     },
     "ARRAY_COMPACT": {
-      "summary": "Removes empty strings and null values from the array. Keeps \"false\" and strings that contain one or more blank characters.",
+      "summary": "Удаляет пустые строки и значения null из массива. Сохраняет значения false и строки, содержащие один или несколько пробелов.",
       "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
     },
     "TEXT_ALL": {
-      "summary": "Returns all text values",
+      "summary": "Возвращает все текстовые значения",
       "example": "TEXT_ALL(\"t\") => t"
     },
     "RECORD_ID": {
-      "summary": "Returns the ID of the current record.",
+      "summary": "Возвращает идентификатор текущей записи.",
       "example": "RECORD_ID() => \"recxxxxxx\""
     },
     "AUTO_NUMBER": {
-      "summary": "Returns the unique and incremented numbers for each record.",
+      "summary": "Возвращает уникальные и последовательно увеличивающиеся номера для каждой записи.",
       "example": "AUTO_NUMBER() => 1"
     },
     "FORMULA": {
-      "summary": "Fill in variables, operational characters, and functions to form formulas for calculations.",
-      "example": "Quoting the Column: {Field name}\n\nUsing operator: 100 * 2 + 300\n\nUsing function: SUM({Number Field 1}, 100)\n\nUsing IF statement: \nIF(logical condition, \"value 1\", \"value 2\")"
+      "summary": "Заполните переменные, операционные знаки и функции для формирования формул для вычислений.",
+      "example": "Цитирование столбца: {Название поля}\n\nИспользование оператора: 100 * 2 + 300\n\nИспользование функции: SUM({Числовое поле 1}, 100)\n\nИспользование оператора IF:\nIF(логическое условие, \"значение 1\", \"значение 2\")"
     }
   },
   "functionType": {
-    "fields": "Fields",
-    "numeric": "Numeric",
-    "text": "Text",
-    "logical": "Logical",
-    "date": "Date",
-    "array": "Array",
-    "system": "System"
+    "fields": "Поля",
+    "numeric": "Числовой",
+    "text": "Текстовый",
+    "logical": "Логический",
+    "date": "Дата",
+    "array": "Массив",
+    "system": "Системный"
   },
   "statisticFunc": {
-    "none": "None",
-    "empty": "Empty",
-    "filled": "Filled",
-    "unique": "Unique",
-    "max": "Max",
-    "min": "Min",
-    "sum": "Sum",
-    "average": "Average",
-    "checked": "Checked",
-    "unChecked": "Unchecked",
-    "percentEmpty": "Percent Empty",
+    "none": "Нет",
+    "empty": "Пустой",
+    "filled": "Заполненный",
+    "unique": "Уникальный",
+    "max": "Макс",
+    "min": "Мин",
+    "sum": "Сум",
+    "average": "Среднее",
+    "checked": "Отмечено",
+    "unChecked": "Не отмечено",
+    "percentEmpty": "Процент пустых",
     "percentFilled": "Заполненность в процентах",
     "percentUnique": "Уникальность в процентах",
     "percentChecked": "Проверенность в процентах",
