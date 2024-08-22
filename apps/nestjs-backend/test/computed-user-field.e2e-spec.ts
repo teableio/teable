@@ -20,6 +20,7 @@ import type { AxiosInstance } from 'axios';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
+import { createAwaitWithEvent } from './utils/event-promise';
 import { createField, createTable, initApp } from './utils/init-app';
 
 describe('Computed user field (e2e)', () => {
@@ -223,17 +224,7 @@ describe('Computed user field (e2e)', () => {
     let user2: IUserMeVo;
     let table1: ITableFullVo;
     let eventEmitterService: EventEmitterService;
-
-    const promises: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      [key: string]: { resolve: (value: any) => void; reject: (error: any) => void };
-    } = {};
-
-    function createRenamePromise(userId: string) {
-      return new Promise((resolve, reject) => {
-        promises[userId] = { resolve, reject };
-      });
-    }
+    let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<T>;
 
     beforeAll(async () => {
       user2Request = await createNewUserAxios({
@@ -255,15 +246,7 @@ describe('Computed user field (e2e)', () => {
       ).data;
 
       eventEmitterService = app.get(EventEmitterService);
-      eventEmitterService.eventEmitter.on(Events.TABLE_USER_RENAME_COMPLETE, (payload) => {
-        const userId = payload?.id;
-
-        if (!promises[userId]) return;
-
-        const { resolve } = promises[userId];
-        resolve?.(payload);
-        delete promises[userId];
-      });
+      awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.TABLE_USER_RENAME_COMPLETE);
     });
 
     afterAll(async () => {
@@ -272,7 +255,6 @@ describe('Computed user field (e2e)', () => {
         userId: user2.id,
       });
       await deleteTable(baseId, table1.id);
-      eventEmitterService.eventEmitter.removeAllListeners(Events.TABLE_USER_RENAME_COMPLETE);
     });
 
     it('should update createdBy fields when user rename', async () => {
@@ -284,9 +266,7 @@ describe('Computed user field (e2e)', () => {
         .post<IFieldVo>(urlBuilder(CREATE_FIELD, { tableId: table1.id }), fieldRo)
         .then((res) => res.data);
 
-      const promise = createRenamePromise(user2.id);
-      user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name' });
-      await promise;
+      await awaitWithEvent(() => user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name' }));
 
       const getRecordsResponse = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
@@ -302,7 +282,6 @@ describe('Computed user field (e2e)', () => {
         email: 'renameUser3@example.com',
         password: '12345678',
       });
-      const user3 = (await user3Request.get<IUserMeVo>(USER_ME)).data;
       await emailBaseInvitation({
         baseId,
         emailBaseInvitationRo: { role: Role.Creator, emails: ['renameUser3@example.com'] },
@@ -317,9 +296,7 @@ describe('Computed user field (e2e)', () => {
           type: FieldType.CreatedBy,
         })
         .then((res) => res.data);
-      const promise = createRenamePromise(user3.id);
-      user3Request.patch<void>(UPDATE_USER_NAME, { name: 'new name' });
-      await promise;
+      await awaitWithEvent(() => user3Request.patch<void>(UPDATE_USER_NAME, { name: 'new name' }));
 
       const getRecordsResponse = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
       getRecordsResponse.data.records.forEach((record) => {
@@ -352,9 +329,9 @@ describe('Computed user field (e2e)', () => {
         typecast: true,
       });
 
-      const promise = createRenamePromise(user2.id);
-      await user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name 2' });
-      await promise;
+      await awaitWithEvent(() =>
+        user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name 2' })
+      );
 
       const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
