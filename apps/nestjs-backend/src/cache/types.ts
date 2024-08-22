@@ -117,7 +117,7 @@ export interface IDeleteRecordsOperation extends IUndoRedoOperationBase {
     tableId: string;
   };
   result: {
-    records: (IRecord & { order: Record<string, number> })[];
+    records: (IRecord & { order: Record<string, number> | undefined })[];
   };
 }
 
