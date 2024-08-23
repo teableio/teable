@@ -1,7 +1,13 @@
 import { Worker } from 'worker_threads';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldType, FieldKeyType, getRandomString, getActionTriggerChannel } from '@teable/core';
+import {
+  FieldType,
+  FieldKeyType,
+  getRandomString,
+  getActionTriggerChannel,
+  getTableImportChannel,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
@@ -12,6 +18,7 @@ import type {
 import { toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp } from 'sharedb';
+import type { LocalPresence } from 'sharedb/lib/client';
 
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
@@ -182,6 +189,8 @@ export class ImportOpenApiService {
   ) {
     const { sheetKey, notification } = options;
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
+    const localPresence = this.createImportPresence(table.id);
+    this.setImportStatus(localPresence, true);
 
     const workerId = `worker_${getRandomString(8)}`;
     const path = getWorkerPath('parse');
@@ -197,13 +206,13 @@ export class ImportOpenApiService {
         id: workerId,
       },
     });
-
     // record count for error notification
-    let count = 1;
+    let recordCount = 1;
     worker.on('message', async (result) => {
       const { type, data, chunkId, id } = result;
       switch (type) {
         case 'chunk': {
+          this.setImportStatus(localPresence, true);
           const currentResult = (data as Record<string, unknown[][]>)[sheetKey];
           // fill data
           const records = currentResult.map((row) => {
@@ -231,7 +240,7 @@ export class ImportOpenApiService {
             }
             return res;
           });
-          count += records.length;
+          recordCount += records.length;
           if (records.length === 0) {
             return;
           }
@@ -252,7 +261,7 @@ export class ImportOpenApiService {
                 baseId,
                 tableId: table.id,
                 toUserId: userId,
-                message: `❌ ${table.name} import aborted: ${error.message} fail row range: [${count - records.length}, ${count - 1}]. Please check the data for this range and retry.
+                message: `❌ ${table.name} import aborted: ${error.message} fail row range: [${recordCount - records.length}, ${recordCount - 1}]. Please check the data for this range and retry.
                 `,
               });
             worker.terminate();
@@ -269,6 +278,7 @@ export class ImportOpenApiService {
               toUserId: userId,
               message: `🎉 ${table.name} ${sourceColumnMap ? 'inplace' : ''} imported successfully`,
             });
+          worker.terminate();
           break;
         case 'error':
           workerId === id &&
@@ -279,6 +289,7 @@ export class ImportOpenApiService {
               toUserId: userId,
               message: `❌ ${table.name} import failed: ${data}`,
             });
+          worker.terminate();
           break;
       }
     });
@@ -290,9 +301,11 @@ export class ImportOpenApiService {
           toUserId: userId,
           message: `❌ ${table.name} import failed: ${e.message}`,
         });
+      worker.terminate();
     });
     worker.on('exit', (code) => {
       this.logger.log(`Worker stopped with exit code ${code}`);
+      this.setImportStatus(localPresence, false);
     });
   }
 
@@ -317,5 +330,26 @@ export class ImportOpenApiService {
       v: 0,
     } as CreateOp;
     this.shareDbService.publishRecordChannel(tableId, updateEmptyOps);
+  }
+
+  private setImportStatus(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    presence: LocalPresence<any>,
+    loading: boolean
+  ) {
+    presence.submit(
+      {
+        loading,
+      },
+      (error) => {
+        error && this.logger.error(error);
+      }
+    );
+  }
+
+  private createImportPresence(tableId: string) {
+    const channel = getTableImportChannel(tableId);
+    const presence = this.shareDbService.connect().getPresence(channel);
+    return presence.create(channel);
   }
 }
