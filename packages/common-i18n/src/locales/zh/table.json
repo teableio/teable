@@ -322,10 +322,11 @@
       "leaveTip": "你的数据仍然会被导入",
       "fileExceedSizeTip": "该类型文件限制文件大小为",
       "analyzing": "分析中",
+      "importing": "Importing",
       "notSupportFieldType": "字段类型不支持",
       "resultEmpty": "未查询到结果",
       "searchPlaceholder": "搜索...",
-      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The results of import process will be notified to you once completed. You should not use the table during the import as it may cause errors.",
+      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import status is displayed in the upper right corner of the table. The results of import process will be notified to you once completed. You should not update the field during the import as it may cause errors.",
       "noTips": "I know that, don't show again"
     },
     "options": {
