@@ -25,8 +25,9 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useDownload } from '../../hooks/useDownLoad';
 import { TableImport } from '../import-table';
 
 interface ITableOperationProps {
@@ -45,7 +46,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const router = useRouter();
   const { baseId, tableId: routerTableId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { trigger } = useDownload({ downloadUrl: `/api/export/${table.id}` });
 
   const menuPermission = useMemo(() => {
     return {
@@ -115,9 +116,7 @@ export const TableOperation = (props: ITableOperationProps) => {
             {table.permission?.['table|export'] && (
               <DropdownMenuItem
                 onClick={() => {
-                  if (iframeRef.current) {
-                    iframeRef.current.src = `/api/export/${table.id}`;
-                  }
+                  trigger?.();
                 }}
               >
                 <Export className="mr-2" />
@@ -188,7 +187,6 @@ export const TableOperation = (props: ITableOperationProps) => {
         onCancel={() => setDeleteConfirm(false)}
         onConfirm={deleteTable}
       />
-      <iframe ref={iframeRef} title="This for export csv download" style={{ display: 'none' }} />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from '@teable/icons';
+import { Pencil, Trash2, Export } from '@teable/icons';
 import { useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import {
@@ -12,7 +12,8 @@ import {
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { useDownload } from '../../../hooks/useDownLoad';
 import { VIEW_ICON_MAP } from '../constant';
 import { useDeleteView } from './useDeleteView';
 
@@ -30,6 +31,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const deleteView = useDeleteView(view.id);
   const permission = useTablePermission();
   const { t } = useTranslation('table');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const { trigger } = useDownload({ downloadUrl: `/api/export/${tableId}?viewId=${view.id}` });
 
   const navigateHandler = () => {
     router.push(
@@ -140,6 +143,19 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                 {t('view.action.rename')}
               </Button>
             )}
+            {view.type === 'grid' && permission['view|read'] && (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  trigger?.();
+                }}
+                className="flex justify-start"
+              >
+                <Export className="size-3" />
+                {t('import.menu.downAsCsv')}
+              </Button>
+            )}
             {permission['view|delete'] && (
               <>
                 <Separator className="my-0.5" />
@@ -161,6 +177,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
           </div>
         </PopoverContent>
       </Popover>
+      <iframe ref={iframeRef} title="This for export csv download" style={{ display: 'none' }} />
     </div>
   );
 };

@@ -322,10 +322,11 @@
       "leaveTip": "Vos données seront toujours importées.",
       "fileExceedSizeTip": "Ce type de fichier dépasse la limite de taille de",
       "analyzing": "analyse",
+      "importing": "Importation",
       "notSupportFieldType": "Type de champ non pris en charge",
       "resultEmpty": "Aucun résultat trouvé.",
       "searchPlaceholder": "Rechercher...",
-      "importAlert": "Une fois l'importation commencée, elle ne peut être arrêtée que lorsqu'elle est soit terminée avec succès, soit arrêtée en raison d'un échec. Les résultats du processus d'importation vous seront notifiés une fois terminés. Vous ne devez pas utiliser la table pendant l'importation car cela peut provoquer des erreurs.",
+      "importAlert": "Une fois l'importation commencée, elle ne peut être arrêtée que lorsqu'elle est soit terminée avec succès, soit arrêtée en raison d'un échec. Le statut de l'importation est affiché dans le coin supérieur droit du tableau. Les résultats du processus d'importation vous seront notifiés une fois terminés. Vous ne devez pas modifier les champs pendant l'importation car cela pourrait provoquer des erreurs.",
       "noTips": "Je sais, ne pas afficher à nouveau"
     },
     "options": {
