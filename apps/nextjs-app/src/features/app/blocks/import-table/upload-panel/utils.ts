@@ -14,14 +14,12 @@ export const transformTextFile2UTF8 = (file: File): Promise<File> => {
 
       const uint8Array = new Uint8Array(arrayBuffer as ArrayBuffer);
 
-      const result = jschardet.detect(Buffer.from(uint8Array));
-
-      if (!result.encoding) {
-        resolve(file);
-      }
-
       let text;
       try {
+        const result = jschardet.detect(Buffer.from(uint8Array));
+        if (!result.encoding) {
+          resolve(file);
+        }
         const decoder = new TextDecoder(result.encoding, { fatal: true });
         text = decoder.decode(uint8Array);
       } catch (e) {

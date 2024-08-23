@@ -123,6 +123,7 @@
     "@teable/ui-lib": "workspace:^",
     "allotment": "1.20.0",
     "axios": "1.6.8",
+    "buffer": "6.0.3",
     "class-variance-authority": "0.7.0",
     "dayjs": "1.11.10",
     "echarts": "5.5.0",
