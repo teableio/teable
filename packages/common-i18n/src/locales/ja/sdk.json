@@ -1,0 +1,669 @@
+{
+  "common": {
+    "comingSoon": "近日公開",
+    "empty": "空白",
+    "noRecords": "記録がありません",
+    "unnamedRecord": "無名のレコード",
+    "untitled": "無題",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "back": "戻る",
+    "done": "決定",
+    "create": "作成",
+    "search": {
+      "placeholder": "検索...",
+      "empty": "結果が見つかりません"
+    },
+    "selectPlaceHolder": "選択...",
+    "loading": "読込中...",
+    "loadMore": "さらに読み込む",
+    "uploadFailed": "アップロードに失敗しました",
+    "rowCount": "{{count}}レコード",
+    "summary": "概要ー",
+    "summaryTip": "カーソルを合わせて概要を選択",
+    "actions": "アクション"
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "ファイルをアップロードするにはリリースしてください",
+      "uploadDragDefault": "ここに貼り付けるかドラッグアンドドロップしてアップロードしてください"
+    },
+    "date": {
+      "placeholder": "日付を選択",
+      "today": "今日"
+    },
+    "formula": {
+      "title": "数式エディタ",
+      "guideSyntax": "構文",
+      "guideExample": "例",
+      "helperExample": "例: ",
+      "fieldValue": "{{fieldName}}フィールドのセルに値を返します。"
+    },
+    "link": {
+      "placeholder": "リンクするレコードを選択",
+      "searchPlaceholder": "レコードの検索",
+      "create": "レコードの追加",
+      "selectRecord": "レコードを選択",
+      "unselected": "未選択",
+      "selected": "選択済",
+      "expandRecordError": "このレコードを表示する権限がありません。"
+    },
+    "user": {
+      "searchPlaceholder": "名前でユーザーを検索する",
+      "notify": "選択されたらユーザーに通知する"
+    }
+  },
+  "filter": {
+    "label": "フィルター",
+    "displayLabel": "フィルター ",
+    "displayLabel_other": "{{fieldName}}と{{count}}の他のフィールドでフィルタリング",
+    "addCondition": "条件を追加",
+    "addConditionGroup": "条件グループを追加",
+    "nestedLimitTip": "フィルタ条件は{{depth}}レベルまでネストできます",
+    "linkInputPlaceholder": "値を入力してください",
+    "groupDescription": "以下のいずれかに当てはまります…",
+    "currentUser": "自分 (現在のユーザー)",
+    "tips": {
+      "scope": "このビューでは、レコードを表示します"
+    },
+    "invalidateSelected": "無効な値",
+    "invalidateSelectedTips": "選択した値は削除されました。もう一度選択してください",
+    "default": {
+      "empty": "フィルター条件は適用されません",
+      "placeholder": "値を入力してください"
+    },
+    "conjunction": {
+      "and": "and",
+      "or": "or",
+      "where": "where"
+    },
+    "operator": {
+      "is": "等しい",
+      "isNot": "等しくない",
+      "contains": "含む",
+      "doesNotContain": "含まない",
+      "isEmpty": "空",
+      "isNotEmpty": "空ではない",
+      "isGreater": "より大きい",
+      "isGreaterEqual": "以上",
+      "isLess": "より小さい",
+      "isLessEqual": "以下",
+      "isAnyOf": "いずれか",
+      "isNoneOf": "いずれでもない",
+      "hasAnyOf": "いずれも含む",
+      "hasAllOf": "すべて含む",
+      "hasNoneOf": "含まない",
+      "isExactly": "正確に",
+      "isWithIn": "中にある",
+      "isBefore": "より前",
+      "isAfter": "より後",
+      "isOnOrBefore": "以前",
+      "isOnOrAfter": "以後",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "component": {
+      "date": {
+        "today": "今日",
+        "tomorrow": "明日",
+        "yesterday": "昨日",
+        "oneWeekAgo": "一週間前",
+        "oneWeekFromNow": "一週間後",
+        "oneMonthAgo": "一ヶ月前",
+        "oneMonthFromNow": "一ヶ月後",
+        "daysAgo": "日前",
+        "daysFromNow": "日後",
+        "exactDate": "正確な日付",
+        "pastWeek": "先週",
+        "pastMonth": "先月",
+        "pastYear": "去年",
+        "nextWeek": "来週",
+        "nextMonth": "来月",
+        "nextYear": "来年",
+        "pastNumberOfDays": "過去の日数",
+        "nextNumberOfDays": "次の日数"
+      }
+    }
+  },
+  "color": {
+    "label": "色"
+  },
+  "rowHeight": {
+    "short": "低",
+    "medium": "中",
+    "tall": "高",
+    "extraTall": "超高"
+  },
+  "share": {
+    "title": "共有"
+  },
+  "extensions": {
+    "title": "拡張機能"
+  },
+  "hidden": {
+    "label": "隠しフィールド",
+    "configLabel_one": "{{count}}個の隠しフィールド",
+    "configLabel_other": "{{count}}個の隠しフィールド",
+    "showAll": "すべて表示",
+    "hideAll": "すべて非表示",
+    "primaryKey": "プライマリフィールド: レコードを識別するために使用され、非表示にしたり削除したりすることはできません"
+  },
+  "expandRecord": {
+    "copy": "クリップボードにコピー",
+    "copyRecordUrl": "レコードのURLをコピー",
+    "deleteRecord": "レコードを削除",
+    "recordHistory": {
+      "hiddenRecordHistory": "レコードの履歴を非表示",
+      "showRecordHistory": "レコードの履歴を表示",
+      "createdTime": "作成日時",
+      "createdBy": "作成者",
+      "before": "以前",
+      "after": "以後",
+      "viewRecord": "レコードを表示"
+    }
+  },
+  "sort": {
+    "label": "ソート",
+    "displayLabel_one": "{{count}}フィールドで並べ替え",
+    "displayLabel_other": "{{count}}フィールドで並べ替え",
+    "setTips": "並べ替え",
+    "addButton": "別のソートを追加",
+    "autoSort": "レコードを自動的に並べ替える",
+    "selectASCLabel": "最初 → 最後",
+    "selectDESCLabel": "最後 → 最初"
+  },
+  "group": {
+    "label": "グループ",
+    "displayLabel_one": "{{count}}フィールドでグループ化",
+    "displayLabel_other": "{{count}}フィールドでグループ化",
+    "setTips": "グループ化",
+    "addButton": "サブグループを追加"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "1行テキスト",
+      "longText": "長いテキスト",
+      "singleSelect": "単一選択",
+      "number": "番号",
+      "multipleSelect": "複数選択",
+      "link": "別のレコードへのリンク",
+      "formula": "式",
+      "date": "日付",
+      "createdTime": "作成日時",
+      "lastModifiedTime": "最終更新日時",
+      "attachment": "添付ファイル",
+      "checkbox": "チェックボックス",
+      "rollup": "ロールアップ",
+      "user": "ユーザー",
+      "rating": "評価",
+      "autoNumber": "自動番号",
+      "lookup": "関連テーブルから検索",
+      "button": "ボタン",
+      "createdBy": "作成者",
+      "lastModifiedBy": "最終更新者"
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "スペースを作成",
+      "spaceDelete": "スペースを削除",
+      "spaceRead": "スペースを読み取り",
+      "spaceUpdate": "スペースを更新",
+      "spaceInviteEmail": "スペースにメールで招待",
+      "spaceInviteLink": "スペースにリンクで招待",
+      "spaceGrantRole": "スペースでの役割",
+      "baseCreate": "ベースの作成",
+      "baseDelete": "ベースの削除",
+      "baseRead": "ベースを読み取り",
+      "baseUpdate": "ベースの更新",
+      "baseInviteEmail": "ベースにメールで招待",
+      "baseInviteLink": "ベースにリンクで招待",
+      "baseTableImport": "ベースにデータをインポート",
+      "baseTableExport": "ベースからデータをエクスポート",
+      "baseAuthorityMatrixConfig": "権限マトリックスを構成する",
+      "baseDbConnect": "データベースに接続",
+      "tableCreate": "テーブルの作成",
+      "tableRead": "テーブルを読み取り",
+      "tableDelete": "テーブルを削除",
+      "tableUpdate": "テーブルの更新",
+      "tableImport": "テーブルにデータをインポート",
+      "tableExport": "テーブルのデータをエクスポート",
+      "viewCreate": "ビューを作成",
+      "viewDelete": "ビューを削除",
+      "viewRead": "ビューを読み取り",
+      "viewUpdate": "ビューを更新",
+      "fieldCreate": "フィールドの作成",
+      "fieldDelete": "フィールドの削除",
+      "fieldRead": "フィールドの読み取り",
+      "fieldUpdate": "フィールドの更新",
+      "recordCreate": "レコードの作成",
+      "recordComment": "レコードにコメント",
+      "recordDelete": "レコードの削除",
+      "recordRead": "レコードの読み取り",
+      "recordUpdate": "レコードの更新",
+      "automationCreate": "オートメーションの作成",
+      "automationDelete": "オートメーションの削除",
+      "automationRead": "オートメーションの読み取り",
+      "automationUpdate": "オートメーションの更新",
+      "userEmailRead": "ユーザーメールの読み取り",
+      "recordHistoryRead": "レコード履歴の読み取り",
+      "baseQuery": "クエリベース"
+    }
+  },
+  "noun": {
+    "table": "テーブル",
+    "view": "ビュー",
+    "space": "スペース",
+    "base": "ベース",
+    "field": "フィールド",
+    "record": "レコード",
+    "automation": "オートメーション",
+    "user": "ユーザー",
+    "recordHistory": "レコード履歴"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "数字を合計します。数字1 + 数字2 + ...",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "数値の平均を返します。",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "指定された数値の最大値を返します。",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "指定された数値の最小値を返します。",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "値を \"precision\" で指定された小数点以下の桁数に丸めます（具体的には、ROUND は指定された precision で四捨五入に丸め、同点の場合は正の無限大に向かって半分に切り上げます）。",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "値を \"precision\" で指定された小数点以下の桁数に丸めます。常に切り上げ、つまり0から離れます。（precisionの値を指定しないと、関数は機能しません。）",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "値を \"precision\" で指定された小数点以下の桁数に丸めます。常に切り捨て、つまり0に近づきます。（precisionの値を指定しないと、関数は機能しません。）",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "値以上の、重要度の最も近い整数倍を返します。重要度が指定されていない場合は、重要度1が想定されます。",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "値以下の、重要度の最も近い整数倍を返します。重要度が指定されていない場合は、重要度1が想定されます。",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "指定された値以上の最小の偶数を返します。",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "正の値は最も近い奇数に切り上げ、負の値は最も近い奇数に切り下げます。",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "論理引数が true の場合は数値1を返し、そうでない場合は数値2を返します。ネストされたIFステートメントを作成するためにも使用できます。\nセルが空白かどうかを確認するためにも使用できます。",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "絶対値を返します。",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "負でない数の平方根を返します。",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "指定された値を指定された指数で累乗します。",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "オイラー数(e)を指定された累乗で計算します。",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "指定された値の対数を計算します。値が指定されていない場合、デフォルトで10になります。",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "最初の引数を 2 番目の引数で割った余りを返します。",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "テキスト文字列を数値に変換します。",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "さまざまな値のタイプの引数を 1つのテキスト値に結合します。",
+      "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
+    },
+    "FIND": {
+      "summary": "オプションの startFromPosition から始まる whereToSearch 文字列内で stringToFind の出現を検索します（ startFromPosition はデフォルトで0です）。stringToFind の出現が見つからない場合、結果は0になります。",
+      "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "stringToFind は、オプションの startFromPosition から whereToSearch 文字列内で stringToFind の出現を検索します。（startFromPosition はデフォルトで0です。）stringToFind の出現が見つからない場合、結果は空になります。\nFIND()と似ていますが、FIND() は stringToFind の出現が見つからない場合、空ではなく0を返します。",
+      "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "whereToStart から始まるcount文字の部分文字列を抽出します。",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "文字列の先頭から howMany 文字を抽出します。",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "文字列の末尾から howMany 文字を抽出します。",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "開始文字から始まる文字数を置換テキストに置き換えます。\n(old_text のすべての出現箇所を検索して new_text に置き換える方法を探している場合は、SUBSTITUTE() を参照してください。)",
+      "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "正規表現に一致するすべての部分文字列を置換文字列に置き換えます。",
+      "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "old_text の出現箇所を new_text に置き換えます。\nオプションでインデックス番号 (1 から始まる) を指定して、old_text の特定の出現箇所のみを置き換えることができます。インデックス番号を指定しないと、old_text のすべての出現箇所が置き換えられます。",
+      "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "LOWER": {
+      "summary": "文字列を小文字にします。",
+      "example": "LOWER(\"Hello Teable\") => \"hello teable\""
+    },
+    "UPPER": {
+      "summary": "文字列を大文字にします。",
+      "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
+    },
+    "REPT": {
+      "summary": "文字列を指定された回数繰り返します。",
+      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+    },
+    "TRIM": {
+      "summary": "文字列の先頭と末尾の空白を削除します。",
+      "example": "TRIM(\" Hello \") => \"Hello\""
+    },
+    "LEN": {
+      "summary": "文字列の先頭から howMany 文字を抽出します。",
+      "example": "LEN(\"Hello\") => 5"
+    },
+    "T": {
+      "summary": "引数がテキストの場合はそれを返し、それ以外の場合は空白を返します。",
+      "example": "T(\"Hello\") => \"Hello\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "URL または URI の構築に使用するために、特定の文字をエンコードされた同等の文字に置き換えます。次の文字はエンコードされません: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
+    },
+    "IF": {
+      "summary": "論理引数が true の場合は 値1 を返し、そうでない場合は 値2 を返します。ネストされた IFステートメントを作成するためにも使用できます。\nセルが空白かどうかを確認するためにも使用できます。",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "式と、その式に対して取り得る値のリスト、そしてそれぞれの値に対して、その式が取るべき値を取ります。また、式の入力が定義されたパターンのいずれにもマッチしない場合は、デフォルト値を取ることもできます。多くの場合、入れ子になった IF() 式の代わりに SWITCH() を使用できます。",
+      "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
+    },
+    "AND": {
+      "summary": "すべての引数が true の場合は true を返し、それ以外の場合は false を返します。",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "引数のいずれかが true の場合、true を返します。",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "真である引数の数が奇数の場合、true を返します。",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "引数の論理値を反転します。",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "空白の値を返します。",
+      "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "エラー値を返します。",
+      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+    },
+    "IS_ERROR": {
+      "summary": "式がエラーを引き起こした場合は true を返します。",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "現在の日付を返します。",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "現在の日付と時刻を返します。",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "日付時刻の4桁の年を返します。",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "日付時刻の月を 1（1月）から 12（12月）までの数値として返します。",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "年内の何週目かを返します。",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "0 から 6 までの整数として曜日を返します。オプションで 2 番目の引数 (\"Sunday\" または \"Monday\") を指定して、その曜日から週を開始することもできます。省略した場合、週はデフォルトで日曜日から始まります。例:\nWEEKDAY(TODAY(), \"Monday\")",
+      "example": "WEEKNUM(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "日付時刻の月の日を 1～31 の数値形式で返します。",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "日付時刻の時間を 0（午前00:00）から 23（午後11:00）までの数値として返します。",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "日付時刻の分を 0 から 59 までの整数として返します。",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "日付時刻の秒を 0 から 59 までの整数として返します。",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "現在の日付と別の日付の間の日数を計算します。",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "現在の日付と別の日付の間の日数を計算します。",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "指定された単位で日付時刻の差を返します。デフォルトの単位は秒です。(単位指定子のリストはここを参照してください。)\n日付時刻の差は、[date1] から [date2] を減算して決定されます。つまり、[date2] が [date1] より後の場合、結果の値は負になります。",
+      "example": "DATETIME_DIFF(\"2022-08-01\", \"2023-09-08\", \"day\") => 403"
+    },
+    "WORKDAY": {
+      "summary": "指定された休日を除いて、開始日の就業日を返します。",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "日付1 と 日付2 の間の営業日数を返します。営業日には週末とオプションの休日リストは含まれず、ISO形式の日付のコンマ区切りの文字列としてフォーマットされます。",
+      "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
+    },
+    "IS_SAME": {
+      "summary": "2つの日付を単位まで比較し、同一かどうかを判断します。同一である場合は true を返し、同一でない場合は false を返します。",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "日付1 が 日付2 より後かどうかを判断します。後の場合は true を返し、後の場合は false を返します。",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "日付1 が 日付2 より前かどうかを判断します。前であれば true を返し、前でない場合は false を返します。",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "指定された \"count\" 単位を日時に追加します。",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "日時を文字列 (YYYY-MM-DD) にフォーマットします。",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "日時を時間のみの文字列 (HH:mm:ss) にフォーマットします。",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "日時を指定された文字列にフォーマットします。日付フィールドでこの関数を使用する方法については、ここをクリックしてください。サポートされている書式指定子のリストについては、ここをクリックしてください。",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "オプションの入力形式とロケールパラメータを使用して、テキスト文字列を構造化された日付として解釈します。出力形式は常に \"M/D/YYYY h:mm a\" にフォーマットされます。",
+      "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "現在のレコードの作成時刻を返します。",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "テーブル内の非計算フィールドでユーザーが最後に変更した日時を返します。",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "テキストと空白を含むすべての要素の数を返します。",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "空でない値の数を返します。この関数は数値とテキスト値の両方をカウントします。",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "数値の数を返します。",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "ロールアップ項目の配列をセパレーターを使用して文字列に結合します。",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "配列内の一意の項目のみを返します。",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "配列のネストを削除して配列をフラット化します。すべての項目が単一の配列の要素になります。",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "配列から空の文字列と null値を削除します。\"false\" と 1つ以上の空白文字を含む文字列は保持されます。",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "すべてのテキスト値を返します",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "現在のレコードの ID を返します。",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "各レコードの一意の増分番号を返します。",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "変数、演算文字、関数を入力して計算式を作成します。",
+      "example": "Quoting the Column: {Field name}\n\nUsing operator: 100 * 2 + 300\n\nUsing function: SUM({Number Field 1}, 100)\n\nUsing IF statement: \nIF(logical condition, \"value 1\", \"value 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "フィールド",
+    "numeric": "数値",
+    "text": "テキスト",
+    "logical": "論理的",
+    "date": "日付",
+    "array": "配列",
+    "system": "システム"
+  },
+  "statisticFunc": {
+    "none": "なし",
+    "empty": "空",
+    "filled": "埋められた",
+    "unique": "固有",
+    "max": "最大",
+    "min": "最小",
+    "sum": "合計",
+    "average": "平均",
+    "checked": "チェックされた",
+    "unChecked": "チェックされていない",
+    "percentEmpty": "空の割合",
+    "percentFilled": "埋められた割合",
+    "percentUnique": "固有の割合",
+    "percentChecked": "チェックされた割合",
+    "percentUnChecked": "チェックされていない割合",
+    "earliestDate": "最も早い日付",
+    "latestDate": "最終日",
+    "dateRangeOfDays": "日付範囲（日数）",
+    "dateRangeOfMonths": "日付範囲（月）",
+    "totalAttachmentSize": "添付ファイルの合計サイズ"
+  },
+  "baseQuery": {
+    "add": "追加",
+    "error": {
+      "invalidCol": "無効な列です。再度選択してください",
+      "invalidCols": "無効な列: {{colNames}}",
+      "invalidTable": "無効なテーブルです。再度選択してください",
+      "requiredSelect": "いずれかを選択してください"
+    },
+    "from": {
+      "title": "From",
+      "fromTable": "テーブルを選択",
+      "fromQuery": "クエリから"
+    },
+    "select": {
+      "title": "選択"
+    },
+    "where": {
+      "title": "場所"
+    },
+    "groupBy": {
+      "title": "グループ化"
+    },
+    "orderBy": {
+      "title": "並び替え",
+      "asc": "昇順",
+      "desc": "降順"
+    },
+    "limit": {
+      "title": "リミット"
+    },
+    "offset": {
+      "title": "オフセット"
+    },
+    "join": {
+      "title": "結合",
+      "joinType": "結合タイプ",
+      "leftJoin": "左結合",
+      "rightJoin": "右結合",
+      "innerJoin": "内部結合",
+      "fullJoin": "全て結合",
+      "data": "From"
+    },
+    "aggregation": {
+      "title": "集約"
+    }
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "errors": {
+    "invalid_type": "期待される入力 {{expected}}、受信 {{received}}",
+    "invalid_type_received_undefined": "必須",
+    "invalid_type_received_null": "必須",
+    "invalid_literal": "無効なリテラル値、{{expected}} が必要です",
+    "unrecognized_keys": "オブジェクト内の認識されないキー: {{- keys}}",
+    "invalid_union": "無効な入力",
+    "invalid_union_discriminator": "識別子の値が無効です。{{- options}} が必要です。",
+    "invalid_enum_value": "無効な列挙値です。{{- options}} が必要ですが、'{{received}}' を受け取りました",
+    "invalid_arguments": "関数の引数が無効です",
+    "invalid_return_type": "関数の戻り値の型が無効です",
+    "invalid_date": "日付が無効です",
+    "custom": "無効な入力です",
+    "invalid_intersection_types": "交差結果を結合できませんでした",
+    "not_multiple_of": "数字は {{multipleOf}} の倍数にしてください",
+    "not_finite": "数は有限にしてください",
+    "invalid_string": {
+      "email": "無効な {{validation}}",
+      "url": "無効な {{validation}}",
+      "uuid": "無効な {{validation}}",
+      "cuid": "無効な {{validation}}",
+      "regex": "無効",
+      "datetime": "無効な {{validation}}",
+      "startsWith": "無効な入力: \"{{startsWith}}\" で始まる必要があります",
+      "endsWith": "無効な入力: \"{{endsWith}}\" で終わる必要があります"
+    },
+    "too_small": {
+      "array": {
+        "exact": "配列には、正確に {{minimum}} 個の要素が含まれている必要があります",
+        "inclusive": "配列には少なくとも {{minimum}} 個の要素が含まれている必要があります",
+        "not_inclusive": "配列には {{minimum}} 個以上の要素が含まれている必要があります"
+      },
+      "string": {
+        "exact": "文字列には、正確に {{minimum}} 文字が含まれている必要があります",
+        "inclusive": "文字列には少なくとも {{minimum}} 文字が含まれている必要があります",
+        "not_inclusive": "文字列には {{minimum}} 文字以上を含める必要があります"
+      },
+      "number": {
+        "exact": "数値は正確に {{minimum}} である必要があります",
+        "inclusive": "数値は {{minimum}} 以上である必要があります",
+        "not_inclusive": "数値は {{minimum}} より大きくなければなりません"
+      },
+      "set": {
+        "exact": "無効な入力",
+        "inclusive": "無効な入力",
+        "not_inclusive": "無効な入力"
+      },
+      "date": {
+        "exact": "日付は正確に {{- minimum, datetime}} である必要があります",
+        "inclusive": "日付は {{- minimum, datetime}} 以後である必要があります",
+        "not_inclusive": "日付は {{- minimum, datetime}} より後でなければなりません"
+      }
+    },
+    "too_big": {
+      "array": {
+        "exact": "配列には、正確に {{maximum}} 個の要素を含める必要があります",
+        "inclusive": "配列には {{maximum}} 個以下の要素を含める必要があります",
+        "not_inclusive": "配列には {{maximum}} 個未満の要素を含める必要があります"
+      },
+      "string": {
+        "exact": "文字列には正確に {{maximum}} 文字を含める必要があります",
+        "inclusive": "文字列には {{maximum}} 文字以下である必要があります",
+        "not_inclusive": "文字列は {{maximum}} 文字未満である必要があります"
+      },
+      "number": {
+        "exact": "数値は正確に {{maximum}} である必要があります",
+        "inclusive": "数値は {{maximum}} 以下である必要があります",
+        "not_inclusive": "数値は {{maximum}} 未満である必要があります"
+      },
+      "set": {
+        "exact": "無効な入力",
+        "inclusive": "無効な入力",
+        "not_inclusive": "無効な入力"
+      },
+      "date": {
+        "exact": "日付は正確に {{- maximum, datetime}} である必要があります",
+        "inclusive": "日付は {{- maximum, datetime}} 以前である必要があります",
+        "not_inclusive": "日付は {{- maximum, datetime}} より前でなければなりません"
+      }
+    }
+  },
+  "validations": {
+    "email": "メール",
+    "url": "url",
+    "uuid": "uuid",
+    "cuid": "cuid",
+    "regex": "正規表現",
+    "datetime": "日時"
+  },
+  "types": {
+    "function": "関数",
+    "number": "数字",
+    "string": "文字列",
+    "nan": "非数",
+    "integer": "整数",
+    "float": "フロート",
+    "boolean": "真偽値",
+    "date": "日付",
+    "bigint": "大桁整数",
+    "undefined": "未定義",
+    "symbol": "シンボル",
+    "null": "null",
+    "array": "配列",
+    "object": "オブジェクト",
+    "unknown": "不明",
+    "promise": "promise",
+    "void": "void",
+    "never": "never",
+    "map": "map",
+    "set": "set"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "add": "新しいOAuthアプリ",
+  "title": {
+    "add": "新しいOAuthアプリ",
+    "edit": "OAuthアプリの編集"
+  },
+  "form": {
+    "name": {
+      "label": "OAuthアプリ名",
+      "description": "OAuthアプリの名前。"
+    },
+    "description": {
+      "label": "説明",
+      "description": "OAuthアプリの簡単な説明。"
+    },
+    "homePageUrl": {
+      "label": "ホームページURL",
+      "description": "OAuthアプリのWebサイトへの完全なURL。"
+    },
+    "logo": {
+      "label": "ロゴ",
+      "description": "正方形の画像が推奨されます。",
+      "placeholder": "ロゴをここにドラッグアンドドロップするか、クリックしてアップロードしてください",
+      "button": "ロゴのアップロード",
+      "clear": "クリア",
+      "lengthError": "許可されるファイルは1つだけです。",
+      "typeError": "画像ファイルのみ許可されます。"
+    },
+    "callbackUrl": {
+      "label": "コールバックURL",
+      "description": "ユーザーが統合を承認した後にリダイレクトする完全なURL。",
+      "add": "コールバックURLを追加"
+    },
+    "scopes": {
+      "label": "Scopes",
+      "description": "OAuthアプリに必要な権限。"
+    },
+    "secret": {
+      "label": "クライアントシークレット",
+      "add": "新しいクライアントシークレットを生成する",
+      "newDescription": "新しいクライアントシークレットを必ずコピーしてください。再度表示することはできません。",
+      "empty": "アプリケーションとしてAPIを認証するには、クライアントシークレットが必要です。",
+      "lastUsed": "最終使用日：{{date}}",
+      "tag": "クライアントシークレット",
+      "neverUsed": "未使用"
+    },
+    "clientId": {
+      "label": "クライアントID: "
+    }
+  },
+  "formType": {
+    "basic": "基本情報",
+    "scopes": "Scopes",
+    "identify": "ユーザーの識別と承認",
+    "clientInfo": "クライアント情報"
+  },
+  "decision": {
+    "title": "{{name}}があなたのアカウントへのアクセスを要求しています",
+    "scopes": "このアプリケーションは、次のscopeを取得できます:",
+    "redirectDescription": "承認するとリダイレクトされます",
+    "authorize": "承認"
+  }
+}

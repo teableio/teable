@@ -1,0 +1,258 @@
+{
+  "brand": "Teable",
+  "actions": {
+    "save": "保存",
+    "doNotSave": "保存しない",
+    "submit": "送信",
+    "confirm": "確認",
+    "close": "閉じる",
+    "edit": "編集",
+    "fill": "埋める",
+    "update": "アップデート",
+    "create": "作成",
+    "delete": "削除",
+    "cancel": "キャンセル",
+    "zoomIn": "ズームイン",
+    "zoomOut": "ズームアウト",
+    "back": "戻る",
+    "saveSucceed": "保存成功！",
+    "submitSucceed": "送信成功！",
+    "editSucceed": "編集成功！",
+    "updateSucceed": "アップデート成功！",
+    "deleteSucceed": "削除成功！",
+    "loading": "読込中...",
+    "refreshPage": "ページの更新",
+    "yesDelete": "はい、削除",
+    "rename": "名前変更",
+    "duplicate": "複製",
+    "change": "変更",
+    "upgrade": "アップグレード",
+    "search": "検索",
+    "loadMore": "されに読み込む",
+    "collapseSidebar": "サイドバーを折りたたむ"
+  },
+  "quickAction": {
+    "title": "クイックアクション...",
+    "placeHolder": "コマンドまたは検索の入力..."
+  },
+  "settings": {
+    "title": "設定",
+    "back": "ホームに戻る",
+    "account": {
+      "title": "プロフィール",
+      "tab": "アカウント",
+      "updatePhoto": "写真の更新",
+      "updateNameDesc": "あなたの名前は投稿やメンションに表示されます。いつでも変更できます。",
+      "securityTitle": "アカウントセキュリティ",
+      "email": "Eメール",
+      "password": "パスワード",
+      "passwordDesc": "アカウントにログインするための永続的なパスワードを設定してください。",
+      "changePassword": {
+        "title": "パスワードの変更",
+        "desc": "現在のパスワードと新しいパスワードを入力してください。",
+        "current": "現在のパスワードを入力",
+        "new": "新しいパスワードを入力",
+        "confirm": "新しいパスワードの再入力"
+      },
+      "changePasswordError": {
+        "disMatch": "新しいパスワードが一致しません。",
+        "equal": "新しいパスワードは現在のパスワードとは異なる必要があります。",
+        "invalid": "現在のパスワードは無効です。",
+        "invalidNew": "新しいパスワードは無効です。最低8文字以上。"
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 パスワードの変更に成功しました。",
+        "desc": "2秒後にログイン ページにリダイレクトされます。"
+      },
+      "manageToken": "アクセストークン",
+      "addPassword": {
+        "title": "パスワードの追加",
+        "desc": "アカウントにログインするための永続的なパスワードを設定してください。",
+        "password": "パスワードを入力",
+        "confirm": "パスワードの再入力"
+      },
+      "addPasswordError": {
+        "disMatch": "パスワードが一致しません。",
+        "invalid": "パスワードは無効です。最低8文字以上。"
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 パスワードの追加に成功しました。"
+      }
+    },
+    "notify": {
+      "title": "通知",
+      "label": "スペースの活動",
+      "desc": "コメント、メンション、ページ招待、リマインダー、アクセス要求、プロパティの変更があったときにメールを受信します。"
+    },
+    "setting": {
+      "title": "自分の設定",
+      "theme": "テーマ",
+      "themeDesc": "アプリのテーマを選択します。",
+      "dark": "ダーク",
+      "light": "ライト",
+      "system": "システム",
+      "version": "アプリバージョン",
+      "language": "言語"
+    },
+    "nav": {
+      "settings": "設定",
+      "logout": "ログアウト"
+    },
+    "integration": {
+      "title": "統合",
+      "description": "は{{count}}のアプリケーションにアカウントへのアクセスを許可しました。",
+      "lastUsed": "最終使用日：{{date}}",
+      "revoke": "取り消す",
+      "owner": "所有者：{{user}}",
+      "revokeTitle": "本当に承認を取り消しますか?",
+      "revokeDesc": "{{name}}はTeable APIにアクセスできなくなります。この操作を元に戻すことはできません。",
+      "scopeTitle": "権限",
+      "scopeDesc": "このアプリケーションは、次のスコープを取得できます："
+    }
+  },
+  "noun": {
+    "table": "テーブル",
+    "view": "ビュー",
+    "space": "スペース",
+    "base": "ベース",
+    "field": "フィールド",
+    "record": "コード",
+    "dashboard": "ダッシュボード",
+    "automation": "オートメーション",
+    "authorityMatrix": "権限マトリクス",
+    "adminPanel": "管理パネル",
+    "license": "ライセンス",
+    "instanceId": "ライセンスID",
+    "beta": "ベータ"
+  },
+  "level": {
+    "free": "無料",
+    "plus": "プラス",
+    "pro": "プロ",
+    "enterprise": "エンタープライズ"
+  },
+  "noResult": "結果なし。",
+  "untitled": "無題",
+  "name": "名称",
+  "description": "説明",
+  "required": "必須",
+  "guide": {
+    "prev": "前へ",
+    "next": "次へ",
+    "done": "決定",
+    "skip": "スキップ",
+    "createSpaceTooltipTitle": "スペースの作成",
+    "createSpaceTooltipContent": "Teableはスペースで構成されており、各スペースではユーザーが共同作業を行うことができます。<br></br>Teableのスペースはメニューバー内の主要なナビゲーション要素として機能し、ユーザーが必要に応じてデータベースを追加および管理するための基本的なプラットフォームを提供します。",
+    "createBaseTooltipTitle": "ベースの作成",
+    "createBaseTooltipContent": "ベース (「データベース」の略) は、重要なデータとそれに依存するワークフローを保存する場所です。",
+    "createTableTooltipTitle": "テーブルの作成",
+    "createTableTooltipContent": "テーブルは、多様なデータセットを効率的に処理できるように設計されており、さまざまなデータ型による情報を多様に表示できます。",
+    "createViewTooltipTitle": "ビューの作成",
+    "createViewTooltipContent": "現在、ユーザーはグリッドビューとフォームビューを作成できます。ギャラリー ビュー、カンバン ビュー、カレンダー ビューは将来のリリースで追加される予定です。<br></br>この多様性により、ユーザーはさまざまなデータ管理タスクに対応する包括的なツールキットを利用できるようになります。",
+    "viewFilteringTooltipTitle": "レコードのフィルタリング",
+    "viewFilteringTooltipContent": "ビューのコア機能の一つは、設定した条件に従ってビューからレコードをフィルター処理できることです。<br></br>条件に基づいてレコードがフィルター処理されても、そのレコードは削除されず、テーブルを表示するために使用している特定のビューから非表示になるだけです。",
+    "viewSortingTooltipTitle": "レコードのソート",
+    "viewSortingTooltipContent": "ビューでは、特定のフィールドの値に従ってレコードを特定の順序で表示されるように並べ替えることができます。<br></br>あるビューでレコードを並べ替えても、他のビューのレコードの順序には影響しません。これは、テーブルを表示するために現在使用しているビューにのみ適用されます。",
+    "viewGroupingTooltipTitle": "レコードのグループ化",
+    "viewGroupingTooltipContent": "レコードをグループ化すると、作成者は特定のビュー内に表示されるデータセットを分類するのに役立つ一つ以上の条件のセットを構築できます。",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teableは、ほぼすべての製品機能をサポートする強力なAPIを提供しており、開発者は<a>トークン</a>を使用して呼び出しを行うことができます。"
+  },
+  "token": "トークン",
+  "poweredBy": "Powered by <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}}スペース共有",
+      "desc_one": "このスペースには <b>{{count}}人の共同作業者</b>がいます。スペースの共同作業者を追加すると、その共同作業者はこのスペース内のすべての基地にアクセスできるようになります。",
+      "desc_other": "このスペースには <b>{{count}}人の共同作業者</b>がいます。スペースの共同作業者を追加すると、その共同作業者はこのスペース内のすべての基地にアクセスできるようになります。",
+      "tabEmail": "メールで招待",
+      "emailPlaceholder": "メールで他の共同作業者を招待する",
+      "tabLink": "リンクで招待",
+      "linkPlaceholder": "招待リンクを作成すると、リンクを開いたすべてのユーザーに<0/>アクセスが許可されます。",
+      "emailSend": "正体の送信",
+      "linkSend": "リンクの作成",
+      "spaceTitle": "スペースの共同作業者",
+      "collaboratorSearchPlaceholder": "名前またはメールアドレスでスペースの共同作業者を探す",
+      "collaboratorJoin": "{{joinTime}}に参加",
+      "collaboratorRemove": "共同作業者の削除",
+      "linkTitle": "招待リンク",
+      "linkCreatedTime": "{{createdTime}}に作成",
+      "linkCopySuccess": "リンクをコピーしました",
+      "linkRemove": "リンクの削除"
+    },
+    "base": {
+      "title": "{{baseName}}共有",
+      "desc_one": "このベースは{{count}}人の共同作業者と共有されています。",
+      "desc_other": "このベースは{{count}}人の共同作業者と共有されています。",
+      "baseTitle": "ベースの共同作業者",
+      "collaboratorSearchPlaceholder": "名前またはメールアドレスでベースの共同作業者を探す"
+    }
+  },
+  "help": {
+    "title": "ヘルプ",
+    "mainLink": "https://help.teable.io",
+    "apiLink": "https://help.teable.io/developer/api"
+  },
+  "pagePermissionChangeTip": "ページの権限が更新されました。最新のコンテンツを表示するにはページを更新してください。",
+  "listEmptyTips": "このリストは空です",
+  "billing": {
+    "overLimits": "制限超過",
+    "overLimitsDescription": "現在契約中のプランは使用制限を超えました。この機能を引き続き使用するには、プランをアップグレードしてください。",
+    "userLimitExceededDescription": "現在のインスタンスは、ライセンスで許可されている最大ユーザー数に達しました。一部のユーザーを非アクティブ化するか、ライセンスをアップグレードしてください。",
+    "unavailableInPlanTips": "現在契約中のプランではこの機能はサポートされていません",
+    "levelTips": "このスペースは現在{{level}}プランにです",
+    "spaceSubscriptionModal": {
+      "title": "スペースの契約プランをアップグレード",
+      "description": "自分が所有者であるワークスペースのみアップグレードできます"
+    },
+    "status": {
+      "active": "アクティブ",
+      "canceled": "中止",
+      "incomplete": "未完成",
+      "incompleteExpired": "未完成 期限切れ",
+      "trialing": "試用",
+      "pastDue": "期限切れ",
+      "unpaid": "未払い",
+      "paused": "休止",
+      "seatLimitExceeded": "席数制限超過"
+    }
+  },
+  "admin": {
+    "setting": {
+      "description": "現在のインスタンスの設定を変更する",
+      "allowSignUp": "新しいアカウントの作成を許可する",
+      "allowSignUpDescription": "このオプションを無効にすると、新規ユーザーの登録が禁止され、ログインページに登録ボタンが表示されなくなります。",
+      "allowSpaceInvitation": "スペースへの招待の送信を許可する",
+      "allowSpaceInvitationDescription": "このオプションを無効にすると、管理者以外のユーザーは他のユーザーをスペースに招待できなくなります。このオプションを有効にすると、新規アカウント登録が無効になっている場合でも、直接招待されたユーザーはアカウントを作成できるようになります。",
+      "allowSpaceCreation": "誰でも新しいスペースを作成できるようにする",
+      "allowSpaceCreationDescription": "このオプションを無効にすると、管理者以外のユーザーは新しいスペースを作成できなくなります。"
+    }
+  },
+  "notification": {
+    "title": "通知",
+    "unread": "未読",
+    "read": "既読",
+    "markAs": "この通知を{{status}}としてマークする",
+    "markAllAsRead": "全て既読にする",
+    "noUnread": "{{status}}の通知はありません",
+    "changeSetting": "ページ通知設定を変更する",
+    "new": "{{count}}件の新たな通知",
+    "showMore": "もっと見る"
+  },
+  "role": {
+    "title": {
+      "owner": "所有者",
+      "creator": "作成者",
+      "editor": "編集者",
+      "commenter": "解説者",
+      "viewer": "閲覧者"
+    },
+    "description": {
+      "owner": "ベース、オートメーション、権限マトリックスのすべての設定と編集、スペース設定と課金を管理できます。",
+      "creator": "ベース、オートメーション、権限マトリックスのすべての設定と編集ができます",
+      "editor": "レコードとビューを編集できますが、テーブルやフィールドを設定することはできません",
+      "commenter": "レコードにコメントできます",
+      "viewer": "編集もコメントもできません"
+    }
+  }
+}

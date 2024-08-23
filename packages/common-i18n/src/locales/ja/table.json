@@ -1,0 +1,444 @@
+{
+  "toolbar": {
+    "comingSoon": "近日公開",
+    "viewFilterInShare": "このビューはビュー共有リンクで使用されています。ビュー構成を変更するとビュー共有リンクも変更されます。",
+    "createFieldButtonText": "新しい<0/>フィールドを作成する",
+    "others": {
+      "share": {
+        "label": "共有",
+        "statusLabel": "共有中",
+        "shareLink": "共有リンク",
+        "copied": "コピーしました",
+        "genLink": "新しいリンクを生成する",
+        "allowCopy": "閲覧者がこのビューからデータをコピーできるようにする",
+        "showAllFields": "展開されたレコードのすべてのフィールドを表示する",
+        "restrict": "パスワードによる制限",
+        "tips": "リンクを持っている人はそのビューを見ることができます。",
+        "passwordTitle": "パスワードを入力してください",
+        "passwordTips": "共有ビューにアクセスするためのパスワード制限",
+        "embed": "埋め込み",
+        "embedPreview": "埋め込みプレビュー",
+        "hideToolbar": "ツールバーを隠す",
+        "URLSetting": "URLパラメータ設定",
+        "URLSettingDescription": "以下の設定を調整しても共有リンクには影響しません。新しいパラメータでリンクをコピーして有効にする必要があります。",
+        "cancel": "キャンセル",
+        "save": "保存"
+      },
+      "extensions": {
+        "label": "拡張機能",
+        "graph": "グラフ"
+      },
+      "api": {
+        "label": "API",
+        "restfulApi": "Restful API",
+        "databaseConnection": "データベース接続"
+      }
+    }
+  },
+  "welcome": {
+    "title": "ようこそ",
+    "description": "左側のサイドバーの + をクリックしてテーブルを作成します。",
+    "help": "詳細については、<HelpCenter /> をご覧ください。",
+    "helpCenter": "ヘルプセンター"
+  },
+  "field": {
+    "fieldManagement": "フィールド管理",
+    "fieldManagementDesc": "現在のテーブルのすべてのフィールドの詳細なプロパティ",
+    "advancedProps": "高度なプロパティ",
+    "hide": "非表示",
+    "default": {
+      "singleLineText": {
+        "title": "ラベル"
+      },
+      "longText": {
+        "title": "注記"
+      },
+      "number": {
+        "title": "番号",
+        "formatType": "フォーマットタイプ",
+        "currencySymbol": "通貨記号",
+        "defaultSymbol": "￥",
+        "precision": "精度",
+        "decimalExample": "小数点 (1.0)",
+        "currencyExample": "通貨 (￥100)",
+        "percentExample": "パーセント (20%)"
+      },
+      "singleSelect": {
+        "title": "ステータス",
+        "options": {
+          "todo": "To Do",
+          "inProgress": "進行中",
+          "done": "完了"
+        }
+      },
+      "multipleSelect": {
+        "title": "タグ"
+      },
+      "attachment": {
+        "title": "添付ファイル"
+      },
+      "user": {
+        "title": "共同作業者"
+      },
+      "date": {
+        "title": "日付",
+        "dateFormatting": "日付の書式設定",
+        "timeFormatting": "時刻の書式設定",
+        "timeZone": "タイムゾーン",
+        "yearMonth": "年/月",
+        "monthDay": "月/日",
+        "year": "年",
+        "month": "月",
+        "day": "日",
+        "local": "地域",
+        "friendly": "友好的",
+        "us": "アメリカ合衆国S",
+        "european": "ヨーロッパ",
+        "asia": "アジア",
+        "custom": "カスタム",
+        "12Hour": "12時間",
+        "24Hour": "24時間",
+        "noDisplay": "表示なし"
+      },
+      "autoNumber": {
+        "title": "ID"
+      },
+      "createdTime": {
+        "title": "作成日時"
+      },
+      "lastModifiedTime": {
+        "title": "最終更新日時"
+      },
+      "createdBy": {
+        "title": "作成者"
+      },
+      "lastModifiedBy": {
+        "title": "最終更新者"
+      },
+      "rating": {
+        "title": "評価"
+      },
+      "checkbox": {
+        "title": "完了"
+      },
+      "formula": {
+        "title": "計算",
+        "formula": "式"
+      },
+      "lookup": {
+        "title": "{{linkFieldName}} から {{lookupFieldName}} を見つける"
+      },
+      "rollup": {
+        "title": "{{linkFieldName}} の {{lookupFieldName}} の要約",
+        "rollup": "ロールアップ",
+        "selectAnRollupFunction": "ロールアップ機能を選択",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "すべての値が真の場合に真を返す",
+          "arrayCompact": "配列から空の文字列と null値 を削除します。 'false' と 1 つ以上の空白文字を含む文字列は保持されます。",
+          "arrayJoin": "すべての値を1つのコンマ区切りの文字列に結合します。",
+          "arrayUnique": "固有のアイテムのみを返します。",
+          "average": "値の平均。",
+          "concatenate": "テキスト値を1つのテキスト値に結合します。",
+          "count": "空でない数値のみをカウントします。すべてのレコードをカウントする場合は、COUNTALL を使用します。",
+          "countA": "空でない値の数をカウントします。この関数は数値とテキスト値の両方をカウントします。",
+          "countAll": "空白レコードを含むすべての値をカウントします。",
+          "max": "指定された数値の最大値を返します。",
+          "min": "指定された数値の最小値を返します。",
+          "or": "いずれかの値が真の場合、true を返します。",
+          "sum": "値を合計します。",
+          "xor": "真の値の数が奇数のと場合、 true を返します。"
+        }
+      }
+    },
+    "editor": {
+      "addField": "フィールドの追加",
+      "editField": "フィールドの編集",
+      "insertField": "フィールドの挿入",
+      "graph": "グラフ",
+      "fieldUpdated": "フィールドが更新されました",
+      "fieldCreated": "フィールドが作成されました",
+      "previewDependenciesGraph": "依存関係グラフのプレビュー",
+      "areYouSurePerformIt": "本当に実行しますか？",
+      "addDescription": "説明を追加",
+      "description": "説明",
+      "descriptionPlaceholder": "このフィールドについて説明してください（オプション）",
+      "type": "タイプ",
+      "showAs": "表示形式",
+      "color": "色",
+      "number": "番号",
+      "chartBar": "チャートバー",
+      "chartLine": "チャートライン",
+      "ring": "円",
+      "bar": "棒",
+      "text": "テキスト",
+      "url": "Url",
+      "email": "メール",
+      "phone": "電話",
+      "maxNumber": "最大数",
+      "showNumber": "番号を表示",
+      "autoFillDate": "現在の日付を自動入力",
+      "createSymmetricLink": "リンクテーブルにバックリンクフィールドを作成する",
+      "allowLinkMultipleRecords": "複数選択を許可する",
+      "allowLinkToDuplicateRecords": "レコードを複数回選択できます",
+      "allowSymmetricFieldLinkMultipleRecords": "レコードを複数回選択できます",
+      "oneToOne": "1 対 1",
+      "oneToMany": "1 対 複数",
+      "manyToOne": "複数 対 1",
+      "manyToMany": "複数 対 複数",
+      "self": "自分",
+      "selectTable": "テーブルを選択...",
+      "inSelfLink": "セルフリンク",
+      "betweenTwoTables": "2つのテーブルの間",
+      "linkTipMessage": "ヒント: この構成は<br></br> <b>{{relationship}}</b> 関係 <span>{{linkType}}</span> を表します",
+      "style": "スタイル",
+      "maximum": "最大",
+      "addOption": "オプションを追加",
+      "allowMultiUsers": "複数のユーザーの追加を許可する",
+      "notifyUsers": "選択されたらユーザーに通知する",
+      "searchTable": "テーブルの検索...",
+      "calculating": "計算中...",
+      "doSaveChanges": "変更内容を保存しますか？",
+      "linkFieldToLookup": "参照用リンクレコードフィールド",
+      "lookupToTable": "参照したい {{tableName}} フィールド",
+      "selectField": "フィールドを選択...",
+      "linkTable": "リンクテーブル",
+      "noLinkTip": "参照するリンクされたレコードがありません。別のレコードへのリンクフィールドを追加して、参照を再度構成してください。",
+      "fieldValidationRules": "フィールド値の検証ルール",
+      "enableValidateFieldUnique": "固有の値の検証を有効にする",
+      "enableValidateFieldNotNull": "NULLでない値の検証を有効にする",
+      "knowMore": "さらに詳しく",
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link"
+    },
+    "subTitle": {
+      "link": "選択したテーブル内のレコードへのリンク",
+      "singleLineText": "テキストを入力するか、新しいセルごとにデフォルト値を事前に入力します。",
+      "longText": "複数行のテキストを入力します。",
+      "attachment": "表示またはダウンロードする画像、ドキュメント、その他のファイルを追加します。",
+      "checkbox": "ステータスを示すためにチェックを入れるか外します。",
+      "multipleSelect": "リストから1つ以上の定義済みオプションを選択します。",
+      "singleSelect": "リストから定義済みのオプションを1つ選択するか、新しいセルごとに既定のオプションを事前に入力します。",
+      "user": "レコードにユーザーを追加します。",
+      "date": "日付（例：2023/11/12）を入力するか、カレンダーから選択します。",
+      "number": "数値を入力するか、新しいセルごとにデフォルト値を事前に入力します。",
+      "duration": "時間、分、秒単位で時間の長さを入力します（例: 1:23）。",
+      "rating": "事前に定義された尺度で評価を追加します。",
+      "formula": "フィールドに基づいて値を計算します。",
+      "rollup": "リンクされたレコードからデータを要約します。",
+      "count": "リンクされたレコードの数をカウントします。",
+      "createdTime": "各レコードが作成された日時を確認します。",
+      "lastModifiedTime": "レコード内の一部またはすべてのフィールドに対する最新の編集の日時を表示します。",
+      "createdBy": "レコードを作成したユーザーを確認します。",
+      "lastModifiedBy": "レコード内の一部またはすべてのフィールドに対して最新の編集を行ったユーザーを確認します。",
+      "autoNumber": "各レコードに対して固有の増分番号を自動的に生成します。",
+      "button": "カスタマイズされたアクションをトリガーします。",
+      "lookup": "リンクされたレコードのフィールドの値を表示します。"
+    },
+    "fieldName": "フィールド名",
+    "fieldNameOptional": "フィールド名（オプション）",
+    "fieldType": "フィールドタイプ"
+  },
+  "table": {
+    "newTableLabel": "新しいテーブル",
+    "rename": "名前を変更",
+    "design": "デザイン",
+    "tableRecordHistory": "テーブルレコード履歴",
+    "deleteConfirm": "本当に \"{{tableName}}\" を削除してもよろしいですか?",
+    "dbTableName": "物理データベース内のテーブル名",
+    "schemaName": "物理データベースのスキーマ名",
+    "tableInfo": "テーブル情報",
+    "tableInfoDetail": "テーブルの基本情報",
+    "typeOfDatabase": "データベースの種類",
+    "descriptionForTable": "このテーブルの説明",
+    "nameForTable": "このテーブルの名前",
+    "deleteTip1": "他のテーブル内のこのテーブルにリンクされているリンクフィールドはテキストフィールドに変換されます。",
+    "deleteTip2": "この操作は元に戻せません。",
+    "operator": {
+      "createBlank": "空のテーブルを作成する"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "コピーと貼り付けはHTTPSまたはローカルホストでのみ機能します",
+      "copyAndPasteBrowser": "このブラウザではコピーと貼り付けはサポートされていません",
+      "copying": "コピー中...",
+      "copySuccessful": "コピー成功",
+      "copyFailed": "コピー失敗",
+      "pasting": "貼り付け中...",
+      "pasteSuccessful": "貼り付け成功",
+      "pasteFailed": "貼り付け失敗",
+      "clearing": "クリア...",
+      "clearSuccessful": "クリア成功",
+      "deleting": "削除中...",
+      "deleteSuccessful": "削除成功",
+      "pasteFileFailed": "ファイルは添付ファイル欄にのみ貼り付けることができます"
+    },
+    "graph": {
+      "tableLabel": "テーブルラベル",
+      "effectCells": "セルに影響を与える可能性があります",
+      "estimatedTime": "推定所要時間"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "アップロード",
+      "import": "インポート",
+      "localFile": "ローカルファイル",
+      "linkUrl": "リンク(URL)",
+      "linkUrlInputTitle": "URLからファイルを追加",
+      "importTitle": "新しいテーブルを作成",
+      "incrementImportTitle": "インポート先 — ",
+      "optionsTitle": "インポートオプション",
+      "primitiveFields": "プリミティブフィールド",
+      "importFields": "インポートフィールド",
+      "primaryField": "プライマリーフィールド",
+      "tipsTitle": "ヒント",
+      "confirm": "確認して続行"
+    },
+    "menu": {
+      "addFromOtherSource": "他のソースから追​​加",
+      "excelFile": "Microsoft Excelル",
+      "csvFile": "CSVファイル",
+      "cancel": "キャンセル",
+      "leave": "離れる",
+      "downAsCsv": "CSVをダウンロード",
+      "importData": "データをインポート"
+    },
+    "tips": {
+      "importWayTip": "クリックまたはこの領域にドラッグしてファイルをアップロードします",
+      "leaveTip": "データは引き続きインポートされます。",
+      "fileExceedSizeTip": "このタイプのファイルサイズは制限を超えています",
+      "analyzing": "分析",
+      "notSupportFieldType": "フィールドタイプはサポートされていません",
+      "resultEmpty": "結果が見つかりませんでした。",
+      "searchPlaceholder": "検索...",
+      "importAlert": "インポートが開始されると、正常に完了するか失敗により終了するまで停止することはできません。インポート プロセスの結果は、完了すると通知されます。インポート中はテーブルを使用しないでください。エラーが発生する可能性があります。",
+      "noTips": "次回から表示しない"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "フィールドタイプの自動選択",
+      "useFirstRowAsHeaderOptionName": "最初の行をヘッダーとして使用",
+      "importDataOptionName": "データをインポート",
+      "sheetKey": "シート名: ",
+      "excludeFirstRow": "インポート時に最初の行を除外する"
+    },
+    "form": {
+      "defaultFieldName": "Field",
+      "error": {
+        "urlEmptyTip": "URLは空にできません！",
+        "errorFileFormat": "ファイル形式が正しくありません！",
+        "uniqueFieldName": "フィールド名は固有である必要があります！",
+        "fieldNameEmpty": "フィールド名は空にできません！",
+        "atLeastAImportField": "少なくとも1つはインポートフィールドを設定してください",
+        "urlValidateTip": "URL を解析できませんでした。別の URL を試してください！"
+      },
+      "option": {
+        "doNotImport": "インポートしない"
+      }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "CSVをダウンロード"
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "新しいレコードを追加",
+    "prefillingRowTooltip": "以下に新しいレコードデータを入力してください。この行の外側をクリックすると、レコードは自動的に保存されます。"
+  },
+  "form": {
+    "fieldsManagement": "フィールド",
+    "addAll": "すべて追加",
+    "removeAll": "すべて削除",
+    "hideFieldTip": "ここまでフィールドを非表示にする",
+    "unableAddFieldTip": "このタイプのフィールドを追加できません",
+    "removeFromFormTip": "フォームから削除",
+    "descriptionPlaceholder": "説明から入力",
+    "dragToFormTip": "フィールドをここにドラッグしてフォームに追加します"
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "フィールド名を非表示",
+      "customizeCards": "カードをカスタマイズする",
+      "stackedBy": "<0/> でスタック",
+      "chooseStackingField": "スタッキングフィールドを選択",
+      "chooseStackingFieldDescription": "このカンバンビューには、どの単一選択フィールドまたはユーザーフィールドを使用しますか？レコードはこのフィールドに基づいてスタックされます。",
+      "hideEmptyStack": "空のスタックを非表示",
+      "imageSetting": "画像設定",
+      "fit": "フィット",
+      "noImage": "画像がありません",
+      "chooseAttachmentField": "添付ファイルフィールドを選択"
+    },
+    "stack": {
+      "addStack": "スタックを追加",
+      "noCards": "カードがありません",
+      "uncategorized": "未分類"
+    },
+    "stackMenu": {
+      "collapseStack": "スタックを折りたたむ",
+      "renameStack": "スタックの名前を変更する",
+      "deleteStack": "スタックを削除"
+    },
+    "cardMenu": {
+      "insertCardAbove": "カードを上に挿入",
+      "insertCardBelow": "カードを下に挿入",
+      "expandCard": "カードを展開",
+      "deleteCard": "カードを削除"
+    }
+  },
+  "menu": {
+    "insertRecordAbove": "レコードを上に挿入",
+    "insertRecordBelow": "レコードを下に挿入",
+    "copyCells": "セルのコピー",
+    "deleteRecord": "レコードを削除",
+    "deleteAllSelectedRecords": "選択したすべてのレコードを削除",
+    "editField": "フィールドを編集",
+    "insertFieldLeft": "左に挿入",
+    "insertFieldRight": "右に挿入",
+    "freezeUpField": "このフィールドまでフリーズ",
+    "hideField": "フィールドを非表示",
+    "deleteField": "フィールドを削除",
+    "deleteAllSelectedFields": "選択したすべてのフィールドを削除"
+  },
+  "connection": {
+    "title": "データベース接続",
+    "description": "データベース接続を介して、現在のベースにあるすべてのテーブルを含むデータベースに直接アクセスできます。",
+    "noPermission": "データベースにアクセスする権限がありません",
+    "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
+    "helpLink": "https://help.teable.io/developer/database-connection"
+  },
+  "view": {
+    "addRecord": "レコードを追加",
+    "searchView": "ビューを検索...",
+    "dragToolTip": "自動並べ替えがオンになっており、手動ドラッグは利用できません",
+    "insertToolTip": "自動並べ替えがオンになっているため、順序付き挿入は利用できません",
+    "action": {
+      "rename": "ビューの名前を変更",
+      "delete": "ビューの削除"
+    },
+    "category": {
+      "table": "グリッドビュー",
+      "form": "フォームビュー",
+      "kanban": "カンバンビュー"
+    },
+    "crash": {
+      "title": "クラッシュしました！",
+      "description": "このビューは壊れています。それでも更新が失敗する場合は、お問い合わせください。support@teable.io"
+    }
+  },
+  "lastModifiedTime": "最終更新日時",
+  "lastModify": "最終更新: "
+}
