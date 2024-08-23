@@ -325,7 +325,7 @@
       "notSupportFieldType": "Field type is not supported",
       "resultEmpty": "No results found.",
       "searchPlaceholder": "Search...",
-      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The results of import process will be notified to you once completed. You should not use the table during the import as it may cause errors.",
+      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import status is displayed in the upper right corner of the table. The results of import process will be notified to you once completed. You should not update the field during the import as it may cause errors.",
       "noTips": "I know that, don't show again"
     },
     "options": {
