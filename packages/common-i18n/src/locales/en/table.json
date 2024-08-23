@@ -322,6 +322,7 @@
       "leaveTip": "Your data will still be imported.",
       "fileExceedSizeTip": "This type file size exceeds the limit of",
       "analyzing": "analyzing",
+      "importing": "Importing",
       "notSupportFieldType": "Field type is not supported",
       "resultEmpty": "No results found.",
       "searchPlaceholder": "Search...",
