@@ -440,7 +440,7 @@ export const TIME_ZONE_LIST = [
 ] as const;
 
 export const timeZoneStringSchema = z
-  .union([z.string(), z.enum(TIME_ZONE_LIST)])
+  .string()
   .refine(
     (value) => {
       try {

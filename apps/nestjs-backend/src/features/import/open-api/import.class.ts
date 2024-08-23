@@ -223,6 +223,7 @@ export class CsvImporter extends Importer {
         let isAbort = false;
         let totalRowCount = 0;
 
+        // TODO optimize toLineDelimitedStream slow down the import speed.
         Papa.parse(toLineDelimitedStream(stream), {
           download: false,
           dynamicTyping: true,
