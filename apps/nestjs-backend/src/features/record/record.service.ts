@@ -637,18 +637,29 @@ export class RecordService {
     await this.batchDel(tableId, recordIds);
   }
 
-  async getRecordIndexes(
-    tableId: string,
-    recordIds: string[]
-  ): Promise<Record<string, number>[] | undefined> {
-    const dbTableName = await this.getDbTableName(tableId);
+  private async getViewIndexColumns(dbTableName: string) {
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
     const columns = await this.prismaService
       .txClient()
       .$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
-    const viewIndexColumns = columns.filter((column) =>
-      column.name.startsWith(ROW_ORDER_FIELD_PREFIX)
-    );
+    return columns
+      .filter((column) => column.name.startsWith(ROW_ORDER_FIELD_PREFIX))
+      .map((column) => column.name);
+  }
+
+  async getRecordIndexes(
+    tableId: string,
+    recordIds: string[],
+    viewId?: string
+  ): Promise<Record<string, number>[] | undefined> {
+    const dbTableName = await this.getDbTableName(tableId);
+    const allViewIndexColumns = await this.getViewIndexColumns(dbTableName);
+    const viewIndexColumns = viewId
+      ? (() => {
+          const viewIndexColumns = allViewIndexColumns.filter((column) => column.endsWith(viewId));
+          return viewIndexColumns.length === 0 ? ['__auto_number'] : viewIndexColumns;
+        })()
+      : allViewIndexColumns;
 
     if (!viewIndexColumns.length) {
       return;
@@ -657,9 +668,13 @@ export class RecordService {
     // get all viewIndexColumns value for __id in recordIds
     const indexQuery = this.knex(dbTableName)
       .select(
-        viewIndexColumns.reduce<Record<string, string>>((acc, cur) => {
-          const viewId = cur.name.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
-          acc[viewId] = cur.name;
+        viewIndexColumns.reduce<Record<string, string>>((acc, columnName) => {
+          if (columnName === '__auto_number') {
+            acc[viewId as string] = '__auto_number';
+            return acc;
+          }
+          const theViewId = columnName.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
+          acc[theViewId] = columnName;
           return acc;
         }, {})
       )
@@ -678,6 +693,44 @@ export class RecordService {
     }, {});
 
     return recordIds.map((recordId) => indexMap[recordId]);
+  }
+
+  async updateRecordIndexes(
+    tableId: string,
+    recordsWithOrder: {
+      id: string;
+      order?: Record<string, number>;
+    }[]
+  ) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const viewIndexColumns = await this.getViewIndexColumns(dbTableName);
+    if (!viewIndexColumns.length) {
+      return;
+    }
+
+    const updateRecordSqls = recordsWithOrder
+      .map((record) => {
+        const order = record.order;
+        const orderFields = viewIndexColumns.reduce<Record<string, number>>((acc, columnName) => {
+          const viewId = columnName.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
+          const index = order?.[viewId];
+          if (index != null) {
+            acc[columnName] = index;
+          }
+          return acc;
+        }, {});
+
+        if (!order || Object.keys(orderFields).length === 0) {
+          return;
+        }
+
+        return this.knex(dbTableName).update(orderFields).where('__id', record.id).toQuery();
+      })
+      .filter(Boolean) as string[];
+
+    for (const sql of updateRecordSqls) {
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
+    }
   }
 
   @Timing()

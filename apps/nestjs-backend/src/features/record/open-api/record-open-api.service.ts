@@ -149,51 +149,6 @@ export class RecordOpenApiService {
     await this.recordService.createRecordsOnlySql(tableId, typecastRecords);
   }
 
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo, windowId?: string) {
-    const { originCellContexts } = await this.prismaService.$tx(async () => {
-      // validate cellValue and typecast
-      const typecastRecords = await this.validateFieldsAndTypecast(
-        tableId,
-        updateRecordsRo.records,
-        updateRecordsRo.fieldKeyType,
-        updateRecordsRo.typecast
-      );
-
-      const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
-        tableId,
-        typecastRecords
-      );
-
-      const originCellContexts = await this.recordCalculateService.calculateUpdatedRecord(
-        tableId,
-        updateRecordsRo.fieldKeyType,
-        preparedRecords
-      );
-
-      return { originCellContexts };
-    });
-
-    if (windowId) {
-      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
-        tableId,
-        windowId,
-        userId: this.cls.get('user.id'),
-        recordIds: updateRecordsRo.records.map((r) => r.id),
-        fieldIds: Object.keys(updateRecordsRo.records[0].fields),
-        cellContexts: originCellContexts,
-      });
-    }
-
-    const snapshots = await this.recordService.getSnapshotBulk(
-      tableId,
-      updateRecordsRo.records.map((r) => r.id),
-      undefined,
-      updateRecordsRo.fieldKeyType
-    );
-
-    return snapshots.map((snapshot) => snapshot.data);
-  }
-
   private async getEffectFieldInstances(
     tableId: string,
     recordsFields: Record<string, unknown>[],
@@ -275,28 +230,42 @@ export class RecordOpenApiService {
     }));
   }
 
-  async updateRecord(
+  async updateRecords(
     tableId: string,
-    recordId: string,
-    updateRecordRo: IUpdateRecordRo,
+    updateRecordsRo: IUpdateRecordsRo & {
+      records: {
+        id: string;
+        fields: Record<string, unknown>;
+        order?: Record<string, number>;
+      }[];
+    },
     windowId?: string
-  ): Promise<IRecord> {
-    const { originCellContexts, record } = await this.prismaService.$tx(async () => {
-      const { order, ...recordRo } = updateRecordRo;
+  ) {
+    const { records, order, fieldKeyType, typecast } = updateRecordsRo;
+    const orderIndexesBefore =
+      order != null && windowId
+        ? await this.recordService.getRecordIndexes(
+            tableId,
+            records.map((r) => r.id),
+            order.viewId
+          )
+        : undefined;
+
+    const { originCellContexts } = await this.prismaService.$tx(async () => {
       if (order != null) {
         const { viewId, anchorId, position } = order;
+
         await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
           anchorId,
           position,
-          recordIds: [recordId],
+          recordIds: records.map((r) => r.id),
         });
       }
 
-      const { fieldKeyType = FieldKeyType.Name, typecast, record } = recordRo;
-
+      // validate cellValue and typecast
       const typecastRecords = await this.validateFieldsAndTypecast(
         tableId,
-        [{ id: recordId, fields: record.fields }],
+        records,
         fieldKeyType,
         typecast
       );
@@ -312,32 +281,68 @@ export class RecordOpenApiService {
         preparedRecords
       );
 
-      // return record result
-      const snapshots = await this.recordService.getSnapshotBulk(
-        tableId,
-        [recordId],
-        undefined,
-        fieldKeyType
-      );
-
-      if (snapshots.length !== 1) {
-        throw new Error('update record failed');
-      }
-      return { originCellContexts, record: snapshots[0].data };
+      return { originCellContexts };
     });
 
     if (windowId) {
+      const orderIndexesAfter =
+        order != null
+          ? await this.recordService.getRecordIndexes(
+              tableId,
+              records.map((r) => r.id),
+              order.viewId
+            )
+          : undefined;
+
       this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
         tableId,
         windowId,
         userId: this.cls.get('user.id'),
-        recordIds: [recordId],
-        fieldIds: originCellContexts.map((cellContext) => cellContext.fieldId),
+        recordIds: records.map((r) => r.id),
+        fieldIds: Object.keys(records[0].fields),
         cellContexts: originCellContexts,
+        orderIndexesBefore,
+        orderIndexesAfter,
       });
     }
 
-    return record;
+    const snapshots = await this.recordService.getSnapshotBulk(
+      tableId,
+      updateRecordsRo.records.map((r) => r.id),
+      undefined,
+      updateRecordsRo.fieldKeyType
+    );
+
+    return snapshots.map((snapshot) => snapshot.data);
+  }
+
+  async updateRecord(
+    tableId: string,
+    recordId: string,
+    updateRecordRo: IUpdateRecordRo,
+    windowId?: string
+  ): Promise<IRecord> {
+    await this.updateRecords(
+      tableId,
+      {
+        ...updateRecordRo,
+        records: [{ id: recordId, fields: updateRecordRo.record.fields }],
+      },
+      windowId
+    );
+
+    const snapshots = await this.recordService.getSnapshotBulk(
+      tableId,
+      [recordId],
+      undefined,
+      updateRecordRo.fieldKeyType
+    );
+
+    if (snapshots.length !== 1) {
+      throw new Error('update record failed');
+    }
+
+    return snapshots[0].data;
   }
 
   async deleteRecord(tableId: string, recordId: string, windowId?: string) {

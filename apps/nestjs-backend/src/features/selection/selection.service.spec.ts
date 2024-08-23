@@ -612,7 +612,11 @@ describe('selectionService', () => {
         ranges: clearRo.ranges,
       });
       expect(selectionService['fillCells']).toHaveBeenCalledWith(records, [{ fields: {} }]);
-      expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith(tableId, updateRecordsRo);
+      expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith(
+        tableId,
+        updateRecordsRo,
+        undefined
+      );
     });
   });
 

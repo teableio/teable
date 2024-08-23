@@ -13,6 +13,8 @@ export interface IUpdateRecordsPayload {
   recordIds: string[];
   fieldIds: string[];
   cellContexts: ICellContext[];
+  orderIndexesBefore?: Record<string, number>[];
+  orderIndexesAfter?: Record<string, number>[];
 }
 
 export class UpdateRecordsOperation {
@@ -22,7 +24,26 @@ export class UpdateRecordsOperation {
   ) {}
 
   async event2Operation(payload: IUpdateRecordsPayload): Promise<IUpdateRecordsOperation> {
-    const { tableId, recordIds, fieldIds, cellContexts } = payload;
+    const { tableId, recordIds, fieldIds, cellContexts, orderIndexesAfter, orderIndexesBefore } =
+      payload;
+
+    const ordersMap = recordIds.reduce<{
+      [recordId: string]: {
+        newOrder?: Record<string, number>;
+        oldOrder?: Record<string, number>;
+      };
+    }>((acc, recordId, index) => {
+      if (orderIndexesAfter?.[index] == orderIndexesBefore?.[index]) {
+        return acc;
+      }
+
+      acc[recordId] = {
+        newOrder: orderIndexesAfter?.[index],
+        oldOrder: orderIndexesBefore?.[index],
+      };
+      return acc;
+    }, {});
+
     return {
       name: OperationName.UpdateRecords,
       params: {
@@ -32,6 +53,7 @@ export class UpdateRecordsOperation {
       },
       result: {
         cellContexts,
+        ordersMap,
       },
     };
   }
@@ -40,26 +62,31 @@ export class UpdateRecordsOperation {
   async undo(operation: IUpdateRecordsOperation) {
     const { params, result } = operation;
     const { tableId, recordIds, fieldIds } = params;
-    const { cellContexts } = result;
+    const { cellContexts, ordersMap } = result;
 
     const cellContextMap = keyBy(
       cellContexts,
       (cellContext) => `${cellContext.recordId}-${cellContext.fieldId}`
     );
 
+    const records = recordIds.map((recordId) => ({
+      id: recordId,
+      fields: fieldIds.reduce<Record<string, unknown>>((acc, fieldId) => {
+        const key = `${recordId}-${fieldId}`;
+        const cellContext = cellContextMap[key];
+        if (cellContext) {
+          acc[fieldId] = cellContext.oldValue == null ? null : cellContext.oldValue;
+        }
+        return acc;
+      }, {}),
+      order: ordersMap?.[recordId]?.oldOrder,
+    }));
+
+    await this.recordService.updateRecordIndexes(tableId, records);
+
     await this.recordOpenApiService.updateRecords(tableId, {
       fieldKeyType: FieldKeyType.Id,
-      records: recordIds.map((recordId) => ({
-        id: recordId,
-        fields: fieldIds.reduce<Record<string, unknown>>((acc, fieldId) => {
-          const key = `${recordId}-${fieldId}`;
-          const cellContext = cellContextMap[key];
-          if (cellContext) {
-            acc[fieldId] = cellContext.oldValue == null ? null : cellContext.oldValue;
-          }
-          return acc;
-        }, {}),
-      })),
+      records,
     });
 
     return operation;
@@ -68,26 +95,31 @@ export class UpdateRecordsOperation {
   async redo(operation: IUpdateRecordsOperation) {
     const { params, result } = operation;
     const { tableId, recordIds, fieldIds } = params;
-    const { cellContexts } = result;
+    const { cellContexts, ordersMap } = result;
 
     const cellContextMap = keyBy(
       cellContexts,
       (cellContext) => `${cellContext.recordId}-${cellContext.fieldId}`
     );
 
+    const records = recordIds.map((recordId) => ({
+      id: recordId,
+      fields: fieldIds.reduce<Record<string, unknown>>((acc, fieldId) => {
+        const key = `${recordId}-${fieldId}`;
+        const cellContext = cellContextMap[key];
+        if (cellContext) {
+          acc[fieldId] = cellContext.newValue == null ? null : cellContext.newValue;
+        }
+        return acc;
+      }, {}),
+      order: ordersMap?.[recordId]?.newOrder,
+    }));
+
+    await this.recordService.updateRecordIndexes(tableId, records);
+
     await this.recordOpenApiService.updateRecords(tableId, {
       fieldKeyType: FieldKeyType.Id,
-      records: recordIds.map((recordId) => ({
-        id: recordId,
-        fields: fieldIds.reduce<Record<string, unknown>>((acc, fieldId) => {
-          const key = `${recordId}-${fieldId}`;
-          const cellContext = cellContextMap[key];
-          if (cellContext) {
-            acc[fieldId] = cellContext.newValue == null ? null : cellContext.newValue;
-          }
-          return acc;
-        }, {}),
-      })),
+      records,
     });
 
     return operation;

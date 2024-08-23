@@ -1,5 +1,16 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Headers,
+} from '@nestjs/common';
 import type { IViewVo } from '@teable/core';
 import {
   viewRoSchema,
@@ -216,9 +227,15 @@ export class ViewOpenApiController {
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
     @Body(new ZodValidationPipe(updateRecordOrdersRoSchema))
-    updateRecordOrdersRo: IUpdateRecordOrdersRo
+    updateRecordOrdersRo: IUpdateRecordOrdersRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
-    return await this.viewOpenApiService.updateRecordOrders(tableId, viewId, updateRecordOrdersRo);
+    return await this.viewOpenApiService.updateRecordOrders(
+      tableId,
+      viewId,
+      updateRecordOrdersRo,
+      windowId
+    );
   }
 
   @Permissions('view|update')

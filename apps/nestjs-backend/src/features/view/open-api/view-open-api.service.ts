@@ -36,8 +36,12 @@ import type {
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
+import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
 import { FieldService } from '../../field/field.service';
@@ -55,6 +59,8 @@ export class ViewOpenApiService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -438,11 +444,38 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateRecordOrders(tableId: string, viewId: string, orderRo: IUpdateRecordOrdersRo) {
+  async updateRecordIndexes(
+    tableId: string,
+    viewId: string,
+    recordsWithOrder: {
+      id: string;
+      order?: Record<string, number>;
+    }[]
+  ) {
+    // for notify view update only
+    await this.prismaService.$tx(async () => {
+      const ops = ViewOpBuilder.editor.setViewProperty.build({
+        key: 'lastModifiedTime',
+        newValue: new Date().toISOString(),
+      });
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+      await this.recordService.updateRecordIndexes(tableId, recordsWithOrder);
+    });
+  }
+
+  async updateRecordOrders(
+    tableId: string,
+    viewId: string,
+    orderRo: IUpdateRecordOrdersRo,
+    windowId?: string
+  ) {
+    const recordIds = orderRo.recordIds;
     const dbTableName = await this.recordService.getDbTableName(tableId);
+    const orderIndexesBefore = windowId
+      ? await this.recordService.getRecordIndexes(tableId, recordIds, viewId)
+      : undefined;
 
     const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
-    const recordIds = orderRo.recordIds;
 
     await this.updateRecordOrdersInner({
       tableId,
@@ -472,6 +505,23 @@ export class ViewOpenApiService {
         });
       },
     });
+
+    if (windowId) {
+      const orderIndexesAfter = await this.recordService.getRecordIndexes(
+        tableId,
+        recordIds,
+        viewId
+      );
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_ORDER_UPDATE, {
+        tableId,
+        windowId,
+        recordIds,
+        viewId,
+        userId: this.cls.get('user.id'),
+        orderIndexesBefore,
+        orderIndexesAfter,
+      });
+    }
   }
 
   async refreshShareId(tableId: string, viewId: string) {

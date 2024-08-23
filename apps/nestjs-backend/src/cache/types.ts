@@ -77,6 +77,7 @@ export enum OperationName {
   CreateRecords = 'createRecords',
   DeleteRecords = 'deleteRecords',
   UpdateRecords = 'updateRecords',
+  UpdateRecordsOrder = 'updateRecordsOrder',
   CreateField = 'createField',
   UpdateField = 'updateField',
   DeleteField = 'deleteField',
@@ -97,7 +98,30 @@ export interface IUpdateRecordsOperation extends IUndoRedoOperationBase {
     fieldIds: string[];
   };
   result: {
-    cellContexts: ICellContext[];
+    cellContexts?: ICellContext[];
+    ordersMap?: {
+      [recordId: string]: {
+        newOrder?: Record<string, number>;
+        oldOrder?: Record<string, number>;
+      };
+    };
+  };
+}
+
+export interface IUpdateRecordsOrderOperation extends IUndoRedoOperationBase {
+  name: OperationName.UpdateRecordsOrder;
+  params: {
+    tableId: string;
+    viewId: string;
+    recordIds: string[];
+  };
+  result: {
+    ordersMap?: {
+      [recordId: string]: {
+        newOrder?: Record<string, number>;
+        oldOrder?: Record<string, number>;
+      };
+    };
   };
 }
 
@@ -124,4 +148,5 @@ export interface IDeleteRecordsOperation extends IUndoRedoOperationBase {
 export type IUndoRedoOperation =
   | IUpdateRecordsOperation
   | ICreateRecordsOperation
-  | IDeleteRecordsOperation;
+  | IDeleteRecordsOperation
+  | IUpdateRecordsOrderOperation;

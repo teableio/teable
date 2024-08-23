@@ -14,6 +14,7 @@ import {
   redo,
   undo,
   updateRecord,
+  updateRecordOrders,
   type ITableFullVo,
 } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -365,5 +366,96 @@ describe('Undo Redo (e2e)', () => {
     ).data;
 
     expect(updatedRecordAfterRedo.fields[table.fields[0].id]).toBeUndefined();
+  });
+
+  it('should undo / redo update record value with order', async () => {
+    // update and move 0 to 2
+    const recordId = table.records[0].id;
+    await awaitWithEvent(() =>
+      updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [table.fields[0].id]: 'A' } },
+        order: {
+          viewId: table.views[0].id,
+          anchorId: table.records[2].id,
+          position: 'after',
+        },
+      })
+    );
+
+    const records = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(records.records[2].fields[table.fields[0].id]).toEqual('A');
+
+    await undo(table.id);
+
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterUndo.records[0].id).toEqual(recordId);
+    expect(recordsAfterUndo.records[0].fields[table.fields[0].id]).toBeUndefined();
+
+    await redo(table.id);
+
+    const recordsAfterRedo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterRedo.records[2].fields[table.fields[0].id]).toEqual('A');
+  });
+
+  it('should undo / redo update record order in view', async () => {
+    // update and move 0 to 2
+    const recordId = table.records[0].id;
+    await awaitWithEvent(() =>
+      updateRecordOrders(table.id, table.views[0].id, {
+        anchorId: table.records[2].id,
+        position: 'after',
+        recordIds: [table.records[0].id],
+      })
+    );
+
+    const records = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(records.records[2].id).toEqual(recordId);
+
+    await undo(table.id);
+
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterUndo.records[0].id).toEqual(recordId);
+
+    await redo(table.id);
+
+    const recordsAfterRedo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterRedo.records[2].id).toEqual(recordId);
   });
 });
