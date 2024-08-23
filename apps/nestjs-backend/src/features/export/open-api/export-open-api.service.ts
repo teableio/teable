@@ -1,7 +1,7 @@
 import { Readable } from 'stream';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
 import Papa from 'papaparse';
@@ -13,17 +13,18 @@ import { RecordService } from '../../record/record.service';
 export class ExportOpenApiService {
   private logger = new Logger(ExportOpenApiService.name);
   constructor(
-    private readonly recordService: RecordService,
     private readonly fieldService: FieldService,
+    private readonly recordService: RecordService,
     private readonly prismaService: PrismaService
   ) {}
-  async exportCsvFromTable(tableId: string, response: Response) {
+  async exportCsvFromTable(response: Response, tableId: string, viewId?: string) {
     let count = 0;
     let isOver = false;
     const csvStream = new Readable({
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       read() {},
     });
+    let viewRaw = null;
 
     const tableRaw = await this.prismaService.tableMeta
       .findUnique({
@@ -34,7 +35,32 @@ export class ExportOpenApiService {
         throw new BadRequestException('table is not found');
       });
 
-    const fileName = tableRaw?.name ? encodeURIComponent(tableRaw?.name) : 'export';
+    if (viewId) {
+      viewRaw = await this.prismaService.view
+        .findUnique({
+          where: {
+            id: viewId,
+            tableId,
+            deletedTime: null,
+          },
+          select: {
+            name: true,
+            id: true,
+            type: true,
+          },
+        })
+        .catch((e) => {
+          this.logger.error(e?.message, `ExportCsv: ${tableId}`);
+        });
+
+      if (viewRaw?.type !== ViewType.Grid) {
+        throw new BadRequestException(`${viewRaw?.type} is not support to export`);
+      }
+    }
+
+    const fileName = tableRaw?.name
+      ? encodeURIComponent(`${tableRaw?.name}${viewRaw?.name ? `_${viewRaw.name}` : ''}`)
+      : 'export';
 
     response.setHeader('Content-Type', 'text/csv');
     response.setHeader('Content-Disposition', `attachment; filename=${fileName}.csv`);
@@ -42,7 +68,9 @@ export class ExportOpenApiService {
     csvStream.pipe(response);
 
     // set headers as first row
-    const headers = await this.fieldService.getFieldsByQuery(tableId);
+    const headers = await this.fieldService.getFieldsByQuery(tableId, {
+      viewId: viewRaw?.id ? viewRaw?.id : undefined,
+    });
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
 
     const headersInfoMap = new Map(
@@ -63,6 +91,7 @@ export class ExportOpenApiService {
         const { records } = await this.recordService.getRecords(tableId, {
           take: 1000,
           skip: count,
+          viewId: viewRaw?.id ? viewRaw?.id : undefined,
         });
         if (records.length === 0) {
           isOver = true;
