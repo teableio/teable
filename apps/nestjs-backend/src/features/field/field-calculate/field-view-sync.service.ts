@@ -6,9 +6,10 @@ import type {
   ISelectFieldOptions,
   IFilterItem,
   IFilter,
+  IFilterValue,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { isEqual, differenceBy, find } from 'lodash';
+import { isEqual, differenceBy, find, isEmpty } from 'lodash';
 import { ViewService } from '../../view/view.service';
 import type { IFieldInstance } from '../model/factory';
 
@@ -154,21 +155,16 @@ export class FieldViewSyncService {
 
     const transformFilter = (filter: IFilterSet | IFilterItem): IFilterSet | IFilterItem => {
       if ('filterSet' in filter) {
+        const newFilterSet = filter.filterSet.map(transformFilter);
         return {
           conjunction: filter.conjunction,
-          filterSet: filter.filterSet.map(transformFilter),
+          filterSet: newFilterSet.filter((item) => !isEmpty(item)),
         };
       } else {
         // target item
-        if (filter.fieldId === fieldId) {
-          const newValue = transformValue(filter.value);
-          return {
-            ...filter,
-            value: filter.value !== null ? newValue : null,
-            shouldDelete: newValue === null,
-          } as IFilterItem & {
-            shouldDelete: boolean;
-          };
+        if (filter.fieldId === fieldId && filter.value !== null) {
+          const newValue = transformValue(filter.value) as IFilterValue;
+          return (newValue ? { ...filter, value: newValue } : {}) as IFilterItem;
         }
         return {
           ...filter,
@@ -176,32 +172,6 @@ export class FieldViewSyncService {
       }
     };
 
-    const deleteConvertEmptyFilterItem = (
-      filter: IFilterSet | IFilterItem
-    ): IFilterSet | IFilterItem => {
-      if ('filterSet' in filter) {
-        return {
-          conjunction: filter.conjunction,
-          filterSet: filter.filterSet
-            .filter((item) => {
-              if (!Array.isArray(item)) {
-                return !(
-                  item as IFilterItem & {
-                    shouldDelete: boolean;
-                  }
-                ).shouldDelete;
-              }
-              return true;
-            })
-            .filter(transformFilter),
-        };
-      } else {
-        return {
-          ...filter,
-        };
-      }
-    };
-
-    return deleteConvertEmptyFilterItem(transformFilter(data)) as IFilterSet;
+    return transformFilter(data) as IFilterSet;
   }
 }

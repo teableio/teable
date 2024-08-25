@@ -2,7 +2,7 @@ import { generateAttachmentId } from '@teable/core';
 import type { SUPPORTEDTYPE, INotifyVo } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
-import { Spin, Button } from '@teable/ui-lib';
+import { Spin, Button, cn } from '@teable/ui-lib';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Process } from './Process';
@@ -25,7 +25,11 @@ const UploadPanel = (props: IUploadPanelProps) => {
   const [isImporting, setIsImporting] = useState(false);
 
   return (
-    <div className="relative flex h-96 items-center justify-center">
+    <div
+      className={cn('relative flex h-96 items-center justify-center', {
+        'pointer-events-none': isImporting,
+      })}
+    >
       {!file ? (
         <Trigger
           onBeforeUpload={() => {
@@ -51,7 +55,7 @@ const UploadPanel = (props: IUploadPanelProps) => {
             onChange(file);
           }}
         >
-          <div className="flex h-full cursor-pointer items-center justify-center rounded-sm border-2 border-dashed hover:border-secondary">
+          <div className="flex h-full items-center justify-center rounded-sm border-2 border-dashed hover:border-secondary">
             {!isImporting ? (
               <Button variant="ghost">{t('table:import.tips.importWayTip')}</Button>
             ) : (
