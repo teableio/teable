@@ -13,6 +13,7 @@ const languages = [
   { key: 'zh', title: '中文' },
   { key: 'en', title: 'English' },
   { key: 'fr', title: 'Français' },
+  { key: 'ja', title: '日本語' },  
   { key: 'default', title: 'Default' },
 ];
 
