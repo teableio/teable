@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useImportStatus } from '../hooks/use-import-status';
 
 export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   const { connected } = useConnection();
@@ -15,6 +16,8 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
   const table = useTable();
   const dayjs = useLanDayjs();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const { loading: isImporting } = useImportStatus(table?.id as string);
 
   const icon = table?.icon ? (
     <Emoji size={'1.25rem'} emoji={table.icon} />
@@ -25,7 +28,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
     <div
       className={cn('flex justify-center items-center relative overflow-hidden gap-2', className)}
     >
-      {connected ? (
+      {connected && !isImporting ? (
         <EmojiPicker
           className="flex size-5 cursor-pointer items-center justify-center hover:bg-muted-foreground/60"
           onChange={(icon: string) => table?.updateIcon(icon)}

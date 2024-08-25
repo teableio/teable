@@ -1,4 +1,9 @@
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { z } from '../../../zod';
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export const TIME_ZONE_LIST = [
   'utc',
@@ -434,6 +439,19 @@ export const TIME_ZONE_LIST = [
   'Pacific/Wallis',
 ] as const;
 
-export const timeZoneStringSchema = z.enum(TIME_ZONE_LIST).openapi({
-  description: 'The time zone that should be used to format dates',
-});
+export const timeZoneStringSchema = z
+  .string()
+  .refine(
+    (value) => {
+      try {
+        dayjs().tz(value);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    },
+    (value) => ({ message: `"${value}" is not a valid timezone` })
+  )
+  .openapi({
+    description: 'The time zone that should be used to format dates',
+  });
