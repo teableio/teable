@@ -58,78 +58,78 @@
         "disMatch": "Введенные пароли не совпадают.",
         "equal": "Новый пароль должен отличаться от текущего пароля.",
         "invalid": "Текущий пароль неверен.",
-        "invalidNew": "Your new password is invalid, minimum 8 chars."
+        "invalidNew": "Ваш новый пароль недействителен, минимум 8 символов."
       },
       "changePasswordSuccess": {
-        "title": "🎉 Change password successfully.",
-        "desc": "You will be redirected to the login page in 2 seconds."
+        "title": "🎉 Изменение пароля успешно.",
+        "desc": "Вы будете перенапралены на страницу входа через несколько секунд."
       },
       "manageToken": "Access Token",
       "addPassword": {
-        "title": "Add password",
-        "desc": "Set a permanent password to login to your account.",
-        "password": "Enter your password",
-        "confirm": "Confirm your password"
+        "title": "Добавление пароля",
+        "desc": "Установите постоянный пароль для входа в свою учетную запись.",
+        "password": "Введите свой пароль",
+        "confirm": "Повторите пароль"
       },
       "addPasswordError": {
-        "disMatch": "Your password does not match.",
-        "invalid": "Your password is invalid, minimum 8 chars."
+        "disMatch": "Пароли не совпадают.",
+        "invalid": "Ваш пароль недействителен, минимум 8 символов."
       },
       "addPasswordSuccess": {
-        "title": "🎉 Add password successfully."
+        "title": "🎉 Добавление пароля успешно."
       }
     },
     "notify": {
-      "title": "My Notifications",
-      "label": "Activity in your space",
-      "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
+      "title": "Мои уведомления",
+      "label": "Активность в вашем сообществе",
+      "desc": "Получайте письма, когда получаете комментарии, упоминания, приглашения на страницу, напоминания, запросы на доступ и изменения свойств."
     },
     "setting": {
-      "title": "My Settings",
-      "theme": "Theme",
-      "themeDesc": "Select the theme for the app.",
-      "dark": "Dark",
-      "light": "Light",
-      "system": "System",
-      "version": "App version",
-      "language": "Language"
+      "title": "Мои настройки",
+      "theme": "Тема",
+      "themeDesc": "Выберите тему для приложения.",
+      "dark": "Темный",
+      "light": "Светлая",
+      "system": "Системный",
+      "version": "Версия приложения",
+      "language": "Язык"
     },
     "nav": {
-      "settings": "Settings",
-      "logout": "Log out"
+      "settings": "Настройки",
+      "logout": "Выйти"
     },
     "integration": {
-      "title": "Integrations",
-      "description": "You have granted {{count}} applications access to your account.",
-      "lastUsed": "Last used at {{date}}",
-      "revoke": "Revoke",
-      "owner": "Owner by {{user}}",
-      "revokeTitle": "Are you sure you want to revoke authorization?",
-      "revokeDesc": "{{name}} will no longer be able to access the Teable API. You cannot undo this action.",
+      "title": "Интеграции",
+      "description": "Вы предоставили {{count}} приложениям доступ к вашей учетной записи.",
+      "lastUsed": "Последний раз использовано {{date}}",
+      "revoke": "Отмена",
+      "owner": "Владелец {{user}}",
+      "revokeTitle": "Вы уверены, что хотите отменить авторизацию?",
+      "revokeDesc": "{{name}} больше не сможет получить доступ к Teable API. Это действие нельзя отменить.",
       "scopeTitle": "Permissions",
-      "scopeDesc": "This application will be able to get the following scopes:"
+      "scopeDesc": "Это приложение сможет получить следующие области:"
     }
   },
   "noun": {
-    "table": "Table",
-    "view": "View",
-    "space": "Space",
-    "base": "Base",
-    "field": "Field",
-    "record": "Record",
-    "dashboard": "Dashboard",
-    "automation": "Automation",
-    "authorityMatrix": "Authority Matrix",
-    "adminPanel": "Admin Panel",
-    "license": "License",
-    "instanceId": "Instance ID",
+    "table": "Таблица",
+    "view": "Представление",
+    "space": "Рабочее пространство",
+    "base": "База данных",
+    "field": "Поле",
+    "record": "Запись",
+    "dashboard": "Контрольная панель",
+    "automation": "Автоматизация",
+    "authorityMatrix": "Матрица полномочий",
+    "adminPanel": "Панель администратора",
+    "license": "Лицензия",
+    "instanceId": "ID экземпляра",
     "beta": "Beta"
   },
   "level": {
-    "free": "Free",
+    "free": "Бесплатно",
     "plus": "Plus",
     "pro": "Pro",
-    "enterprise": "Enterprise"
+    "enterprise": "Предприятие"
   },
   "noResult": "Результатов нет.",
   "untitled": "Без названия",
@@ -162,97 +162,97 @@
   "poweredBy": "Работает на <0></0>",
   "invite": {
     "dialog": {
-      "title": "{{spaceName}} space sharing",
-      "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all bases within this space.",
-      "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all bases within this space.",
-      "tabEmail": "Invite by email",
-      "emailPlaceholder": "Invite more collaborators via email",
-      "tabLink": "Invite by link",
-      "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
-      "emailSend": "Send invite",
-      "linkSend": "Create link",
-      "spaceTitle": "Space collaborators",
-      "collaboratorSearchPlaceholder": "Find a space collaborator by name or email",
-      "collaboratorJoin": "joined {{joinTime}}",
-      "collaboratorRemove": "Remove collaborator",
-      "linkTitle": "Invite links",
-      "linkCreatedTime": "created {{createdTime}}",
-      "linkCopySuccess": "Link copied",
-      "linkRemove": "Remove link"
+      "title": "{{spaceName}} совместное использование пространства",
+      "desc_one": "В этом сообществе есть <b>Сотрудник{{count}}</b>. Добавление соавторов по космосу даст им доступ ко всем базам этой области.",
+      "desc_other": "В этом сообществе есть <b>{{count}} соавторы</b>. Добавление соавторов по космосу даст им доступ ко всем базам этой области.",
+      "tabEmail": "Пригласить по электронной почте",
+      "emailPlaceholder": "Пригласить больше соавторов по электронной почте",
+      "tabLink": "Пригласить по ссылке",
+      "linkPlaceholder": "Создайте ссылку-приглашение, которая предоставляет доступ к <0/> всем, кто открывает ее.",
+      "emailSend": "Отправить приглашение",
+      "linkSend": "Создать ссылку",
+      "spaceTitle": "Соавторы космоса",
+      "collaboratorSearchPlaceholder": "Найти соавтора по имени или по электронной почте",
+      "collaboratorJoin": "присоединился к {{joinTime}}",
+      "collaboratorRemove": "Удалить соавтора",
+      "linkTitle": "Пригласительные ссылки",
+      "linkCreatedTime": "создал {{createdTime}}",
+      "linkCopySuccess": "Ссылка скопирована",
+      "linkRemove": "Удалить ссылку"
     },
     "base": {
-      "title": "Share {{baseName}}",
-      "desc_one": "This base is shared with {{count}} collaborator.",
-      "desc_other": "This base is shared with {{count}} collaborators.",
-      "baseTitle": "Base collaborators",
-      "collaboratorSearchPlaceholder": "Find a base collaborator by name or email"
+      "title": "Поделиться {{baseName}}",
+      "desc_one": "Эта база разделена с соавтором {{count}}.",
+      "desc_other": "Эта база разделена с соавторами {{count}}.",
+      "baseTitle": "Основные соавторы",
+      "collaboratorSearchPlaceholder": "Найти базового соавтора по имени или по электронной почте"
     }
   },
   "help": {
-    "title": "Help",
+    "title": "Помощь",
     "mainLink": "https://help.teable.io",
     "apiLink": "https://help.teable.io/developer/api"
   },
-  "pagePermissionChangeTip": "Page permissions have been updated. Please refresh the page to see the latest content.",
-  "listEmptyTips": "The list is empty",
+  "pagePermissionChangeTip": "Права доступа к странице были обновлены. Пожалуйста, обновите страницу, чтобы увидеть последнее содержимое.",
+  "listEmptyTips": "Список пуст",
   "billing": {
-    "overLimits": "Over limits",
-    "overLimitsDescription": "Your current subscription has exceeded its usage limit. Please upgrade your plan to continue using this feature without interruption.",
-    "userLimitExceededDescription": "The current instance have reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
-    "unavailableInPlanTips": "The current subscription plan does not support this feature",
-    "levelTips": "This space is currently on the {{level}} plan",
+    "overLimits": "Превышение лимитов",
+    "overLimitsDescription": "Ваша текущая подписка превысила лимит. Пожалуйста, обновите тарифный план, чтобы использовать эту функцию без прерывания.",
+    "userLimitExceededDescription": "Текущий экземпляр достиг максимального количества пользователей, разрешенных вашей лицензией. Пожалуйста, отключите некоторых пользователей или обновите лицензию.",
+    "unavailableInPlanTips": "Текущий план подписки не поддерживает эту функцию",
+    "levelTips": "В настоящее время эта область находится на плане {{level}}",
     "spaceSubscriptionModal": {
-      "title": "Upgrade space's subscription plan",
-      "description": "You can only upgrade workspaces where you are an owner"
+      "title": "Обновить план подписки на пространство",
+      "description": "Вы можете обновить только рабочие области, в которых вы являетесь владельцем"
     },
     "status": {
-      "active": "Active",
-      "canceled": "Canceled",
-      "incomplete": "Incomplete",
-      "incompleteExpired": "Incomplete Expired",
-      "trialing": "Trialing",
-      "pastDue": "Past Due",
-      "unpaid": "Unpaid",
-      "paused": "Paused",
-      "seatLimitExceeded": "Seat limit exceeded"
+      "active": "Активно",
+      "canceled": "Отменено",
+      "incomplete": "Не выполнено",
+      "incompleteExpired": "Неполный срок действия истек",
+      "trialing": "На пробном периоде",
+      "pastDue": "Просрочка",
+      "unpaid": "Не оплачено",
+      "paused": "Приостановлено",
+      "seatLimitExceeded": "Превышен лимит сидений"
     }
   },
   "admin": {
     "setting": {
-      "description": "Change the settings for your current instance",
-      "allowSignUp": "Allow creating new accounts",
-      "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",
-      "allowSpaceInvitation": "Allow sending space invitations",
-      "allowSpaceInvitationDescription": "Disabling this option will prevent users other than administrators from inviting others to join spaces. Enabling this option will allow directly invited users to create an account even if new account registration is disabled.",
-      "allowSpaceCreation": "Allow everyone to create new spaces",
-      "allowSpaceCreationDescription": "Disabling this option will prevent users other than administrators from creating new spaces."
+      "description": "Изменить настройки для текущего экземпляра",
+      "allowSignUp": "Разрешить создание новых аккаунтов",
+      "allowSignUpDescription": "Отключение этой опции запретит регистрацию новых пользователей, и кнопка \"Регистрация\" больше не будет отображаться на странице входа в систему.",
+      "allowSpaceInvitation": "Разрешить отправку приглашений к пространству",
+      "allowSpaceInvitationDescription": "Отключение этой опции не позволит пользователям, отличным от администраторов, приглашать других пользователей присоединиться к сообществам. Включение этой опции позволит непосредственно приглашенным пользователям создавать учётную запись, даже если регистрация новой учетной записи отключена.",
+      "allowSpaceCreation": "Разрешить всем создавать новые сообщества",
+      "allowSpaceCreationDescription": "Отключение этой опции не позволит пользователям, отличным от администраторов, создавать новые пространства."
     }
   },
   "notification": {
-    "title": "Notifications",
-    "unread": "Unread",
-    "read": "Read",
-    "markAs": "Mark this notification as {{status}}",
-    "markAllAsRead": "Mark all as read",
-    "noUnread": "No {{status}} notifications",
-    "changeSetting": "Change page notification settings",
-    "new": "new {{count}}",
-    "showMore": "Show more"
+    "title": "Уведомления",
+    "unread": "Непрочитанный",
+    "read": "Прочитано",
+    "markAs": "Отметить это уведомление как {{status}}",
+    "markAllAsRead": "Отметить всё как прочитанное",
+    "noUnread": "Нет уведомлений {{status}}",
+    "changeSetting": "Изменить настройки уведомлений страницы",
+    "new": "новая {{count}}",
+    "showMore": "Показать еще"
   },
   "role": {
     "title": {
-      "owner": "Owner",
-      "creator": "Creator",
-      "editor": "Editor",
-      "commenter": "Commenter",
-      "viewer": "Viewer"
+      "owner": "Владелец",
+      "creator": "Создатель",
+      "editor": "Редактор",
+      "commenter": "Комментатор",
+      "viewer": "Просмотрщик"
     },
     "description": {
-      "owner": "Can fully configure and edit bases, automation, authority matrices and manage space settings and billing",
-      "creator": "Can fully configure and edit bases, automation and enable the authority matrix",
-      "editor": "Can edit records and views, but cannot configure tables or fields",
-      "commenter": "Can comment on records",
-      "viewer": "Cannot edit or comment"
+      "owner": "Может полностью настраивать и редактировать базы данных, автоматизацию, матрицы полномочий, а также управлять настройками пространства и выставление счетов",
+      "creator": "Может полностью настраивать и редактировать базы данных и автоматизацию, а также включать матрицу полномочий",
+      "editor": "Может редактировать записи и представления, но не может настраивать таблицы или поля",
+      "commenter": "Может комментировать записи",
+      "viewer": "Не может редактировать или комментировать"
     }
   }
 }
