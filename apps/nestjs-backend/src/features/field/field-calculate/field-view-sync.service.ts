@@ -9,7 +9,7 @@ import type {
   IFilterValue,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { isEqual, differenceBy, find } from 'lodash';
+import { isEqual, differenceBy, find, isEmpty } from 'lodash';
 import { ViewService } from '../../view/view.service';
 import type { IFieldInstance } from '../model/factory';
 
@@ -153,18 +153,18 @@ export class FieldViewSyncService {
       return value;
     };
 
-    const transformFilter = (filter: IFilterSet | IFilterItem): IFilterSet | IFilterItem | null => {
+    const transformFilter = (filter: IFilterSet | IFilterItem): IFilterSet | IFilterItem => {
       if ('filterSet' in filter) {
         const newFilterSet = filter.filterSet.map(transformFilter);
         return {
           conjunction: filter.conjunction,
-          filterSet: newFilterSet.filter((item) => !!item),
+          filterSet: newFilterSet.filter((item) => !isEmpty(item)),
         };
       } else {
         // target item
         if (filter.fieldId === fieldId && filter.value !== null) {
           const newValue = transformValue(filter.value) as IFilterValue;
-          return newValue ? { ...filter, value: newValue } : null;
+          return (newValue ? { ...filter, value: newValue } : {}) as IFilterItem;
         }
         return {
           ...filter,
