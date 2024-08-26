@@ -55,8 +55,6 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
 
   const { conjunction, children } = valueProp;
 
-  console.log('transformed value', value);
-
   const defaultGroupValue = useMemo<IBaseFilterItem<T>>(
     () =>
       defaultGroupValueFromProps || {

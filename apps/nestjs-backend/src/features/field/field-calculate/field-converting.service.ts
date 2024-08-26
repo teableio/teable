@@ -10,11 +10,6 @@ import type {
   IOtOperation,
   ISelectFieldChoice,
   IConvertFieldRo,
-  IFilterSet,
-  ISelectFieldOptionsRo,
-  ISelectFieldOptions,
-  IFilterItem,
-  IFilter,
 } from '@teable/core';
 import {
   ColorUtils,
@@ -25,12 +20,10 @@ import {
   generateChoiceId,
   isMultiValueLink,
   RecordOpBuilder,
-  getValidFilterOperators,
-  ViewOpBuilder,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { difference, intersection, isEmpty, isEqual, keyBy, set, find, differenceBy } from 'lodash';
+import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
