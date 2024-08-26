@@ -1,21 +1,36 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { FieldOpBuilder, IFieldRo } from '@teable/core';
-import type { IFieldVo, IConvertFieldRo, IUpdateFieldRo, IOtOperation } from '@teable/core';
+import { FieldKeyType, FieldOpBuilder, IFieldRo } from '@teable/core';
+import type {
+  IFieldVo,
+  IConvertFieldRo,
+  IUpdateFieldRo,
+  IOtOperation,
+  IColumnMeta,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { GraphService } from '../../graph/graph.service';
+import { RecordService } from '../../record/record.service';
+import { ViewService } from '../../view/view.service';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
 import { FieldDeletingService } from '../field-calculate/field-deleting.service';
 import { FieldSupplementService } from '../field-calculate/field-supplement.service';
 import { FieldViewSyncService } from '../field-calculate/field-view-sync.service';
 import { FieldService } from '../field.service';
-import { createFieldInstanceByVo } from '../model/factory';
+import type { IFieldInstance } from '../model/factory';
+import {
+  convertFieldInstanceToFieldVo,
+  createFieldInstanceByRaw,
+  createFieldInstanceByVo,
+} from '../model/factory';
 
 @Injectable()
 export class FieldOpenApiService {
@@ -24,12 +39,15 @@ export class FieldOpenApiService {
     private readonly graphService: GraphService,
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
+    private readonly viewService: ViewService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldConvertingService: FieldConvertingService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly fieldViewSyncService: FieldViewSyncService,
+    private readonly recordService: RecordService,
+    private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -48,11 +66,45 @@ export class FieldOpenApiService {
   }
 
   @Timing()
-  async createField(tableId: string, fieldRo: IFieldRo) {
+  async createFields(tableId: string, fields: IFieldInstance[], columnsMeta?: IColumnMeta[]) {
+    const newFields = await this.prismaService.$tx(async () => {
+      const newFields: { tableId: string; field: IFieldInstance }[] = [];
+      for (let i = 0; i < fields.length; i++) {
+        const field = fields[i];
+        const columnMeta = columnsMeta?.[i];
+        const createResult = await this.fieldCreatingService.alterCreateField(
+          tableId,
+          field,
+          columnMeta
+        );
+        newFields.push(...createResult);
+      }
+
+      return newFields;
+    });
+
+    await this.prismaService.$tx(
+      async () => {
+        for (const { tableId, field } of newFields) {
+          if (field.isComputed) {
+            await this.fieldCalculationService.calculateFields(tableId, [field.id]);
+            await this.fieldService.resolvePending(tableId, [field.id]);
+          }
+        }
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
+  }
+
+  @Timing()
+  async createField(tableId: string, fieldRo: IFieldRo, windowId?: string) {
     const fieldVo = await this.fieldSupplementService.prepareCreateField(tableId, fieldRo);
     const fieldInstance = createFieldInstanceByVo(fieldVo);
+    const columnMeta = fieldRo.order && {
+      [fieldRo.order.viewId]: { order: fieldRo.order.orderIndex },
+    };
     const newFields = await this.prismaService.$tx(async () => {
-      return await this.fieldCreatingService.alterCreateField(tableId, fieldInstance);
+      return await this.fieldCreatingService.alterCreateField(tableId, fieldInstance, columnMeta);
     });
 
     await this.prismaService.$tx(
@@ -67,19 +119,62 @@ export class FieldOpenApiService {
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
 
+    this.eventEmitterService.emit(Events.OPERATION_FIELDS_CREATE, {
+      windowId,
+      tableId,
+      userId: this.cls.get('user.id'),
+      fields: [fieldVo],
+      columnsMeta: [columnMeta],
+    });
+
     return fieldVo;
   }
 
-  async deleteField(tableId: string, fieldId: string) {
-    const field = await this.fieldDeletingService.getField(tableId, fieldId);
-    if (!field) {
-      throw new NotFoundException(`Field ${fieldId} not found`);
+  @Timing()
+  async deleteFields(tableId: string, fieldIds: string[], windowId?: string) {
+    const fieldRaws = await this.prismaService.field.findMany({
+      where: { tableId, id: { in: fieldIds }, deletedTime: null },
+    });
+    const fields = fieldRaws.map(createFieldInstanceByRaw);
+
+    if (fields.length !== fieldIds.length) {
+      const notExistField = fieldIds.find((id) => !fields.find((field) => field.id === id));
+      throw new NotFoundException(`Field ${notExistField} not found`);
     }
 
-    await this.prismaService.$tx(async () => {
-      await this.fieldViewSyncService.deleteViewRelativeByFields(tableId, [fieldId]);
-      await this.fieldDeletingService.alterDeleteField(tableId, field);
+    const nonComputedFields = fields.filter((field) => !field.isComputed);
+    const records = await this.recordService.getRecordsFields(tableId, {
+      projection: nonComputedFields.map((field) => field.id),
+      fieldKeyType: FieldKeyType.Id,
+      take: -1,
     });
+
+    const columnsMeta = await this.viewService.getColumnsMetaMap(tableId, fieldIds);
+
+    await this.prismaService.$tx(async () => {
+      await this.fieldViewSyncService.deleteViewRelativeByFields(
+        tableId,
+        fields.map((f) => f.id)
+      );
+      for (const field of fields) {
+        await this.fieldDeletingService.alterDeleteField(tableId, field);
+      }
+    });
+
+    this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_DELETE, {
+      windowId,
+      tableId,
+      userId: this.cls.get('user.id'),
+      fields: fields.map(convertFieldInstanceToFieldVo),
+      records,
+      columnsMeta,
+    });
+
+    return fields;
+  }
+
+  async deleteField(tableId: string, fieldId: string, windowId?: string) {
+    await this.deleteFields(tableId, [fieldId], windowId);
   }
 
   private async updateUniqProperty(

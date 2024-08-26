@@ -120,7 +120,11 @@ export class FieldService implements IReadonlyAdapterService {
       createdBy: userId,
     };
 
-    return this.prismaService.txClient().field.create({ data });
+    return this.prismaService.txClient().field.upsert({
+      where: { id: data.id },
+      create: data,
+      update: { ...data, deletedTime: null, version: undefined },
+    });
   }
 
   async dbCreateMultipleField(tableId: string, fieldInstances: IFieldInstance[]) {

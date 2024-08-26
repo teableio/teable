@@ -1,5 +1,16 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Put, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Put,
+  Post,
+  Query,
+  Headers,
+} from '@nestjs/common';
 import type { IFieldVo } from '@teable/core';
 import {
   createFieldRoSchema,
@@ -64,9 +75,10 @@ export class FieldOpenApiController {
   @Post()
   async createField(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo
+    @Body(new ZodValidationPipe(createFieldRoSchema)) fieldRo: IFieldRo,
+    @Headers('x-window-id') windowId: string
   ): Promise<IFieldVo> {
-    return await this.fieldOpenApiService.createField(tableId, fieldRo);
+    return await this.fieldOpenApiService.createField(tableId, fieldRo, windowId);
   }
 
   @Permissions('field|update')
@@ -101,8 +113,12 @@ export class FieldOpenApiController {
 
   @Permissions('field|delete')
   @Delete(':fieldId')
-  async deleteField(@Param('tableId') tableId: string, @Param('fieldId') fieldId: string) {
-    await this.fieldOpenApiService.deleteField(tableId, fieldId);
+  async deleteField(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string,
+    @Headers('x-window-id') windowId: string
+  ) {
+    await this.fieldOpenApiService.deleteField(tableId, fieldId, windowId);
   }
 
   @Permissions('field|read')

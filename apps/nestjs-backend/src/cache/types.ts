@@ -1,3 +1,4 @@
+import type { IColumnMeta, IFieldVo } from '@teable/core';
 import type { IRecord } from '@teable/openapi';
 import type { ICellContext } from '../features/calculation/utils/changes';
 import type { ISessionData } from '../types/session';
@@ -78,9 +79,9 @@ export enum OperationName {
   DeleteRecords = 'deleteRecords',
   UpdateRecords = 'updateRecords',
   UpdateRecordsOrder = 'updateRecordsOrder',
-  CreateField = 'createField',
+  CreateFields = 'createFields',
   UpdateField = 'updateField',
-  DeleteField = 'deleteField',
+  DeleteFields = 'deleteFields',
   Paste = 'paste',
 }
 
@@ -135,18 +136,33 @@ export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
   };
 }
 
-export interface IDeleteRecordsOperation extends IUndoRedoOperationBase {
+export interface IDeleteRecordsOperation extends Omit<ICreateRecordsOperation, 'name'> {
   name: OperationName.DeleteRecords;
+}
+
+export interface ICreateFieldsOperation extends IUndoRedoOperationBase {
+  name: OperationName.CreateFields;
   params: {
     tableId: string;
   };
   result: {
-    records: (IRecord & { order: Record<string, number> | undefined })[];
+    fields: IFieldVo[];
+    records?: {
+      id: string;
+      fields: Record<string, unknown>;
+    }[];
+    columnsMeta?: IColumnMeta[]; // this is the column meta of the fields, [key by viewId]!
   };
+}
+
+export interface IDeleteFieldsOperation extends Omit<ICreateFieldsOperation, 'name'> {
+  name: OperationName.DeleteFields;
 }
 
 export type IUndoRedoOperation =
   | IUpdateRecordsOperation
   | ICreateRecordsOperation
   | IDeleteRecordsOperation
-  | IUpdateRecordsOrderOperation;
+  | IUpdateRecordsOrderOperation
+  | ICreateFieldsOperation
+  | IDeleteFieldsOperation;

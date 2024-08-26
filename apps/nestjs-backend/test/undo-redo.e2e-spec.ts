@@ -6,9 +6,11 @@ import {
   clear,
   createField,
   createRecords,
+  deleteField,
   deleteRecord,
   deleteRecords,
   deleteSelection,
+  getFields,
   getRecord,
   getRecords,
   redo,
@@ -457,5 +459,96 @@ describe('Undo Redo (e2e)', () => {
     ).data;
 
     expect(recordsAfterRedo.records[2].id).toEqual(recordId);
+  });
+
+  it('should undo / redo delete field', async () => {
+    // update and move 0 to 2
+    const fieldId = table.fields[1].id;
+    await awaitWithEvent(() =>
+      updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [table.fields[1].id]: 666 } },
+      })
+    );
+
+    await awaitWithEvent(() => deleteField(table.id, fieldId));
+
+    const fields = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fields.length).toEqual(2);
+
+    await undo(table.id);
+
+    const fieldsAfterUndo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterUndo[1].id).toEqual(fieldId);
+
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterUndo.records[0].fields[fieldId]).toEqual(666);
+
+    await redo(table.id);
+
+    const fieldsAfterRedo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterRedo.length).toEqual(2);
+  });
+
+  it('should undo / redo create field', async () => {
+    const field = await awaitWithEvent(() =>
+      createField(table.id, {
+        type: FieldType.SingleLineText,
+        order: {
+          viewId: table.views[0].id,
+          orderIndex: 0.5,
+        },
+      })
+    );
+    const fieldId = field.data.id;
+
+    const fields = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fields[1].id).toEqual(fieldId);
+
+    await undo(table.id);
+
+    const fieldsAfterUndo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterUndo.length).toEqual(3);
+
+    await redo(table.id);
+
+    const fieldsAfterRedo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterRedo[1].id).toEqual(fieldId);
   });
 });

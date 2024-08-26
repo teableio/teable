@@ -334,6 +334,26 @@ export class ViewService implements IReadonlyAdapterService {
     `);
   }
 
+  // get column order map for all views, order by fieldIds, key by viewId
+  async getColumnsMetaMap(tableId: string, fieldIds: string[]): Promise<IColumnMeta[]> {
+    const viewRaws = await this.prismaService.txClient().view.findMany({
+      select: { id: true, columnMeta: true },
+      where: { tableId, deletedTime: null },
+    });
+
+    const viewRawMap = viewRaws.reduce<{ [viewId: string]: IColumnMeta }>((pre, cur) => {
+      pre[cur.id] = JSON.parse(cur.columnMeta);
+      return pre;
+    }, {});
+
+    return fieldIds.map((fieldId) => {
+      return viewRaws.reduce<IColumnMeta>((pre, view) => {
+        pre[view.id] = viewRawMap[view.id][fieldId];
+        return pre;
+      }, {});
+    });
+  }
+
   async getUpdatedColumnMeta(
     tableId: string,
     viewId: string,
@@ -372,13 +392,13 @@ export class ViewService implements IReadonlyAdapterService {
     );
   }
 
-  async update(version: number, _tableId: string, viewId: string, opContexts: IViewOpContext[]) {
+  async update(version: number, tableId: string, viewId: string, opContexts: IViewOpContext[]) {
     const userId = this.cls.get('user.id');
 
     for (const opContext of opContexts) {
       const updateData: Prisma.ViewUpdateInput = { version, lastModifiedBy: userId };
       if (opContext.name === OpName.UpdateViewColumnMeta) {
-        const columnMeta = await this.getUpdatedColumnMeta(_tableId, viewId, opContext);
+        const columnMeta = await this.getUpdatedColumnMeta(tableId, viewId, opContext);
         await this.prismaService.txClient().view.update({
           where: { id: viewId },
           data: {
@@ -472,11 +492,11 @@ export class ViewService implements IReadonlyAdapterService {
     }, {});
   }
 
-  async updateViewColumnMetaOrder(tableId: string, fieldIds: string[]) {
+  async initViewColumnMeta(tableId: string, fieldIds: string[], columnsMeta?: IColumnMeta[]) {
     // 1. get all views id and column meta by tableId
     const view = await this.prismaService.txClient().view.findMany({
       select: { columnMeta: true, id: true },
-      where: { tableId: tableId },
+      where: { tableId },
     });
 
     if (isEmpty(view)) {
@@ -490,10 +510,13 @@ export class ViewService implements IReadonlyAdapterService {
       const maxOrder = isEmpty(curColumnMeta)
         ? -1
         : Math.max(...Object.values(curColumnMeta).map((meta) => meta.order));
-      fieldIds.forEach((fieldId) => {
+      fieldIds.forEach((fieldId, i) => {
+        const columnMeta = columnsMeta?.[i]?.[viewId];
         const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
           fieldId: fieldId,
-          newColumnMeta: { order: maxOrder + 1 },
+          newColumnMeta: columnMeta
+            ? { ...columnMeta, order: columnMeta.order ?? maxOrder + 1 }
+            : { order: maxOrder + 1 },
           oldColumnMeta: undefined,
         });
         ops.push(op);

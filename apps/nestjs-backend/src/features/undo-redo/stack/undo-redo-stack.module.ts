@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
@@ -6,7 +7,7 @@ import { UndoRedoOperationService } from './undo-redo-operation.service';
 import { UndoRedoStackService } from './undo-redo-stack.service';
 
 @Module({
-  imports: [RecordModule, RecordOpenApiModule, ViewOpenApiModule],
+  imports: [RecordModule, RecordOpenApiModule, ViewOpenApiModule, FieldOpenApiModule],
   providers: [UndoRedoStackService, UndoRedoOperationService],
   exports: [UndoRedoStackService, UndoRedoOperationService],
 })
