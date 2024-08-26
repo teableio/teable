@@ -28,3 +28,4 @@ export * from './usage';
 export * from './oauth';
 export * from './trash';
 export * from './undo-redo';
+export * from './plugin';

@@ -1,0 +1,6 @@
+{
+  "/_not-found": "app/_not-found.js",
+  "/api/plugin/getToken/route": "app/api/plugin/getToken/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/page": "app/page.js"
+}

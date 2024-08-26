@@ -22,6 +22,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = (props) => {
       src: avatar,
       alt: name,
       style: { objectFit: 'cover' },
+      quality: 100,
     }).props;
 
   return (

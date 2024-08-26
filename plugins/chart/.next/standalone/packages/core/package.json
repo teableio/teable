@@ -1,0 +1,74 @@
+{
+  "name": "@teable/core",
+  "version": "1.3.2",
+  "license": "MIT",
+  "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teableio/teable",
+    "directory": "packages/core"
+  },
+  "author": {
+    "name": "tea artist",
+    "url": "https://github.com/tea-artist"
+  },
+  "sideEffects": false,
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project ./tsconfig.build.json",
+    "dev": "tsc --watch",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/core.eslintcache",
+    "antlr4ts": "antlr4ts -visitor -no-listener src/formula/parser/*.g4",
+    "antlr4ts-tql": "antlr4ts -visitor -no-listener src/query/parser/*.g4",
+    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "check-dist": "es-check -v",
+    "check-size": "size-limit",
+    "test": "run test-unit",
+    "test-unit": "vitest run --silent",
+    "test-unit-cover": "pnpm test-unit --coverage",
+    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "6.4.0",
+    "@soluble/dsn-parser": "1.9.2",
+    "@types/color": "3.0.6",
+    "@types/papaparse": "5.3.14",
+    "antlr4ts": "0.5.0-alpha.4",
+    "axios": "1.6.8",
+    "class-transformer": "0.5.1",
+    "color": "4.2.3",
+    "dayjs": "1.11.10",
+    "lodash": "4.17.21",
+    "nanoid": "3.3.7",
+    "reflect-metadata": "0.2.1",
+    "papaparse": "5.4.1",
+    "zod": "3.22.4"
+  },
+  "devDependencies": {
+    "@size-limit/file": "11.1.2",
+    "@teable/eslint-config-bases": "workspace:^",
+    "@types/lodash": "4.17.0",
+    "@types/node": "20.9.0",
+    "@vitest/coverage-v8": "1.4.0",
+    "antlr4ts-cli": "0.5.0-alpha.4",
+    "cross-env": "7.0.3",
+    "es-check": "7.1.1",
+    "eslint": "8.57.0",
+    "get-tsconfig": "4.7.3",
+    "prettier": "3.2.5",
+    "rimraf": "5.0.5",
+    "size-limit": "11.1.2",
+    "typescript": "5.4.3",
+    "vite-tsconfig-paths": "4.3.2",
+    "vitest": "1.4.0"
+  }
+}

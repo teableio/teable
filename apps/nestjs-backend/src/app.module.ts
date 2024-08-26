@@ -16,6 +16,7 @@ import { NextModule } from './features/next/next.module';
 import { NotificationModule } from './features/notification/notification.module';
 import { OAuthModule } from './features/oauth/oauth.module';
 import { PinModule } from './features/pin/pin.module';
+import { PluginModule } from './features/plugin/plugin.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { SettingModule } from './features/setting/setting.module';
 import { ShareModule } from './features/share/share.module';
@@ -55,6 +56,7 @@ export const appModules = {
     SettingModule,
     OAuthModule,
     TrashModule,
+    PluginModule,
   ],
   providers: [InitBootstrapProvider],
 };

@@ -1,4 +1,4 @@
-import { Key, Link } from '@teable/icons';
+import { Code, Key, Link } from '@teable/icons';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 
@@ -25,6 +25,12 @@ export const useSettingRoute = () => {
         ),
         route: '/setting/oauth-app',
         pathTo: '/setting/oauth-app',
+      },
+      {
+        Icon: Code,
+        label: t('setting:plugins'),
+        route: '/setting/plugin',
+        pathTo: '/setting/plugin',
       },
     ];
   }, [t]);

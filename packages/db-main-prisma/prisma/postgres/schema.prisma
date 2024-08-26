@@ -30,7 +30,7 @@ model PinResource {
   resourceId       String    @map("resource_id")
   createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
-  order            Float    @map("order")
+  order            Float     @map("order")
 
   @@index([order])
   @@unique([createdBy, resourceId])
@@ -184,6 +184,7 @@ model User {
   phone            String?   @unique
   email            String    @unique
   avatar           String?
+  isSystem         Boolean?  @map("is_system")
   isAdmin          Boolean?  @map("is_admin")
   notifyMeta       String?   @map("notify_meta")
   lastSignTime     DateTime? @map("last_sign_time")
@@ -341,6 +342,7 @@ model OAuthApp {
   clientId         String    @unique @map("client_id")
   redirectUris     String?   @map("redirect_uris")
   scopes           String?
+  isPlugin         Boolean?  @map("is_plugin")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   createdBy        String     @map("created_by")
@@ -406,4 +408,41 @@ model Trash {
 
   @@unique([resourceType, resourceId])
   @@map("trash")
+}
+
+model Plugin {
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  detailDesc       String?   @map("detail_desc")
+  logo             String
+  helpUrl          String?   @map("help_url")
+  status           String
+  positions        String
+  secret           String    @unique
+  maskedSecret     String    @map("masked_secret")
+  i18n             String?
+  pluginUser       String?   @map("plugin_user")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
+
+  @@map("plugin")
+}
+
+model PluginInstall {
+  id               String    @id @default(cuid())
+  pluginId         String    @map("plugin_id")
+  baseId           String    @map("base_id")
+  positionId       String    @map("position_id")
+  postion          String
+  layout           String
+  storage          String?
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+
+  @@map("plugin_install")
 }

@@ -37,6 +37,10 @@ export enum IdPrefix {
   Window = 'win',
 
   RecordHistory = 'rhi',
+
+  Plugin = 'plg',
+  PluginInstall = 'pli',
+  PluginUser = 'plu',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -151,4 +155,16 @@ export function generateClientId() {
 
 export function generateRecordHistoryId() {
   return IdPrefix.RecordHistory + getRandomString(24);
+}
+
+export function generatePluginId() {
+  return IdPrefix.Plugin + getRandomString(16);
+}
+
+export function generatePluginInstallId() {
+  return IdPrefix.PluginInstall + getRandomString(16);
+}
+
+export function generatePluginUserId() {
+  return IdPrefix.PluginUser + getRandomString(16);
 }
