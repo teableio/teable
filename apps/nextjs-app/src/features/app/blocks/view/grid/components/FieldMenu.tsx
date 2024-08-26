@@ -1,7 +1,8 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable/icons';
+import { deleteFields } from '@teable/openapi';
 import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
-import { useFields, useIsTouchDevice, useTablePermission, useView } from '@teable/sdk';
+import { useFields, useIsTouchDevice, useTableId, useTablePermission, useView } from '@teable/sdk';
 import { TablePermissionContext } from '@teable/sdk/context/table-permission';
 import { insertSingle } from '@teable/sdk/utils';
 import {
@@ -39,6 +40,7 @@ const iconClassName = 'mr-2 h-4 w-4';
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
   const view = useView() as GridView | undefined;
+  const tableId = useTableId();
   const { headerMenu, closeHeaderMenu } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
   const permission = useTablePermission();
@@ -178,12 +180,14 @@ export const FieldMenu = () => {
         disabled: fields.some((f) => f.isPrimary),
         className: 'text-red-500 aria-selected:text-red-500',
         onClick: async () => {
+          if (!tableId) return;
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
           if (filteredFields.length === 0) return;
-          for (const field of filteredFields) {
-            await field.delete();
-          }
+          await deleteFields(
+            tableId,
+            filteredFields.map((f) => f.id)
+          );
         },
       },
     ],

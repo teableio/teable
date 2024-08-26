@@ -22,7 +22,12 @@ import {
   updateFieldRoSchema,
   IUpdateFieldRo,
 } from '@teable/core';
-import type { IPlanFieldConvertVo, IPlanFieldVo } from '@teable/openapi';
+import {
+  deleteFieldsQuerySchema,
+  IDeleteFieldsQuery,
+  type IPlanFieldConvertVo,
+  type IPlanFieldVo,
+} from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { FieldService } from '../field.service';
@@ -119,6 +124,16 @@ export class FieldOpenApiController {
     @Headers('x-window-id') windowId: string
   ) {
     await this.fieldOpenApiService.deleteField(tableId, fieldId, windowId);
+  }
+
+  @Permissions('field|delete')
+  @Delete()
+  async deleteFields(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(deleteFieldsQuerySchema)) query: IDeleteFieldsQuery,
+    @Headers('x-window-id') windowId: string
+  ) {
+    await this.fieldOpenApiService.deleteFields(tableId, query.fieldIds, windowId);
   }
 
   @Permissions('field|read')

@@ -7,8 +7,8 @@ import {
   recordSchema,
   sortItemSchema,
 } from '@teable/core';
-import type { Axios, AxiosResponse } from 'axios';
-import { axios as axiosInstance } from '../axios';
+import type { AxiosResponse } from 'axios';
+import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { getRecordQuerySchema } from './get';
@@ -223,40 +223,16 @@ export const GetRecordsRoute: RouteConfig = registerRoute({
 export async function getRecords(
   tableId: string,
   query?: IGetRecordsRo
-): Promise<AxiosResponse<IRecordsVo>>;
-export async function getRecords(
-  axios: Axios,
-  tableId: string,
-  query?: IGetRecordsRo
-): Promise<AxiosResponse<IRecordsVo>>;
-export async function getRecords(
-  axios: Axios | string,
-  tableId?: string | IGetRecordsRo,
-  query?: IGetRecordsRo
 ): Promise<AxiosResponse<IRecordsVo>> {
-  let theAxios: Axios;
-  let theTableId: string;
-  let theQuery: IGetRecordsRo;
-
-  if (typeof axios === 'string') {
-    theAxios = axiosInstance;
-    theTableId = axios;
-    theQuery = (tableId as IGetRecordsRo) || {};
-  } else {
-    theAxios = axios;
-    theTableId = tableId as string;
-    theQuery = query || {};
-  }
-
   // Add serialization for complex query parameters
   const serializedQuery = {
-    ...theQuery,
-    filter: theQuery.filter ? JSON.stringify(theQuery.filter) : undefined,
-    orderBy: theQuery.orderBy ? JSON.stringify(theQuery.orderBy) : undefined,
-    groupBy: theQuery.groupBy ? JSON.stringify(theQuery.groupBy) : undefined,
+    ...query,
+    filter: query?.filter ? JSON.stringify(query.filter) : undefined,
+    orderBy: query?.orderBy ? JSON.stringify(query.orderBy) : undefined,
+    groupBy: query?.groupBy ? JSON.stringify(query.groupBy) : undefined,
   };
 
-  return theAxios.get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { tableId: theTableId }), {
+  return axios.get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { tableId }), {
     params: serializedQuery,
   });
 }
