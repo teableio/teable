@@ -19,7 +19,11 @@ export const CellCheckbox = (props: ICellCheckbox) => {
     <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
       {innerValue?.map((val, index) => {
         return (
-          <Checkbox key={index} className={cn('size-5', itemClassName)} checked={Boolean(val)} />
+          <Checkbox
+            key={index}
+            className={cn('size-5 cursor-default', itemClassName)}
+            checked={Boolean(val)}
+          />
         );
       })}
     </div>

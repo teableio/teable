@@ -99,7 +99,7 @@ export class RecordOpenApiController {
   async updateRecords(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(updateRecordsRoSchema)) updateRecordsRo: IUpdateRecordsRo
-  ): Promise<void> {
+  ): Promise<IRecord[]> {
     return await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
   }
 

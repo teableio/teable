@@ -14,10 +14,11 @@ interface IOverflowTooltipProps {
   className?: string;
   tooltipClassName?: string;
   style?: React.CSSProperties;
+  onClick?: () => void;
 }
 
 export const OverflowTooltip = (props: IOverflowTooltipProps) => {
-  const { text = '', maxLine = 1, className, tooltipClassName } = props;
+  const { text = '', maxLine = 1, className, tooltipClassName, onClick } = props;
   const [isOverflow, setOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +62,14 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
         wordBreak: 'break-all',
         whiteSpace: 'pre-wrap',
       }}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          onClick?.();
+        }
+      }}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       {text}
     </div>
@@ -73,7 +82,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger>{Content}</TooltipTrigger>
+        <TooltipTrigger onClick={onClick}>{Content}</TooltipTrigger>
         <TooltipPortal>
           <TooltipContent className={cn('max-w-60 break-all', tooltipClassName)}>
             <p>{text}</p>

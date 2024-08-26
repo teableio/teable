@@ -57,7 +57,7 @@ const TextEditorBase: ForwardRefRenderFunction<IEditorRef<string>, ITextEditor> 
         value={text}
         onChange={onChangeInner}
         onBlur={() => saveOnBlur && saveValue()}
-        disabled={readonly}
+        readOnly={readonly}
       />
       {showAs && (
         <Button variant="outline" size="sm" className="px-2" onClick={() => onJump(showAs.type)}>

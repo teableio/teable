@@ -31,9 +31,18 @@ export const CellValue = (props: ICellValueContainer) => {
   const { type, options, cellValueType } = field;
 
   switch (type) {
-    case FieldType.LongText:
-    case FieldType.SingleLineText: {
+    case FieldType.LongText: {
       return <CellText value={value as string} className={className} maxLine={maxLine} />;
+    }
+    case FieldType.SingleLineText: {
+      return (
+        <CellText
+          value={value as string}
+          className={className}
+          maxLine={maxLine}
+          displayType={options.showAs?.type}
+        />
+      );
     }
     case FieldType.Number: {
       return (

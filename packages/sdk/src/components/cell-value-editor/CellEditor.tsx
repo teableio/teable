@@ -8,15 +8,17 @@ export const CellEditor = (props: ICellValueEditor) => {
   const { field, cellValue, readonly, wrapStyle, wrapClassName } = props;
   const { type, isComputed } = field;
   const isAttachment = type === FieldType.Attachment;
+  const isRating = type === FieldType.Rating;
 
   return (
     <div style={wrapStyle} className={wrapClassName}>
-      {readonly || isComputed ? (
+      {(readonly || isComputed) && !isAttachment ? (
         <CellValue
           field={field as unknown as IFieldInstance}
           value={cellValue}
-          className={isAttachment ? 'gap-3' : undefined}
-          itemClassName={isAttachment ? 'size-28 rounded-md' : undefined}
+          maxLine={Infinity}
+          className="text-sm"
+          itemClassName={isRating ? 'size-5' : undefined}
         />
       ) : (
         <CellEditorMain {...props} />
