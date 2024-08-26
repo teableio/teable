@@ -1,0 +1,52 @@
+{
+  "initialSpaceName": "{{name}}のスペース",
+  "page": {
+    "title": "Teableアプリ"
+  },
+  "action": {
+    "createBase": "ベースの作成",
+    "createSpace": "スペースの作成",
+    "invite": "招待"
+  },
+  "allSpaces": "すべてのスペース",
+  "spaceIsEmpty": "このスペースは空です",
+  "baseModal": {
+    "copy": "コピー",
+    "duplicate": "\"{{baseName}}\" の複製",
+    "createBaseFromTemplate": "テンプレートからベースを作成する",
+    "duplicateRecords": "レコードの複製",
+    "duplicateRecordsTip": "変更履歴は複製しません。",
+    "toSpace": "スペースへ",
+    "copyToSpace": "スペースにコピー",
+    "duplicateBase": "ベースを複製",
+    "missTargetTip": "ベースを複製するスペースを選択してください。",
+    "copying": "ベースを複製しています。時間がかかる場合があります...",
+    "copyingTemplate": "テンプレートからベースを作成しています。時間がかかる場合があります...",
+    "howToCreate": "どのように始めますか？",
+    "fromScratch": "最初から",
+    "fromTemplate": "テンプレートから"
+  },
+  "spaceSetting": {
+    "title": "スペースの設定",
+    "general": "全般",
+    "collaborators": "共同作業者",
+    "generalDescription": "現在のスペースの設定をここで変更",
+    "collaboratorDescription": "スペースの共同作業者を管理し、アクセス権限を設定します",
+    "spaceName": "スペース名",
+    "spaceId": "スペースID"
+  },
+  "pin": {
+    "add": "ピンに追加",
+    "remove": "ピンから削除",
+    "pin": "ピン",
+    "empty": "ピン留めしたベースとスペースがここに表示されます"
+  },
+  "tip": {
+    "delete": "<0/> を削除してもよろしいですか?"
+  },
+  "sharedBase": {
+    "title": "共有ベース",
+    "description": "共有されたベースはここに表示されます",
+    "empty": "共有ベースはまだありません"
+  }
+}

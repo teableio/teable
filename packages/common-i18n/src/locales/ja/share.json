@@ -1,0 +1,12 @@
+{
+  "auth": {
+    "title": "このページを表示するにはパスワードを入力してください",
+    "submit": "送信",
+    "password": "パスワード"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "選択..."
+  },
+  "openOnNewPage": "新しいページで開く",
+  "errorTips": "ソースの共有により権限マトリックスが有効になりましたが、表示は許可されていません"
+}
