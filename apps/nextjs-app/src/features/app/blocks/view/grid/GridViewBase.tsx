@@ -45,6 +45,7 @@ import {
   generateLocalId,
   useGridPrefillingRow,
   SelectableType,
+  useGridRowOrder,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
@@ -130,11 +131,13 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     groupPoints
   );
 
-  const { onVisibleRegionChanged, onRowOrdered, onReset, recordMap } = useGridAsyncRecords(
+  const { onVisibleRegionChanged, onReset, recordMap } = useGridAsyncRecords(
     ssrRecords,
     undefined,
     viewGroupQuery
   );
+
+  const onRowOrdered = useGridRowOrder(recordMap);
 
   const { copy, paste, clear, deleteRecords } = useSelectionOperation({
     filter: viewGroupQuery?.filter,
