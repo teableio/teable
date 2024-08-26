@@ -31,7 +31,7 @@ export class FieldViewSyncService {
   }
 
   async convertFieldRelative(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
-    const views = await this.prismaService.view.findMany({
+    const views = await this.prismaService.txClient().view.findMany({
       select: {
         filter: true,
         id: true,

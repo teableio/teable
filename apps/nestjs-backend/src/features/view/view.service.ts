@@ -529,7 +529,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async deleteViewRelativeByFields(tableId: string, fieldIds: string[]) {
     // 1. get all views id and column meta by tableId
-    const view = await this.prismaService.view.findMany({
+    const view = await this.prismaService.txClient().view.findMany({
       select: {
         columnMeta: true,
         group: true,

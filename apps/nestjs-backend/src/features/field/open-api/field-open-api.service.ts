@@ -149,7 +149,7 @@ export class FieldOpenApiService {
     );
   }
 
-  private async getFieldReferenceMap(tableId: string, fieldIds: string[]) {
+  private async getFieldReferenceMap(fieldIds: string[]) {
     const referencesRaw = await this.prismaService.reference.findMany({
       where: {
         fromFieldId: { in: fieldIds },
@@ -185,7 +185,7 @@ export class FieldOpenApiService {
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
 
-    const referenceMap = await this.getFieldReferenceMap(tableId, [fieldVo.id]);
+    const referenceMap = await this.getFieldReferenceMap([fieldVo.id]);
 
     this.eventEmitterService.emit(Events.OPERATION_FIELDS_CREATE, {
       windowId,
@@ -225,7 +225,7 @@ export class FieldOpenApiService {
     });
 
     const columnsMeta = await this.viewService.getColumnsMetaMap(tableId, fieldIds);
-    const referenceMap = await this.getFieldReferenceMap(tableId, fieldIds);
+    const referenceMap = await this.getFieldReferenceMap(fieldIds);
 
     await this.prismaService.$tx(async () => {
       await this.fieldViewSyncService.deleteViewRelativeByFields(
