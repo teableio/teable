@@ -32,7 +32,10 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const permission = useTablePermission();
   const { t } = useTranslation('table');
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { trigger } = useDownload({ downloadUrl: `/api/export/${tableId}?viewId=${view.id}` });
+  const { trigger } = useDownload({
+    downloadUrl: `/api/export/${tableId}?viewId=${view.id}`,
+    key: 'view',
+  });
 
   const navigateHandler = () => {
     router.push(
