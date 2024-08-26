@@ -24,6 +24,8 @@ import {
   IDeleteRecordsQuery,
   getRecordHistoryQuerySchema,
   IGetRecordHistoryQuery,
+  updateRecordsRoSchema,
+  IUpdateRecordsRo,
 } from '@teable/openapi';
 import {
   EmitEvent,
@@ -90,6 +92,15 @@ export class RecordOpenApiController {
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
     return await this.recordOpenApiService.updateRecord(tableId, recordId, updateRecordRo);
+  }
+
+  @Permissions('record|update')
+  @Patch()
+  async updateRecords(
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(updateRecordsRoSchema)) updateRecordsRo: IUpdateRecordsRo
+  ): Promise<IRecord[]> {
+    return await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
   }
 
   @Permissions('record|create')

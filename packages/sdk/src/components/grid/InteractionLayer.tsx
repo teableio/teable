@@ -612,7 +612,18 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         onColumnOrdered?.(flatRanges(ranges), dropIndex);
       }
       if (dragType === DragRegionType.Rows) {
-        onRowOrdered?.(flatRanges(ranges), dropIndex);
+        const { type: prevType } = getLinearRow(dropIndex - 1);
+        const { type, realIndex } = getLinearRow(dropIndex);
+        const originRealIndexs = flatRanges(ranges).map((index) => getLinearRow(index).realIndex);
+
+        if (
+          (prevType === LinearRowType.Row && type === LinearRowType.Append) ||
+          (prevType === LinearRowType.Group && type === LinearRowType.Row && realIndex !== 0)
+        ) {
+          return onRowOrdered?.(originRealIndexs, realIndex + 1);
+        }
+
+        onRowOrdered?.(originRealIndexs, realIndex);
       }
       setActiveCell(null);
       setSelection(selection.reset());

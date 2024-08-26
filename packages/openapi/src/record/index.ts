@@ -2,6 +2,7 @@ export * from './get';
 export * from './get-list';
 export * from './create';
 export * from './update';
+export * from './update-records';
 export * from './delete';
 export * from './delete-list';
 export * from './get-record-history';

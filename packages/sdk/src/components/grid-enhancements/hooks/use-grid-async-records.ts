@@ -3,10 +3,8 @@ import type { IGetRecordsRo } from '@teable/openapi';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
-import { useTableId } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
-import { useViewId } from '../../../hooks/use-view-id';
-import { Record } from '../../../model';
+import type { Record } from '../../../model';
 
 // eslint-disable-next-line
 export const LOAD_PAGE_SIZE = 300;
@@ -16,7 +14,6 @@ type IRes = {
   recordMap: IRecordIndexMap;
   onReset: () => void;
   onForceUpdate: () => void;
-  onRowOrdered: (rowIndexCollection: number[], newRowIndex: number) => void;
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
 };
 
@@ -33,8 +30,6 @@ export const useGridAsyncRecords = (
     ...initQuery,
   });
   const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
-  const tableId = useTableId();
-  const viewId = useViewId();
   const queryRef = useRef(query);
   queryRef.current = query;
   const records = useRecords(recordsQuery, initRecords);
@@ -122,47 +117,9 @@ export const useGridAsyncRecords = (
     setVisiblePages(defaultVisiblePages);
   }, []);
 
-  const onRowOrdered = useCallback(
-    (rowIndexCollection: number[], newRowIndex: number) => {
-      const operationRecordIds: string[] = [];
-
-      for (const rowIndex of rowIndexCollection) {
-        const record = loadedRecordMap[rowIndex];
-        if (!record) {
-          throw new Error('Can not find record by index: ' + rowIndex);
-        }
-        operationRecordIds.push(record.id);
-      }
-
-      if (!viewId) {
-        throw new Error('Can not find view id');
-      }
-
-      if (newRowIndex === 0) {
-        Record.updateRecordOrders(tableId as string, viewId, {
-          anchorId: loadedRecordMap[0].id,
-          position: 'before',
-          recordIds: operationRecordIds,
-        });
-        return;
-      }
-      const record = loadedRecordMap[newRowIndex - 1];
-      if (!record) {
-        throw new Error("Can't find target record by index: " + newRowIndex);
-      }
-      Record.updateRecordOrders(tableId as string, viewId, {
-        anchorId: record.id,
-        position: 'after',
-        recordIds: operationRecordIds,
-      });
-    },
-    [viewId, loadedRecordMap, tableId]
-  );
-
   return {
     recordMap: loadedRecordMap,
     onVisibleRegionChanged,
-    onRowOrdered,
     onForceUpdate,
     onReset,
   };

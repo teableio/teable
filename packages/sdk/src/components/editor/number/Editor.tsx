@@ -38,7 +38,7 @@ export const NumberEditorBase: ForwardRefRenderFunction<
       value={str || ''}
       onChange={onChangeHandler}
       onBlur={() => saveOnBlur && saveValue()}
-      disabled={readonly}
+      readOnly={readonly}
       placeholder={placeholder}
     />
   );
