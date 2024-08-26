@@ -86,12 +86,14 @@ export class FieldOpenApiService {
       (refId) => !curReference.find((ref) => ref.fromFieldId === refId)
     );
 
-    await this.prismaService.txClient().reference.createMany({
-      data: missingReferenceIds.map((refId) => ({
-        fromFieldId: refId,
-        toFieldId: field.id,
-      })),
-    });
+    for (const refId of missingReferenceIds) {
+      await this.prismaService.txClient().reference.create({
+        data: {
+          fromFieldId: refId,
+          toFieldId: field.id,
+        },
+      });
+    }
 
     await this.fieldService.resolveError(tableId, [field.id]);
   }
