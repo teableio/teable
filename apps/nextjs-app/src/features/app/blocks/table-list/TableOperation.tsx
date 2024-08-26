@@ -46,7 +46,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const router = useRouter();
   const { baseId, tableId: routerTableId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { trigger } = useDownload({ downloadUrl: `/api/export/${table.id}` });
+  const { trigger } = useDownload({ downloadUrl: `/api/export/${table.id}`, key: 'table' });
 
   const menuPermission = useMemo(() => {
     return {
