@@ -1,7 +1,6 @@
 import { FieldKeyType } from '@teable/core';
 import type { IDeleteFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
-import { createFieldInstanceByVo } from '../../field/model/factory';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { ICreateFieldsPayload } from './create-fields.operation';
@@ -22,7 +21,6 @@ export class DeleteFieldsOperation {
       result: {
         fields: payload.fields,
         records: payload.records,
-        columnsMeta: payload.columnsMeta,
       },
     };
   }
@@ -30,13 +28,9 @@ export class DeleteFieldsOperation {
   async undo(operation: IDeleteFieldsOperation) {
     const { params, result } = operation;
     const { tableId } = params;
-    const { fields, records, columnsMeta } = result;
+    const { fields, records } = result;
 
-    await this.fieldOpenApiService.createFields(
-      tableId,
-      fields.map(createFieldInstanceByVo),
-      columnsMeta
-    );
+    await this.fieldOpenApiService.createFields(tableId, fields);
 
     if (records) {
       await this.recordOpenApiService.updateRecords(tableId, {

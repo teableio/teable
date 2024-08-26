@@ -2,7 +2,6 @@ import { FieldKeyType } from '@teable/core';
 import type { IColumnMeta, IFieldVo } from '@teable/core';
 import type { ICreateFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
-import { createFieldInstanceByVo } from '../../field/model/factory';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 
@@ -10,12 +9,11 @@ export interface ICreateFieldsPayload {
   windowId: string;
   tableId: string;
   userId: string;
-  fields: IFieldVo[];
+  fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[];
   records: {
     id: string;
     fields: Record<string, unknown>;
   }[];
-  columnsMeta: IColumnMeta[];
 }
 
 export class CreateFieldsOperation {
@@ -33,7 +31,6 @@ export class CreateFieldsOperation {
       result: {
         fields: payload.fields,
         records: payload.records,
-        columnsMeta: payload.columnsMeta,
       },
     };
   }
@@ -54,18 +51,14 @@ export class CreateFieldsOperation {
   async redo(operation: ICreateFieldsOperation) {
     const { params, result } = operation;
     const { tableId } = params;
-    const { fields, records: recordFields, columnsMeta } = result;
+    const { fields, records } = result;
 
-    await this.fieldOpenApiService.createFields(
-      tableId,
-      fields.map(createFieldInstanceByVo),
-      columnsMeta
-    );
+    await this.fieldOpenApiService.createFields(tableId, fields);
 
-    if (recordFields) {
+    if (records) {
       await this.recordOpenApiService.updateRecords(tableId, {
         fieldKeyType: FieldKeyType.Id,
-        records: recordFields,
+        records: records,
       });
     }
 

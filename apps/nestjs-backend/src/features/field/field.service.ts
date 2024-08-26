@@ -367,6 +367,22 @@ export class FieldService implements IReadonlyAdapterService {
     );
   }
 
+  async resolveError(tableId: string, fieldIds: string[]) {
+    await this.batchUpdateFields(
+      tableId,
+      fieldIds.map((fieldId) => ({
+        fieldId,
+        ops: [
+          FieldOpBuilder.editor.setFieldProperty.build({
+            key: 'hasError',
+            newValue: null,
+            oldValue: true,
+          }),
+        ],
+      }))
+    );
+  }
+
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
     if (!opData.length) return;
 

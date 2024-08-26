@@ -9,6 +9,7 @@ import type {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
+import { groupBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
@@ -27,9 +28,9 @@ import { FieldViewSyncService } from '../field-calculate/field-view-sync.service
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
 import {
-  convertFieldInstanceToFieldVo,
   createFieldInstanceByRaw,
   createFieldInstanceByVo,
+  rawField2FieldObj,
 } from '../model/factory';
 
 @Injectable()
@@ -65,18 +66,70 @@ export class FieldOpenApiService {
     return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }
 
+  private async checkAndResolveError(tableId: string, field: IFieldInstance) {
+    const fieldReferenceIds = this.fieldSupplementService.getFieldReferenceIds(field);
+    const refFields = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: fieldReferenceIds }, deletedTime: null },
+      select: { id: true },
+    });
+
+    if (refFields.length !== fieldReferenceIds.length) {
+      return;
+    }
+
+    const curReference = await this.prismaService.txClient().reference.findMany({
+      where: {
+        toFieldId: field.id,
+      },
+    });
+    const missingReferenceIds = fieldReferenceIds.filter(
+      (refId) => !curReference.find((ref) => ref.fromFieldId === refId)
+    );
+
+    await this.prismaService.txClient().reference.createMany({
+      data: missingReferenceIds.map((refId) => ({
+        fromFieldId: refId,
+        toFieldId: field.id,
+      })),
+    });
+
+    await this.fieldService.resolveError(tableId, [field.id]);
+  }
+
+  private async restoreReference(references: string[]) {
+    const fieldRaws = await this.prismaService.txClient().field.findMany({
+      where: { id: { in: references }, hasError: true, deletedTime: null },
+    });
+
+    for (const refFieldRaw of fieldRaws) {
+      const refField = createFieldInstanceByRaw(refFieldRaw);
+      await this.checkAndResolveError(refFieldRaw.tableId, refField);
+    }
+  }
+
   @Timing()
-  async createFields(tableId: string, fields: IFieldInstance[], columnsMeta?: IColumnMeta[]) {
+  async createFields(
+    tableId: string,
+    fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[]
+  ) {
     const newFields = await this.prismaService.$tx(async () => {
       const newFields: { tableId: string; field: IFieldInstance }[] = [];
       for (let i = 0; i < fields.length; i++) {
         const field = fields[i];
-        const columnMeta = columnsMeta?.[i];
+        const { columnMeta, references, ...fieldVo } = field;
+
+        const fieldInstance = createFieldInstanceByVo(fieldVo);
+
         const createResult = await this.fieldCreatingService.alterCreateField(
           tableId,
-          field,
+          fieldInstance,
           columnMeta
         );
+
+        if (references) {
+          await this.restoreReference(references);
+        }
+
         newFields.push(...createResult);
       }
 
@@ -94,6 +147,19 @@ export class FieldOpenApiService {
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+  }
+
+  private async getFieldReferenceMap(tableId: string, fieldIds: string[]) {
+    const referencesRaw = await this.prismaService.reference.findMany({
+      where: {
+        fromFieldId: { in: fieldIds },
+      },
+      select: {
+        fromFieldId: true,
+        toFieldId: true,
+      },
+    });
+    return groupBy(referencesRaw, 'fromFieldId');
   }
 
   @Timing()
@@ -119,12 +185,19 @@ export class FieldOpenApiService {
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
 
+    const referenceMap = await this.getFieldReferenceMap(tableId, [fieldVo.id]);
+
     this.eventEmitterService.emit(Events.OPERATION_FIELDS_CREATE, {
       windowId,
       tableId,
       userId: this.cls.get('user.id'),
-      fields: [fieldVo],
-      columnsMeta: [columnMeta],
+      fields: [
+        {
+          ...fieldVo,
+          columnMeta,
+          references: referenceMap[fieldVo.id]?.map((ref) => ref.toFieldId),
+        },
+      ],
     });
 
     return fieldVo;
@@ -135,7 +208,9 @@ export class FieldOpenApiService {
     const fieldRaws = await this.prismaService.field.findMany({
       where: { tableId, id: { in: fieldIds }, deletedTime: null },
     });
-    const fields = fieldRaws.map(createFieldInstanceByRaw);
+
+    const fieldVos = fieldRaws.map(rawField2FieldObj);
+    const fields = fieldVos.map(createFieldInstanceByVo);
 
     if (fields.length !== fieldIds.length) {
       const notExistField = fieldIds.find((id) => !fields.find((field) => field.id === id));
@@ -150,6 +225,7 @@ export class FieldOpenApiService {
     });
 
     const columnsMeta = await this.viewService.getColumnsMetaMap(tableId, fieldIds);
+    const referenceMap = await this.getFieldReferenceMap(tableId, fieldIds);
 
     await this.prismaService.$tx(async () => {
       await this.fieldViewSyncService.deleteViewRelativeByFields(
@@ -165,9 +241,12 @@ export class FieldOpenApiService {
       windowId,
       tableId,
       userId: this.cls.get('user.id'),
-      fields: fields.map(convertFieldInstanceToFieldVo),
+      fields: fieldVos.map((field, i) => ({
+        ...field,
+        columnMeta: columnsMeta[i],
+        references: referenceMap[field.id]?.map((ref) => ref.toFieldId),
+      })),
       records,
-      columnsMeta,
     });
 
     return fields;

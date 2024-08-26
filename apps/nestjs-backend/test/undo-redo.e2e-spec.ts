@@ -551,4 +551,66 @@ describe('Undo Redo (e2e)', () => {
 
     expect(fieldsAfterRedo[1].id).toEqual(fieldId);
   });
+
+  it('should undo / redo delete field with outgoing references', async () => {
+    // update and move 0 to 2
+    const fieldId = table.fields[1].id;
+    await awaitWithEvent(() =>
+      updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [table.fields[1].id]: 666 } },
+      })
+    );
+
+    const formulaField = await awaitWithEvent(() =>
+      createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${table.fields[1].id}}`,
+        },
+      })
+    );
+
+    await awaitWithEvent(() => deleteField(table.id, fieldId));
+
+    const fields = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fields.length).toEqual(3);
+    expect(fields[2].hasError).toBeTruthy();
+
+    await undo(table.id);
+
+    const fieldsAfterUndo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterUndo[1].id).toEqual(fieldId);
+    expect(fieldsAfterUndo[3].id).toEqual(formulaField.data.id);
+    expect(fieldsAfterUndo[3].hasError).toBeFalsy();
+
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterUndo.records[0].fields[fieldId]).toEqual(666);
+
+    await redo(table.id);
+
+    const fieldsAfterRedo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterRedo.length).toEqual(3);
+  });
 });

@@ -146,12 +146,11 @@ export interface ICreateFieldsOperation extends IUndoRedoOperationBase {
     tableId: string;
   };
   result: {
-    fields: IFieldVo[];
+    fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[];
     records?: {
       id: string;
       fields: Record<string, unknown>;
     }[];
-    columnsMeta?: IColumnMeta[]; // this is the column meta of the fields, [key by viewId]!
   };
 }
 
