@@ -125,8 +125,18 @@ export class RecordOpenApiService {
     await this.recordService.createRecordsOnlySql(tableId, typecastRecords);
   }
 
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
+  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo): Promise<IRecord[]> {
     return await this.prismaService.$tx(async () => {
+      const { order, records } = updateRecordsRo;
+      const recordIds = records.map((record) => record.id);
+      if (order != null) {
+        const { viewId, anchorId, position } = order;
+        await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
+          anchorId,
+          position,
+          recordIds,
+        });
+      }
       // validate cellValue and typecast
       const typecastRecords = await this.validateFieldsAndTypecast(
         tableId,
@@ -140,6 +150,15 @@ export class RecordOpenApiService {
         updateRecordsRo.fieldKeyType,
         typecastRecords
       );
+
+      const snapshots = await this.recordService.getSnapshotBulk(
+        tableId,
+        recordIds,
+        undefined,
+        updateRecordsRo.fieldKeyType
+      );
+
+      return snapshots.map((snapshot) => snapshot.data);
     });
   }
 
