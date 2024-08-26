@@ -1,8 +1,19 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IRecord } from '@teable/core';
 import { RecordCore, FieldKeyType, RecordOpBuilder, FieldType } from '@teable/core';
-import type { ICreateRecordsRo, IGetRecordsRo, IUpdateRecordRo } from '@teable/openapi';
-import { createRecords, getRecords, updateRecord, updateRecordOrders } from '@teable/openapi';
+import type {
+  ICreateRecordsRo,
+  IGetRecordsRo,
+  IUpdateRecordRo,
+  IUpdateRecordsRo,
+} from '@teable/openapi';
+import {
+  createRecords,
+  getRecords,
+  updateRecord,
+  updateRecordOrders,
+  updateRecords,
+} from '@teable/openapi';
 import { isEqual } from 'lodash';
 import type { Doc } from 'sharedb/lib/client';
 import { requestWrap } from '../../utils/requestWrap';
@@ -20,6 +31,10 @@ export class Record extends RecordCore {
   static updateRecord = requestWrap(
     (tableId: string, recordId: string, recordRo: IUpdateRecordRo) =>
       updateRecord(tableId, recordId, recordRo)
+  );
+
+  static updateRecords = requestWrap((tableId: string, recordsRo: IUpdateRecordsRo) =>
+    updateRecords(tableId, recordsRo)
   );
 
   static updateRecordOrders = requestWrap(updateRecordOrders);

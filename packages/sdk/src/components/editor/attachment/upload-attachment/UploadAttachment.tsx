@@ -139,7 +139,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
       <div className="relative flex-1 overflow-y-auto" ref={listRef}>
         <FileZone
           action={['drop', 'paste']}
-          defaultText={t('editor.attachment.uploadDragDefault')}
+          defaultText={readonly ? t('common.empty') : t('editor.attachment.uploadDragDefault')}
           onChange={uploadAttachment}
           disabled={readonly}
         >
@@ -180,14 +180,15 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                           </Button>
                         </li>
                         <li>
-                          <Button
-                            variant={'ghost'}
-                            className="size-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
-                            onClick={() => onDelete(attachment.id)}
-                            disabled={readonly}
-                          >
-                            <X />
-                          </Button>
+                          {!readonly && (
+                            <Button
+                              variant={'ghost'}
+                              className="size-5 rounded-full p-0 text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
+                              onClick={() => onDelete(attachment.id)}
+                            >
+                              <X />
+                            </Button>
+                          )}
                         </li>
                       </ul>
                     </div>
