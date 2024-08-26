@@ -1,0 +1,16 @@
+{
+  "notFound": {
+    "title": "404 - ページが見つかりません"
+  },
+  "links": {
+    "backToHome": "ホームへ戻る"
+  },
+  "forbidden": {
+    "title": "403 - Forbidden",
+    "description": "このページにアクセスする権限がありません。"
+  },
+  "paymentRequired": {
+    "title": "402 - 契約プランのアップグレードが必要です",
+    "description": "現在の契約プランではこの機能にアクセスできません。<br></br>続行するには契約プランをアップグレードしてください。"
+  }
+}
