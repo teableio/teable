@@ -36,6 +36,11 @@ export const duplicateRoute = registerRoute({
   responses: {
     201: {
       description: 'Successful duplicate',
+      content: {
+        'application/json': {
+          schema: duplicateVoSchema,
+        },
+      },
     },
   },
   tags: ['selection'],
