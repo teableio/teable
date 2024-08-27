@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import { RangeType, type ITableFullVo } from '@teable/openapi';
 import {
   convertField,
   createField,
@@ -12,6 +12,7 @@ import {
   deleteRecord,
   deleteRecords,
   deleteTable,
+  duplicateRecord,
   getField,
   getRecord,
   getRecords,
@@ -262,6 +263,32 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         ],
       });
+    });
+
+    it('should duplicate a record', async () => {
+      const value1 = 'New Record' + new Date();
+      const addRecordRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      });
+      await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
+
+      const viewId = table.views[0].id;
+      const anchorId = addRecordRes.records[0].id;
+      const duplicateRes = await duplicateRecord(table.id, {
+        viewId,
+        anchorId,
+        position: 'after',
+        type: RangeType.Rows,
+        ranges: [[0, 0]],
+      });
+      await getRecord(table.id, duplicateRes.ids[0], undefined, 200);
     });
   });
 
