@@ -33,6 +33,7 @@ export enum Events {
   OPERATION_RECORDS_ORDER_UPDATE = 'operation.records.order.update',
   OPERATION_FIELDS_CREATE = 'operation.fields.create',
   OPERATION_FIELDS_DELETE = 'operation.fields.delete',
+  OPERATION_PASTE_SELECTION = 'operation.paste.selection',
 
   OPERATION_PUSH = 'operation.push',
 

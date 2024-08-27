@@ -1,9 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient, FieldKeyType, FieldType, getRandomString } from '@teable/core';
+import { FieldKeyType, FieldType, getRandomString } from '@teable/core';
 import {
   axios,
   clear,
+  copy,
   createField,
   createRecords,
   deleteField,
@@ -13,10 +14,12 @@ import {
   getFields,
   getRecord,
   getRecords,
+  paste,
   redo,
   undo,
   updateRecord,
   updateRecordOrders,
+  updateRecords,
   type ITableFullVo,
 } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -553,68 +556,226 @@ describe('Undo Redo (e2e)', () => {
   });
 
   // event throw error because of sqlite(record history create many)
-  it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-    'should undo / redo delete field with outgoing references',
-    async () => {
-      // update and move 0 to 2
-      const fieldId = table.fields[1].id;
-      await awaitWithEvent(() =>
-        updateRecord(table.id, table.records[0].id, {
-          fieldKeyType: FieldKeyType.Id,
-          record: { fields: { [table.fields[1].id]: 666 } },
-        })
-      );
+  it('should undo / redo delete field with outgoing references', async () => {
+    // update and move 0 to 2
+    const fieldId = table.fields[1].id;
+    await awaitWithEvent(() =>
+      updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [table.fields[1].id]: 666 } },
+      })
+    );
 
-      const formulaField = await awaitWithEvent(() =>
-        createField(table.id, {
-          type: FieldType.Formula,
-          options: {
-            expression: `{${table.fields[1].id}}`,
+    const formulaField = await awaitWithEvent(() =>
+      createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${table.fields[1].id}}`,
+        },
+      })
+    );
+
+    await awaitWithEvent(() => deleteField(table.id, fieldId));
+
+    const fields = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fields.length).toEqual(3);
+    expect(fields[2].hasError).toBeTruthy();
+
+    await undo(table.id);
+
+    const fieldsAfterUndo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterUndo[1].id).toEqual(fieldId);
+    expect(fieldsAfterUndo[3].id).toEqual(formulaField.data.id);
+    expect(fieldsAfterUndo[3].hasError).toBeFalsy();
+
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterUndo.records[0].fields[fieldId]).toEqual(666);
+
+    await redo(table.id);
+
+    const fieldsAfterRedo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterRedo.length).toEqual(3);
+  });
+
+  it.only('should undo / redo paste simple selection', async () => {
+    await updateRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        {
+          id: table.records[0].id,
+          fields: { [table.fields[0].id]: 'A', [table.fields[1].id]: 1 },
+        },
+      ],
+    });
+
+    const { content, header } = (
+      await copy(table.id, {
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+      })
+    ).data;
+
+    await awaitWithEvent(() =>
+      paste(table.id, {
+        viewId: table.views[0].id,
+        content,
+        header,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+      })
+    );
+
+    const records = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(records.records[1].fields[table.fields[0].id]).toEqual('A');
+
+    await undo(table.id);
+
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterUndo.records[1].fields[table.fields[0].id]).toBeUndefined();
+
+    await redo(table.id);
+
+    const recordsAfterRedo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterRedo.records[1].fields[table.fields[0].id]).toEqual('A');
+  });
+
+  it('should undo / redo paste expanding selection', async () => {
+    await awaitWithEvent(() =>
+      updateRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table.records[0].id,
+            fields: { [table.fields[0].id]: 'A', [table.fields[1].id]: 1 },
           },
-        })
-      );
+          {
+            id: table.records[1].id,
+            fields: { [table.fields[0].id]: 'B', [table.fields[1].id]: 2 },
+          },
+        ],
+      })
+    );
 
-      await awaitWithEvent(() => deleteField(table.id, fieldId));
+    const { content, header } = (
+      await copy(table.id, {
+        viewId: table.views[0].id,
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+      })
+    ).data;
 
-      const fields = (
-        await getFields(table.id, {
-          viewId: table.views[0].id,
-        })
-      ).data;
+    await awaitWithEvent(() =>
+      paste(table.id, {
+        viewId: table.views[0].id,
+        content,
+        header,
+        ranges: [
+          [2, 2],
+          [2, 2],
+        ],
+      })
+    );
 
-      expect(fields.length).toEqual(3);
-      expect(fields[2].hasError).toBeTruthy();
+    const records = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+    const fields = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
 
-      await undo(table.id);
+    expect(records.records[2].fields[fields[2].id]).toEqual('A');
+    expect(records.records[2].fields[fields[3].id]).toEqual(1);
+    expect(records.records[3].fields[fields[2].id]).toEqual('B');
+    expect(records.records[3].fields[fields[3].id]).toEqual(2);
 
-      const fieldsAfterUndo = (
-        await getFields(table.id, {
-          viewId: table.views[0].id,
-        })
-      ).data;
+    await undo(table.id);
 
-      expect(fieldsAfterUndo[1].id).toEqual(fieldId);
-      expect(fieldsAfterUndo[3].id).toEqual(formulaField.data.id);
-      expect(fieldsAfterUndo[3].hasError).toBeFalsy();
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
 
-      const recordsAfterUndo = (
-        await getRecords(table.id, {
-          fieldKeyType: FieldKeyType.Id,
-          viewId: table.views[0].id,
-        })
-      ).data;
+    const fieldsAfterUndo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
 
-      expect(recordsAfterUndo.records[0].fields[fieldId]).toEqual(666);
+    expect(recordsAfterUndo.records[2].fields[fieldsAfterUndo[2].id]).toBeUndefined();
+    expect(recordsAfterUndo.records.length).toEqual(3);
+    expect(fieldsAfterUndo.length).toEqual(3);
 
-      await redo(table.id);
+    await redo(table.id);
 
-      const fieldsAfterRedo = (
-        await getFields(table.id, {
-          viewId: table.views[0].id,
-        })
-      ).data;
+    const recordsAfterRedo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
 
-      expect(fieldsAfterRedo.length).toEqual(3);
-    }
-  );
+    const fieldsAfterRedo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterRedo.records[2].fields[fieldsAfterRedo[2].id]).toEqual('A');
+    expect(recordsAfterRedo.records[2].fields[fieldsAfterRedo[3].id]).toEqual(1);
+    expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[2].id]).toEqual('B');
+    expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[3].id]).toEqual(2);
+  });
 });

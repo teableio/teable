@@ -82,7 +82,7 @@ export enum OperationName {
   CreateFields = 'createFields',
   UpdateField = 'updateField',
   DeleteFields = 'deleteFields',
-  Paste = 'paste',
+  PasteSelection = 'pasteSelection',
 }
 
 export interface IUndoRedoOperationBase {
@@ -132,7 +132,7 @@ export interface ICreateRecordsOperation extends IUndoRedoOperationBase {
     tableId: string;
   };
   result: {
-    records: (IRecord & { order: Record<string, number> | undefined })[];
+    records: (IRecord & { order?: Record<string, number> })[];
   };
 }
 
@@ -158,10 +158,27 @@ export interface IDeleteFieldsOperation extends Omit<ICreateFieldsOperation, 'na
   name: OperationName.DeleteFields;
 }
 
+export interface IPasteSelectionOperation extends IUndoRedoOperationBase {
+  name: OperationName.PasteSelection;
+  params: {
+    tableId: string;
+  };
+  result: {
+    updateRecords?: {
+      recordIds: string[];
+      fieldIds: string[];
+      cellContexts: ICellContext[];
+    };
+    newFields?: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[];
+    newRecords?: (IRecord & { order?: Record<string, number> })[];
+  };
+}
+
 export type IUndoRedoOperation =
   | IUpdateRecordsOperation
   | ICreateRecordsOperation
   | IDeleteRecordsOperation
   | IUpdateRecordsOrderOperation
   | ICreateFieldsOperation
-  | IDeleteFieldsOperation;
+  | IDeleteFieldsOperation
+  | IPasteSelectionOperation;

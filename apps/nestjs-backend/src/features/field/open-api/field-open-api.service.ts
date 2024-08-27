@@ -189,7 +189,7 @@ export class FieldOpenApiService {
 
     const referenceMap = await this.getFieldReferenceMap([fieldVo.id]);
 
-    this.eventEmitterService.emit(Events.OPERATION_FIELDS_CREATE, {
+    this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_CREATE, {
       windowId,
       tableId,
       userId: this.cls.get('user.id'),

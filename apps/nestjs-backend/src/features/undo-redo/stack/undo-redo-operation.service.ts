@@ -17,6 +17,10 @@ import {
   IDeleteRecordsPayload,
 } from '../operations/delete-records.operation';
 import {
+  IPasteSelectionPayload,
+  PasteSelectionOperation,
+} from '../operations/paste-selection.operation';
+import {
   IUpdateRecordsOrderPayload,
   UpdateRecordsOrderOperation,
 } from '../operations/update-records-order.operation';
@@ -34,6 +38,7 @@ export class UndoRedoOperationService {
   updateRecordsOrder: UpdateRecordsOrderOperation;
   createFields: CreateFieldsOperation;
   deleteFields: DeleteFieldsOperation;
+  pasteSelection: PasteSelectionOperation;
 
   constructor(
     private readonly undoRedoStackService: UndoRedoStackService,
@@ -54,6 +59,10 @@ export class UndoRedoOperationService {
       this.fieldOpenApiService,
       this.recordOpenApiService
     );
+    this.pasteSelection = new PasteSelectionOperation(
+      this.recordOpenApiService,
+      this.fieldOpenApiService
+    );
   }
 
   async undo(operation: IUndoRedoOperation): Promise<IUndoRedoOperation> {
@@ -70,6 +79,8 @@ export class UndoRedoOperationService {
         return this.createFields.undo(operation);
       case OperationName.DeleteFields:
         return this.deleteFields.undo(operation);
+      case OperationName.PasteSelection:
+        return this.pasteSelection.undo(operation);
       default:
         assertNever(operation);
     }
@@ -89,6 +100,8 @@ export class UndoRedoOperationService {
         return this.createFields.redo(operation);
       case OperationName.DeleteFields:
         return this.deleteFields.redo(operation);
+      case OperationName.PasteSelection:
+        return this.pasteSelection.redo(operation);
       default:
         assertNever(operation);
     }
@@ -157,6 +170,17 @@ export class UndoRedoOperationService {
     }
 
     const operation = await this.deleteFields.event2Operation(payload);
+    await this.undoRedoStackService.push(userId, tableId, windowId, operation);
+  }
+
+  @OnEvent(Events.OPERATION_PASTE_SELECTION)
+  private async onPasteSelection(payload: IPasteSelectionPayload) {
+    const { windowId, userId, tableId } = payload;
+    if (!windowId || !userId) {
+      return;
+    }
+
+    const operation = await this.pasteSelection.event2Operation(payload);
     await this.undoRedoStackService.push(userId, tableId, windowId, operation);
   }
 }

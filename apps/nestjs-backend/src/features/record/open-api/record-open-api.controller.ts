@@ -90,9 +90,11 @@ export class RecordOpenApiController {
   @Patch()
   async updateRecords(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(updateRecordsRoSchema)) updateRecordsRo: IUpdateRecordsRo
+    @Body(new ZodValidationPipe(updateRecordsRoSchema)) updateRecordsRo: IUpdateRecordsRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IRecord[]> {
-    return await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+    return (await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId))
+      .records;
   }
 
   @Permissions('record|create')

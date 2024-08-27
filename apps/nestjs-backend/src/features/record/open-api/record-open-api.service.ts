@@ -251,7 +251,7 @@ export class RecordOpenApiService {
           )
         : undefined;
 
-    const { originCellContexts } = await this.prismaService.$tx(async () => {
+    const cellContexts = await this.prismaService.$tx(async () => {
       if (order != null) {
         const { viewId, anchorId, position } = order;
 
@@ -275,32 +275,25 @@ export class RecordOpenApiService {
         typecastRecords
       );
 
-      const originCellContexts = await this.recordCalculateService.calculateUpdatedRecord(
+      return await this.recordCalculateService.calculateUpdatedRecord(
         tableId,
         fieldKeyType,
         preparedRecords
       );
-
-      return { originCellContexts };
     });
 
+    const recordIds = records.map((r) => r.id);
     if (windowId) {
       const orderIndexesAfter =
-        order != null
-          ? await this.recordService.getRecordIndexes(
-              tableId,
-              records.map((r) => r.id),
-              order.viewId
-            )
-          : undefined;
+        order && (await this.recordService.getRecordIndexes(tableId, recordIds, order.viewId));
 
       this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
         tableId,
         windowId,
         userId: this.cls.get('user.id'),
-        recordIds: records.map((r) => r.id),
+        recordIds,
         fieldIds: Object.keys(records[0].fields),
-        cellContexts: originCellContexts,
+        cellContexts,
         orderIndexesBefore,
         orderIndexesAfter,
       });
@@ -308,12 +301,15 @@ export class RecordOpenApiService {
 
     const snapshots = await this.recordService.getSnapshotBulk(
       tableId,
-      updateRecordsRo.records.map((r) => r.id),
+      recordIds,
       undefined,
       updateRecordsRo.fieldKeyType
     );
 
-    return snapshots.map((snapshot) => snapshot.data);
+    return {
+      records: snapshots.map((snapshot) => snapshot.data),
+      cellContexts,
+    };
   }
 
   async updateRecord(

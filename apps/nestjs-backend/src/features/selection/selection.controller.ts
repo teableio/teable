@@ -49,10 +49,10 @@ export class SelectionController {
   @Patch('/paste')
   async paste(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(pasteRoSchema), TqlPipe)
-    pasteRo: IPasteRo
+    @Body(new ZodValidationPipe(pasteRoSchema), TqlPipe) pasteRo: IPasteRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IPasteVo> {
-    const ranges = await this.selectionService.paste(tableId, pasteRo);
+    const ranges = await this.selectionService.paste(tableId, pasteRo, undefined, windowId);
     return { ranges };
   }
 
