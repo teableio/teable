@@ -253,7 +253,7 @@ describe('OpenAPI BaseController (e2e)', () => {
         expect(error?.status).toBe(403);
       });
 
-      it.only('/api/base/:baseId/collaborators (PATCH) - exceeds limit role', async () => {
+      it('/api/base/:baseId/collaborators (PATCH) - exceeds limit role', async () => {
         await updateBaseCollaborator({
           baseId: baseId,
           updateBaseCollaborateRo: {
