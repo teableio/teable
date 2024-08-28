@@ -35,7 +35,9 @@ export enum Events {
   OPERATION_FIELDS_DELETE = 'operation.fields.delete',
   OPERATION_FIELD_CONVERT = 'operation.field.convert',
   OPERATION_PASTE_SELECTION = 'operation.paste.selection',
-
+  OPERATION_VIEW_DELETE = 'operation.view.delete',
+  OPERATION_VIEW_CREATE = 'operation.view.create',
+  OPERATION_VIEW_UPDATE = 'operation.view.update',
   OPERATION_PUSH = 'operation.push',
 
   TABLE_USER_RENAME_COMPLETE = 'table.user.rename.complete',

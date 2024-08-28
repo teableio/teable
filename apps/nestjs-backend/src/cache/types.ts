@@ -1,4 +1,4 @@
-import type { IColumnMeta, IFieldVo } from '@teable/core';
+import type { IColumnMeta, IFieldVo, IViewVo } from '@teable/core';
 import type { IRecord } from '@teable/openapi';
 import type { IOpsMap } from '../features/calculation/reference.service';
 import type { ICellContext } from '../features/calculation/utils/changes';
@@ -76,6 +76,9 @@ export interface IOAuthTxnStore {
 }
 
 export enum OperationName {
+  CreateView = 'createView',
+  DeleteView = 'deleteView',
+  UpdateView = 'updateView',
   CreateRecords = 'createRecords',
   DeleteRecords = 'deleteRecords',
   UpdateRecords = 'updateRecords',
@@ -89,7 +92,7 @@ export enum OperationName {
 export interface IUndoRedoOperationBase {
   name: OperationName;
   params: Record<string, unknown>;
-  result: unknown;
+  result?: unknown;
 }
 
 export interface IUpdateRecordsOperation extends IUndoRedoOperationBase {
@@ -193,6 +196,36 @@ export interface IPasteSelectionOperation extends IUndoRedoOperationBase {
   };
 }
 
+export interface ICreateViewOperation extends IUndoRedoOperationBase {
+  name: OperationName.CreateView;
+  params: {
+    tableId: string;
+  };
+  result: {
+    view: IViewVo;
+  };
+}
+
+export interface IDeleteViewOperation extends IUndoRedoOperationBase {
+  name: OperationName.DeleteView;
+  params: {
+    tableId: string;
+    viewId: string;
+  };
+}
+
+export interface IUpdateViewOperation extends IUndoRedoOperationBase {
+  name: OperationName.UpdateView;
+  params: {
+    tableId: string;
+  };
+  result: {
+    key: string;
+    newValue: unknown;
+    oldValue: unknown;
+  };
+}
+
 export type IUndoRedoOperation =
   | IUpdateRecordsOperation
   | ICreateRecordsOperation
@@ -201,4 +234,6 @@ export type IUndoRedoOperation =
   | ICreateFieldsOperation
   | IDeleteFieldsOperation
   | IConvertFieldOperation
-  | IPasteSelectionOperation;
+  | IPasteSelectionOperation
+  | ICreateViewOperation
+  | IDeleteViewOperation;

@@ -42,6 +42,8 @@ import {
 } from '@teable/openapi';
 import type { EnableShareViewVo, IGetViewFilterLinkRecordsVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
+import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
+import { Events } from '../../../event-emitter/events';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { ViewService } from '../view.service';
 import { ViewOpenApiService } from './view-open-api.service';
@@ -70,6 +72,7 @@ export class ViewOpenApiController {
 
   @Permissions('view|create')
   @Post()
+  @EmitControllerEvent(Events.OPERATION_VIEW_CREATE)
   async createView(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(viewRoSchema)) viewRo: IViewRo
@@ -79,6 +82,7 @@ export class ViewOpenApiController {
 
   @Permissions('view|delete')
   @Delete('/:viewId')
+  @EmitControllerEvent(Events.OPERATION_VIEW_DELETE)
   async deleteView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
     return await this.viewOpenApiService.deleteView(tableId, viewId);
   }

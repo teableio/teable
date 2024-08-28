@@ -153,6 +153,22 @@ export class ViewService implements IReadonlyAdapterService {
     return innerViewRo;
   }
 
+  async restoreView(tableId: string, viewId: string) {
+    await this.prismaService.$tx(async () => {
+      await this.prismaService.view.update({
+        where: { id: viewId },
+        data: {
+          deletedTime: null,
+        },
+      });
+      const ops = ViewOpBuilder.editor.setViewProperty.build({
+        key: 'lastModifiedTime',
+        newValue: new Date().toISOString(),
+      });
+      await this.updateViewByOps(tableId, viewId, [ops]);
+    });
+  }
+
   async createDbView(tableId: string, viewRo: IViewRo) {
     const userId = this.cls.get('user.id');
     const createViewRo = await this.viewDataCompensation(tableId, viewRo);
@@ -193,7 +209,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async getViewById(viewId: string): Promise<IViewVo> {
     const viewRaw = await this.prismaService.txClient().view.findUniqueOrThrow({
-      where: { id: viewId },
+      where: { id: viewId, deletedTime: null },
     });
 
     return this.convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
@@ -323,15 +339,12 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async del(_version: number, _tableId: string, viewId: string) {
-    const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
-
-    await this.prismaService.txClient().view.delete({
+    await this.prismaService.txClient().view.update({
       where: { id: viewId },
+      data: {
+        deletedTime: new Date(),
+      },
     });
-
-    await this.prismaService.txClient().$executeRawUnsafe(`
-      DROP INDEX IF EXISTS "${rowIndexFieldIndexName}";
-    `);
   }
 
   // get column order map for all views, order by fieldIds, key by viewId

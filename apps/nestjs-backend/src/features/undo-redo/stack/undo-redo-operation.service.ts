@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { assertNever } from '@teable/core';
@@ -8,15 +9,20 @@ import { FieldOpenApiService } from '../../field/open-api/field-open-api.service
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { ViewService } from '../../view/view.service';
 import { ConvertFieldOperation, IConvertFieldPayload } from '../operations/convert-field.operation';
 import { CreateFieldsOperation, ICreateFieldsPayload } from '../operations/create-fields.operation';
 import type { ICreateRecordsPayload } from '../operations/create-records.operation';
 import { CreateRecordsOperation } from '../operations/create-records.operation';
+import type { ICreateViewPayload } from '../operations/create-view.operation';
+import { CreateViewOperation } from '../operations/create-view.operation';
 import { DeleteFieldsOperation, IDeleteFieldsPayload } from '../operations/delete-fields.operation';
 import {
   DeleteRecordsOperation,
   IDeleteRecordsPayload,
 } from '../operations/delete-records.operation';
+import type { IDeleteViewPayload } from '../operations/delete-view.operation';
+import { DeleteViewOperation } from '../operations/delete-view.operation';
 import {
   IPasteSelectionPayload,
   PasteSelectionOperation,
@@ -41,13 +47,16 @@ export class UndoRedoOperationService {
   deleteFields: DeleteFieldsOperation;
   convertField: ConvertFieldOperation;
   pasteSelection: PasteSelectionOperation;
+  deleteView: DeleteViewOperation;
+  createView: CreateViewOperation;
 
   constructor(
     private readonly undoRedoStackService: UndoRedoStackService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
-    private readonly recordService: RecordService
+    private readonly recordService: RecordService,
+    private readonly viewService: ViewService
   ) {
     this.createRecords = new CreateRecordsOperation(this.recordOpenApiService, this.recordService);
     this.deleteRecords = new DeleteRecordsOperation(this.recordOpenApiService, this.recordService);
@@ -66,6 +75,8 @@ export class UndoRedoOperationService {
       this.recordOpenApiService,
       this.fieldOpenApiService
     );
+    this.deleteView = new DeleteViewOperation(this.viewOpenApiService, this.viewService);
+    this.createView = new CreateViewOperation(this.viewOpenApiService, this.viewService);
   }
 
   async undo(operation: IUndoRedoOperation): Promise<IUndoRedoOperation> {
@@ -86,6 +97,10 @@ export class UndoRedoOperationService {
         return this.pasteSelection.undo(operation);
       case OperationName.ConvertField:
         return this.convertField.undo(operation);
+      case OperationName.DeleteView:
+        return this.deleteView.undo(operation);
+      case OperationName.CreateView:
+        return this.createView.undo(operation);
       default:
         assertNever(operation);
     }
@@ -109,6 +124,10 @@ export class UndoRedoOperationService {
         return this.pasteSelection.redo(operation);
       case OperationName.ConvertField:
         return this.convertField.redo(operation);
+      case OperationName.DeleteView:
+        return this.deleteView.redo(operation);
+      case OperationName.CreateView:
+        return this.createView.redo(operation);
       default:
         assertNever(operation);
     }
@@ -200,5 +219,27 @@ export class UndoRedoOperationService {
 
     const operation = await this.convertField.event2Operation(payload);
     await this.undoRedoStackService.push(userId, tableId, windowId, operation);
+  }
+
+  @OnEvent(Events.OPERATION_VIEW_DELETE)
+  private async onDeleteView(payload: IEventRawContext) {
+    const windowId = payload.reqHeaders['x-window-id'] as string;
+    const userId = payload.reqUser?.id;
+    if (!windowId || !userId) {
+      return;
+    }
+    const operation = await this.deleteView.event2Operation(payload as IDeleteViewPayload);
+    await this.undoRedoStackService.push(userId, operation.params.tableId, windowId, operation);
+  }
+
+  @OnEvent(Events.OPERATION_VIEW_CREATE)
+  private async onCreateView(payload: IEventRawContext) {
+    const windowId = payload.reqHeaders['x-window-id'] as string;
+    const userId = payload.reqUser?.id;
+    if (!windowId || !userId) {
+      return;
+    }
+    const operation = await this.createView.event2Operation(payload as ICreateViewPayload);
+    await this.undoRedoStackService.push(userId, operation.params.tableId, windowId, operation);
   }
 }

@@ -82,7 +82,7 @@ export class ViewOpenApiService {
   }
 
   private async deleteViewInner(tableId: string, viewId: string) {
-    await this.viewService.deleteView(tableId, viewId);
+    return await this.viewService.deleteView(tableId, viewId);
   }
 
   private updateRecordOrderSql(orderRawSql: string, dbTableName: string, indexField: string) {

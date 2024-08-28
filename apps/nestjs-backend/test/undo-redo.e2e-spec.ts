@@ -1,7 +1,14 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable/core';
-import { DriverClient, FieldKeyType, FieldType, getRandomString, Relationship } from '@teable/core';
+import {
+  DriverClient,
+  FieldKeyType,
+  FieldType,
+  getRandomString,
+  Relationship,
+  ViewType,
+} from '@teable/core';
 import {
   axios,
   clear,
@@ -9,14 +16,17 @@ import {
   copy,
   createField,
   createRecords,
+  createView,
   deleteField,
   deleteRecord,
   deleteRecords,
   deleteSelection,
+  deleteView,
   getField,
   getFields,
   getRecord,
   getRecords,
+  getViewList,
   paste,
   redo,
   undo,
@@ -780,6 +790,58 @@ describe('Undo Redo (e2e)', () => {
     expect(recordsAfterRedo.records[2].fields[fieldsAfterRedo[3].id]).toEqual(1);
     expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[2].id]).toEqual('B');
     expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[3].id]).toEqual(2);
+  });
+
+  it('should undo / redo create view', async () => {
+    const view = (
+      await awaitWithEvent(() =>
+        createView(table.id, {
+          type: ViewType.Grid,
+          name: 'view1',
+        })
+      )
+    ).data;
+
+    await undo(table.id);
+
+    const viewsAfterUndo = (await getViewList(table.id)).data;
+    expect(viewsAfterUndo.find((v) => v.id === view.id)).toBeUndefined();
+
+    await redo(table.id);
+
+    const viewsAfterRedo = (await getViewList(table.id)).data;
+    expect(viewsAfterRedo.find((v) => v.id === view.id)).toMatchObject({
+      id: view.id,
+      name: view.name,
+      type: view.type,
+    });
+  });
+
+  it('should undo / redo delete view', async () => {
+    const view = (
+      await awaitWithEvent(() =>
+        createView(table.id, {
+          type: ViewType.Grid,
+          name: 'view1',
+        })
+      )
+    ).data;
+
+    await awaitWithEvent(() => deleteView(table.id, view.id));
+
+    await undo(table.id);
+
+    const viewsAfterUndo = (await getViewList(table.id)).data;
+    expect(viewsAfterUndo.find((v) => v.id === view.id)).toMatchObject({
+      id: view.id,
+      name: view.name,
+      type: view.type,
+    });
+
+    await redo(table.id);
+
+    const viewsAfterRedo = (await getViewList(table.id)).data;
+    expect(viewsAfterRedo.find((v) => v.id === view.id)).toBeUndefined();
   });
 
   describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
