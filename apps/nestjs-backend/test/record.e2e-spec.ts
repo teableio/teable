@@ -266,18 +266,19 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
 
     it('should duplicate a record', async () => {
-      const value1 = 'New Record' + new Date();
+      const value1 = 'New Record';
       const addRecordRes = await createRecords(table.id, {
-        fieldKeyType: FieldKeyType.Name,
+        fieldKeyType: FieldKeyType.Id,
         records: [
           {
             fields: {
-              [table.fields[0].name]: value1,
+              [table.fields[0].id]: value1,
             },
           },
         ],
       });
-      await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
+      const addRecord = await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
+      expect(addRecord.fields[table.fields[0].id]).toEqual(value1);
 
       const viewId = table.views[0].id;
       const anchorId = addRecordRes.records[0].id;
@@ -286,9 +287,10 @@ describe('OpenAPI RecordController (e2e)', () => {
         anchorId,
         position: 'after',
         type: RangeType.Rows,
-        ranges: [[0, 0]],
+        ranges: [[3, 3]],
       });
-      await getRecord(table.id, duplicateRes.ids[0], undefined, 200);
+      const record = await getRecord(table.id, duplicateRes.ids[0], undefined, 200);
+      expect(record.fields[table.fields[0].id]).toEqual(value1);
     });
   });
 
