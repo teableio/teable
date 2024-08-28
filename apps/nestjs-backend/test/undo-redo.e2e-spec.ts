@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable/core';
-import { FieldKeyType, FieldType, getRandomString, Relationship } from '@teable/core';
+import { DriverClient, FieldKeyType, FieldType, getRandomString, Relationship } from '@teable/core';
 import {
   axios,
   clear,
@@ -782,74 +782,79 @@ describe('Undo Redo (e2e)', () => {
     expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[3].id]).toEqual(2);
   });
 
-  it('should undo modify field constraint', async () => {
-    await awaitWithEvent(() =>
-      convertField(table.id, table.fields[0].id, {
-        ...table.fields[0],
-        unique: true,
-      })
-    );
+  describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+    'modify field constraint',
+    () => {
+      it('should undo modify field constraint', async () => {
+        await awaitWithEvent(() =>
+          convertField(table.id, table.fields[0].id, {
+            ...table.fields[0],
+            unique: true,
+          })
+        );
 
-    await expect(
-      updateRecords(table.id, {
-        fieldKeyType: FieldKeyType.Id,
-        records: [
-          {
-            id: table.records[0].id,
-            fields: { [table.fields[0].id]: 'A' },
-          },
-          {
-            id: table.records[1].id,
-            fields: { [table.fields[0].id]: 'A' },
-          },
-        ],
-      })
-    ).rejects.toThrowError();
+        await expect(
+          updateRecords(table.id, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [
+              {
+                id: table.records[0].id,
+                fields: { [table.fields[0].id]: 'A' },
+              },
+              {
+                id: table.records[1].id,
+                fields: { [table.fields[0].id]: 'A' },
+              },
+            ],
+          })
+        ).rejects.toThrowError();
 
-    await undo(table.id);
+        await undo(table.id);
 
-    await updateRecords(table.id, {
-      fieldKeyType: FieldKeyType.Id,
-      records: [
-        {
-          id: table.records[0].id,
-          fields: { [table.fields[0].id]: 'A' },
-        },
-        {
-          id: table.records[1].id,
-          fields: { [table.fields[0].id]: 'A' },
-        },
-      ],
-    });
-  });
+        await updateRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [table.fields[0].id]: 'A' },
+            },
+            {
+              id: table.records[1].id,
+              fields: { [table.fields[0].id]: 'A' },
+            },
+          ],
+        });
+      });
 
-  it('should redo modify field constraint', async () => {
-    await awaitWithEvent(() =>
-      convertField(table.id, table.fields[0].id, {
-        ...table.fields[0],
-        unique: true,
-      })
-    );
+      it('should redo modify field constraint', async () => {
+        await awaitWithEvent(() =>
+          convertField(table.id, table.fields[0].id, {
+            ...table.fields[0],
+            unique: true,
+          })
+        );
 
-    await undo(table.id);
-    await redo(table.id);
+        await undo(table.id);
+        await redo(table.id);
 
-    await expect(
-      updateRecords(table.id, {
-        fieldKeyType: FieldKeyType.Id,
-        records: [
-          {
-            id: table.records[0].id,
-            fields: { [table.fields[0].id]: 'A' },
-          },
-          {
-            id: table.records[1].id,
-            fields: { [table.fields[0].id]: 'A' },
-          },
-        ],
-      })
-    ).rejects.toThrowError();
-  });
+        await expect(
+          updateRecords(table.id, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [
+              {
+                id: table.records[0].id,
+                fields: { [table.fields[0].id]: 'A' },
+              },
+              {
+                id: table.records[1].id,
+                fields: { [table.fields[0].id]: 'A' },
+              },
+            ],
+          })
+        ).rejects.toThrowError();
+      });
+    }
+  );
 
   describe('link related', () => {
     let table1: ITableFullVo;

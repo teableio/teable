@@ -519,9 +519,9 @@ describe('selectionService', () => {
 
       vi.spyOn(selectionService as any, 'expandColumns').mockResolvedValue(mockNewFields);
 
-      vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue(null as any);
+      vi.spyOn(recordOpenApiService, 'updateRecords').mockResolvedValue({} as any);
 
-      vi.spyOn(recordOpenApiService, 'createRecords').mockResolvedValue(null as any);
+      vi.spyOn(recordOpenApiService, 'createRecords').mockResolvedValue({ records: [] } as any);
 
       prismaService.$tx.mockImplementation(async (fn, _options) => {
         return await fn(prismaService);
