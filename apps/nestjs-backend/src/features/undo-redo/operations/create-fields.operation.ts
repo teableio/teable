@@ -10,7 +10,7 @@ export interface ICreateFieldsPayload {
   tableId: string;
   userId: string;
   fields: (IFieldVo & { columnMeta?: IColumnMeta; references?: string[] })[];
-  records: {
+  records?: {
     id: string;
     fields: Record<string, unknown>;
   }[];

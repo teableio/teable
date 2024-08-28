@@ -101,9 +101,10 @@ export class FieldOpenApiController {
   async convertField(
     @Param('tableId') tableId: string,
     @Param('fieldId') fieldId: string,
-    @Body(new ZodValidationPipe(convertFieldRoSchema)) updateFieldRo: IConvertFieldRo
+    @Body(new ZodValidationPipe(convertFieldRoSchema)) updateFieldRo: IConvertFieldRo,
+    @Headers('x-window-id') windowId: string
   ) {
-    return await this.fieldOpenApiService.convertField(tableId, fieldId, updateFieldRo);
+    return await this.fieldOpenApiService.convertField(tableId, fieldId, updateFieldRo, windowId);
   }
 
   @Permissions('field|update')

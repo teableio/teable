@@ -1,5 +1,6 @@
 import type { IColumnMeta, IFieldVo } from '@teable/core';
 import type { IRecord } from '@teable/openapi';
+import type { IOpsMap } from '../features/calculation/reference.service';
 import type { ICellContext } from '../features/calculation/utils/changes';
 import type { ISessionData } from '../types/session';
 
@@ -80,7 +81,7 @@ export enum OperationName {
   UpdateRecords = 'updateRecords',
   UpdateRecordsOrder = 'updateRecordsOrder',
   CreateFields = 'createFields',
-  UpdateField = 'updateField',
+  ConvertField = 'convertField',
   DeleteFields = 'deleteFields',
   PasteSelection = 'pasteSelection',
 }
@@ -140,6 +141,25 @@ export interface IDeleteRecordsOperation extends Omit<ICreateRecordsOperation, '
   name: OperationName.DeleteRecords;
 }
 
+export interface IConvertFieldOperation extends IUndoRedoOperationBase {
+  name: OperationName.ConvertField;
+  params: {
+    tableId: string;
+  };
+  result: {
+    oldField: IFieldVo;
+    newField: IFieldVo;
+    modifiedOps?: IOpsMap;
+    needSupplementFieldConstraint?: boolean;
+    references?: string[];
+    supplementChange?: {
+      tableId: string;
+      newField: IFieldVo;
+      oldField: IFieldVo;
+    };
+  };
+}
+
 export interface ICreateFieldsOperation extends IUndoRedoOperationBase {
   name: OperationName.CreateFields;
   params: {
@@ -181,4 +201,5 @@ export type IUndoRedoOperation =
   | IUpdateRecordsOrderOperation
   | ICreateFieldsOperation
   | IDeleteFieldsOperation
+  | IConvertFieldOperation
   | IPasteSelectionOperation;

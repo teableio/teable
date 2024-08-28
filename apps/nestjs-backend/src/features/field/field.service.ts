@@ -367,7 +367,7 @@ export class FieldService implements IReadonlyAdapterService {
     );
   }
 
-  async resolveError(tableId: string, fieldIds: string[]) {
+  async markError(tableId: string, fieldIds: string[], hasError: boolean) {
     await this.batchUpdateFields(
       tableId,
       fieldIds.map((fieldId) => ({
@@ -375,8 +375,8 @@ export class FieldService implements IReadonlyAdapterService {
         ops: [
           FieldOpBuilder.editor.setFieldProperty.build({
             key: 'hasError',
-            newValue: null,
-            oldValue: true,
+            newValue: hasError ? true : null,
+            oldValue: hasError ? null : true,
           }),
         ],
       }))

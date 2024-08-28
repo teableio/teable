@@ -8,6 +8,7 @@ import { FieldOpenApiService } from '../../field/open-api/field-open-api.service
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
+import { ConvertFieldOperation, IConvertFieldPayload } from '../operations/convert-field.operation';
 import { CreateFieldsOperation, ICreateFieldsPayload } from '../operations/create-fields.operation';
 import type { ICreateRecordsPayload } from '../operations/create-records.operation';
 import { CreateRecordsOperation } from '../operations/create-records.operation';
@@ -38,6 +39,7 @@ export class UndoRedoOperationService {
   updateRecordsOrder: UpdateRecordsOrderOperation;
   createFields: CreateFieldsOperation;
   deleteFields: DeleteFieldsOperation;
+  convertField: ConvertFieldOperation;
   pasteSelection: PasteSelectionOperation;
 
   constructor(
@@ -59,6 +61,7 @@ export class UndoRedoOperationService {
       this.fieldOpenApiService,
       this.recordOpenApiService
     );
+    this.convertField = new ConvertFieldOperation(this.fieldOpenApiService);
     this.pasteSelection = new PasteSelectionOperation(
       this.recordOpenApiService,
       this.fieldOpenApiService
@@ -81,6 +84,8 @@ export class UndoRedoOperationService {
         return this.deleteFields.undo(operation);
       case OperationName.PasteSelection:
         return this.pasteSelection.undo(operation);
+      case OperationName.ConvertField:
+        return this.convertField.undo(operation);
       default:
         assertNever(operation);
     }
@@ -102,6 +107,8 @@ export class UndoRedoOperationService {
         return this.deleteFields.redo(operation);
       case OperationName.PasteSelection:
         return this.pasteSelection.redo(operation);
+      case OperationName.ConvertField:
+        return this.convertField.redo(operation);
       default:
         assertNever(operation);
     }
@@ -181,6 +188,17 @@ export class UndoRedoOperationService {
     }
 
     const operation = await this.pasteSelection.event2Operation(payload);
+    await this.undoRedoStackService.push(userId, tableId, windowId, operation);
+  }
+
+  @OnEvent(Events.OPERATION_FIELD_CONVERT)
+  private async onConvertField(payload: IConvertFieldPayload) {
+    const { windowId, userId, tableId } = payload;
+    if (!windowId || !userId) {
+      return;
+    }
+
+    const operation = await this.convertField.event2Operation(payload);
     await this.undoRedoStackService.push(userId, tableId, windowId, operation);
   }
 }

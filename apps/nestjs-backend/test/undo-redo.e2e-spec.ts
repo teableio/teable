@@ -1,9 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, getRandomString } from '@teable/core';
+import type { IFieldRo, IFieldVo } from '@teable/core';
+import { FieldKeyType, FieldType, getRandomString, Relationship } from '@teable/core';
 import {
   axios,
   clear,
+  convertField,
   copy,
   createField,
   createRecords,
@@ -11,6 +13,7 @@ import {
   deleteRecord,
   deleteRecords,
   deleteSelection,
+  getField,
   getFields,
   getRecord,
   getRecords,
@@ -20,12 +23,12 @@ import {
   updateRecord,
   updateRecordOrders,
   updateRecords,
-  type ITableFullVo,
 } from '@teable/openapi';
+import type { ITableFullVo } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createAwaitWithEvent } from './utils/event-promise';
-import { initApp, deleteTable, createTable } from './utils/init-app';
+import { initApp, deleteTable, createTable, updateRecordByApi } from './utils/init-app';
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
@@ -618,7 +621,7 @@ describe('Undo Redo (e2e)', () => {
     expect(fieldsAfterRedo.length).toEqual(3);
   });
 
-  it.only('should undo / redo paste simple selection', async () => {
+  it('should undo / redo paste simple selection', async () => {
     await updateRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
       records: [
@@ -777,5 +780,205 @@ describe('Undo Redo (e2e)', () => {
     expect(recordsAfterRedo.records[2].fields[fieldsAfterRedo[3].id]).toEqual(1);
     expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[2].id]).toEqual('B');
     expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[3].id]).toEqual(2);
+  });
+
+  describe('link related', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let table3: ITableFullVo;
+    const refField1Ro: IFieldRo = {
+      type: FieldType.SingleLineText,
+    };
+
+    const refField2Ro: IFieldRo = {
+      type: FieldType.Number,
+    };
+
+    let refField1: IFieldVo;
+    let refField2: IFieldVo;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+      table3 = await createTable(baseId, { name: 'table3' });
+
+      console.log('table1', table1.id);
+      console.log('table2', table2.id);
+      console.log('table3', table3.id);
+
+      refField1 = (await createField(table1.id, refField1Ro)).data;
+      refField2 = (await createField(table1.id, refField2Ro)).data;
+
+      await updateRecordByApi(table1.id, table1.records[0].id, refField1.id, 'x');
+      await updateRecordByApi(table1.id, table1.records[1].id, refField1.id, 'y');
+
+      await updateRecordByApi(table1.id, table1.records[0].id, refField2.id, 1);
+      await updateRecordByApi(table1.id, table1.records[1].id, refField2.id, 2);
+    });
+
+    afterEach(async () => {
+      await deleteTable(baseId, table1.id);
+      await deleteTable(baseId, table2.id);
+      await deleteTable(baseId, table3.id);
+    });
+
+    it('should undo / redo convert link to single line text', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+
+      const sourceLinkField = (await createField(table1.id, sourceFieldRo)).data;
+
+      await updateRecordByApi(table1.id, table1.records[0].id, sourceLinkField.id, {
+        id: table2.records[0].id,
+      });
+
+      const newLinkField = (
+        await awaitWithEvent(() => convertField(table1.id, sourceLinkField.id, newFieldRo))
+      ).data;
+
+      await undo(table1.id);
+
+      const newLinkFieldAfterUndo = (await getField(table1.id, newLinkField.id)).data;
+
+      expect(newLinkFieldAfterUndo).toMatchObject(sourceLinkField);
+
+      await redo(table1.id);
+
+      const newLinkFieldAfterRedo = (await getField(table1.id, newLinkField.id)).data;
+
+      expect(newLinkFieldAfterRedo).toMatchObject(newLinkField);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, newLinkFieldAfterRedo.id, {
+        id: table3.records[0].id,
+      });
+
+      // make sure records has been updated
+      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(records[0].fields[newLinkFieldAfterRedo.id]).toEqual({
+        id: table3.records[0].id,
+        title: 'C1',
+      });
+    });
+
+    it('should undo / redo convert link when convert link from one table to another', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table3.id,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
+      // set primary key in table3
+      await updateRecordByApi(table3.id, table3.records[0].id, table3.fields[0].id, 'C1');
+
+      const sourceLinkField = (await createField(table1.id, sourceFieldRo)).data;
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceLinkField.id,
+        },
+      };
+      const sourceLookupField = (await awaitWithEvent(() => createField(table1.id, lookupFieldRo)))
+        .data;
+
+      const formulaLinkFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${sourceLinkField.id}}`,
+        },
+      };
+      const formulaLookupFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${sourceLookupField.id}}`,
+        },
+      };
+
+      const sourceFormulaLinkField = (
+        await awaitWithEvent(() => createField(table1.id, formulaLinkFieldRo))
+      ).data;
+      const sourceFormulaLookupField = (
+        await awaitWithEvent(() => createField(table1.id, formulaLookupFieldRo))
+      ).data;
+
+      await updateRecordByApi(table1.id, table1.records[0].id, sourceLinkField.id, {
+        id: table2.records[0].id,
+      });
+
+      // make sure records has been updated
+      const { records: rs } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(rs[0].fields[sourceLinkField.id]).toEqual({ id: table2.records[0].id, title: 'B1' });
+      expect(rs[0].fields[sourceLookupField.id]).toEqual('B1');
+      expect(rs[0].fields[sourceFormulaLinkField.id]).toEqual('B1');
+      expect(rs[0].fields[sourceFormulaLookupField.id]).toEqual('B1');
+
+      const newLinkField = (
+        await awaitWithEvent(() => convertField(table1.id, sourceLinkField.id, newFieldRo))
+      ).data;
+
+      await undo(table1.id);
+
+      const newLinkFieldAfterUndo = (await getField(table1.id, newLinkField.id)).data;
+
+      expect(newLinkFieldAfterUndo).toMatchObject(sourceLinkField);
+      const targetLookupFieldAfterUndo = (await getField(table1.id, sourceLookupField.id)).data;
+      expect(targetLookupFieldAfterUndo.hasError).toBeUndefined();
+
+      await redo(table1.id);
+
+      const newLinkFieldAfterRedo = (await getField(table1.id, newLinkField.id)).data;
+
+      expect(newLinkFieldAfterRedo).toMatchObject(newLinkField);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, newLinkFieldAfterRedo.id, {
+        id: table3.records[0].id,
+      });
+
+      const targetLookupField = (await getField(table1.id, sourceLookupField.id)).data;
+      const targetFormulaLinkField = (await getField(table1.id, sourceFormulaLinkField.id)).data;
+      const targetFormulaLookupField = (await getField(table1.id, sourceFormulaLookupField.id))
+        .data;
+
+      expect(targetLookupField.hasError).toBeTruthy();
+      expect(targetFormulaLinkField.hasError).toBeUndefined();
+      expect(targetFormulaLookupField.hasError).toBeUndefined();
+
+      // make sure records has been updated
+      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(records[0].fields[newLinkFieldAfterRedo.id]).toEqual({
+        id: table3.records[0].id,
+        title: 'C1',
+      });
+      expect(records[0].fields[targetLookupField.id]).toEqual('B1');
+      expect(records[0].fields[targetFormulaLinkField.id]).toEqual('C1');
+      expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
+    });
   });
 });

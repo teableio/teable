@@ -178,7 +178,8 @@ export class TypeCastAndValidate {
       color: colors[index],
     }));
 
-    const { newField, modifiedOps } = await this.services.fieldConvertingService.stageAnalysis(
+    // TODO: seems not necessary
+    const { newField } = await this.services.fieldConvertingService.stageAnalysis(
       this.tableId,
       id,
       {
@@ -190,12 +191,7 @@ export class TypeCastAndValidate {
       }
     );
 
-    await this.services.fieldConvertingService.stageAlter(
-      this.tableId,
-      newField,
-      this.field,
-      modifiedOps
-    );
+    await this.services.fieldConvertingService.stageAlter(this.tableId, newField, this.field);
   }
 
   /**

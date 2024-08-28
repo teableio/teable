@@ -6,6 +6,7 @@ import type {
   IUpdateFieldRo,
   IOtOperation,
   IColumnMeta,
+  ILinkFieldOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -17,6 +18,7 @@ import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
+import type { IOpsMap } from '../../calculation/reference.service';
 import { GraphService } from '../../graph/graph.service';
 import { RecordService } from '../../record/record.service';
 import { ViewService } from '../../view/view.service';
@@ -66,7 +68,39 @@ export class FieldOpenApiService {
     return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
   }
 
-  private async checkAndResolveError(tableId: string, field: IFieldInstance) {
+  private async validateLookupField(field: IFieldInstance) {
+    if (field.lookupOptions) {
+      const { foreignTableId, lookupFieldId, linkFieldId } = field.lookupOptions;
+      const foreignField = await this.prismaService.txClient().field.findFirst({
+        where: { tableId: foreignTableId, id: lookupFieldId, deletedTime: null },
+        select: { id: true },
+      });
+
+      if (!foreignField) {
+        return false;
+      }
+      const linkField = await this.prismaService.txClient().field.findFirst({
+        where: { id: linkFieldId, deletedTime: null },
+        select: { id: true, options: true },
+      });
+      if (!linkField) {
+        return false;
+      }
+      const linkOptions = JSON.parse(linkField?.options as string) as ILinkFieldOptions;
+      return linkOptions.foreignTableId === foreignTableId;
+    }
+    return true;
+  }
+
+  private async markError(tableId: string, field: IFieldInstance, hasError: boolean) {
+    if (hasError) {
+      !field.hasError && (await this.fieldService.markError(tableId, [field.id], true));
+    } else {
+      field.hasError && (await this.fieldService.markError(tableId, [field.id], false));
+    }
+  }
+
+  private async checkAndUpdateError(tableId: string, field: IFieldInstance) {
     const fieldReferenceIds = this.fieldSupplementService.getFieldReferenceIds(field);
     const refFields = await this.prismaService.txClient().field.findMany({
       where: { id: { in: fieldReferenceIds }, deletedTime: null },
@@ -74,6 +108,7 @@ export class FieldOpenApiService {
     });
 
     if (refFields.length !== fieldReferenceIds.length) {
+      await this.markError(tableId, field, true);
       return;
     }
 
@@ -95,17 +130,22 @@ export class FieldOpenApiService {
       });
     }
 
-    await this.fieldService.resolveError(tableId, [field.id]);
+    if (field.lookupOptions) {
+      const isValid = await this.validateLookupField(field);
+      await this.markError(tableId, field, !isValid);
+    } else {
+      await this.markError(tableId, field, false);
+    }
   }
 
-  private async restoreReference(references: string[]) {
+  async restoreReference(references: string[]) {
     const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: references }, hasError: true, deletedTime: null },
+      where: { id: { in: references }, deletedTime: null },
     });
 
     for (const refFieldRaw of fieldRaws) {
       const refField = createFieldInstanceByRaw(refFieldRaw);
-      await this.checkAndResolveError(refFieldRaw.tableId, refField);
+      await this.checkAndUpdateError(refFieldRaw.tableId, refField);
     }
   }
 
@@ -330,26 +370,40 @@ export class FieldOpenApiService {
     });
   }
 
-  async convertField(
-    tableId: string,
-    fieldId: string,
-    updateFieldRo: IConvertFieldRo
-  ): Promise<IFieldVo> {
-    // 1. stage analysis and collect field changes
-    const { newField, oldField, modifiedOps, supplementChange, needSupplementFieldConstraint } =
-      await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
-    this.cls.set('oldField', oldField);
+  async performConvertField({
+    tableId,
+    newField,
+    oldField,
+    modifiedOps,
+    supplementChange,
+    needSupplementFieldConstraint,
+  }: {
+    tableId: string;
+    newField: IFieldInstance;
+    oldField: IFieldInstance;
+    modifiedOps?: IOpsMap;
+    supplementChange?: {
+      tableId: string;
+      newField: IFieldInstance;
+      oldField: IFieldInstance;
+    };
+    needSupplementFieldConstraint?: boolean;
+  }) {
+    // 1. stage close constraint
+    if (needSupplementFieldConstraint) {
+      await this.fieldConvertingService.closeConstraint(tableId, oldField);
+    }
 
     // 2. stage alter field
     await this.prismaService.$tx(async () => {
       await this.fieldViewSyncService.convertFieldRelative(tableId, newField, oldField);
-      await this.fieldConvertingService.stageAlter(tableId, newField, oldField, modifiedOps);
-      await this.fieldConvertingService.alterSupplementLink(
-        tableId,
-        newField,
-        oldField,
-        supplementChange
-      );
+      await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
+      await this.fieldConvertingService.deleteOrCreateSupplementLink(tableId, newField, oldField);
+      // for modify supplement link
+      if (supplementChange) {
+        const { tableId, newField, oldField } = supplementChange;
+        await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
+      }
     });
 
     // 3. stage apply record changes and calculate field
@@ -369,7 +423,51 @@ export class FieldOpenApiService {
     if (needSupplementFieldConstraint) {
       await this.fieldConvertingService.supplementFieldConstraint(tableId, newField);
     }
+  }
 
-    return instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
+  async convertField(
+    tableId: string,
+    fieldId: string,
+    updateFieldRo: IConvertFieldRo,
+    windowId?: string
+  ): Promise<IFieldVo> {
+    // stage analysis and collect field changes
+    const {
+      newField,
+      oldField,
+      modifiedOps,
+      supplementChange,
+      needSupplementFieldConstraint,
+      references,
+    } = await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
+    this.cls.set('oldField', oldField);
+
+    await this.performConvertField({
+      tableId,
+      newField,
+      oldField,
+      modifiedOps,
+      supplementChange,
+      needSupplementFieldConstraint,
+    });
+
+    const oldFieldVo = instanceToPlain(oldField, { excludePrefixes: ['_'] }) as IFieldVo;
+    const newFieldVo = instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_FIELD_CONVERT, {
+        windowId,
+        tableId,
+        userId: this.cls.get('user.id'),
+        oldField: oldFieldVo,
+        newField: newFieldVo,
+        modifiedOps,
+        needSupplementFieldConstraint,
+        references,
+        supplementChange,
+      });
+    }
+
+    return newFieldVo;
   }
 }

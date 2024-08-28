@@ -23,6 +23,9 @@ import { FieldCreatingService } from './field-creating.service';
 import { FieldDeletingService } from './field-deleting.service';
 import { FieldSupplementService } from './field-supplement.service';
 
+const isLink = (field: IFieldInstance): field is LinkFieldDto =>
+  !field.isLookup && field.type === FieldType.Link;
+
 @Injectable()
 export class FieldConvertingLinkService {
   constructor(
@@ -99,6 +102,7 @@ export class FieldConvertingLinkService {
       return;
     }
 
+    // change link table, delete link in old table and create link in new table
     if (newField.options.foreignTableId !== oldField.options.foreignTableId) {
       // update current field reference
       await this.prismaService.txClient().reference.deleteMany({
@@ -111,12 +115,13 @@ export class FieldConvertingLinkService {
       await this.fieldDeletingService.cleanLookupRollupRef(tableId, newField.id);
 
       await this.fieldSupplementService.createForeignKey(newField.options);
+      // change relationship, alter foreign key
     } else if (newField.options.relationship !== oldField.options.relationship) {
       await this.fieldSupplementService.cleanForeignKey(oldField.options);
-      // create new symmetric link
       await this.fieldSupplementService.createForeignKey(newField.options);
     }
 
+    // change one-way to two-way or two-way to one-way (symmetricFieldId add or delete, symmetricFieldId can not be change)
     await this.alterSymmetricFieldChange(tableId, oldField, newField);
   }
 
@@ -150,10 +155,11 @@ export class FieldConvertingLinkService {
    * 2. other field to link field
    * 3. link field to other field
    */
-  async alterSupplementLink(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
-    const isLink = (field: IFieldInstance): field is LinkFieldDto =>
-      !field.isLookup && field.type === FieldType.Link;
-
+  async deleteOrCreateSupplementLink(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance
+  ) {
     if (isLink(newField) && isLink(oldField) && !isEqual(newField.options, oldField.options)) {
       return this.linkOptionsChange(tableId, newField, oldField);
     }
@@ -167,10 +173,41 @@ export class FieldConvertingLinkService {
     }
   }
 
-  async analysisLink(newField: IFieldInstance, oldField: IFieldInstance) {
-    const isLink = (field: IFieldInstance): field is LinkFieldDto =>
-      !field.isLookup && field.type === FieldType.Link;
+  async analysisReference(oldField: IFieldInstance) {
+    if (!isLink(oldField)) {
+      return;
+    }
 
+    // self and symmetricLinkField outgoing reference
+    const linkFieldIds = [oldField.id];
+    if (oldField.options.symmetricFieldId) {
+      linkFieldIds.push(oldField.options.symmetricFieldId);
+    }
+
+    // LookupField and Rollup field witch linkFieldId is self and symmetricLinkField, should also treat as reference
+    const lookupRelatedFields = await this.prismaService.txClient().field.findMany({
+      where: {
+        lookupLinkedFieldId: { in: linkFieldIds },
+        deletedTime: null,
+      },
+      select: { id: true },
+    });
+
+    const references: string[] = lookupRelatedFields.map((field) => field.id);
+
+    const referencesRaw = await this.prismaService.txClient().reference.findMany({
+      where: {
+        fromFieldId: { in: linkFieldIds },
+      },
+      select: {
+        toFieldId: true,
+      },
+    });
+
+    return references.concat(referencesRaw.map((r) => r.toFieldId));
+  }
+
+  async analysisSupplementLink(newField: IFieldInstance, oldField: IFieldInstance) {
     if (
       isLink(newField) &&
       isLink(oldField) &&
@@ -236,7 +273,7 @@ export class FieldConvertingLinkService {
       }
     });
 
-    return { recordOpsMap: { [foreignTableId]: opsMap } };
+    return { [foreignTableId]: opsMap };
   }
 
   async modifyLinkOptions(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
@@ -326,8 +363,6 @@ export class FieldConvertingLinkService {
       );
     });
 
-    return {
-      recordOpsMap,
-    };
+    return recordOpsMap;
   }
 }
