@@ -1076,31 +1076,40 @@ export class FieldConvertingService {
     await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(tableId, newField, oldField);
   }
 
-  async supplementFieldConstraint(tableId: string, field: IFieldInstance) {
-    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
+  private needTempleCloseFieldConstraint(newField: IFieldInstance, oldField: IFieldInstance) {
+    return majorFieldKeysChanged(oldField, newField) && (oldField.unique || oldField.notNull);
+  }
+
+  async alterFieldConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
 
-    const { unique, notNull, dbFieldName } = field;
-
+    if (!this.needTempleCloseFieldConstraint(newField, oldField)) {
+      return;
+    }
+    const { unique, notNull, dbFieldName } = newField;
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
         if (unique) table.unique(dbFieldName);
         if (notNull) table.dropNullable(dbFieldName);
       })
       .toQuery();
-
-    await this.prismaService.$executeRawUnsafe(fieldValidationQuery);
+    await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
   }
 
-  async closeConstraint(tableId: string, oldField: IFieldInstance) {
+  async closeConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
 
     const { unique, notNull, dbFieldName } = oldField;
+
+    if (!this.needTempleCloseFieldConstraint(newField, oldField)) {
+      return;
+    }
 
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
@@ -1136,17 +1145,12 @@ export class FieldConvertingService {
       oldField
     );
 
-    // 3. preprocessing field validation
-    const needSupplementFieldConstraint =
-      majorFieldKeysChanged(oldField, newField) && (oldField.unique || oldField.notNull);
-
     return {
       newField,
       oldField,
       modifiedOps,
       supplementChange,
       references,
-      needSupplementFieldConstraint,
     };
   }
 

@@ -142,6 +142,7 @@ export class FieldConvertingLinkService {
 
   private async linkToOther(tableId: string, oldField: LinkFieldDto) {
     await this.fieldDeletingService.cleanLookupRollupRef(tableId, oldField.id);
+    await this.fieldSupplementService.cleanForeignKey(oldField.options);
 
     if (oldField.options.symmetricFieldId) {
       const { foreignTableId, symmetricFieldId } = oldField.options;

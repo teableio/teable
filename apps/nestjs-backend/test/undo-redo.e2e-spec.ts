@@ -782,6 +782,75 @@ describe('Undo Redo (e2e)', () => {
     expect(recordsAfterRedo.records[3].fields[fieldsAfterRedo[3].id]).toEqual(2);
   });
 
+  it('should undo modify field constraint', async () => {
+    await awaitWithEvent(() =>
+      convertField(table.id, table.fields[0].id, {
+        ...table.fields[0],
+        unique: true,
+      })
+    );
+
+    await expect(
+      updateRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table.records[0].id,
+            fields: { [table.fields[0].id]: 'A' },
+          },
+          {
+            id: table.records[1].id,
+            fields: { [table.fields[0].id]: 'A' },
+          },
+        ],
+      })
+    ).rejects.toThrowError();
+
+    await undo(table.id);
+
+    await updateRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        {
+          id: table.records[0].id,
+          fields: { [table.fields[0].id]: 'A' },
+        },
+        {
+          id: table.records[1].id,
+          fields: { [table.fields[0].id]: 'A' },
+        },
+      ],
+    });
+  });
+
+  it('should redo modify field constraint', async () => {
+    await awaitWithEvent(() =>
+      convertField(table.id, table.fields[0].id, {
+        ...table.fields[0],
+        unique: true,
+      })
+    );
+
+    await undo(table.id);
+    await redo(table.id);
+
+    await expect(
+      updateRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table.records[0].id,
+            fields: { [table.fields[0].id]: 'A' },
+          },
+          {
+            id: table.records[1].id,
+            fields: { [table.fields[0].id]: 'A' },
+          },
+        ],
+      })
+    ).rejects.toThrowError();
+  });
+
   describe('link related', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
@@ -851,8 +920,15 @@ describe('Undo Redo (e2e)', () => {
       await undo(table1.id);
 
       const newLinkFieldAfterUndo = (await getField(table1.id, newLinkField.id)).data;
-
       expect(newLinkFieldAfterUndo).toMatchObject(sourceLinkField);
+
+      // make sure records has been updated
+      const recordsAfterUndo = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id }))
+        .data;
+      expect(recordsAfterUndo.records[0].fields[newLinkFieldAfterUndo.id]).toEqual({
+        id: table2.records[0].id,
+        title: 'B1',
+      });
 
       await redo(table1.id);
 
@@ -860,16 +936,10 @@ describe('Undo Redo (e2e)', () => {
 
       expect(newLinkFieldAfterRedo).toMatchObject(newLinkField);
 
-      await updateRecordByApi(table1.id, table1.records[0].id, newLinkFieldAfterRedo.id, {
-        id: table3.records[0].id,
-      });
-
       // make sure records has been updated
-      const { records } = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
-      expect(records[0].fields[newLinkFieldAfterRedo.id]).toEqual({
-        id: table3.records[0].id,
-        title: 'C1',
-      });
+      const recordsAfterRedo = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id }))
+        .data;
+      expect(recordsAfterRedo.records[0].fields[newLinkFieldAfterRedo.id]).toEqual('B1');
     });
 
     it('should undo / redo convert link when convert link from one table to another', async () => {

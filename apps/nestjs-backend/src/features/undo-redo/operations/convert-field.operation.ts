@@ -13,7 +13,6 @@ export interface IConvertFieldPayload {
   newField: IFieldVo;
   modifiedOps?: IOpsMap;
   references?: string[];
-  needSupplementFieldConstraint?: boolean;
   supplementChange?: {
     tableId: string;
     newField: IFieldVo;
@@ -34,7 +33,6 @@ export class ConvertFieldOperation {
         oldField: payload.oldField,
         newField: payload.newField,
         modifiedOps: payload.modifiedOps,
-        needSupplementFieldConstraint: payload.needSupplementFieldConstraint,
         references: payload.references,
         supplementChange: payload.supplementChange,
       },
@@ -65,21 +63,13 @@ export class ConvertFieldOperation {
   async undo(operation: IConvertFieldOperation) {
     const { params, result } = operation;
     const { tableId } = params;
-    const {
-      oldField,
-      newField,
-      modifiedOps,
-      needSupplementFieldConstraint,
-      references,
-      supplementChange,
-    } = result;
+    const { oldField, newField, modifiedOps, references, supplementChange } = result;
 
     await this.fieldOpenApiService.performConvertField({
       tableId,
       oldField: createFieldInstanceByVo(newField),
       newField: createFieldInstanceByVo(oldField),
       modifiedOps: modifiedOps && this.revertOpsMap(modifiedOps),
-      needSupplementFieldConstraint,
       supplementChange: supplementChange && {
         tableId: supplementChange.tableId,
         oldField: createFieldInstanceByVo(supplementChange.newField),
@@ -97,20 +87,12 @@ export class ConvertFieldOperation {
   async redo(operation: IConvertFieldOperation) {
     const { params, result } = operation;
     const { tableId } = params;
-    const {
-      oldField,
-      newField,
-      modifiedOps,
-      needSupplementFieldConstraint,
-      references,
-      supplementChange,
-    } = result;
+    const { oldField, newField, modifiedOps, references, supplementChange } = result;
     await this.fieldOpenApiService.performConvertField({
       tableId,
       oldField: createFieldInstanceByVo(oldField),
       newField: createFieldInstanceByVo(newField),
       modifiedOps,
-      needSupplementFieldConstraint,
       supplementChange: supplementChange && {
         tableId: supplementChange.tableId,
         oldField: createFieldInstanceByVo(supplementChange.oldField),

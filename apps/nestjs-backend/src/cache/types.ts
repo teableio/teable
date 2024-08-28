@@ -150,7 +150,6 @@ export interface IConvertFieldOperation extends IUndoRedoOperationBase {
     oldField: IFieldVo;
     newField: IFieldVo;
     modifiedOps?: IOpsMap;
-    needSupplementFieldConstraint?: boolean;
     references?: string[];
     supplementChange?: {
       tableId: string;

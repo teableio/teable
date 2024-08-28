@@ -376,7 +376,6 @@ export class FieldOpenApiService {
     oldField,
     modifiedOps,
     supplementChange,
-    needSupplementFieldConstraint,
   }: {
     tableId: string;
     newField: IFieldInstance;
@@ -387,12 +386,9 @@ export class FieldOpenApiService {
       newField: IFieldInstance;
       oldField: IFieldInstance;
     };
-    needSupplementFieldConstraint?: boolean;
   }) {
     // 1. stage close constraint
-    if (needSupplementFieldConstraint) {
-      await this.fieldConvertingService.closeConstraint(tableId, oldField);
-    }
+    await this.fieldConvertingService.closeConstraint(tableId, newField, oldField);
 
     // 2. stage alter field
     await this.prismaService.$tx(async () => {
@@ -420,9 +416,9 @@ export class FieldOpenApiService {
     );
 
     // 4. stage supplement field constraint
-    if (needSupplementFieldConstraint) {
-      await this.fieldConvertingService.supplementFieldConstraint(tableId, newField);
-    }
+    await this.prismaService.$tx(async () => {
+      await this.fieldConvertingService.alterFieldConstraint(tableId, newField, oldField);
+    });
   }
 
   async convertField(
@@ -432,14 +428,8 @@ export class FieldOpenApiService {
     windowId?: string
   ): Promise<IFieldVo> {
     // stage analysis and collect field changes
-    const {
-      newField,
-      oldField,
-      modifiedOps,
-      supplementChange,
-      needSupplementFieldConstraint,
-      references,
-    } = await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
+    const { newField, oldField, modifiedOps, supplementChange, references } =
+      await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
     this.cls.set('oldField', oldField);
 
     await this.performConvertField({
@@ -448,7 +438,6 @@ export class FieldOpenApiService {
       oldField,
       modifiedOps,
       supplementChange,
-      needSupplementFieldConstraint,
     });
 
     const oldFieldVo = instanceToPlain(oldField, { excludePrefixes: ['_'] }) as IFieldVo;
@@ -462,7 +451,6 @@ export class FieldOpenApiService {
         oldField: oldFieldVo,
         newField: newFieldVo,
         modifiedOps,
-        needSupplementFieldConstraint,
         references,
         supplementChange,
       });
