@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { canManageRole, type IBaseRole, type IRole } from '@teable/core';
+import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
@@ -154,6 +154,51 @@ export class CollaboratorService {
     }));
   }
 
+  private async getOperatorCollaborators({
+    targetUserId,
+    currentUserId,
+    resourceId,
+    resourceType,
+  }: {
+    resourceId: string;
+    resourceType: CollaboratorType;
+    targetUserId: string;
+    currentUserId: string;
+  }) {
+    const currentUserWhere: { userId: string; resourceId: string | Record<string, string[]> } = {
+      userId: currentUserId,
+      resourceId,
+    };
+    const targetUserWhere: { userId: string; resourceId: string | Record<string, string[]> } = {
+      userId: targetUserId,
+      resourceId,
+    };
+
+    // for space user delete base collaborator
+    if (resourceType === CollaboratorType.Base) {
+      const spaceId = await this.prismaService
+        .txClient()
+        .base.findUniqueOrThrow({
+          where: { id: resourceId, deletedTime: null },
+          select: { spaceId: true },
+        })
+        .then((base) => base.spaceId);
+      currentUserWhere.resourceId = { in: [resourceId, spaceId] };
+    }
+    const colls = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        OR: [currentUserWhere, targetUserWhere],
+      },
+    });
+
+    const currentColl = colls.find((coll) => coll.userId === currentUserId);
+    const targetColl = colls.find((coll) => coll.userId === targetUserId);
+    if (!currentColl || !targetColl) {
+      throw new BadRequestException('User not found in collaborator');
+    }
+    return { currentColl, targetColl };
+  }
+
   async deleteCollaborator({
     resourceId,
     resourceType,
@@ -164,26 +209,20 @@ export class CollaboratorService {
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
-    const colls = await this.prismaService.txClient().collaborator.findMany({
-      where: {
-        userId: { in: [currentUserId, userId] },
-        resourceId,
-        resourceType,
-      },
+    const { currentColl, targetColl } = await this.getOperatorCollaborators({
+      currentUserId,
+      targetUserId: userId,
+      resourceId,
+      resourceType,
     });
-    const currentColl = colls.find((coll) => coll.userId === currentUserId);
-    const targetColl = colls.find((coll) => coll.userId === userId);
-    if (!currentColl || !targetColl) {
-      throw new BadRequestException('User not found in collaborator');
-    }
 
     // validate user can operator target user
-    // can delete self or has manage user
     if (
       currentUserId !== userId &&
+      currentColl.roleName !== Role.Owner &&
       !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
     ) {
-      throw new ForbiddenException(`You do not have permission to operator this user: ${userId}`);
+      throw new ForbiddenException(`You do not have permission to delete this user: ${userId}`);
     }
 
     const result = await this.prismaService.txClient().collaborator.delete({
@@ -217,22 +256,17 @@ export class CollaboratorService {
     resourceType: CollaboratorType;
   }) {
     const currentUserId = this.cls.get('user.id');
-    const colls = await this.prismaService.txClient().collaborator.findMany({
-      where: {
-        userId: { in: [currentUserId, userId] },
-        resourceId,
-        resourceType,
-      },
+    const { currentColl, targetColl } = await this.getOperatorCollaborators({
+      currentUserId,
+      targetUserId: userId,
+      resourceId,
+      resourceType,
     });
-    const currentColl = colls.find((coll) => coll.userId === currentUserId);
-    const targetColl = colls.find((coll) => coll.userId === userId);
-    if (!currentColl || !targetColl) {
-      throw new BadRequestException('User not found in collaborator');
-    }
 
     // validate user can operator target user
     if (
       currentUserId !== userId &&
+      currentColl.roleName !== targetColl.roleName &&
       !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
     ) {
       throw new ForbiddenException(`You do not have permission to operator this user: ${userId}`);
