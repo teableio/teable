@@ -24,8 +24,8 @@ import type {
   IRecordsVo,
   IUpdateRecordRo,
   ITableFullVo,
-  IDuplicateRo,
   IDuplicateVo,
+  IRecordInsertOrderRo,
 } from '@teable/openapi';
 import {
   axios,
@@ -39,7 +39,7 @@ import {
   createField as apiCreateField,
   deleteField as apiDeleteField,
   convertField as apiConvertField,
-  duplicate as apiDuplicateRecords,
+  duplicateRecords as apiDuplicateRecords,
   getFields as apiGetFields,
   getField as apiGetField,
   getViewList as apiGetViewList,
@@ -318,13 +318,12 @@ export async function createRecords(
 
 export async function duplicateRecord(
   tableId: string,
-  duplicateRo: IDuplicateRo,
+  recordId: string,
+  order: IRecordInsertOrderRo,
   expectStatus = 201
 ) {
   try {
-    const res = await apiDuplicateRecords(tableId, {
-      ...duplicateRo,
-    });
+    const res = await apiDuplicateRecords(tableId, recordId, order);
 
     expect(res.status).toEqual(expectStatus);
     return res.data;

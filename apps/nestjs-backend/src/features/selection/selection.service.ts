@@ -35,8 +35,6 @@ import type {
   IRangesRo,
   IDeleteVo,
   ITemporaryPasteVo,
-  IDuplicateVo,
-  IDuplicateRo,
 } from '@teable/openapi';
 import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
@@ -52,7 +50,6 @@ import { createFieldInstanceByVo } from '../field/model/factory';
 import { AttachmentFieldDto } from '../field/model/field-dto/attachment-field.dto';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
-import { duplicate } from '../../../../../packages/openapi/src/selection/duplicate';
 
 @Injectable()
 export class SelectionService {
@@ -798,21 +795,5 @@ export class SelectionService {
     const recordIds = records.map(({ id }) => id);
     await this.recordOpenApiService.deleteRecords(tableId, recordIds);
     return { ids: recordIds };
-  }
-
-  async duplicate(tableId: string, duplicateRo: IDuplicateRo): Promise<IDuplicateVo> {
-    const { anchorId, position, ...rangesRo } = duplicateRo;
-    const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
-    const fields = records.map(({ fields }) => {
-      return { fields };
-    });
-    const order = { anchorId, position, viewId: rangesRo.viewId! };
-    const createRecordsRo = {
-      fieldKeyType: FieldKeyType.Id,
-      order,
-      records: fields,
-    };
-    const createdRecords = await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
-    return { ids: createdRecords.records.map((record) => record.id) };
   }
 }

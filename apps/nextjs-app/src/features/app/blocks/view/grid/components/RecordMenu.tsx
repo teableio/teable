@@ -90,18 +90,6 @@ export const RecordMenu = () => {
           insertRecord?.(record.id, 'after');
         },
       },
-      {
-        type: MenuItemType.Duplicate,
-        name: t('table:menu.duplicate'),
-        icon: <Copy className={iconClassName} />,
-        hidden: isMultipleSelected || !permission['record|create'],
-        disabled: isAutoSort,
-        onClick: async () => {
-          if (recordMenu && tableId && recordMenu.duplicateRecords && selection) {
-            recordMenu.duplicateRecords(selection);
-          }
-        },
-      },
     ],
     [
       {

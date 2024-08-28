@@ -4,4 +4,3 @@ export * from './paste';
 export * from './range';
 export * from './delete';
 export * from './temporary-paste';
-export * from './duplicate';

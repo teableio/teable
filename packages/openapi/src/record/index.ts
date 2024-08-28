@@ -5,3 +5,4 @@ export * from './update';
 export * from './delete';
 export * from './delete-list';
 export * from './get-cell-attachment-url';
+export * from './duplicate';

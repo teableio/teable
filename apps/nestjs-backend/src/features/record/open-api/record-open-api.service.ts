@@ -274,4 +274,17 @@ export class RecordOpenApiService {
       await this.recordService.batchDeleteRecords(tableId, recordIds);
     });
   }
+
+  async duplicateRecords(tableId: string, recordId: string, order: IRecordInsertOrderRo) {
+    const query = { fieldKeyType: FieldKeyType.Id };
+    const result = await this.recordService.getRecord(tableId, recordId, query);
+    const records = { fields: result.fields };
+    const createRecordsRo = {
+      fieldKeyType: FieldKeyType.Id,
+      order,
+      records: [records],
+    };
+    const createdRecords = await this.createRecords(tableId, createRecordsRo);
+    return { ids: createdRecords.records.map((record) => record.id) };
+  }
 }

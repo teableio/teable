@@ -15,7 +15,6 @@ export interface IRecordMenu {
   position: IPosition;
   deleteRecords?: (selection: CombinedSelection) => Promise<void>;
   insertRecord?: (anchorId: string, position: 'before' | 'after') => void;
-  duplicateRecords?: (selection: CombinedSelection) => Promise<void>;
 }
 
 export interface IStatisticMenu {

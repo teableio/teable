@@ -12,6 +12,8 @@ import {
   updateRecordRoSchema,
   deleteRecordsQuerySchema,
   IDeleteRecordsQuery,
+  recordInsertOrderRoSchema,
+  IRecordInsertOrderRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -71,6 +73,16 @@ export class RecordOpenApiController {
     @Param('recordId') recordId: string
   ): Promise<void> {
     return await this.recordOpenApiService.deleteRecord(tableId, recordId);
+  }
+
+  @Permissions('record|create')
+  @Post(':recordId')
+  async duplicateRecords(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Body(new ZodValidationPipe(recordInsertOrderRoSchema)) order: IRecordInsertOrderRo
+  ) {
+    return await this.recordOpenApiService.duplicateRecords(tableId, recordId, order);
   }
 
   @Permissions('record|delete')

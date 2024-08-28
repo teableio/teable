@@ -136,7 +136,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
     viewGroupQuery
   );
 
-  const { copy, paste, clear, deleteRecords, duplicateRecords } = useSelectionOperation({
+  const { copy, paste, clear, deleteRecords } = useSelectionOperation({
     filter: viewGroupQuery?.filter,
   });
 
@@ -290,13 +290,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             if (!tableId || !view?.id || !record) return;
             const targetIndex = position === 'before' ? rowStart - 1 : rowStart;
             generateRecord({}, Math.max(targetIndex, 0), { anchorId, position });
-          },
-          duplicateRecords: async (selection) => {
-            duplicateRecords(selection, {
-              anchorId: record.id,
-              position: 'after',
-            });
-            gridRef.current?.setSelection(emptySelection);
           },
           deleteRecords: async (selection) => {
             deleteRecords(selection);

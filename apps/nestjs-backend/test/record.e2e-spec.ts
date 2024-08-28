@@ -281,13 +281,10 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(addRecord.fields[table.fields[0].id]).toEqual(value1);
 
       const viewId = table.views[0].id;
-      const anchorId = addRecordRes.records[0].id;
-      const duplicateRes = await duplicateRecord(table.id, {
+      const duplicateRes = await duplicateRecord(table.id, addRecord.id, {
         viewId,
-        anchorId,
+        anchorId: addRecord.id,
         position: 'after',
-        type: RangeType.Rows,
-        ranges: [[3, 3]],
       });
       const record = await getRecord(table.id, duplicateRes.ids[0], undefined, 200);
       expect(record.fields[table.fields[0].id]).toEqual(value1);
