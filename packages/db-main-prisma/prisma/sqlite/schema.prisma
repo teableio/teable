@@ -461,4 +461,6 @@ model Dashboard {
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
+
+  @@map("dashboard")
 }
