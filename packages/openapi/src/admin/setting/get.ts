@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { axios } from '../axios';
-import { registerRoute } from '../utils';
+import { axios } from '../../axios';
+import { registerRoute } from '../../utils';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),

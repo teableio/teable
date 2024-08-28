@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import type {
   ICreatePluginVo,
   IGetPluginCenterListVo,
@@ -62,5 +62,10 @@ export class PluginController {
     @Query(new ZodValidationPipe(getPluginCenterListRoSchema)) ro: IGetPluginCenterListRo
   ): Promise<IGetPluginCenterListVo> {
     return this.pluginService.getPluginCenterList(ro.positions);
+  }
+
+  @Patch(':pluginId/submit')
+  submitPlugin(@Param('pluginId') pluginId: string): Promise<void> {
+    return this.pluginService.submitPlugin(pluginId);
   }
 }

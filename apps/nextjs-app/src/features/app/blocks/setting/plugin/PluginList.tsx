@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Settings } from '@teable/icons';
-import { getPlugins } from '@teable/openapi';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Settings, Trash2 } from '@teable/icons';
+import { deletePlugin, getPlugins } from '@teable/openapi';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -11,9 +11,18 @@ import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 export const PluginList = () => {
   const router = useRouter();
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
+  const queryClient = useQueryClient();
+
   const { data: pluginList } = useQuery({
     queryKey: ['plugin-list'],
     queryFn: () => getPlugins().then((res) => res.data),
+  });
+
+  const { mutate: deletePluginMutate } = useMutation({
+    mutationFn: deletePlugin,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plugin-list'] });
+    },
   });
 
   const previewUrl = usePreviewUrl();
@@ -54,18 +63,29 @@ export const PluginList = () => {
                   {plugin.description}
                 </div>
               </div>
-              <Button
-                className="absolute right-2 top-2 h-5 p-0.5"
-                variant={'ghost'}
-                onClick={() => {
-                  router.push({
-                    pathname: router.pathname,
-                    query: { form: 'edit', id: plugin.id },
-                  });
-                }}
-              >
-                <Settings />
-              </Button>
+              <div className="absolute right-2 top-2 space-x-1.5">
+                <Button
+                  className="h-5 p-0.5"
+                  variant={'ghost'}
+                  onClick={() => {
+                    router.push({
+                      pathname: router.pathname,
+                      query: { form: 'edit', id: plugin.id },
+                    });
+                  }}
+                >
+                  <Settings />
+                </Button>
+                <Button
+                  className="h-5 p-0.5"
+                  variant={'ghost'}
+                  onClick={() => {
+                    deletePluginMutate(plugin.id);
+                  }}
+                >
+                  <Trash2 className="text-destructive" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

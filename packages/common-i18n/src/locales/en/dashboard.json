@@ -1,0 +1,23 @@
+{
+  "empty": {
+    "title": "No Dashboards Yet",
+    "description": "It looks like you haven’t created any dashboards yet. Dashboards help you visualize and manage your data more effectively.",
+    "create": "Create Your First Dashboard"
+  },
+  "addPlugin": "Add an Plugin",
+  "createDashboard": {
+    "button": "Create Dashboard",
+    "title": "Create New Dashboard",
+    "placeholder": "Enter dashboard name"
+  },
+  "findDashboard": "Find a dashboard...",
+  "pluginUrlEmpty": "Plugin Not Setting url",
+  "install": "Install",
+  "publisher": "Publisher",
+  "lastUpdated": "Last Updated",
+  "expand": "Expand",
+  "pluginNotFound": "Plugin Not Found",
+  "pluginEmpty": {
+    "title": "No Plugins Yet"
+  }
+}

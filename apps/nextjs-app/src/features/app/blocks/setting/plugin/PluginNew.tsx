@@ -24,7 +24,8 @@ import { LogoEditor } from './component/LogoEditor';
 import { PositionSelector } from './component/PositionSelector';
 import { MarkDownEditor } from './MarkDownEditor';
 
-export const PluginNew = () => {
+export const PluginNew = (props: { onCreated?: (secret: string) => void }) => {
+  const { onCreated } = props;
   const router = useRouter();
   const form = useForm<ICreatePluginRo>({
     resolver: zodResolver(createPluginRoSchema),
@@ -38,6 +39,7 @@ export const PluginNew = () => {
         pathname: router.pathname,
         query: { form: 'edit', id: res.data.id },
       });
+      onCreated?.(res.data.secret);
     },
   });
   const onSubmit = async (data: ICreatePluginRo) => {
@@ -45,7 +47,10 @@ export const PluginNew = () => {
   };
 
   return (
-    <FormPageLayout onSubmit={form.handleSubmit(onSubmit)}>
+    <FormPageLayout
+      onSubmit={form.handleSubmit(onSubmit)}
+      onCancel={() => router.push({ pathname: router.pathname })}
+    >
       <Form {...form}>
         <form className="space-y-6">
           <FormField

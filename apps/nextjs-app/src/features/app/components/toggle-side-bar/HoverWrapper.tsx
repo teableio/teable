@@ -32,7 +32,7 @@ export const HoverWrapper = (props: IHoverWrapperProps) => {
         <div
           className={cn(
             'fixed flex h-full top-0 transition-[z-index] will-change-auto',
-            hover ? 'z-50 w-full' : 'w-auto z-0'
+            hover ? 'z-30 w-full' : 'w-auto z-0'
           )}
         >
           <div

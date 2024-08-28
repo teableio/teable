@@ -81,7 +81,7 @@ export class PluginService {
 
   async createPlugin(createPluginRo: ICreatePluginRo): Promise<ICreatePluginVo> {
     const userId = this.cls.get('user.id');
-    const { name, description, detailDesc, helpUrl, logo, i18n, positions } = createPluginRo;
+    const { name, description, detailDesc, helpUrl, logo, i18n, positions, url } = createPluginRo;
     const { secret, hashedSecret, maskedSecret } = await generateSecret();
     const res = await this.prismaService.$tx(async (prisma) => {
       const pluginId = generatePluginId();
@@ -100,6 +100,7 @@ export class PluginService {
           positions: true,
           helpUrl: true,
           logo: true,
+          url: true,
           status: true,
           i18n: true,
           secret: true,
@@ -112,6 +113,7 @@ export class PluginService {
           detailDesc,
           positions: JSON.stringify(positions),
           helpUrl,
+          url,
           logo,
           status: PluginStatus.Developing,
           i18n: JSON.stringify(i18n),
@@ -139,36 +141,42 @@ export class PluginService {
 
   async updatePlugin(id: string, updatePluginRo: IUpdatePluginRo): Promise<IUpdatePluginVo> {
     const userId = this.cls.get('user.id');
-    const { name, description, detailDesc, helpUrl, logo, i18n, positions } = updatePluginRo;
+    const { name, description, detailDesc, helpUrl, logo, i18n, positions, url } = updatePluginRo;
     const res = await this.prismaService.$tx(async (prisma) => {
-      const res = await prisma.plugin.update({
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          detailDesc: true,
-          positions: true,
-          helpUrl: true,
-          logo: true,
-          status: true,
-          i18n: true,
-          secret: true,
-          pluginUser: true,
-          createdTime: true,
-          lastModifiedTime: true,
-        },
-        where: { id },
-        data: {
-          name,
-          description,
-          detailDesc,
-          positions: JSON.stringify(positions),
-          helpUrl,
-          logo,
-          i18n: JSON.stringify(i18n),
-          lastModifiedBy: userId,
-        },
-      });
+      const res = await prisma.plugin
+        .update({
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            detailDesc: true,
+            positions: true,
+            helpUrl: true,
+            logo: true,
+            url: true,
+            status: true,
+            i18n: true,
+            secret: true,
+            pluginUser: true,
+            createdTime: true,
+            lastModifiedTime: true,
+          },
+          where: { id, createdBy: userId },
+          data: {
+            name,
+            description,
+            detailDesc,
+            positions: JSON.stringify(positions),
+            helpUrl,
+            url,
+            logo,
+            i18n: JSON.stringify(i18n),
+            lastModifiedBy: userId,
+          },
+        })
+        .catch(() => {
+          throw new NotFoundException('Plugin not found');
+        });
 
       if (name && res.pluginUser) {
         await this.userService.updateUserName(res.pluginUser, name);
@@ -193,6 +201,7 @@ export class PluginService {
           positions: true,
           helpUrl: true,
           logo: true,
+          url: true,
           status: true,
           i18n: true,
           maskedSecret: true,
@@ -200,7 +209,7 @@ export class PluginService {
           createdTime: true,
           lastModifiedTime: true,
         },
-        where: { id },
+        where: { id, createdBy: this.cls.get('user.id') },
       })
       .catch(() => {
         throw new NotFoundException('Plugin not found');
@@ -215,6 +224,7 @@ export class PluginService {
 
   async getPlugins(): Promise<IGetPluginsVo> {
     const res = await this.prismaService.plugin.findMany({
+      where: { createdBy: this.cls.get('user.id') },
       select: {
         id: true,
         name: true,
@@ -223,6 +233,7 @@ export class PluginService {
         positions: true,
         helpUrl: true,
         logo: true,
+        url: true,
         status: true,
         i18n: true,
         secret: true,
@@ -299,5 +310,13 @@ export class PluginService {
         lastModifiedTime: r.lastModifiedTime?.toISOString(),
       })
     );
+  }
+
+  async submitPlugin(id: string) {
+    const userId = this.cls.get('user.id');
+    await this.prismaService.plugin.update({
+      where: { id, createdBy: userId },
+      data: { status: PluginStatus.Reviewing },
+    });
   }
 }

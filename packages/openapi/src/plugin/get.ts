@@ -18,6 +18,7 @@ export const getPluginVoSchema = z.object({
   description: z.string().optional(),
   detailDesc: z.string().optional(),
   logo: z.string(),
+  url: z.string().optional(),
   helpUrl: z.string().optional(),
   positions: z.array(z.nativeEnum(PluginPosition)),
   i18n: pluginI18nSchema.optional(),

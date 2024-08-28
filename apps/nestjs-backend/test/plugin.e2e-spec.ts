@@ -4,11 +4,15 @@ import {
   createPluginVoSchema,
   deletePlugin,
   getPlugin,
+  getPluginCenterList,
+  getPluginCenterListVoSchema,
   getPlugins,
   getPluginsVoSchema,
   getPluginVoSchema,
   PluginPosition,
   PluginStatus,
+  publishPlugin,
+  submitPlugin,
   updatePlugin,
 } from '@teable/openapi';
 import { getError } from './utils/get-error';
@@ -108,6 +112,33 @@ describe('PluginController', () => {
     expect(putRes.data.helpUrl).toBe(updatePluginRo.helpUrl);
     expect(putRes.data.logo).toBe(updatePluginRo.logo);
     expect(putRes.data.i18n).toEqual(updatePluginRo.i18n);
+    await deletePlugin(res.data.id);
+  });
+
+  it('/api/plugin/{pluginId}/submit (POST)', async () => {
+    const res = await createPlugin(mockPlugin);
+    const submitRes = await submitPlugin(res.data.id);
+    expect(submitRes.status).toBe(200);
+    await deletePlugin(res.data.id);
+  });
+
+  it('/api/admin/plugin/{pluginId}/publish (PATCH)', async () => {
+    const res = await createPlugin(mockPlugin);
+    await submitPlugin(res.data.id);
+    await publishPlugin(res.data.id);
+    const getRes = await getPlugin(res.data.id);
+    expect(getRes.data.status).toBe(PluginStatus.Published);
+    await deletePlugin(res.data.id);
+  });
+
+  it('/api/admin/plugin/center/list (GET)', async () => {
+    const res = await createPlugin(mockPlugin);
+    await submitPlugin(res.data.id);
+    await publishPlugin(res.data.id);
+    const getRes = await getPluginCenterList();
+    expect(getRes.data).toHaveLength(1);
+    expect(getRes.data[0].id).toBe(res.data.id);
+    expect(getPluginCenterListVoSchema.safeParse(getRes.data).success).toBe(true);
     await deletePlugin(res.data.id);
   });
 });

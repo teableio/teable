@@ -2,9 +2,7 @@ import { useTheme } from '@teable/next-themes';
 import { Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useEffect } from 'react';
-import Markdown from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
-import remarkGfm from 'remark-gfm';
+import { MarkdownPreview } from '@/features/app/components/MarkdownPreview';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 
 export const MarkDownEditor = (props: {
@@ -42,13 +40,7 @@ export const MarkDownEditor = (props: {
           />
         </TabsContent>
         <TabsContent value="preview">
-          <Markdown
-            className="markdown-body px-3 py-2"
-            rehypePlugins={[rehypeRaw]}
-            remarkPlugins={[remarkGfm]}
-          >
-            {value}
-          </Markdown>
+          <MarkdownPreview>{value}</MarkdownPreview>
         </TabsContent>
       </Tabs>
     </div>

@@ -28,3 +28,10 @@ body {
   min-height: calc(var(--child-height));
   box-sizing: border-box;
 }
+
+.react-grid-item.react-grid-placeholder {
+  z-index: -1 !important;
+  border-radius: 0.25rem;
+  border-color: hsl(var(--primary)) !important;
+  background-color: hsl(var(--muted-foreground)) !important;
+}

@@ -24,8 +24,9 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useMount } from 'react-use';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 import { FormPageLayout } from '../components/FormPageLayout';
 import { RequireCom } from '../components/RequireCom';
@@ -35,12 +36,17 @@ import { NewSecret } from './component/NewSecret';
 import { PositionSelector } from './component/PositionSelector';
 import { MarkDownEditor } from './MarkDownEditor';
 
-export const PluginEdit = () => {
+export const PluginEdit = (props: { secret?: string }) => {
   const router = useRouter();
   const pluginId = router.query.id as string;
   const queryClient = useQueryClient();
-  const [newSecret, setNewSecret] = useState<string>();
+  const [newSecret, setNewSecret] = useState<string | undefined>(props.secret);
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
+  const secretRef = useRef<HTMLDivElement>(null);
+
+  useMount(() => {
+    secretRef.current?.scrollIntoView({ block: 'center', inline: 'start' });
+  });
 
   const { data: initFormValue } = useQuery({
     queryKey: ['plugin', pluginId],
@@ -77,9 +83,12 @@ export const PluginEdit = () => {
   const pluginUser = initFormValue?.pluginUser;
 
   return (
-    <FormPageLayout onSubmit={form.handleSubmit(onSubmit)}>
+    <FormPageLayout
+      onSubmit={form.handleSubmit(onSubmit)}
+      onCancel={() => router.push({ pathname: router.pathname })}
+    >
       <div className="space-y-2">
-        <NewSecret secret={newSecret} />
+        <NewSecret secret={newSecret} ref={secretRef} />
         <div>
           {pluginUser && (
             <div className="space-y-2">
@@ -186,7 +195,11 @@ export const PluginEdit = () => {
                 <FormLabel>{t('plugin:form.helpUrl.label')}</FormLabel>
                 <FormDescription>{t('plugin:form.helpUrl.description')}</FormDescription>
                 <FormControl>
-                  <Input {...field} onChange={(e) => field.onChange(e.target.value || undefined)} />
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

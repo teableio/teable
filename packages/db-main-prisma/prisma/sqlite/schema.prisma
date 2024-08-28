@@ -419,6 +419,7 @@ model Plugin {
   helpUrl          String?   @map("help_url")
   status           String
   positions        String
+  url              String?
   secret           String    @unique
   maskedSecret     String    @map("masked_secret")
   i18n             String?
@@ -428,6 +429,8 @@ model Plugin {
   createdBy        String    @map("created_by")
   lastModifiedBy   String?   @map("last_modified_by")
 
+  pluginInstall    PluginInstall[]
+
   @@map("plugin")
 }
 
@@ -435,14 +438,27 @@ model PluginInstall {
   id               String    @id @default(cuid())
   pluginId         String    @map("plugin_id")
   baseId           String    @map("base_id")
+  name             String
   positionId       String    @map("position_id")
-  postion          String
-  layout           String
+  position         String
   storage          String?
   createdTime      DateTime  @default(now()) @map("created_time")
   createdBy        String    @map("created_by")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   lastModifiedBy   String?   @map("last_modified_by")
 
+  plugin           Plugin    @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+
   @@map("plugin_install")
+}
+
+model Dashboard {
+  id               String    @id @default(cuid())
+  name             String
+  baseId           String    @map("base_id")
+  layout           String?
+  createdBy        String    @map("created_by")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
 }

@@ -19,7 +19,7 @@ export const DeletePluginRoute: RouteConfig = registerRoute({
     params: deletePluginRoSchema,
   },
   responses: {
-    204: {
+    200: {
       description: 'Returns no content.',
     },
   },

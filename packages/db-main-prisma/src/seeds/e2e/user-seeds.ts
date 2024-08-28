@@ -23,6 +23,7 @@ const createUser = (
   salt: pas.salt,
   password: pas.password,
   notifyMeta: JSON.stringify({ email: true }),
+  isAdmin: index === undefined,
 });
 
 export const generateUser = async (max: number): Promise<Prisma.UserCreateInput[]> => {

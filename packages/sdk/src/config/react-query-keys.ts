@@ -83,4 +83,8 @@ export const ReactQueryKeys = {
   getSpaceTrash: (resourceType: ResourceType) => ['space-trash', resourceType] as const,
 
   getBaseTrashItems: (baseId: string) => ['base-trash-items', baseId] as const,
+
+  getDashboardList: () => ['dashboard-list'] as const,
+
+  getDashboard: (dashboardId: string) => ['dashboard', dashboardId] as const,
 };
