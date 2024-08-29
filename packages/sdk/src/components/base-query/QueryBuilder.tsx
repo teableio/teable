@@ -240,6 +240,7 @@ const QueryBuilderContainer = forwardRef<
   }, [childContext, joinContext]);
 
   const onFromChange = async (type: string, tableId?: string) => {
+    console.log(depth, 'onFromChange', type, tableId);
     if (type === 'query') {
       onQueryChange('from', '');
       setFromType('query');
@@ -250,6 +251,12 @@ const QueryBuilderContainer = forwardRef<
       setFromType('table');
       return;
     }
+    // if tableId is undefined, clear from
+    if (!tableId) {
+      setFromType(undefined);
+      onChange(undefined);
+      return;
+    }
     setFromType(undefined);
     onQueryChange('from', '');
   };
@@ -258,10 +265,15 @@ const QueryBuilderContainer = forwardRef<
     if (!query) {
       onQueryChange('from', '');
       setFromType(undefined);
+      // if tableId is undefined, clear from
+      onChange({
+        from: '',
+      });
       return;
     }
     onQueryChange('from', query ?? '');
   };
+
   return (
     <div className={cn('relative rounded border py-4 px-2', className)}>
       {depth > 0 && (
