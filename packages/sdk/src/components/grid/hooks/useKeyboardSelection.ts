@@ -27,6 +27,8 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     setEditing,
     setActiveCell,
     setSelection,
+    onUndo,
+    onRedo,
     onCopy,
     onDelete,
     onRowExpand,
@@ -41,6 +43,30 @@ export const useKeyboardSelection = (props: ISelectionKeyboardProps) => {
     },
     {
       enabled: !isEditing && selection.type !== SelectionRegionType.None,
+      enableOnFormTags: ['input', 'select', 'textarea'],
+    }
+  );
+
+  useHotkeys(
+    'mod+z',
+    () => {
+      onUndo?.();
+    },
+    {
+      enabled: !isEditing && selection.type !== SelectionRegionType.None,
+      preventDefault: true,
+      enableOnFormTags: ['input', 'select', 'textarea'],
+    }
+  );
+
+  useHotkeys(
+    ['mod+shift+z', 'mod+y'],
+    () => {
+      onRedo?.();
+    },
+    {
+      enabled: !isEditing && selection.type !== SelectionRegionType.None,
+      preventDefault: true,
       enableOnFormTags: ['input', 'select', 'textarea'],
     }
   );

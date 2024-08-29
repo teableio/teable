@@ -2895,7 +2895,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const beforeRecord = await getRecord(table1.id, table1.records[0].id);
       expect(beforeRecord.fields[lookupField.id]).toEqual('x');
 
-      console.log('start update');
       const newField = await convertField(table1.id, linkField.id, sourceFieldRo);
 
       expect(newField).toMatchObject({

@@ -203,7 +203,7 @@ const RightMenu = ({ className }: { className?: string }) => {
 
 export const TableHeader: React.FC = () => {
   return (
-    <div className="z-10 flex h-[42px] shrink-0 flex-row items-center gap-2 px-4 @container/view-header">
+    <div className="flex h-[42px] shrink-0 flex-row items-center gap-2 px-4 @container/view-header">
       <TableInfo className="shrink-0 grow-0" />
       <ExpandViewList />
       <div className="flex h-full items-center gap-2 overflow-x-auto">

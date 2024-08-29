@@ -54,6 +54,21 @@ import { IFieldRaws } from './type';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
+function removeUndefined<T extends Record<string, unknown>>(obj: T) {
+  return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined)) as T;
+}
+
+export interface IRecordInnerRo {
+  id: string;
+  fields: Record<string, unknown>;
+  createdBy?: string;
+  lastModifiedBy?: string;
+  createdTime?: string;
+  lastModifiedTime?: string;
+  autoNumber?: number;
+  order?: Record<string, number>; // viewId: index
+}
+
 @Injectable()
 export class RecordService {
   private logger = new Logger(RecordService.name);
@@ -511,54 +526,28 @@ export class RecordService {
     return { queryBuilder, dbTableName };
   }
 
-  async setRecord(
-    version: number,
-    tableId: string,
-    dbTableName: string,
-    recordId: string,
-    contexts: { fieldId: string; newCellValue: unknown }[]
-  ) {
-    const userId = this.cls.get('user.id');
-    const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
-
-    const fieldIds = Array.from(
-      contexts.reduce((acc, cur) => {
-        return acc.add(cur.fieldId);
-      }, new Set<string>())
-    );
-
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, id: { in: fieldIds } },
-    });
-    const fieldInstances = fieldRaws.map((field) => createFieldInstanceByRaw(field));
-    const fieldInstanceMap = keyBy(fieldInstances, 'id');
-
-    const recordFieldsByDbFieldName = contexts.reduce<{ [dbFieldName: string]: unknown }>(
-      (pre, ctx) => {
-        const fieldInstance = fieldInstanceMap[ctx.fieldId];
-        pre[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(ctx.newCellValue);
-        return pre;
-      },
-      {}
-    );
-
-    const updateRecordSql = this.knex(dbTableName)
-      .update({
-        ...recordFieldsByDbFieldName,
-        __last_modified_by: userId,
-        __last_modified_time: timeStr,
-        __version: version,
-      })
-      .where({ __id: recordId })
-      .toQuery();
-    return this.prismaService.txClient().$executeRawUnsafe(updateRecordSql);
-  }
-
   convertProjection(fieldKeys?: string[]) {
     return fieldKeys?.reduce<Record<string, boolean>>((acc, cur) => {
       acc[cur] = true;
       return acc;
     }, {});
+  }
+
+  async getRecordsById(tableId: string, recordIds: string[]): Promise<IRecordsVo> {
+    const recordSnapshot = await this.getSnapshotBulk(
+      tableId,
+      recordIds,
+      undefined,
+      FieldKeyType.Id
+    );
+
+    if (!recordSnapshot.length) {
+      throw new NotFoundException('Can not get records');
+    }
+
+    return {
+      records: recordSnapshot.map((r) => r.data),
+    };
   }
 
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
@@ -648,19 +637,114 @@ export class RecordService {
     await this.batchDel(tableId, recordIds);
   }
 
+  private async getViewIndexColumns(dbTableName: string) {
+    const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
+    const columns = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
+    return columns
+      .filter((column) => column.name.startsWith(ROW_ORDER_FIELD_PREFIX))
+      .map((column) => column.name);
+  }
+
+  async getRecordIndexes(
+    tableId: string,
+    recordIds: string[],
+    viewId?: string
+  ): Promise<Record<string, number>[] | undefined> {
+    const dbTableName = await this.getDbTableName(tableId);
+    const allViewIndexColumns = await this.getViewIndexColumns(dbTableName);
+    const viewIndexColumns = viewId
+      ? (() => {
+          const viewIndexColumns = allViewIndexColumns.filter((column) => column.endsWith(viewId));
+          return viewIndexColumns.length === 0 ? ['__auto_number'] : viewIndexColumns;
+        })()
+      : allViewIndexColumns;
+
+    if (!viewIndexColumns.length) {
+      return;
+    }
+
+    // get all viewIndexColumns value for __id in recordIds
+    const indexQuery = this.knex(dbTableName)
+      .select(
+        viewIndexColumns.reduce<Record<string, string>>((acc, columnName) => {
+          if (columnName === '__auto_number') {
+            acc[viewId as string] = '__auto_number';
+            return acc;
+          }
+          const theViewId = columnName.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
+          acc[theViewId] = columnName;
+          return acc;
+        }, {})
+      )
+      .select('__id')
+      .whereIn('__id', recordIds)
+      .toQuery();
+    const indexValues = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Record<string, number>[]>(indexQuery);
+
+    const indexMap = indexValues.reduce<Record<string, Record<string, number>>>((map, cur) => {
+      const id = cur.__id;
+      delete cur.__id;
+      map[id] = cur;
+      return map;
+    }, {});
+
+    return recordIds.map((recordId) => indexMap[recordId]);
+  }
+
+  async updateRecordIndexes(
+    tableId: string,
+    recordsWithOrder: {
+      id: string;
+      order?: Record<string, number>;
+    }[]
+  ) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const viewIndexColumns = await this.getViewIndexColumns(dbTableName);
+    if (!viewIndexColumns.length) {
+      return;
+    }
+
+    const updateRecordSqls = recordsWithOrder
+      .map((record) => {
+        const order = record.order;
+        const orderFields = viewIndexColumns.reduce<Record<string, number>>((acc, columnName) => {
+          const viewId = columnName.substring(ROW_ORDER_FIELD_PREFIX.length + 1);
+          const index = order?.[viewId];
+          if (index != null) {
+            acc[columnName] = index;
+          }
+          return acc;
+        }, {});
+
+        if (!order || Object.keys(orderFields).length === 0) {
+          return;
+        }
+
+        return this.knex(dbTableName).update(orderFields).where('__id', record.id).toQuery();
+      })
+      .filter(Boolean) as string[];
+
+    for (const sql of updateRecordSqls) {
+      await this.prismaService.txClient().$executeRawUnsafe(sql);
+    }
+  }
+
   @Timing()
   async batchCreateRecords(
     tableId: string,
-    records: IRecord[],
+    records: IRecordInnerRo[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws,
-    orderIndex?: { viewId: string; indexes: number[] }
+    fieldRaws: IFieldRaws
   ) {
-    const snapshots = await this.createBatch(tableId, records, fieldKeyType, fieldRaws, orderIndex);
+    const snapshots = await this.createBatch(tableId, records, fieldKeyType, fieldRaws);
 
     const dataList = snapshots.map((snapshot) => ({
       docId: snapshot.__id,
-      version: 0,
+      version: snapshot.__version == null ? 0 : snapshot.__version - 1,
     }));
 
     await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Record, dataList);
@@ -742,10 +826,9 @@ export class RecordService {
 
   private async createBatch(
     tableId: string,
-    records: IRecord[],
+    records: IRecordInnerRo[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws,
-    orderIndex?: { viewId: string; indexes: number[] }
+    fieldRaws: IFieldRaws
   ) {
     const userId = this.cls.get('user.id');
     await this.creditCheck(tableId);
@@ -763,12 +846,16 @@ export class RecordService {
     const validationFields = fieldRaws.filter((field) => field.notNull || field.unique);
 
     const snapshots = records
-      .map((_, i) =>
+      .map((record, i) =>
         views.reduce<{ [viewIndexFieldName: string]: number }>((pre, cur) => {
           const viewIndexFieldName = allViewIndexes[cur.id];
-          if (cur.id === orderIndex?.viewId) {
-            pre[viewIndexFieldName] = orderIndex.indexes[i];
-          } else if (viewIndexFieldName) {
+          const recordViewIndex = record.order?.[cur.id];
+          if (!viewIndexFieldName) {
+            return pre;
+          }
+          if (recordViewIndex) {
+            pre[viewIndexFieldName] = recordViewIndex;
+          } else {
             pre[viewIndexFieldName] = maxRecordOrder + i;
           }
           return pre;
@@ -790,13 +877,17 @@ export class RecordService {
           {} as Record<string, unknown>
         );
 
-        return {
+        return removeUndefined({
           __id: snapshot.id,
-          __created_by: userId,
+          __created_by: snapshot.createdBy || userId,
+          __last_modified_by: snapshot.lastModifiedBy || undefined,
+          __created_time: snapshot.createdTime || undefined,
+          __last_modified_time: snapshot.lastModifiedTime || undefined,
+          __auto_number: snapshot.autoNumber == null ? undefined : snapshot.autoNumber,
           __version: 1,
           ...order,
           ...dbFieldValueMap,
-        };
+        });
       });
 
     const sql = this.dbProvider.batchInsertSql(dbTableName, snapshots);
@@ -812,10 +903,6 @@ export class RecordService {
     const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
 
     await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
-  }
-
-  async del(_version: number, tableId: string, recordId: string) {
-    await this.batchDel(tableId, [recordId]);
   }
 
   private async getFieldsByProjection(

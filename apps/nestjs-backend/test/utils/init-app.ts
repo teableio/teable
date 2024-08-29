@@ -40,7 +40,7 @@ import {
   getFields as apiGetFields,
   getField as apiGetField,
   getViewList as apiGetViewList,
-  getViewById as apiGetViewById,
+  getView as apiGetViewById,
   updateViewColumnMeta as apiSetViewColumnMeta,
   createTable as apiCreateTable,
   deleteTableArbitrary as apiDeleteTableArbitrary,

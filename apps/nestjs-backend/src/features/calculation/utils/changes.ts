@@ -9,6 +9,13 @@ export interface ICellChange {
   newValue: unknown;
 }
 
+export interface ICellContext {
+  recordId: string;
+  fieldId: string;
+  newValue?: unknown;
+  oldValue?: unknown;
+}
+
 export function changeToOp(change: ICellChange) {
   const { fieldId, oldValue, newValue } = change;
   return RecordOpBuilder.editor.setRecord.build({

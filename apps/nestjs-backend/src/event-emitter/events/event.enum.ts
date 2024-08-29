@@ -27,9 +27,18 @@ export enum Events {
   TABLE_VIEW_DELETE = 'table.view.delete',
   TABLE_VIEW_UPDATE = 'table.view.update',
 
-  CONTROLLER_RECORDS_CREATE = 'controller.records.create',
-  CONTROLLER_RECORDS_UPDATE = 'controller.records.update',
-  CONTROLLER_RECORDS_DELETE = 'controller.records.delete',
+  OPERATION_RECORDS_CREATE = 'operation.records.create',
+  OPERATION_RECORDS_DELETE = 'operation.records.delete',
+  OPERATION_RECORDS_UPDATE = 'operation.records.update',
+  OPERATION_RECORDS_ORDER_UPDATE = 'operation.records.order.update',
+  OPERATION_FIELDS_CREATE = 'operation.fields.create',
+  OPERATION_FIELDS_DELETE = 'operation.fields.delete',
+  OPERATION_FIELD_CONVERT = 'operation.field.convert',
+  OPERATION_PASTE_SELECTION = 'operation.paste.selection',
+  OPERATION_VIEW_DELETE = 'operation.view.delete',
+  OPERATION_VIEW_CREATE = 'operation.view.create',
+  OPERATION_VIEW_UPDATE = 'operation.view.update',
+  OPERATION_PUSH = 'operation.push',
 
   TABLE_USER_RENAME_COMPLETE = 'table.user.rename.complete',
 

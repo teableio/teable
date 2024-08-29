@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { IMakeOptional } from '@teable/core';
 import { FieldKeyType, generateRecordId, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, ICreateRecordsVo, IRecord } from '@teable/openapi';
@@ -6,12 +7,12 @@ import { isEmpty, keyBy } from 'lodash';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
-import type { ICellContext } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
-import { SystemFieldService } from '../../calculation/system-field.service';
+import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
+import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import type { IFieldRaws } from '../type';
 
@@ -23,8 +24,7 @@ export class RecordCalculateService {
     private readonly recordService: RecordService,
     private readonly linkService: LinkService,
     private readonly referenceService: ReferenceService,
-    private readonly fieldCalculationService: FieldCalculationService,
-    private readonly systemFieldService: SystemFieldService
+    private readonly fieldCalculationService: FieldCalculationService
   ) {}
 
   async multipleCreateRecords(
@@ -101,8 +101,6 @@ export class RecordCalculateService {
 
     const opsMapByLink = cellChanges.length ? formatChangesToOps(cellChanges) : {};
     const manualOpsMap = composeOpMaps([opsMapOrigin, opsMapByLink]);
-    const systemFieldOpsMap = await this.systemFieldService.getOpsMapBySystemField(manualOpsMap);
-    const composedOpsMap = composeOpMaps([manualOpsMap, systemFieldOpsMap]);
     // console.log('composedOpsMap', JSON.stringify(composedOpsMap, null, 2));
 
     // calculate by origin ops and link derivation
@@ -110,11 +108,11 @@ export class RecordCalculateService {
       opsMap: opsMapByCalculation,
       fieldMap,
       tableId2DbTableName,
-    } = await this.referenceService.calculateOpsMap(composedOpsMap, derivate?.saveForeignKeyToDb);
+    } = await this.referenceService.calculateOpsMap(manualOpsMap, derivate?.saveForeignKeyToDb);
 
     // console.log('opsMapByCalculation', JSON.stringify(opsMapByCalculation, null, 2));
     return {
-      opsMap: composeOpMaps([composedOpsMap, opsMapByCalculation]),
+      opsMap: composeOpMaps([manualOpsMap, opsMapByCalculation]),
       fieldMap,
       tableId2DbTableName,
     };
@@ -163,7 +161,7 @@ export class RecordCalculateService {
     isNewRecord?: boolean
   ) {
     // 1. generate Op by origin submit
-    const opsContexts = await this.generateCellContexts(
+    const originCellContexts = await this.generateCellContexts(
       tableId,
       fieldKeyType,
       records,
@@ -171,7 +169,7 @@ export class RecordCalculateService {
     );
 
     const opsMapOrigin = formatChangesToOps(
-      opsContexts.map((data) => {
+      originCellContexts.map((data) => {
         return {
           tableId,
           recordId: data.recordId,
@@ -186,7 +184,7 @@ export class RecordCalculateService {
     const { opsMap, fieldMap, tableId2DbTableName } = await this.getRecordUpdateDerivation(
       tableId,
       opsMapOrigin,
-      opsContexts
+      originCellContexts
     );
 
     // console.log('final:opsMap', JSON.stringify(opsMap, null, 2));
@@ -195,6 +193,7 @@ export class RecordCalculateService {
     if (!isEmpty(opsMap)) {
       await this.batchService.updateRecords(opsMap, fieldMap, tableId2DbTableName);
     }
+    return originCellContexts;
   }
 
   private async appendDefaultValue(
@@ -230,12 +229,8 @@ export class RecordCalculateService {
 
   async createRecords(
     tableId: string,
-    recordsRo: {
-      id?: string;
-      fields: Record<string, unknown>;
-    }[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    orderIndex?: { viewId: string; indexes: number[] }
+    recordsRo: IMakeOptional<IRecordInnerRo, 'id'>[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Name
   ): Promise<ICreateRecordsVo> {
     if (recordsRo.length === 0) {
       throw new BadRequestException('Create records is empty');
@@ -244,8 +239,8 @@ export class RecordCalculateService {
     const records = recordsRo.map((record) => {
       const recordId = record.id || generateRecordId();
       return {
+        ...record,
         id: recordId,
-        fields: record.fields,
       };
     });
 
@@ -263,13 +258,7 @@ export class RecordCalculateService {
       },
     });
 
-    await this.recordService.batchCreateRecords(
-      tableId,
-      records,
-      fieldKeyType,
-      fieldRaws,
-      orderIndex
-    );
+    await this.recordService.batchCreateRecords(tableId, records, fieldKeyType, fieldRaws);
 
     // submit auto fill changes
     const plainRecords = await this.appendDefaultValue(records, fieldKeyType, fieldRaws);

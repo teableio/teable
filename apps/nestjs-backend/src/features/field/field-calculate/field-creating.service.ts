@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { IColumnMeta } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ViewService } from '../../view/view.service';
@@ -17,7 +18,7 @@ export class FieldCreatingService {
     private readonly fieldSupplementService: FieldSupplementService
   ) {}
 
-  async createFieldItem(tableId: string, field: IFieldInstance) {
+  async createFieldItem(tableId: string, field: IFieldInstance, columnMeta?: IColumnMeta) {
     const fieldId = field.id;
 
     await this.fieldSupplementService.createReference(field);
@@ -29,14 +30,14 @@ export class FieldCreatingService {
 
     await this.fieldService.batchCreateFields(tableId, dbTableName, [field]);
 
-    await this.viewService.updateViewColumnMetaOrder(tableId, [fieldId]);
+    await this.viewService.initViewColumnMeta(tableId, [fieldId], columnMeta && [columnMeta]);
   }
 
-  async alterCreateField(tableId: string, field: IFieldInstance) {
+  async alterCreateField(tableId: string, field: IFieldInstance, columnMeta?: IColumnMeta) {
     const newFields: { tableId: string; field: IFieldInstance }[] = [];
     if (field.type === FieldType.Link && !field.isLookup) {
       await this.fieldSupplementService.createForeignKey(field.options);
-      await this.createFieldItem(tableId, field);
+      await this.createFieldItem(tableId, field, columnMeta);
       newFields.push({ tableId, field });
 
       if (field.options.symmetricFieldId) {
@@ -52,7 +53,7 @@ export class FieldCreatingService {
       return newFields;
     }
 
-    await this.createFieldItem(tableId, field);
+    await this.createFieldItem(tableId, field, columnMeta);
     return [{ tableId, field: field }];
   }
 }

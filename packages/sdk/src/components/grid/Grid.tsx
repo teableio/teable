@@ -87,6 +87,8 @@ export interface IGridExternalProps {
   collapsedGroupIds?: Set<string> | null;
   groupPoints?: IGroupPoint[] | null;
 
+  onUndo?: () => void;
+  onRedo?: () => void;
   onCopy?: (selection: CombinedSelection) => void;
   onPaste?: (selection: CombinedSelection, e: React.ClipboardEvent) => void;
   onDelete?: (selection: CombinedSelection) => void;
@@ -182,6 +184,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     groupPoints,
     columnHeaderVisible = true,
     getCellContent,
+    onUndo,
+    onRedo,
     onCopy,
     onPaste,
     onDelete,
@@ -595,6 +599,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             setActiveCell={setActiveCell}
             scrollToItem={scrollToItem}
             scrollBy={scrollBy}
+            onUndo={onUndo}
+            onRedo={onRedo}
             onCopy={onCopy}
             onPaste={onPaste}
             onDelete={onDelete}

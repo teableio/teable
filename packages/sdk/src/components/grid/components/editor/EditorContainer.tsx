@@ -29,6 +29,8 @@ export interface IEditorContainerProps
     | 'scrollToItem'
     | 'real2RowIndex'
     | 'getCellContent'
+    | 'onUndo'
+    | 'onRedo'
     | 'onCopy'
     | 'onPaste'
     | 'onDelete'
@@ -82,6 +84,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     selection,
     activeCellBound,
     scrollToItem,
+    onUndo,
+    onRedo,
     onCopy,
     onPaste,
     onChange,
@@ -135,6 +139,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     activeCell,
     selection,
     coordInstance,
+    onUndo,
+    onRedo,
     onCopy,
     onDelete,
     onRowExpand,

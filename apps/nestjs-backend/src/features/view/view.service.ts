@@ -123,14 +123,11 @@ export class ViewService implements IReadonlyAdapterService {
       })
       .toQuery();
     await prisma.$executeRawUnsafe(createRowIndexSQL);
-    console.log('addRowIndexColumnSql', addRowIndexColumnSql);
-    console.log('createViewIndexField', createRowIndexSQL);
     return rowIndexFieldName;
   }
 
   async getOrCreateViewIndexField(dbTableName: string, viewId: string) {
     const indexFieldName = await this.existIndex(dbTableName, viewId);
-    console.log('exits', indexFieldName);
     if (indexFieldName) {
       return indexFieldName;
     }
@@ -154,6 +151,22 @@ export class ViewService implements IReadonlyAdapterService {
       };
     }
     return innerViewRo;
+  }
+
+  async restoreView(tableId: string, viewId: string) {
+    await this.prismaService.$tx(async () => {
+      await this.prismaService.view.update({
+        where: { id: viewId },
+        data: {
+          deletedTime: null,
+        },
+      });
+      const ops = ViewOpBuilder.editor.setViewProperty.build({
+        key: 'lastModifiedTime',
+        newValue: new Date().toISOString(),
+      });
+      await this.updateViewByOps(tableId, viewId, [ops]);
+    });
   }
 
   async createDbView(tableId: string, viewRo: IViewRo) {
@@ -196,7 +209,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async getViewById(viewId: string): Promise<IViewVo> {
     const viewRaw = await this.prismaService.txClient().view.findUniqueOrThrow({
-      where: { id: viewId },
+      where: { id: viewId, deletedTime: null },
     });
 
     return this.convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
@@ -326,15 +339,32 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async del(_version: number, _tableId: string, viewId: string) {
-    const rowIndexFieldIndexName = this.getRowIndexFieldIndexName(viewId);
-
-    await this.prismaService.txClient().view.delete({
+    await this.prismaService.txClient().view.update({
       where: { id: viewId },
+      data: {
+        deletedTime: new Date(),
+      },
+    });
+  }
+
+  // get column order map for all views, order by fieldIds, key by viewId
+  async getColumnsMetaMap(tableId: string, fieldIds: string[]): Promise<IColumnMeta[]> {
+    const viewRaws = await this.prismaService.txClient().view.findMany({
+      select: { id: true, columnMeta: true },
+      where: { tableId, deletedTime: null },
     });
 
-    await this.prismaService.txClient().$executeRawUnsafe(`
-      DROP INDEX IF EXISTS "${rowIndexFieldIndexName}";
-    `);
+    const viewRawMap = viewRaws.reduce<{ [viewId: string]: IColumnMeta }>((pre, cur) => {
+      pre[cur.id] = JSON.parse(cur.columnMeta);
+      return pre;
+    }, {});
+
+    return fieldIds.map((fieldId) => {
+      return viewRaws.reduce<IColumnMeta>((pre, view) => {
+        pre[view.id] = viewRawMap[view.id][fieldId];
+        return pre;
+      }, {});
+    });
   }
 
   async getUpdatedColumnMeta(
@@ -367,21 +397,18 @@ export class ViewService implements IReadonlyAdapterService {
     return (
       JSON.stringify({
         ...columnMeta,
-        [fieldId]: {
-          ...columnMeta[fieldId],
-          ...newColumnMeta,
-        },
+        [fieldId]: newColumnMeta,
       }) ?? {}
     );
   }
 
-  async update(version: number, _tableId: string, viewId: string, opContexts: IViewOpContext[]) {
+  async update(version: number, tableId: string, viewId: string, opContexts: IViewOpContext[]) {
     const userId = this.cls.get('user.id');
 
     for (const opContext of opContexts) {
       const updateData: Prisma.ViewUpdateInput = { version, lastModifiedBy: userId };
       if (opContext.name === OpName.UpdateViewColumnMeta) {
-        const columnMeta = await this.getUpdatedColumnMeta(_tableId, viewId, opContext);
+        const columnMeta = await this.getUpdatedColumnMeta(tableId, viewId, opContext);
         await this.prismaService.txClient().view.update({
           where: { id: viewId },
           data: {
@@ -414,8 +441,13 @@ export class ViewService implements IReadonlyAdapterService {
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IViewVo>[]> {
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, id: { in: ids } },
+      where: { tableId, id: { in: ids }, deletedTime: null },
     });
+
+    if (views.length !== ids.length) {
+      const notFoundIds = ids.filter((id) => !views.some((view) => view.id === id));
+      throw new BadRequestException(`View not found: ${notFoundIds.join(', ')}`);
+    }
 
     return views
       .map((view) => {
@@ -441,30 +473,15 @@ export class ViewService implements IReadonlyAdapterService {
 
   async generateViewOrderColumnMeta(tableId: string) {
     const fields = await this.prismaService.txClient().field.findMany({
-      select: {
-        id: true,
-      },
-      where: {
-        tableId,
-        deletedTime: null,
-      },
+      select: { id: true },
+      where: { tableId, deletedTime: null },
       orderBy: [
-        {
-          isPrimary: {
-            sort: 'asc',
-            nulls: 'last',
-          },
-        },
-        {
-          order: 'asc',
-        },
-        {
-          createdTime: 'asc',
-        },
+        { isPrimary: { sort: 'asc', nulls: 'last' } },
+        { order: 'asc' },
+        { createdTime: 'asc' },
       ],
     });
 
-    // create table first view there is no field should return
     if (isEmpty(fields)) {
       return;
     }
@@ -475,11 +492,11 @@ export class ViewService implements IReadonlyAdapterService {
     }, {});
   }
 
-  async updateViewColumnMetaOrder(tableId: string, fieldIds: string[]) {
+  async initViewColumnMeta(tableId: string, fieldIds: string[], columnsMeta?: IColumnMeta[]) {
     // 1. get all views id and column meta by tableId
     const view = await this.prismaService.txClient().view.findMany({
+      where: { tableId, deletedTime: null },
       select: { columnMeta: true, id: true },
-      where: { tableId: tableId },
     });
 
     if (isEmpty(view)) {
@@ -493,10 +510,13 @@ export class ViewService implements IReadonlyAdapterService {
       const maxOrder = isEmpty(curColumnMeta)
         ? -1
         : Math.max(...Object.values(curColumnMeta).map((meta) => meta.order));
-      fieldIds.forEach((fieldId) => {
+      fieldIds.forEach((fieldId, i) => {
+        const columnMeta = columnsMeta?.[i]?.[viewId];
         const op = ViewOpBuilder.editor.updateViewColumnMeta.build({
           fieldId: fieldId,
-          newColumnMeta: { order: maxOrder + 1 },
+          newColumnMeta: columnMeta
+            ? { ...columnMeta, order: columnMeta.order ?? maxOrder + 1 }
+            : { order: maxOrder + 1 },
           oldColumnMeta: undefined,
         });
         ops.push(op);
@@ -509,7 +529,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async deleteViewRelativeByFields(tableId: string, fieldIds: string[]) {
     // 1. get all views id and column meta by tableId
-    const view = await this.prismaService.view.findMany({
+    const view = await this.prismaService.txClient().view.findMany({
       select: {
         columnMeta: true,
         group: true,
@@ -519,7 +539,7 @@ export class ViewService implements IReadonlyAdapterService {
         id: true,
         type: true,
       },
-      where: { tableId: tableId },
+      where: { tableId, deletedTime: null },
     });
 
     if (!view) {

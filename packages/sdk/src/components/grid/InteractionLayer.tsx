@@ -123,6 +123,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     scrollToItem,
     scrollBy,
     getCellContent,
+    onUndo,
+    onRedo,
     onCopy,
     onPaste,
     onDelete,
@@ -759,6 +761,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         activeCellBound={activeCellBound}
         onCopy={onCopy}
         onPaste={onPaste}
+        onUndo={onUndo}
+        onRedo={onRedo}
         onDelete={onDelete}
         onChange={onCellEdited}
         onRowExpand={onRowExpand}

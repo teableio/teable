@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Query, Headers } from '@nestjs/common';
 import type {
   ICopyVo,
   IRangesToIdVo,
@@ -49,10 +49,10 @@ export class SelectionController {
   @Patch('/paste')
   async paste(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(pasteRoSchema), TqlPipe)
-    pasteRo: IPasteRo
+    @Body(new ZodValidationPipe(pasteRoSchema), TqlPipe) pasteRo: IPasteRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IPasteVo> {
-    const ranges = await this.selectionService.paste(tableId, pasteRo);
+    const ranges = await this.selectionService.paste(tableId, pasteRo, undefined, windowId);
     return { ranges };
   }
 
@@ -70,10 +70,10 @@ export class SelectionController {
   @Patch('/clear')
   async clear(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(rangesRoSchema), TqlPipe)
-    rangesRo: IRangesRo
+    @Body(new ZodValidationPipe(rangesRoSchema), TqlPipe) rangesRo: IRangesRo,
+    @Headers('x-window-id') windowId?: string
   ) {
-    await this.selectionService.clear(tableId, rangesRo);
+    await this.selectionService.clear(tableId, rangesRo, windowId);
     return null;
   }
 
@@ -81,8 +81,9 @@ export class SelectionController {
   @Delete('/delete')
   async delete(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
+    @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IDeleteVo> {
-    return this.selectionService.delete(tableId, rangesRo);
+    return this.selectionService.delete(tableId, rangesRo, windowId);
   }
 }
