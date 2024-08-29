@@ -397,10 +397,7 @@ export class ViewService implements IReadonlyAdapterService {
     return (
       JSON.stringify({
         ...columnMeta,
-        [fieldId]: {
-          ...columnMeta[fieldId],
-          ...newColumnMeta,
-        },
+        [fieldId]: newColumnMeta,
       }) ?? {}
     );
   }
@@ -444,8 +441,13 @@ export class ViewService implements IReadonlyAdapterService {
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IViewVo>[]> {
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, id: { in: ids } },
+      where: { tableId, id: { in: ids }, deletedTime: null },
     });
+
+    if (views.length !== ids.length) {
+      const notFoundIds = ids.filter((id) => !views.some((view) => view.id === id));
+      throw new BadRequestException(`View not found: ${notFoundIds.join(', ')}`);
+    }
 
     return views
       .map((view) => {
@@ -471,30 +473,15 @@ export class ViewService implements IReadonlyAdapterService {
 
   async generateViewOrderColumnMeta(tableId: string) {
     const fields = await this.prismaService.txClient().field.findMany({
-      select: {
-        id: true,
-      },
-      where: {
-        tableId,
-        deletedTime: null,
-      },
+      select: { id: true },
+      where: { tableId, deletedTime: null },
       orderBy: [
-        {
-          isPrimary: {
-            sort: 'asc',
-            nulls: 'last',
-          },
-        },
-        {
-          order: 'asc',
-        },
-        {
-          createdTime: 'asc',
-        },
+        { isPrimary: { sort: 'asc', nulls: 'last' } },
+        { order: 'asc' },
+        { createdTime: 'asc' },
       ],
     });
 
-    // create table first view there is no field should return
     if (isEmpty(fields)) {
       return;
     }
@@ -508,8 +495,8 @@ export class ViewService implements IReadonlyAdapterService {
   async initViewColumnMeta(tableId: string, fieldIds: string[], columnsMeta?: IColumnMeta[]) {
     // 1. get all views id and column meta by tableId
     const view = await this.prismaService.txClient().view.findMany({
+      where: { tableId, deletedTime: null },
       select: { columnMeta: true, id: true },
-      where: { tableId },
     });
 
     if (isEmpty(view)) {
@@ -552,7 +539,7 @@ export class ViewService implements IReadonlyAdapterService {
         id: true,
         type: true,
       },
-      where: { tableId: tableId },
+      where: { tableId, deletedTime: null },
     });
 
     if (!view) {
