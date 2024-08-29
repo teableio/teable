@@ -155,9 +155,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const { mutate: mutateCreateRecord } = useMutation({
     mutationFn: () => {
-      const defaultFieldValues = extractDefaultFieldsFromFilters(view?.filter);
       return createRecords(tableId!, {
-        records: [{ fields: { ...defaultFieldValues, ...prefillingFieldValueMap } }],
+        records: [{ fields: prefillingFieldValueMap! }],
         fieldKeyType: FieldKeyType.Id,
         order:
           activeViewId && prefillingRowOrder
@@ -638,10 +637,11 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   useEffect(() => {
     if (!inPrefilling) return;
+    setPrefillingFieldValueMap(extractDefaultFieldsFromFilters(view?.filter));
     const scrollState = gridRef.current?.getScrollState();
     if (scrollState == null) return;
     prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
-  }, [inPrefilling]);
+  }, [inPrefilling, view?.filter]);
 
   useClickAway(containerRef, () => {
     gridRef.current?.resetState();

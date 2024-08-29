@@ -30,17 +30,8 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
 
   const { mutate: createRecord, isLoading } = useMutation({
     mutationFn: (fields: { [fieldId: string]: unknown }) => {
-      const defaultFields = extractDefaultFieldsFromFilters(view?.filter);
-
-      // remove null fields
-      Object.keys(fields).forEach((key) => {
-        if (fields[key] === null) {
-          delete fields[key];
-        }
-      });
-
       return createRecords(tableId!, {
-        records: [{ fields: { ...defaultFields, ...fields } }],
+        records: [{ fields }],
         fieldKeyType: FieldKeyType.Id,
       });
     },
@@ -57,6 +48,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
           id: '',
           fields: version > 0 && preRecord?.fields ? preRecord.fields : {},
         });
+
         record.updateCell = (fieldId: string, newValue: unknown) => {
           record.fields[fieldId] = newValue;
           updateVersion.inc();
@@ -73,7 +65,17 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
       updateVersion.reset();
       newRecord();
     }
-  }, [newRecord, open, updateVersion]);
+    if (open) {
+      const defaultFields = extractDefaultFieldsFromFilters(view?.filter);
+      setRecord((prevRecord) => {
+        if (!prevRecord) return prevRecord;
+
+        prevRecord.fields = defaultFields;
+
+        return prevRecord;
+      });
+    }
+  }, [newRecord, open, updateVersion, view?.filter]);
 
   useEffect(() => {
     // init record
