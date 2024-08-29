@@ -1,6 +1,7 @@
-import { HoverCard, HoverCardTrigger, HoverCardContent } from '@teable/ui-lib';
+import { HoverCard, HoverCardTrigger, HoverCardContent, HoverCardPortal } from '@teable/ui-lib';
 import colors from 'tailwindcss/colors';
 import type { IUser } from '../../context';
+import { useTranslation } from '../../context/app/i18n';
 import { useSession } from '../../hooks';
 import { UserAvatar } from '../cell-value';
 
@@ -11,9 +12,10 @@ export type ICollaboratorUser = Omit<IUser, 'phone' | 'notifyMeta' | 'hasPasswor
 export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {
   const { id, name, avatar, email, borderColor } = props;
   const { user } = useSession();
+  const { t } = useTranslation();
 
   return (
-    <HoverCard>
+    <HoverCard openDelay={200}>
       <HoverCardTrigger asChild>
         <div className="relative overflow-hidden">
           <UserAvatar
@@ -26,15 +28,17 @@ export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {
           />
         </div>
       </HoverCardTrigger>
-      <HoverCardContent className="flex w-max max-w-[160px] flex-col justify-center truncate p-2 text-sm">
-        <div className="truncate">
-          <span title={name}>{name}</span>
-          <span className="pl-1">{id === user.id ? '(You)' : null}</span>
-        </div>
-        <div className="truncate">
-          <span title={email}>{email}</span>
-        </div>
-      </HoverCardContent>
+      <HoverCardPortal>
+        <HoverCardContent className="flex w-max max-w-[160px] flex-col justify-center truncate p-2 text-sm">
+          <div className="truncate">
+            <span title={name}>{name}</span>
+            <span className="pl-1">{id === user.id ? `(${t('noun.you')})` : null}</span>
+          </div>
+          <div className="truncate">
+            <span title={email}>{email}</span>
+          </div>
+        </HoverCardContent>
+      </HoverCardPortal>
     </HoverCard>
   );
 };

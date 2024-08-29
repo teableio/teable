@@ -1,15 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common';
 import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/openapi';
 import {
   createRecordsRoSchema,
@@ -29,10 +19,7 @@ import {
   updateRecordsRoSchema,
   IUpdateRecordsRo,
 } from '@teable/openapi';
-import {
-  EmitEvent,
-  EventEmitterInterceptor,
-} from '../../../event-emitter/decorators/event-emitter.interceptor';
+import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../../event-emitter/events';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -41,7 +28,6 @@ import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
 
 @Controller('api/table/:tableId/record')
-@UseInterceptors(EventEmitterInterceptor)
 export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,
@@ -91,23 +77,31 @@ export class RecordOpenApiController {
   async updateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
-    @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo
+    @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IRecord> {
-    return await this.recordOpenApiService.updateRecord(tableId, recordId, updateRecordRo);
+    return await this.recordOpenApiService.updateRecord(
+      tableId,
+      recordId,
+      updateRecordRo,
+      windowId
+    );
   }
 
   @Permissions('record|update')
   @Patch()
   async updateRecords(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(updateRecordsRoSchema)) updateRecordsRo: IUpdateRecordsRo
+    @Body(new ZodValidationPipe(updateRecordsRoSchema)) updateRecordsRo: IUpdateRecordsRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<IRecord[]> {
-    return await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+    return (await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId))
+      .records;
   }
 
   @Permissions('record|create')
   @Post()
-  @EmitEvent(Events.CONTROLLER_RECORDS_CREATE)
+  @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
   async createRecords(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo
@@ -119,9 +113,10 @@ export class RecordOpenApiController {
   @Delete(':recordId')
   async deleteRecord(
     @Param('tableId') tableId: string,
-    @Param('recordId') recordId: string
-  ): Promise<void> {
-    return await this.recordOpenApiService.deleteRecord(tableId, recordId);
+    @Param('recordId') recordId: string,
+    @Headers('x-window-id') windowId?: string
+  ): Promise<IRecord> {
+    return await this.recordOpenApiService.deleteRecord(tableId, recordId, windowId);
   }
 
   @Permissions('record|create')
@@ -138,9 +133,10 @@ export class RecordOpenApiController {
   @Delete()
   async deleteRecords(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery
-  ): Promise<void> {
-    return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds);
+    @Query(new ZodValidationPipe(deleteRecordsQuerySchema)) query: IDeleteRecordsQuery,
+    @Headers('x-window-id') windowId?: string
+  ): Promise<IRecordsVo> {
+    return await this.recordOpenApiService.deleteRecords(tableId, query.recordIds, windowId);
   }
 
   @Permissions('record|read')

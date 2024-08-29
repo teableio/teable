@@ -27,7 +27,9 @@ export class EventMiddleware implements NestInterceptor {
         const interceptContext = this.interceptContext(req, data);
 
         const event = this.createEvent(emitEventName, interceptContext);
-        event && this.eventEmitterService.emitAsync(event.name, event);
+        event
+          ? this.eventEmitterService.emitAsync(event.name, event)
+          : this.eventEmitterService.emitAsync(emitEventName, interceptContext);
       })
     );
   }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AttachmentsStorageModule } from '../../attachments/attachments-storage.module';
+import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
@@ -8,20 +9,20 @@ import { RecordCalculateModule } from '../record-calculate/record-calculate.modu
 import { RecordModule } from '../record.module';
 import { RecordOpenApiController } from './record-open-api.controller';
 import { RecordOpenApiService } from './record-open-api.service';
-import { RecordUndoRedoService } from './record-undo-redo-service';
 
 @Module({
   imports: [
     RecordModule,
     RecordCalculateModule,
     FieldCalculateModule,
+    CalculationModule,
     AttachmentsStorageModule,
     CollaboratorModule,
     ViewModule,
     ViewOpenApiModule,
   ],
   controllers: [RecordOpenApiController],
-  providers: [RecordOpenApiService, RecordUndoRedoService],
+  providers: [RecordOpenApiService],
   exports: [RecordOpenApiService],
 })
 export class RecordOpenApiModule {}

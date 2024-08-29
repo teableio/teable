@@ -265,7 +265,8 @@
     "record": "Record",
     "automation": "Automation",
     "user": "User",
-    "recordHistory": "Record History"
+    "recordHistory": "Record History",
+    "you": "You"
   },
   "formula": {
     "SUM": {

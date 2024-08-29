@@ -30,7 +30,7 @@ export const GetViewRoute: RouteConfig = registerRoute({
   tags: ['view'],
 });
 
-export const getViewById = async (tableId: string, viewId: string) => {
+export const getView = async (tableId: string, viewId: string) => {
   return axios.get<IViewVo>(
     urlBuilder(GET_VIEW, {
       tableId,

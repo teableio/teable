@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { AxiosResponse, Axios } from 'axios';
-import { axios as axiosInstance } from '../axios';
+import type { IRecord } from '@teable/core';
+import type { AxiosResponse } from 'axios';
+import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
@@ -24,32 +25,9 @@ export const DeleteRecordRoute: RouteConfig = registerRoute({
   tags: ['record'],
 });
 
-export async function deleteRecord(tableId: string, recordId: string): Promise<AxiosResponse<null>>;
 export async function deleteRecord(
-  axios: Axios,
   tableId: string,
   recordId: string
-): Promise<AxiosResponse<null>>;
-export async function deleteRecord(
-  axios: Axios | string,
-  tableId?: string,
-  recordId?: string
-): Promise<AxiosResponse<null>> {
-  let theAxios: Axios;
-  let theTableId: string;
-  let theRecordId: string;
-
-  if (typeof axios === 'string') {
-    theAxios = axiosInstance;
-    theTableId = axios;
-    theRecordId = tableId as string;
-  } else {
-    theAxios = axios;
-    theTableId = tableId as string;
-    theRecordId = recordId!;
-  }
-
-  return theAxios.delete<null>(
-    urlBuilder(DELETE_RECORD_URL, { tableId: theTableId, recordId: theRecordId })
-  );
+): Promise<AxiosResponse<IRecord>> {
+  return axios.delete<IRecord>(urlBuilder(DELETE_RECORD_URL, { tableId, recordId }));
 }

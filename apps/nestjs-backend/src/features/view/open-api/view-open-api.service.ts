@@ -36,8 +36,12 @@ import type {
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
+import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
 import { FieldService } from '../../field/field.service';
@@ -55,6 +59,8 @@ export class ViewOpenApiService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -76,7 +82,7 @@ export class ViewOpenApiService {
   }
 
   private async deleteViewInner(tableId: string, viewId: string) {
-    await this.viewService.deleteView(tableId, viewId);
+    return await this.viewService.deleteView(tableId, viewId);
   }
 
   private updateRecordOrderSql(orderRawSql: string, dbTableName: string, indexField: string) {
@@ -133,7 +139,12 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
+  async updateViewColumnMeta(
+    tableId: string,
+    viewId: string,
+    columnMetaRo: IColumnMetaRo,
+    windowId?: string
+  ) {
     const view = await this.prismaService.view
       .findFirstOrThrow({
         where: { tableId, id: viewId },
@@ -187,9 +198,18 @@ export class ViewOpenApiService {
       };
       ops.push(ViewOpBuilder.editor.updateViewColumnMeta.build(obj));
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, ops);
-    });
+
+    await this.updateViewByOps(tableId, viewId, ops);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+        tableId,
+        windowId,
+        viewId,
+        userId: this.cls.get('user.id'),
+        byOps: ops,
+      });
+    }
   }
 
   async updateShareMeta(tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) {
@@ -216,7 +236,8 @@ export class ViewOpenApiService {
     tableId: string,
     viewId: string,
     key: IViewPropertyKeys,
-    newValue: unknown
+    newValue: unknown,
+    windowId?: string
   ) {
     const curView = await this.prismaService.view
       .findFirstOrThrow({
@@ -235,12 +256,36 @@ export class ViewOpenApiService {
       newValue,
       oldValue,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+
+    await this.updateViewByOps(tableId, viewId, [ops]);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+        tableId,
+        windowId,
+        viewId,
+        userId: this.cls.get('user.id'),
+        byKey: {
+          key,
+          newValue,
+          oldValue,
+        },
+      });
+    }
+  }
+
+  async updateViewByOps(tableId: string, viewId: string, ops: IOtOperation[]) {
+    return await this.prismaService.$tx(async () => {
+      return await this.viewService.updateViewByOps(tableId, viewId, ops);
     });
   }
 
-  async patchViewOptions(tableId: string, viewId: string, viewOptions: IViewOptions) {
+  async patchViewOptions(
+    tableId: string,
+    viewId: string,
+    viewOptions: IViewOptions,
+    windowId?: string
+  ) {
     const curView = await this.prismaService.view
       .findFirstOrThrow({
         select: { options: true, type: true },
@@ -259,7 +304,7 @@ export class ViewOpenApiService {
     }
 
     const oldOptions = options ? JSON.parse(options) : options;
-    const ops = ViewOpBuilder.editor.setViewProperty.build({
+    const op = ViewOpBuilder.editor.setViewProperty.build({
       key: 'options',
       newValue: {
         ...oldOptions,
@@ -267,9 +312,17 @@ export class ViewOpenApiService {
       },
       oldValue: oldOptions,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-    });
+    await this.updateViewByOps(tableId, viewId, [op]);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+        tableId,
+        windowId,
+        viewId,
+        userId: this.cls.get('user.id'),
+        byOps: [op],
+      });
+    }
   }
 
   /**
@@ -298,7 +351,12 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateViewOrder(tableId: string, viewId: string, orderRo: IUpdateOrderRo) {
+  async updateViewOrder(
+    tableId: string,
+    viewId: string,
+    orderRo: IUpdateOrderRo,
+    windowId?: string
+  ) {
     const { anchorId, position } = orderRo;
 
     const view = await this.prismaService.view
@@ -340,15 +398,22 @@ export class ViewOpenApiService {
         id: string,
         data: { newOrder: number; oldOrder: number }
       ) => {
-        const ops = ViewOpBuilder.editor.setViewProperty.build({
+        const op = ViewOpBuilder.editor.setViewProperty.build({
           key: 'order',
           newValue: data.newOrder,
           oldValue: data.oldOrder,
         });
+        await this.updateViewByOps(parentId, id, [op]);
 
-        await this.prismaService.$tx(async () => {
-          await this.viewService.updateViewByOps(parentId, id, [ops]);
-        });
+        if (windowId) {
+          this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+            tableId,
+            windowId,
+            viewId,
+            userId: this.cls.get('user.id'),
+            byOps: [op],
+          });
+        }
       },
       shuffle: this.shuffle.bind(this),
     });
@@ -438,11 +503,38 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateRecordOrders(tableId: string, viewId: string, orderRo: IUpdateRecordOrdersRo) {
+  async updateRecordIndexes(
+    tableId: string,
+    viewId: string,
+    recordsWithOrder: {
+      id: string;
+      order?: Record<string, number>;
+    }[]
+  ) {
+    // for notify view update only
+    await this.prismaService.$tx(async () => {
+      const ops = ViewOpBuilder.editor.setViewProperty.build({
+        key: 'lastModifiedTime',
+        newValue: new Date().toISOString(),
+      });
+      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+      await this.recordService.updateRecordIndexes(tableId, recordsWithOrder);
+    });
+  }
+
+  async updateRecordOrders(
+    tableId: string,
+    viewId: string,
+    orderRo: IUpdateRecordOrdersRo,
+    windowId?: string
+  ) {
+    const recordIds = orderRo.recordIds;
     const dbTableName = await this.recordService.getDbTableName(tableId);
+    const orderIndexesBefore = windowId
+      ? await this.recordService.getRecordIndexes(tableId, recordIds, viewId)
+      : undefined;
 
     const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
-    const recordIds = orderRo.recordIds;
 
     await this.updateRecordOrdersInner({
       tableId,
@@ -472,6 +564,23 @@ export class ViewOpenApiService {
         });
       },
     });
+
+    if (windowId) {
+      const orderIndexesAfter = await this.recordService.getRecordIndexes(
+        tableId,
+        recordIds,
+        viewId
+      );
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_ORDER_UPDATE, {
+        tableId,
+        windowId,
+        recordIds,
+        viewId,
+        userId: this.cls.get('user.id'),
+        orderIndexesBefore,
+        orderIndexesAfter,
+      });
+    }
   }
 
   async refreshShareId(tableId: string, viewId: string) {
@@ -492,9 +601,7 @@ export class ViewOpenApiService {
       newValue: newShareId,
       oldValue: view.shareId || undefined,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [setShareIdOp]);
-    });
+    await this.updateViewByOps(tableId, viewId, [setShareIdOp]);
     return { shareId: newShareId };
   }
 
@@ -521,9 +628,7 @@ export class ViewOpenApiService {
       newValue: newShareId,
       oldValue: shareId || undefined,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
-    });
+    await this.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
     return { shareId: newShareId };
   }
 
@@ -545,9 +650,7 @@ export class ViewOpenApiService {
       oldValue: enableShare || undefined,
     });
 
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp]);
-    });
+    await this.updateViewByOps(tableId, viewId, [enableShareOp]);
   }
 
   /**
