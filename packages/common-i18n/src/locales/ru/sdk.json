@@ -265,7 +265,8 @@
     "record": "Запись",
     "automation": "Автоматизация",
     "user": "Пользователь",
-    "recordHistory": "История записей"
+    "recordHistory": "История записей",
+    "you": "You"
   },
   "formula": {
     "SUM": {
