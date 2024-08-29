@@ -20,9 +20,9 @@ import type {
 
 export interface IBaseFilterProps<T extends IConditionItemProperty = IConditionItemProperty> {
   maxDepth?: number;
-  value: IBaseFilterValue<T>;
+  value?: IBaseFilterValue<T>;
   defaultValue?: IBaseFilterValue<T>;
-  defaultItemValue: IConditionItem<T>;
+  defaultItemValue?: IConditionItem<T>;
   defaultGroupValue?: IConditionGroup<T>;
   onChange: (value: IBaseFilterValue<T>) => void;
   components: {
@@ -34,13 +34,18 @@ export interface IBaseFilterProps<T extends IConditionItemProperty = IConditionI
   contentClassName?: string;
 }
 
+const DEFAULT_VALUE = {
+  conjunction: 'and',
+  children: [],
+};
+
 export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterProps<T>) => {
   const { t } = useTranslation();
   const {
     onChange,
     maxDepth = 2,
-    defaultValue,
-    value: valueProp,
+    defaultValue = DEFAULT_VALUE as IBaseFilterValue<T>,
+    value: valueProp = DEFAULT_VALUE as IBaseFilterValue<T>,
     defaultItemValue,
     defaultGroupValue: defaultGroupValueFromProps,
     footerClassName,
@@ -111,7 +116,12 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
         onClick={() =>
           setValue({
             conjunction: valueProp.conjunction,
-            children: [...children, { ...defaultItemValue }],
+            children: [
+              ...children,
+              defaultItemValue
+                ? { ...defaultItemValue }
+                : ({ field: null, operator: null, value: null } as T),
+            ],
           })
         }
       >

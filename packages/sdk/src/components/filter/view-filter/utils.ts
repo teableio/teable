@@ -90,7 +90,9 @@ export const shouldResetFieldValue = (newOperator: string, oldOperator: string):
   return true;
 };
 
-export const shouldFilterByDefaultValue = (field: IFieldInstance | undefined) => {
+export const shouldFilterByDefaultValue = (
+  field: { type: FieldType; cellValueType: CellValueType } | undefined
+) => {
   if (!field) return false;
 
   const { type, cellValueType } = field;

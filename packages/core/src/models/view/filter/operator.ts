@@ -293,7 +293,11 @@ export function getFilterOperatorMapping(field: FieldCore) {
 /**
  * Returns the valid filter operators for a given field value type.
  */
-export function getValidFilterOperators(field: FieldCore): IOperator[] {
+export function getValidFilterOperators(field: {
+  cellValueType: CellValueType;
+  type: FieldType;
+  isMultipleCellValue?: boolean;
+}): IOperator[] {
   let operationSet: IOperator[] = [];
 
   const { cellValueType, type, isMultipleCellValue } = field;
