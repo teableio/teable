@@ -2,6 +2,7 @@ import type { IBaseQuery } from '@teable/openapi';
 import { Input } from '@teable/ui-lib';
 import type { QueryEditorKey } from './context/QueryEditorContext';
 import { QueryAggregation } from './editors/QueryAggregation';
+import { QueryFilter } from './editors/QueryFilter/QueryFilter';
 import { QueryGroup } from './editors/QueryGroup';
 import { QueryJoin } from './editors/QueryJoin';
 import { QueryOrder } from './editors/QueryOrder';
@@ -72,7 +73,7 @@ export const QueryEditor = ({
       );
     }
     case 'where': {
-      return 'not implemented yet';
+      return <QueryFilter value={query.where} onChange={(where) => onChange('where', where)} />;
     }
     default:
       return null;
