@@ -352,7 +352,9 @@ describe('Computed user field (e2e)', () => {
         typecast: true,
       });
 
+      const promise = createRenamePromise(user2.id);
       await user2Request.patch<void>(UPDATE_USER_NAME, { name: 'new name 2' });
+      await promise;
 
       const records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
 
