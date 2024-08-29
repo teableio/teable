@@ -463,3 +463,19 @@ model Dashboard {
 
   @@map("dashboard")
 }
+
+model Comment {
+  id               String     @id @default(cuid())
+  tableId          String     @map("table_id")
+  recordId         String     @map("record_id")
+  parentId         String?    @map("parent_id")
+  content          String?
+
+  deletedTime      DateTime? @map("deleted_time")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  @@map("comment")
+}
