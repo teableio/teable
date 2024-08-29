@@ -13,6 +13,7 @@ import {
   createBaseInvitationLink,
   createBaseInvitationLinkVoSchema,
   DELETE_BASE,
+  DELETE_BASE_COLLABORATOR,
   DELETE_SPACE,
   deleteBaseCollaborator,
   deleteBaseInvitationLink,
@@ -244,12 +245,63 @@ describe('OpenAPI BaseController (e2e)', () => {
               baseId,
             }),
             {
-              role: Role.Creator,
-              userId: newUser3Id,
+              role: Role.Viewer,
+              userId: globalThis.testConfig.userId,
             }
           )
         );
         expect(error?.status).toBe(403);
+      });
+
+      it('/api/base/:baseId/collaborators (PATCH) - exceeds limit role', async () => {
+        await updateBaseCollaborator({
+          baseId: baseId,
+          updateBaseCollaborateRo: {
+            role: Role.Editor,
+            userId: globalThis.testConfig.userId,
+          },
+        });
+        const error = await getError(() =>
+          updateBaseCollaborator({
+            baseId: baseId,
+            updateBaseCollaborateRo: {
+              role: Role.Creator,
+              userId: globalThis.testConfig.userId,
+            },
+          })
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('/api/base/:baseId/collaborators (PATCH) - self ', async () => {
+        const res = await updateBaseCollaborator({
+          baseId: baseId,
+          updateBaseCollaborateRo: {
+            role: Role.Editor,
+            userId: globalThis.testConfig.userId,
+          },
+        });
+        expect(res?.status).toBe(200);
+      });
+
+      it('/api/base/:baseId/collaborators (PATCH) - allow update role equal to self', async () => {
+        await updateBaseCollaborator({
+          baseId: baseId,
+          updateBaseCollaborateRo: {
+            role: Role.Editor,
+            userId: globalThis.testConfig.userId,
+          },
+        });
+        const res = await user3Request.patch<void>(
+          urlBuilder(UPDATE_BASE_COLLABORATE, {
+            baseId,
+          }),
+          {
+            role: Role.Viewer,
+            userId: newUser3Id,
+          }
+        );
+        expect(res?.status).toBe(200);
       });
 
       it('/api/base/:baseId/collaborators (DELETE)', async () => {
@@ -286,6 +338,20 @@ describe('OpenAPI BaseController (e2e)', () => {
         });
         const error = await getError(() => getBaseCollaboratorList(baseId));
         expect(error?.status).toBe(403);
+      });
+
+      it('/api/base/:baseId/collaborators (DELETE) - space user delete base user', async () => {
+        const res = await userRequest.delete(urlBuilder(DELETE_BASE_COLLABORATOR, { baseId }), {
+          params: { userId: newUser3Id },
+        });
+        expect(res.status).toBe(200);
+      });
+
+      it('/api/space/:spaceId/collaborators (DELETE) - space user delete base user', async () => {
+        const res = await userRequest.delete(urlBuilder(DELETE_BASE_COLLABORATOR, { baseId }), {
+          params: { userId: newUser3Id },
+        });
+        expect(res.status).toBe(200);
       });
     });
   });
