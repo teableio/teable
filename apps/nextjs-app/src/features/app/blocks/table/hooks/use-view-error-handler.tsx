@@ -42,9 +42,20 @@ export const useViewErrorHandler = (baseId: string, tableId: string, viewId: str
       }
     };
 
+    const handleViewDeletion = (data: unknown) => {
+      if (typeof data === 'object' && data !== null) {
+        const { d, del } = data as { d?: string; del?: boolean };
+        if (d === viewId && del === true) {
+          redirectDefaultView({ baseId, tableId });
+        }
+      }
+    };
+
     const onReceive = (request: ConnectionReceiveRequest) => {
       if (request.data.error) {
         errorHandler(request.data.error);
+      } else {
+        handleViewDeletion(request.data);
       }
     };
     connection.on('receive', onReceive);
