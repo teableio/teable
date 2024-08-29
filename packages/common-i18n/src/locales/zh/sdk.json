@@ -23,6 +23,18 @@
     "summaryTip": "点击此行进行统计",
     "actions": "Actions"
   },
+  "undoRedo": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoFailed": "Undo failed",
+    "redoFailed": "Redo failed",
+    "nothingToUndo": "Nothing to undo",
+    "nothingToRedo": "Nothing to redo",
+    "undoSucceed": "Undo succeed",
+    "redoSucceed": "Redo succeed",
+    "undoing": "undoing...",
+    "redoing": "redoing..."
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "释放以上传文件",
