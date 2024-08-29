@@ -1,4 +1,4 @@
-import type { IColumnMeta, IFieldVo, IViewVo } from '@teable/core';
+import type { IColumnMeta, IFieldVo, IOtOperation, IViewPropertyKeys, IViewVo } from '@teable/core';
 import type { IRecord } from '@teable/openapi';
 import type { IOpsMap } from '../features/calculation/reference.service';
 import type { ICellContext } from '../features/calculation/utils/changes';
@@ -218,11 +218,15 @@ export interface IUpdateViewOperation extends IUndoRedoOperationBase {
   name: OperationName.UpdateView;
   params: {
     tableId: string;
+    viewId: string;
   };
   result: {
-    key: string;
-    newValue: unknown;
-    oldValue: unknown;
+    byKey?: {
+      key: IViewPropertyKeys;
+      newValue: unknown;
+      oldValue: unknown;
+    };
+    byOps?: IOtOperation[];
   };
 }
 
@@ -236,4 +240,5 @@ export type IUndoRedoOperation =
   | IConvertFieldOperation
   | IPasteSelectionOperation
   | ICreateViewOperation
-  | IDeleteViewOperation;
+  | IDeleteViewOperation
+  | IUpdateViewOperation;

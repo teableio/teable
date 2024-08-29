@@ -26,6 +26,7 @@ import {
   getFields,
   getRecord,
   getRecords,
+  getView,
   getViewList,
   paste,
   redo,
@@ -33,6 +34,11 @@ import {
   updateRecord,
   updateRecordOrders,
   updateRecords,
+  updateViewColumnMeta,
+  updateViewDescription,
+  updateViewFilter,
+  updateViewName,
+  updateViewOrder,
 } from '@teable/openapi';
 import type { ITableFullVo } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -842,6 +848,131 @@ describe('Undo Redo (e2e)', () => {
 
     const viewsAfterRedo = (await getViewList(table.id)).data;
     expect(viewsAfterRedo.find((v) => v.id === view.id)).toBeUndefined();
+  });
+
+  it('should undo / redo update view property', async () => {
+    // name
+    const view = table.views[0];
+    (await awaitWithEvent(() => updateViewName(table.id, view.id, { name: 'newName' }))).data;
+
+    await undo(table.id);
+
+    expect((await getView(table.id, view.id)).data.name).toEqual(view.name);
+
+    await redo(table.id);
+
+    expect((await getView(table.id, view.id)).data.name).toEqual('newName');
+
+    // description
+    (
+      await awaitWithEvent(() =>
+        updateViewDescription(table.id, view.id, { description: 'newName' })
+      )
+    ).data;
+
+    await undo(table.id);
+
+    expect((await getView(table.id, view.id)).data.description).toEqual(view.description);
+
+    await redo(table.id);
+
+    expect((await getView(table.id, view.id)).data.description).toEqual('newName');
+
+    // filter
+
+    (
+      await awaitWithEvent(() =>
+        updateViewFilter(table.id, view.id, {
+          filter: {
+            filterSet: [
+              {
+                fieldId: table.fields![0].id,
+                value: 'text',
+                operator: 'is',
+              },
+            ],
+            conjunction: 'and',
+          },
+        })
+      )
+    ).data;
+
+    await undo(table.id);
+
+    expect((await getView(table.id, view.id)).data.filter).toEqual(view.filter);
+
+    await redo(table.id);
+
+    expect((await getView(table.id, view.id)).data.filter).toEqual({
+      filterSet: [
+        {
+          fieldId: table.fields![0].id,
+          value: 'text',
+          operator: 'is',
+        },
+      ],
+      conjunction: 'and',
+    });
+  });
+
+  it('should undo / redo update view column meta', async () => {
+    const view = table.views[0];
+    (
+      await awaitWithEvent(() =>
+        updateViewColumnMeta(table.id, view.id, [
+          {
+            fieldId: table.fields[1].id,
+            columnMeta: {
+              order: 10,
+            },
+          },
+        ])
+      )
+    ).data;
+
+    const fields = (await getFields(table.id, { viewId: view.id })).data;
+
+    expect(fields[2].id).toEqual(table.fields[1].id);
+
+    await undo(table.id);
+
+    const fieldsAfterUndo = (await getFields(table.id, { viewId: view.id })).data;
+
+    expect(fieldsAfterUndo[1].id).toEqual(table.fields[1].id);
+
+    await redo(table.id);
+
+    const fieldsAfterRedo = (await getFields(table.id, { viewId: view.id })).data;
+
+    expect(fieldsAfterRedo[2].id).toEqual(table.fields[1].id);
+  });
+
+  it('should undo / redo update view order', async () => {
+    const view = table.views[0];
+    const view1 = (
+      await awaitWithEvent(() =>
+        createView(table.id, {
+          type: ViewType.Grid,
+          name: 'view1',
+        })
+      )
+    ).data;
+
+    (
+      await awaitWithEvent(() =>
+        updateViewOrder(table.id, view.id, { anchorId: view1.id, position: 'after' })
+      )
+    ).data;
+
+    await undo(table.id);
+
+    const viewsAfterUndo = (await getViewList(table.id)).data;
+    expect(viewsAfterUndo[0].id).toMatchObject(view.id);
+
+    await redo(table.id);
+
+    const viewsAfterRedo = (await getViewList(table.id)).data;
+    expect(viewsAfterRedo[1].id).toMatchObject(view.id);
   });
 
   describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(

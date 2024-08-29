@@ -92,10 +92,16 @@ export class ViewOpenApiController {
   async updateName(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewNameRoSchema))
-    viewNameRo: IViewNameRo
+    @Body(new ZodValidationPipe(viewNameRoSchema)) viewNameRo: IViewNameRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
-    return await this.viewOpenApiService.setViewProperty(tableId, viewId, 'name', viewNameRo.name);
+    return await this.viewOpenApiService.setViewProperty(
+      tableId,
+      viewId,
+      'name',
+      viewNameRo.name,
+      windowId
+    );
   }
 
   @Permissions('view|update')
@@ -103,14 +109,15 @@ export class ViewOpenApiController {
   async updateDescription(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewDescriptionRoSchema))
-    viewDescriptionRo: IViewDescriptionRo
+    @Body(new ZodValidationPipe(viewDescriptionRoSchema)) viewDescriptionRo: IViewDescriptionRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
     return await this.viewOpenApiService.setViewProperty(
       tableId,
       viewId,
       'description',
-      viewDescriptionRo.description
+      viewDescriptionRo.description,
+      windowId
     );
   }
 
@@ -119,8 +126,7 @@ export class ViewOpenApiController {
   async updateShareMeta(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewShareMetaRoSchema))
-    viewShareMetaRo: IViewShareMetaRo
+    @Body(new ZodValidationPipe(viewShareMetaRoSchema)) viewShareMetaRo: IViewShareMetaRo
   ): Promise<void> {
     return await this.viewOpenApiService.updateShareMeta(tableId, viewId, viewShareMetaRo);
   }
@@ -130,24 +136,24 @@ export class ViewOpenApiController {
   async manualSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(manualSortRoSchema))
-    updateViewOrderRo: IManualSortRo
+    @Body(new ZodValidationPipe(manualSortRoSchema)) updateViewOrderRo: IManualSortRo
   ): Promise<void> {
     return await this.viewOpenApiService.manualSort(tableId, viewId, updateViewOrderRo);
   }
 
   @Permissions('view|update')
   @Put('/:viewId/column-meta')
-  async updateFieldsVisible(
+  async updateColumnMeta(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(columnMetaRoSchema))
-    updateViewColumnMetaRo: IColumnMetaRo
+    @Body(new ZodValidationPipe(columnMetaRoSchema)) updateViewColumnMetaRo: IColumnMetaRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
     return await this.viewOpenApiService.updateViewColumnMeta(
       tableId,
       viewId,
-      updateViewColumnMetaRo
+      updateViewColumnMetaRo,
+      windowId
     );
   }
 
@@ -156,14 +162,15 @@ export class ViewOpenApiController {
   async updateViewFilter(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(filterRoSchema))
-    updateViewFilterRo: IFilterRo
+    @Body(new ZodValidationPipe(filterRoSchema)) updateViewFilterRo: IFilterRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
     return await this.viewOpenApiService.setViewProperty(
       tableId,
       viewId,
       'filter',
-      updateViewFilterRo.filter
+      updateViewFilterRo.filter,
+      windowId
     );
   }
 
@@ -172,14 +179,15 @@ export class ViewOpenApiController {
   async updateViewSort(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewSortRoSchema))
-    updateViewSortRo: IViewSortRo
+    @Body(new ZodValidationPipe(viewSortRoSchema)) updateViewSortRo: IViewSortRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
     return await this.viewOpenApiService.setViewProperty(
       tableId,
       viewId,
       'sort',
-      updateViewSortRo.sort
+      updateViewSortRo.sort,
+      windowId
     );
   }
 
@@ -188,14 +196,15 @@ export class ViewOpenApiController {
   async updateViewGroup(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewGroupRoSchema))
-    updateViewGroupRo: IViewGroupRo
+    @Body(new ZodValidationPipe(viewGroupRoSchema)) updateViewGroupRo: IViewGroupRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
     return await this.viewOpenApiService.setViewProperty(
       tableId,
       viewId,
       'group',
-      updateViewGroupRo.group
+      updateViewGroupRo.group,
+      windowId
     );
   }
 
@@ -204,13 +213,14 @@ export class ViewOpenApiController {
   async updateViewOptions(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(viewOptionsRoSchema))
-    updateViewOptionRo: IViewOptionsRo
+    @Body(new ZodValidationPipe(viewOptionsRoSchema)) updateViewOptionRo: IViewOptionsRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
     return await this.viewOpenApiService.patchViewOptions(
       tableId,
       viewId,
-      updateViewOptionRo.options
+      updateViewOptionRo.options,
+      windowId
     );
   }
 
@@ -219,10 +229,10 @@ export class ViewOpenApiController {
   async updateViewOrder(
     @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(updateOrderRoSchema))
-    updateOrderRo: IUpdateOrderRo
+    @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo,
+    @Headers('x-window-id') windowId?: string
   ): Promise<void> {
-    return await this.viewOpenApiService.updateViewOrder(tableId, viewId, updateOrderRo);
+    return await this.viewOpenApiService.updateViewOrder(tableId, viewId, updateOrderRo, windowId);
   }
 
   @Permissions('view|update')

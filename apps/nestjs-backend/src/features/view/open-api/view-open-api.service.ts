@@ -139,7 +139,12 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateViewColumnMeta(tableId: string, viewId: string, columnMetaRo: IColumnMetaRo) {
+  async updateViewColumnMeta(
+    tableId: string,
+    viewId: string,
+    columnMetaRo: IColumnMetaRo,
+    windowId?: string
+  ) {
     const view = await this.prismaService.view
       .findFirstOrThrow({
         where: { tableId, id: viewId },
@@ -193,9 +198,18 @@ export class ViewOpenApiService {
       };
       ops.push(ViewOpBuilder.editor.updateViewColumnMeta.build(obj));
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, ops);
-    });
+
+    await this.updateViewByOps(tableId, viewId, ops);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+        tableId,
+        windowId,
+        viewId,
+        userId: this.cls.get('user.id'),
+        byOps: ops,
+      });
+    }
   }
 
   async updateShareMeta(tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) {
@@ -222,7 +236,8 @@ export class ViewOpenApiService {
     tableId: string,
     viewId: string,
     key: IViewPropertyKeys,
-    newValue: unknown
+    newValue: unknown,
+    windowId?: string
   ) {
     const curView = await this.prismaService.view
       .findFirstOrThrow({
@@ -241,12 +256,36 @@ export class ViewOpenApiService {
       newValue,
       oldValue,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+
+    await this.updateViewByOps(tableId, viewId, [ops]);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+        tableId,
+        windowId,
+        viewId,
+        userId: this.cls.get('user.id'),
+        byKey: {
+          key,
+          newValue,
+          oldValue,
+        },
+      });
+    }
+  }
+
+  async updateViewByOps(tableId: string, viewId: string, ops: IOtOperation[]) {
+    return await this.prismaService.$tx(async () => {
+      return await this.viewService.updateViewByOps(tableId, viewId, ops);
     });
   }
 
-  async patchViewOptions(tableId: string, viewId: string, viewOptions: IViewOptions) {
+  async patchViewOptions(
+    tableId: string,
+    viewId: string,
+    viewOptions: IViewOptions,
+    windowId?: string
+  ) {
     const curView = await this.prismaService.view
       .findFirstOrThrow({
         select: { options: true, type: true },
@@ -265,7 +304,7 @@ export class ViewOpenApiService {
     }
 
     const oldOptions = options ? JSON.parse(options) : options;
-    const ops = ViewOpBuilder.editor.setViewProperty.build({
+    const op = ViewOpBuilder.editor.setViewProperty.build({
       key: 'options',
       newValue: {
         ...oldOptions,
@@ -273,9 +312,17 @@ export class ViewOpenApiService {
       },
       oldValue: oldOptions,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-    });
+    await this.updateViewByOps(tableId, viewId, [op]);
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+        tableId,
+        windowId,
+        viewId,
+        userId: this.cls.get('user.id'),
+        byOps: [op],
+      });
+    }
   }
 
   /**
@@ -304,7 +351,12 @@ export class ViewOpenApiService {
     });
   }
 
-  async updateViewOrder(tableId: string, viewId: string, orderRo: IUpdateOrderRo) {
+  async updateViewOrder(
+    tableId: string,
+    viewId: string,
+    orderRo: IUpdateOrderRo,
+    windowId?: string
+  ) {
     const { anchorId, position } = orderRo;
 
     const view = await this.prismaService.view
@@ -346,15 +398,22 @@ export class ViewOpenApiService {
         id: string,
         data: { newOrder: number; oldOrder: number }
       ) => {
-        const ops = ViewOpBuilder.editor.setViewProperty.build({
+        const op = ViewOpBuilder.editor.setViewProperty.build({
           key: 'order',
           newValue: data.newOrder,
           oldValue: data.oldOrder,
         });
+        await this.updateViewByOps(parentId, id, [op]);
 
-        await this.prismaService.$tx(async () => {
-          await this.viewService.updateViewByOps(parentId, id, [ops]);
-        });
+        if (windowId) {
+          this.eventEmitterService.emitAsync(Events.OPERATION_VIEW_UPDATE, {
+            tableId,
+            windowId,
+            viewId,
+            userId: this.cls.get('user.id'),
+            byOps: [op],
+          });
+        }
       },
       shuffle: this.shuffle.bind(this),
     });
@@ -542,9 +601,7 @@ export class ViewOpenApiService {
       newValue: newShareId,
       oldValue: view.shareId || undefined,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [setShareIdOp]);
-    });
+    await this.updateViewByOps(tableId, viewId, [setShareIdOp]);
     return { shareId: newShareId };
   }
 
@@ -571,9 +628,7 @@ export class ViewOpenApiService {
       newValue: newShareId,
       oldValue: shareId || undefined,
     });
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
-    });
+    await this.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
     return { shareId: newShareId };
   }
 
@@ -595,9 +650,7 @@ export class ViewOpenApiService {
       oldValue: enableShare || undefined,
     });
 
-    await this.prismaService.$tx(async () => {
-      await this.viewService.updateViewByOps(tableId, viewId, [enableShareOp]);
-    });
+    await this.updateViewByOps(tableId, viewId, [enableShareOp]);
   }
 
   /**

@@ -35,6 +35,7 @@ import {
   UpdateRecordsOperation,
   IUpdateRecordsPayload,
 } from '../operations/update-records.operation';
+import { IUpdateViewPayload, UpdateViewOperation } from '../operations/update-view.operation';
 import { UndoRedoStackService } from './undo-redo-stack.service';
 
 @Injectable()
@@ -49,6 +50,7 @@ export class UndoRedoOperationService {
   pasteSelection: PasteSelectionOperation;
   deleteView: DeleteViewOperation;
   createView: CreateViewOperation;
+  updateView: UpdateViewOperation;
 
   constructor(
     private readonly undoRedoStackService: UndoRedoStackService,
@@ -77,6 +79,7 @@ export class UndoRedoOperationService {
     );
     this.deleteView = new DeleteViewOperation(this.viewOpenApiService, this.viewService);
     this.createView = new CreateViewOperation(this.viewOpenApiService, this.viewService);
+    this.updateView = new UpdateViewOperation(this.viewOpenApiService);
   }
 
   async undo(operation: IUndoRedoOperation): Promise<IUndoRedoOperation> {
@@ -101,6 +104,8 @@ export class UndoRedoOperationService {
         return this.deleteView.undo(operation);
       case OperationName.CreateView:
         return this.createView.undo(operation);
+      case OperationName.UpdateView:
+        return this.updateView.undo(operation);
       default:
         assertNever(operation);
     }
@@ -128,6 +133,8 @@ export class UndoRedoOperationService {
         return this.deleteView.redo(operation);
       case OperationName.CreateView:
         return this.createView.redo(operation);
+      case OperationName.UpdateView:
+        return this.updateView.redo(operation);
       default:
         assertNever(operation);
     }
@@ -241,5 +248,15 @@ export class UndoRedoOperationService {
     }
     const operation = await this.createView.event2Operation(payload as ICreateViewPayload);
     await this.undoRedoStackService.push(userId, operation.params.tableId, windowId, operation);
+  }
+
+  @OnEvent(Events.OPERATION_VIEW_UPDATE)
+  private async onUpdateView(payload: IUpdateViewPayload) {
+    const { windowId, userId, tableId } = payload;
+    if (!windowId || !userId) {
+      return;
+    }
+    const operation = await this.updateView.event2Operation(payload as IUpdateViewPayload);
+    await this.undoRedoStackService.push(userId, tableId, windowId, operation);
   }
 }
