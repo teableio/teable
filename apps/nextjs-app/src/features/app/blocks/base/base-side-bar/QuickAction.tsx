@@ -11,12 +11,14 @@ import {
   CommandItem,
   CommandSeparator,
   Button,
+  cn,
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useSettingStore } from '@/features/app/components/setting/useSettingStore';
+import { getModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export const QuickAction = ({ children }: React.PropsWithChildren) => {
@@ -27,7 +29,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-
+  const modKeyStr = getModKeyStr();
   useHotkeys(
     `mod+k`,
     () => {
@@ -48,7 +50,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
       >
         {children}
         <kbd className="flex h-5 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
-          <span className="text-sm">⌘</span>
+          <span className={cn({ 'text-sm': modKeyStr === '⌘' })}>{modKeyStr}</span>
           <span>K</span>
         </kbd>
       </Button>

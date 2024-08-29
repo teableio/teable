@@ -35,6 +35,18 @@
     "recordHistory": "记录历史",
     "you": "你"
   },
+  "undoRedo": {
+    "undo": "撤销",
+    "redo": "重做",
+    "undoFailed": "撤销失败",
+    "redoFailed": "重做失败",
+    "nothingToUndo": "无可撤销操作",
+    "nothingToRedo": "无可重做操作",
+    "undoSucceed": "撤销成功",
+    "redoSucceed": "重做成功",
+    "undoing": "撤销中...",
+    "redoing": "重做中..."
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "释放以上传文件",
