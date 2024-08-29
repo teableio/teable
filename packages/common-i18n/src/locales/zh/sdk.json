@@ -265,7 +265,8 @@
     "record": "记录",
     "automation": "自动化",
     "user": "用户",
-    "recordHistory": "Record History"
+    "recordHistory": "Record History",
+    "you": "You"
   },
   "formula": {
     "SUM": {
