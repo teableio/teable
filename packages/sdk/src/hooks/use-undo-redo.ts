@@ -1,11 +1,12 @@
 import { redo, undo } from '@teable/openapi';
 import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
 import { useCallback } from 'react';
+import { useTranslation } from '../context/app/i18n';
 import { useTableId } from './use-table-id';
 
 export const useUndoRedo = () => {
   const tableId = useTableId();
-
+  const { t } = useTranslation();
   const performUndo = useCallback(async () => {
     if (!tableId) {
       toast('nothing to undo');
@@ -16,23 +17,23 @@ export const useUndoRedo = () => {
       async () => {
         const res = await undo(tableId);
         if (res.data.status === 'fulfilled') {
-          return 'undo success';
+          return t('undoRedo.undoSucceed');
         }
         if (res.data.status === 'empty') {
-          return 'nothing to undo';
+          return t('undoRedo.nothingToUndo');
         }
         throw new Error(res.data.errorMessage);
       },
       {
         duration: 1500,
-        loading: 'undoing...',
+        loading: t('undoRedo.undoing'),
         success: (message) => message,
         error: (e) => {
-          return `undo failed: ${(e as { message: string }).message}`;
+          return `${t('undoRedo.undoFailed')}: ${(e as { message: string }).message}`;
         },
       }
     );
-  }, [tableId]);
+  }, [t, tableId]);
 
   const performRedo = useCallback(async () => {
     if (!tableId) {
@@ -44,23 +45,23 @@ export const useUndoRedo = () => {
       async () => {
         const res = await redo(tableId);
         if (res.data.status === 'fulfilled') {
-          return 'redo success';
+          return t('undoRedo.redoSucceed');
         }
         if (res.data.status === 'empty') {
-          return 'nothing to redo';
+          return t('undoRedo.nothingToRedo');
         }
         throw new Error(res.data.errorMessage);
       },
       {
         duration: 1500,
-        loading: 'redoing...',
+        loading: t('undoRedo.redoing'),
         success: (message) => message,
         error: (e) => {
-          return `redo failed: ${(e as { message: string }).message}`;
+          return `${t('undoRedo.redoFailed')}: ${(e as { message: string }).message}`;
         },
       }
     );
-  }, [tableId]);
+  }, [t, tableId]);
 
   return { undo: performUndo, redo: performRedo };
 };
