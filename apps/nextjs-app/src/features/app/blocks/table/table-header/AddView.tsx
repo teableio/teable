@@ -32,6 +32,11 @@ export const AddView: React.FC = () => {
       type: ViewType.Form,
       Icon: VIEW_ICON_MAP[ViewType.Form],
     },
+    {
+      name: '相册视图',
+      type: ViewType.Gallery,
+      Icon: VIEW_ICON_MAP[ViewType.Gallery],
+    },
   ];
 
   const onClick = (type: ViewType, name: string) => {
