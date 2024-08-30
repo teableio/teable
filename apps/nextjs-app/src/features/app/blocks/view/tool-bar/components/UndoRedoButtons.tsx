@@ -8,7 +8,6 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useHotkeys } from 'react-hotkeys-hook';
 import { getModKeyStr } from '@/features/app/utils/get-mod-key-str';
 
 export const UndoRedoButtons = () => {
@@ -16,14 +15,6 @@ export const UndoRedoButtons = () => {
   const { t } = useTranslation(['sdk']);
 
   const { undo, redo } = useUndoRedo();
-
-  useHotkeys(`mod+z`, () => undo(), {
-    preventDefault: true,
-  });
-
-  useHotkeys([`mod+shift+z`, `mod+y`], () => redo(), {
-    preventDefault: true,
-  });
 
   const modKeyStr = getModKeyStr();
 
@@ -36,7 +27,7 @@ export const UndoRedoButtons = () => {
               className="size-6 shrink-0 p-0"
               size={'xs'}
               variant={'ghost'}
-              disabled={!permission['table|read']}
+              disabled={!permission['record|update']}
               onClick={undo}
             >
               <Undo2 className="size-4" />
@@ -44,7 +35,7 @@ export const UndoRedoButtons = () => {
           </TooltipTrigger>
           <TooltipContent>
             <p>
-              {t('sdk:undoRedo.undo')} {modKeyStr} z{' '}
+              {t('sdk:undoRedo.undo')} {modKeyStr} z
             </p>
           </TooltipContent>
         </Tooltip>
@@ -56,7 +47,7 @@ export const UndoRedoButtons = () => {
               className="size-6 shrink-0 p-0"
               size={'xs'}
               variant={'ghost'}
-              disabled={!permission['table|read']}
+              disabled={!permission['record|update']}
               onClick={redo}
             >
               <Redo2 className="size-4" />
@@ -64,7 +55,7 @@ export const UndoRedoButtons = () => {
           </TooltipTrigger>
           <TooltipContent>
             <p>
-              {t('sdk:undoRedo.redo')} {modKeyStr} shift z{' '}
+              {t('sdk:undoRedo.redo')} {modKeyStr} shift z
             </p>
           </TooltipContent>
         </Tooltip>
