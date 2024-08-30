@@ -1089,6 +1089,41 @@ describe('Undo Redo (e2e)', () => {
       await deleteTable(baseId, table3.id);
     });
 
+    it('should undo / redo delete record with link', async () => {
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = (await createField(table1.id, linkFieldRo)).data;
+
+      const record = await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+
+      console.log('updated:record', record);
+      await deleteRecord(table1.id, table1.records[0].id);
+
+      await undo(table1.id);
+
+      const recordAfterUndo = (
+        await getRecord(table1.id, table1.records[0].id, { fieldKeyType: FieldKeyType.Id })
+      ).data;
+      expect(recordAfterUndo.fields[linkField.id]).toMatchObject({
+        id: table2.records[0].id,
+      });
+
+      await redo(table1.id);
+
+      const recordsAfterRedo = (
+        await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id, viewId: table1.views[0].id })
+      ).data;
+      expect(recordsAfterRedo.records.length).toEqual(2);
+    });
+
     it('should undo / redo convert link to single line text', async () => {
       const sourceFieldRo: IFieldRo = {
         type: FieldType.Link,
