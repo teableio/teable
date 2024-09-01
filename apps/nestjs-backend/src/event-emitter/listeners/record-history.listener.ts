@@ -8,7 +8,6 @@ import type { Field } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { isString } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { Events, RecordUpdateEvent } from '../events';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -18,8 +17,7 @@ const SELECT_FIELD_TYPE_SET = new Set([FieldType.SingleSelect, FieldType.Multipl
 export class RecordHistoryListener {
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
@@ -66,71 +64,66 @@ export class RecordHistoryListener {
     const batchSize = 5000;
     const totalCount = records.length;
 
-    await this.prismaService.$tx(
-      async () => {
-        for (let i = 0; i < totalCount; i += batchSize) {
-          const batch = records.slice(i, i + batchSize);
-          const recordHistoryList: {
-            id: string;
-            table_id: string;
-            record_id: string;
-            field_id: string;
-            before: string;
-            after: string;
-            created_by: string;
-          }[] = [];
+    for (let i = 0; i < totalCount; i += batchSize) {
+      const batch = records.slice(i, i + batchSize);
+      const recordHistoryList: {
+        id: string;
+        table_id: string;
+        record_id: string;
+        field_id: string;
+        before: string;
+        after: string;
+        created_by: string;
+      }[] = [];
 
-          batch.forEach((record) => {
-            const { id: recordId, fields } = record;
+      batch.forEach((record) => {
+        const { id: recordId, fields } = record;
 
-            Object.entries(fields).forEach(([fieldId, changeValue]) => {
-              const field = fieldMap.get(fieldId);
+        Object.entries(fields).forEach(([fieldId, changeValue]) => {
+          const field = fieldMap.get(fieldId);
 
-              if (!field) return null;
+          if (!field) return null;
 
-              const oldField = _oldField ?? field;
-              const { type, name, cellValueType, isComputed } = field;
-              const { oldValue, newValue } = changeValue;
+          const oldField = _oldField ?? field;
+          const { type, name, cellValueType, isComputed } = field;
+          const { oldValue, newValue } = changeValue;
 
-              if (oldField.isComputed && isComputed) {
-                return null;
-              }
+          if (oldField.isComputed && isComputed) {
+            return null;
+          }
 
-              recordHistoryList.push({
-                id: generateRecordHistoryId(),
-                table_id: tableId,
-                record_id: recordId,
-                field_id: fieldId,
-                before: JSON.stringify({
-                  meta: {
-                    type: oldField.type,
-                    name: oldField.name,
-                    options: this.minimizeFieldOptions(oldValue, oldField),
-                    cellValueType: oldField.cellValueType,
-                  },
-                  data: oldValue,
-                }),
-                after: JSON.stringify({
-                  meta: {
-                    type,
-                    name,
-                    options: this.minimizeFieldOptions(newValue, field),
-                    cellValueType,
-                  },
-                  data: newValue,
-                }),
-                created_by: userId as string,
-              });
-            });
+          recordHistoryList.push({
+            id: generateRecordHistoryId(),
+            table_id: tableId,
+            record_id: recordId,
+            field_id: fieldId,
+            before: JSON.stringify({
+              meta: {
+                type: oldField.type,
+                name: oldField.name,
+                options: this.minimizeFieldOptions(oldValue, oldField),
+                cellValueType: oldField.cellValueType,
+              },
+              data: oldValue,
+            }),
+            after: JSON.stringify({
+              meta: {
+                type,
+                name,
+                options: this.minimizeFieldOptions(newValue, field),
+                cellValueType,
+              },
+              data: newValue,
+            }),
+            created_by: userId as string,
           });
+        });
+      });
 
-          const query = this.knex.insert(recordHistoryList).into('record_history').toQuery();
+      const query = this.knex.insert(recordHistoryList).into('record_history').toQuery();
 
-          await this.prismaService.$executeRawUnsafe(query);
-        }
-      },
-      { timeout: this.thresholdConfig.bigTransactionTimeout }
-    );
+      await this.prismaService.$executeRawUnsafe(query);
+    }
   }
 
   private minimizeFieldOptions(
