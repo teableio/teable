@@ -6,6 +6,5 @@ export * from './update-records';
 export * from './delete';
 export * from './delete-list';
 export * from './get-record-history';
-export * from './get-cell-attachment-url';
 export * from './duplicate';
 export * from './get-record-list-history';
