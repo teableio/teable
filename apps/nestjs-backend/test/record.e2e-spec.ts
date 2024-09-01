@@ -296,7 +296,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
   });
 
-  describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)('record history', () => {
+  describe('record history', () => {
     let mainTable: ITableFullVo;
     let foreignTable: ITableFullVo;
 

@@ -35,6 +35,8 @@ export enum IdPrefix {
   OAuthClient = 'clt',
 
   Window = 'win',
+
+  RecordHistory = 'rhi',
 }
 
 const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -145,4 +147,8 @@ export function generateLicenseId() {
 
 export function generateClientId() {
   return IdPrefix.OAuthClient + getRandomString(16).toLocaleLowerCase();
+}
+
+export function generateRecordHistoryId() {
+  return IdPrefix.RecordHistory + getRandomString(24);
 }
