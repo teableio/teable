@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ISelectFieldOptions } from '@teable/core';
 import { CellFormat, DriverClient, FieldKeyType, FieldType, Relationship } from '@teable/core';
-import { RangeType, type ITableFullVo } from '@teable/openapi';
+import { type ITableFullVo } from '@teable/openapi';
 import {
   convertField,
   createField,

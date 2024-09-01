@@ -1,12 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common';
 import type {
   ICopyVo,
   IRangesToIdVo,
   IPasteVo,
   IDeleteVo,
   ITemporaryPasteVo,
-  IDuplicateVo,
 } from '@teable/openapi';
 import {
   IRangesToIdQuery,
@@ -18,8 +17,6 @@ import {
   IRangesRo,
   temporaryPasteRoSchema,
   ITemporaryPasteRo,
-  duplicateRoSchema,
-  IDuplicateRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -87,14 +84,5 @@ export class SelectionController {
     @Query(new ZodValidationPipe(rangesQuerySchema), TqlPipe) rangesRo: IRangesRo
   ): Promise<IDeleteVo> {
     return this.selectionService.delete(tableId, rangesRo);
-  }
-
-  @Permissions('record|create')
-  @Post('duplicate')
-  async duplicate(
-    @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(duplicateRoSchema), TqlPipe) duplicatRo: IDuplicateRo
-  ): Promise<IDuplicateVo> {
-    return await this.selectionService.duplicate(tableId, duplicatRo);
   }
 }
