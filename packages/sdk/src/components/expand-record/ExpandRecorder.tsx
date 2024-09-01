@@ -1,5 +1,5 @@
 import type { IRecord } from '@teable/core';
-import { deleteRecord } from '@teable/openapi';
+import { deleteRecord, duplicateRecords } from '@teable/openapi';
 import { useToast } from '@teable/ui-lib';
 import type { FC, PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -37,8 +37,16 @@ interface IExpandRecorderProps {
 }
 
 export const ExpandRecorder = (props: IExpandRecorderProps) => {
-  const { model, tableId, recordId, recordIds, serverData, onClose, onUpdateRecordIdCallback } =
-    props;
+  const {
+    model,
+    tableId,
+    recordId,
+    recordIds,
+    serverData,
+    onClose,
+    onUpdateRecordIdCallback,
+    viewId,
+  } = props;
   const { toast } = useToast();
   const { t } = useTranslation();
   const permission = useTablePermission();
@@ -63,6 +71,15 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     toast({ description: t('expandRecord.copy') });
   };
 
+  const onDuplicate = async (tableId: string, recordId: string) => {
+    await duplicateRecords(tableId, recordId, {
+      viewId: viewId || '',
+      anchorId: recordId,
+      position: 'after',
+    });
+    toast({ description: t('expandRecord.duplicateRecord') });
+  };
+
   const onRecordHistoryToggle = () => {
     setRecordHistoryVisible(!recordHistoryVisible);
   };
@@ -81,6 +98,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
+          onDuplicate={async () => await onDuplicate(tableId, recordId)}
           onRecordHistoryToggle={onRecordHistoryToggle}
           onDelete={async () => {
             if (canDelete) await deleteRecord(tableId, recordId);

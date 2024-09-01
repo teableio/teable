@@ -170,6 +170,7 @@
     "copy": "Copy to clipboard",
     "copyRecordUrl": "Copy record URL",
     "deleteRecord": "Delete record",
+    "duplicateRecord": "Duplicate record",
     "recordHistory": {
       "hiddenRecordHistory": "Hide record history",
       "showRecordHistory": "Show record history",

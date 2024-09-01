@@ -183,6 +183,7 @@
     "copy": "复制到剪贴板",
     "copyRecordUrl": "复制记录链接",
     "deleteRecord": "删除记录",
+    "duplicateRecord": "复制记录",
     "recordHistory": {
       "hiddenRecordHistory": "隐藏记录历史",
       "showRecordHistory": "显示记录历史",
