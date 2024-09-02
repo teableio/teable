@@ -36,9 +36,6 @@
   <a aria-label="Top language" href="https://github.com/teableio/teable/search?l=typescript">
     <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teableio/teable?style=flat-square&labelColor=000&color=blue">
   </a>
-  <a aria-label="Licence" href="https://github.com/teableio/teable/blob/main/LICENSE">
-    <img alt="Licence" src="https://img.shields.io/github/license/teableio/teable?style=flat-quare&labelColor=000000" />
-  </a>
 </p>
   <h1 align="center">
     <picture>
@@ -60,19 +57,19 @@
 
 All you want is here
 
-- Cell Editing: Directly click and edit content within cells.
-- Formula Support: Input mathematical and logical formulas to auto-calculate values.
-- Data Sorting and Filtering: Sort data based on a column or multiple columns; use filters to view specific rows of data.
-- Aggregation Function: Automatically summarize statistics for each column, providing instant calculations like sum, average, count, max, and min for streamlined data analysis.
-- Data Formatting: formatting numbers, dates, etc.
-- Grouping: Organize rows into collapsible groups based on column values for easier data analysis and navigation.
-- Freeze Columns: Freeze the left column of the table so they remain visible while scrolling.
-- Import/Export Capabilities: Import and export data from other formats, e.g., .csv, .xlsx.
-- Row Styling & Conditional Formatting: Change row styles automatically based on specific conditions. (coming soon)
-- Charts & Visualization Tools: Create charts from table data such as bar charts, pie charts, line graphs, etc. (coming soon)
-- Data Validation: Limit or validate data that are entered into cells. (coming soon)
-- Undo/Redo: Undo or redo recent changes. (coming soon)
-- Comments & Annotations: Attach comments to rows, providing explanations or feedback for other users. (coming soon)
+- Batch cell Editing
+- Formula Suppor
+- Data Sorting and Filtering
+- Aggregation Function
+- Data Formatting
+- Grouping
+- Freeze Columns
+- Import/Export
+- Undo/Redo
+- Data Validation
+- Charts & Visualization (coming soon)
+- Comments (coming soon)
+- Row Styling(coming soon)
 
 #### 🗂️ Multiple Views
 
@@ -176,7 +173,7 @@ cd dockers/examples/standalone/
 docker-compose up -d
 ```
 
-for more details, see [dockers/examples](dockers/examples)
+for more details, see [install teable](https://help.teable.io/deployment/docker-compose)
 
 ### One Click Deployment
 
