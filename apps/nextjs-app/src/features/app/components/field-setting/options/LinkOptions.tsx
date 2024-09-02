@@ -92,7 +92,7 @@ export const LinkOptions = (props: {
               id="field-options-one-way-link"
               checked={!isOneWay}
               onCheckedChange={(checked) => {
-                onSelect('isOneWay', checked ? undefined : true);
+                onSelect('isOneWay', !checked);
               }}
               disabled={!canCreateField}
             />

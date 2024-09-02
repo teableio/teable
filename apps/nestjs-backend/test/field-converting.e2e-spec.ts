@@ -130,6 +130,27 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.description).toEqual('hello');
     });
 
+    it('should modify options showAs', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField',
+        description: 'hello',
+        type: FieldType.SingleLineText,
+        options: {
+          showAs: {
+            type: SingleLineTextDisplayType.Email,
+          },
+        },
+      };
+      const newFieldRo: IFieldRo = {
+        name: 'New Name',
+        type: FieldType.SingleLineText,
+        options: {},
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+      expect(newField.options).toEqual({});
+    });
+
     it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       'should modify field validation',
       async () => {
