@@ -1,6 +1,6 @@
 import type { IAttachmentCellValue } from '@teable/core';
 import type { IFilePreviewDialogRef } from '@teable/ui-lib';
-import { Dialog, DialogContent, FilePreviewDialog, FilePreviewProvider } from '@teable/ui-lib';
+import { cn, Dialog, DialogContent, FilePreviewDialog, FilePreviewProvider } from '@teable/ui-lib';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { AttachmentEditorMain } from '../../editor';
 import type { IEditorProps } from '../../grid/components';
@@ -49,7 +49,10 @@ export const GridAttachmentEditor = forwardRef<
       <Dialog open={isEditing} onOpenChange={setEditing}>
         <DialogContent
           container={containerRef.current}
-          className="click-outside-ignore h-96 flex-1 overflow-hidden"
+          className={cn(
+            'click-outside-ignore flex-1 overflow-hidden max-w-xl',
+            Object.values(attachments || {}).length > 5 ? 'h-full max-h-[900px] mt-1 mb-1' : 'h-96'
+          )}
         >
           <AttachmentEditorMain value={attachments || []} onChange={setAttachments} />
         </DialogContent>
