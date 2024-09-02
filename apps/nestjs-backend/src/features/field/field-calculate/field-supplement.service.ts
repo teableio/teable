@@ -268,6 +268,10 @@ export class FieldSupplementService {
 
   // only for linkField to linkField
   private async prepareUpdateLinkField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    if (!majorFieldKeysChanged(oldFieldVo, fieldRo)) {
+      return merge({}, oldFieldVo, fieldRo);
+    }
+
     const newOptionsRo = fieldRo.options as ILinkFieldOptionsRo;
     const oldOptions = oldFieldVo.options as ILinkFieldOptions;
     // isOneWay may be undefined or false, so we should convert it to boolean
@@ -880,7 +884,7 @@ export class FieldSupplementService {
       return this.prepareCreateFieldInner(tableId, fieldRo);
     }
 
-    if (fieldRo.isLookup) {
+    if (fieldRo.isLookup && majorFieldKeysChanged(oldFieldVo, fieldRo)) {
       return this.prepareUpdateLookupField(fieldRo, oldFieldVo);
     }
 
@@ -992,21 +996,17 @@ export class FieldSupplementService {
     fieldRo: IConvertFieldRo,
     oldFieldVo: IFieldVo
   ): Promise<IFieldVo> {
-    const fieldVo = (
-      majorFieldKeysChanged(oldFieldVo, fieldRo)
-        ? await this.prepareUpdateFieldInner(
-            tableId,
-            {
-              ...fieldRo,
-              name: fieldRo.name ?? oldFieldVo.name,
-              dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
-              description:
-                fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
-            }, // for convenience, we fallback name adn dbFieldName when it be undefined
-            oldFieldVo
-          )
-        : merge({}, oldFieldVo, fieldRo)
-    ) as IFieldVo;
+    const fieldVo = (await this.prepareUpdateFieldInner(
+      tableId,
+      {
+        ...fieldRo,
+        name: fieldRo.name ?? oldFieldVo.name,
+        dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
+        description:
+          fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
+      }, // for convenience, we fallback name adn dbFieldName when it be undefined
+      oldFieldVo
+    )) as IFieldVo;
 
     this.validateFormattingShowAs(fieldVo);
 
