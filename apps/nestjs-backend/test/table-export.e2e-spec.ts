@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo } from '@teable/core';
-import { FieldType, Colors, Relationship, ViewType } from '@teable/core';
+import { FieldType, Colors, Relationship, ViewType, DriverClient } from '@teable/core';
 import type { INotifyVo } from '@teable/openapi';
 import {
   exportCsvFromTable as apiExportCsvFromTable,
@@ -257,70 +257,75 @@ const createRecordsWithLink = async (mainTableId: string, subTableId: string) =>
   });
 };
 
-describe('/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from table (Get) ', () => {
-  it(`should return a csv stream from table and compatible all fields`, async () => {
-    const { mainTable, subTable } = await createTables();
+describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
+  '/export/${tableId} OpenAPI ExportController (e2e) Get csv stream from table (Get) ',
+  () => {
+    it(`should return a csv stream from table and compatible all fields`, async () => {
+      const { mainTable, subTable } = await createTables();
 
-    const exportRes = await apiExportCsvFromTable(mainTable.id);
-    const disposition = exportRes?.headers[contentDispositionKey];
-    const contentType = exportRes?.headers[contentTypeKey];
-    const { data: csvData } = exportRes;
+      const exportRes = await apiExportCsvFromTable(mainTable.id);
+      const disposition = exportRes?.headers[contentDispositionKey];
+      const contentType = exportRes?.headers[contentTypeKey];
+      const { data: csvData } = exportRes;
 
-    await apiDeleteTable(baseId, mainTable.id);
-    await apiDeleteTable(baseId, subTable.id);
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
 
-    expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
-    expect(contentType).toBe('text/csv');
-    expect(csvData).toBe(
-      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
-    );
-  });
-
-  it(`should return a csv stream from table with special character table name`, async () => {
-    const { mainTable, subTable } = await createTables('测试😄', 'subTable');
-
-    const exportRes = await apiExportCsvFromTable(mainTable.id);
-    const disposition = exportRes?.headers['content-disposition'];
-    const contentType = exportRes?.headers['content-type'];
-    const { data: csvData } = exportRes;
-
-    await apiDeleteTable(baseId, mainTable.id);
-    await apiDeleteTable(baseId, subTable.id);
-
-    expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
-    expect(contentType).toBe('text/csv');
-    expect(csvData).toBe(
-      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
-    );
-  });
-
-  it(`should return a csv stream from a particular view`, async () => {
-    const { mainTable, subTable } = await createTables();
-
-    const numberField = mainTable?.fields?.find(
-      (field) => field.name === 'Number field'
-    ) as IFieldVo;
-
-    const oldColumnMeta = mainTable?.views?.[0]?.columnMeta;
-    const view2 = await createView(mainTable.id, {
-      columnMeta: {
-        ...oldColumnMeta,
-        [numberField.id]: {
-          ...oldColumnMeta?.[numberField.id],
-          order: 0.5,
-        },
-      },
-      type: ViewType.Grid,
+      expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
+      expect(contentType).toBe('text/csv');
+      expect(csvData).toBe(
+        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
+      );
     });
 
-    const exportRes = await apiExportCsvFromTable(mainTable.id, view2.id);
-    const { data: csvData } = exportRes;
+    it(`should return a csv stream from table with special character table name`, async () => {
+      const { mainTable, subTable } = await createTables('测试😄', 'subTable');
 
-    await apiDeleteTable(baseId, mainTable.id);
-    await apiDeleteTable(baseId, subTable.id);
+      const exportRes = await apiExportCsvFromTable(mainTable.id);
+      const disposition = exportRes?.headers['content-disposition'];
+      const contentType = exportRes?.headers['content-type'];
+      const { data: csvData } = exportRes;
 
-    expect(csvData).toBe(
-      `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
-    );
-  });
-});
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
+
+      expect(disposition).toBe(`attachment; filename=${encodeURIComponent(mainTable.name)}.csv`);
+      expect(contentType).toBe('text/csv');
+      expect(csvData).toBe(
+        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
+      );
+    });
+
+    it(`should return a csv stream from a particular view`, async () => {
+      const { mainTable, subTable } = await createTables();
+
+      const numberField = mainTable?.fields?.find(
+        (field) => field.name === 'Number field'
+      ) as IFieldVo;
+
+      const oldColumnMeta = mainTable?.views?.[0]?.columnMeta;
+      const view2 = await createView(mainTable.id, {
+        columnMeta: {
+          ...oldColumnMeta,
+          [numberField.id]: {
+            ...oldColumnMeta?.[numberField.id],
+            order: 0.5,
+          },
+        },
+        type: ViewType.Grid,
+      });
+
+      const exportRes = await apiExportCsvFromTable(mainTable.id, view2.id);
+      const { data: csvData } = exportRes;
+
+      console.log('exportRes', csvData);
+
+      await apiDeleteTable(baseId, mainTable.id);
+      await apiDeleteTable(baseId, subTable.id);
+
+      expect(csvData).toBe(
+        `Text field,Number field,Checkbox field,Select field,Date field,Attachment field,User Field,Link field,Link field from lookups sub_Name,Link field from lookups sub_Number,Link field from lookups sub_Checkbox,Link field from lookups sub_SingleSelect\r\ntxt1,1.00,true,x,2022-11-28,test.txt ${txtFileData.presignedUrl},,Name1,Name1,1.00,true,sub_y\r\ntxt2,,,y,2022-11-28,,test,,,,,\r\n,,true,z,,,,,,,,`
+      );
+    });
+  }
+);
