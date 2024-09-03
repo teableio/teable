@@ -63,6 +63,9 @@
     "user": {
       "searchPlaceholder": "Найти пользователей по имени",
       "notify": "Уведомить пользователей после их выбора"
+    },
+    "select": {
+      "addOption": "Add an option '{{option}}'"
     }
   },
   "filter": {
@@ -164,7 +167,7 @@
     "configLabel_other": "{{count}} скрытых полей",
     "showAll": "Показать все",
     "hideAll": "Скрыть все",
-    "primaryKey": "Основное поле: используется для идентификации записей, нельзя скрыть или удалять"
+    "primaryKey": "Primary field: Identifies records\ncannot be hidden or deleted, visible in linked records."
   },
   "expandRecord": {
     "copy": "Копировать в буфер обмена",
