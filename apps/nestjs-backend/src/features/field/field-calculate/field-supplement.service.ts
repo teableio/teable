@@ -538,11 +538,8 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateFormulaField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
-    const newOptions = fieldRo.options as IFormulaFieldOptions;
-    const oldOptions = oldFieldVo.options as IFormulaFieldOptions;
-
-    if (newOptions.expression === oldOptions.expression) {
-      return merge({}, oldFieldVo, fieldRo);
+    if (!majorFieldKeysChanged(oldFieldVo, fieldRo)) {
+      return { ...oldFieldVo, ...fieldRo };
     }
 
     return this.prepareFormulaField(fieldRo);
@@ -598,6 +595,10 @@ export class FieldSupplementService {
     const newOptions = fieldRo.options as IRollupFieldOptions;
     const oldOptions = oldFieldVo.options as IRollupFieldOptions;
 
+    if (!majorFieldKeysChanged(oldFieldVo, fieldRo)) {
+      return { ...oldFieldVo, ...fieldRo };
+    }
+
     const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo;
     const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo;
     if (
@@ -606,7 +607,16 @@ export class FieldSupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
-      return merge({}, oldFieldVo, fieldRo);
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+        options: {
+          ...oldOptions,
+          showAs: newOptions.showAs,
+          formatting: newOptions.formatting,
+        },
+        lookupOptions: { ...oldLookupOptions, ...newLookupOptions },
+      };
     }
 
     return this.prepareRollupField(fieldRo);

@@ -151,6 +151,31 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(newField.options).toEqual({});
     });
 
+    it('should modify options showAs in formula', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField',
+        description: 'hello',
+        type: FieldType.Formula,
+        options: {
+          expression: '"text"',
+          showAs: {
+            type: SingleLineTextDisplayType.Email,
+          },
+        },
+      };
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: '"text"',
+        },
+      };
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
+      expect(newField.options).toEqual({
+        expression: '"text"',
+      });
+    });
+
     it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
       'should modify field validation',
       async () => {
@@ -3271,6 +3296,95 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       const { newField } = await expectUpdate(table1, lookupFieldRo, newLookupFieldRo, []);
       expect(newField.options).toEqual({});
+    });
+
+    it('should update show as for rollup and lookup', async () => {
+      const linkFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = await createField(table1.id, linkFieldRo);
+      // set primary key 'x' in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      // add a link record
+      await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+        id: table2.records[0].id,
+      });
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+        options: {
+          showAs: {
+            type: SingleLineTextDisplayType.Email,
+          },
+        },
+      };
+
+      const newLookupFieldRo: IFieldRo = {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+        options: {},
+      };
+
+      const rollupFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+        options: {
+          expression: 'concatenate({values})',
+          showAs: {
+            type: SingleLineTextDisplayType.Email,
+          },
+        },
+      };
+
+      const newRollupFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        },
+        options: {
+          expression: 'concatenate({values})',
+        },
+      };
+
+      const { newField: newRollupField } = await expectUpdate(
+        table1,
+        rollupFieldRo,
+        newRollupFieldRo,
+        []
+      );
+      expect(newRollupField.options).toEqual({
+        expression: 'concatenate({values})',
+      });
+
+      const { newField: newLookupField } = await expectUpdate(
+        table1,
+        lookupFieldRo,
+        newLookupFieldRo,
+        []
+      );
+      expect(newLookupField.options).toEqual({});
     });
   });
 
