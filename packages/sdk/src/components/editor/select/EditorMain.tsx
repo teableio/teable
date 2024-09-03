@@ -2,6 +2,7 @@ import { Plus } from '@teable/icons';
 import { Command, CommandInput, CommandItem, cn } from '@teable/ui-lib';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
 import type { ISelectOption } from '../../cell-value';
 import type { ICellEditor, IEditorRef } from '../type';
 import { OptionList } from './components';
@@ -39,6 +40,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   const [value, setValue] = useState<string[]>(getValue(originValue));
   const [searchValue, setSearchValue] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { t } = useTranslation();
 
   useImperativeHandle(ref, () => ({
     focus: () => {
@@ -94,8 +96,9 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
   return (
     <Command className={className} style={style} shouldFilter={false}>
       <CommandInput
+        className="h-8 text-[13px]"
         ref={inputRef}
-        placeholder="Search option"
+        placeholder={t('common.search.placeholder')}
         value={searchValue}
         onValueChange={(value) => setSearchValue(value)}
         onKeyDown={async (e) => {
@@ -112,7 +115,9 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
           onSelect={onOptionAddInner}
         >
           <Plus className="size-4 shrink-0" />
-          <span className="ml-2 truncate">{`Add an option '${searchValue}'`}</span>
+          <span className="ml-2 truncate text-[13px]">
+            {t('editor.select.addOption', { option: searchValue })}
+          </span>
         </CommandItem>
       )}
     </Command>

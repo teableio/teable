@@ -75,6 +75,9 @@
     "user": {
       "searchPlaceholder": "通过姓名查找用户",
       "notify": "通知被选择的用户"
+    },
+    "select": {
+      "addOption": "添加选项 '{{option}}'"
     }
   },
   "filter": {

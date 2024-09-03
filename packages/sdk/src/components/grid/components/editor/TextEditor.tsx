@@ -77,7 +77,7 @@ const TextEditorBase: ForwardRefRenderFunction<
         >
           <AutoSizeTextarea
             ref={inputRef as RefObject<HTMLTextAreaElement>}
-            className="w-full resize-none rounded border-none bg-background px-2 pt-2 text-sm leading-6 focus-visible:outline-none"
+            className="w-full resize-none rounded border-none bg-background px-2 pt-1 text-[13px] leading-[1.4rem] focus-visible:outline-none"
             value={value}
             minRows={2}
             maxRows={5}
@@ -98,7 +98,7 @@ const TextEditorBase: ForwardRefRenderFunction<
             ...attachStyle,
           }}
           value={value}
-          className="cursor-text border-2 px-2 shadow-none focus-visible:ring-transparent"
+          className="cursor-text border-2 px-2 text-[13px] shadow-none focus-visible:ring-transparent"
           onChange={onChangeInner}
           onBlur={saveValue}
           onMouseDown={(e) => e.stopPropagation()}
