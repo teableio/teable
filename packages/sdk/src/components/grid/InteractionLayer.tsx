@@ -359,6 +359,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.ColumnStatistic:
       case RegionType.ColumnHeaderMenu:
       case RegionType.ColumnDescription:
+      case RegionType.ColumnPrimaryIcon:
       case RegionType.RowGroupHeader:
       case RegionType.RowHeaderExpandHandler:
         return setCursor('pointer');

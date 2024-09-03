@@ -164,7 +164,7 @@
     "configLabel_other": "{{count}} hidden fields",
     "showAll": "Show All",
     "hideAll": "Hide All",
-    "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
+    "primaryKey": "Primary field: Identifies records\ncannot be hidden or deleted, visible in linked records."
   },
   "expandRecord": {
     "copy": "Copy to clipboard",

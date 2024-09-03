@@ -124,6 +124,14 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
         position: bounds,
       });
     }
+
+    if (type === RegionType.ColumnPrimaryIcon) {
+      openTooltip({
+        id: componentId,
+        text: t('hidden.primaryKey'),
+        position: bounds,
+      });
+    }
   };
 
   const getCellContent = useCallback<(cell: ICellItem) => ICell>(

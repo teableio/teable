@@ -177,7 +177,7 @@
     "configLabel_other": "字段配置({{count}} 隐藏)",
     "showAll": "显示全部",
     "hideAll": "隐藏全部",
-    "primaryKey": "主字段：用于标识每条记录，不能隐藏和删除"
+    "primaryKey": "主字段：用于标识记录，不可隐藏或删除\n其值会在关联记录中显示"
   },
   "expandRecord": {
     "copy": "复制到剪贴板",
