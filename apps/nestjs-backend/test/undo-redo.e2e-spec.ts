@@ -607,7 +607,8 @@ describe('Undo Redo (e2e)', () => {
 
     expect(fields.length).toEqual(2);
 
-    await undo(table.id);
+    const result = await undo(table.id);
+    expect(result.data.status).toEqual('fulfilled');
 
     const fieldsAfterUndo = (
       await getFields(table.id, {

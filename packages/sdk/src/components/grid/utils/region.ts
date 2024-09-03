@@ -344,6 +344,7 @@ const checkIsCell = (props: ICheckRegionProps): IRegionData | null => {
   return null;
 };
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
   const {
     position,
@@ -361,7 +362,7 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
   if (rowIndex === -1 && columnIndex > -1) {
     const { scrollLeft } = scrollState;
     const { rowInitSize } = coordInstance;
-    const { description, hasMenu: hasColumnMenu } = columns[columnIndex];
+    const { isPrimary, description, hasMenu: hasColumnMenu } = columns[columnIndex];
     const hasMenu = hasColumnMenu && isColumnHeaderMenuVisible;
     const width = coordInstance.getColumnWidth(columnIndex);
     const startOffsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
@@ -389,6 +390,23 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
         type: RegionType.ColumnDescription,
         x: descriptionX,
         y: descriptionY,
+        width: iconSizeXS,
+        height: iconSizeXS,
+      };
+    }
+
+    const primaryIconX = startOffsetX + iconSizeXS / 2;
+    const primaryIconY = (rowInitSize - iconSizeXS) / 2;
+
+    if (
+      isPrimary &&
+      inRange(x, primaryIconX, primaryIconX + iconSizeXS) &&
+      inRange(y, primaryIconY, primaryIconY + iconSizeXS)
+    ) {
+      return {
+        type: RegionType.ColumnPrimaryIcon,
+        x: primaryIconX,
+        y: primaryIconY,
         width: iconSizeXS,
         height: iconSizeXS,
       };

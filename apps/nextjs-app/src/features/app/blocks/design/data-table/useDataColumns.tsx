@@ -32,7 +32,7 @@ export function useDataColumns() {
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{t('hidden.primaryKey')}</p>
+                <pre>{t('hidden.primaryKey')}</pre>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

@@ -2,6 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Check } from '@teable/icons';
 import { CommandList, CommandItem } from '@teable/ui-lib';
 import { useRef } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
 import type { ISelectOption } from '../../../cell-value';
 import { SelectTag } from '../../../cell-value';
 
@@ -14,11 +15,11 @@ interface IOptionListProps {
 export const OptionList = (props: IOptionListProps) => {
   const { options, checkIsActive, onSelect } = props;
   const listRef = useRef<HTMLDivElement>(null);
-
+  const { t } = useTranslation();
   const rowVirtualizer = useVirtualizer({
     count: options.length,
     getScrollElement: () => listRef.current,
-    estimateSize: () => 36,
+    estimateSize: () => 32,
   });
 
   return (
@@ -53,7 +54,7 @@ export const OptionList = (props: IOptionListProps) => {
               onSelect={() => onSelect?.(value)}
             >
               <SelectTag
-                label={label || 'Untitled'}
+                label={label || t('common.untitled')}
                 backgroundColor={backgroundColor}
                 color={color}
               />

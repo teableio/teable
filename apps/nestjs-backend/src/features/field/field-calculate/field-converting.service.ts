@@ -19,6 +19,7 @@ import {
   FieldType,
   generateChoiceId,
   isMultiValueLink,
+  PRIMARY_SUPPORTED_TYPES,
   RecordOpBuilder,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -1128,6 +1129,13 @@ export class FieldConvertingService {
     }
 
     const oldField = createFieldInstanceByVo(oldFieldVo);
+
+    if (oldField.isPrimary && !PRIMARY_SUPPORTED_TYPES.has(updateFieldRo.type)) {
+      throw new BadRequestException(
+        `Field type ${updateFieldRo.type} is not supported as primary field`
+      );
+    }
+
     const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
       tableId,
       updateFieldRo,

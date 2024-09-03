@@ -34,10 +34,7 @@ export const GridTooltip: FC<IGridTooltipProps> = (props) => {
             </TooltipTrigger>
             <TooltipContent
               sideOffset={8}
-              className={cn(
-                'pointer-events-none whitespace-pre-line rounded-none',
-                contentClassName
-              )}
+              className={cn('pointer-events-none whitespace-pre-line', contentClassName)}
               style={{
                 ...contentStyle,
               }}

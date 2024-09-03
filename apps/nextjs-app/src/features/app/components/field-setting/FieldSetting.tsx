@@ -260,6 +260,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
             {/* Content Form */}
             {
               <DynamicFieldEditor
+                isPrimary={originField?.isPrimary}
                 field={field}
                 operator={operator}
                 onChange={onFieldEditorChange}

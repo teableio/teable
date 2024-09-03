@@ -549,6 +549,14 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       });
     }
 
+    if (type === RegionType.ColumnPrimaryIcon) {
+      openTooltip({
+        id: componentId,
+        text: t('sdk:hidden.primaryKey'),
+        position: bounds,
+      });
+    }
+
     if (type === RegionType.RowHeaderDragHandler && isAutoSort) {
       openTooltip({
         id: componentId,

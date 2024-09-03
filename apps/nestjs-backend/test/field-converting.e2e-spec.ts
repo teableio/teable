@@ -625,6 +625,14 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual(undefined);
     });
 
+    it('should not convert primary field to checkbox', async () => {
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Checkbox,
+      };
+
+      await expect(convertField(table1.id, table1.fields[0].id, newFieldRo)).rejects.toThrow();
+    });
+
     it('should convert text to date', async () => {
       const newFieldRo: IFieldRo = {
         type: FieldType.Date,
