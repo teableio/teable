@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Injectable, Logger } from '@nestjs/common';
 import type { IRedoVo, IUndoVo } from '@teable/openapi';
 import { UndoRedoOperationService } from '../stack/undo-redo-operation.service';
 import { UndoRedoStackService } from '../stack/undo-redo-stack.service';
 
 @Injectable()
 export class UndoRedoService {
+  logger = new Logger(UndoRedoService.name);
   constructor(
     private readonly undoRedoStackService: UndoRedoStackService,
     private readonly undoRedoOperationService: UndoRedoOperationService
@@ -22,10 +24,18 @@ export class UndoRedoService {
     try {
       const newOperation = await this.undoRedoOperationService.undo(operation);
       await push(newOperation);
-    } catch (e) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+        return {
+          status: 'failed',
+          errorMessage: error.message,
+        };
+      }
+      this.logger.error('An unknown error occurred');
       return {
         status: 'failed',
-        errorMessage: (e as { message: string }).message,
+        errorMessage: 'An unknown error occurred',
       };
     }
 
@@ -45,10 +55,18 @@ export class UndoRedoService {
     try {
       const newOperation = await this.undoRedoOperationService.redo(operation);
       await push(newOperation);
-    } catch (e) {
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        this.logger.error(error.message, error.stack);
+        return {
+          status: 'failed',
+          errorMessage: error.message,
+        };
+      }
+      this.logger.error('An unknown error occurred');
       return {
         status: 'failed',
-        errorMessage: (e as { message: string }).message,
+        errorMessage: 'An unknown error occurred',
       };
     }
 

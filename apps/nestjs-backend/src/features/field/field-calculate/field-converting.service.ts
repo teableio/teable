@@ -1139,7 +1139,7 @@ export class FieldConvertingService {
 
     // 2. collect changes effect by the supplement(link) field
     // supplementChange is only for link relationship change
-    const references = await this.fieldConvertingLinkService.analysisReference(oldField);
+    const references = (await this.fieldConvertingLinkService.analysisReference(oldField)) || [];
     const supplementChange = await this.fieldConvertingLinkService.analysisSupplementLink(
       newField,
       oldField
@@ -1150,7 +1150,7 @@ export class FieldConvertingService {
       oldField,
       modifiedOps,
       supplementChange,
-      references,
+      references: references.concat(fieldId),
     };
   }
 
