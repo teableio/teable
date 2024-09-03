@@ -130,9 +130,10 @@ export class FieldSupplementService {
       dbTableName,
       foreignTableName,
     } = params;
-    const { relationship, isOneWay } = optionsRo;
+    const { relationship, isOneWay = false } = optionsRo;
     const common = {
       ...optionsRo,
+      isOneWay: isOneWay || false,
       symmetricFieldId,
       lookupFieldId,
     };

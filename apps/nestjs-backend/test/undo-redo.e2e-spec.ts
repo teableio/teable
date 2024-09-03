@@ -1,7 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo } from '@teable/core';
+import type { IFieldRo, IFieldVo, ILinkFieldOptions, IRollupFieldOptions } from '@teable/core';
 import {
+  CellValueType,
+  DbFieldType,
   DriverClient,
   FieldKeyType,
   FieldType,
@@ -18,6 +20,7 @@ import {
   createRecords,
   createView,
   deleteField,
+  deleteFields,
   deleteRecord,
   deleteRecords,
   deleteSelection,
@@ -572,6 +575,68 @@ describe('Undo Redo (e2e)', () => {
     ).data;
 
     expect(fieldsAfterRedo[1].id).toEqual(fieldId);
+  });
+
+  it('should undo / redo delete multiple fields', async () => {
+    const fieldId = table.fields[1].id;
+    await awaitWithEvent(() =>
+      updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: { fields: { [table.fields[1].id]: 666 } },
+      })
+    );
+
+    const formulaField = (
+      await awaitWithEvent(() =>
+        createField(table.id, {
+          type: FieldType.Formula,
+          options: {
+            expression: `{${table.fields[1].id}}`,
+          },
+        })
+      )
+    ).data;
+
+    await awaitWithEvent(() => deleteFields(table.id, [fieldId, formulaField.id]));
+
+    const fields = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fields.length).toEqual(2);
+
+    await undo(table.id);
+
+    const fieldsAfterUndo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterUndo[1].id).toEqual(fieldId);
+    expect(fieldsAfterUndo[3].id).toEqual(formulaField.id);
+    expect(fieldsAfterUndo[3].hasError).toBeFalsy();
+
+    const recordsAfterUndo = (
+      await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(recordsAfterUndo.records[0].fields[fieldId]).toEqual(666);
+
+    await redo(table.id);
+
+    const fieldsAfterRedo = (
+      await getFields(table.id, {
+        viewId: table.views[0].id,
+      })
+    ).data;
+
+    expect(fieldsAfterRedo.length).toEqual(2);
   });
 
   // event throw error because of sqlite(record history create many)
@@ -1282,6 +1347,173 @@ describe('Undo Redo (e2e)', () => {
       expect(records[0].fields[targetLookupField.id]).toEqual('B1');
       expect(records[0].fields[targetFormulaLinkField.id]).toEqual('C1');
       expect(records[0].fields[targetFormulaLookupField.id]).toEqual('B1');
+    });
+
+    it('should undo / redo convert two-way to one-way link', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      const sourceField = (await createField(table1.id, sourceFieldRo)).data;
+
+      (await convertField(table1.id, sourceField.id, newFieldRo)).data;
+
+      await undo(table1.id);
+
+      const fieldAfterUndo = (await getField(table1.id, sourceField.id)).data;
+
+      expect(fieldAfterUndo).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          isOneWay: false,
+        },
+      });
+
+      await redo(table1.id);
+
+      const fieldAfterRedo = (await getField(table1.id, sourceField.id)).data;
+
+      expect(fieldAfterRedo).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          isOneWay: true,
+        },
+      });
+
+      const symmetricFieldId = (fieldAfterRedo.options as ILinkFieldOptions).symmetricFieldId;
+      expect(symmetricFieldId).toBeUndefined();
+    });
+
+    it('should undo / redo convert one-way link to two-way link', async () => {
+      const sourceFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+      };
+
+      const newFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          isOneWay: false,
+        },
+      };
+
+      // set primary key in table2
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'x');
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'y');
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'zzz');
+
+      const sourceField = (await createField(table1.id, sourceFieldRo)).data;
+      await updateRecordByApi(table1.id, table1.records[0].id, sourceField.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+
+      await createField(table1.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceField.id,
+        },
+      });
+      await createField(table1.id, {
+        type: FieldType.Rollup,
+        options: {
+          expression: `count({values})`,
+          formatting: {
+            precision: 2,
+            type: 'decimal',
+          },
+        } as IRollupFieldOptions,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: sourceField.id,
+        },
+      });
+
+      (await convertField(table1.id, sourceField.id, newFieldRo)).data;
+
+      await undo(table1.id);
+      const fieldAfterUndo = (await getField(table1.id, sourceField.id)).data;
+
+      expect(fieldAfterUndo).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          isOneWay: true,
+        },
+      });
+
+      // perform redo
+      await redo(table1.id);
+      const fieldAfterRedo = (await getField(table1.id, sourceField.id)).data;
+
+      expect(fieldAfterRedo).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          isOneWay: false,
+        },
+      });
+
+      const symmetricFieldId = (fieldAfterRedo.options as ILinkFieldOptions).symmetricFieldId;
+      expect(symmetricFieldId).toBeDefined();
+
+      const symmetricField = (await getField(table2.id, symmetricFieldId as string)).data;
+
+      expect(symmetricField).toMatchObject({
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Json,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+          lookupFieldId: table1.fields[0].id,
+        },
+      });
+
+      const { records } = (await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id })).data;
+      expect(records[0].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
+      expect(records[1].fields[symmetricField.id]).toMatchObject({ id: table1.records[0].id });
     });
   });
 });

@@ -262,7 +262,9 @@ export class BatchService {
       return;
     }
 
-    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
+    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam)))).filter(
+      (id) => fieldMap[id]
+    );
     const data = opsData.map((data) => {
       const { recordId, updateParam, version } = data;
 
@@ -272,6 +274,9 @@ export class BatchService {
           ...Object.entries(updateParam).reduce<{ [dbFieldName: string]: unknown }>(
             (pre, [fieldId, value]) => {
               const field = fieldMap[fieldId];
+              if (!field) {
+                return pre;
+              }
               const { dbFieldName } = field;
               pre[dbFieldName] = field.convertCellValue2DBValue(value);
               return pre;

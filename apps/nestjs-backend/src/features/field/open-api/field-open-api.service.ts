@@ -286,7 +286,7 @@ export class FieldOpenApiService {
       fields: fieldVos.map((field, i) => ({
         ...field,
         columnMeta: columnsMeta[i],
-        references: referenceMap[field.id]?.map((ref) => ref.toFieldId),
+        references: fieldIds.concat(referenceMap[field.id]?.map((ref) => ref.toFieldId) || []),
       })),
       records,
     });
