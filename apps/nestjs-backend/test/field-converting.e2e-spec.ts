@@ -114,7 +114,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
   describe('modify general property', () => {
     bfAf();
-    it('should modify field name', async () => {
+    it('should modify field name and prevent name duplicate', async () => {
       const sourceFieldRo: IFieldRo = {
         name: 'TextField',
         description: 'hello',
@@ -128,6 +128,13 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
       expect(newField.name).toEqual('New Name');
       expect(newField.description).toEqual('hello');
+
+      await expect(
+        convertField(table1.id, table1.fields[0].id, {
+          name: 'New Name',
+          type: FieldType.SingleLineText,
+        })
+      ).rejects.toThrow();
     });
 
     it('should modify options showAs', async () => {

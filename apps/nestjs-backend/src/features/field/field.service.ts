@@ -382,6 +382,17 @@ export class FieldService implements IReadonlyAdapterService {
     );
   }
 
+  private async checkFieldName(tableId: string, fieldId: string, name: string) {
+    const fieldRaw = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, id: { not: fieldId }, name, deletedTime: null },
+      select: { id: true },
+    });
+
+    if (fieldRaw) {
+      throw new BadRequestException(`Field name ${name} already exists in this table`);
+    }
+  }
+
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
     if (!opData.length) return;
 
@@ -401,6 +412,11 @@ export class FieldService implements IReadonlyAdapterService {
         }
         return ctx as IOpContext;
       });
+
+      const nameCtx = opContext.find((ctx) => ctx.key === 'name');
+      if (nameCtx) {
+        await this.checkFieldName(tableId, fieldId, nameCtx.newValue as string);
+      }
 
       await this.update(fieldMap[fieldId].version + 1, tableId, fieldId, opContext);
     }

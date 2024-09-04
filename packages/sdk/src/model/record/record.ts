@@ -84,7 +84,8 @@ export class Record extends RecordCore {
         fieldKeyType: FieldKeyType.Id,
         record: {
           fields: {
-            [fieldId]: cellValue,
+            // you have to set null to clear the value
+            [fieldId]: cellValue === undefined ? null : cellValue,
           },
         },
       });

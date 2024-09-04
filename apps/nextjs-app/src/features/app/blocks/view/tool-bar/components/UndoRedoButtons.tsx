@@ -8,7 +8,7 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { getModKeyStr } from '@/features/app/utils/get-mod-key-str';
+import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 
 export const UndoRedoButtons = () => {
   const permission = useTablePermission();
@@ -16,7 +16,7 @@ export const UndoRedoButtons = () => {
 
   const { undo, redo } = useUndoRedo();
 
-  const modKeyStr = getModKeyStr();
+  const modKeyStr = useModKeyStr();
 
   return (
     <>
