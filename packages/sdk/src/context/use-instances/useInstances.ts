@@ -24,7 +24,6 @@ const queryDestroy = (query: Query | undefined, cb?: () => void) => {
   query.once('ready', () => {
     query.destroy(() => {
       query.removeAllListeners();
-      query.results?.forEach((doc) => doc.listenerCount('op') === 0 && doc.destroy());
       cb?.();
     });
   });
@@ -57,6 +56,8 @@ export function useInstances<T, R extends { id: string }>({
       query.query,
       localStorage.getItem('debug') && query.results.map((doc) => doc.data)
     );
+    // ready event will be triggered multiple times, so we need to clear the op listeners first
+    opListeners.current.clear();
     if (!query.results) {
       return;
     }
