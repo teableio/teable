@@ -413,6 +413,24 @@ describe('OpenAPI Rollup field (e2e)', () => {
     expect(recordAfter1.fields[rollupFieldVo.id]).toEqual('123, 456');
   });
 
+  it('should roll up a flat array  multiple select field -> one - many rollup field', async () => {
+    const lookedUpToField = getFieldByType(table2.fields, FieldType.MultipleSelect);
+    const rollupFieldVo = await rollupFrom(table1, lookedUpToField.id, 'countall({values})');
+    // update a field that will be lookup by after field
+    await updateRecordField(table2.id, table2.records[1].id, lookedUpToField.id, ['rap', 'rock']);
+    await updateRecordField(table2.id, table2.records[2].id, lookedUpToField.id, ['rap', 'hiphop']);
+
+    // add a link record after
+    await updateRecordField(
+      table1.id,
+      table1.records[1].id,
+      getFieldByType(table1.fields, FieldType.Link).id,
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
+    );
+    const record = await getRecord(table1.id, table1.records[1].id);
+    expect(record.fields[rollupFieldVo.id]).toEqual(4);
+  });
+
   it('should update one - many rollupField by replace a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
     const rollupFieldVo = await rollupFrom(table1, lookedUpToField.id, 'sum({values})');

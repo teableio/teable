@@ -20,6 +20,7 @@ import type { AutoNumberFieldDto } from '../field/model/field-dto/auto-number-fi
 import type { CreatedTimeFieldDto } from '../field/model/field-dto/created-time-field.dto';
 import type { FormulaFieldDto } from '../field/model/field-dto/formula-field.dto';
 import type { LastModifiedTimeFieldDto } from '../field/model/field-dto/last-modified-time-field.dto';
+import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { ICellChange } from './utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from './utils/changes';
 import { isLinkCellValue } from './utils/detect-link';
@@ -333,9 +334,9 @@ export class ReferenceService {
   }
 
   // for lookup field, cellValues should be flat and filter
-  private flatOriginLookup(lookupValues: unknown[] | unknown) {
+  private filterArrayNull(lookupValues: unknown[] | unknown) {
     if (Array.isArray(lookupValues)) {
-      const flatten = lookupValues.flat().filter((value) => value != null);
+      const flatten = lookupValues.filter((value) => value != null);
       return flatten.length ? flatten : null;
     }
     return lookupValues;
@@ -386,6 +387,26 @@ export class ReferenceService {
     }
   }
 
+  private calculateUser(
+    field: IFieldInstance,
+    record: IRecord,
+    userMap?: { [userId: string]: IUserInfoVo }
+  ) {
+    if (!userMap) {
+      return record.fields[field.id];
+    }
+    const user = this.getComputedUsers(field, record, userMap);
+    if (!user) {
+      return record.fields[field.id];
+    }
+
+    return field.convertDBValue2CellValue({
+      id: user.id,
+      title: user.name,
+      email: user.email,
+    });
+  }
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private calculateComputeField(
     field: IFieldInstance,
@@ -413,38 +434,23 @@ export class ReferenceService {
 
       const lookedField = fieldMap[lookupFieldId];
       // nameConsole('calculateLookup:dependencies', recordItem.dependencies, fieldMap);
-      const lookupValues = this.calculateLookup(field, lookedField, recordItem);
+      const originLookupValues = this.calculateLookup(field, lookedField, recordItem);
+      const lookupValues = Array.isArray(originLookupValues)
+        ? originLookupValues.flat()
+        : originLookupValues;
 
       // console.log('calculateLookup:dependencies', recordItem.dependencies);
       // console.log('calculateLookup:lookupValues', lookupValues, recordItem);
 
       if (field.isLookup) {
-        return this.flatOriginLookup(lookupValues);
+        return this.filterArrayNull(lookupValues);
       }
 
-      return this.calculateRollup(
-        field,
-        relationship,
-        lookedField,
-        record,
-        this.joinOriginLookup(lookedField, lookupValues)
-      );
+      return this.calculateRollupAndLink(field, relationship, lookedField, record, lookupValues);
     }
 
     if (field.type === FieldType.CreatedBy || field.type === FieldType.LastModifiedBy) {
-      if (!userMap) {
-        return record.fields[field.id];
-      }
-      const user = this.getComputedUsers(field, record, userMap);
-      if (!user) {
-        return record.fields[field.id];
-      }
-
-      return field.convertDBValue2CellValue({
-        id: user.id,
-        title: user.name,
-        email: user.email,
-      });
+      return this.calculateUser(field, record, userMap);
     }
 
     if (
@@ -537,7 +543,46 @@ export class ReferenceService {
     }
   }
 
-  private calculateRollup(
+  private calculateLink(
+    field: LinkFieldDto,
+    virtualField: IFieldInstance,
+    record: IRecord,
+    lookupValues: unknown
+  ) {
+    const linkCellValues = record.fields[field.id] as ILinkCellValue[] | ILinkCellValue | undefined;
+    if (!linkCellValues) {
+      return null;
+    }
+
+    if (virtualField.isMultipleCellValue) {
+      if (!Array.isArray(lookupValues)) {
+        throw new Error('lookupValues should be array when virtualField is multiple cell value');
+      }
+
+      if (!Array.isArray(linkCellValues)) {
+        throw new Error('linkCellValues should be array when virtualField is multiple cell value');
+      }
+
+      if (linkCellValues.length !== lookupValues.length) {
+        throw new Error(
+          'lookupValues length should be same as linkCellValues length, now: ' +
+            linkCellValues.length +
+            ' - ' +
+            lookupValues.length
+        );
+      }
+
+      const titles = lookupValues.map((item) => {
+        return virtualField.item2String(item);
+      });
+
+      return field.updateCellTitle(linkCellValues, titles);
+    }
+
+    return field.updateCellTitle(linkCellValues, virtualField.cellValue2String(lookupValues));
+  }
+
+  private calculateRollupAndLink(
     field: IFieldInstance,
     relationship: Relationship,
     lookupField: IFieldInstance,
@@ -570,22 +615,7 @@ export class ReferenceService {
     }
 
     if (field.type === FieldType.Link) {
-      if (!record.fields[field.id]) {
-        return null;
-      }
-
-      const result = evaluate(
-        'TEXT_ALL({values})',
-        { values: virtualField },
-        { ...record, fields: { ...record.fields, values: lookupValues } }
-      );
-
-      let plain = result.toPlain();
-      if (!field.isMultipleCellValue && virtualField.isMultipleCellValue) {
-        plain = virtualField.cellValue2String(plain);
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return field.updateCellTitle(record.fields[field.id] as any, plain);
+      return this.calculateLink(field, virtualField, record, lookupValues);
     }
   }
 

@@ -960,6 +960,48 @@ describe('OpenAPI link (e2e)', () => {
       ]);
     });
 
+    it('should update self foreign link with correct formatted title', async () => {
+      // use number field as primary field
+      await convertField(table2.id, table2.fields[0].id, {
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Decimal, precision: 1 },
+        },
+      });
+
+      // table2 link field first record link to table1 first record
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
+        id: table1.records[0].id,
+      });
+      // set text for lookup field
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 1);
+      await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 2);
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, null);
+
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[2].id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+        { id: table2.records[2].id },
+      ]);
+
+      const table1RecordResult2 = await getRecords(table1.id);
+
+      expect(table1RecordResult2.records[0].fields[table1.fields[2].name]).toEqual([
+        {
+          title: '1.0',
+          id: table2.records[0].id,
+        },
+        {
+          title: '2.0',
+          id: table2.records[1].id,
+        },
+        {
+          title: undefined,
+          id: table2.records[2].id,
+        },
+      ]);
+    });
+
     it('should update formula field when change manyOne link cell', async () => {
       // table2 link field first record link to table1 first record
       await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[2].id, {
