@@ -1,10 +1,13 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { ISelectFieldOptions } from '@teable/core';
-import { FieldType } from '@teable/core';
-import type { Prisma, Field } from '@teable/db-main-prisma';
+import { FieldType, generateRecordHistoryId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { Field } from '@teable/db-main-prisma';
+import { Knex } from 'knex';
 import { isString } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { Events, RecordUpdateEvent } from '../events';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -12,19 +15,19 @@ const SELECT_FIELD_TYPE_SET = new Set([FieldType.SingleSelect, FieldType.Multipl
 
 @Injectable()
 export class RecordHistoryListener {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+  ) {}
 
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
   async recordUpdateListener(event: RecordUpdateEvent) {
     const { payload, context } = event;
     const { user } = context;
     const { tableId, oldField: _oldField } = payload;
-    let records = payload.record;
     const userId = user?.id;
-
-    if (!Array.isArray(records)) {
-      records = [records];
-    }
+    const payloadRecord = payload.record;
+    const records = !Array.isArray(payloadRecord) ? [payloadRecord] : payloadRecord;
 
     const fieldIdSet = new Set<string>();
 
@@ -63,7 +66,15 @@ export class RecordHistoryListener {
 
     for (let i = 0; i < totalCount; i += batchSize) {
       const batch = records.slice(i, i + batchSize);
-      const recordHistoryList: Prisma.RecordHistoryCreateManyInput[] = [];
+      const recordHistoryList: {
+        id: string;
+        table_id: string;
+        record_id: string;
+        field_id: string;
+        before: string;
+        after: string;
+        created_by: string;
+      }[] = [];
 
       batch.forEach((record) => {
         const { id: recordId, fields } = record;
@@ -82,9 +93,10 @@ export class RecordHistoryListener {
           }
 
           recordHistoryList.push({
-            tableId,
-            recordId,
-            fieldId,
+            id: generateRecordHistoryId(),
+            table_id: tableId,
+            record_id: recordId,
+            field_id: fieldId,
             before: JSON.stringify({
               meta: {
                 type: oldField.type,
@@ -103,14 +115,14 @@ export class RecordHistoryListener {
               },
               data: newValue,
             }),
-            createdBy: userId as string,
+            created_by: userId as string,
           });
         });
       });
 
-      await this.prismaService.recordHistory.createMany({
-        data: recordHistoryList,
-      });
+      const query = this.knex.insert(recordHistoryList).into('record_history').toQuery();
+
+      await this.prismaService.$executeRawUnsafe(query);
     }
   }
 

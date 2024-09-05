@@ -8,7 +8,6 @@ import type {
   ILookupOptionsVo,
   IOtOperation,
   ViewType,
-  IConvertFieldRo,
   FieldType,
 } from '@teable/core';
 import {
@@ -120,7 +119,11 @@ export class FieldService implements IReadonlyAdapterService {
       createdBy: userId,
     };
 
-    return this.prismaService.txClient().field.create({ data });
+    return this.prismaService.txClient().field.upsert({
+      where: { id: data.id },
+      create: data,
+      update: { ...data, deletedTime: null, version: undefined },
+    });
   }
 
   async dbCreateMultipleField(tableId: string, fieldInstances: IFieldInstance[]) {
@@ -233,9 +236,9 @@ export class FieldService implements IReadonlyAdapterService {
 
   private async alterTableModifyFieldValidation(
     fieldId: string,
-    newValidationRules: Pick<IConvertFieldRo, 'unique' | 'notNull'>
+    key: 'unique' | 'notNull',
+    newValue?: boolean
   ) {
-    const { unique, notNull } = newValidationRules;
     const { dbFieldName, table, type, isLookup } = await this.prismaService
       .txClient()
       .field.findFirstOrThrow({
@@ -256,12 +259,12 @@ export class FieldService implements IReadonlyAdapterService {
 
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        if (unique != null) {
-          unique ? table.unique(dbFieldName) : table.dropUnique([dbFieldName]);
+        if (key === 'unique') {
+          newValue ? table.unique(dbFieldName) : table.dropUnique([dbFieldName]);
         }
 
-        if (notNull != null) {
-          notNull ? table.dropNullable(dbFieldName) : table.setNullable(dbFieldName);
+        if (key === 'notNull') {
+          newValue ? table.dropNullable(dbFieldName) : table.setNullable(dbFieldName);
         }
       })
       .toQuery();
@@ -363,6 +366,33 @@ export class FieldService implements IReadonlyAdapterService {
     );
   }
 
+  async markError(tableId: string, fieldIds: string[], hasError: boolean) {
+    await this.batchUpdateFields(
+      tableId,
+      fieldIds.map((fieldId) => ({
+        fieldId,
+        ops: [
+          FieldOpBuilder.editor.setFieldProperty.build({
+            key: 'hasError',
+            newValue: hasError ? true : null,
+            oldValue: hasError ? null : true,
+          }),
+        ],
+      }))
+    );
+  }
+
+  private async checkFieldName(tableId: string, fieldId: string, name: string) {
+    const fieldRaw = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, id: { not: fieldId }, name, deletedTime: null },
+      select: { id: true },
+    });
+
+    if (fieldRaw) {
+      throw new BadRequestException(`Field name ${name} already exists in this table`);
+    }
+  }
+
   async batchUpdateFields(tableId: string, opData: { fieldId: string; ops: IOtOperation[] }[]) {
     if (!opData.length) return;
 
@@ -382,6 +412,11 @@ export class FieldService implements IReadonlyAdapterService {
         }
         return ctx as IOpContext;
       });
+
+      const nameCtx = opContext.find((ctx) => ctx.key === 'name');
+      if (nameCtx) {
+        await this.checkFieldName(tableId, fieldId, nameCtx.newValue as string);
+      }
 
       await this.update(fieldMap[fieldId].version + 1, tableId, fieldId, opContext);
     }
@@ -507,7 +542,8 @@ export class FieldService implements IReadonlyAdapterService {
     }
 
     if (key === 'unique' || key === 'notNull') {
-      await this.alterTableModifyFieldValidation(fieldId, { [key]: newValue });
+      console.log('alterTableModifyFieldValidation', fieldId, { [key]: newValue });
+      await this.alterTableModifyFieldValidation(fieldId, key, newValue as boolean | undefined);
     }
 
     return { [key]: newValue ?? null };

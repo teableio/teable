@@ -123,6 +123,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     scrollToItem,
     scrollBy,
     getCellContent,
+    onUndo,
+    onRedo,
     onCopy,
     onPaste,
     onDelete,
@@ -357,6 +359,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       case RegionType.ColumnStatistic:
       case RegionType.ColumnHeaderMenu:
       case RegionType.ColumnDescription:
+      case RegionType.ColumnPrimaryIcon:
       case RegionType.RowGroupHeader:
       case RegionType.RowHeaderExpandHandler:
         return setCursor('pointer');
@@ -759,6 +762,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         activeCellBound={activeCellBound}
         onCopy={onCopy}
         onPaste={onPaste}
+        onUndo={onUndo}
+        onRedo={onRedo}
         onDelete={onDelete}
         onChange={onCellEdited}
         onRowExpand={onRowExpand}

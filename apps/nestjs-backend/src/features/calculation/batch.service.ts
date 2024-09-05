@@ -27,8 +27,6 @@ export interface IOpsData {
     [dbFieldName: string]: unknown;
   };
   version: number;
-  lastModifiedTime: string;
-  lastModifiedBy: string;
 }
 
 @Injectable()
@@ -159,8 +157,6 @@ export class BatchService {
       {
         __version: number;
         __id: string;
-        __last_modified_time: Date;
-        __last_modified_by: string;
       }[]
     >(querySql);
   }
@@ -171,8 +167,6 @@ export class BatchService {
       [recordId: string]: {
         __version: number;
         __id: string;
-        __last_modified_time: Date;
-        __last_modified_by: string;
       };
     }
   ) {
@@ -189,14 +183,10 @@ export class BatchService {
       }, {});
 
       const version = versionGroup[recordId].__version;
-      const lastModifiedTime = versionGroup[recordId].__last_modified_time?.toISOString();
-      const lastModifiedBy = versionGroup[recordId].__last_modified_by;
 
       opsData.push({
         recordId,
         version,
-        lastModifiedTime,
-        lastModifiedBy,
         updateParam,
       });
     }
@@ -272,13 +262,11 @@ export class BatchService {
       return;
     }
 
-    const userId = this.cls.get('user.id');
-    const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
-
-    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam))));
-    const shouldUpdateLastModified = fieldIds.some((id) => !fieldMap[id].isComputed);
+    const fieldIds = Array.from(new Set(opsData.flatMap((d) => Object.keys(d.updateParam)))).filter(
+      (id) => fieldMap[id]
+    );
     const data = opsData.map((data) => {
-      const { recordId, updateParam, version, lastModifiedTime, lastModifiedBy } = data;
+      const { recordId, updateParam, version } = data;
 
       return {
         id: recordId,
@@ -286,6 +274,9 @@ export class BatchService {
           ...Object.entries(updateParam).reduce<{ [dbFieldName: string]: unknown }>(
             (pre, [fieldId, value]) => {
               const field = fieldMap[fieldId];
+              if (!field) {
+                return pre;
+              }
               const { dbFieldName } = field;
               pre[dbFieldName] = field.convertCellValue2DBValue(value);
               return pre;
@@ -293,8 +284,6 @@ export class BatchService {
             {}
           ),
           __version: version + 1,
-          __last_modified_time: shouldUpdateLastModified ? timeStr : lastModifiedTime,
-          __last_modified_by: shouldUpdateLastModified ? userId : lastModifiedBy,
         },
       };
     });
@@ -305,8 +294,6 @@ export class BatchService {
         return { dbFieldName, schemaType: dbType2knexFormat(this.knex, dbFieldType) };
       }),
       { dbFieldName: '__version', schemaType: SchemaType.Integer },
-      { dbFieldName: '__last_modified_time', schemaType: SchemaType.Datetime },
-      { dbFieldName: '__last_modified_by', schemaType: SchemaType.String },
     ];
 
     await this.batchUpdateDB(dbTableName, '__id', schemas, data);
@@ -375,19 +362,37 @@ export class BatchService {
     rawOps: { rawOp: IRawOp; docId: string }[]
   ) {
     const userId = this.cls.get('user.id');
-    const insertRowsData = rawOps.map(({ rawOp, docId }) => {
-      return {
-        collection: collectionId,
-        doc_type: docType,
-        doc_id: docId,
-        version: rawOp.v,
-        operation: JSON.stringify(rawOp),
-        created_by: userId,
-        created_time: new Date().toISOString(),
-      };
-    });
+    const insertRowsData = rawOps
+      .filter(({ rawOp }) => !('del' in rawOp && rawOp.del))
+      .map(({ rawOp, docId }) => {
+        return {
+          collection: collectionId,
+          doc_type: docType,
+          doc_id: docId,
+          version: rawOp.v,
+          operation: JSON.stringify(rawOp),
+          created_by: userId,
+          created_time: new Date().toISOString(),
+        };
+      });
 
-    const batchInsertOpsSql = this.dbProvider.batchInsertSql('ops', insertRowsData);
-    return this.prismaService.txClient().$executeRawUnsafe(batchInsertOpsSql);
+    // delete history op when doc is deleted
+    const deleteIds = rawOps
+      .filter(({ rawOp }) => 'del' in rawOp && rawOp.del)
+      .map(({ docId }) => docId);
+
+    if (deleteIds.length) {
+      const deleteOpsSql = this.knex('ops')
+        .where('collection', collectionId)
+        .whereIn('doc_id', deleteIds)
+        .delete()
+        .toQuery();
+      await this.prismaService.txClient().$executeRawUnsafe(deleteOpsSql);
+    }
+
+    if (insertRowsData.length) {
+      const batchInsertOpsSql = this.dbProvider.batchInsertSql('ops', insertRowsData);
+      await this.prismaService.txClient().$executeRawUnsafe(batchInsertOpsSql);
+    }
   }
 }

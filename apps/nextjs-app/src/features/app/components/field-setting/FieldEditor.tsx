@@ -22,11 +22,12 @@ import type { IFieldEditorRo } from './type';
 import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
 
 export const FieldEditor = (props: {
+  isPrimary?: boolean;
   field: Partial<IFieldEditorRo>;
   operator: FieldOperator;
   onChange?: (field: IFieldEditorRo) => void;
 }) => {
-  const { field, operator, onChange } = props;
+  const { isPrimary, field, operator, onChange } = props;
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
     (field: IFieldEditorRo) => {
@@ -158,6 +159,7 @@ export const FieldEditor = (props: {
           <span className="label-text mb-2">{t('table:field.editor.type')}</span>
         </div>
         <SelectFieldType
+          isPrimary={isPrimary}
           value={field.isLookup ? 'lookup' : field.type}
           onChange={updateFieldTypeWithLookup}
         />

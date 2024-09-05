@@ -130,9 +130,10 @@ export class FieldSupplementService {
       dbTableName,
       foreignTableName,
     } = params;
-    const { relationship, isOneWay } = optionsRo;
+    const { relationship, isOneWay = false } = optionsRo;
     const common = {
       ...optionsRo,
+      isOneWay: isOneWay || false,
       symmetricFieldId,
       lookupFieldId,
     };
@@ -268,6 +269,10 @@ export class FieldSupplementService {
 
   // only for linkField to linkField
   private async prepareUpdateLinkField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    if (!majorFieldKeysChanged(oldFieldVo, fieldRo)) {
+      return merge({}, oldFieldVo, fieldRo);
+    }
+
     const newOptionsRo = fieldRo.options as ILinkFieldOptionsRo;
     const oldOptions = oldFieldVo.options as ILinkFieldOptions;
     // isOneWay may be undefined or false, so we should convert it to boolean
@@ -533,11 +538,8 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateFormulaField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
-    const newOptions = fieldRo.options as IFormulaFieldOptions;
-    const oldOptions = oldFieldVo.options as IFormulaFieldOptions;
-
-    if (newOptions.expression === oldOptions.expression) {
-      return merge({}, oldFieldVo, fieldRo);
+    if (!majorFieldKeysChanged(oldFieldVo, fieldRo)) {
+      return { ...oldFieldVo, ...fieldRo };
     }
 
     return this.prepareFormulaField(fieldRo);
@@ -593,6 +595,10 @@ export class FieldSupplementService {
     const newOptions = fieldRo.options as IRollupFieldOptions;
     const oldOptions = oldFieldVo.options as IRollupFieldOptions;
 
+    if (!majorFieldKeysChanged(oldFieldVo, fieldRo)) {
+      return { ...oldFieldVo, ...fieldRo };
+    }
+
     const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo;
     const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo;
     if (
@@ -601,7 +607,16 @@ export class FieldSupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
-      return merge({}, oldFieldVo, fieldRo);
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+        options: {
+          ...oldOptions,
+          showAs: newOptions.showAs,
+          formatting: newOptions.formatting,
+        },
+        lookupOptions: { ...oldLookupOptions, ...newLookupOptions },
+      };
     }
 
     return this.prepareRollupField(fieldRo);
@@ -880,7 +895,7 @@ export class FieldSupplementService {
       return this.prepareCreateFieldInner(tableId, fieldRo);
     }
 
-    if (fieldRo.isLookup) {
+    if (fieldRo.isLookup && majorFieldKeysChanged(oldFieldVo, fieldRo)) {
       return this.prepareUpdateLookupField(fieldRo, oldFieldVo);
     }
 
@@ -992,21 +1007,17 @@ export class FieldSupplementService {
     fieldRo: IConvertFieldRo,
     oldFieldVo: IFieldVo
   ): Promise<IFieldVo> {
-    const fieldVo = (
-      majorFieldKeysChanged(oldFieldVo, fieldRo)
-        ? await this.prepareUpdateFieldInner(
-            tableId,
-            {
-              ...fieldRo,
-              name: fieldRo.name ?? oldFieldVo.name,
-              dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
-              description:
-                fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
-            }, // for convenience, we fallback name adn dbFieldName when it be undefined
-            oldFieldVo
-          )
-        : merge({}, oldFieldVo, fieldRo)
-    ) as IFieldVo;
+    const fieldVo = (await this.prepareUpdateFieldInner(
+      tableId,
+      {
+        ...fieldRo,
+        name: fieldRo.name ?? oldFieldVo.name,
+        dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
+        description:
+          fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
+      }, // for convenience, we fallback name adn dbFieldName when it be undefined
+      oldFieldVo
+    )) as IFieldVo;
 
     this.validateFormattingShowAs(fieldVo);
 

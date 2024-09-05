@@ -10,7 +10,7 @@ export class OpListenersManager<T> {
 
   add(doc: Doc<T>, handler: (op: unknown[]) => void) {
     if (this.opListeners.has(doc.id)) {
-      this.remove(doc);
+      return;
     }
     doc.on('op batch', handler);
     this.opListeners.set(doc.id, () => {

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IAttachmentCellValue } from '@teable/core';
+import type { IAttachmentCellValue, IMakeOptional } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -15,15 +15,21 @@ import type {
   IUpdateRecordsRo,
 } from '@teable/openapi';
 import { forEach, keyBy, map } from 'lodash';
+import { ClsService } from 'nestjs-cls';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
+import type { IClsStore } from '../../../types/cls';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { getFullStorageUrl } from '../../attachments/plugins/utils';
+import { SystemFieldService } from '../../calculation/system-field.service';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
+import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
 
@@ -34,10 +40,13 @@ export class RecordOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly fieldConvertingService: FieldConvertingService,
+    private readonly systemFieldService: SystemFieldService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly collaboratorService: CollaboratorService,
     private readonly viewService: ViewService,
-    private readonly viewOpenApiService: ViewOpenApiService
+    private readonly viewOpenApiService: ViewOpenApiService,
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async multipleCreateRecords(
@@ -86,9 +95,30 @@ export class RecordOpenApiService {
     return indexes;
   }
 
+  private async appendRecordOrderIndexes(
+    tableId: string,
+    records: IMakeOptional<IRecordInnerRo, 'id'>[],
+    order: IRecordInsertOrderRo | undefined
+  ) {
+    if (!order) {
+      return records;
+    }
+    const indexes = order && (await this.getRecordOrderIndexes(tableId, order, records.length));
+    return records.map((record, i) => ({
+      ...record,
+      order: indexes
+        ? {
+            [order.viewId]: indexes[i],
+          }
+        : undefined,
+    }));
+  }
+
   async createRecords(
     tableId: string,
-    createRecordsRo: ICreateRecordsRo
+    createRecordsRo: ICreateRecordsRo & {
+      records: IMakeOptional<IRecordInnerRo, 'id'>[];
+    }
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
 
@@ -99,15 +129,9 @@ export class RecordOpenApiService {
       typecast
     );
 
-    const indexes = order && (await this.getRecordOrderIndexes(tableId, order, records.length));
-    const orderIndex = indexes ? { viewId: order.viewId, indexes } : undefined;
+    const preparedRecords = await this.appendRecordOrderIndexes(tableId, typecastRecords, order);
 
-    return await this.recordCalculateService.createRecords(
-      tableId,
-      typecastRecords,
-      fieldKeyType,
-      orderIndex
-    );
+    return await this.recordCalculateService.createRecords(tableId, preparedRecords, fieldKeyType);
   }
 
   private async createPureRecords(
@@ -123,43 +147,6 @@ export class RecordOpenApiService {
     );
 
     await this.recordService.createRecordsOnlySql(tableId, typecastRecords);
-  }
-
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo): Promise<IRecord[]> {
-    return await this.prismaService.$tx(async () => {
-      const { order, records } = updateRecordsRo;
-      const recordIds = records.map((record) => record.id);
-      if (order != null) {
-        const { viewId, anchorId, position } = order;
-        await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
-          anchorId,
-          position,
-          recordIds,
-        });
-      }
-      // validate cellValue and typecast
-      const typecastRecords = await this.validateFieldsAndTypecast(
-        tableId,
-        updateRecordsRo.records,
-        updateRecordsRo.fieldKeyType,
-        updateRecordsRo.typecast
-      );
-
-      await this.recordCalculateService.calculateUpdatedRecord(
-        tableId,
-        updateRecordsRo.fieldKeyType,
-        typecastRecords
-      );
-
-      const snapshots = await this.recordService.getSnapshotBulk(
-        tableId,
-        recordIds,
-        undefined,
-        updateRecordsRo.fieldKeyType
-      );
-
-      return snapshots.map((snapshot) => snapshot.data);
-    });
   }
 
   private async getEffectFieldInstances(
@@ -243,62 +230,146 @@ export class RecordOpenApiService {
     }));
   }
 
-  async updateRecord(
+  async updateRecords(
     tableId: string,
-    recordId: string,
-    updateRecordRo: IUpdateRecordRo
-  ): Promise<IRecord> {
-    return await this.prismaService.$tx(async () => {
-      const { order, ...recordRo } = updateRecordRo;
+    updateRecordsRo: IUpdateRecordsRo & {
+      records: {
+        id: string;
+        fields: Record<string, unknown>;
+        order?: Record<string, number>;
+      }[];
+    },
+    windowId?: string
+  ) {
+    const { records, order, fieldKeyType, typecast } = updateRecordsRo;
+    const orderIndexesBefore =
+      order != null && windowId
+        ? await this.recordService.getRecordIndexes(
+            tableId,
+            records.map((r) => r.id),
+            order.viewId
+          )
+        : undefined;
+
+    const cellContexts = await this.prismaService.$tx(async () => {
       if (order != null) {
         const { viewId, anchorId, position } = order;
+
         await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
           anchorId,
           position,
-          recordIds: [recordId],
+          recordIds: records.map((r) => r.id),
         });
       }
 
-      const { fieldKeyType = FieldKeyType.Name, typecast, record } = recordRo;
-
+      // validate cellValue and typecast
       const typecastRecords = await this.validateFieldsAndTypecast(
         tableId,
-        [{ id: recordId, fields: record.fields }],
+        records,
         fieldKeyType,
         typecast
       );
 
-      await this.recordCalculateService.calculateUpdatedRecord(
+      const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
         tableId,
-        fieldKeyType,
         typecastRecords
       );
 
-      // return record result
-      const snapshots = await this.recordService.getSnapshotBulk(
+      return await this.recordCalculateService.calculateUpdatedRecord(
         tableId,
-        [recordId],
-        undefined,
-        fieldKeyType
+        fieldKeyType,
+        preparedRecords
       );
-
-      if (snapshots.length !== 1) {
-        throw new Error('update record failed');
-      }
-      return snapshots[0].data;
     });
+
+    const recordIds = records.map((r) => r.id);
+    if (windowId) {
+      const orderIndexesAfter =
+        order && (await this.recordService.getRecordIndexes(tableId, recordIds, order.viewId));
+
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
+        tableId,
+        windowId,
+        userId: this.cls.get('user.id'),
+        recordIds,
+        fieldIds: Object.keys(records[0].fields),
+        cellContexts,
+        orderIndexesBefore,
+        orderIndexesAfter,
+      });
+    }
+
+    const snapshots = await this.recordService.getSnapshotBulk(
+      tableId,
+      recordIds,
+      undefined,
+      updateRecordsRo.fieldKeyType
+    );
+
+    return {
+      records: snapshots.map((snapshot) => snapshot.data),
+      cellContexts,
+    };
   }
 
-  async deleteRecord(tableId: string, recordId: string) {
-    return this.deleteRecords(tableId, [recordId]);
+  async updateRecord(
+    tableId: string,
+    recordId: string,
+    updateRecordRo: IUpdateRecordRo,
+    windowId?: string
+  ): Promise<IRecord> {
+    await this.updateRecords(
+      tableId,
+      {
+        ...updateRecordRo,
+        records: [{ id: recordId, fields: updateRecordRo.record.fields }],
+      },
+      windowId
+    );
+
+    const snapshots = await this.recordService.getSnapshotBulk(
+      tableId,
+      [recordId],
+      undefined,
+      updateRecordRo.fieldKeyType
+    );
+
+    if (snapshots.length !== 1) {
+      throw new Error('update record failed');
+    }
+
+    return snapshots[0].data;
   }
 
-  async deleteRecords(tableId: string, recordIds: string[]) {
-    return await this.prismaService.$tx(async () => {
+  async deleteRecord(tableId: string, recordId: string, windowId?: string) {
+    const data = await this.deleteRecords(tableId, [recordId], windowId);
+    return data.records[0];
+  }
+
+  async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
+    const { records, orders } = await this.prismaService.$tx(async () => {
+      const records = await this.recordService.getRecordsById(tableId, recordIds);
       await this.recordCalculateService.calculateDeletedRecord(tableId, recordIds);
-
+      const orders = windowId
+        ? await this.recordService.getRecordIndexes(tableId, recordIds)
+        : undefined;
       await this.recordService.batchDeleteRecords(tableId, recordIds);
+      return { records, orders };
     });
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
+        windowId,
+        tableId,
+        userId: this.cls.get('user.id'),
+        records: records.records.map((record, index) => ({
+          ...record,
+          order: orders?.[index],
+        })),
+      });
+    }
+
+    return records;
   }
 
   async getRecordHistory(

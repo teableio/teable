@@ -1,7 +1,7 @@
 import { LaptopIcon } from '@radix-ui/react-icons';
 import { Moon, Settings, Sun, Table2 } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
-import { useBase, useTables } from '@teable/sdk/hooks';
+import { useBase, useIsHydrated, useTables } from '@teable/sdk/hooks';
 import {
   CommandDialog,
   CommandInput,
@@ -11,12 +11,14 @@ import {
   CommandItem,
   CommandSeparator,
   Button,
+  cn,
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useSettingStore } from '@/features/app/components/setting/useSettingStore';
+import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { tableConfig } from '@/features/i18n/table.config';
 
 export const QuickAction = ({ children }: React.PropsWithChildren) => {
@@ -27,7 +29,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-
+  const modKeyStr = useModKeyStr();
   useHotkeys(
     `mod+k`,
     () => {
@@ -38,6 +40,8 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
     }
   );
 
+  const isHydrated = useIsHydrated();
+
   return (
     <>
       <Button
@@ -47,10 +51,12 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
         onClick={() => setOpen(true)}
       >
         {children}
-        <kbd className="flex h-5 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
-          <span className="text-sm">⌘</span>
-          <span>K</span>
-        </kbd>
+        {isHydrated && (
+          <kbd className="flex h-5 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
+            <span className={cn({ 'text-sm': modKeyStr === '⌘' })}>{modKeyStr}</span>
+            <span>K</span>
+          </kbd>
+        )}
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder={t('common:quickAction.placeHolder')} />

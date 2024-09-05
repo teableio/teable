@@ -7,7 +7,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { updateDbTableName } from '@teable/openapi';
+import { convertField, updateDbTableName } from '@teable/openapi';
 import {
   createField,
   createRecords,
@@ -458,6 +458,84 @@ describe('OpenAPI link (e2e)', () => {
         title: 'table2_1',
         id: table2.records[0].id,
       });
+    });
+
+    it('should create a new record with link field when primary field is a formula', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
+      table1 = await createTable(baseId, {
+        fields: [textFieldRo],
+        records: [
+          { fields: { 'text field': 'table1_1' } },
+          { fields: { 'text field': 'table1_2' } },
+          { fields: { 'text field': 'table1_3' } },
+        ],
+      });
+
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      };
+      const table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo, linkFieldRo],
+        records: [
+          {
+            fields: {
+              'text field': 'table2_1',
+              'link field': [{ id: table1.records[0].id }],
+            },
+          },
+          {
+            fields: {
+              'text field': 'table2_2',
+            },
+          },
+        ],
+      });
+
+      const table1Fields = await getFields(table1.id);
+      const table1LinkField = table1Fields[1];
+
+      const table1PrimaryField = (
+        await convertField(table1.id, table1.fields[0].id, {
+          type: FieldType.Formula,
+          options: {
+            expression: `{${table1LinkField.id}}`,
+          },
+        })
+      ).data;
+
+      const table1Records = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+
+      expect(table1Records.records[0].fields[table1PrimaryField.id]).toEqual('table2_1');
+
+      // create with existing link cellValue in table2
+      await createRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [table1LinkField.id]: { id: table2.records[0].id } } }],
+      });
+
+      // create with empty link cellValue in table2
+      await createRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [table1LinkField.id]: { id: table2.records[1].id } } }],
+      });
+
+      // update with existing link cellValue in table2
+      await updateRecordByApi(table1.id, table1.records[0].id, table1LinkField.id, {
+        id: table2.records[0].id,
+      });
+
+      const table1RecordsAfter = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
+      expect(table1RecordsAfter.records[0].fields[table1PrimaryField.id]).toEqual('table2_1');
     });
   });
 

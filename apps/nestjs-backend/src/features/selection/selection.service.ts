@@ -40,6 +40,8 @@ import { IdReturnType, RangeType } from '@teable/openapi';
 import { isNumber, isString, map, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { AggregationService } from '../aggregation/aggregation.service';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
@@ -61,6 +63,7 @@ export class SelectionService {
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldSupplementService: FieldSupplementService,
+    private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -676,7 +679,8 @@ export class SelectionService {
   async paste(
     tableId: string,
     pasteRo: IPasteRo,
-    expansionChecker?: (col: number, row: number) => Promise<void>
+    expansionChecker?: (col: number, row: number) => Promise<void>,
+    windowId?: string
   ) {
     const { content, header = [], ...rangesRo } = pasteRo;
     const { ranges, type, ...queryRo } = rangesRo;
@@ -718,7 +722,7 @@ export class SelectionService {
 
     const projection = effectFields.map((f) => f.id);
 
-    const records = await this.recordService.getRecordsFields(tableId, {
+    const existingRecords = await this.recordService.getRecordsFields(tableId, {
       ...queryRo,
       projection,
       skip: row,
@@ -734,7 +738,7 @@ export class SelectionService {
 
     const updateRange: IPasteVo['ranges'] = [cell, cell];
 
-    const expandColumns = await this.prismaService.$tx(async () => {
+    const newFields = await this.prismaService.$tx(async () => {
       // Expansion col
       return await this.expandColumns({
         tableId,
@@ -743,11 +747,11 @@ export class SelectionService {
       });
     });
 
-    await this.prismaService.$tx(async () => {
-      const updateFields = effectFields.concat(expandColumns.map(createFieldInstanceByVo));
+    const { updateRecords, newRecords } = await this.prismaService.$tx(async () => {
+      const updateFields = effectFields.concat(newFields.map(createFieldInstanceByVo));
 
       // get all effect records, contains update and need create record
-      const newRecords = await this.tableDataToRecords({
+      const recordsFromClipboard = await this.tableDataToRecords({
         tableId,
         tableData,
         headerFields: header.map(createFieldInstanceByVo),
@@ -756,28 +760,53 @@ export class SelectionService {
 
       // Warning: Update before creating
       // Fill cells
-      const updateNewRecords = newRecords.slice(0, records.length);
-      const updateRecordsRo = this.fillCells(records, updateNewRecords);
-      await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+      const toUpdateRecords = recordsFromClipboard.slice(0, existingRecords.length);
+      const updateRecordsRo = this.fillCells(existingRecords, toUpdateRecords);
+      const { cellContexts } = await this.recordOpenApiService.updateRecords(
+        tableId,
+        updateRecordsRo
+      );
 
+      let newRecords: IRecord[] | undefined;
       // create record
       if (numRowsToExpand) {
-        const createNewRecords = newRecords.slice(records.length);
+        const createNewRecords = recordsFromClipboard.slice(existingRecords.length);
         const createRecordsRo = {
           fieldKeyType: FieldKeyType.Id,
           typecast: true,
           records: createNewRecords,
         };
-        await this.recordOpenApiService.createRecords(tableId, createRecordsRo);
+        newRecords = (await this.recordOpenApiService.createRecords(tableId, createRecordsRo))
+          .records;
       }
 
       updateRange[1] = [col + updateFields.length - 1, row + updateFields.length - 1];
+
+      return {
+        updateRecords: {
+          cellContexts,
+          recordIds: existingRecords.map(({ id }) => id),
+          fieldIds: updateFields.map(({ id }) => id),
+        },
+        newRecords,
+      };
     });
+
+    if (windowId) {
+      this.eventEmitterService.emitAsync(Events.OPERATION_PASTE_SELECTION, {
+        windowId,
+        userId: this.cls.get('user.id'),
+        tableId,
+        updateRecords,
+        newFields,
+        newRecords,
+      });
+    }
 
     return updateRange;
   }
 
-  async clear(tableId: string, rangesRo: IRangesRo) {
+  async clear(tableId: string, rangesRo: IRangesRo, windowId?: string) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
     const updateRecords = await this.tableDataToRecords({
@@ -787,13 +816,13 @@ export class SelectionService {
       headerFields: undefined,
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo);
+    await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId);
   }
 
-  async delete(tableId: string, rangesRo: IRangesRo): Promise<IDeleteVo> {
+  async delete(tableId: string, rangesRo: IRangesRo, windowId?: string): Promise<IDeleteVo> {
     const { records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const recordIds = records.map(({ id }) => id);
-    await this.recordOpenApiService.deleteRecords(tableId, recordIds);
+    await this.recordOpenApiService.deleteRecords(tableId, recordIds, windowId);
     return { ids: recordIds };
   }
 }

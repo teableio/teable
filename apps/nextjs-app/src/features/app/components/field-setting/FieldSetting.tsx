@@ -61,11 +61,16 @@ export const FieldSetting = (props: IFieldSetting) => {
       }
 
       if (operator === FieldOperator.Insert) {
-        const result = await createNewField(field);
-        const fieldId = result?.data?.id;
-        if (view && order != null && fieldId && table?.id) {
-          await view.updateColumnMeta([{ fieldId, columnMeta: { order } }]);
-        }
+        await createNewField({
+          ...field,
+          order:
+            view && order != null
+              ? {
+                  viewId: view.id,
+                  orderIndex: order,
+                }
+              : undefined,
+        });
       }
 
       if (operator === FieldOperator.Edit) {
@@ -255,6 +260,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
             {/* Content Form */}
             {
               <DynamicFieldEditor
+                isPrimary={originField?.isPrimary}
                 field={field}
                 operator={operator}
                 onChange={onFieldEditorChange}

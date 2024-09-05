@@ -23,6 +23,18 @@
     "summaryTip": "Hover to select summary",
     "actions": "Actions"
   },
+  "undoRedo": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoFailed": "Undo failed",
+    "redoFailed": "Redo failed",
+    "nothingToUndo": "Nothing to undo",
+    "nothingToRedo": "Nothing to redo",
+    "undoSucceed": "Undo succeed",
+    "redoSucceed": "Redo succeed",
+    "undoing": "undoing...",
+    "redoing": "redoing..."
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "Release to upload file",
@@ -51,6 +63,9 @@
     "user": {
       "searchPlaceholder": "Find users by name",
       "notify": "Notify users once they're selected"
+    },
+    "select": {
+      "addOption": "Add an option '{{option}}'"
     }
   },
   "filter": {
@@ -152,7 +167,7 @@
     "configLabel_other": "{{count}} hidden fields",
     "showAll": "Show All",
     "hideAll": "Hide All",
-    "primaryKey": "Primary field: is used to identify records, could not to hidden or delete"
+    "primaryKey": "Primary field: Identifies records\ncannot be hidden or deleted, visible in linked records."
   },
   "expandRecord": {
     "copy": "Copy to clipboard",
@@ -265,7 +280,8 @@
     "record": "Record",
     "automation": "Automation",
     "user": "User",
-    "recordHistory": "Record History"
+    "recordHistory": "Record History",
+    "you": "You"
   },
   "formula": {
     "SUM": {

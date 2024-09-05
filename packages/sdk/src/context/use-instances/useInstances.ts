@@ -24,7 +24,7 @@ const queryDestroy = (query: Query | undefined, cb?: () => void) => {
   query.once('ready', () => {
     query.destroy(() => {
       query.removeAllListeners();
-      query.results?.forEach((doc) => doc.listenerCount('op') === 0 && doc.destroy());
+      query.results?.forEach((doc) => doc.listenerCount('op batch') === 0 && doc.destroy());
       cb?.();
     });
   });

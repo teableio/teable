@@ -32,7 +32,20 @@
     "record": "记录",
     "automation": "自动化",
     "user": "用户",
-    "recordHistory": "记录历史"
+    "recordHistory": "记录历史",
+    "you": "你"
+  },
+  "undoRedo": {
+    "undo": "撤销",
+    "redo": "重做",
+    "undoFailed": "撤销失败",
+    "redoFailed": "重做失败",
+    "nothingToUndo": "无可撤销操作",
+    "nothingToRedo": "无可重做操作",
+    "undoSucceed": "撤销成功",
+    "redoSucceed": "重做成功",
+    "undoing": "撤销中...",
+    "redoing": "重做中..."
   },
   "editor": {
     "attachment": {
@@ -62,6 +75,9 @@
     "user": {
       "searchPlaceholder": "通过姓名查找用户",
       "notify": "通知被选择的用户"
+    },
+    "select": {
+      "addOption": "添加选项 '{{option}}'"
     }
   },
   "filter": {
@@ -164,7 +180,7 @@
     "configLabel_other": "字段配置({{count}} 隐藏)",
     "showAll": "显示全部",
     "hideAll": "隐藏全部",
-    "primaryKey": "主字段：用于标识每条记录，不能隐藏和删除"
+    "primaryKey": "主字段：用于标识记录，不可隐藏或删除\n其值会在关联记录中显示"
   },
   "expandRecord": {
     "copy": "复制到剪贴板",

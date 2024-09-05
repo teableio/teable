@@ -19,6 +19,7 @@ import {
   FieldType,
   generateChoiceId,
   isMultiValueLink,
+  PRIMARY_SUPPORTED_TYPES,
   RecordOpBuilder,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -28,14 +29,13 @@ import { InjectModel } from 'nest-knexjs';
 import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import type { ICellContext } from '../../calculation/link.service';
 import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/reference.service';
 import { ReferenceService } from '../../calculation/reference.service';
+import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
-import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../model/factory';
@@ -49,17 +49,11 @@ import type { UserFieldDto } from '../model/field-dto/user-field.dto';
 import { FieldConvertingLinkService } from './field-converting-link.service';
 import { FieldSupplementService } from './field-supplement.service';
 
-interface IModifiedOps {
-  recordOpsMap?: IOpsMap;
-  fieldOps?: IOtOperation[];
-}
-
 @Injectable()
 export class FieldConvertingService {
   private readonly logger = new Logger(FieldConvertingService.name);
 
   constructor(
-    private readonly viewService: ViewService,
     private readonly linkService: LinkService,
     private readonly fieldService: FieldService,
     private readonly batchService: BatchService,
@@ -684,42 +678,39 @@ export class FieldConvertingService {
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance
-  ): Promise<IModifiedOps | undefined> {
+  ): Promise<IOpsMap | undefined> {
     if (newField.isLookup) {
       return;
     }
 
     switch (newField.type) {
       case FieldType.Link:
-        return this.fieldConvertingLinkService.modifyLinkOptions(
+        return await this.fieldConvertingLinkService.modifyLinkOptions(
           tableId,
           newField as LinkFieldDto,
           oldField as LinkFieldDto
         );
       case FieldType.SingleSelect:
       case FieldType.MultipleSelect: {
-        const rawOpsMap = await this.modifySelectOptions(
+        return await this.modifySelectOptions(
           tableId,
           newField as SingleSelectFieldDto,
           oldField as SingleSelectFieldDto
         );
-        return { recordOpsMap: rawOpsMap };
       }
       case FieldType.Rating: {
-        const rawOpsMap = await this.modifyRatingOptions(
+        return await this.modifyRatingOptions(
           tableId,
           newField as RatingFieldDto,
           oldField as RatingFieldDto
         );
-        return { recordOpsMap: rawOpsMap };
       }
       case FieldType.User: {
-        const rawOpsMap = await this.modifyUserOptions(
+        return await this.modifyUserOptions(
           tableId,
           newField as UserFieldDto,
           oldField as UserFieldDto
         );
-        return { recordOpsMap: rawOpsMap };
       }
     }
   }
@@ -822,7 +813,6 @@ export class FieldConvertingService {
     const records = await this.getExistRecords(tableId, oldField);
     const choices = newField.options.choices;
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
-    const fieldOps: IOtOperation[] = [];
     const choicesMap = keyBy(choices, 'name');
     const newChoicesSet = new Set<string>();
     records.forEach((record) => {
@@ -867,17 +857,14 @@ export class FieldConvertingService {
           color: colors[i],
         }))
       );
-      const fieldOp = this.buildOpAndMutateField(newField, 'options', {
+      // mutate field
+      this.buildOpAndMutateField(newField, 'options', {
         ...newField.options,
         choices: newChoices,
       });
-      fieldOp && fieldOps.push(fieldOp);
     }
 
-    return {
-      recordOpsMap: isEmpty(opsMap) ? undefined : { [tableId]: opsMap },
-      fieldOps,
-    };
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
   }
 
   private async convert2User(tableId: string, newField: UserFieldDto, oldField: IFieldInstance) {
@@ -908,9 +895,7 @@ export class FieldConvertingService {
       );
     });
 
-    return {
-      recordOpsMap: isEmpty(opsMap) ? undefined : { [tableId]: opsMap },
-    };
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
   }
 
   private async basalConvert(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
@@ -952,12 +937,14 @@ export class FieldConvertingService {
       );
     });
 
-    return {
-      recordOpsMap: isEmpty(opsMap) ? undefined : { [tableId]: opsMap },
-    };
+    return isEmpty(opsMap) ? undefined : { [tableId]: opsMap };
   }
 
-  private async modifyType(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
+  private async modifyType(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance
+  ): Promise<IOpsMap | undefined> {
     if (newField.isComputed) {
       return;
     }
@@ -1018,7 +1005,7 @@ export class FieldConvertingService {
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance
-  ): Promise<IModifiedOps | undefined> {
+  ): Promise<IOpsMap | undefined> {
     const keys = this.getOriginFieldKeys(newField, oldField);
 
     if (newField.isLookup && oldField.isLookup) {
@@ -1081,34 +1068,54 @@ export class FieldConvertingService {
     }
   }
 
-  async alterSupplementLink(
+  // for link ref and create or delete supplement link, (create, delete do not need calculate)
+  async deleteOrCreateSupplementLink(
     tableId: string,
     newField: IFieldInstance,
-    oldField: IFieldInstance,
-    supplementChange?: { tableId: string; newField: IFieldInstance; oldField: IFieldInstance }
+    oldField: IFieldInstance
   ) {
-    // for link ref and create or delete supplement link, (create, delete do not need calculate)
-    await this.fieldConvertingLinkService.alterSupplementLink(tableId, newField, oldField);
-
-    // for modify supplement link
-    if (supplementChange) {
-      const { tableId, newField, oldField } = supplementChange;
-      await this.stageAlter(tableId, newField, oldField);
-    }
+    await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(tableId, newField, oldField);
   }
 
-  async supplementFieldConstraint(tableId: string, field: IFieldInstance) {
+  private needTempleCloseFieldConstraint(newField: IFieldInstance, oldField: IFieldInstance) {
+    return majorFieldKeysChanged(oldField, newField) && (oldField.unique || oldField.notNull);
+  }
+
+  async alterFieldConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+
+    if (!this.needTempleCloseFieldConstraint(newField, oldField)) {
+      return;
+    }
+    const { unique, notNull, dbFieldName } = newField;
+    const fieldValidationQuery = this.knex.schema
+      .alterTable(dbTableName, (table) => {
+        if (unique) table.unique(dbFieldName);
+        if (notNull) table.dropNullable(dbFieldName);
+      })
+      .toQuery();
+    await this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery);
+  }
+
+  async closeConstraint(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: { dbTableName: true },
     });
 
-    const { unique, notNull, dbFieldName } = field;
+    const { unique, notNull, dbFieldName } = oldField;
+
+    if (!this.needTempleCloseFieldConstraint(newField, oldField)) {
+      return;
+    }
 
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        if (unique) table.unique(dbFieldName);
-        if (notNull) table.dropNullable(dbFieldName);
+        if (unique) table.dropUnique([dbFieldName]);
+        if (notNull) table.setNullable(dbFieldName);
       })
       .toQuery();
 
@@ -1122,6 +1129,13 @@ export class FieldConvertingService {
     }
 
     const oldField = createFieldInstanceByVo(oldFieldVo);
+
+    if (oldField.isPrimary && !PRIMARY_SUPPORTED_TYPES.has(updateFieldRo.type)) {
+      throw new BadRequestException(
+        `Field type ${updateFieldRo.type} is not supported as primary field`
+      );
+    }
+
     const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
       tableId,
       updateFieldRo,
@@ -1132,46 +1146,23 @@ export class FieldConvertingService {
     const modifiedOps = await this.generateModifiedOps(tableId, newField, oldField);
 
     // 2. collect changes effect by the supplement(link) field
-    const supplementChange = await this.fieldConvertingLinkService.analysisLink(newField, oldField);
-
-    // 3. preprocessing field validation
-    let needSupplementFieldConstraint = false;
-
-    if (majorFieldKeysChanged(oldField, newField) && (oldField.unique || oldField.notNull)) {
-      needSupplementFieldConstraint = true;
-
-      const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
-        where: { id: tableId },
-        select: { dbTableName: true },
-      });
-
-      const { unique, notNull, dbFieldName } = oldField;
-
-      const fieldValidationQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          if (unique) table.dropUnique([dbFieldName]);
-          if (notNull) table.setNullable(dbFieldName);
-        })
-        .toQuery();
-
-      await this.prismaService.$executeRawUnsafe(fieldValidationQuery);
-    }
+    // supplementChange is only for link relationship change
+    const references = (await this.fieldConvertingLinkService.analysisReference(oldField)) || [];
+    const supplementChange = await this.fieldConvertingLinkService.analysisSupplementLink(
+      newField,
+      oldField
+    );
 
     return {
       newField,
       oldField,
       modifiedOps,
       supplementChange,
-      needSupplementFieldConstraint,
+      references: references.concat(fieldId),
     };
   }
 
-  async stageAlter(
-    tableId: string,
-    newField: IFieldInstance,
-    oldField: IFieldInstance,
-    modifiedOps?: IModifiedOps
-  ) {
+  async stageAlter(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
     const ops = this.getOriginFieldOps(newField, oldField);
 
     if (this.needCalculate(newField, oldField)) {
@@ -1185,9 +1176,7 @@ export class FieldConvertingService {
     }
 
     // apply current field changes
-    await this.fieldService.batchUpdateFields(tableId, [
-      { fieldId: newField.id, ops: ops.concat(modifiedOps?.fieldOps || []) },
-    ]);
+    await this.fieldService.batchUpdateFields(tableId, [{ fieldId: newField.id, ops }]);
 
     // apply referenced fields changes
     await this.updateReferencedFields(newField, oldField);
@@ -1197,12 +1186,12 @@ export class FieldConvertingService {
     tableId: string,
     newField: IFieldInstance,
     oldField: IFieldInstance,
-    modifiedOps?: IModifiedOps
+    recordOpsMap?: IOpsMap
   ) {
     await this.updateReference(newField, oldField);
 
     // calculate and submit records
-    await this.calculateAndSaveRecords(tableId, newField, modifiedOps?.recordOpsMap);
+    await this.calculateAndSaveRecords(tableId, newField, recordOpsMap);
 
     // calculate computed fields
     await this.calculateField(tableId, newField, oldField);

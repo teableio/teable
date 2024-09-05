@@ -59,6 +59,7 @@ import {
   useSSRRecords,
   useTableId,
   useTablePermission,
+  useUndoRedo,
   useView,
   useViewId,
 } from '@teable/sdk/hooks';
@@ -123,6 +124,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = useFieldCellEditable();
+  const { undo, redo } = useUndoRedo();
 
   const groupCollection = useGridGroupCollection();
 
@@ -547,6 +549,14 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
       });
     }
 
+    if (type === RegionType.ColumnPrimaryIcon) {
+      openTooltip({
+        id: componentId,
+        text: t('sdk:hidden.primaryKey'),
+        position: bounds,
+      });
+    }
+
     if (type === RegionType.RowHeaderDragHandler && isAutoSort) {
       openTooltip({
         id: componentId,
@@ -701,6 +711,8 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
             onColumnHeaderMenuClick={onColumnHeaderMenuClick}
             onCollapsedGroupChanged={onCollapsedGroupChanged}
             onScrollChanged={onGridScrollChanged}
+            onUndo={undo}
+            onRedo={redo}
             onCopy={onCopy}
             onPaste={onPaste}
             onItemClick={onItemClick}

@@ -21,6 +21,7 @@ import { SettingModule } from './features/setting/setting.module';
 import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
 import { TrashModule } from './features/trash/trash.module';
+import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
@@ -38,6 +39,7 @@ export const appModules = {
     AttachmentsModule,
     WsModule,
     SelectionModule,
+    UndoRedoModule,
     AggregationOpenApiModule,
     UserModule,
     AuthModule,

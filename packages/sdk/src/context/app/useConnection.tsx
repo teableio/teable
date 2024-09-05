@@ -52,7 +52,7 @@ export const useConnection = (path?: string) => {
     let pingInterval: ReturnType<typeof setInterval>;
     const onConnected = () => {
       setConnected(true);
-      pingInterval = setInterval(() => connection.ping(), 1000 * 30);
+      pingInterval = setInterval(() => connection.ping(), 1000 * 10);
     };
     const onDisconnected = () => {
       setConnected(false);

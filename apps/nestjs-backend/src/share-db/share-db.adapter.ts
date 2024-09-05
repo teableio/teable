@@ -237,28 +237,29 @@ export class ShareDbAdapter extends ShareDb.DB {
     collection: string,
     id: string,
     from: number,
-    to: number,
+    to: number | null,
     options: unknown,
     callback: (error: unknown, data?: unknown) => void
   ) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_, collectionId] = collection.split('_');
-      const nativeSql = this.knex('ops')
+      const query = this.knex('ops')
         .select('operation')
         .where({
           collection: collectionId,
           doc_id: id,
         })
         .andWhere('version', '>=', from)
-        .andWhere('version', '<', to)
-        .toSQL()
-        .toNative();
+        .limit(1000);
 
-      const res = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ operation: string }[]>(nativeSql.sql, ...nativeSql.bindings);
+      if (to) {
+        query.andWhere('version', '<', to);
+      }
 
+      const sql = query.toQuery();
+
+      const res = await this.prismaService.txClient().$queryRawUnsafe<{ operation: string }[]>(sql);
       callback(
         null,
         res.map(function (row) {

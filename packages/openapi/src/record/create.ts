@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { recordSchema } from '@teable/core';
-import type { AxiosResponse, Axios } from 'axios';
-import { axios as axiosInstance } from '../axios';
+import type { AxiosResponse } from 'axios';
+import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { fieldKeyTypeRoSchema, typecastSchema } from './get';
@@ -11,7 +11,7 @@ export const recordInsertOrderRoSchema = z
   .object({
     viewId: z.string().openapi({
       description:
-        'You can only specify order in one view when create record, other views appear last by default',
+        'You can only specify order in one view when create record (will create a order index automatically)',
     }),
     anchorId: z.string().openapi({
       description: 'The record id to anchor to',
@@ -91,33 +91,6 @@ export const CreateRecordRoute: RouteConfig = registerRoute({
 export async function createRecords(
   tableId: string,
   recordsRo: ICreateRecordsRo
-): Promise<AxiosResponse<ICreateRecordsVo>>;
-export async function createRecords(
-  axios: Axios,
-  tableId: string,
-  recordsRo: ICreateRecordsRo
-): Promise<AxiosResponse<ICreateRecordsVo>>;
-export async function createRecords(
-  axios: Axios | string,
-  tableId: string | ICreateRecordsRo,
-  recordsRo?: ICreateRecordsRo
 ): Promise<AxiosResponse<ICreateRecordsVo>> {
-  let theAxios: Axios;
-  let theTableId: string;
-  let theRecordsRo: ICreateRecordsRo;
-
-  if (typeof axios === 'string') {
-    theAxios = axiosInstance;
-    theTableId = axios;
-    theRecordsRo = tableId as ICreateRecordsRo;
-  } else {
-    theAxios = axios;
-    theTableId = tableId as string;
-    theRecordsRo = recordsRo as ICreateRecordsRo;
-  }
-
-  return theAxios.post<ICreateRecordsVo>(
-    urlBuilder(CREATE_RECORD, { tableId: theTableId }),
-    theRecordsRo
-  );
+  return axios.post<ICreateRecordsVo>(urlBuilder(CREATE_RECORD, { tableId }), recordsRo);
 }

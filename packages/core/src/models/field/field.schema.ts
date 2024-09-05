@@ -176,12 +176,12 @@ export const fieldVoSchema = z.object({
   dbFieldName: z
     .string()
     .min(1, { message: 'name cannot be empty' })
-    .regex(/^[a-z]\w{0,62}$/i, {
+    .regex(/^\w{0,63}$/, {
       message: 'Invalid name format',
     })
     .openapi({
       description:
-        'Field(column) name in backend database. Limitation: 1-63 characters, start with letter, can only contain letters, numbers and underscore, case sensitive, cannot be duplicated with existing db field name in the table.',
+        'Field(column) name in backend database. Limitation: 1-63 characters, can only contain letters, numbers and underscore, case sensitive, cannot be duplicated with existing db field name in the table.',
     }),
 });
 
@@ -365,6 +365,14 @@ export const createFieldRoSchema = baseFieldRoSchema
           'The id of the field that start with "fld", followed by exactly 16 alphanumeric characters `/^fld[\\da-zA-Z]{16}$/`. It is sometimes useful to specify an id at creation time',
         example: 'fldxxxxxxxxxxxxxxxx',
       }),
+      order: z
+        .object({
+          viewId: z.string().openapi({
+            description: 'You can only specify order in one view when create field',
+          }),
+          orderIndex: z.number(),
+        })
+        .optional(),
     })
   )
   .superRefine(refineOptions);

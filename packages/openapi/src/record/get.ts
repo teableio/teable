@@ -1,8 +1,8 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import type { IRecord } from '@teable/core';
 import { CellFormat, FieldKeyType, recordSchema } from '@teable/core';
-import type { Axios, AxiosResponse } from 'axios';
-import { axios as axiosInstance } from '../axios';
+import type { AxiosResponse } from 'axios';
+import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
@@ -75,38 +75,6 @@ export async function getRecord(
   tableId: string,
   recordId: string,
   query?: IGetRecordQuery
-): Promise<AxiosResponse<IRecord>>;
-export async function getRecord(
-  axios: Axios,
-  tableId: string,
-  recordId: string,
-  query?: IGetRecordQuery
-): Promise<AxiosResponse<IRecord>>;
-export async function getRecord(
-  axios: Axios | string,
-  tableId: string,
-  recordId?: string | IGetRecordQuery,
-  query?: IGetRecordQuery
 ): Promise<AxiosResponse<IRecord>> {
-  let theAxios: Axios;
-  let theTableId: string;
-  let theRecordId: string;
-  let theQuery: IGetRecordQuery;
-
-  if (typeof axios === 'string') {
-    theAxios = axiosInstance;
-    theTableId = axios;
-    theRecordId = tableId;
-    theQuery = (recordId as IGetRecordQuery) || {};
-  } else {
-    theAxios = axios;
-    theTableId = tableId;
-    theRecordId = recordId as string;
-    theQuery = query || {};
-  }
-
-  return theAxios.get<IRecord>(
-    urlBuilder(GET_RECORD_URL, { tableId: theTableId, recordId: theRecordId }),
-    { params: theQuery }
-  );
+  return axios.get<IRecord>(urlBuilder(GET_RECORD_URL, { tableId, recordId }), { params: query });
 }
