@@ -121,14 +121,16 @@ export const KanbanContainer = () => {
       };
 
       // Drag a card to the end of another stack
-      if (targetCardId == null && targetIndex !== 0) {
-        const lastTargetCardId = targetCards?.[targetIndex - 1]?.id;
-        if (lastTargetCardId != null) {
-          recordRo.order = {
-            viewId,
-            anchorId: lastTargetCardId,
-            position: 'after',
-          };
+      if (targetCardId == null) {
+        if (targetIndex !== 0) {
+          const lastTargetCardId = targetCards?.[targetIndex - 1]?.id;
+          if (lastTargetCardId != null) {
+            recordRo.order = {
+              viewId,
+              anchorId: lastTargetCardId,
+              position: 'after',
+            };
+          }
         }
       } else {
         recordRo.order = {

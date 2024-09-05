@@ -1,6 +1,7 @@
 {
   "brand": "Teable",
   "actions": {
+    "title": "actions",
     "save": "Save",
     "doNotSave": "Don't Save",
     "submit": "Submit",
@@ -20,6 +21,8 @@
     "editSucceed": "Edit Succeed!",
     "updateSucceed": "Update Succeed!",
     "deleteSucceed": "Delete Succeed!",
+    "resetSucceed": "Empty trash Succeed!",
+    "restoreSucceed": "Restored Succeed!",
     "loading": "Loading...",
     "refreshPage": "Refresh Page",
     "yesDelete": "Yes, delete",
@@ -29,7 +32,9 @@
     "upgrade": "Upgrade",
     "search": "Search",
     "loadMore": "Load more",
-    "collapseSidebar": "Collapse Sidebar"
+    "collapseSidebar": "Collapse Sidebar",
+    "restore": "Restore",
+    "permanentDelete": "Permanent Delete"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -123,7 +128,8 @@
     "adminPanel": "Admin Panel",
     "license": "License",
     "instanceId": "Instance ID",
-    "beta": "Beta"
+    "beta": "Beta",
+    "trash": "Trash"
   },
   "level": {
     "free": "Free",
@@ -254,5 +260,13 @@
       "commenter": "Can comment on records",
       "viewer": "Cannot edit or comment"
     }
+  },
+  "trash": {
+    "type": "Type",
+    "resetTrash": "Empty trash",
+    "deletedBy": "Deleted by",
+    "deletedTime": "Deleted time",
+    "fromSpace": "From \"{{name}}\" space",
+    "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?"
   }
 }

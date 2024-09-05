@@ -180,4 +180,9 @@ export class SpaceController {
       userId,
     });
   }
+
+  @Delete(':spaceId/permanent')
+  async permanentDeleteSpace(@Param('spaceId') spaceId: string) {
+    return await this.spaceService.permanentDeleteSpace(spaceId);
+  }
 }

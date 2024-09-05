@@ -395,3 +395,15 @@ model RecordHistory {
   @@index([tableId, createdTime])
   @@map("record_history")
 }
+
+model Trash {
+  id               String    @id @default(cuid())
+  resourceType     String    @map("resource_type")
+  resourceId       String    @map("resource_id")
+  parentId         String?   @map("parent_id")
+  deletedTime      DateTime  @default(now()) @map("deleted_time")
+  deletedBy        String    @map("deleted_by")
+
+  @@unique([resourceType, resourceId])
+  @@map("trash")
+}

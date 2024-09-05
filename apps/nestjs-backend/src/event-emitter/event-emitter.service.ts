@@ -204,7 +204,7 @@ export class EventEmitterService {
     const entry = this.cls.get('entry');
     return {
       baseId: docId,
-      tableId: docId,
+      tableId: id.startsWith(IdPrefix.Table) ? id : docId,
       viewId: id,
       fieldId: id,
       recordId: id,

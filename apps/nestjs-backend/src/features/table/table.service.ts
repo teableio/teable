@@ -218,7 +218,7 @@ export class TableService implements IReadonlyAdapterService {
     });
   }
 
-  async deleteTable(baseId: string, tableId: string) {
+  async deleteTable(baseId: string, tableId: string, deletedTime: Date) {
     const result = await this.prismaService.txClient().tableMeta.findFirst({
       where: { id: tableId, baseId, deletedTime: null },
     });
@@ -228,9 +228,36 @@ export class TableService implements IReadonlyAdapterService {
     }
 
     const { version } = result;
-    await this.del(version + 1, baseId, tableId);
+    const userId = this.cls.get('user.id');
+
+    await this.prismaService.txClient().tableMeta.update({
+      where: { id: tableId, baseId },
+      data: { version: version + 1, deletedTime, lastModifiedBy: userId },
+    });
 
     await this.batchService.saveRawOps(baseId, RawOpType.Del, IdPrefix.Table, [
+      { docId: tableId, version },
+    ]);
+  }
+
+  async restoreTable(baseId: string, tableId: string) {
+    const result = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { id: tableId, baseId, deletedTime: { not: null } },
+    });
+
+    if (!result) {
+      throw new NotFoundException(`Table ${tableId} not found`);
+    }
+
+    const { version } = result;
+    const userId = this.cls.get('user.id');
+
+    await this.prismaService.txClient().tableMeta.update({
+      where: { id: tableId, baseId },
+      data: { version: version + 1, deletedTime: null, lastModifiedBy: userId },
+    });
+
+    await this.batchService.saveRawOps(baseId, RawOpType.Create, IdPrefix.Table, [
       { docId: tableId, version },
     ]);
   }
@@ -306,14 +333,6 @@ export class TableService implements IReadonlyAdapterService {
 
   async create(baseId: string, snapshot: ITableVo) {
     await this.createDBTable(baseId, snapshot);
-  }
-
-  async del(version: number, baseId: string, tableId: string) {
-    const userId = this.cls.get('user.id');
-    await this.prismaService.txClient().tableMeta.update({
-      where: { id: tableId, baseId },
-      data: { version, deletedTime: new Date(), lastModifiedBy: userId },
-    });
   }
 
   async getSnapshotBulk(baseId: string, ids: string[]): Promise<ISnapshotBase<ITableVo>[]> {

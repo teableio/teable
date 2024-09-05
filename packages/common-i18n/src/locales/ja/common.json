@@ -20,6 +20,8 @@
     "editSucceed": "編集成功！",
     "updateSucceed": "アップデート成功！",
     "deleteSucceed": "削除成功！",
+    "resetSucceed": "リセット成功！",
+    "restoreSucceed": "復元成功！",
     "loading": "読込中...",
     "refreshPage": "ページの更新",
     "yesDelete": "はい、削除",
@@ -29,7 +31,9 @@
     "upgrade": "アップグレード",
     "search": "検索",
     "loadMore": "されに読み込む",
-    "collapseSidebar": "サイドバーを折りたたむ"
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "restore": "復元",
+    "permanentDelete": "永久削除"
   },
   "quickAction": {
     "title": "クイックアクション...",
@@ -254,5 +258,13 @@
       "commenter": "レコードにコメントできます",
       "viewer": "編集もコメントもできません"
     }
+  },
+  "trash": {
+    "type": "タイプ",
+    "resetTrash": "ゴミ箱を空にする",
+    "deletedBy": "削除者",
+    "deletedTime": "削除日時",
+    "fromSpace": "「{{name}}」スペースから",
+    "permanentDeleteTips": "「{{name}}」{{resource}}を完全に削除してもよろしいですか？"
   }
 }

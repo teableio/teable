@@ -1,6 +1,7 @@
 {
   "brand": "Teable",
   "actions": {
+    "title": "Fonctionner",
     "save": "Sauvegarder",
     "doNotSave": "Ne pas sauvegarder",
     "submit": "Soumettre",
@@ -20,6 +21,8 @@
     "editSucceed": "Édition réussie !",
     "updateSucceed": "Mise à jour réussie !",
     "deleteSucceed": "Suppression réussie !",
+    "resetSucceed": "Vidage de la corbeille réussi !",
+    "restoreSucceed": "Restauration réussie !",
     "loading": "Chargement...",
     "refreshPage": "Rafraîchir la page",
     "yesDelete": "Oui, supprimer",
@@ -29,7 +32,9 @@
     "upgrade": "Mettre à niveau",
     "search": "Rechercher",
     "loadMore": "Charger plus",
-    "collapseSidebar": "Réduire la barre latérale"
+    "collapseSidebar": "Réduire la barre latérale",
+    "restore": "Récupérer",
+    "permanentDelete": "Suppression permanente"
   },
   "quickAction": {
     "title": "Actions rapides...",
@@ -123,7 +128,8 @@
     "adminPanel": "Panneau d'administration",
     "license": "Licence",
     "instanceId": "ID d'instance",
-    "beta": "Bêta"
+    "beta": "Bêta",
+    "trash": "Corbeille"
   },
   "level": {
     "free": "Gratuit",
@@ -231,5 +237,13 @@
     "changeSetting": "Modifier les paramètres des notifications de la page",
     "new": "nouveau {{count}}",
     "showMore": "Voir plus"
+  },
+  "trash": {
+    "type": "Type",
+    "resetTrash": "Vider",
+    "deletedBy": "Supprimé par",
+    "deletedTime": "Date de suppression",
+    "fromSpace": "De l'espace \"{{name}}\"",
+    "permanentDeleteTips": "Êtes-vous sûr de vouloir supprimer définitivement \"{{name}}\" {{resource}}?"
   }
 }

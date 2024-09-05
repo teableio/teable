@@ -324,4 +324,25 @@ export class UserService {
       data: { lastSignTime: new Date().toISOString() },
     });
   }
+
+  async getUserInfoList(userIds: string[]) {
+    const userList = await this.prismaService.user.findMany({
+      where: {
+        id: { in: userIds },
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+      },
+    });
+    return userList.map((user) => {
+      const { avatar } = user;
+      return {
+        ...user,
+        avatar: avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
+      };
+    });
+  }
 }

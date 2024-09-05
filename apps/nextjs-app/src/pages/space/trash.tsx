@@ -1,35 +1,23 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import { ReactQueryKeys } from '@teable/sdk';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import { SpaceInnerPage } from '@/features/app/blocks/space';
+import { SpaceTrashPage } from '@/features/app/blocks/trash/SpaceTrashPage';
 import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 
-const Node: NextPageWithLayout = () => <SpaceInnerPage />;
+const SpaceTrash: NextPageWithLayout = () => <SpaceTrashPage />;
+
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
-  const { spaceId } = context.query;
   const queryClient = new QueryClient();
 
-  await Promise.all([
-    queryClient.fetchQuery({
-      queryKey: ReactQueryKeys.space(spaceId as string),
-      queryFn: ({ queryKey }) => ssrApi.getSpaceById(queryKey[1]),
-    }),
-
-    queryClient.fetchQuery({
-      queryKey: ReactQueryKeys.baseAll(),
-      queryFn: () => ssrApi.getBaseList(),
-    }),
-
-    queryClient.fetchQuery({
-      queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string),
-      queryFn: ({ queryKey }) => ssrApi.getSpaceCollaboratorList(queryKey[1]),
-    }),
-  ]);
+  await queryClient.fetchQuery({
+    queryKey: ReactQueryKeys.spaceList(),
+    queryFn: () => ssrApi.getSpaceList(),
+  });
 
   return {
     props: {
@@ -39,8 +27,8 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   };
 });
 
-Node.getLayout = function getLayout(page: ReactElement, pageProps) {
+SpaceTrash.getLayout = function getLayout(page: ReactElement, pageProps) {
   return <SpaceLayout {...pageProps}>{page}</SpaceLayout>;
 };
 
-export default Node;
+export default SpaceTrash;

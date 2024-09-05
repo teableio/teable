@@ -3,6 +3,7 @@ import { DbProvider } from '../../db-provider/db.provider';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldModule } from '../field/field.module';
 import { InvitationModule } from '../invitation/invitation.module';
+import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { TableModule } from '../table/table.module';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseQueryService } from './base-query/base-query.service';
@@ -12,7 +13,7 @@ import { DbConnectionService } from './db-connection.service';
 
 @Module({
   controllers: [BaseController],
-  imports: [CollaboratorModule, FieldModule, TableModule, InvitationModule],
+  imports: [CollaboratorModule, FieldModule, TableModule, InvitationModule, TableOpenApiModule],
   providers: [DbProvider, BaseService, DbConnectionService, BaseDuplicateService, BaseQueryService],
   exports: [BaseService, DbConnectionService, BaseDuplicateService],
 })

@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
   MoreHorizontal,
   Pencil,
@@ -9,6 +10,7 @@ import {
   FileExcel,
 } from '@teable/icons';
 import { SUPPORTEDTYPE } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase, useTables } from '@teable/sdk/hooks';
 import type { Table } from '@teable/sdk/model';
 import { ConfirmDialog } from '@teable/ui-lib/base';
@@ -44,6 +46,7 @@ export const TableOperation = (props: ITableOperationProps) => {
   const base = useBase();
   const tables = useTables();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { baseId, tableId: routerTableId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { trigger } = useDownload({ downloadUrl: `/api/export/${table.id}`, key: 'table' });
@@ -56,10 +59,12 @@ export const TableOperation = (props: ITableOperationProps) => {
 
   const deleteTable = async () => {
     const tableId = table?.id;
-    if (!tableId) {
-      return;
-    }
+
+    if (!tableId) return;
+
     await base.deleteTable(tableId);
+    queryClient.invalidateQueries(ReactQueryKeys.getBaseTrashItems(baseId as string));
+
     const firstTableId = tables.find((t) => t.id !== tableId)?.id;
     if (routerTableId === tableId) {
       router.push(

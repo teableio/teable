@@ -12,3 +12,4 @@ export * from './collaborator-get-list';
 export * from './collaborator-delete';
 export * from './collaborator-update';
 export * from './get-base-list';
+export * from './permanent-delete';

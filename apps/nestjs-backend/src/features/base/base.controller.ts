@@ -275,4 +275,9 @@ export class BaseController {
       userId,
     });
   }
+
+  @Delete(':baseId/permanent')
+  async permanentDeleteBase(@Param('baseId') baseId: string) {
+    return await this.baseService.permanentDeleteBase(baseId);
+  }
 }

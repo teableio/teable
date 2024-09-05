@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Lock, Network } from '@teable/icons';
+import { Lock, Network, Trash } from '@teable/icons';
 import { getBaseUsage, getInstanceUsage } from '@teable/openapi';
 import { useBase, useBasePermission } from '@teable/sdk/hooks';
 import {
@@ -61,13 +61,18 @@ export const BaseSideBar = () => {
           hidden: !basePermission?.['automation|read'],
           disabled: !automationEnable,
         },
-
         {
           href: `/base/${baseId}/authority-matrix`,
           label: t('common:noun.authorityMatrix'),
           Icon: Lock,
           hidden: !basePermission?.['base|authority_matrix_config'],
           disabled: !advancedPermissionsEnable,
+        },
+        {
+          href: `/base/${baseId}/trash`,
+          label: t('common:noun.trash'),
+          Icon: Trash,
+          hidden: !basePermission?.['table|read'],
         },
       ].filter((item) => !item.hidden),
     [advancedPermissionsEnable, automationEnable, baseId, basePermission, t]

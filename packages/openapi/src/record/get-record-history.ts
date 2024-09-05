@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { IdPrefix, fieldVoSchema } from '@teable/core';
+import { fieldVoSchema } from '@teable/core';
 import { axios } from '../axios';
-import { itemSpaceCollaboratorSchema } from '../space';
+import { userMapVoSchema } from '../trash';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
@@ -37,20 +37,7 @@ export type IRecordHistoryItemVo = z.infer<typeof recordHistoryItemVoSchema>;
 
 export const recordHistoryVoSchema = z.object({
   historyList: z.array(recordHistoryItemVoSchema),
-  userMap: z.record(
-    z.string().startsWith(IdPrefix.User),
-    itemSpaceCollaboratorSchema
-      .pick({
-        email: true,
-        avatar: true,
-      })
-      .merge(
-        z.object({
-          id: z.string(),
-          name: z.string(),
-        })
-      )
-  ),
+  userMap: userMapVoSchema,
   nextCursor: z.string().nullish(),
 });
 

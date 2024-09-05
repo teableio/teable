@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import type { IRole } from '@teable/core';
 import { ActionPrefix, actionPrefixMap, generateBaseId, isUnrestrictedRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ResourceType } from '@teable/openapi';
 import type {
   ICreateBaseFromTemplateRo,
   ICreateBaseRo,
@@ -18,6 +19,7 @@ import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 
 @Injectable()
@@ -30,6 +32,7 @@ export class BaseService {
     private readonly collaboratorService: CollaboratorService,
     private readonly baseDuplicateService: BaseDuplicateService,
     private readonly permissionService: PermissionService,
+    private readonly tableOpenApiService: TableOpenApiService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -334,5 +337,38 @@ export class BaseService {
       acc[action] = permissions.includes(action);
       return acc;
     }, {} as IGetBasePermissionVo);
+  }
+
+  async permanentDeleteBase(baseId: string) {
+    const accessTokenId = this.cls.get('accessTokenId');
+    await this.permissionService.validPermissions(baseId, ['table|delete'], accessTokenId, true);
+
+    return await this.prismaService.$tx(
+      async (prisma) => {
+        const tables = await prisma.tableMeta.findMany({
+          where: { baseId },
+          select: { id: true },
+        });
+        const tableIds = tables.map(({ id }) => id);
+
+        for (const tableId of tableIds) {
+          await this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
+        }
+
+        await prisma.base.delete({
+          where: { id: baseId },
+        });
+
+        await prisma.trash.deleteMany({
+          where: {
+            resourceId: baseId,
+            resourceType: ResourceType.Base,
+          },
+        });
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
   }
 }

@@ -1,4 +1,10 @@
-import { BadRequestException, NotFoundException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  Injectable,
+  Logger,
+  ForbiddenException,
+} from '@nestjs/common';
 import type {
   FieldAction,
   IFieldRo,
@@ -19,14 +25,15 @@ import {
   getBasePermission,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type {
-  ICreateRecordsRo,
-  ICreateTableRo,
-  ICreateTableWithDefault,
-  ITableFullVo,
-  ITablePermissionVo,
-  ITableVo,
-  IUpdateOrderRo,
+import {
+  ResourceType,
+  type ICreateRecordsRo,
+  type ICreateTableRo,
+  type ICreateTableWithDefault,
+  type ITableFullVo,
+  type ITablePermissionVo,
+  type ITableVo,
+  type IUpdateOrderRo,
 } from '@teable/openapi';
 import { nanoid } from 'nanoid';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
@@ -207,6 +214,19 @@ export class TableOpenApiService {
   }
 
   async detachLink(tableId: string) {
+    // handle the link field in this table
+    const linkFields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, type: FieldType.Link, isLookup: null, deletedTime: null },
+      select: { id: true },
+    });
+
+    for (const field of linkFields) {
+      await this.fieldOpenApiService.convertField(tableId, field.id, {
+        type: FieldType.SingleLineText,
+      });
+    }
+
+    // handle the link field in related tables
     const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
 
     for (const field of relatedLinkFieldRaws) {
@@ -216,42 +236,121 @@ export class TableOpenApiService {
     }
   }
 
-  async deleteTable(baseId: string, tableId: string, arbitrary = false) {
-    if (!arbitrary) {
-      await this.detachLink(tableId);
-    }
-
+  async permanentDeleteTables(baseId: string, tableIds: string[]) {
     return await this.prismaService.$tx(
       async (prisma) => {
-        await this.tableService.deleteTable(baseId, tableId);
+        // If the table has already been deleted, exceptions may occur
+        // If the table hasn't been deleted and permanent deletion is executed directly,
+        // we need to handle the deletion of associated data
+        try {
+          for (const tableId of tableIds) {
+            await this.detachLink(tableId);
+          }
+        } catch (e) {
+          console.log('Permanent delete tables error:', e);
+        }
 
         // delete field for table
         await prisma.field.deleteMany({
-          where: { tableId },
+          where: { tableId: { in: tableIds } },
         });
 
         // delete view for table
         await prisma.view.deleteMany({
-          where: { tableId },
+          where: { tableId: { in: tableIds } },
         });
 
         // clear ops for view/field/record
         await prisma.ops.deleteMany({
-          where: { collection: tableId },
+          where: { collection: { in: tableIds } },
         });
 
         // clean ops for table
         await prisma.ops.deleteMany({
-          where: { collection: baseId, docId: tableId },
+          where: { collection: baseId, docId: { in: tableIds } },
         });
 
-        if (arbitrary) {
-          const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
-            where: { id: tableId },
-            select: { dbTableName: true },
-          });
-          await prisma.$executeRawUnsafe(this.dbProvider.dropTable(dbTableName));
+        const tables = await prisma.tableMeta.findMany({
+          where: { id: { in: tableIds } },
+          select: { dbTableName: true },
+        });
+
+        for (const table of tables) {
+          await prisma.$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
         }
+
+        await prisma.tableMeta.deleteMany({
+          where: { id: { in: tableIds } },
+        });
+
+        // clean record history for table
+        await prisma.recordHistory.deleteMany({
+          where: { tableId: { in: tableIds } },
+        });
+
+        // clean trash for table
+        await prisma.trash.deleteMany({
+          where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
+        });
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
+  }
+
+  async deleteTable(baseId: string, tableId: string) {
+    return await this.prismaService.$tx(
+      async (prisma) => {
+        const deletedTime = new Date();
+        await this.detachLink(tableId);
+
+        await this.tableService.deleteTable(baseId, tableId, deletedTime);
+
+        await prisma.field.updateMany({
+          where: { tableId, deletedTime: null },
+          data: { deletedTime },
+        });
+
+        await prisma.view.updateMany({
+          where: { tableId, deletedTime: null },
+          data: { deletedTime },
+        });
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
+  }
+
+  async restoreTable(baseId: string, tableId: string) {
+    return await this.prismaService.$tx(
+      async (prisma) => {
+        const { deletedTime } = await prisma.trash.findFirstOrThrow({
+          where: { resourceId: tableId, resourceType: ResourceType.Table },
+        });
+
+        if (!deletedTime) {
+          throw new ForbiddenException(
+            'Unable to restore this table because it is not in the trash'
+          );
+        }
+
+        await this.tableService.restoreTable(baseId, tableId);
+
+        await prisma.field.updateMany({
+          where: { tableId, deletedTime },
+          data: { deletedTime: null },
+        });
+
+        await prisma.view.updateMany({
+          where: { tableId, deletedTime },
+          data: { deletedTime: null },
+        });
+
+        await prisma.trash.deleteMany({
+          where: { resourceId: tableId },
+        });
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
