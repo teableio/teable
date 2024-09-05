@@ -9,7 +9,7 @@ import {
   getFields,
   getView,
   createTable,
-  deleteTable,
+  permanentDeleteTable,
 } from './utils/init-app';
 
 let app: INestApplication;
@@ -36,7 +36,7 @@ describe('OpenAPI ViewController (e2e) columnMeta (PUT) update order', () => {
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update order and field should return by order`, async () => {
@@ -80,7 +80,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update hidden', () => {
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update hidden`, async () => {
     const { views } = tableMeta;
@@ -132,7 +132,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update width', () => {
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update width`, async () => {
@@ -168,7 +168,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update statisticFunc', ()
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update statisticFunc`, async () => {
@@ -214,7 +214,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update required for the f
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test required`, async () => {
@@ -259,7 +259,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update visible for the fo
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test visible`, async () => {
@@ -295,7 +295,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update multiple single', 
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test update should not cover`, async () => {
@@ -356,7 +356,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) multiple update', () => {
     tableMeta = result;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test multiple data`, async () => {
@@ -395,7 +395,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) params validate', () => {
     viewId = result.defaultViewId!;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/columnMeta (PUT) test validate fieldId legitimacy`, async () => {

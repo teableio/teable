@@ -5,7 +5,7 @@ import type { ITableFullVo, IGetRecordsRo } from '@teable/openapi';
 import { updateViewGroup, updateViewSort } from '@teable/openapi';
 import { isEmpty, orderBy } from 'lodash';
 import { x_20 } from './data-helpers/20x';
-import { createTable, deleteTable, getRecords, getView, initApp } from './utils/init-app';
+import { createTable, permanentDeleteTable, getRecords, getView, initApp } from './utils/init-app';
 
 let app: INestApplication;
 
@@ -69,7 +69,7 @@ describe('OpenAPI ViewController view group (e2e)', () => {
     fields = result.fields!;
   });
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test('/api/table/{tableId}/view/{viewId}/viewGroup view group (PUT)', async () => {
@@ -100,7 +100,7 @@ describe('OpenAPI ViewController raw group (e2e) base cellValueType', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, table.id);
+    await permanentDeleteTable(baseId, table.id);
   });
 
   test.each(typeTests)(

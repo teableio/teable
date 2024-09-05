@@ -5,7 +5,7 @@ import type { IRecordsVo } from '@teable/openapi';
 import {
   createField,
   createTable,
-  deleteTable,
+  permanentDeleteTable,
   getFields,
   getRecords,
   initApp,
@@ -28,7 +28,7 @@ describe('OpenAPI Field calculation (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
     await app.close();
   });
 

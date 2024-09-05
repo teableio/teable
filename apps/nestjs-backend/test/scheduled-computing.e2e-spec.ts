@@ -2,7 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { deleteTableArbitrary, getRecords } from '@teable/openapi';
+import { permanentDeleteTable, getRecords } from '@teable/openapi';
 import { initApp, createTable, createField, deleteField, convertField } from './utils/init-app';
 import { seeding } from './utils/record-mock';
 
@@ -27,7 +27,7 @@ describe('Test Scheduled Computing', () => {
   }, 100_000);
 
   afterEach(async () => {
-    await deleteTableArbitrary(baseId, table.id);
+    await permanentDeleteTable(baseId, table.id);
     console.log('clear table: ', table.id);
   });
 

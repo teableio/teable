@@ -6,7 +6,7 @@ import { map } from 'lodash';
 import { type Doc } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
 import { getError } from './utils/get-error';
-import { initApp, updateViewColumnMeta, createTable, deleteTable } from './utils/init-app';
+import { initApp, updateViewColumnMeta, createTable, permanentDeleteTable } from './utils/init-app';
 
 describe('Share (socket-e2e) (e2e)', () => {
   let app: INestApplication;
@@ -48,7 +48,7 @@ describe('Share (socket-e2e) (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
 
     await app.close();
   });

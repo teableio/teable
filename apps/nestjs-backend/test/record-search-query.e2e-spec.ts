@@ -3,7 +3,7 @@ import type { ITableFullVo } from '@teable/openapi';
 import { getRecords as apiGetRecords, createField } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
-import { createTable, deleteTable, initApp, getFields } from './utils/init-app';
+import { createTable, permanentDeleteTable, initApp, getFields } from './utils/init-app';
 
 describe('OpenAPI Record-Search-Query (e2e)', () => {
   let app: INestApplication;
@@ -45,8 +45,8 @@ describe('OpenAPI Record-Search-Query (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table.id);
-      await deleteTable(baseId, subTable.id);
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, subTable.id);
     });
 
     describe('simple search fields', () => {

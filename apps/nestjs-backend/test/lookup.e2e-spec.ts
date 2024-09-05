@@ -22,7 +22,7 @@ import {
   createField,
   deleteField,
   createTable,
-  deleteTable,
+  permanentDeleteTable,
   getFields,
   getRecord,
   initApp,
@@ -143,8 +143,8 @@ describe('OpenAPI Lookup field (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, table1.id);
-    await deleteTable(baseId, table2.id);
+    await permanentDeleteTable(baseId, table1.id);
+    await permanentDeleteTable(baseId, table2.id);
     await app.close();
   });
 

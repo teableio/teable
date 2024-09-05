@@ -47,7 +47,7 @@ import type { ITableFullVo } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import { createAwaitWithEvent } from './utils/event-promise';
-import { initApp, deleteTable, createTable, updateRecordByApi } from './utils/init-app';
+import { initApp, permanentDeleteTable, createTable, updateRecordByApi } from './utils/init-app';
 
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
@@ -77,7 +77,7 @@ describe('Undo Redo (e2e)', () => {
   });
 
   afterEach(async () => {
-    await deleteTable(baseId, table.id);
+    await permanentDeleteTable(baseId, table.id);
   });
 
   it('should undo / redo create records', async () => {
@@ -1150,9 +1150,9 @@ describe('Undo Redo (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
-      await deleteTable(baseId, table3.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table3.id);
     });
 
     it('should undo / redo delete record with link', async () => {

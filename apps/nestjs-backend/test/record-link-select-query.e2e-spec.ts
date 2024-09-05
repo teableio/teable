@@ -8,7 +8,7 @@ import { getRowCount as apiGetRowCount } from '@teable/openapi';
 import {
   createField,
   createTable,
-  deleteTable,
+  permanentDeleteTable,
   getFields,
   getRecords,
   initApp,
@@ -71,8 +71,8 @@ describe('OpenAPI link Select (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     describe.each([

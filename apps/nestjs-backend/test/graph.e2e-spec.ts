@@ -3,7 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship, type IFieldRo, FieldKeyType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import { planField, planFieldCreate, planFieldConvert, updateRecord } from '@teable/openapi';
-import { createField, createTable, deleteTable, initApp } from './utils/init-app';
+import { createField, createTable, permanentDeleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI Graph (e2e)', () => {
   let app: INestApplication;
@@ -31,8 +31,8 @@ describe('OpenAPI Graph (e2e)', () => {
   });
 
   afterEach(async () => {
-    await deleteTable(baseId, table1.id);
-    await deleteTable(baseId, table2.id);
+    await permanentDeleteTable(baseId, table1.id);
+    await permanentDeleteTable(baseId, table2.id);
   });
 
   it('should create formula field plan', async () => {

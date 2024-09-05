@@ -128,9 +128,9 @@ export class TableController {
     return await this.tableOpenApiService.deleteTable(baseId, tableId);
   }
 
-  @Delete('arbitrary/:tableId')
+  @Delete(':tableId/permanent')
   @Permissions('table|delete')
-  deleteTableArbitrary(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+  permanentDeleteTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
     return this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
   }
 

@@ -21,7 +21,7 @@ import {
 import * as XLSX from 'xlsx';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
 
-import { initApp, deleteTable, getTable as apiGetTableById } from './utils/init-app';
+import { initApp, permanentDeleteTable, getTable as apiGetTableById } from './utils/init-app';
 
 enum TestFileFormat {
   'CSV' = 'csv',
@@ -179,7 +179,7 @@ describe('OpenAPI ImportController (e2e)', () => {
     });
     for (let i = 0; i < bases.length; i++) {
       const [baseId, id] = bases[i];
-      await deleteTable(baseId, id);
+      await permanentDeleteTable(baseId, id);
       await apiDeleteBase(baseId);
     }
     await app.close();

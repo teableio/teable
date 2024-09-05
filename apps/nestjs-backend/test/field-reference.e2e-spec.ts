@@ -2,7 +2,13 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
 import type { LinkFieldDto } from '../src/features/field/model/field-dto/link-field.dto';
-import { createField, createTable, deleteTable, getField, initApp } from './utils/init-app';
+import {
+  createField,
+  createTable,
+  permanentDeleteTable,
+  getField,
+  initApp,
+} from './utils/init-app';
 
 describe('OpenAPI link field reference (e2e)', () => {
   let app: INestApplication;
@@ -19,8 +25,8 @@ describe('OpenAPI link field reference (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, table1Id);
-    await deleteTable(baseId, table2Id);
+    await permanentDeleteTable(baseId, table1Id);
+    await permanentDeleteTable(baseId, table2Id);
 
     await app.close();
   });

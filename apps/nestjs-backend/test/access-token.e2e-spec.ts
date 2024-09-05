@@ -28,7 +28,7 @@ import {
 import dayjs from 'dayjs';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { createTable, deleteTable, initApp } from './utils/init-app';
+import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AccessTokenController (e2e)', () => {
   let app: INestApplication;
@@ -57,7 +57,7 @@ describe('OpenAPI AccessTokenController (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, table.id);
+    await permanentDeleteTable(baseId, table.id);
     const { data } = await listAccessToken();
     for (const { id } of data) {
       await deleteAccessToken(id);

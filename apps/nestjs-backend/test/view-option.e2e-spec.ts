@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { IViewOptions, IGridView, IFormView } from '@teable/core';
 import { RowHeightLevel, ViewType } from '@teable/core';
 import { updateViewOptions as apiSetViewOption } from '@teable/openapi';
-import { initApp, getView, createTable, deleteTable } from './utils/init-app';
+import { initApp, getView, createTable, permanentDeleteTable } from './utils/init-app';
 
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
@@ -35,7 +35,7 @@ describe('OpenAPI ViewController (e2e) option (PUT) update grid view option', ()
     viewIds = result.views.map((view) => view.id);
   });
   afterAll(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   it(`/table/{tableId}/view/{viewId}/option (PUT) update option rowHeight`, async () => {
@@ -64,7 +64,7 @@ describe('OpenAPI ViewController (e2e) option (PUT) update form view option', ()
     viewId = result.defaultViewId!;
   });
   afterAll(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   it(`/table/{tableId}/view/{viewId}/option (PUT) update option coverUrl`, async () => {

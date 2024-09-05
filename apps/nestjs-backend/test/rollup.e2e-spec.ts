@@ -15,7 +15,7 @@ import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createTable,
-  deleteTable,
+  permanentDeleteTable,
   getFields,
   initApp,
   updateRecord,
@@ -133,8 +133,8 @@ describe('OpenAPI Rollup field (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, table1.id);
-    await deleteTable(baseId, table2.id);
+    await permanentDeleteTable(baseId, table1.id);
+    await permanentDeleteTable(baseId, table2.id);
 
     await app.close();
   });

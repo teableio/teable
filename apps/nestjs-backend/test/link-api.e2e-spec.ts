@@ -14,7 +14,7 @@ import {
   createTable,
   deleteField,
   deleteRecord,
-  deleteTable,
+  permanentDeleteTable,
   getField,
   getFields,
   getRecord,
@@ -44,8 +44,8 @@ describe('OpenAPI link (e2e)', () => {
     let table2: ITableFullVo;
 
     afterEach(async () => {
-      table1 && (await deleteTable(baseId, table1.id));
-      table2 && (await deleteTable(baseId, table2.id));
+      table1 && (await permanentDeleteTable(baseId, table1.id));
+      table2 && (await permanentDeleteTable(baseId, table2.id));
     });
 
     it('should create foreign link field when create a new table with many-one link field', async () => {
@@ -581,8 +581,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should create two way, many many link', async () => {
@@ -867,8 +867,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -1243,8 +1243,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -1649,8 +1649,8 @@ describe('OpenAPI link (e2e)', () => {
       });
 
       afterEach(async () => {
-        await deleteTable(baseId, table1.id);
-        await deleteTable(baseId, table2.id);
+        await permanentDeleteTable(baseId, table1.id);
+        await permanentDeleteTable(baseId, table2.id);
       });
 
       it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -1859,8 +1859,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should update foreign link field when set a new link in to link field cell', async () => {
@@ -2124,8 +2124,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should update many-one record when add both many-one and many-one link', async () => {
@@ -2279,8 +2279,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should clean single link record when delete a record', async () => {
@@ -2481,8 +2481,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should update record in two same manyOne link', async () => {
@@ -2587,8 +2587,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should update primary field cell with another cell', async () => {
@@ -2684,8 +2684,8 @@ describe('OpenAPI link (e2e)', () => {
       });
 
       afterEach(async () => {
-        await deleteTable(baseId, table1.id);
-        await deleteTable(baseId, table2.id);
+        await permanentDeleteTable(baseId, table1.id);
+        await permanentDeleteTable(baseId, table2.id);
       });
 
       it('should safe delete link field', async () => {
@@ -2742,8 +2742,8 @@ describe('OpenAPI link (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should correct update db table name', async () => {

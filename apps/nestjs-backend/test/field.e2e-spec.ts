@@ -25,7 +25,7 @@ import {
   createField,
   createTable,
   deleteField,
-  deleteTable,
+  permanentDeleteTable,
   getFields,
   getRecord,
   initApp,
@@ -55,7 +55,7 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table1.id);
     });
 
     it('/api/table/{tableId}/field (GET)', async () => {
@@ -96,8 +96,8 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     async function createFieldByType(
@@ -244,8 +244,8 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     async function createFieldWithUnique(
@@ -430,8 +430,8 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     let prisma: PrismaService;

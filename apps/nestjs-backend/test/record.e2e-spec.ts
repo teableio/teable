@@ -18,7 +18,7 @@ import {
   deleteField,
   deleteRecord,
   deleteRecords,
-  deleteTable,
+  permanentDeleteTable,
   getField,
   getRecord,
   getRecords,
@@ -71,7 +71,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table.id);
     });
 
     it('should get records', async () => {
@@ -306,8 +306,8 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, mainTable.id);
-      await deleteTable(baseId, foreignTable.id);
+      await permanentDeleteTable(baseId, mainTable.id);
+      await permanentDeleteTable(baseId, foreignTable.id);
     });
 
     it('should get record history of changes in the base cell values', async () => {
@@ -389,7 +389,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table.id);
     });
 
     const clearRecords = async () => {
@@ -499,7 +499,7 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table.id);
     });
 
     it('should create a record and auto calculate computed field', async () => {
@@ -590,8 +590,8 @@ describe('OpenAPI RecordController (e2e)', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table1.id);
-      await deleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
     });
 
     it('should create a record with error field formula', async () => {
