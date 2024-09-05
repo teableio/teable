@@ -204,7 +204,11 @@ export class SpaceService {
 
   async permanentDeleteSpace(spaceId: string) {
     const accessTokenId = this.cls.get('accessTokenId');
-    await this.permissionService.validPermissions(spaceId, ['table|delete'], accessTokenId, true);
+    await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);
+
+    await this.prismaService.space.findUniqueOrThrow({
+      where: { id: spaceId },
+    });
 
     await this.prismaService.$tx(
       async (prisma) => {
@@ -217,10 +221,17 @@ export class SpaceService {
           await this.baseService.permanentDeleteBase(id);
         }
 
+        // delete collaborators for space
+        await prisma.collaborator.deleteMany({
+          where: { resourceId: spaceId, resourceType: CollaboratorType.Space },
+        });
+
+        // delete space
         await prisma.space.delete({
           where: { id: spaceId },
         });
 
+        // delete trash for space
         await prisma.trash.deleteMany({
           where: {
             resourceId: spaceId,

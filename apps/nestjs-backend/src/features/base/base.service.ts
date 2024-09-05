@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import type { IRole } from '@teable/core';
 import { ActionPrefix, actionPrefixMap, generateBaseId, isUnrestrictedRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ResourceType } from '@teable/openapi';
+import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
   ICreateBaseFromTemplateRo,
   ICreateBaseRo,
@@ -355,10 +355,17 @@ export class BaseService {
           await this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
         }
 
+        // delete collaborators for space
+        await prisma.collaborator.deleteMany({
+          where: { resourceId: baseId, resourceType: CollaboratorType.Base },
+        });
+
+        // delete base
         await prisma.base.delete({
           where: { id: baseId },
         });
 
+        // delete trash for base
         await prisma.trash.deleteMany({
           where: {
             resourceId: baseId,

@@ -140,22 +140,28 @@ export class PermissionService {
   private async isBaseIdAllowedForResource(
     baseId: string,
     spaceIds: string[] | undefined,
-    baseIds: string[] | undefined
+    baseIds: string[] | undefined,
+    includeInactiveResource?: boolean
   ) {
-    const upperId = await this.getUpperIdByBaseId(baseId);
+    const upperId = await this.getUpperIdByBaseId(baseId, includeInactiveResource);
     return spaceIds?.includes(upperId.spaceId) || baseIds?.includes(baseId);
   }
 
   private async isTableIdAllowedForResource(
     tableId: string,
     spaceIds: string[] | undefined,
-    baseIds: string[] | undefined
+    baseIds: string[] | undefined,
+    includeInactiveResource?: boolean
   ) {
-    const { spaceId, baseId } = await this.getUpperIdByTableId(tableId);
+    const { spaceId, baseId } = await this.getUpperIdByTableId(tableId, includeInactiveResource);
     return spaceIds?.includes(spaceId) || baseIds?.includes(baseId);
   }
 
-  async getPermissionsByAccessToken(resourceId: string, accessTokenId: string) {
+  async getPermissionsByAccessToken(
+    resourceId: string,
+    accessTokenId: string,
+    includeInactiveResource?: boolean
+  ) {
     const { scopes, spaceIds, baseIds } = await this.getAccessToken(accessTokenId);
 
     if (
@@ -172,14 +178,24 @@ export class PermissionService {
 
     if (
       resourceId.startsWith(IdPrefix.Base) &&
-      !(await this.isBaseIdAllowedForResource(resourceId, spaceIds, baseIds))
+      !(await this.isBaseIdAllowedForResource(
+        resourceId,
+        spaceIds,
+        baseIds,
+        includeInactiveResource
+      ))
     ) {
       throw new ForbiddenException(`not allowed to base ${resourceId}`);
     }
 
     if (
       resourceId.startsWith(IdPrefix.Table) &&
-      !(await this.isTableIdAllowedForResource(resourceId, spaceIds, baseIds))
+      !(await this.isTableIdAllowedForResource(
+        resourceId,
+        spaceIds,
+        baseIds,
+        includeInactiveResource
+      ))
     ) {
       throw new ForbiddenException(`not allowed to table ${resourceId}`);
     }
@@ -232,7 +248,8 @@ export class PermissionService {
     if (accessTokenId) {
       const accessTokenPermission = await this.getPermissionsByAccessToken(
         resourceId,
-        accessTokenId
+        accessTokenId,
+        includeInactiveResource
       );
       return intersection(userPermissions, accessTokenPermission);
     }
