@@ -267,7 +267,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const recordAfter2 = await getRecord(table1.id, table1.records[1].id);
-    expect(recordAfter2.fields[rollupFieldVo.id]).toEqual(1);
+    expect(recordAfter2.fields[rollupFieldVo.id]).toBeUndefined();
 
     // add a link record from many - one field
     await updateRecordField(
@@ -312,7 +312,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     const record3 = await getRecord(table2.id, table2.records[1].id);
     expect(record3.fields[rollupFieldVo.id]).toEqual(123);
     const record4 = await getRecord(table2.id, table2.records[2].id);
-    expect(record4.fields[rollupFieldVo.id]).toEqual(0);
+    expect(record4.fields[rollupFieldVo.id]).toBeUndefined();
 
     // remove all link record
     await updateRecordField(
@@ -323,7 +323,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const record5 = await getRecord(table2.id, table2.records[1].id);
-    expect(record5.fields[rollupFieldVo.id]).toEqual(0);
+    expect(record5.fields[rollupFieldVo.id]).toBeUndefined();
 
     // add a link record from many - one field
     await updateRecordField(
@@ -377,7 +377,7 @@ describe('OpenAPI Rollup field (e2e)', () => {
     );
 
     const record1 = await getRecord(table1.id, table1.records[1].id);
-    expect(record1.fields[rollupFieldVo.id]).toEqual(1);
+    expect(record1.fields[rollupFieldVo.id]).toBeUndefined();
     const record2 = await getRecord(table1.id, table1.records[2].id);
     expect(record2.fields[rollupFieldVo.id]).toEqual(1);
   });
@@ -411,6 +411,24 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
     const recordAfter1 = await getRecord(table1.id, table1.records[1].id);
     expect(recordAfter1.fields[rollupFieldVo.id]).toEqual('123, 456');
+  });
+
+  it('should roll up a flat array  multiple select field -> one - many rollup field', async () => {
+    const lookedUpToField = getFieldByType(table2.fields, FieldType.MultipleSelect);
+    const rollupFieldVo = await rollupFrom(table1, lookedUpToField.id, 'countall({values})');
+    // update a field that will be lookup by after field
+    await updateRecordField(table2.id, table2.records[1].id, lookedUpToField.id, ['rap', 'rock']);
+    await updateRecordField(table2.id, table2.records[2].id, lookedUpToField.id, ['rap', 'hiphop']);
+
+    // add a link record after
+    await updateRecordField(
+      table1.id,
+      table1.records[1].id,
+      getFieldByType(table1.fields, FieldType.Link).id,
+      [{ id: table2.records[1].id }, { id: table2.records[2].id }]
+    );
+    const record = await getRecord(table1.id, table1.records[1].id);
+    expect(record.fields[rollupFieldVo.id]).toEqual(4);
   });
 
   it('should update one - many rollupField by replace a linkRecord from cell', async () => {
