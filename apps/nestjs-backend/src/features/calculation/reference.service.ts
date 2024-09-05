@@ -558,6 +558,9 @@ export class ReferenceService {
 
     if (field.type === FieldType.Rollup) {
       // console.log('calculateRollup', field, lookupField, record, lookupValues);
+      if (lookupValues == null) {
+        return null;
+      }
       return field
         .evaluate(
           { values: virtualField },
