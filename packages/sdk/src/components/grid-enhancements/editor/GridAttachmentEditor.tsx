@@ -51,7 +51,7 @@ export const GridAttachmentEditor = forwardRef<
           container={containerRef.current}
           className={cn(
             'click-outside-ignore flex-1 overflow-hidden max-w-xl',
-            Object.values(attachments || {}).length > 5 ? 'h-full max-h-[900px] mt-1 mb-1' : 'h-96'
+            Object.values(attachments || {}).length > 5 ? 'h-full max-h-[600px] mt-1 mb-1' : 'h-96'
           )}
         >
           <AttachmentEditorMain value={attachments || []} onChange={setAttachments} />
