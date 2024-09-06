@@ -86,14 +86,14 @@ describe('PermissionService', () => {
       const resourceId = 'bsexxxxxx';
       vi.spyOn(service as any, 'getPermissionByBaseId').mockImplementation(noop);
       await service.getPermissionsByResourceId(resourceId);
-      expect(service['getPermissionByBaseId']).toHaveBeenCalledWith(resourceId);
+      expect(service['getPermissionByBaseId']).toHaveBeenCalledWith(resourceId, undefined);
     });
 
     it('should return permissions for a table resource', async () => {
       const resourceId = 'tblxxxxxxx';
       vi.spyOn(service as any, 'getPermissionByTableId').mockImplementation(noop);
       await service.getPermissionsByResourceId(resourceId);
-      expect(service['getPermissionByTableId']).toHaveBeenCalledWith(resourceId);
+      expect(service['getPermissionByTableId']).toHaveBeenCalledWith(resourceId, undefined);
     });
 
     it('should throw an error if resource is not found', async () => {
