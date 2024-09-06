@@ -80,8 +80,8 @@ export class CountAll extends ArrayFunc {
   acceptMultipleValue = true;
 
   validateParams(params: TypedValue[]) {
-    if (params.length < 1) {
-      throw new Error(`${FunctionName.CountAll} needs at least 1 param`);
+    if (params.length !== 1) {
+      throw new Error(`${FunctionName.CountAll} needs 1 param`);
     }
   }
 
@@ -91,7 +91,13 @@ export class CountAll extends ArrayFunc {
   }
 
   eval(params: TypedValue<IUnionType>[]): number {
-    return countCalculator(params, () => true);
+    if (params[0].value == null) {
+      return 0;
+    }
+    if (Array.isArray(params[0].value)) {
+      return params[0].value.length;
+    }
+    return 1;
   }
 }
 
