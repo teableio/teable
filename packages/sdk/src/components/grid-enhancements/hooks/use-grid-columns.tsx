@@ -171,7 +171,7 @@ export const useCreateCellValue2GridDisplay = () => {
   return useCallback(
     (fields: IFieldInstance[], editable: (field: IFieldInstance) => boolean) =>
       // eslint-disable-next-line sonarjs/cognitive-complexity
-      (record: Record, col: number): ICell => {
+      (record: Record, col: number, isPrefilling?: boolean): ICell => {
         const field = fields[col];
 
         if (field == null) return { type: CellType.Loading };
@@ -187,7 +187,7 @@ export const useCreateCellValue2GridDisplay = () => {
         let cellValue = record.getCellValue(fieldId);
         const validateCellValue = field.validateCellValue(cellValue);
         cellValue = validateCellValue.success ? validateCellValue.data : undefined;
-        const readonly = isComputed || !editable(field);
+        const readonly = isComputed || (!editable(field) && !isPrefilling);
         const cellId = `${record.id}-${fieldId}`;
         const baseCellProps = { id: cellId, readonly };
 
