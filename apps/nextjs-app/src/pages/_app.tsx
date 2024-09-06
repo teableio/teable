@@ -13,7 +13,7 @@ import { useEffect } from 'react';
 import { z } from 'zod';
 import { getUserMe } from '@/backend/api/rest/get-user';
 import { Guide } from '@/components/Guide';
-import { MicrosoftClarity } from '@/components/Metrics';
+import { MicrosoftClarity, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import type { IServerEnv } from '@/lib/server-env';
 import type { NextPageWithLayout } from '@/lib/type';
@@ -68,11 +68,15 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
-        <MicrosoftClarity clarityId={env?.microsoftClarityId} />
+        <MicrosoftClarity clarityId={process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_ID} user={user} />
+        <Umami
+          umamiWebSiteId={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+          umamiUrl={process.env.NEXT_PUBLIC_UMAMI_URL}
+          user={user}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              window.clarity && window.clarity("identify", "${user?.email || user?.id}");
               window.version="${process.env.NEXT_PUBLIC_BUILD_VERSION ?? 'develop'}";
               window.__TE__=${JSON.stringify(env)};
             `,
@@ -109,7 +113,6 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
     env: {
       driver,
       templateSiteLink: process.env.TEMPLATE_SITE_LINK,
-      microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
       sentryDsn: process.env.SENTRY_DSN,
       socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
       storagePrefix: process.env.STORAGE_PREFIX,
