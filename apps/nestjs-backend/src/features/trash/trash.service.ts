@@ -259,7 +259,6 @@ export class TrashService {
         .findUniqueOrThrow({
           where: { id: trashId },
           select: {
-            parentId: true,
             resourceId: true,
             resourceType: true,
           },

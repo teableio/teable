@@ -237,61 +237,21 @@ export class TableOpenApiService {
   }
 
   async permanentDeleteTables(baseId: string, tableIds: string[]) {
+    // If the table has already been deleted, exceptions may occur
+    // If the table hasn't been deleted and permanent deletion is executed directly,
+    // we need to handle the deletion of associated data
+    try {
+      for (const tableId of tableIds) {
+        await this.detachLink(tableId);
+      }
+    } catch (e) {
+      console.log('Permanent delete tables error:', e);
+    }
+
     return await this.prismaService.$tx(
-      async (prisma) => {
-        // If the table has already been deleted, exceptions may occur
-        // If the table hasn't been deleted and permanent deletion is executed directly,
-        // we need to handle the deletion of associated data
-        try {
-          for (const tableId of tableIds) {
-            await this.detachLink(tableId);
-          }
-        } catch (e) {
-          console.log('Permanent delete tables error:', e);
-        }
-
-        // delete field for table
-        await prisma.field.deleteMany({
-          where: { tableId: { in: tableIds } },
-        });
-
-        // delete view for table
-        await prisma.view.deleteMany({
-          where: { tableId: { in: tableIds } },
-        });
-
-        // clear ops for view/field/record
-        await prisma.ops.deleteMany({
-          where: { collection: { in: tableIds } },
-        });
-
-        // clean ops for table
-        await prisma.ops.deleteMany({
-          where: { collection: baseId, docId: { in: tableIds } },
-        });
-
-        const tables = await prisma.tableMeta.findMany({
-          where: { id: { in: tableIds } },
-          select: { dbTableName: true },
-        });
-
-        for (const table of tables) {
-          await prisma.$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
-        }
-
-        await prisma.tableMeta.deleteMany({
-          where: { id: { in: tableIds } },
-        });
-
-        // clean record history for table
-        await prisma.recordHistory.deleteMany({
-          where: { tableId: { in: tableIds } },
-        });
-
-        // clean trash for table
-        await prisma.trash.deleteMany({
-          where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
-        });
+      async () => {
+        await this.dropTables(tableIds);
+        await this.cleanTablesRelatedData(baseId, tableIds);
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
@@ -299,11 +259,77 @@ export class TableOpenApiService {
     );
   }
 
+  async dropTables(tableIds: string[]) {
+    const tables = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: tableIds } },
+      select: { dbTableName: true },
+    });
+
+    for (const table of tables) {
+      await this.prismaService
+        .txClient()
+        .$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
+    }
+  }
+
+  async cleanReferenceFieldIds(tableIds: string[]) {
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId: { in: tableIds }, type: { in: [FieldType.Link, FieldType.Formula] } },
+      select: { id: true },
+    });
+    const fieldIds = fields.map((field) => field.id);
+    await this.prismaService.txClient().reference.deleteMany({
+      where: { OR: [{ fromFieldId: { in: fieldIds } }, { toFieldId: { in: fieldIds } }] },
+    });
+  }
+
+  async cleanTablesRelatedData(baseId: string, tableIds: string[]) {
+    // delete field for table
+    await this.prismaService.txClient().field.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
+    // delete view for table
+    await this.prismaService.txClient().view.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
+    // clean attachment for table
+    await this.prismaService.txClient().attachmentsTable.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
+    // clear ops for view/field/record
+    await this.prismaService.txClient().ops.deleteMany({
+      where: { collection: { in: tableIds } },
+    });
+
+    // clean ops for table
+    await this.prismaService.txClient().ops.deleteMany({
+      where: { collection: baseId, docId: { in: tableIds } },
+    });
+
+    await this.prismaService.txClient().tableMeta.deleteMany({
+      where: { id: { in: tableIds } },
+    });
+
+    // clean record history for table
+    await this.prismaService.txClient().recordHistory.deleteMany({
+      where: { tableId: { in: tableIds } },
+    });
+
+    // clean trash for table
+    await this.prismaService.txClient().trash.deleteMany({
+      where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
+    });
+  }
+
   async deleteTable(baseId: string, tableId: string) {
+    await this.detachLink(tableId);
+
     return await this.prismaService.$tx(
       async (prisma) => {
         const deletedTime = new Date();
-        await this.detachLink(tableId);
 
         await this.tableService.deleteTable(baseId, tableId, deletedTime);
 

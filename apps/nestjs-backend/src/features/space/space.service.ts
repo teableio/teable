@@ -221,27 +221,41 @@ export class SpaceService {
           await this.baseService.permanentDeleteBase(id);
         }
 
-        // delete collaborators for space
-        await prisma.collaborator.deleteMany({
-          where: { resourceId: spaceId, resourceType: CollaboratorType.Space },
-        });
-
-        // delete space
-        await prisma.space.delete({
-          where: { id: spaceId },
-        });
-
-        // delete trash for space
-        await prisma.trash.deleteMany({
-          where: {
-            resourceId: spaceId,
-            resourceType: ResourceType.Space,
-          },
-        });
+        await this.cleanSpaceRelatedData(spaceId);
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+  }
+
+  async cleanSpaceRelatedData(spaceId: string) {
+    // delete collaborators for space
+    await this.prismaService.txClient().collaborator.deleteMany({
+      where: { resourceId: spaceId, resourceType: CollaboratorType.Space },
+    });
+
+    // delete invitation for space
+    await this.prismaService.txClient().invitation.deleteMany({
+      where: { spaceId },
+    });
+
+    // delete invitation record for space
+    await this.prismaService.txClient().invitationRecord.deleteMany({
+      where: { spaceId },
+    });
+
+    // delete space
+    await this.prismaService.txClient().space.delete({
+      where: { id: spaceId },
+    });
+
+    // delete trash for space
+    await this.prismaService.txClient().trash.deleteMany({
+      where: {
+        resourceId: spaceId,
+        resourceType: ResourceType.Space,
+      },
+    });
   }
 }

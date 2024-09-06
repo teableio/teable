@@ -244,6 +244,7 @@
     "deletedBy": "Supprimé par",
     "deletedTime": "Date de suppression",
     "fromSpace": "De l'espace \"{{name}}\"",
-    "permanentDeleteTips": "Êtes-vous sûr de vouloir supprimer définitivement \"{{name}}\" {{resource}}?"
+    "permanentDeleteTips": "Êtes-vous sûr de vouloir supprimer définitivement \"{{name}}\" {{resource}}?",
+    "resetTrashConfirm": "Êtes-vous sûr de vouloir vider la corbeille?"
   }
 }

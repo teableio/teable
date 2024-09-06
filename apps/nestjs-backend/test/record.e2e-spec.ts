@@ -10,6 +10,7 @@ import {
 } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { createAwaitWithEvent } from './utils/event-promise';
 import {
   convertField,
   createField,
@@ -30,39 +31,23 @@ import {
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
   let eventEmitterService: EventEmitterService;
-  const baseId = globalThis.testConfig.baseId;
+  let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<T>;
 
-  const promises: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [tableId: string]: { resolve: (value: any) => void; reject: (error: any) => void };
-  } = {};
+  const baseId = globalThis.testConfig.baseId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
 
     eventEmitterService = app.get(EventEmitterService);
-    eventEmitterService.eventEmitter.on(Events.TABLE_RECORD_UPDATE, ({ payload }) => {
-      const tableId = payload?.tableId;
 
-      if (!promises[tableId]) return;
-
-      const { resolve } = promises[tableId];
-      resolve?.(payload);
-      delete promises[tableId];
-    });
+    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.TABLE_RECORD_UPDATE);
   });
 
   afterAll(async () => {
     eventEmitterService.eventEmitter.removeAllListeners(Events.TABLE_RECORD_UPDATE);
     await app.close();
   });
-
-  function createRecordHistoryPromise(tableId: string) {
-    return new Promise((resolve, reject) => {
-      promises[tableId] = { resolve, reject };
-    });
-  }
 
   describe('simple curd', () => {
     let table: ITableFullVo;
@@ -321,18 +306,16 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(recordHistoryVoSchema.safeParse(originRecordHistory).success).toEqual(true);
       expect(originRecordHistory.historyList.length).toEqual(0);
 
-      const waitMainTable = createRecordHistoryPromise(mainTable.id);
-
-      await updateRecord(mainTable.id, recordId, {
-        record: {
-          fields: {
-            [textField.id]: 'new value',
+      await awaitWithEvent(() =>
+        updateRecord(mainTable.id, recordId, {
+          record: {
+            fields: {
+              [textField.id]: 'new value',
+            },
           },
-        },
-        fieldKeyType: FieldKeyType.Id,
-      });
-
-      await waitMainTable;
+          fieldKeyType: FieldKeyType.Id,
+        })
+      );
 
       const { data: recordHistory } = await getRecordHistory(mainTable.id, recordId, {});
       const { data: tableRecordHistory } = await getRecordListHistory(mainTable.id, {});
@@ -352,20 +335,16 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
       });
 
-      const waitMainTable = createRecordHistoryPromise(mainTable.id);
-      const waitForeignTable = createRecordHistoryPromise(foreignTable.id);
-
-      await updateRecord(mainTable.id, recordId, {
-        record: {
-          fields: {
-            [linkField.id]: { id: foreignRecordId },
+      await awaitWithEvent(() =>
+        updateRecord(mainTable.id, recordId, {
+          record: {
+            fields: {
+              [linkField.id]: { id: foreignRecordId },
+            },
           },
-        },
-        fieldKeyType: FieldKeyType.Id,
-      });
-
-      await waitMainTable;
-      await waitForeignTable;
+          fieldKeyType: FieldKeyType.Id,
+        })
+      );
 
       const { data: mainTableRecordHistory } = await getRecordHistory(mainTable.id, recordId, {});
       const { data: foreignTableRecordHistory } = await getRecordHistory(

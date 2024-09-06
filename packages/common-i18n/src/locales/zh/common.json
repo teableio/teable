@@ -266,6 +266,7 @@
     "deletedBy": "操作者",
     "deletedTime": "删除时间",
     "fromSpace": "来自 \"{{name}}\" 空间",
-    "permanentDeleteTips": "确定要永久删除 \"{{name}}\" {{resource}}吗？"
+    "permanentDeleteTips": "确定要永久删除 \"{{name}}\" {{resource}}吗？",
+    "resetTrashConfirm": "确定要清空回收站吗？"
   }
 }

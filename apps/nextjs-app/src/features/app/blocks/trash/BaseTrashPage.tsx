@@ -169,7 +169,7 @@ export const BaseTrashPage = () => {
       <ConfirmDialog
         open={isConfirmVisible}
         onOpenChange={setConfirmVisible}
-        title={'Are you sure you want to empty the trash?'}
+        title={t('trash.resetTrashConfirm')}
         cancelText={t('actions.cancel')}
         confirmText={t('actions.confirm')}
         onCancel={() => setConfirmVisible(false)}

@@ -341,7 +341,7 @@ export class BaseService {
 
   async permanentDeleteBase(baseId: string) {
     const accessTokenId = this.cls.get('accessTokenId');
-    await this.permissionService.validPermissions(baseId, ['table|delete'], accessTokenId, true);
+    await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
 
     return await this.prismaService.$tx(
       async (prisma) => {
@@ -351,31 +351,52 @@ export class BaseService {
         });
         const tableIds = tables.map(({ id }) => id);
 
-        for (const tableId of tableIds) {
-          await this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
-        }
-
-        // delete collaborators for space
-        await prisma.collaborator.deleteMany({
-          where: { resourceId: baseId, resourceType: CollaboratorType.Base },
-        });
-
-        // delete base
-        await prisma.base.delete({
-          where: { id: baseId },
-        });
-
-        // delete trash for base
-        await prisma.trash.deleteMany({
-          where: {
-            resourceId: baseId,
-            resourceType: ResourceType.Base,
-          },
-        });
+        await this.dropBase(baseId, tableIds);
+        await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
+        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds);
+        await this.cleanBaseRelatedData(baseId);
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+  }
+
+  async dropBase(baseId: string, tableIds: string[]) {
+    const sql = this.dbProvider.dropSchema(baseId);
+    if (sql) {
+      return await this.prismaService.txClient().$executeRawUnsafe(sql);
+    }
+    await this.tableOpenApiService.dropTables(tableIds);
+  }
+
+  async cleanBaseRelatedData(baseId: string) {
+    // delete collaborators for base
+    await this.prismaService.txClient().collaborator.deleteMany({
+      where: { resourceId: baseId, resourceType: CollaboratorType.Base },
+    });
+
+    // delete invitation for base
+    await this.prismaService.txClient().invitation.deleteMany({
+      where: { baseId },
+    });
+
+    // delete invitation record for base
+    await this.prismaService.txClient().invitationRecord.deleteMany({
+      where: { baseId },
+    });
+
+    // delete base
+    await this.prismaService.txClient().base.delete({
+      where: { id: baseId },
+    });
+
+    // delete trash for base
+    await this.prismaService.txClient().trash.deleteMany({
+      where: {
+        resourceId: baseId,
+        resourceType: ResourceType.Base,
+      },
+    });
   }
 }

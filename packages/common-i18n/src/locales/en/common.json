@@ -267,6 +267,7 @@
     "deletedBy": "Deleted by",
     "deletedTime": "Deleted time",
     "fromSpace": "From \"{{name}}\" space",
-    "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?"
+    "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
+    "resetTrashConfirm": "Are you sure you want to empty the trash?"
   }
 }
