@@ -14,7 +14,7 @@ interface IUploadAttachment {
   downloadFile: (data: IAttachmentItem) => void;
 }
 
-function FIleImageItem(props: IUploadAttachment) {
+function AttachmentItem(props: IUploadAttachment) {
   const { attachment, onDelete, fileCover, downloadFile, readonly } = props;
 
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -87,4 +87,4 @@ function FIleImageItem(props: IUploadAttachment) {
   );
 }
 
-export default FIleImageItem;
+export default AttachmentItem;

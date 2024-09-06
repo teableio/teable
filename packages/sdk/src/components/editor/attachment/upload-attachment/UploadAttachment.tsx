@@ -25,7 +25,7 @@ import { useBaseId } from '../../../../hooks';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { FileZone } from '../../../FileZone';
 import { getFileCover } from '../utils';
-import FIleImageItem from './FIleImageItem';
+import AttachmentItem from './AttachmentItem';
 import { FileInput } from './FileInput';
 import type { IFile } from './uploadManage';
 import { AttachmentManager } from './uploadManage';
@@ -193,7 +193,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
           disabled={readonly}
         >
           {len > 0 && (
-            <ul className="-right-2 flex size-full flex-wrap">
+            <ul className="-right-2 flex size-full flex-wrap overflow-hidden">
               <FilePreviewProvider>
                 <DndContext
                   sensors={sensors}
@@ -206,7 +206,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                     strategy={rectSortingStrategy}
                   >
                     {sortData.map((attachment) => (
-                      <FIleImageItem
+                      <AttachmentItem
                         key={attachment.id}
                         attachment={attachment}
                         onDelete={onDelete}
