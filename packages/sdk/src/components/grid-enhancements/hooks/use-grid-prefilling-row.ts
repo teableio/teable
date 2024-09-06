@@ -48,7 +48,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       if (localRecord != null) {
         const fieldId = columns[columnIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(localRecord, columnIndex);
+        return cellValue2GridDisplay(localRecord, columnIndex, true);
       }
       return { type: CellType.Loading };
     },

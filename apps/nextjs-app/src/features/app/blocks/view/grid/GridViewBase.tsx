@@ -734,7 +734,7 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
                 customIcons={customIcons}
                 getCellContent={getPrefillingCellContent}
                 onScrollChanged={onPrefillingGridScrollChanged}
-                onCellEdited={getAuthorizedFunction(onPrefillingCellEdited, 'record|update')}
+                onCellEdited={onPrefillingCellEdited}
                 onCopy={onCopyForPrefilling}
                 onPaste={onPasteForPrefilling}
               />
