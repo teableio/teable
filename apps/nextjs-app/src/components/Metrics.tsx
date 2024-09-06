@@ -30,7 +30,8 @@ export const MicrosoftClarity = ({
         `,
         }}
       />
-      <script
+      <Script
+        id="microsoft-clarity-identify"
         dangerouslySetInnerHTML={{
           __html: `window.clarity && window.clarity("identify", "${user?.email || user?.id}");`,
         }}
@@ -59,6 +60,7 @@ export const Umami = ({
   return (
     <>
       <Script
+        id="umami-init"
         defer
         src={umamiUrl}
         data-website-id={umamiWebSiteId}

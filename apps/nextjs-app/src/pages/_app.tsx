@@ -68,12 +68,8 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           />
           <style>{getColorsCssVariablesText(colors)}</style>
         </Head>
-        <MicrosoftClarity clarityId={process.env.NEXT_PUBLIC_MICROSOFT_CLARITY_ID} user={user} />
-        <Umami
-          umamiWebSiteId={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
-          umamiUrl={process.env.NEXT_PUBLIC_UMAMI_URL}
-          user={user}
-        />
+        <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
+        <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -113,6 +109,9 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
     env: {
       driver,
       templateSiteLink: process.env.TEMPLATE_SITE_LINK,
+      microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
+      umamiUrl: process.env.UMAMI_URL,
+      umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
       sentryDsn: process.env.SENTRY_DSN,
       socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
       storagePrefix: process.env.STORAGE_PREFIX,
