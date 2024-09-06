@@ -163,7 +163,6 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    // Проверьте, что 'over' не undefined
     if (over && active.id !== over.id) {
       setSortData((sortData) => {
         const oldIndex = sortData.findIndex((item) => item.id === active.id);
@@ -201,7 +200,11 @@ export const UploadAttachment = (props: IUploadAttachment) => {
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
-                  <SortableContext items={sortData} strategy={rectSortingStrategy}>
+                  <SortableContext
+                    items={sortData}
+                    disabled={readonly}
+                    strategy={rectSortingStrategy}
+                  >
                     {sortData.map((attachment) => (
                       <FIleImageItem
                         key={attachment.id}
