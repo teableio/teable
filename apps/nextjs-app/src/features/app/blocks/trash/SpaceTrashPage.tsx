@@ -174,8 +174,7 @@ export const SpaceTrashPage = () => {
         header: t('actions.title'),
         size: 80,
         cell: ({ row }) => {
-          const trashId = row.getValue<string>('id');
-          const resourceId = row.getValue<string>('resourceId');
+          const { id: trashId, resourceId } = row.original;
           const resourceInfo = resourceMap[resourceId];
 
           if (!resourceInfo) return null;
