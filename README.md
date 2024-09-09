@@ -187,6 +187,8 @@ These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy to RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/?app_id=273)
 
+[![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/teable)
+
 ## Development
 
 #### 1. Initialize
