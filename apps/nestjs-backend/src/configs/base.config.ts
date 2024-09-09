@@ -12,6 +12,7 @@ export const baseConfig = registerAs('base', () => ({
   publicDatabaseProxy: process.env.PUBLIC_DATABASE_PROXY,
   defaultMaxBaseDBConnections: Number(process.env.DEFAULT_MAX_BASE_DB_CONNECTIONS ?? 20),
   templateSpaceId: process.env.TEMPLATE_SPACE_ID,
+  recordHistoryDisabled: process.env.RECORD_HISTORY_DISABLED === 'true',
 }));
 
 export const BaseConfig = () => Inject(baseConfig.KEY);

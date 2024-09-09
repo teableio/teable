@@ -250,8 +250,9 @@ export class FieldOpenApiService {
     const fieldRaws = await this.prismaService.field.findMany({
       where: { tableId, id: { in: fieldIds }, deletedTime: null },
     });
-
-    const fieldVos = fieldRaws.map(rawField2FieldObj);
+    const fieldVos = fieldIds
+      .map((id) => rawField2FieldObj(fieldRaws.find((raw) => raw.id === id)!))
+      .filter(Boolean);
     const fields = fieldVos.map(createFieldInstanceByVo);
 
     if (fields.length !== fieldIds.length) {
