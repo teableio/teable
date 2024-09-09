@@ -462,14 +462,16 @@ export class LinkService {
 
     const query = this.knex(fkHostTableName)
       .select({
-        id: `a.${selfKeyName}`,
-        foreignId: `b.${foreignKeyName}`,
+        id: selfKeyName,
+        foreignId: foreignKeyName,
       })
-      .from(this.knex.ref(fkHostTableName).as('a'))
-      .join(`${fkHostTableName} AS b`, `a.${selfKeyName}`, '=', `b.${selfKeyName}`)
-      .whereIn(`a.${foreignKeyName}`, linkRecordIds)
-      .whereNotNull(`a.${selfKeyName}`)
-      .whereNotNull(`b.${foreignKeyName}`)
+      .whereIn(selfKeyName, function () {
+        this.select(selfKeyName)
+          .from(fkHostTableName)
+          .whereIn(foreignKeyName, linkRecordIds)
+          .whereNotNull(selfKeyName);
+      })
+      .whereNotNull(foreignKeyName)
       .toQuery();
 
     return this.prismaService

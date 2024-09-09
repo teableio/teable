@@ -7,7 +7,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { convertField, updateDbTableName } from '@teable/openapi';
+import { convertField, deleteRecords, updateDbTableName } from '@teable/openapi';
 import {
   createField,
   createRecords,
@@ -2398,6 +2398,63 @@ describe('OpenAPI link (e2e)', () => {
         {
           title: 'x2',
           id: table1.records[1].id,
+        },
+      ]);
+    });
+
+    it('should update single link record when delete multiple records', async () => {
+      const manyOneFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'x1');
+      await updateRecordByApi(table1.id, table1.records[1].id, table1.fields[0].id, 'x2');
+      await updateRecordByApi(table1.id, table1.records[2].id, table1.fields[0].id, 'x3');
+
+      // get get a oneManyField involved
+      const manyOneField = await createField(table1.id, manyOneFieldRo);
+      const symManyOneField = await getField(
+        table2.id,
+        (manyOneField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+
+      await updateRecordByApi(table1.id, table1.records[0].id, manyOneField.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(table1.id, table1.records[1].id, manyOneField.id, {
+        id: table2.records[0].id,
+      });
+      await updateRecordByApi(table1.id, table1.records[2].id, manyOneField.id, {
+        id: table2.records[0].id,
+      });
+
+      const table2RecordPre = await getRecord(table2.id, table2.records[0].id);
+      expect(table2RecordPre.fields[symManyOneField.id]).toEqual([
+        {
+          title: 'x1',
+          id: table1.records[0].id,
+        },
+        {
+          title: 'x2',
+          id: table1.records[1].id,
+        },
+        {
+          title: 'x3',
+          id: table1.records[2].id,
+        },
+      ]);
+
+      await deleteRecords(table1.id, [table1.records[0].id, table1.records[1].id]);
+
+      const table2Record = await getRecord(table2.id, table2.records[0].id);
+      expect(table2Record.fields[symManyOneField.id]).toEqual([
+        {
+          title: 'x3',
+          id: table1.records[2].id,
         },
       ]);
     });
