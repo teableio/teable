@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
-import type { ICommentItem as ICommentVo } from '@teable/openapi';
+import type { ICommentVo } from '@teable/openapi';
 import {
   createCommentRoSchema,
   ICreateCommentRo,
@@ -16,9 +16,25 @@ import { CommentOpenApiService } from './comment-open-api.service';
 export class CommentOpenApiController {
   constructor(private readonly commentOpenApiService: CommentOpenApiService) {}
 
+  // eslint-disable-next-line sonarjs/no-duplicate-string
+  @Get('/notify')
+  async getNotifyDetail(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
+    return this.commentOpenApiService.getNotifyDetail(tableId, recordId);
+  }
+
+  @Post('/notify')
+  async notifyComment(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
+    return this.commentOpenApiService.notifyComment(tableId, recordId);
+  }
+
+  @Delete('/notify')
+  async unNotifyComment(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
+    return this.commentOpenApiService.unNotifyComment(tableId, recordId);
+  }
+
   @Get('/list')
   @Permissions('view|read')
-  async getComment(
+  async getCommentList(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string
   ): Promise<ICommentVo[]> {
@@ -34,6 +50,12 @@ export class CommentOpenApiController {
     return this.commentOpenApiService.createComment(tableId, recordId, createCommentRo);
   }
 
+  // eslint-disable-next-line sonarjs/no-duplicate-string
+  @Get('/:commentId')
+  async getCommentDetail(@Param('commentId') commentId: string): Promise<ICommentVo> {
+    return this.commentOpenApiService.getCommentDetail(commentId);
+  }
+
   @Patch('/:commentId')
   async updateComment(
     @Param('commentId') commentId: string,
@@ -45,5 +67,21 @@ export class CommentOpenApiController {
   @Delete('/:commentId')
   async deleteComment(@Param('commentId') commentId: string) {
     return this.commentOpenApiService.deleteComment(commentId);
+  }
+
+  @Delete('/:commentId/reaction')
+  async deleteCommentReaction(
+    @Param('commentId') commentId: string,
+    @Body() emojiRo: { emoji: string }
+  ) {
+    return this.commentOpenApiService.deleteCommentReaction(commentId, emojiRo);
+  }
+
+  @Patch('/:commentId/reaction')
+  async updateCommentEmoji(
+    @Param('commentId') commentId: string,
+    @Body() emojiRo: { emoji: string }
+  ) {
+    return this.commentOpenApiService.createCommentReaction(commentId, emojiRo);
   }
 }
