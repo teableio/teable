@@ -110,6 +110,7 @@ export async function initApp() {
   process.env.STORAGE_PREFIX = url;
   const baseConfigService = app.get(baseConfig.KEY) as IBaseConfig;
   baseConfigService.storagePrefix = url;
+  baseConfigService.recordHistoryDisabled = true;
 
   axios.defaults.baseURL = url + '/api';
 

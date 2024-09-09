@@ -8,6 +8,7 @@ import type { Field } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { isString } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { Events, RecordUpdateEvent } from '../events';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -17,11 +18,16 @@ const SELECT_FIELD_TYPE_SET = new Set([FieldType.SingleSelect, FieldType.Multipl
 export class RecordHistoryListener {
   constructor(
     private readonly prismaService: PrismaService,
+    @BaseConfig() private readonly baseConfig: IBaseConfig,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
   async recordUpdateListener(event: RecordUpdateEvent) {
+    if (this.baseConfig.recordHistoryDisabled) {
+      return;
+    }
+
     const { payload, context } = event;
     const { user } = context;
     const { tableId, oldField: _oldField } = payload;
