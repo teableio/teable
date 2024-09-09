@@ -1,6 +1,7 @@
 {
   "brand": "Teable",
   "actions": {
+    "title": "actions",
     "save": "Сохранить",
     "doNotSave": "Не сохранять",
     "submit": "Отправить",
@@ -20,6 +21,8 @@
     "editSucceed": "Успешно изменено!",
     "updateSucceed": "Успешно обновлено!",
     "deleteSucceed": "Успешно удалено!",
+    "resetSucceed": "Empty trash Succeed!",
+    "restoreSucceed": "Restored Succeed!",
     "loading": "Пожалуйста, подождите...",
     "refreshPage": "Обновить страницу",
     "yesDelete": "Да, удалить",
@@ -29,7 +32,9 @@
     "upgrade": "Применять план обновления",
     "search": "Поиск",
     "loadMore": "Загрузить еще",
-    "collapseSidebar": "Свернуть боковую панель"
+    "collapseSidebar": "Свернуть боковую панель",
+    "restore": "Restore",
+    "permanentDelete": "Permanent Delete"
   },
   "quickAction": {
     "title": "Быстрые действия...",
@@ -123,7 +128,8 @@
     "adminPanel": "Панель администратора",
     "license": "Лицензия",
     "instanceId": "ID экземпляра",
-    "beta": "Beta"
+    "beta": "Beta",
+    "trash": "Trash"
   },
   "level": {
     "free": "Бесплатно",
@@ -254,5 +260,14 @@
       "commenter": "Может комментировать записи",
       "viewer": "Не может редактировать или комментировать"
     }
+  },
+  "trash": {
+    "type": "Type",
+    "resetTrash": "Empty trash",
+    "deletedBy": "Deleted by",
+    "deletedTime": "Deleted time",
+    "fromSpace": "From \"{{name}}\" space",
+    "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
+    "resetTrashConfirm": "Are you sure you want to empty the trash?"
   }
 }
