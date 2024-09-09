@@ -1,6 +1,7 @@
 {
   "brand": "Teable",
   "actions": {
+    "title": "actions",
     "save": "保存",
     "doNotSave": "不保存",
     "submit": "提交",
@@ -20,6 +21,8 @@
     "editSucceed": "编辑成功！",
     "updateSucceed": "更新成功！",
     "deleteSucceed": "删除成功！",
+    "resetSucceed": "Empty trash Succeed!",
+    "restoreSucceed": "Restored Succeed!",
     "loading": "加载中...",
     "refreshPage": "刷新页面",
     "yesDelete": "是，删除",
@@ -29,7 +32,9 @@
     "upgrade": "升级",
     "search": "搜索",
     "loadMore": "加载更多",
-    "collapseSidebar": "折叠侧边栏"
+    "collapseSidebar": "折叠侧边栏",
+    "restore": "Restore",
+    "permanentDelete": "Permanent Delete"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -123,7 +128,8 @@
     "adminPanel": "管理面板",
     "license": "许可证",
     "instanceId": "实例 ID",
-    "beta": "测试版"
+    "beta": "测试版",
+    "trash": "Trash"
   },
   "level": {
     "free": "免费版",
@@ -254,5 +260,14 @@
       "commenter": "Can comment on records",
       "viewer": "Cannot edit or comment"
     }
+  },
+  "trash": {
+    "type": "Type",
+    "resetTrash": "Empty trash",
+    "deletedBy": "Deleted by",
+    "deletedTime": "Deleted time",
+    "fromSpace": "From \"{{name}}\" space",
+    "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
+    "resetTrashConfirm": "Are you sure you want to empty the trash?"
   }
 }
