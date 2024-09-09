@@ -12,7 +12,7 @@ import {
   TEXT_FIELD_CASES,
   USER_FIELD_CASES,
 } from './data-helpers/caces/aggregation-query';
-import { createTable, deleteTable, initApp } from './utils/init-app';
+import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AggregationController (e2e)', () => {
   let app: INestApplication;
@@ -56,7 +56,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table.id);
     });
 
     it('should get rowCount', async () => {

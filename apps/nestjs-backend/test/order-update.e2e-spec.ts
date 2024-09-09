@@ -17,7 +17,7 @@ import {
 import {
   initApp,
   createView,
-  deleteTable,
+  permanentDeleteTable,
   getViews,
   getRecords,
   createRecords,
@@ -42,7 +42,7 @@ describe('order update', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table.id);
     });
 
     it('should update record order', async () => {
@@ -149,7 +149,7 @@ describe('order update', () => {
     });
 
     afterEach(async () => {
-      await deleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table.id);
     });
 
     it('should update view order', async () => {

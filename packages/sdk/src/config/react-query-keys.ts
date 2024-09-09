@@ -6,6 +6,7 @@ import type {
   IAggregationRo,
   IGroupPointsRo,
   IQueryBaseRo,
+  ResourceType,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -78,4 +79,8 @@ export const ReactQueryKeys = {
     ['record-history', tableId, recordId] as const,
 
   getSharedBase: () => ['shared-base-list'] as const,
+
+  getSpaceTrash: (resourceType: ResourceType) => ['space-trash', resourceType] as const,
+
+  getBaseTrashItems: (baseId: string) => ['base-trash-items', baseId] as const,
 };

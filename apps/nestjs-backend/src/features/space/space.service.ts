@@ -3,10 +3,14 @@ import type { IRole } from '@teable/core';
 import { Role, generateSpaceId, getUniqName } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, type ICreateSpaceRo, type IUpdateSpaceRo } from '@teable/openapi';
+import type { ICreateSpaceRo, IUpdateSpaceRo } from '@teable/openapi';
+import { ResourceType, CollaboratorType } from '@teable/openapi';
 import { keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import type { IClsStore } from '../../types/cls';
+import { PermissionService } from '../auth/permission.service';
+import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
@@ -14,7 +18,10 @@ export class SpaceService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly collaboratorService: CollaboratorService
+    private readonly baseService: BaseService,
+    private readonly collaboratorService: CollaboratorService,
+    private readonly permissionService: PermissionService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
@@ -193,5 +200,62 @@ export class SpaceService {
     });
 
     return baseList.map((base) => ({ ...base, role: roleMap[base.id] || roleMap[base.spaceId] }));
+  }
+
+  async permanentDeleteSpace(spaceId: string) {
+    const accessTokenId = this.cls.get('accessTokenId');
+    await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);
+
+    await this.prismaService.space.findUniqueOrThrow({
+      where: { id: spaceId },
+    });
+
+    await this.prismaService.$tx(
+      async (prisma) => {
+        const bases = await prisma.base.findMany({
+          where: { spaceId },
+          select: { id: true },
+        });
+
+        for (const { id } of bases) {
+          await this.baseService.permanentDeleteBase(id);
+        }
+
+        await this.cleanSpaceRelatedData(spaceId);
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
+  }
+
+  async cleanSpaceRelatedData(spaceId: string) {
+    // delete collaborators for space
+    await this.prismaService.txClient().collaborator.deleteMany({
+      where: { resourceId: spaceId, resourceType: CollaboratorType.Space },
+    });
+
+    // delete invitation for space
+    await this.prismaService.txClient().invitation.deleteMany({
+      where: { spaceId },
+    });
+
+    // delete invitation record for space
+    await this.prismaService.txClient().invitationRecord.deleteMany({
+      where: { spaceId },
+    });
+
+    // delete space
+    await this.prismaService.txClient().space.delete({
+      where: { id: spaceId },
+    });
+
+    // delete trash for space
+    await this.prismaService.txClient().trash.deleteMany({
+      where: {
+        resourceId: spaceId,
+        resourceType: ResourceType.Space,
+      },
+    });
   }
 }

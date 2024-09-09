@@ -35,6 +35,10 @@ export class SqliteProvider implements IDbProvider {
     return undefined;
   }
 
+  dropSchema(_schemaName: string) {
+    return undefined;
+  }
+
   generateDbTableName(baseId: string, name: string) {
     return `${baseId}_${name}`;
   }

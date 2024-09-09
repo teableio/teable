@@ -290,10 +290,11 @@ export class CollaboratorService {
     });
   }
 
-  async getCollaboratorsBaseAndSpaceArray(userId: string) {
+  async getCollaboratorsBaseAndSpaceArray(userId: string, searchRoles?: IRole[]) {
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
         userId,
+        ...(searchRoles && searchRoles.length > 0 ? { roleName: { in: searchRoles } } : {}),
       },
       select: {
         roleName: true,

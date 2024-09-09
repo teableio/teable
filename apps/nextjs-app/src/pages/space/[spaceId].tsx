@@ -42,4 +42,5 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
 Node.getLayout = function getLayout(page: ReactElement, pageProps) {
   return <SpaceLayout {...pageProps}>{page}</SpaceLayout>;
 };
+
 export default Node;

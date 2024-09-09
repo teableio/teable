@@ -97,11 +97,14 @@ export class PermissionService {
     };
   }
 
-  async getUpperIdByTableId(tableId: string): Promise<{ spaceId: string; baseId: string }> {
+  async getUpperIdByTableId(
+    tableId: string,
+    includeInactiveResource?: boolean
+  ): Promise<{ spaceId: string; baseId: string }> {
     const table = await this.prismaService.txClient().tableMeta.findFirst({
       where: {
         id: tableId,
-        deletedTime: null,
+        ...(includeInactiveResource ? {} : { deletedTime: null }),
       },
       select: {
         base: true,
@@ -115,11 +118,14 @@ export class PermissionService {
     return { baseId, spaceId };
   }
 
-  async getUpperIdByBaseId(baseId: string): Promise<{ spaceId: string }> {
+  async getUpperIdByBaseId(
+    baseId: string,
+    includeInactiveResource?: boolean
+  ): Promise<{ spaceId: string }> {
     const base = await this.prismaService.base.findFirst({
       where: {
         id: baseId,
-        deletedTime: null,
+        ...(includeInactiveResource ? {} : { deletedTime: null }),
       },
       select: {
         spaceId: true,
@@ -134,22 +140,28 @@ export class PermissionService {
   private async isBaseIdAllowedForResource(
     baseId: string,
     spaceIds: string[] | undefined,
-    baseIds: string[] | undefined
+    baseIds: string[] | undefined,
+    includeInactiveResource?: boolean
   ) {
-    const upperId = await this.getUpperIdByBaseId(baseId);
+    const upperId = await this.getUpperIdByBaseId(baseId, includeInactiveResource);
     return spaceIds?.includes(upperId.spaceId) || baseIds?.includes(baseId);
   }
 
   private async isTableIdAllowedForResource(
     tableId: string,
     spaceIds: string[] | undefined,
-    baseIds: string[] | undefined
+    baseIds: string[] | undefined,
+    includeInactiveResource?: boolean
   ) {
-    const { spaceId, baseId } = await this.getUpperIdByTableId(tableId);
+    const { spaceId, baseId } = await this.getUpperIdByTableId(tableId, includeInactiveResource);
     return spaceIds?.includes(spaceId) || baseIds?.includes(baseId);
   }
 
-  async getPermissionsByAccessToken(resourceId: string, accessTokenId: string) {
+  async getPermissionsByAccessToken(
+    resourceId: string,
+    accessTokenId: string,
+    includeInactiveResource?: boolean
+  ) {
     const { scopes, spaceIds, baseIds } = await this.getAccessToken(accessTokenId);
 
     if (
@@ -166,14 +178,24 @@ export class PermissionService {
 
     if (
       resourceId.startsWith(IdPrefix.Base) &&
-      !(await this.isBaseIdAllowedForResource(resourceId, spaceIds, baseIds))
+      !(await this.isBaseIdAllowedForResource(
+        resourceId,
+        spaceIds,
+        baseIds,
+        includeInactiveResource
+      ))
     ) {
       throw new ForbiddenException(`not allowed to base ${resourceId}`);
     }
 
     if (
       resourceId.startsWith(IdPrefix.Table) &&
-      !(await this.isTableIdAllowedForResource(resourceId, spaceIds, baseIds))
+      !(await this.isTableIdAllowedForResource(
+        resourceId,
+        spaceIds,
+        baseIds,
+        includeInactiveResource
+      ))
     ) {
       throw new ForbiddenException(`not allowed to table ${resourceId}`);
     }
@@ -186,46 +208,65 @@ export class PermissionService {
     return getPermissions(role);
   }
 
-  private async getPermissionByBaseId(baseId: string) {
+  private async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const role = await this.getRoleByBaseId(baseId);
     if (role) {
       return getPermissions(role);
     }
-    return this.getPermissionBySpaceId((await this.getUpperIdByBaseId(baseId)).spaceId);
+    return this.getPermissionBySpaceId(
+      (await this.getUpperIdByBaseId(baseId, includeInactiveResource)).spaceId
+    );
   }
 
-  private async getPermissionByTableId(tableId: string) {
-    const baseId = (await this.getUpperIdByTableId(tableId)).baseId;
-    return this.getPermissionByBaseId(baseId);
+  private async getPermissionByTableId(tableId: string, includeInactiveResource?: boolean) {
+    const baseId = (await this.getUpperIdByTableId(tableId, includeInactiveResource)).baseId;
+    return this.getPermissionByBaseId(baseId, includeInactiveResource);
   }
 
-  async getPermissionsByResourceId(resourceId: string) {
+  async getPermissionsByResourceId(resourceId: string, includeInactiveResource?: boolean) {
     if (resourceId.startsWith(IdPrefix.Space)) {
       return await this.getPermissionBySpaceId(resourceId);
     } else if (resourceId.startsWith(IdPrefix.Base)) {
-      return await this.getPermissionByBaseId(resourceId);
+      return await this.getPermissionByBaseId(resourceId, includeInactiveResource);
     } else if (resourceId.startsWith(IdPrefix.Table)) {
-      return await this.getPermissionByTableId(resourceId);
+      return await this.getPermissionByTableId(resourceId, includeInactiveResource);
     } else {
       throw new ForbiddenException('request path is not valid');
     }
   }
 
-  async getPermissions(resourceId: string, accessTokenId?: string) {
-    const userPermissions = await this.getPermissionsByResourceId(resourceId);
+  async getPermissions(
+    resourceId: string,
+    accessTokenId?: string,
+    includeInactiveResource?: boolean
+  ) {
+    const userPermissions = await this.getPermissionsByResourceId(
+      resourceId,
+      includeInactiveResource
+    );
 
     if (accessTokenId) {
       const accessTokenPermission = await this.getPermissionsByAccessToken(
         resourceId,
-        accessTokenId
+        accessTokenId,
+        includeInactiveResource
       );
       return intersection(userPermissions, accessTokenPermission);
     }
     return userPermissions;
   }
 
-  async validPermissions(resourceId: string, permissions: Action[], accessTokenId?: string) {
-    const ownPermissions = await this.getPermissions(resourceId, accessTokenId);
+  async validPermissions(
+    resourceId: string,
+    permissions: Action[],
+    accessTokenId?: string,
+    includeInactiveResource?: boolean
+  ) {
+    const ownPermissions = await this.getPermissions(
+      resourceId,
+      accessTokenId,
+      includeInactiveResource
+    );
     if (permissions.every((permission) => ownPermissions.includes(permission))) {
       return ownPermissions;
     }

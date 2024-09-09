@@ -3,12 +3,12 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const DELETE_TABLE_ARBITRARY = '/base/{baseId}/table/arbitrary/{tableId}';
+export const PERMANENT_DELETE_TABLE = '/base/{baseId}/table/{tableId}/permanent';
 
-export const DeleteTableArbitraryRoute: RouteConfig = registerRoute({
+export const PermanentDeleteTableRoute: RouteConfig = registerRoute({
   method: 'delete',
-  path: DELETE_TABLE_ARBITRARY,
-  description: 'Delete a table forever',
+  path: PERMANENT_DELETE_TABLE,
+  description: 'Permanently delete a table',
   request: {
     params: z.object({
       baseId: z.string(),
@@ -23,9 +23,9 @@ export const DeleteTableArbitraryRoute: RouteConfig = registerRoute({
   tags: ['table'],
 });
 
-export const deleteTableArbitrary = async (baseId: string, tableId: string) => {
+export const permanentDeleteTable = async (baseId: string, tableId: string) => {
   return axios.delete<null>(
-    urlBuilder(DELETE_TABLE_ARBITRARY, {
+    urlBuilder(PERMANENT_DELETE_TABLE, {
       baseId,
       tableId,
     })

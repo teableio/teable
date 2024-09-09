@@ -1,21 +1,12 @@
 import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { ArrowRight, ChevronRight } from '@teable/icons';
 import type { IRecordHistoryItemVo, IRecordHistoryVo } from '@teable/openapi';
 import { getRecordHistory, getRecordListHistory } from '@teable/openapi';
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-  Button,
-} from '@teable/ui-lib';
+import { Button } from '@teable/ui-lib';
 import dayjs from 'dayjs';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 import { ReactQueryKeys } from '../../config';
 import { useTranslation } from '../../context/app/i18n';
 import { useFieldStaticGetter, useIsHydrated, useTableId } from '../../hooks';
@@ -23,6 +14,7 @@ import type { IFieldInstance } from '../../model';
 import { CellValue } from '../cell-value';
 import { OverflowTooltip } from '../cell-value/components';
 import { CollaboratorWithHoverCard } from '../collaborator';
+import { InfiniteTable } from '../table';
 
 interface IRecordHistoryProps {
   recordId?: string;
@@ -36,7 +28,6 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
   const isHydrated = useIsHydrated();
   const getFieldStatic = useFieldStaticGetter();
 
-  const listRef = useRef<HTMLDivElement>(null);
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
 
@@ -63,23 +54,6 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
   });
 
   const allRows = useMemo(() => (data ? data.pages.flatMap((d) => d) : []), [data]);
-
-  const fetchMoreOnBottomReached = useCallback(
-    (containerRefElement?: HTMLDivElement | null) => {
-      if (containerRefElement) {
-        const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
-        const isReachedThreshold = scrollHeight - scrollTop - clientHeight < 30;
-        if (!isFetching && nextCursor && isReachedThreshold) {
-          fetchNextPage();
-        }
-      }
-    },
-    [fetchNextPage, isFetching, nextCursor]
-  );
-
-  useEffect(() => {
-    fetchMoreOnBottomReached(listRef.current);
-  }, [fetchMoreOnBottomReached]);
 
   const columns: ColumnDef<IRecordHistoryItemVo>[] = useMemo(() => {
     const actionVisible = !recordId && onRecordClick;
@@ -217,69 +191,20 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
     return tableColumns;
   }, [recordId, userMap, t, getFieldStatic, onRecordClick]);
 
-  const table = useReactTable({
-    data: allRows,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
+  const fetchNextPageInner = useCallback(() => {
+    if (!isFetching && nextCursor) {
+      fetchNextPage();
+    }
+  }, [fetchNextPage, isFetching, nextCursor]);
 
   if (!isHydrated || isLoading) return null;
 
   return (
-    <div
-      ref={listRef}
-      className="relative size-full overflow-auto px-2 sm:overflow-x-hidden"
-      onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-    >
-      <Table className="relative scroll-smooth">
-        <TableHeader className="sticky top-0 z-10 bg-background">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow
-              key={headerGroup.id}
-              className="flex h-10 bg-background text-[13px] hover:bg-background"
-            >
-              {headerGroup.headers.map((header) => {
-                return (
-                  <TableHead
-                    key={header.id}
-                    className="flex items-center px-0"
-                    style={{
-                      width: header.getSize(),
-                    }}
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className="flex text-[13px]">
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className="flex min-h-[40px] items-center px-0"
-                    style={{
-                      width: cell.column.getSize(),
-                    }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                {t('common.empty')}
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
+    <InfiniteTable
+      rows={allRows}
+      columns={columns}
+      className="sm:overflow-x-hidden"
+      fetchNextPage={fetchNextPageInner}
+    />
   );
 };

@@ -26,6 +26,8 @@ export interface IDbProvider {
 
   createSchema(schemaName: string): string[] | undefined;
 
+  dropSchema(schemaName: string): string | undefined;
+
   generateDbTableName(baseId: string, name: string): string;
 
   renameTableName(oldTableName: string, newTableName: string): string[];

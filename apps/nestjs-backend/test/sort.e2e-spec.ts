@@ -23,7 +23,7 @@ import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import {
   createField,
   createTable,
-  deleteTable,
+  permanentDeleteTable,
   getFields,
   getRecords,
   getView,
@@ -136,7 +136,7 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
   });
 
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   it('/api/table/{tableId}/view/{viewId}/sort sort view order (PUT)', async () => {
@@ -170,7 +170,7 @@ describe('OpenAPI Sort (e2e) Base CellValueType', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, table.id);
+    await permanentDeleteTable(baseId, table.id);
   });
 
   test.each(typeTests)(
@@ -289,8 +289,8 @@ describe('OpenAPI Sort (e2e) Multiple CellValueType', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, mainTable.id);
-    await deleteTable(baseId, subTable.id);
+    await permanentDeleteTable(baseId, mainTable.id);
+    await permanentDeleteTable(baseId, subTable.id);
   });
 
   test.each(typeTests)(

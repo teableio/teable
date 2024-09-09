@@ -16,7 +16,7 @@ import {
   getFields,
   initApp,
   createView,
-  deleteTable,
+  permanentDeleteTable,
   createTable,
   getViews,
   getView,
@@ -49,7 +49,7 @@ describe('OpenAPI ViewController (e2e)', () => {
   });
 
   afterEach(async () => {
-    const result = await deleteTable(baseId, table.id);
+    const result = await permanentDeleteTable(baseId, table.id);
     console.log('clear table: ', result);
   });
 
@@ -239,9 +239,9 @@ describe('OpenAPI ViewController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, table.id);
-      await deleteTable(baseId, linkTable1.id);
-      await deleteTable(baseId, linkTable2.id);
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, linkTable1.id);
+      await permanentDeleteTable(baseId, linkTable2.id);
     });
 
     it('should return filter link records', async () => {
@@ -331,7 +331,7 @@ describe('OpenAPI ViewController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, tableId);
+      await permanentDeleteTable(baseId, tableId);
     });
 
     it('update allowCopy success', async () => {

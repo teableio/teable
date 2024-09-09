@@ -1,6 +1,7 @@
 {
   "brand": "Teable",
   "actions": {
+    "title": "操作",
     "save": "保存",
     "doNotSave": "不保存",
     "submit": "提交",
@@ -20,6 +21,8 @@
     "editSucceed": "编辑成功！",
     "updateSucceed": "更新成功！",
     "deleteSucceed": "删除成功！",
+    "resetSucceed": "清空成功！",
+    "restoreSucceed": "恢复成功！",
     "loading": "加载中...",
     "refreshPage": "刷新页面",
     "yesDelete": "是，删除",
@@ -29,7 +32,9 @@
     "upgrade": "升级",
     "search": "搜索",
     "loadMore": "加载更多",
-    "collapseSidebar": "折叠侧边栏"
+    "collapseSidebar": "折叠侧边栏",
+    "restore": "恢复",
+    "permanentDelete": "永久删除"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -123,7 +128,8 @@
     "adminPanel": "管理面板",
     "license": "许可证",
     "instanceId": "实例 ID",
-    "beta": "测试版"
+    "beta": "测试版",
+    "trash": "回收站"
   },
   "level": {
     "free": "免费版",
@@ -253,5 +259,14 @@
       "commenter": "可以查看和评论记录，不能编辑记录",
       "viewer": "仅可查看记录，不能编辑或评论记录"
     }
+  },
+  "trash": {
+    "type": "类型",
+    "resetTrash": "清空回收站",
+    "deletedBy": "操作者",
+    "deletedTime": "删除时间",
+    "fromSpace": "来自 \"{{name}}\" 空间",
+    "permanentDeleteTips": "确定要永久删除 \"{{name}}\" {{resource}}吗？",
+    "resetTrashConfirm": "确定要清空回收站吗？"
   }
 }

@@ -23,7 +23,7 @@ import { getError } from './utils/get-error';
 import {
   createTable,
   createView,
-  deleteTable,
+  permanentDeleteTable,
   initApp,
   updateViewColumnMeta,
 } from './utils/init-app';
@@ -73,7 +73,7 @@ describe('OpenAPI ShareController (e2e)', () => {
   });
 
   afterAll(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
 
     await app.close();
   });
@@ -237,8 +237,8 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, linkTableRes.id);
-      await deleteTable(baseId, tableRes.id);
+      await permanentDeleteTable(baseId, linkTableRes.id);
+      await permanentDeleteTable(baseId, tableRes.id);
     });
 
     describe('form view', () => {
@@ -336,7 +336,7 @@ describe('OpenAPI ShareController (e2e)', () => {
     });
 
     afterAll(async () => {
-      await deleteTable(baseId, userTableRes.id);
+      await permanentDeleteTable(baseId, userTableRes.id);
     });
     describe('grid view', () => {
       let gridViewId: string;

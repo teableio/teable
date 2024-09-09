@@ -23,7 +23,7 @@ import {
   createField,
   createRecords,
   createTable,
-  deleteTable,
+  permanentDeleteTable,
   getFields,
   getRecords,
   getTable,
@@ -134,7 +134,7 @@ describe('OpenAPI TableController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   it('/api/table/ (POST) with assertData data', async () => {
@@ -335,12 +335,10 @@ describe('OpenAPI TableController (e2e)', () => {
 
     const fields = await getFields(table2.id);
     const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
-    expect(fields[1].type).toEqual(FieldType.SingleLineText);
-    expect(fields[2].type).toEqual(FieldType.SingleLineText);
 
+    expect(fields[1].type).toEqual(FieldType.SingleLineText);
     expect(records[0].fields[fields[1].id]).toEqual('A');
-    expect(records[0].fields[fields[2].id]).toEqual('A');
+    expect(fields[2].hasError).toBeTruthy();
     expect(fields[3].hasError).toBeTruthy();
-    expect(fields[4].hasError).toBeTruthy();
   });
 });

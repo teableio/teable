@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IFilterRo } from '@teable/core';
 import { updateViewFilter as apiSetViewFilter } from '@teable/openapi';
-import { initApp, getView, createTable, deleteTable } from './utils/init-app';
+import { initApp, getView, createTable, permanentDeleteTable } from './utils/init-app';
 
 let app: INestApplication;
 const baseId = globalThis.testConfig.baseId;
@@ -37,7 +37,7 @@ describe('OpenAPI ViewController (e2e) option (PUT)', () => {
     fields = result.fields;
   });
   afterAll(async () => {
-    await deleteTable(baseId, tableId);
+    await permanentDeleteTable(baseId, tableId);
   });
 
   test(`/table/{tableId}/view/{viewId}/filter (PUT) update filter`, async () => {
