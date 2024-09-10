@@ -266,7 +266,7 @@
     "typeOfDatabase": "Type de base de données",
     "descriptionForTable": "Description pour cette table",
     "nameForTable": "Nom pour cette table",
-    "deleteTip1": "Les champs de lien associés à cette table dans d'autres tables seront convertis en champs de texte.",
+    "deleteTip1": "Les champs de lien associés à cette table dans d'autres tables seront supprimés.",
     "deleteTip2": "Cette opération ne peut pas être annulée.",
     "operator": {
       "createBlank": "Créer une table vierge"
