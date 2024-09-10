@@ -3,7 +3,7 @@ import type { IAttachmentCellValue, ILinkCellValue, UserFieldCore } from '@teabl
 import { ColorUtils, FieldType, generateChoiceId } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
-import { isUndefined, keyBy, map } from 'lodash';
+import { keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -229,17 +229,13 @@ export class TypeCastAndValidate {
   }
 
   /**
-   * Casts the value to a link type, associating it with another table.
-   * Try to find the rows with matching titles from the associated table and write them to the cell.
+   * Casts the value to a link type, link it with another table.
+   * Try to find the rows with matching titles from the link table and write them to the cell.
    */
   private async castToLink(cellValues: unknown[]): Promise<unknown[]> {
     const linkRecordMap = this.typecast ? await this.getLinkTableRecordMap(cellValues) : {};
     return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
-      const newCellValue: ILinkCellValue[] | ILinkCellValue | null = this.castToLinkOne(
-        cellValue,
-        linkRecordMap
-      );
-      return newCellValue;
+      return this.castToLinkOne(cellValue, linkRecordMap);
     });
   }
 
@@ -297,25 +293,40 @@ export class TypeCastAndValidate {
   }
 
   /**
-   * Get the recordMap of the associated table, the format is: {[title]: [id]}.
+   * Get the recordMap of the link table, the format is: {[title]: [id]}.
+   * compatible with title, title[], id, id[]
    */
   private async getLinkTableRecordMap(cellValues: unknown[]) {
-    const titles = cellValues.flat().filter(Boolean) as string[];
+    const titles = cellValues
+      .flat()
+      .filter((v) => v != null && typeof v !== 'object')
+      .map((v) =>
+        typeof v === 'string' && this.field.isMultipleCellValue
+          ? v.split(',').map((t) => t.trim())
+          : (v as string)
+      )
+      .flat();
 
-    const linkRecords = await this.services.recordService.getRecordsWithPrimary(
+    if (titles.length === 0) {
+      return {};
+    }
+
+    // id[]
+    if (typeof titles[0] === 'string' && titles[0].startsWith('rec')) {
+      const linkRecords = await this.services.recordService.getRecordsHeadWithIds(
+        (this.field as LinkFieldDto).options.foreignTableId,
+        titles
+      );
+      return keyBy(linkRecords, 'id');
+    }
+
+    // title[]
+    const linkRecords = await this.services.recordService.getRecordsHeadWithTitles(
       (this.field as LinkFieldDto).options.foreignTableId,
       titles
     );
 
-    return linkRecords.reduce(
-      (result, { id, title }) => {
-        if (!result[title]) {
-          result[title] = id;
-        }
-        return result;
-      },
-      {} as Record<string, string>
-    );
+    return keyBy(linkRecords, 'title');
   }
 
   /**
@@ -323,19 +334,17 @@ export class TypeCastAndValidate {
    * returning data based on isMultipleCellValue.
    */
   private castToLinkOne(
-    value: unknown,
-    linkTableRecordMap: Record<string, string>
+    cellValue: unknown,
+    linkTableRecordMap: Record<string, { id: string; title?: string }>
   ): ILinkCellValue[] | ILinkCellValue | null {
     const { isMultipleCellValue } = this.field;
-    let valueArr = this.valueToStringArray(value);
-    if (!valueArr?.length) {
-      return null;
+    if (typeof cellValue === 'string' && isMultipleCellValue) {
+      return cellValue
+        .split(',')
+        .map((v) => v.trim())
+        .map((v) => linkTableRecordMap[v])
+        .filter(Boolean);
     }
-    valueArr = isMultipleCellValue ? valueArr : valueArr.slice(0, 1);
-    const valueArrNotEmpty = valueArr.map(String).filter((v) => v !== undefined || v !== '');
-    const result = valueArrNotEmpty
-      .map((v) => ({ title: v, id: linkTableRecordMap[v] }))
-      .filter((v) => !isUndefined(v.id)) as ILinkCellValue[];
-    return isMultipleCellValue ? result : result[0] ?? null;
+    return linkTableRecordMap[cellValue as string] || null;
   }
 }
