@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { CellFormat } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import type { IBaseQueryJoin, IBaseQuery, IBaseQueryVo, IBaseQueryColumn } from '@teable/openapi';
@@ -48,23 +49,46 @@ export class BaseQueryService {
     });
   }
 
-  private handleBigIntRows(rows: { [key in string]: unknown }[]) {
+  private dbRows2Rows(
+    rows: Record<string, unknown>[],
+    columns: IBaseQueryColumn[],
+    cellFormat: CellFormat
+  ) {
     return rows.map((row) => {
-      return Object.entries(row).reduce(
-        (acc, [key, value]) => {
+      return columns.reduce<Record<string, unknown>>((acc, field) => {
+        if (!field.fieldSource) {
+          const value = row[field.column];
+          acc[field.column] = row[field.column];
+          // handle bigint
           if (typeof value === 'bigint') {
-            acc[key] = Number(value);
+            acc[field.column] = Number(value);
           } else {
-            acc[key] = value;
+            acc[field.column] = value;
           }
           return acc;
-        },
-        {} as { [key in string]: unknown }
-      );
+        }
+        const dbCellValue = row[field.column];
+        const fieldInstance = createFieldInstanceByVo(field.fieldSource);
+        const cellValue = fieldInstance.convertDBValue2CellValue(dbCellValue);
+
+        if (typeof cellValue === 'number') {
+          acc[field.column] = cellValue;
+          return acc;
+        }
+        if (cellValue != null) {
+          acc[field.column] =
+            cellFormat === CellFormat.Text ? fieldInstance.cellValue2String(cellValue) : cellValue;
+        }
+        return acc;
+      }, {});
     });
   }
 
-  async baseQuery(baseId: string, baseQuery: IBaseQuery): Promise<IBaseQueryVo> {
+  async baseQuery(
+    baseId: string,
+    baseQuery: IBaseQuery,
+    cellFormat: CellFormat = CellFormat.Json
+  ): Promise<IBaseQueryVo> {
     const { queryBuilder, fieldMap } = await this.parseBaseQuery(baseId, baseQuery, 0);
     const query = queryBuilder.toQuery();
     this.logger.log('baseQuery SQL: ', query);
@@ -74,10 +98,11 @@ export class BaseQueryService {
         this.logger.error(e);
         throw new BadRequestException(`Query failed: ${query}, ${e.message}`);
       });
+    const columns = this.convertFieldMapToColumn(fieldMap);
 
     return {
-      rows: this.handleBigIntRows(rows),
-      columns: this.convertFieldMapToColumn(fieldMap),
+      rows: this.dbRows2Rows(rows, columns, cellFormat),
+      columns,
     };
   }
 
