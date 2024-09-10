@@ -72,7 +72,7 @@ export const BaseSideBar = () => {
           href: `/base/${baseId}/trash`,
           label: t('common:noun.trash'),
           Icon: Trash,
-          hidden: !basePermission?.['table|read'],
+          hidden: !basePermission?.['table|delete'],
         },
       ].filter((item) => !item.hidden),
     [advancedPermissionsEnable, automationEnable, baseId, basePermission, t]

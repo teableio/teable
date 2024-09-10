@@ -39,7 +39,6 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
       href: '/space/trash',
       text: t('noun.trash'),
       Icon: Trash,
-      hidden: !isAdmin,
     },
   ];
   return (
