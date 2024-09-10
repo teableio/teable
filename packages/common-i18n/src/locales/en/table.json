@@ -267,7 +267,7 @@
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
     "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
-    "deleteTip2": "This operation cannot be undone.",
+    "deleteTip2": "This table can be restored from the trash after deletion.",
     "operator": {
       "createBlank": "Create a blank table"
     },

@@ -267,7 +267,7 @@
     "descriptionForTable": "このテーブルの説明",
     "nameForTable": "このテーブルの名前",
     "deleteTip1": "この表にリンクされている他の表のリンクフィールドは削除されます",
-    "deleteTip2": "この操作は元に戻せません。",
+    "deleteTip2": "このテーブルは削除後、ごみ箱から復元できます",
     "operator": {
       "createBlank": "空のテーブルを作成する"
     },

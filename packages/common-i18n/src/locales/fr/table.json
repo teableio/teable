@@ -267,7 +267,7 @@
     "descriptionForTable": "Description pour cette table",
     "nameForTable": "Nom pour cette table",
     "deleteTip1": "Les champs de lien associés à cette table dans d'autres tables seront supprimés.",
-    "deleteTip2": "Cette opération ne peut pas être annulée.",
+    "deleteTip2": "Cette table peut être restaurée depuis la corbeille après sa suppression.",
     "operator": {
       "createBlank": "Créer une table vierge"
     },
