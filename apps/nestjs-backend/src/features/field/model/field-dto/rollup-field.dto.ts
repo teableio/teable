@@ -10,6 +10,9 @@ export class RollupFieldDto extends RollupFieldCore implements FieldBase {
     if (this.isMultipleCellValue) {
       return value == null ? value : JSON.stringify(value);
     }
+    if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) {
+      return null;
+    }
     return value;
   }
 
