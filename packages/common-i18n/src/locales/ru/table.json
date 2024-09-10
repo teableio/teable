@@ -266,8 +266,8 @@
     "typeOfDatabase": "Тип базы данных",
     "descriptionForTable": "Описание этой таблицы",
     "nameForTable": "Название для этой таблицы",
-    "deleteTip1": "Связанные с этой таблицей поля в других таблицах будут преобразованы в текстовые поля.",
-    "deleteTip2": "Эта операция не может быть отменена.",
+    "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
+    "deleteTip2": "This table can be restored from the trash after deletion.",
     "operator": {
       "createBlank": "Создайте пустую таблицу"
     },
