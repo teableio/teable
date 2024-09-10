@@ -374,11 +374,11 @@ describe('TypeCastAndValidate', () => {
       typecast: true,
     });
     it('should call dependencies correctly and return recordMap', async () => {
-      recordService.getRecordsWithPrimary.mockResolvedValue([{ id: '1', title: 'title1' }]);
+      recordService.getRecordsHeadWithTitles.mockResolvedValue([{ id: '1', title: 'title1' }]);
 
       const result = await typeCastAndValidate['getLinkTableRecordMap'](['title1']);
 
-      expect(recordService.getRecordsWithPrimary).toBeCalledWith('foreignTableId', ['title1']);
+      expect(recordService.getRecordsHeadWithTitles).toBeCalledWith('foreignTableId', ['title1']);
       expect(result).toEqual({
         title1: '1',
       });

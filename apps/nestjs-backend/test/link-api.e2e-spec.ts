@@ -2062,8 +2062,10 @@ describe('OpenAPI link (e2e)', () => {
 
     it('should set a text value in a link record with typecast', async () => {
       await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'A1');
+      await updateRecordByApi(table2.id, table2.records[0].id, table2.fields[0].id, 'B1');
       await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'B2');
-      // // reject data when typecast is false
+      await updateRecordByApi(table2.id, table2.records[2].id, table2.fields[0].id, 'B3');
+      // reject data when typecast is false
       await createRecords(
         table2.id,
         {
@@ -2079,7 +2081,7 @@ describe('OpenAPI link (e2e)', () => {
         400
       );
 
-      const { records } = await createRecords(table2.id, {
+      const { records: records1 } = await createRecords(table2.id, {
         typecast: true,
         records: [
           {
@@ -2090,7 +2092,7 @@ describe('OpenAPI link (e2e)', () => {
         ],
       });
 
-      expect(records[0].fields[table2.fields[2].id]).toEqual({
+      expect(records1[0].fields[table2.fields[2].id]).toEqual({
         id: table1.records[0].id,
         title: 'A1',
       });
@@ -2100,13 +2102,58 @@ describe('OpenAPI link (e2e)', () => {
         records: [
           {
             fields: {
-              [table1.fields[2].id]: 'B2',
+              [table1.fields[2].id]: 'B1',
             },
           },
         ],
       });
 
       expect(records2[0].fields[table1.fields[2].id]).toEqual([
+        {
+          id: table2.records[0].id,
+          title: 'B1',
+        },
+      ]);
+
+      // typecast title[]
+      const { records: records3 } = await createRecords(table1.id, {
+        typecast: true,
+        records: [
+          {
+            fields: {
+              [table1.fields[2].id]: 'B2,B3',
+            },
+          },
+        ],
+      });
+
+      expect(records3[0].fields[table1.fields[2].id]).toEqual([
+        {
+          id: table2.records[1].id,
+          title: 'B2',
+        },
+        {
+          id: table2.records[2].id,
+          title: 'B3',
+        },
+      ]);
+
+      // typecast id[]
+      const record4 = await updateRecord(table1.id, records3[0].id, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table1.fields[2].id]: `${table2.records[2].id},${table2.records[1].id}`,
+          },
+        },
+      });
+
+      expect(record4.fields[table1.fields[2].id]).toEqual([
+        {
+          id: table2.records[2].id,
+          title: 'B3',
+        },
         {
           id: table2.records[1].id,
           title: 'B2',

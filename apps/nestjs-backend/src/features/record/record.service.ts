@@ -1140,7 +1140,7 @@ export class RecordService {
     });
   }
 
-  async getRecordsWithPrimary(tableId: string, titles: string[]) {
+  async getRecordsHeadWithTitles(tableId: string, titles: string[]) {
     const dbTableName = await this.getDbTableName(tableId);
     const field = await this.prismaService.txClient().field.findFirst({
       where: { tableId, isPrimary: true, deletedTime: null },
@@ -1152,6 +1152,24 @@ export class RecordService {
     const queryBuilder = this.knex(dbTableName)
       .select({ title: field.dbFieldName, id: '__id' })
       .whereIn(field.dbFieldName, titles);
+
+    const querySql = queryBuilder.toQuery();
+
+    return this.prismaService.txClient().$queryRawUnsafe<{ id: string; title: string }[]>(querySql);
+  }
+
+  async getRecordsHeadWithIds(tableId: string, recordIds: string[]) {
+    const dbTableName = await this.getDbTableName(tableId);
+    const field = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, isPrimary: true, deletedTime: null },
+    });
+    if (!field) {
+      throw new BadRequestException(`Could not find primary index ${tableId}`);
+    }
+
+    const queryBuilder = this.knex(dbTableName)
+      .select({ title: field.dbFieldName, id: '__id' })
+      .whereIn('__id', recordIds);
 
     const querySql = queryBuilder.toQuery();
 
