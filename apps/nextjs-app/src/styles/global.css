@@ -31,7 +31,7 @@ body {
 
 .react-grid-item.react-grid-placeholder {
   z-index: -1 !important;
-  border-radius: 0.25rem;
+  border-radius: 0.75rem;
   border-color: hsl(var(--primary)) !important;
   background-color: hsl(var(--muted-foreground)) !important;
 }

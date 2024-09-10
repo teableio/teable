@@ -11,7 +11,7 @@ export const createPluginRoSchema = z.object({
   description: z.string().max(150).optional(),
   detailDesc: z.string().max(3000).optional(),
   logo: z.string(),
-  url: z.string().optional(),
+  url: z.string().url().optional(),
   helpUrl: z.string().url().optional(),
   positions: z.array(z.nativeEnum(PluginPosition)).min(1),
   i18n: pluginI18nSchema.optional(),

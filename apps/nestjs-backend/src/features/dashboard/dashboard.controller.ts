@@ -9,6 +9,8 @@ import {
   renameDashboardRoSchema,
   updateLayoutDashboardRoSchema,
   IDashboardInstallPluginRo,
+  dashboardPluginUpdateStorageRoSchema,
+  IDashboardPluginUpdateStorageRo,
 } from '@teable/openapi';
 import type {
   ICreateDashboardVo,
@@ -17,6 +19,8 @@ import type {
   IUpdateLayoutDashboardVo,
   IGetDashboardListVo,
   IDashboardInstallPluginVo,
+  IDashboardPluginUpdateStorageVo,
+  IGetDashboardInstallPluginVo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -105,5 +109,27 @@ export class DashboardController {
     @Body(new ZodValidationPipe(renameDashboardRoSchema)) ro: IRenameDashboardRo
   ): Promise<IRenameDashboardVo> {
     return this.dashboardService.renamePlugin(baseId, id, pluginInstallId, ro.name);
+  }
+
+  @Patch(':id/plugin/:pluginInstallId/update-storage')
+  @Permissions('base|update')
+  updatePluginStorage(
+    @Param('baseId') baseId: string,
+    @Param('id') id: string,
+    @Param('pluginInstallId') pluginInstallId: string,
+    @Body(new ZodValidationPipe(dashboardPluginUpdateStorageRoSchema))
+    ro: IDashboardPluginUpdateStorageRo
+  ): Promise<IDashboardPluginUpdateStorageVo> {
+    return this.dashboardService.updatePluginStorage(baseId, id, pluginInstallId, ro.storage);
+  }
+
+  @Get(':id/plugin/:pluginInstallId')
+  @Permissions('base|read')
+  getPluginInstall(
+    @Param('baseId') baseId: string,
+    @Param('id') id: string,
+    @Param('pluginInstallId') pluginInstallId: string
+  ): Promise<IGetDashboardInstallPluginVo> {
+    return this.dashboardService.getPluginInstall(baseId, id, pluginInstallId);
   }
 }

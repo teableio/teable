@@ -13,12 +13,13 @@ import { PluginHeader } from './PluginHeader';
 export const PluginItem = (props: {
   name: string;
   pluginId: string;
+  dragging?: boolean;
   pluginUrl?: string;
   dashboardId: string;
   pluginInstallId: string;
 }) => {
   const baseId = useBaseId()!;
-  const { pluginInstallId, dashboardId, pluginId, name, pluginUrl } = props;
+  const { pluginInstallId, dashboardId, dragging, pluginId, name, pluginUrl } = props;
   const router = useRouter();
   const queryClient = useQueryClient();
   const isExpandPlugin = useIsExpandPlugin();
@@ -65,9 +66,13 @@ export const PluginItem = (props: {
       onClick={onClose}
     >
       <div
-        className={cn('group flex h-full flex-col overflow-hidden rounded border bg-background', {
-          'md:w-4/5 h-4/5 w-full mx-4': isExpanded,
-        })}
+        className={cn(
+          'group flex h-full flex-col overflow-hidden rounded-xl border bg-background',
+          {
+            'md:w-4/5 h-4/5 w-full mx-4': isExpanded,
+            'pointer-events-none select-none': dragging,
+          }
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         <PluginHeader

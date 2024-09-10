@@ -29,6 +29,7 @@ import { QueryOperators } from './QueryOperators';
 
 export interface IBaseQueryBuilderRef {
   validateQuery: () => boolean;
+  initContext: (query?: IBaseQuery) => void;
 }
 
 export const BaseQueryBuilder = forwardRef<
@@ -49,6 +50,7 @@ export const BaseQueryBuilder = forwardRef<
 
 BaseQueryBuilder.displayName = 'QueryBuilder';
 
+// TODO: Refactor this component context generation
 const QueryBuilderContainer = forwardRef<
   IBaseQueryBuilderRef,
   {
@@ -61,13 +63,19 @@ const QueryBuilderContainer = forwardRef<
   }
 >((props, ref) => {
   const { className, query, onChange, depth = 0, getContextFromChild, maxDepth = 3 } = props;
-  const [fromType, setFromType] = useState<'table' | 'query'>();
+  const [fromType, setFromType] = useState<'table' | 'query' | undefined>();
   const [childContext, setChildContext] = useState<IBaseQueryColumn[]>([]);
   const [joinContext, setJoinContext] = useState<IContextColumns>([]);
   const [aggregationContext, setAggregationContext] = useState<IBaseQueryColumn[]>([]);
   const [canSelectedColumnIds, setCanSelectedColumnIds] = useState<string[]>();
   const formQueryRef = useRef<IBaseQueryBuilderRef>(null);
   const { validators } = useContext(QueryFormContext);
+
+  useEffect(() => {
+    if (query) {
+      setFromType(typeof query.from === 'string' ? 'table' : 'query');
+    }
+  }, [query]);
 
   useImperativeHandle(ref, () => ({
     validateQuery: () => {
@@ -85,6 +93,13 @@ const QueryBuilderContainer = forwardRef<
         return false;
 
       return true;
+    },
+    initContext: (innerQuery?: IBaseQuery) => {
+      const query = innerQuery || props.query;
+      collectContext('from', query?.from);
+      collectContext('join', query?.join);
+      collectContext('aggregation', query?.aggregation);
+      formQueryRef.current?.initContext(query?.from as IBaseQuery);
     },
   }));
 
@@ -150,7 +165,7 @@ const QueryBuilderContainer = forwardRef<
     );
   };
 
-  const collectContext = async <T extends keyof IBaseQuery>(key: T, value: IBaseQuery[T]) => {
+  const collectContext = async <T extends keyof IBaseQuery>(key: T, value?: IBaseQuery[T]) => {
     switch (key) {
       case 'join':
         {
@@ -212,9 +227,8 @@ const QueryBuilderContainer = forwardRef<
   };
 
   const onQueryChange = async <T extends keyof IBaseQuery>(key: T, value: IBaseQuery[T]) => {
-    // collect context
-    collectContext(key, value);
     console.log(depth, 'onQueryChange', key, value);
+    collectContext(key, value);
     if (!query) {
       key === 'from' &&
         onChange({

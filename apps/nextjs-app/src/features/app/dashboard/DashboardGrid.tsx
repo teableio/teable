@@ -5,6 +5,7 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -20,6 +21,7 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
   const queryClient = useQueryClient();
   const isExpandPlugin = useIsExpandPlugin();
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { data: dashboardData } = useQuery({
     queryKey: ReactQueryKeys.getDashboard(dashboardId),
@@ -56,11 +58,20 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
       }}
       breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
       rowHeight={80}
-      onBreakpointChange={(newBreakpoint, newCols) => console.log(newBreakpoint, newCols)}
+      margin={[16, 16]}
+      containerPadding={[16, 16]}
       cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
       draggableHandle=".dashboard-draggable-handle"
-      onResizeStop={onLayoutChange}
-      onDragStop={onLayoutChange}
+      onResize={() => setIsDragging(true)}
+      onResizeStop={(layout) => {
+        setIsDragging(false);
+        onLayoutChange(layout);
+      }}
+      onDrag={() => setIsDragging(true)}
+      onDragStop={(layout) => {
+        setIsDragging(false);
+        onLayoutChange(layout);
+      }}
     >
       {layout.map(({ pluginInstallId, x, y, w, h }) => (
         <div
@@ -72,6 +83,7 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
         >
           {pluginMap[pluginInstallId] ? (
             <PluginItem
+              dragging={isDragging}
               dashboardId={dashboardId}
               name={pluginMap[pluginInstallId].name}
               pluginId={pluginMap[pluginInstallId].id}

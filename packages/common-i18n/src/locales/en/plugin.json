@@ -43,6 +43,10 @@
     "i18n": {
       "label": "I18n",
       "description": "i18n of the plugin, contains(name, description, detail description)"
+    },
+    "url": {
+      "label": "Url",
+      "description": "URL of the plugin"
     }
   },
   "markdown": {

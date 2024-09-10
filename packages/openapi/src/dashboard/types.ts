@@ -20,3 +20,7 @@ export const dashboardPluginItemSchema = z.object({
 });
 
 export type IDashboardPluginItem = z.infer<typeof dashboardPluginItemSchema>;
+
+export const pluginInstallStorageSchema = z.record(z.string(), z.unknown());
+
+export type IPluginInstallStorage = z.infer<typeof pluginInstallStorageSchema>;

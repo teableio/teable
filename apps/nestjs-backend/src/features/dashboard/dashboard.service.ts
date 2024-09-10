@@ -6,6 +6,7 @@ import { PluginPosition, PluginStatus } from '@teable/openapi';
 import type {
   ICreateDashboardRo,
   IDashboardInstallPluginRo,
+  IGetDashboardInstallPluginVo,
   IGetDashboardListVo,
   IGetDashboardVo,
   IUpdateLayoutDashboardRo,
@@ -159,8 +160,8 @@ export class DashboardService {
       });
   }
 
-  private async validatePluginPublished(baseId: string, pluginId: string) {
-    await this.prismaService.plugin
+  private async validatePluginPublished(_baseId: string, pluginId: string) {
+    return this.prismaService.plugin
       .findFirstOrThrow({
         where: {
           id: pluginId,
@@ -226,6 +227,20 @@ export class DashboardService {
     });
   }
 
+  private async validateDashboard(baseId: string, dashboardId: string) {
+    await this.prismaService
+      .txClient()
+      .dashboard.findFirstOrThrow({
+        where: {
+          baseId,
+          id: dashboardId,
+        },
+      })
+      .catch(() => {
+        throw new NotFoundException('Dashboard not found');
+      });
+  }
+
   async removePlugin(baseId: string, dashboardId: string, pluginInstallId: string) {
     return this.prismaService.$tx(async () => {
       await this.prismaService
@@ -268,27 +283,26 @@ export class DashboardService {
     });
   }
 
+  private async validateAndGetPluginInstall(pluginInstallId: string) {
+    return this.prismaService
+      .txClient()
+      .pluginInstall.findFirstOrThrow({
+        where: {
+          id: pluginInstallId,
+          plugin: {
+            status: PluginStatus.Published,
+          },
+        },
+      })
+      .catch(() => {
+        throw new NotFoundException('Plugin not found');
+      });
+  }
+
   async renamePlugin(baseId: string, dashboardId: string, pluginInstallId: string, name: string) {
     return this.prismaService.$tx(async () => {
-      const plugin = await this.prismaService
-        .txClient()
-        .pluginInstall.findFirstOrThrow({
-          where: {
-            baseId,
-            id: pluginInstallId,
-            positionId: dashboardId,
-            plugin: {
-              status: PluginStatus.Published,
-            },
-          },
-          select: {
-            id: true,
-            name: true,
-          },
-        })
-        .catch(() => {
-          throw new NotFoundException('Plugin not found');
-        });
+      await this.validateDashboard(baseId, dashboardId);
+      const plugin = await this.validateAndGetPluginInstall(pluginInstallId);
       await this.prismaService.txClient().pluginInstall.update({
         where: {
           id: pluginInstallId,
@@ -298,10 +312,52 @@ export class DashboardService {
         },
       });
       return {
-        id: plugin.id,
-        pluginInstallId: plugin.id,
+        id: plugin.pluginId,
+        pluginInstallId,
         name,
       };
     });
+  }
+
+  async updatePluginStorage(
+    baseId: string,
+    dashboardId: string,
+    pluginInstallId: string,
+    storage?: Record<string, unknown>
+  ) {
+    return this.prismaService.$tx(async () => {
+      await this.validateDashboard(baseId, dashboardId);
+      await this.validateAndGetPluginInstall(pluginInstallId);
+      const res = await this.prismaService.txClient().pluginInstall.update({
+        where: {
+          id: pluginInstallId,
+        },
+        data: {
+          storage: storage ? JSON.stringify(storage) : null,
+        },
+      });
+      return {
+        baseId,
+        dashboardId,
+        pluginInstallId: res.id,
+        name: res.storage ? JSON.parse(res.storage) : undefined,
+      };
+    });
+  }
+
+  async getPluginInstall(
+    baseId: string,
+    dashboardId: string,
+    pluginInstallId: string
+  ): Promise<IGetDashboardInstallPluginVo> {
+    await this.validateDashboard(baseId, dashboardId);
+    const plugin = await this.validateAndGetPluginInstall(pluginInstallId);
+    return {
+      name: plugin.name,
+      baseId: plugin.baseId,
+      pluginId: plugin.pluginId,
+      pluginInstallId: plugin.id,
+      storage: plugin.storage ? JSON.parse(plugin.storage) : undefined,
+    };
   }
 }

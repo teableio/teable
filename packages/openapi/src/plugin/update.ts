@@ -10,7 +10,7 @@ export const updatePluginRoSchema = z.object({
   name: z.string(),
   description: z.string().max(150).optional(),
   detailDesc: z.string().max(3000).optional(),
-  url: z.string().optional(),
+  url: z.string().url().optional(),
   logo: z.string(),
   helpUrl: z.string().url().optional(),
   positions: z.array(z.nativeEnum(PluginPosition)).min(1),

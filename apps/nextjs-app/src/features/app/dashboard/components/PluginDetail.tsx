@@ -22,7 +22,7 @@ export const PluginDetail = (props: {
     <div className="absolute left-0 top-0 flex size-full flex-col bg-background">
       <Button className="ml-2 mt-2 w-20" variant={'ghost'} size={'sm'} onClick={onBack}>
         <ArrowLeft />
-        {t('common.back')}
+        {t('common:actions.back')}
       </Button>
       <div className="flex-1 gap-3 overflow-auto px-4 md:flex">
         <div className="flex-1">

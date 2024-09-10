@@ -14,6 +14,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   const { baseId } = context.query;
   const result = await ssrApi.getTables(baseId as string);
   const base = await ssrApi.getBaseById(baseId as string);
+  context.res.setHeader('Content-Security-Policy', 'frame-ancestors *;');
   return {
     props: {
       tableServerData: result,

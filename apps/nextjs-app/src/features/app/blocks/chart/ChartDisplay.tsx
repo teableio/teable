@@ -1,6 +1,7 @@
 import { BaseQueryColumnType, type IBaseQueryVo } from '@teable/openapi';
 import { SelectTrigger } from '@teable/ui-lib';
 import {
+  cn,
   Label,
   Select,
   SelectContent,
@@ -11,8 +12,8 @@ import {
 import { useMemo, useState } from 'react';
 import { ChartBar } from './chart-show/Bar';
 
-export const ChartDisplay = (props: { data: IBaseQueryVo }) => {
-  const { data } = props;
+export const ChartDisplay = (props: { data: IBaseQueryVo; showSetting?: boolean }) => {
+  const { data, showSetting } = props;
   const { rows, columns } = data;
 
   const [xAxis, setXAxis] = useState<string>();
@@ -84,7 +85,11 @@ export const ChartDisplay = (props: { data: IBaseQueryVo }) => {
 
   return (
     <div className="p-4">
-      <div className="mb-4 flex gap-4">
+      <div
+        className={cn('mb-4 flex gap-4', {
+          hidden: !showSetting,
+        })}
+      >
         <div className="flex items-center gap-2">
           <Label>x</Label>
           <Select value={xAxis} onValueChange={setXAxis}>

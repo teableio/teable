@@ -164,6 +164,20 @@ export const PluginNew = (props: { onCreated?: (secret: string) => void }) => {
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('plugin:form.url.label')}</FormLabel>
+                <FormDescription>{t('plugin:form.url.description')}</FormDescription>
+                <FormControl>
+                  <Input value={field.value ?? ''} onChange={field.onChange} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </form>
       </Form>
     </FormPageLayout>

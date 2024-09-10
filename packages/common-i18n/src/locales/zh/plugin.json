@@ -43,6 +43,10 @@
     "i18n": {
       "label": "国际化",
       "description": "插件的国际化，包含（名称、描述、详细描述）"
+    },
+    "url": {
+      "label": "网址",
+      "description": "插件的URL"
     }
   },
   "markdown": {

@@ -21,7 +21,10 @@
   "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
-    ".": "./dist",
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
     "./ui.config": {
       "import": "./ui.config.js",
       "require": "./ui.config.js",
@@ -64,6 +67,7 @@
     "@teable/common-i18n": "workspace:*",
     "@teable/core": "workspace:*",
     "@teable/icons": "workspace:*",
+    "@teable/next-themes": "0.3.3",
     "@teable/openapi": "workspace:*",
     "@teable/ui-lib": "workspace:*",
     "antlr4ts": "0.5.0-alpha.4",
@@ -79,7 +83,7 @@
     "lodash": "4.17.21",
     "lru-cache": "10.2.0",
     "lucide-react": "0.363.0",
-    "@teable/next-themes": "0.3.3",
+    "penpal": "6.2.2",
     "react-day-picker": "8.10.0",
     "react-hammerjs": "1.0.1",
     "react-hotkeys-hook": "4.5.0",
