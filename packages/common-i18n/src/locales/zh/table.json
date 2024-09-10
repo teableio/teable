@@ -266,8 +266,8 @@
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
-    "deleteTip1": "其他表中关联了此表的关联字段将会被转换成文本字段",
-    "deleteTip2": "该操作无法撤销.",
+    "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
+    "deleteTip2": "This table can be restored from the trash after deletion.",
     "operator": {
       "createBlank": "创建一个新表格"
     },
