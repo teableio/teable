@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { FieldType } from '@teable/core';
@@ -10,13 +11,20 @@ describe('OpenAPI AttachmentController (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
   let table: ITableFullVo;
+  let filePath: string;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    const tempDir = os.tmpdir();
+    filePath = path.join(tempDir, 'test-file.txt');
+    fs.writeFileSync(filePath, 'This is a test file for attachment upload.');
   });
 
   afterAll(async () => {
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
     await app.close();
   });
 
@@ -31,7 +39,8 @@ describe('OpenAPI AttachmentController (e2e)', () => {
   it('should upload attachment', async () => {
     const field = await createField(table.id, { name: 'field1', type: FieldType.Attachment });
 
-    const filePath = path.resolve('./test/attachment.e2e-spec.ts');
+    expect(fs.existsSync(filePath)).toBe(true);
+
     const fileContent = fs.createReadStream(filePath);
 
     const record1 = await uploadAttachment(table.id, table.records[0].id, field.id, fileContent);
