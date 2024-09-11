@@ -24,13 +24,15 @@ export class MinioStorage implements StorageAdapter {
       accessKey: accessKey!,
       secretKey: secretKey!,
     });
-    this.minioClientPrivateNetwork = new minio.Client({
-      endPoint: internalEndPoint || endPoint!,
-      port: port!,
-      useSSL: useSSL!,
-      accessKey: accessKey!,
-      secretKey: secretKey!,
-    });
+    this.minioClientPrivateNetwork = internalEndPoint
+      ? new minio.Client({
+          endPoint: internalEndPoint,
+          port: 80,
+          useSSL: false,
+          accessKey: accessKey!,
+          secretKey: secretKey!,
+        })
+      : this.minioClient;
   }
 
   async presigned(

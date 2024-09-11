@@ -29,14 +29,16 @@ export class S3Storage implements StorageAdapter {
         secretAccessKey: secretKey,
       },
     });
-    this.s3ClientPrivateNetwork = new S3Client({
-      region,
-      endpoint: internalEndpoint || endpoint,
-      credentials: {
-        accessKeyId: accessKey,
-        secretAccessKey: secretKey,
-      },
-    });
+    this.s3ClientPrivateNetwork = internalEndpoint
+      ? new S3Client({
+          region,
+          endpoint: internalEndpoint,
+          credentials: {
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey,
+          },
+        })
+      : this.s3Client;
   }
 
   private checkConfig() {

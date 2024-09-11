@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import fs from 'fs';
 import type { IncomingHttpHeaders } from 'http';
@@ -205,15 +206,25 @@ export class AttachmentsService {
       );
     }
 
+    const contentType =
+      file.mimetype === 'application/octet-stream'
+        ? mimeTypes.lookup(file.originalname) || file.mimetype
+        : file.mimetype;
+    const contentLength = file.size;
+
     const { token, url } = await this.signature({
       type: UploadType.Table,
-      contentLength: file.size,
-      contentType: file.mimetype,
+      contentLength,
+      contentType,
       internal: true,
     });
     const fileStream = Readable.from(file.buffer);
 
-    await this.uploadStreamToStorage(url, fileStream, file.mimetype, file.size);
+    this.logger.log(
+      `Uploading file: ${file.originalname}, size: ${contentLength} bytes, mimetype: ${contentType}`
+    );
+
+    await this.uploadStreamToStorage(url, fileStream, contentType, contentLength);
 
     return await this.notifyToAttachmentItem(token, file.originalname);
   }
@@ -265,7 +276,7 @@ export class AttachmentsService {
       const headResponse = await axios.head(fileUrl);
       contentLength =
         headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
-      contentType = headResponse.headers['content-type'] || 'application/octet-stream';
+      contentType = headResponse.headers['content-type'];
       this.logger.log(
         `HEAD request successful. Content-Length: ${contentLength}, Content-Type: ${contentType}`
       );
@@ -283,7 +294,7 @@ export class AttachmentsService {
       this.logger.log(`File downloaded. Size: ${contentLength} bytes`);
 
       if (!contentType) {
-        contentType = mimeTypes.lookup(tempFilePath) || 'application/octet-stream';
+        contentType = mimeTypes.lookup(fileUrl) || 'application/octet-stream';
       }
     }
 
