@@ -7,7 +7,6 @@ import type { AttachmentsStorageService } from '../attachments/attachments-stora
 import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
-import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
 import type { RecordService } from './record.service';
 import { TypeCastAndValidate } from './typecast.validate';

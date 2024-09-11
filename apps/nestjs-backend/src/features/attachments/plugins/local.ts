@@ -44,7 +44,7 @@ export class LocalStorage implements StorageAdapter {
   }
 
   private getUploadUrl(token: string) {
-    return `/api/attachments/upload/${token}`;
+    return `${this.baseConfig.storagePrefix}/api/attachments/upload/${token}`;
   }
 
   private deleteFile(filePath: string) {
@@ -170,11 +170,15 @@ export class LocalStorage implements StorageAdapter {
   }
 
   async getFileMate(path: string) {
-    const info = await sharp(path).metadata();
-    return {
-      width: info.width,
-      height: info.height,
-    };
+    try {
+      const info = await sharp(path).metadata();
+      return {
+        width: info.width,
+        height: info.height,
+      };
+    } catch (error) {
+      return {};
+    }
   }
 
   async getObjectMeta(bucket: string, path: string, token: string): Promise<IObjectMeta> {

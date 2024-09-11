@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { IAttachmentCellValue, IMakeOptional } from '@teable/core';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { IAttachmentCellValue, IAttachmentItem, IMakeOptional } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -20,6 +20,7 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
+import { AttachmentsService } from '../../attachments/attachments.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { getFullStorageUrl } from '../../attachments/plugins/utils';
 import { SystemFieldService } from '../../calculation/system-field.service';
@@ -46,6 +47,7 @@ export class RecordOpenApiService {
     private readonly viewService: ViewService,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly eventEmitterService: EventEmitterService,
+    private readonly attachmentsService: AttachmentsService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -482,5 +484,68 @@ export class RecordOpenApiService {
       userMap: keyBy(handledUserList, 'id'),
       nextCursor,
     };
+  }
+
+  private async getValidateAttachmentRecord(tableId: string, recordId: string, fieldId: string) {
+    const field = await this.prismaService.field
+      .findFirstOrThrow({
+        where: {
+          id: fieldId,
+          deletedTime: null,
+        },
+        select: {
+          id: true,
+          type: true,
+          isComputed: true,
+        },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Field ${fieldId} not found`);
+      });
+
+    if (field.type !== FieldType.Attachment) {
+      throw new BadRequestException('Field is not an attachment');
+    }
+
+    if (field.isComputed) {
+      throw new BadRequestException('Field is computed');
+    }
+
+    const recordData = await this.recordService.getRecordsById(tableId, [recordId]);
+    const record = recordData.records[0];
+    if (!record) {
+      throw new NotFoundException(`Record ${recordId} not found`);
+    }
+    return record;
+  }
+
+  async uploadAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    file?: Express.Multer.File,
+    fileUrl?: string
+  ) {
+    if (!file && !fileUrl) {
+      throw new BadRequestException('No file or URL provided');
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+
+    const attachmentItem = file
+      ? await this.attachmentsService.uploadFile(file)
+      : await this.attachmentsService.uploadFromUrl(fileUrl as string);
+
+    // Update the cell value
+    const updateRecordRo: IUpdateRecordRo = {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: ((record.fields[fieldId] || []) as IAttachmentItem[]).concat(attachmentItem),
+        },
+      },
+    };
+
+    return await this.updateRecord(tableId, recordId, updateRecordRo);
   }
 }
