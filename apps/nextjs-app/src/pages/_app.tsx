@@ -30,7 +30,6 @@ extendZodWithOpenApi(z);
  * i.e.: import '@/assets/theme/style.scss'
  */
 import '../styles/global.css';
-import '../features/app/blocks/chart/chart-show/theme.css';
 
 import '@fontsource-variable/inter';
 
