@@ -13,8 +13,12 @@ export class PluginBridge implements IBridgeListener {
   constructor() {
     const methods: IChildBridgeMethods = {
       syncUIConfig: (uiConfig) => {
-        console.log('syncUIConfig', uiConfig);
         this.listeners.syncUIConfig?.forEach((cb) => cb(uiConfig));
+      },
+      syncBasePermissions: (basePermissions) => {
+        this.listeners.syncBasePermissions?.forEach((cb) =>
+          (cb as IChildBridgeMethods['syncBasePermissions'])(basePermissions)
+        );
       },
     };
     this.connection = connectToParent({
@@ -36,7 +40,7 @@ export class PluginBridge implements IBridgeListener {
 
   on<T extends keyof IChildBridgeMethods>(event: T, callback: IChildBridgeMethods[T]) {
     const callbacks = this.listeners[event];
-    if (callbacks?.includes(callback)) {
+    if (callbacks?.some((cb) => cb === callback)) {
       return;
     }
     this.listeners[event] = callbacks ? [...callbacks, callback] : [callback];

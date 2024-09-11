@@ -1,4 +1,5 @@
-import { useBaseId } from '@teable/sdk/hooks';
+import { useTheme } from '@teable/next-themes';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import type { IChildBridgeMethods } from '@teable/sdk/plugin-bridge';
 import { Spin } from '@teable/ui-lib/base';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -13,13 +14,19 @@ export const PluginContent = (props: {
   pluginId: string;
   pluginInstallId: string;
   pluginUrl?: string;
+  dashboardId: string;
 }) => {
-  const { className, pluginInstallId, pluginUrl } = props;
+  const { className, pluginInstallId, pluginUrl, dashboardId } = props;
   const baseId = useBaseId()!;
   const router = useRouter();
   const expandPluginId = router.query.expandPluginId as string;
-  const { t } = useTranslation(dashboardConfig.i18nNamespaces);
+  const {
+    t,
+    i18n: { resolvedLanguage },
+  } = useTranslation(dashboardConfig.i18nNamespaces);
+  const { resolvedTheme } = useTheme();
   const [bridge, setBridge] = useState<IChildBridgeMethods>();
+  const basePermissions = useBasePermission();
   const iframeUrl = useMemo(() => {
     if (!pluginUrl) {
       return;
@@ -27,15 +34,24 @@ export const PluginContent = (props: {
     const url = new URL(pluginUrl);
     url.searchParams.set('pluginInstallId', pluginInstallId);
     url.searchParams.set('baseId', baseId);
+    url.searchParams.set('dashboardId', dashboardId);
+    resolvedLanguage && url.searchParams.set('lang', resolvedLanguage);
     return url.toString();
-  }, [pluginInstallId, pluginUrl, baseId]);
+  }, [pluginUrl, pluginInstallId, baseId, dashboardId, resolvedLanguage]);
 
   useEffect(() => {
     bridge?.syncUIConfig({
       isShowingSettings: expandPluginId === pluginInstallId,
-      isExpand: expandPluginId === pluginInstallId,
+      theme: resolvedTheme,
     });
-  }, [bridge, expandPluginId, pluginInstallId]);
+  }, [bridge, expandPluginId, pluginInstallId, resolvedTheme]);
+
+  useEffect(() => {
+    if (!basePermissions) {
+      return;
+    }
+    bridge?.syncBasePermissions(basePermissions);
+  }, [basePermissions, bridge]);
 
   if (!iframeUrl) {
     return (
@@ -52,7 +68,15 @@ export const PluginContent = (props: {
           <Spin />
         </div>
       )}
-      <PluginRender onBridge={setBridge} src={iframeUrl} />
+      <PluginRender
+        onBridge={setBridge}
+        src={iframeUrl}
+        {...{
+          pluginInstallId,
+          dashboardId,
+          baseId,
+        }}
+      />
     </div>
   );
 };

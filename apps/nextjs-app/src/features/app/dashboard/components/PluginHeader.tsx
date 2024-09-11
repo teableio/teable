@@ -1,4 +1,5 @@
 import { DraggableHandle, Edit, Maximize2, MoreHorizontal, X } from '@teable/icons';
+import { useBasePermission } from '@teable/sdk/hooks';
 import {
   Button,
   cn,
@@ -27,6 +28,7 @@ export const PluginHeader = (props: {
   const renameRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
+  const basePermissions = useBasePermission();
 
   if (isExpanded) {
     return (
@@ -38,11 +40,20 @@ export const PluginHeader = (props: {
       </div>
     );
   }
+
+  const canManage = basePermissions?.['base|update'];
   return (
     <div className="flex h-8 items-center gap-1 px-1">
-      <DraggableHandle className="dashboard-draggable-handle cursor-pointer opacity-0 group-hover:opacity-100" />
+      <DraggableHandle
+        className={cn(
+          'dashboard-draggable-handle cursor-pointer opacity-0 group-hover:opacity-100',
+          {
+            'pointer-events-none !opacity-0': !canManage,
+          }
+        )}
+      />
       <div className="relative flex h-full flex-1 items-center overflow-hidden px-0.5">
-        <span className="truncate">{name}</span>
+        <span className="truncate text-sm">{name}</span>
         <Input
           ref={renameRef}
           style={{ width: 'calc(100% - 0.25rem)' }}
@@ -55,6 +66,11 @@ export const PluginHeader = (props: {
               onNameChange(rename);
             }
             setRename(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') {
+              e.currentTarget.blur();
+            }
           }}
           onChange={(e) => setRename(e.target.value)}
         />
@@ -72,21 +88,27 @@ export const PluginHeader = (props: {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
-          <DropdownMenuItem
-            onSelect={() => {
-              setRename(name);
-              setTimeout(() => renameRef.current?.focus(), 200);
-            }}
-          >
-            <Edit className="mr-1.5" />
-            {t('common:actions.rename')}
-          </DropdownMenuItem>
+          {canManage && (
+            <DropdownMenuItem
+              onSelect={() => {
+                setRename(name);
+                setTimeout(() => renameRef.current?.focus(), 200);
+              }}
+            >
+              <Edit className="mr-1.5" />
+              {t('common:actions.rename')}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={onExpand}>
             <Maximize2 className="mr-1.5" />
             {t('dashboard:expand')}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <MenuDeleteItem onConfirm={onDelete} />
+          {canManage && (
+            <>
+              <DropdownMenuSeparator />
+              <MenuDeleteItem onConfirm={onDelete} />
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

@@ -340,7 +340,7 @@ export class DashboardService {
         baseId,
         dashboardId,
         pluginInstallId: res.id,
-        name: res.storage ? JSON.parse(res.storage) : undefined,
+        storage: res.storage ? JSON.parse(res.storage) : undefined,
       };
     });
   }

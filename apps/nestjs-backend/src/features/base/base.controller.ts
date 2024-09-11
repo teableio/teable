@@ -174,6 +174,7 @@ export class BaseController {
   }
 
   @Get(':baseId/query')
+  @Permissions('base|query_data')
   async sqlQuery(
     @Param('baseId') baseId: string,
     @Query(new ZodValidationPipe(baseQuerySchemaRo)) query: IBaseQuerySchemaRo

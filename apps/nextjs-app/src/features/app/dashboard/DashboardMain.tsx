@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus } from '@teable/icons';
 import { getDashboard } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { isEmpty } from 'lodash';
@@ -15,6 +15,9 @@ export const DashboardMain = (props: { dashboardId: string }) => {
   const { dashboardId } = props;
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const baseId = useBaseId()!;
+  const basePermissions = useBasePermission();
+  const canManage = basePermissions?.['base|update'];
+
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ReactQueryKeys.getDashboard(dashboardId),
     queryFn: () => getDashboard(baseId, dashboardId).then((res) => res.data),
@@ -30,12 +33,14 @@ export const DashboardMain = (props: { dashboardId: string }) => {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3">
         <p>{t('dashboard:pluginEmpty.title')}</p>
-        <AddPluginDialog dashboardId={dashboardId}>
-          <Button size={'xs'}>
-            <Plus />
-            {t('dashboard:addPlugin')}
-          </Button>
-        </AddPluginDialog>
+        {canManage && (
+          <AddPluginDialog dashboardId={dashboardId}>
+            <Button size={'xs'}>
+              <Plus />
+              {t('dashboard:addPlugin')}
+            </Button>
+          </AddPluginDialog>
+        )}
       </div>
     );
   }

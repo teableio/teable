@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, PlusCircle } from '@teable/icons';
 import { getDashboardList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import {
   Button,
   cn,
@@ -37,6 +37,8 @@ export const DashboardSwitcher = (props: {
     queryKey: ReactQueryKeys.getDashboardList(),
     queryFn: () => getDashboardList(baseId).then((res) => res.data),
   });
+  const basePermissions = useBasePermission();
+  const canManage = basePermissions?.['base|update'];
 
   const selectedDashboard = dashboardList?.find(({ id }) => id === dashboardId);
 
@@ -83,24 +85,28 @@ export const DashboardSwitcher = (props: {
               ))}
             </CommandGroup>
           </CommandList>
-          <CommandSeparator />
-          <CommandList>
-            <CommandGroup>
-              <CreateDashboardDialog
-                ref={createDashboardDialogRef}
-                onSuccessCallback={() => setOpen(false)}
-              >
-                <CommandItem
-                  onSelect={() => {
-                    createDashboardDialogRef.current?.open();
-                  }}
-                >
-                  <PlusCircle className="mr-2 size-5" />
-                  {t('dashboard:createDashboard.button')}
-                </CommandItem>
-              </CreateDashboardDialog>
-            </CommandGroup>
-          </CommandList>
+          {canManage && (
+            <>
+              <CommandSeparator />
+              <CommandList>
+                <CommandGroup>
+                  <CreateDashboardDialog
+                    ref={createDashboardDialogRef}
+                    onSuccessCallback={() => setOpen(false)}
+                  >
+                    <CommandItem
+                      onSelect={() => {
+                        createDashboardDialogRef.current?.open();
+                      }}
+                    >
+                      <PlusCircle className="mr-2 size-5" />
+                      {t('dashboard:createDashboard.button')}
+                    </CommandItem>
+                  </CreateDashboardDialog>
+                </CommandGroup>
+              </CommandList>
+            </>
+          )}
         </Command>
       </PopoverContent>
     </Popover>

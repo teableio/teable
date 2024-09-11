@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IDashboardLayout } from '@teable/openapi';
 import { getDashboard, updateLayoutDashboard } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
@@ -22,7 +22,8 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
   const isExpandPlugin = useIsExpandPlugin();
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const [isDragging, setIsDragging] = useState(false);
-
+  const basePermissions = useBasePermission();
+  const canMange = basePermissions?.['base|update'];
   const { data: dashboardData } = useQuery({
     queryKey: ReactQueryKeys.getDashboard(dashboardId),
     queryFn: () => getDashboard(baseId, dashboardId).then((res) => res.data),
@@ -72,6 +73,8 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
         setIsDragging(false);
         onLayoutChange(layout);
       }}
+      isResizable={canMange}
+      isDraggable={canMange}
     >
       {layout.map(({ pluginInstallId, x, y, w, h }) => (
         <div

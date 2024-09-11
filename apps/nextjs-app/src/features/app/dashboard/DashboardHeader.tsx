@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Edit, MoreHorizontal, Plus } from '@teable/icons';
 import { deleteDashboard, getDashboardList, renameDashboard } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import {
   Button,
   cn,
@@ -30,6 +30,8 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const [rename, setRename] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
+  const basePermissions = useBasePermission();
+  const canManage = basePermissions?.['base|update'];
 
   const { mutate: deleteDashboardMutate } = useMutation({
     mutationFn: () => deleteDashboard(baseId, dashboardId),
@@ -82,32 +84,36 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         onChange={(e) => setRename(e.target.value)}
       />
       <div className="flex items-center gap-2">
-        <AddPluginDialog dashboardId={dashboardId}>
-          <Button variant={'outline'} size={'xs'}>
-            <Plus />
-            {t('dashboard:addPlugin')}
-          </Button>
-        </AddPluginDialog>
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="outline" className="size-6">
-              <MoreHorizontal className="size-3.5" />
+        {canManage && (
+          <AddPluginDialog dashboardId={dashboardId}>
+            <Button variant={'outline'} size={'xs'}>
+              <Plus />
+              {t('dashboard:addPlugin')}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
-            <DropdownMenuItem
-              onSelect={() => {
-                setRename(selectedDashboard?.name ?? null);
-                setTimeout(() => renameRef.current?.focus(), 200);
-              }}
-            >
-              <Edit className="mr-1.5" />
-              {t('common:actions.rename')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <MenuDeleteItem onConfirm={deleteDashboardMutate} />
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </AddPluginDialog>
+        )}
+        {canManage && (
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="outline" className="size-6">
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
+              <DropdownMenuItem
+                onSelect={() => {
+                  setRename(selectedDashboard?.name ?? null);
+                  setTimeout(() => renameRef.current?.focus(), 200);
+                }}
+              >
+                <Edit className="mr-1.5" />
+                {t('common:actions.rename')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <MenuDeleteItem onConfirm={deleteDashboardMutate} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );

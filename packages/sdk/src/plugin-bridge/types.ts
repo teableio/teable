@@ -1,16 +1,21 @@
+import type { IGetBasePermissionVo } from '@teable/openapi';
 import type { AsyncMethodReturns } from 'penpal';
 
 export interface IUIConfig {
   isShowingSettings: boolean;
-  isExpand: boolean;
+  theme?: string;
 }
+
+export type IBasePermissions = IGetBasePermissionVo;
 
 export interface IParentBridgeMethods {
   expandRecord: (recordIds: string[]) => void;
+  updateStorage: (storage?: Record<string, unknown>) => Promise<Record<string, unknown>>;
 }
 
 export interface IChildBridgeMethods {
   syncUIConfig: (uiConfig: IUIConfig) => void;
+  syncBasePermissions: (permissions: IBasePermissions) => void;
 }
 
 export type IBridgeListener = {

@@ -87,6 +87,7 @@ export const PluginItem = (props: {
           pluginId={pluginId}
           pluginInstallId={pluginInstallId}
           pluginUrl={pluginUrl}
+          dashboardId={dashboardId}
         />
       </div>
     </div>
