@@ -39,12 +39,14 @@ export const PluginContent = (props: {
     return url.toString();
   }, [pluginUrl, pluginInstallId, baseId, dashboardId, resolvedLanguage]);
 
+  const canSetting = basePermissions?.['base|update'];
   useEffect(() => {
     bridge?.syncUIConfig({
-      isShowingSettings: expandPluginId === pluginInstallId,
+      isShowingSettings: expandPluginId === pluginInstallId && canSetting,
+      isExpand: expandPluginId === pluginInstallId,
       theme: resolvedTheme,
     });
-  }, [bridge, expandPluginId, pluginInstallId, resolvedTheme]);
+  }, [bridge, expandPluginId, pluginInstallId, resolvedTheme, canSetting]);
 
   useEffect(() => {
     if (!basePermissions) {

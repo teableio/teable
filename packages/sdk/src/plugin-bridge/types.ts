@@ -2,7 +2,8 @@ import type { IGetBasePermissionVo } from '@teable/openapi';
 import type { AsyncMethodReturns } from 'penpal';
 
 export interface IUIConfig {
-  isShowingSettings: boolean;
+  isExpand?: boolean;
+  isShowingSettings?: boolean;
   theme?: string;
 }
 
