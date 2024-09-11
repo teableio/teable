@@ -32,6 +32,7 @@
     "@teable/core": "workspace:^",
     "@types/node": "20.9.0",
     "axios": "1.6.8",
+    "form-data": "4.0.0",
     "httpsnippet-lite": "3.0.5",
     "openapi-sampler": "1.4.0",
     "openapi3-ts": "4.2.2",

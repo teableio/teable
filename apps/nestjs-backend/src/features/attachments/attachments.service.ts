@@ -1,12 +1,27 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import fs from 'fs';
 import type { IncomingHttpHeaders } from 'http';
+import { tmpdir } from 'os';
 import { join } from 'path';
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Readable } from 'stream';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import type { IAttachmentItem } from '@teable/core';
+import { generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { INotifyVo, SignatureRo, SignatureVo } from '@teable/openapi';
+import {
+  axios,
+  UploadType,
+  type INotifyVo,
+  type SignatureRo,
+  type SignatureVo,
+} from '@teable/openapi';
 import type { Request, Response } from 'express';
+import mimeTypes from 'mime-types';
+import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { StorageConfig, IStorageConfig } from '../../configs/storage';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import type { IClsStore } from '../../types/cls';
 import { FileUtils } from '../../utils';
 import { second } from '../../utils/second';
@@ -17,12 +32,15 @@ import { InjectStorageAdapter } from './plugins/storage';
 
 @Injectable()
 export class AttachmentsService {
+  private logger = new Logger(AttachmentsService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     @StorageConfig() readonly storageConfig: IStorageConfig,
+    @ThresholdConfig() readonly thresholdConfig: IThresholdConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
   ) {}
   /**
@@ -92,12 +110,21 @@ export class AttachmentsService {
     return true;
   }
 
-  async signature(signatureRo: SignatureRo): Promise<SignatureVo> {
+  async signature(signatureRo: SignatureRo & { internal?: boolean }): Promise<SignatureVo> {
     const { type, ...presignedParams } = signatureRo;
+    const contentLength = signatureRo.contentLength;
+    const MAX_FILE_SIZE = this.thresholdConfig.maxAttachmentUploadSize;
+    if (contentLength > MAX_FILE_SIZE) {
+      throw new BadRequestException(
+        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`
+      );
+    }
     const hash = presignedParams.hash;
     const dir = StorageAdapter.getDir(type);
     const bucket = StorageAdapter.getBucket(type);
-    const res = await this.storageAdapter.presigned(bucket, dir, presignedParams);
+    const res = await this.storageAdapter.presigned(bucket, dir, {
+      ...presignedParams,
+    });
     const { path, token } = res;
     await this.cacheService.set(
       `attachment:signature:${token}`,
@@ -159,5 +186,185 @@ export class AttachmentsService {
         { 'Content-Type': mimetype, ...filenameHeader }
       ),
     };
+  }
+
+  private async notifyToAttachmentItem(token: string, filename: string): Promise<IAttachmentItem> {
+    const notifyVo = await this.notify(token, filename);
+    return {
+      ...notifyVo,
+      id: generateAttachmentId(),
+      name: filename,
+    };
+  }
+
+  async uploadFile(file: Express.Multer.File): Promise<IAttachmentItem> {
+    const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
+    if (file.size > MAX_FILE_SIZE) {
+      throw new BadRequestException(
+        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`
+      );
+    }
+
+    const { token, url } = await this.signature({
+      type: UploadType.Table,
+      contentLength: file.size,
+      contentType: file.mimetype,
+      internal: true,
+    });
+    const fileStream = Readable.from(file.buffer);
+
+    await this.uploadStreamToStorage(url, fileStream, file.mimetype, file.size);
+
+    return await this.notifyToAttachmentItem(token, file.originalname);
+  }
+
+  async uploadFromUrl(fileUrl: string): Promise<IAttachmentItem> {
+    const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
+
+    const { contentLength, contentType, tempFilePath } = await this.getFileInfo(
+      fileUrl,
+      MAX_FILE_SIZE
+    );
+
+    if (contentLength > MAX_FILE_SIZE) {
+      throw new BadRequestException(
+        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`
+      );
+    }
+
+    const filename = this.getFilenameFromUrl(fileUrl);
+    const { token, url } = await this.signature({
+      type: UploadType.Table,
+      contentLength,
+      contentType,
+      internal: true,
+    });
+
+    try {
+      await this.uploadFileContent(url, tempFilePath, contentType, contentLength, fileUrl);
+      return await this.notifyToAttachmentItem(token, filename);
+    } catch (error) {
+      console.error('uploadFromUrl:upload', error);
+      throw new BadRequestException('Url reject');
+    } finally {
+      if (tempFilePath) {
+        fs.unlinkSync(tempFilePath);
+      }
+    }
+  }
+
+  private async getFileInfo(
+    fileUrl: string,
+    maxFileSize: number
+  ): Promise<{ contentLength: number; contentType: string; tempFilePath: string | null }> {
+    let contentLength: number | undefined;
+    let contentType: string | undefined;
+    let tempFilePath: string | null = null;
+
+    try {
+      const headResponse = await axios.head(fileUrl);
+      contentLength =
+        headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
+      contentType = headResponse.headers['content-type'] || 'application/octet-stream';
+      this.logger.log(
+        `HEAD request successful. Content-Length: ${contentLength}, Content-Type: ${contentType}`
+      );
+    } catch (error) {
+      console.warn('HEAD request failed, falling back to GET:', error);
+    }
+
+    if (!contentLength) {
+      this.logger.log('Content length not available from HEAD request. Downloading file...');
+      const tempFileName = `temp-${nanoid()}`;
+      tempFilePath = join(tmpdir(), tempFileName);
+
+      await this.downloadFile(fileUrl, tempFilePath, maxFileSize);
+      contentLength = fs.statSync(tempFilePath).size;
+      this.logger.log(`File downloaded. Size: ${contentLength} bytes`);
+
+      if (!contentType) {
+        contentType = mimeTypes.lookup(tempFilePath) || 'application/octet-stream';
+      }
+    }
+
+    return {
+      contentLength,
+      contentType: contentType as string,
+      tempFilePath,
+    };
+  }
+
+  private async uploadFileContent(
+    url: string,
+    tempFilePath: string | null,
+    contentType: string,
+    contentLength: number,
+    fileUrl: string
+  ): Promise<void> {
+    if (tempFilePath) {
+      await this.uploadStreamToStorage(
+        url,
+        fs.createReadStream(tempFilePath),
+        contentType,
+        contentLength
+      );
+      this.logger.log('Upload from temporary file completed');
+    } else {
+      this.logger.log(`Downloading and uploading from URL: ${fileUrl}`);
+      const response = await axios.get(fileUrl, { responseType: 'stream' });
+      await this.uploadStreamToStorage(url, response.data, contentType, contentLength);
+    }
+  }
+
+  private async uploadStreamToStorage(
+    url: string,
+    stream: Readable,
+    contentType: string,
+    contentLength: number
+  ): Promise<void> {
+    await axios.put(url, stream, {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Length': contentLength,
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
+  }
+
+  private getFilenameFromUrl(url: string): string {
+    const urlParts = new URL(url);
+    const pathParts = urlParts.pathname.split('/');
+    return pathParts[pathParts.length - 1] || 'downloaded_file';
+  }
+
+  private async downloadFile(url: string, filePath: string, maxSize: number): Promise<void> {
+    const writer = fs.createWriteStream(filePath);
+    let downloadedBytes = 0;
+
+    const response = await axios({
+      method: 'get',
+      url: url,
+      responseType: 'stream',
+    });
+
+    return new Promise((resolve, reject) => {
+      response.data.on('data', (chunk: Buffer) => {
+        downloadedBytes += chunk.length;
+        if (downloadedBytes > maxSize) {
+          writer.close();
+          reject(
+            new BadRequestException(
+              `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`
+            )
+          );
+        }
+      });
+
+      response.data.pipe(writer);
+
+      writer.on('finish', resolve);
+      writer.on('error', reject);
+    });
   }
 }

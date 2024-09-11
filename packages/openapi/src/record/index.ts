@@ -7,3 +7,4 @@ export * from './delete';
 export * from './delete-list';
 export * from './get-record-history';
 export * from './get-record-list-history';
+export * from './upload-attachment';

@@ -3,6 +3,7 @@ export interface IPresignParams {
   contentLength: number;
   expiresIn?: number;
   hash?: string;
+  internal?: boolean;
 }
 
 export interface IPresignRes {
