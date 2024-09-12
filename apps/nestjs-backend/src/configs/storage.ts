@@ -13,6 +13,7 @@ export const storageConfig = registerAs('storage', () => ({
   minio: {
     endPoint: process.env.BACKEND_STORAGE_MINIO_ENDPOINT,
     internalEndPoint: process.env.BACKEND_STORAGE_MINIO_INTERNAL_ENDPOINT,
+    internalPort: Number(process.env.BACKEND_STORAGE_MINIO_INTERNAL_PORT ?? 9000),
     port: Number(process.env.BACKEND_STORAGE_MINIO_PORT ?? 9000),
     useSSL: process.env.BACKEND_STORAGE_MINIO_USE_SSL === 'true',
     accessKey: process.env.BACKEND_STORAGE_MINIO_ACCESS_KEY,
