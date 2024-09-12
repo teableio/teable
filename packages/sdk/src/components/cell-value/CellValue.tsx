@@ -23,11 +23,12 @@ import type { ICellValue } from './type';
 
 interface ICellValueContainer extends ICellValue<unknown> {
   field: IFieldInstance;
+  formatImageUrl?: (url: string) => string;
   itemClassName?: string;
 }
 
 export const CellValue = (props: ICellValueContainer) => {
-  const { field, value, maxWidth, maxLine, className, itemClassName } = props;
+  const { field, value, maxWidth, maxLine, className, itemClassName, formatImageUrl } = props;
   const { type, options, cellValueType } = field;
 
   switch (type) {
@@ -84,6 +85,7 @@ export const CellValue = (props: ICellValueContainer) => {
           className={className}
           itemClassName={itemClassName}
           maxWidth={maxWidth}
+          formatImageUrl={formatImageUrl}
         />
       );
     }
@@ -93,6 +95,7 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as IAttachmentCellValue}
           className={className}
           itemClassName={itemClassName}
+          formatImageUrl={formatImageUrl}
         />
       );
     }

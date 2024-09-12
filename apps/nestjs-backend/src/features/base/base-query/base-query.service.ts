@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { CellFormat } from '@teable/core';
+import type { IAttachmentCellValue } from '@teable/core';
+import { CellFormat, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import type { IBaseQueryJoin, IBaseQuery, IBaseQueryVo, IBaseQueryColumn } from '@teable/openapi';
@@ -15,6 +16,7 @@ import {
   createFieldInstanceByVo,
   type IFieldInstance,
 } from '../../field/model/factory';
+import { RecordService } from '../../record/record.service';
 import { QueryAggregation } from './parse/aggregation';
 import { QueryFilter } from './parse/filter';
 import { QueryGroup } from './parse/group';
@@ -32,7 +34,8 @@ export class BaseQueryService {
 
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordService: RecordService
   ) {}
 
   private convertFieldMapToColumn(fieldMap: Record<string, IFieldInstance>): IBaseQueryColumn[] {
@@ -49,39 +52,49 @@ export class BaseQueryService {
     });
   }
 
-  private dbRows2Rows(
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private async dbRows2Rows(
     rows: Record<string, unknown>[],
     columns: IBaseQueryColumn[],
     cellFormat: CellFormat
   ) {
-    return rows.map((row) => {
-      return columns.reduce<Record<string, unknown>>((acc, field) => {
+    const resRows: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      const resRow: Record<string, unknown> = {};
+      for (const field of columns) {
         if (!field.fieldSource) {
           const value = row[field.column];
-          acc[field.column] = row[field.column];
+          resRow[field.column] = row[field.column];
           // handle bigint
           if (typeof value === 'bigint') {
-            acc[field.column] = Number(value);
+            resRow[field.column] = Number(value);
           } else {
-            acc[field.column] = value;
+            resRow[field.column] = value;
           }
-          return acc;
+          continue;
         }
         const dbCellValue = row[field.column];
         const fieldInstance = createFieldInstanceByVo(field.fieldSource);
         const cellValue = fieldInstance.convertDBValue2CellValue(dbCellValue);
 
+        // number no need to convert string
         if (typeof cellValue === 'number') {
-          acc[field.column] = cellValue;
-          return acc;
+          resRow[field.column] = cellValue;
+          continue;
         }
         if (cellValue != null) {
-          acc[field.column] =
+          resRow[field.column] =
             cellFormat === CellFormat.Text ? fieldInstance.cellValue2String(cellValue) : cellValue;
         }
-        return acc;
-      }, {});
-    });
+        if (fieldInstance.type === FieldType.Attachment) {
+          resRow[field.column] = await this.recordService.getAttachmentPresignedCellValue(
+            cellValue as IAttachmentCellValue
+          );
+        }
+      }
+      resRows.push(resRow);
+    }
+    return resRows;
   }
 
   async baseQuery(
@@ -101,7 +114,7 @@ export class BaseQueryService {
     const columns = this.convertFieldMapToColumn(fieldMap);
 
     return {
-      rows: this.dbRows2Rows(rows, columns, cellFormat),
+      rows: await this.dbRows2Rows(rows, columns, cellFormat),
       columns,
     };
   }

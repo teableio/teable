@@ -5,7 +5,6 @@ import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 
 export const PluginList = () => {
@@ -25,7 +24,6 @@ export const PluginList = () => {
     },
   });
 
-  const previewUrl = usePreviewUrl();
   return (
     <div>
       <div className="flex justify-end">
@@ -45,7 +43,7 @@ export const PluginList = () => {
             <CardContent className="relative flex size-full items-center gap-5 px-2 py-3">
               <div className="relative size-16 overflow-hidden rounded-sm">
                 <Image
-                  src={previewUrl(plugin.logo)}
+                  src={plugin.logo}
                   alt={plugin.name}
                   fill
                   sizes="100%"

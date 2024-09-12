@@ -4,8 +4,7 @@ import { FileZone } from '@teable/sdk/components/FileZone';
 import { Button, useToast } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
-import { useRef } from 'react';
-import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
+import { useRef, useState } from 'react';
 import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 
@@ -14,20 +13,20 @@ export const LogoEditor = (props: {
   onChange: (value?: string | null) => void;
 }) => {
   const { value, onChange } = props;
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
   const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const { mutateAsync: uploadLogo, isLoading: uploadLogoLoading } = useMutation({
     mutationFn: (files: File[]) => uploadFiles(files, UploadType.Plugin),
     onSuccess: (res) => {
-      if (res?.[0]?.url) {
-        onChange(res[0].url);
+      if (res?.[0]) {
+        onChange(res[0].path);
+        setUploadedUrl(res[0].presignedUrl);
       }
       return res;
     },
   });
-
-  const getPreviewUrl = usePreviewUrl();
 
   const logoChange = (files: File[]) => {
     if (files.length === 0) return;
@@ -85,7 +84,7 @@ export const LogoEditor = (props: {
         {value && (
           <div className="relative size-full overflow-hidden rounded-md border border-border">
             <Image
-              src={getPreviewUrl(value)}
+              src={uploadedUrl || value}
               alt="card cover"
               fill
               sizes="100%"

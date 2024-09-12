@@ -5,7 +5,7 @@ import { Spin } from '@teable/ui-lib/base';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { PluginRender } from './PluginRender';
 
@@ -16,7 +16,7 @@ export const PluginContent = (props: {
   pluginUrl?: string;
   dashboardId: string;
 }) => {
-  const { className, pluginInstallId, pluginUrl, dashboardId } = props;
+  const { className, pluginInstallId, pluginUrl, dashboardId, pluginId } = props;
   const baseId = useBaseId()!;
   const router = useRouter();
   const expandPluginId = router.query.expandPluginId as string;
@@ -27,6 +27,7 @@ export const PluginContent = (props: {
   const { resolvedTheme } = useTheme();
   const [bridge, setBridge] = useState<IChildBridgeMethods>();
   const basePermissions = useBasePermission();
+  const defaultTheme = useRef(resolvedTheme);
   const iframeUrl = useMemo(() => {
     if (!pluginUrl) {
       return;
@@ -35,9 +36,11 @@ export const PluginContent = (props: {
     url.searchParams.set('pluginInstallId', pluginInstallId);
     url.searchParams.set('baseId', baseId);
     url.searchParams.set('dashboardId', dashboardId);
+    url.searchParams.set('pluginId', pluginId);
+    defaultTheme.current && url.searchParams.set('theme', defaultTheme.current);
     resolvedLanguage && url.searchParams.set('lang', resolvedLanguage);
     return url.toString();
-  }, [pluginUrl, pluginInstallId, baseId, dashboardId, resolvedLanguage]);
+  }, [pluginUrl, pluginInstallId, baseId, dashboardId, pluginId, resolvedLanguage]);
 
   const canSetting = basePermissions?.['base|update'];
   useEffect(() => {
@@ -77,6 +80,7 @@ export const PluginContent = (props: {
           pluginInstallId,
           dashboardId,
           baseId,
+          pluginId,
         }}
       />
     </div>

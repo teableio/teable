@@ -1,4 +1,4 @@
-import { updateDashboardPluginStorage } from '@teable/openapi';
+import { pluginGetAuthCode, updateDashboardPluginStorage } from '@teable/openapi';
 import type { IChildBridgeMethods, IParentBridgeMethods } from '@teable/sdk/plugin-bridge';
 import type { Methods } from 'penpal';
 import { connectToChild } from 'penpal';
@@ -8,11 +8,12 @@ interface IPluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElemen
   src: string;
   pluginInstallId: string;
   dashboardId: string;
+  pluginId: string;
   baseId: string;
   onBridge: (bridge?: IChildBridgeMethods) => void;
 }
 export const PluginRender = (props: IPluginRenderProps) => {
-  const { onBridge, pluginInstallId, baseId, dashboardId, ...rest } = props;
+  const { onBridge, pluginInstallId, baseId, dashboardId, pluginId, ...rest } = props;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
@@ -28,10 +29,13 @@ export const PluginRender = (props: IPluginRenderProps) => {
           (res) => res.data.storage ?? {}
         );
       },
+      getAuthCode: () => {
+        return pluginGetAuthCode(pluginId, baseId).then((res) => res.data);
+      },
     };
     const connection = connectToChild<IChildBridgeMethods>({
       iframe: iframeRef.current,
-      timeout: 50000,
+      timeout: 20000,
       methods: methods as unknown as Methods,
     });
 
@@ -49,7 +53,7 @@ export const PluginRender = (props: IPluginRenderProps) => {
       connection.destroy();
       onBridge(undefined);
     };
-  }, [onBridge, pluginInstallId, baseId, dashboardId]);
+  }, [onBridge, pluginInstallId, baseId, dashboardId, pluginId]);
 
   // eslint-disable-next-line jsx-a11y/iframe-has-title
   return <iframe {...rest} ref={iframeRef} className="size-full rounded-b p-1" />;

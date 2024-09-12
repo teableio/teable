@@ -5,6 +5,7 @@ import type { ICellValue } from '../type';
 
 interface ICellAttachment extends ICellValue<IAttachmentCellValue> {
   itemClassName?: string;
+  formatImageUrl?: (url: string) => string;
 }
 
 export const CellAttachment = (props: ICellAttachment) => {
