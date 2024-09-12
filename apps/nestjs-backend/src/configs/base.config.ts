@@ -13,6 +13,7 @@ export const baseConfig = registerAs('base', () => ({
   defaultMaxBaseDBConnections: Number(process.env.DEFAULT_MAX_BASE_DB_CONNECTIONS ?? 20),
   templateSpaceId: process.env.TEMPLATE_SPACE_ID,
   recordHistoryDisabled: process.env.RECORD_HISTORY_DISABLED === 'true',
+  pluginServerPort: process.env.PLUGIN_SERVER_PORT || '3002',
 }));
 
 export const BaseConfig = () => Inject(baseConfig.KEY);

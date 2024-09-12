@@ -19,6 +19,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
+    "plugins/*",
     "!apps/electron"
   ],
   "scripts": {

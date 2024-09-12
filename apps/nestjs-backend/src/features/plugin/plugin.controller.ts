@@ -4,6 +4,8 @@ import type {
   IGetPluginCenterListVo,
   IGetPluginsVo,
   IGetPluginVo,
+  IPluginGetTokenVo,
+  IPluginRefreshTokenVo,
   IPluginRegenerateSecretVo,
   IUpdatePluginVo,
 } from '@teable/openapi';
@@ -14,13 +16,24 @@ import {
   IUpdatePluginRo,
   getPluginCenterListRoSchema,
   IGetPluginCenterListRo,
+  pluginGetTokenRoSchema,
+  IPluginGetTokenRo,
+  pluginRefreshTokenRoSchema,
+  IPluginRefreshTokenRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
+import { PluginAuthService } from './plugin-auth.service';
 import { PluginService } from './plugin.service';
 
 @Controller('api/plugin')
 export class PluginController {
-  constructor(private readonly pluginService: PluginService) {}
+  constructor(
+    private readonly pluginService: PluginService,
+    private readonly pluginAuthService: PluginAuthService
+  ) {}
 
   @Post()
   createPlugin(
@@ -67,5 +80,30 @@ export class PluginController {
   @Patch(':pluginId/submit')
   submitPlugin(@Param('pluginId') pluginId: string): Promise<void> {
     return this.pluginService.submitPlugin(pluginId);
+  }
+
+  @Post(':pluginId/token')
+  @Public()
+  accessToken(
+    @Param('pluginId') pluginId: string,
+    @Body(new ZodValidationPipe(pluginGetTokenRoSchema)) ro: IPluginGetTokenRo
+  ): Promise<IPluginGetTokenVo> {
+    return this.pluginAuthService.token(pluginId, ro);
+  }
+
+  @Post(':pluginId/refreshToken')
+  @Public()
+  refreshToken(
+    @Param('pluginId') pluginId: string,
+    @Body(new ZodValidationPipe(pluginRefreshTokenRoSchema)) ro: IPluginRefreshTokenRo
+  ): Promise<IPluginRefreshTokenVo> {
+    return this.pluginAuthService.refreshToken(pluginId, ro);
+  }
+
+  @Post(':pluginId/authCode')
+  @Permissions('base|read')
+  @ResourceMeta('baseId', 'body')
+  authCode(@Param('pluginId') pluginId: string, @Body('baseId') baseId: string): Promise<string> {
+    return this.pluginAuthService.authCode(pluginId, baseId);
   }
 }

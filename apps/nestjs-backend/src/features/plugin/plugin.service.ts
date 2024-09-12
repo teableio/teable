@@ -36,17 +36,23 @@ export class PluginService {
     private readonly userService: UserService
   ) {}
 
+  private logoToVoValue(logo: string) {
+    return getFullStorageUrl(StorageAdapter.getBucket(UploadType.Plugin), logo);
+  }
+
   private convertToVo<
     T extends {
       positions: string;
       i18n?: string | null;
       status: string;
+      logo: string;
       createdTime?: Date | null;
       lastModifiedTime?: Date | null;
     },
   >(ro: T) {
     return nullsToUndefined({
       ...ro,
+      logo: this.logoToVoValue(ro.logo),
       status: ro.status as PluginStatus,
       positions: JSON.parse(ro.positions) as PluginPosition[],
       i18n: ro.i18n ? (JSON.parse(ro.i18n) as IPluginI18n) : undefined,
@@ -262,18 +268,19 @@ export class PluginService {
   }
 
   async regenerateSecret(id: string): Promise<IPluginRegenerateSecretVo> {
-    const { secret, maskedSecret } = await generateSecret();
-    return this.prismaService.plugin.update({
+    const { secret, hashedSecret, maskedSecret } = await generateSecret();
+    await this.prismaService.plugin.update({
       select: {
         id: true,
         secret: true,
       },
       where: { id },
       data: {
-        secret,
+        secret: hashedSecret,
         maskedSecret,
       },
     });
+    return { secret, id };
   }
 
   async getPluginCenterList(positions?: PluginPosition[]): Promise<IGetPluginCenterListVo> {
@@ -304,6 +311,7 @@ export class PluginService {
     return res.map((r) =>
       nullsToUndefined({
         ...r,
+        logo: this.logoToVoValue(r.logo),
         i18n: r.i18n ? (JSON.parse(r.i18n) as IPluginI18n) : undefined,
         createdBy: userMap[r.createdBy],
         createdTime: r.createdTime?.toISOString(),
