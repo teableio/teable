@@ -12,6 +12,8 @@ export const storageConfig = registerAs('storage', () => ({
   privateBucket: process.env.BACKEND_STORAGE_PRIVATE_BUCKET || 'private',
   minio: {
     endPoint: process.env.BACKEND_STORAGE_MINIO_ENDPOINT,
+    internalEndPoint: process.env.BACKEND_STORAGE_MINIO_INTERNAL_ENDPOINT,
+    internalPort: Number(process.env.BACKEND_STORAGE_MINIO_INTERNAL_PORT ?? 9000),
     port: Number(process.env.BACKEND_STORAGE_MINIO_PORT ?? 9000),
     useSSL: process.env.BACKEND_STORAGE_MINIO_USE_SSL === 'true',
     accessKey: process.env.BACKEND_STORAGE_MINIO_ACCESS_KEY,
@@ -20,6 +22,7 @@ export const storageConfig = registerAs('storage', () => ({
   s3: {
     region: process.env.BACKEND_STORAGE_S3_REGION!,
     endpoint: process.env.BACKEND_STORAGE_S3_ENDPOINT,
+    internalEndpoint: process.env.BACKEND_STORAGE_S3_INTERNAL_ENDPOINT,
     accessKey: process.env.BACKEND_STORAGE_S3_ACCESS_KEY!,
     secretKey: process.env.BACKEND_STORAGE_S3_SECRET_KEY!,
   },

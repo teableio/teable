@@ -177,4 +177,26 @@ describe('OpenAPI formula (e2e)', () => {
     });
     expect(record1.fields[formulaField.name]).toEqual('text');
   });
+
+  describe('safe calculate', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: 'table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should safe calculate error function', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: "'x'*10",
+        },
+      });
+
+      expect(field).toBeDefined();
+    });
+  });
 });

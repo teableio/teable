@@ -7,7 +7,6 @@ import type { AttachmentsStorageService } from '../attachments/attachments-stora
 import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
-import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
 import type { RecordService } from './record.service';
 import { TypeCastAndValidate } from './typecast.validate';
@@ -358,80 +357,6 @@ describe('TypeCastAndValidate', () => {
       expect(typeCastAndValidate['mapFieldsCellValuesWithValidate']).toBeCalled();
       expect(typeCastAndValidate['createOptionsIfNotExists']).toBeCalledWith(['value']);
       expect(result).toEqual(['value']);
-    });
-  });
-
-  describe('getLinkTableRecordMap', () => {
-    const field = mockDeep<LinkFieldDto>({
-      id: 'fldxxxx',
-      type: FieldType.Link,
-      options: { foreignTableId: 'foreignTableId' },
-    });
-    const typeCastAndValidate = new TypeCastAndValidate({
-      services,
-      field,
-      tableId,
-      typecast: true,
-    });
-    it('should call dependencies correctly and return recordMap', async () => {
-      recordService.getRecordsWithPrimary.mockResolvedValue([{ id: '1', title: 'title1' }]);
-
-      const result = await typeCastAndValidate['getLinkTableRecordMap'](['title1']);
-
-      expect(recordService.getRecordsWithPrimary).toBeCalledWith('foreignTableId', ['title1']);
-      expect(result).toEqual({
-        title1: '1',
-      });
-    });
-  });
-
-  describe('castToLinkOne', () => {
-    const typeCastAndValidate = new TypeCastAndValidate({
-      services,
-      field: mockDeep<IFieldInstance>(),
-      tableId,
-      typecast: true,
-    });
-
-    it('should cast value correctly and return one linkCellValue', () => {
-      typeCastAndValidate['field'].isMultipleCellValue = true;
-      const result = typeCastAndValidate['castToLinkOne'](['a', 'b', 'c'], { a: '1', b: '2' });
-
-      expect(result).toEqual([
-        { title: 'a', id: '1' },
-        { title: 'b', id: '2' },
-      ]);
-    });
-
-    it('should cast value correctly and return multipleCellValue linkCellValue', () => {
-      typeCastAndValidate['field'].isMultipleCellValue = false;
-      const result = typeCastAndValidate['castToLinkOne'](['a', 'b', 'c'], { a: '1', b: '2' });
-
-      expect(result).toEqual({ title: 'a', id: '1' });
-    });
-  });
-
-  describe('castToLink', () => {
-    const field = mockDeep<LinkFieldDto>();
-    const cellValues = ['value'];
-    const typeCastAndValidate = new TypeCastAndValidate({
-      services,
-      field,
-      tableId,
-      typecast: true,
-    });
-    it('should call dependencies correctly and return map by typecast', async () => {
-      vi.spyOn(typeCastAndValidate as any, 'getLinkTableRecordMap').mockResolvedValue({});
-
-      vi.spyOn(typeCastAndValidate as any, 'mapFieldsCellValuesWithValidate').mockImplementation(
-        (...args: any[]) => (args[1] as any)('title')
-      );
-
-      vi.spyOn(typeCastAndValidate as any, 'castToLinkOne').mockReturnValue({ title1: '1' } as any);
-
-      const result = await typeCastAndValidate['castToLink'](cellValues);
-
-      expect(result).toEqual({ title1: '1' });
     });
   });
 });

@@ -16,9 +16,10 @@ import type { IPresignParams, IPresignRes, IObjectMeta, IRespHeaders } from './t
 @Injectable()
 export class S3Storage implements StorageAdapter {
   private s3Client: S3Client;
+  private s3ClientPrivateNetwork: S3Client;
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
-    const { endpoint, region, accessKey, secretKey } = this.config.s3;
+    const { endpoint, region, accessKey, secretKey, internalEndpoint } = this.config.s3;
     this.checkConfig();
     this.s3Client = new S3Client({
       region,
@@ -28,6 +29,16 @@ export class S3Storage implements StorageAdapter {
         secretAccessKey: secretKey,
       },
     });
+    this.s3ClientPrivateNetwork = internalEndpoint
+      ? new S3Client({
+          region,
+          endpoint: internalEndpoint,
+          credentials: {
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey,
+          },
+        })
+      : this.s3Client;
   }
 
   private checkConfig() {
@@ -55,7 +66,7 @@ export class S3Storage implements StorageAdapter {
   async presigned(bucket: string, dir: string, params: IPresignParams): Promise<IPresignRes> {
     try {
       const { tokenExpireIn, uploadMethod } = this.config;
-      const { expiresIn, contentLength, contentType, hash } = params;
+      const { expiresIn, contentLength, contentType, hash, internal } = params;
 
       const token = getRandomString(12);
       const filename = hash ?? token;
@@ -68,9 +79,13 @@ export class S3Storage implements StorageAdapter {
         ContentLength: contentLength,
       });
 
-      const url = await getSignedUrl(this.s3Client, command, {
-        expiresIn: expiresIn ?? second(tokenExpireIn),
-      });
+      const url = await getSignedUrl(
+        internal ? this.s3ClientPrivateNetwork : this.s3Client,
+        command,
+        {
+          expiresIn: expiresIn ?? second(tokenExpireIn),
+        }
+      );
 
       const requestHeaders = {
         'Content-Type': contentType,

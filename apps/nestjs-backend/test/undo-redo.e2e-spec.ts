@@ -4,7 +4,6 @@ import type { IFieldRo, IFieldVo, ILinkFieldOptions, IRollupFieldOptions } from 
 import {
   CellValueType,
   DbFieldType,
-  DriverClient,
   FieldKeyType,
   FieldType,
   getRandomString,
@@ -597,6 +596,7 @@ describe('Undo Redo (e2e)', () => {
       )
     ).data;
 
+    // delete 1 3
     await awaitWithEvent(() => deleteFields(table.id, [fieldId, formulaField.id]));
 
     const fields = (
@@ -610,6 +610,7 @@ describe('Undo Redo (e2e)', () => {
     const result = await undo(table.id);
     expect(result.data.status).toEqual('fulfilled');
 
+    // get back 1 3
     const fieldsAfterUndo = (
       await getFields(table.id, {
         viewId: table.views[0].id,
@@ -1041,36 +1042,17 @@ describe('Undo Redo (e2e)', () => {
     expect(viewsAfterRedo[1].id).toMatchObject(view.id);
   });
 
-  describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-    'modify field constraint',
-    () => {
-      it('should undo modify field constraint', async () => {
-        await awaitWithEvent(() =>
-          convertField(table.id, table.fields[0].id, {
-            ...table.fields[0],
-            unique: true,
-          })
-        );
+  describe('modify field constraint', () => {
+    it('should undo modify field constraint', async () => {
+      await awaitWithEvent(() =>
+        convertField(table.id, table.fields[0].id, {
+          ...table.fields[0],
+          unique: true,
+        })
+      );
 
-        await expect(
-          updateRecords(table.id, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                id: table.records[0].id,
-                fields: { [table.fields[0].id]: 'A' },
-              },
-              {
-                id: table.records[1].id,
-                fields: { [table.fields[0].id]: 'A' },
-              },
-            ],
-          })
-        ).rejects.toThrowError();
-
-        await undo(table.id);
-
-        await updateRecords(table.id, {
+      await expect(
+        updateRecords(table.id, {
           fieldKeyType: FieldKeyType.Id,
           records: [
             {
@@ -1082,38 +1064,54 @@ describe('Undo Redo (e2e)', () => {
               fields: { [table.fields[0].id]: 'A' },
             },
           ],
-        });
+        })
+      ).rejects.toThrowError();
+
+      await undo(table.id);
+
+      await updateRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: table.records[0].id,
+            fields: { [table.fields[0].id]: 'A' },
+          },
+          {
+            id: table.records[1].id,
+            fields: { [table.fields[0].id]: 'A' },
+          },
+        ],
       });
+    });
 
-      it('should redo modify field constraint', async () => {
-        await awaitWithEvent(() =>
-          convertField(table.id, table.fields[0].id, {
-            ...table.fields[0],
-            unique: true,
-          })
-        );
+    it('should redo modify field constraint', async () => {
+      await awaitWithEvent(() =>
+        convertField(table.id, table.fields[0].id, {
+          ...table.fields[0],
+          unique: true,
+        })
+      );
 
-        await undo(table.id);
-        await redo(table.id);
+      await undo(table.id);
+      await redo(table.id);
 
-        await expect(
-          updateRecords(table.id, {
-            fieldKeyType: FieldKeyType.Id,
-            records: [
-              {
-                id: table.records[0].id,
-                fields: { [table.fields[0].id]: 'A' },
-              },
-              {
-                id: table.records[1].id,
-                fields: { [table.fields[0].id]: 'A' },
-              },
-            ],
-          })
-        ).rejects.toThrowError();
-      });
-    }
-  );
+      await expect(
+        updateRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [table.fields[0].id]: 'A' },
+            },
+            {
+              id: table.records[1].id,
+              fields: { [table.fields[0].id]: 'A' },
+            },
+          ],
+        })
+      ).rejects.toThrowError();
+    });
+  });
 
   describe('link related', () => {
     let table1: ITableFullVo;

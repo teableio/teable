@@ -20,11 +20,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
@@ -221,7 +216,12 @@ export const SpaceTrashPage = () => {
     }
   }, [fetchNextPage, isFetching, nextCursor]);
 
-  const selectItems = useMemo(() => {
+  const handleResourceTypeChange = (value: ResourceType.Space | ResourceType.Base) => {
+    queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(value));
+    setResourceType(value);
+  };
+
+  const buttons = useMemo(() => {
     return [
       {
         value: ResourceType.Space,
@@ -240,23 +240,21 @@ export const SpaceTrashPage = () => {
     <div className="flex h-screen flex-1 flex-col space-y-4 overflow-hidden py-8">
       <div className="flex items-center justify-between px-8">
         <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
-        <Select
-          value={resourceType}
-          onValueChange={(value) =>
-            setResourceType(value as ResourceType.Space | ResourceType.Base)
-          }
-        >
-          <SelectTrigger className="h-8 w-24">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {selectItems.map(({ value, label }) => (
-              <SelectItem key={value} value={value.toString()}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center rounded-md border">
+          {buttons.map(({ value, label }) => (
+            <Button
+              key={value}
+              variant={resourceType === value ? 'default' : 'ghost'}
+              size="sm"
+              className="w-16"
+              onClick={() =>
+                handleResourceTypeChange(value as ResourceType.Space | ResourceType.Base)
+              }
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
       </div>
       <InfiniteTable
         rows={allRows}

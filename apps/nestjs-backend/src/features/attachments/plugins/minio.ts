@@ -13,9 +13,11 @@ import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
 @Injectable()
 export class MinioStorage implements StorageAdapter {
   minioClient: minio.Client;
+  minioClientPrivateNetwork: minio.Client;
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
-    const { endPoint, port, useSSL, accessKey, secretKey } = this.config.minio;
+    const { endPoint, internalEndPoint, internalPort, port, useSSL, accessKey, secretKey } =
+      this.config.minio;
     this.minioClient = new minio.Client({
       endPoint: endPoint!,
       port: port!,
@@ -23,6 +25,15 @@ export class MinioStorage implements StorageAdapter {
       accessKey: accessKey!,
       secretKey: secretKey!,
     });
+    this.minioClientPrivateNetwork = internalEndPoint
+      ? new minio.Client({
+          endPoint: internalEndPoint,
+          port: internalPort,
+          useSSL: false,
+          accessKey: accessKey!,
+          secretKey: secretKey!,
+        })
+      : this.minioClient;
   }
 
   async presigned(
@@ -31,7 +42,7 @@ export class MinioStorage implements StorageAdapter {
     presignedParams: IPresignParams
   ): Promise<IPresignRes> {
     const { tokenExpireIn, uploadMethod } = this.config;
-    const { expiresIn, contentLength, contentType, hash } = presignedParams;
+    const { expiresIn, contentLength, contentType, hash, internal } = presignedParams;
     const token = getRandomString(12);
     const filename = hash ?? token;
     const path = join(dir, filename);
@@ -41,7 +52,8 @@ export class MinioStorage implements StorageAdapter {
       'response-cache-control': 'max-age=518400',
     };
     try {
-      const url = await this.minioClient.presignedUrl(
+      const client = internal ? this.minioClientPrivateNetwork : this.minioClient;
+      const url = await client.presignedUrl(
         uploadMethod,
         bucket,
         path,
@@ -61,6 +73,22 @@ export class MinioStorage implements StorageAdapter {
     }
   }
 
+  private async getShape(bucket: string, objectName: string) {
+    try {
+      const stream = await this.minioClient.getObject(bucket, objectName);
+      const metaReader = sharp();
+      const sharpReader = stream.pipe(metaReader);
+      const { width, height } = await sharpReader.metadata();
+
+      return {
+        width,
+        height,
+      };
+    } catch (e) {
+      return {};
+    }
+  }
+
   async getObjectMeta(bucket: string, path: string, _token: string) {
     const objectName = path;
     const { metaData, size, etag: hash } = await this.minioClient.statObject(bucket, objectName);
@@ -74,16 +102,12 @@ export class MinioStorage implements StorageAdapter {
         url,
       };
     }
-    const stream = await this.minioClient.getObject(bucket, objectName);
-    const metaReader = sharp();
-    const sharpReader = stream.pipe(metaReader);
-    const { width, height } = await sharpReader.metadata();
+    const sharpMeta = await this.getShape(bucket, objectName);
     return {
+      ...sharpMeta,
       hash,
       size,
       mimetype,
-      width,
-      height,
       url,
     };
   }

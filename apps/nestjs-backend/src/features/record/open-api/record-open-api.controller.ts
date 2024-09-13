@@ -1,5 +1,18 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { ICreateRecordsVo, IRecord, IRecordsVo } from '@teable/openapi';
 import {
   createRecordsRoSchema,
@@ -83,6 +96,25 @@ export class RecordOpenApiController {
       recordId,
       updateRecordRo,
       windowId
+    );
+  }
+
+  @Permissions('record|update')
+  @Post(':recordId/:fieldId/uploadAttachment')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAttachment(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Param('fieldId') fieldId: string,
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('fileUrl') fileUrl?: string
+  ): Promise<IRecord> {
+    return await this.recordOpenApiService.uploadAttachment(
+      tableId,
+      recordId,
+      fieldId,
+      file,
+      fileUrl
     );
   }
 
