@@ -5,7 +5,6 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
-  PayloadTooLargeException,
 } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
@@ -1241,16 +1240,20 @@ export class RecordService {
   private groupDbCollection2GroupPoints(
     groupResult: { [key: string]: unknown; __c: number }[],
     groupFields: IFieldInstance[],
-    collapsedGroupIds?: string[]
+    collapsedGroupIds: string[] | undefined,
+    rowCount: number
   ) {
     const groupPoints: IGroupPoint[] = [];
     let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
+    let curRowCount = 0;
 
     groupResult.forEach((item) => {
       const { __c: count } = item;
       let isCollapsed = false;
 
       groupFields.forEach((field, index) => {
+        if (isCollapsed) return;
+
         const { id, dbFieldName } = field;
         const fieldValue = this.convertValueToStringify(item[dbFieldName]);
 
@@ -1261,22 +1264,37 @@ export class RecordService {
 
         const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
         const groupId = String(string2Hash(flagString));
+        const isCollapsedInner = collapsedGroupIds?.includes(groupId) ?? false;
 
         groupPoints.push({
           id: groupId,
           type: GroupPointType.Header,
           depth: index,
           value: field.convertDBValue2CellValue(fieldValue),
+          isCollapsed: isCollapsedInner,
         });
 
-        if (collapsedGroupIds?.includes(groupId)) {
-          isCollapsed = true;
-        }
+        isCollapsed = isCollapsedInner;
       });
 
+      curRowCount += Number(count);
       if (isCollapsed) return;
       groupPoints.push({ type: GroupPointType.Row, count: Number(count) });
     });
+
+    if (curRowCount < rowCount) {
+      groupPoints.push(
+        {
+          id: 'unknown',
+          type: GroupPointType.Header,
+          depth: 0,
+          value: 'Unknown',
+          isCollapsed: false,
+        },
+        { type: GroupPointType.Row, count: rowCount - curRowCount }
+      );
+    }
+
     return groupPoints;
   }
 
@@ -1348,14 +1366,34 @@ export class RecordService {
     return filterQuery;
   }
 
+  private async getRowCountByFilter(
+    dbTableName: string,
+    fieldInstanceMap: Record<string, IFieldInstance>,
+    filter?: IFilter
+  ) {
+    const withUserId = this.cls.get('user.id');
+    const queryBuilder = this.knex(dbTableName);
+
+    this.dbProvider
+      .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
+      .appendQueryBuilder();
+
+    const rowCountSql = queryBuilder.count({ count: '*' });
+    const result = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(
+      rowCountSql.toQuery()
+    );
+    return Number(result[0].count);
+  }
+
   public async getGroupRelatedData(tableId: string, query?: IGetRecordsRo) {
     const { viewId, groupBy: extraGroupBy, filter, search, collapsedGroupIds } = query || {};
+    let groupPoints: IGroupPoint[] = [];
 
     const groupBy = parseGroup(extraGroupBy);
 
     if (!groupBy?.length) {
       return {
-        groupPoints: [],
+        groupPoints,
         filter,
       };
     }
@@ -1382,9 +1420,6 @@ export class RecordService {
       this.dbProvider
         .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
         .appendQueryBuilder();
-      this.dbProvider
-        .filterQuery(distinctQueryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
-        .appendQueryBuilder();
     }
 
     if (search) {
@@ -1395,29 +1430,31 @@ export class RecordService {
     this.dbProvider
       .groupQuery(distinctQueryBuilder, fieldInstanceMap, groupFieldIds, { isDistinct: true })
       .appendGroupBuilder();
-    const distinctResult = await this.prismaService.$queryRawUnsafe<{ count: number }[]>(
-      distinctQueryBuilder.toQuery()
-    );
-    const distinctCount = Number(distinctResult[0].count);
-
-    if (distinctCount > this.thresholdConfig.maxGroupPoints) {
-      throw new PayloadTooLargeException(
-        'Grouping results exceed limit, please adjust grouping conditions to reduce the number of groups.'
-      );
-    }
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
     this.dbProvider.groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds).appendGroupBuilder();
 
-    queryBuilder.count({ __c: '*' });
+    queryBuilder.count({ __c: '*' }).limit(this.thresholdConfig.maxGroupPoints);
 
     const groupSql = queryBuilder.toQuery();
-
-    const result =
-      await this.prismaService.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(groupSql);
-
     const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]);
-    const groupPoints = this.groupDbCollection2GroupPoints(result, groupFields, collapsedGroupIds);
+    const rowCount = await this.getRowCountByFilter(dbTableName, fieldInstanceMap, mergedFilter);
+
+    try {
+      const result =
+        await this.prismaService.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(
+          groupSql
+        );
+
+      groupPoints = this.groupDbCollection2GroupPoints(
+        result,
+        groupFields,
+        collapsedGroupIds,
+        rowCount
+      );
+    } catch (error) {
+      console.log(`Get group points error in table ${tableId}: `, error);
+    }
 
     const filterWithCollapsed = this.getFilterByCollapsedGroup({
       groupBy,

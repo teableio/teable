@@ -10,6 +10,7 @@ const groupHeaderPointSchema = z.object({
   type: z.literal(GroupPointType.Header),
   depth: z.number().max(2).min(0),
   value: z.unknown(),
+  isCollapsed: z.boolean(),
 });
 
 const groupRowPointSchema = z.object({
