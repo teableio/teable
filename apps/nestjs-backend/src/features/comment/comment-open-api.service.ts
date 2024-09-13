@@ -1,27 +1,42 @@
-import { Injectable, Logger, ForbiddenException, BadGatewayException } from '@nestjs/common';
-import { generateCommentId } from '@teable/core';
+import {
+  Injectable,
+  Logger,
+  ForbiddenException,
+  BadGatewayException,
+  BadRequestException,
+} from '@nestjs/common';
+import { generateCommentId, getCommentChannel } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateCommentRo, ICommentVo, IUpdateCommentRo } from '@teable/openapi';
-import { uniq } from 'lodash';
+import type {
+  ICreateCommentRo,
+  ICommentVo,
+  IUpdateCommentRo,
+  IGetCommentListQueryRo,
+} from '@teable/openapi';
+import { CommentPatchType } from '@teable/openapi';
+import { uniq, omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { NotificationService } from '../notification/notification.service';
-import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
+import { RecordService } from '../record/record.service';
 
 @Injectable()
 export class CommentOpenApiService {
   private logger = new Logger(CommentOpenApiService.name);
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly recordService: RecordService,
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly shareDbService: ShareDbService
   ) {}
 
   async getCommentDetail(commentId: string) {
     const rawComment = await this.prismaService.comment.findFirst({
       where: {
         id: commentId,
+        deletedTime: null,
       },
       select: {
         id: true,
@@ -44,16 +59,29 @@ export class CommentOpenApiService {
     } as ICommentVo;
   }
 
-  async getCommentList(tableId: string, recordId: string) {
+  async getCommentList(
+    tableId: string,
+    recordId: string,
+    getCommentListQuery: IGetCommentListQueryRo
+  ) {
+    const { cursor, take = 20, direction = 'forward', includeCursor = true } = getCommentListQuery;
+
+    if (take > 1000) {
+      throw new BadRequestException(`${take} exceed the max count comment list count 1000`);
+    }
+
+    const takeWithDirection = direction === 'forward' ? -(take + 1) : take + 1;
+
     const rawComments = await this.prismaService.comment.findMany({
       where: {
         recordId,
         tableId,
         deletedTime: null,
       },
-      orderBy: {
-        createdTime: 'asc',
-      },
+      orderBy: [{ createdTime: 'asc' }],
+      take: takeWithDirection,
+      skip: cursor ? (includeCursor ? 0 : 1) : 0,
+      cursor: cursor ? { id: cursor } : undefined,
       select: {
         id: true,
         content: true,
@@ -65,19 +93,34 @@ export class CommentOpenApiService {
       },
     });
 
-    return rawComments.map(
-      (comment) =>
-        ({
-          ...comment,
-          content: comment.content ? JSON.parse(comment.content) : null,
-          reaction: comment.reaction ? JSON.parse(comment.reaction) : null,
-        }) as ICommentVo
-    ) as ICommentVo[];
+    const hasNextPage = rawComments.length > take;
+
+    const nextCursor = hasNextPage
+      ? direction === 'forward'
+        ? rawComments.shift()?.id
+        : rawComments.pop()?.id
+      : null;
+
+    const parsedComments = rawComments
+      .sort((a, b) => a.createdTime.getTime() - b.createdTime.getTime())
+      .map(
+        (comment) =>
+          ({
+            ...comment,
+            content: comment.content ? JSON.parse(comment.content) : null,
+            reaction: comment.reaction ? JSON.parse(comment.reaction) : null,
+          }) as ICommentVo
+      );
+
+    return {
+      comments: parsedComments,
+      nextCursor,
+    };
   }
 
   async createComment(tableId: string, recordId: string, createCommentRo: ICreateCommentRo) {
     const id = generateCommentId();
-    await this.prismaService.comment.create({
+    const result = await this.prismaService.comment.create({
       data: {
         id,
         tableId,
@@ -89,14 +132,23 @@ export class CommentOpenApiService {
       },
     });
 
+    await this.sendCommentNotify(tableId, recordId, id);
+
+    this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateComment, result);
+
     return {
       id,
       content: createCommentRo.content,
     };
   }
 
-  async updateComment(commentId: string, updateCommentRo: IUpdateCommentRo) {
-    await this.prismaService.comment
+  async updateComment(
+    tableId: string,
+    recordId: string,
+    commentId: string,
+    updateCommentRo: IUpdateCommentRo
+  ) {
+    const result = await this.prismaService.comment
       .update({
         where: {
           id: commentId,
@@ -110,9 +162,12 @@ export class CommentOpenApiService {
       .catch(() => {
         throw new ForbiddenException('You have no permission to delete this comment');
       });
+
+    this.sendCommentPatch(tableId, recordId, CommentPatchType.UpdateComment, result);
+    await this.sendCommentNotify(tableId, recordId, commentId);
   }
 
-  async deleteComment(commentId: string) {
+  async deleteComment(tableId: string, recordId: string, commentId: string) {
     await this.prismaService.comment
       .update({
         where: {
@@ -126,23 +181,30 @@ export class CommentOpenApiService {
       .catch(() => {
         throw new ForbiddenException('You have no permission to delete this comment');
       });
+
+    this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, { id: commentId });
   }
 
-  async deleteCommentReaction(commentId: string, emojiRo: { emoji: string }) {
+  async deleteCommentReaction(
+    tableId: string,
+    recordId: string,
+    commentId: string,
+    reactionRo: { reaction: string }
+  ) {
     const commentRaw = await this.getCommentReactionById(commentId);
-    const { emoji } = emojiRo;
+    const { reaction } = reactionRo;
     let data: ICommentVo['reaction'] = [];
 
     if (commentRaw && commentRaw.reaction) {
       const emojis = JSON.parse(commentRaw.reaction) as ICommentVo['reaction'];
-      const index = emojis.findIndex((item) => item.reaction === emoji);
+      const index = emojis.findIndex((item) => item.reaction === reaction);
       if (index > -1) {
         const newUser = emojis[index].user.filter((item) => item !== this.cls.get('user.id'));
         if (newUser.length === 0) {
           emojis.splice(index, 1);
         } else {
           emojis.splice(index, 1, {
-            reaction: emoji,
+            reaction,
             user: newUser,
           });
         }
@@ -150,7 +212,7 @@ export class CommentOpenApiService {
       }
     }
 
-    await this.prismaService.comment
+    const result = await this.prismaService.comment
       .update({
         where: {
           id: commentId,
@@ -162,24 +224,31 @@ export class CommentOpenApiService {
       .catch((e) => {
         throw new BadGatewayException(e);
       });
+
+    this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteReaction, result);
   }
 
-  async createCommentReaction(commentId: string, emojiRo: { emoji: string }) {
+  async createCommentReaction(
+    tableId: string,
+    recordId: string,
+    commentId: string,
+    reactionRo: { reaction: string }
+  ) {
     const commentRaw = await this.getCommentReactionById(commentId);
-    const { emoji } = emojiRo;
+    const { reaction } = reactionRo;
     let data: ICommentVo['reaction'];
 
     if (commentRaw && commentRaw.reaction) {
       const emojis = JSON.parse(commentRaw.reaction) as ICommentVo['reaction'];
-      const index = emojis.findIndex((item) => item.reaction === emoji);
+      const index = emojis.findIndex((item) => item.reaction === reaction);
       if (index > -1) {
         emojis.splice(index, 1, {
-          reaction: emoji,
+          reaction,
           user: uniq([...emojis[index].user, this.cls.get('user.id')]),
         });
       } else {
         emojis.push({
-          reaction: emoji,
+          reaction,
           user: [this.cls.get('user.id')],
         });
       }
@@ -187,13 +256,13 @@ export class CommentOpenApiService {
     } else {
       data = [
         {
-          reaction: emoji,
+          reaction,
           user: [this.cls.get('user.id')],
         },
       ];
     }
 
-    await this.prismaService.comment
+    const result = await this.prismaService.comment
       .update({
         where: {
           id: commentId,
@@ -206,6 +275,9 @@ export class CommentOpenApiService {
       .catch((e) => {
         throw new BadGatewayException(e);
       });
+
+    await this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, result);
+    await this.sendCommentNotify(tableId, recordId, commentId);
   }
 
   async getNotifyDetail(tableId: string, recordId: string) {
@@ -216,8 +288,8 @@ export class CommentOpenApiService {
           recordId,
         },
       })
-      .catch(() => {
-        return null;
+      .catch((e) => {
+        throw new BadRequestException(e);
       });
   }
 
@@ -253,5 +325,117 @@ export class CommentOpenApiService {
         lastModifiedTime: true,
       },
     });
+  }
+
+  private async sendCommentNotify(tableId: string, recordId: string, commentId: string) {
+    const triggerUserId = this.cls.get('user.id');
+    const triggerUserName = this.cls.get('user.name');
+    const { baseId, name: tableName } =
+      (await this.prismaService.tableMeta.findFirst({
+        where: {
+          id: tableId,
+        },
+        select: {
+          baseId: true,
+          name: true,
+        },
+      })) || {};
+
+    const { id: fieldId } =
+      (await this.prismaService.field.findFirst({
+        where: {
+          tableId,
+          isPrimary: true,
+        },
+        select: {
+          id: true,
+        },
+      })) || {};
+
+    if (!baseId || !fieldId) {
+      return;
+    }
+
+    const { name: baseName } =
+      (await this.prismaService.base.findFirst({
+        where: {
+          id: baseId,
+        },
+        select: {
+          name: true,
+        },
+      })) || {};
+
+    const recordName = await this.recordService.getCellValue(tableId, recordId, fieldId);
+
+    const notifyUsers = await this.prismaService.commentNotify.findMany({
+      where: {
+        tableId,
+        recordId,
+      },
+      select: {
+        createdBy: true,
+      },
+    });
+    const notifiedUsersIds = notifyUsers.map(({ createdBy }) => createdBy);
+
+    const finalNotifyUsers = notifiedUsersIds.filter((userId) => userId !== triggerUserId);
+
+    const message = `${triggerUserName} made a commented on ${recordName ? recordName : 'a record'} in ${tableName} in ${baseName}`;
+
+    finalNotifyUsers.forEach((userId) => {
+      this.notificationService.sendCommentNotify({
+        baseId,
+        tableId,
+        recordId,
+        commentId,
+        toUserId: userId,
+        message,
+        fromUserId: triggerUserId,
+      });
+    });
+  }
+
+  private createCommentPresence(tableId: string, recordId: string) {
+    const channel = getCommentChannel(tableId, recordId);
+    const presence = this.shareDbService.connect().getPresence(channel);
+    return presence.create(channel);
+  }
+
+  private sendCommentPatch(
+    tableId: string,
+    recordId: string,
+    type: CommentPatchType,
+    data: Record<string, unknown>
+  ) {
+    const localPresence = this.createCommentPresence(tableId, recordId);
+
+    let finalData = omit(data, ['tableId', 'recordId']);
+
+    if (
+      [
+        CommentPatchType.CreateComment,
+        CommentPatchType.CreateReaction,
+        CommentPatchType.UpdateComment,
+        CommentPatchType.DeleteReaction,
+      ].includes(type)
+    ) {
+      const { content, reaction } = finalData;
+      finalData = {
+        ...finalData,
+        content: content ? JSON.parse(content as string) : content,
+        reaction: reaction ? JSON.parse(reaction as string) : reaction,
+      };
+    }
+
+    localPresence.submit(
+      {
+        type: type,
+        data: finalData,
+      },
+      (error) => {
+        error && this.logger.error('Comment patch presence error: ', error);
+      }
+    );
   }
 }

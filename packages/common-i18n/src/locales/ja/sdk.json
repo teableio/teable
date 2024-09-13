@@ -206,7 +206,7 @@
       "lookup": "関連テーブルから検索",
       "button": "ボタン",
       "createdBy": "作成者",
-      "lastModifiedBy": "最終更新者"
+      "lastModifiedBy": "最終更新��"
     }
   },
   "permission": {
@@ -611,7 +611,7 @@
     "unChecked": "チェックされていない",
     "percentEmpty": "空の割合",
     "percentFilled": "埋められた割合",
-    "percentUnique": "固有の割合",
+    "percentUnique": "固有の割��",
     "percentChecked": "チェックされた割合",
     "percentUnChecked": "チェックされていない割合",
     "earliestDate": "最も早い日付",
@@ -664,6 +664,30 @@
     },
     "aggregation": {
       "title": "集約"
+    }
+  },
+  "comment": {
+    "title": "コメント",
+    "placeholder": "コメントを残す...",
+    "emptyComment": "会話を始める",
+    "deletedComment": "削除されたコメント",
+    "imageSizeLimit": "画像サイズは{{size}}を超えることはできません",
+    "tip": {
+      "editing": "編集中...",
+      "edited": "(編集済み)",
+      "onNotify": "オフにすると、あなたに関連するコメントのみ通知されます",
+      "offNotify": "オンにすると、すべてのアクティビティが通知されます"
+    },
+    "toolbar": {
+      "link": "リンク",
+      "image": "画像"
+    },
+    "floatToolbar": {
+      "editLink": "リンクを編集",
+      "caption": "キャプション",
+      "delete": "削除",
+      "linkText": "リンクテキスト",
+      "enterUrl": "URLを入力"
     }
   }
 }

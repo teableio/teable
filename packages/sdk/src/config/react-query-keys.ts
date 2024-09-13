@@ -23,6 +23,17 @@ export const ReactQueryKeys = {
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
 
+  commentList: (tableId: string, recordId: string) => ['comment-list', tableId, recordId] as const,
+
+  commentDetail: (tableId: string, recordId: string, commentId: string) =>
+    ['comment-detail', tableId, recordId, commentId] as const,
+
+  commentAttachment: (tableId: string, recordId: string, path: string) =>
+    ['comment-attachment', tableId, recordId, path] as const,
+
+  commentNotifyStatus: (tableId: string, recordId: string) =>
+    ['comment-notify-status', tableId, recordId] as const,
+
   subscriptionSummary: (spaceId: string) => ['subscription-summary', spaceId] as const,
 
   subscriptionSummaryList: () => ['subscription-summary'] as const,

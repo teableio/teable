@@ -2,13 +2,15 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
+import type { IUpdateCommentReactionRo } from '../types';
+import { updateCommentReactionRoSchema } from '../types';
 
 export const CREATE_COMMENT_REACTION = '/comment/{tableId}/{recordId}/{commentId}/reaction';
 
 export const CreateCommentReactionRoute: RouteConfig = registerRoute({
   method: 'post',
   path: CREATE_COMMENT_REACTION,
-  description: 'create record comment emoji',
+  description: 'create record comment reaction',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -18,16 +20,14 @@ export const CreateCommentReactionRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.object({
-            emoji: z.string(),
-          }),
+          schema: updateCommentReactionRoSchema,
         },
       },
     },
   },
   responses: {
     200: {
-      description: 'Successfully create comment emoji.',
+      description: 'Successfully create comment reaction.',
     },
   },
   tags: ['comment'],
@@ -37,10 +37,10 @@ export const createCommentReaction = async (
   tableId: string,
   recordId: string,
   commentId: string,
-  createCommentEmojiRo: { emoji: string }
+  createCommentReactionRo: IUpdateCommentReactionRo
 ) => {
   return axios.patch<void>(
     urlBuilder(CREATE_COMMENT_REACTION, { tableId, recordId, commentId }),
-    createCommentEmojiRo
+    createCommentReactionRo
   );
 };

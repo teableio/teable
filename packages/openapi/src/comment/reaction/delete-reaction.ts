@@ -2,6 +2,8 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
+import type { IUpdateCommentReactionRo } from '../types';
+import { updateCommentReactionRoSchema } from '../types';
 
 export const DELETE_COMMENT_REACTION = '/comment/{tableId}/{recordId}/{commentId}/reaction';
 
@@ -18,9 +20,7 @@ export const DeleteCommentReactionRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.object({
-            emoji: z.string(),
-          }),
+          schema: updateCommentReactionRoSchema,
         },
       },
     },
@@ -37,9 +37,9 @@ export const deleteCommentReaction = async (
   tableId: string,
   recordId: string,
   commentId: string,
-  deleteCommentEmojiRo: { emoji: string }
+  deleteCommentReactionRo: IUpdateCommentReactionRo
 ) => {
   return axios.delete<void>(urlBuilder(DELETE_COMMENT_REACTION, { tableId, recordId, commentId }), {
-    data: deleteCommentEmojiRo,
+    data: deleteCommentReactionRo,
   });
 };

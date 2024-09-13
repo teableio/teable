@@ -6,3 +6,4 @@ export * from './update';
 export * from './get';
 export * from './reaction';
 export * from './notify';
+export * from './get-attatchment-url';

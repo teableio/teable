@@ -13,6 +13,15 @@ export enum CommentNodeType {
   Mention = 'mention',
 }
 
+export enum CommentPatchType {
+  CreateComment = 'create_comment',
+  UpdateComment = 'update_comment',
+  DeleteComment = 'delete_comment',
+
+  CreateReaction = 'create_reaction',
+  DeleteReaction = 'delete_reaction',
+}
+
 export const baseCommentContentSchema = z.object({
   type: z.nativeEnum(CommentNodeType),
   value: z.unknown(),
@@ -30,7 +39,7 @@ export const mentionCommentContentSchema = baseCommentContentSchema.extend({
 
 export const imageCommentContentSchema = baseCommentContentSchema.extend({
   type: z.literal(CommentNodeType.Img),
-  url: z.string(),
+  path: z.string(),
   width: z.number().optional(),
 });
 
@@ -58,24 +67,57 @@ export const createCommentRoSchema = z.object({
   content: commentContentSchema,
 });
 
+export const updateCommentRoSchema = createCommentRoSchema.pick({
+  content: true,
+});
+
 export const commentReactionSchema = z
   .object({
-    reaction: z.string(),
+    reaction: z.string().emoji(),
     user: z.array(z.string()),
   })
   .array();
 
+export const updateCommentReactionRoSchema = z.object({
+  reaction: z.string().emoji(),
+});
+
+export const getCommentListQueryRoSchema = z.object({
+  take: z
+    .string()
+    .or(z.number())
+    .transform(Number)
+    .pipe(
+      z
+        .number()
+        .min(1, 'You should at least take 1 record')
+        .max(1000, `Can't take more than ${1000} records, please reduce take count`)
+    )
+    .default(20)
+    .optional()
+    .openapi({
+      example: 20,
+      description: `The record count you want to take, maximum is ${1000}`,
+    }),
+  cursor: z.string().optional().nullable(),
+  includeCursor: z.string().or(z.boolean()).transform(Boolean).optional(),
+  direction: z.union([z.literal('forward'), z.literal('backward')]).optional(),
+});
+
 export type ICreateCommentRo = z.infer<typeof createCommentRoSchema>;
 
-export const updateCommentRoSchema = createCommentRoSchema
-  .pick({
-    content: true,
-  })
-  .extend({
-    reaction: z.string(),
-  });
-
 export type IUpdateCommentRo = z.infer<typeof updateCommentRoSchema>;
+
+export type IUpdateCommentReactionRo = z.infer<typeof updateCommentReactionRoSchema>;
+
+export type IGetCommentListQueryRo = z.infer<typeof getCommentListQueryRoSchema>;
+
+export const commentPatchDataSchema = z.object({
+  type: z.nativeEnum(CommentPatchType),
+  data: z.record(z.unknown()),
+});
+
+export type ICommentPatchData = z.infer<typeof commentPatchDataSchema>;
 
 export const commentSchema = z.object({
   id: z.string(),
@@ -89,3 +131,10 @@ export const commentSchema = z.object({
 });
 
 export type ICommentVo = z.infer<typeof commentSchema>;
+
+export const getCommentListVo = z.object({
+  comments: commentSchema.array(),
+  nextCursor: z.string().optional().nullable(),
+});
+
+export type IGetCommentListVo = z.infer<typeof getCommentListVo>;

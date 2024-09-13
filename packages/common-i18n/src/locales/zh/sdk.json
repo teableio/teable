@@ -682,5 +682,29 @@
     "aggregation": {
       "title": "聚合"
     }
+  },
+  "comment": {
+    "title": "评论",
+    "placeholder": "添加评论...",
+    "emptyComment": "开始一段新评论...",
+    "deletedComment": "该评论已删除",
+    "imageSizeLimit": "文件大小不能超过{{size}}",
+    "tip": {
+      "editing": "正在编辑...",
+      "edited": "(已编辑)",
+      "onNotify": "关闭之后只会接受到与自己相关的评论通知",
+      "offNotify": "开启后，可以收到所有评论动态"
+    },
+    "toolbar": {
+      "link": "链接",
+      "image": "图片"
+    },
+    "floatToolbar": {
+      "editLink": "编辑",
+      "caption": "设置标题",
+      "delete": "删除",
+      "linkText": "链接标题",
+      "enterUrl": "输入链接"
+    }
   }
 }

@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import { registerRoute, urlBuilder } from '../utils';
+import { registerRoute } from '../utils';
 import { z } from '../zod';
 
 export const UPDATE_USER_NAME = '/user/name';

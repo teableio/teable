@@ -21,3 +21,7 @@ export function getBasePermissionUpdateChannel(baseId: string) {
 export function getTableImportChannel(tableId: string) {
   return `__table_import_${tableId}`;
 }
+
+export function getCommentChannel(tableId: string, recordId: string) {
+  return `__record_comment_${tableId}_${recordId}`;
+}

@@ -9,6 +9,7 @@ import {
   notificationUrlSchema,
   userIconSchema,
   SYSTEM_USER_ID,
+  assertNever,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -123,6 +124,7 @@ export class NotificationService {
   async sendCommonNotify(
     params: {
       path: string;
+      fromUserId?: string;
       toUserId: string;
       message: string;
       emailConfig?: {
@@ -134,7 +136,7 @@ export class NotificationService {
     },
     type = NotificationTypeEnum.System
   ) {
-    const { toUserId, emailConfig, message, path } = params;
+    const { toUserId, emailConfig, message, path, fromUserId = SYSTEM_USER_ID } = params;
     const notifyId = generateNotificationId();
     const toUser = await this.userService.getUserById(toUserId);
     if (!toUser) {
@@ -143,27 +145,27 @@ export class NotificationService {
 
     const data: Prisma.NotificationCreateInput = {
       id: notifyId,
-      fromUserId: SYSTEM_USER_ID,
+      fromUserId: fromUserId,
       toUserId,
       type,
       urlPath: path,
-      createdBy: SYSTEM_USER_ID,
+      createdBy: fromUserId,
       message,
     };
     const notifyData = await this.createNotify(data);
 
     const unreadCount = (await this.unreadCount(toUser.id)).unreadCount;
 
+    const rawUsers = await this.prismaService.user.findMany({
+      select: { id: true, name: true, avatar: true },
+      where: { id: fromUserId },
+    });
+    const fromUserSets = keyBy(rawUsers, 'id');
+
     const systemNotifyIcon = this.generateNotifyIcon(
       notifyData.type as NotificationTypeEnum,
-      SYSTEM_USER_ID,
-      {
-        [SYSTEM_USER_ID]: {
-          id: SYSTEM_USER_ID,
-          name: SYSTEM_USER_ID,
-          avatar: null,
-        },
-      }
+      fromUserId,
+      fromUserSets
     );
 
     const socketNotification = {
@@ -219,6 +221,44 @@ export class NotificationService {
         message: message,
       },
     });
+  }
+
+  async sendCommentNotify(params: {
+    baseId: string;
+    tableId: string;
+    recordId: string;
+    commentId: string;
+    toUserId: string;
+    message: string;
+    fromUserId: string;
+  }) {
+    const { toUserId, tableId, message, baseId, commentId, recordId, fromUserId } = params;
+    const toUser = await this.userService.getUserById(toUserId);
+    if (!toUser) {
+      return;
+    }
+    const type = NotificationTypeEnum.Comment;
+    const urlMeta = notificationUrlSchema.parse({
+      baseId: baseId,
+      tableId: tableId,
+      recordId: recordId,
+      commentId: commentId,
+    });
+    const notifyPath = this.generateNotifyPath(type, urlMeta);
+
+    this.sendCommonNotify(
+      {
+        path: notifyPath,
+        fromUserId,
+        toUserId,
+        message,
+        emailConfig: {
+          title: 'Record comment notification',
+          message: message,
+        },
+      },
+      type
+    );
   }
 
   async getNotifyList(userId: string, query: IGetNotifyListQuery): Promise<INotificationVo> {
@@ -283,6 +323,7 @@ export class NotificationService {
     switch (notifyType) {
       case NotificationTypeEnum.System:
         return { iconUrl: `${origin}/images/favicon/favicon.svg` };
+      case NotificationTypeEnum.Comment:
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { id, name, avatar } = fromUserSets[fromUserId];
@@ -294,6 +335,8 @@ export class NotificationService {
             avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
         };
       }
+      default:
+        throw assertNever(notifyType);
     }
   }
 
@@ -303,12 +346,19 @@ export class NotificationService {
         const { baseId, tableId } = urlMeta || {};
         return `/base/${baseId}/${tableId}`;
       }
+      case NotificationTypeEnum.Comment: {
+        const { baseId, tableId, recordId, commentId } = urlMeta || {};
+
+        return `/base/${baseId}/${tableId}${`?recordId=${recordId}&commentId=${commentId}`}`;
+      }
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { baseId, tableId, recordId } = urlMeta || {};
 
         return `/base/${baseId}/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
       }
+      default:
+        throw assertNever(notifyType);
     }
   }
 

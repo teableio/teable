@@ -1,7 +1,7 @@
 import type { IRecord } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
 import { useToast } from '@teable/ui-lib';
-import type { FC, PropsWithChildren } from 'react';
+import { useEffect, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
@@ -29,6 +29,7 @@ interface IExpandRecorderProps {
   tableId: string;
   viewId?: string;
   recordId?: string;
+  commentId?: string;
   recordIds?: string[];
   model?: ExpandRecordModel;
   serverData?: IRecord;
@@ -37,17 +38,35 @@ interface IExpandRecorderProps {
 }
 
 export const ExpandRecorder = (props: IExpandRecorderProps) => {
-  const { model, tableId, recordId, recordIds, serverData, onClose, onUpdateRecordIdCallback } =
-    props;
+  const {
+    model,
+    tableId,
+    recordId,
+    recordIds,
+    serverData,
+    onClose,
+    onUpdateRecordIdCallback,
+    commentId,
+  } = props;
   const { toast } = useToast();
   const { t } = useTranslation();
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
+  const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
   const [recordHistoryVisible, setRecordHistoryVisible] = useLocalStorage<boolean>(
     LocalStorageKeys.RecordHistoryVisible,
     false
   );
+
+  const [commentVisible, setCommentVisible] = useLocalStorage<boolean>(
+    LocalStorageKeys.CommentVisible,
+    !!commentId || false
+  );
+
+  useEffect(() => {
+    commentId && setCommentVisible(true);
+  }, [commentId, setCommentVisible]);
 
   if (!recordId) {
     return <></>;
@@ -64,7 +83,13 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   };
 
   const onRecordHistoryToggle = () => {
+    setCommentVisible(false);
     setRecordHistoryVisible(!recordHistoryVisible);
+  };
+
+  const onCommentToggle = () => {
+    setRecordHistoryVisible(false);
+    setCommentVisible(!commentVisible);
   };
 
   return (
@@ -75,13 +100,16 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           model={model}
           recordId={recordId}
           recordIds={recordIds}
+          commentId={commentId}
           serverData={serverData?.id === recordId ? serverData : undefined}
           recordHistoryVisible={editable && recordHistoryVisible}
+          commentVisible={canRead && commentVisible}
           onClose={onClose}
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
           onRecordHistoryToggle={onRecordHistoryToggle}
+          onCommentToggle={onCommentToggle}
           onDelete={async () => {
             if (canDelete) await deleteRecord(tableId, recordId);
           }}

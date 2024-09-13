@@ -18,7 +18,12 @@ export const ExpandRecordContainer = forwardRef<
     if (!recordId) {
       return;
     }
-    const { recordId: _recordId, fromNotify: _fromNotify, ...resetQuery } = router.query;
+    const {
+      recordId: _recordId,
+      fromNotify: _fromNotify,
+      commentId: _commentId,
+      ...resetQuery
+    } = router.query;
     router.push(
       {
         pathname: router.pathname,
