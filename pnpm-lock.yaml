@@ -1852,6 +1852,9 @@ importers:
       postcss:
         specifier: 8.4.38
         version: 8.4.38
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
       tailwindcss:
         specifier: 3.4.1
         version: 3.4.1(ts-node@10.9.2)
@@ -25106,6 +25109,7 @@ packages:
 
   /rimraf@2.7.1:
     resolution: {integrity: sha512-uWjbaKIK3T1OSVptzX7Nl6PvQ3qAGtKEtVRjRuazjfL3Bx5eI409VZSqgND+4UNnmzLVdPj9FqFJNPqBZFve4w==}
+    deprecated: Rimraf versions prior to v4 are no longer supported
     hasBin: true
     dependencies:
       glob: 7.2.3
