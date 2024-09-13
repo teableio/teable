@@ -115,7 +115,7 @@ describe('useInstances hook', () => {
       readyListener[1]();
     });
 
-    expect(result.current).toEqual(defaultInstance);
+    expect(result.current.instances).toEqual(defaultInstance);
   });
 
   it('should update instances on insert event', () => {
@@ -141,7 +141,7 @@ describe('useInstances hook', () => {
       insertListener[1](insertData, 0);
     });
 
-    expect(result.current).toEqual([
+    expect(result.current.instances).toEqual([
       ...insertData.map((d) => createTestInstance(d.data, d)),
       ...defaultInstance,
     ]);
@@ -171,7 +171,7 @@ describe('useInstances hook', () => {
       removeListener[1](removeData, 1);
     });
 
-    expect(result.current).toEqual([defaultInstance[0]]);
+    expect(result.current.instances).toEqual([defaultInstance[0]]);
   });
 
   it('should update instances on move event', () => {
@@ -190,7 +190,9 @@ describe('useInstances hook', () => {
       moveListener[1](moveData, 1, 0);
     });
 
-    expect(result.current).toEqual(moveData.map((doc) => createTestInstance(doc.data, doc)));
+    expect(result.current.instances).toEqual(
+      moveData.map((doc) => createTestInstance(doc.data, doc))
+    );
   });
 
   it('doc on op', () => {
