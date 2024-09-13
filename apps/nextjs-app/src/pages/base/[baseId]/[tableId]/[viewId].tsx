@@ -15,6 +15,7 @@ const Node: NextPageWithLayout<ITableProps> = ({
   viewServerData,
   recordsServerData,
   recordServerData,
+  groupPointsServerData,
 }) => {
   return (
     <Table
@@ -23,6 +24,7 @@ const Node: NextPageWithLayout<ITableProps> = ({
       viewServerData={viewServerData}
       recordsServerData={recordsServerData}
       recordServerData={recordServerData}
+      groupPointsServerData={groupPointsServerData}
     />
   );
 };

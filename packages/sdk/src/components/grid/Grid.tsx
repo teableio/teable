@@ -311,9 +311,6 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       }
       if (type === LinearRowType.Row) {
         const count = point.count;
-        const isCollapsed = collapsedDepth !== Number.MAX_VALUE;
-
-        if (isCollapsed) return;
 
         for (let i = 0; i < count; i++) {
           real2LinearRowMap[rowIndex + i] = totalIndex + i;

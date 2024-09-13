@@ -1,6 +1,5 @@
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { IFilter } from '@teable/core';
 import type { ICopyVo, IPasteRo, IRangesRo, ITemporaryPasteRo } from '@teable/openapi';
 import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
@@ -21,10 +20,10 @@ import {
 } from '../utils/copyAndPaste';
 
 export const useSelectionOperation = (props?: {
-  filter?: IFilter;
+  collapsedGroupIds?: string[];
   copyReq?: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, IRangesRo, unknown>;
 }) => {
-  const { filter, copyReq } = props || {};
+  const { collapsedGroupIds, copyReq } = props || {};
   const tableId = useTableId();
   const viewId = useViewId();
   const fields = useFields();
@@ -37,12 +36,12 @@ export const useSelectionOperation = (props?: {
 
   const { mutateAsync: defaultCopyReq } = useMutation({
     mutationFn: (copyRo: IRangesRo) =>
-      copy(tableId!, { ...copyRo, viewId, groupBy, filter, search }),
+      copy(tableId!, { ...copyRo, viewId, groupBy, collapsedGroupIds, search }),
   });
 
   const { mutateAsync: pasteReq } = useMutation({
     mutationFn: (pasteRo: IPasteRo) =>
-      paste(tableId!, { ...pasteRo, viewId, groupBy, filter, search }),
+      paste(tableId!, { ...pasteRo, viewId, groupBy, collapsedGroupIds, search }),
   });
 
   const { mutateAsync: temporaryPasteReq } = useMutation({
@@ -52,12 +51,12 @@ export const useSelectionOperation = (props?: {
 
   const { mutateAsync: clearReq } = useMutation({
     mutationFn: (clearRo: IRangesRo) =>
-      clear(tableId!, { ...clearRo, viewId, groupBy, filter, search }),
+      clear(tableId!, { ...clearRo, viewId, groupBy, collapsedGroupIds, search }),
   });
 
   const { mutateAsync: deleteReq } = useMutation({
     mutationFn: (deleteRo: IRangesRo) =>
-      deleteSelection(tableId!, { ...deleteRo, viewId, groupBy, filter, search }),
+      deleteSelection(tableId!, { ...deleteRo, viewId, groupBy, collapsedGroupIds, search }),
   });
 
   const { toast } = useToast();

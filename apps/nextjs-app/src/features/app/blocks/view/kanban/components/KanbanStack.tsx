@@ -87,7 +87,7 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
     };
   }, [fieldId, isUncategorized, skipIndex, filterValue, recordQuery]);
 
-  const records = useRecords(query);
+  const { records } = useRecords(query);
 
   const sortedRecords = useMemo(() => {
     return records.filter(Boolean);

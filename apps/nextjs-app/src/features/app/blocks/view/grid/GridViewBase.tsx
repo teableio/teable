@@ -7,7 +7,7 @@ import {
   fieldVoSchema,
   stringifyClipboardText,
 } from '@teable/core';
-import type { IUpdateOrderRo } from '@teable/openapi';
+import type { IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
 import { createRecords } from '@teable/openapi';
 import type {
   IRectangle,
@@ -52,7 +52,6 @@ import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import {
   useFieldCellEditable,
   useFields,
-  useGroupPoint,
   useIsTouchDevice,
   useRowCount,
   useSSRRecord,
@@ -82,13 +81,14 @@ import { useCollaborate, useSelectionOperation } from './hooks';
 import { useGridViewStore } from './store/gridView';
 
 interface IGridViewProps {
+  groupPointsServerData?: IGroupPointsVo;
   onRowExpand?: (recordId: string) => void;
 }
 
 const { scrollBuffer, columnAppendBtnWidth } = GRID_DEFAULT;
 
 export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) => {
-  const { onRowExpand } = props;
+  const { groupPointsServerData, onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const router = useRouter();
   const gridRef = useRef<IGridRef>(null);
@@ -99,7 +99,6 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
   const rowCount = useRowCount();
-  const groupPoints = useGroupPoint();
   const ssrRecords = useSSRRecords();
   const ssrRecord = useSSRRecord();
   const theme = useGridTheme();
@@ -128,21 +127,23 @@ export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) =>
 
   const groupCollection = useGridGroupCollection();
 
-  const { viewGroupQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
-    generateLocalId(tableId, activeViewId),
-    groupPoints
+  const { viewQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
+    generateLocalId(tableId, activeViewId)
   );
 
-  const { onVisibleRegionChanged, onReset, recordMap } = useGridAsyncRecords(
+  const { onVisibleRegionChanged, onReset, recordMap, groupPoints } = useGridAsyncRecords(
     ssrRecords,
     undefined,
-    viewGroupQuery
+    viewQuery,
+    groupPointsServerData
   );
 
   const onRowOrdered = useGridRowOrder(recordMap);
 
   const { copy, paste, clear, deleteRecords } = useSelectionOperation({
-    filter: viewGroupQuery?.filter,
+    collapsedGroupIds: viewQuery?.collapsedGroupIds
+      ? Array.from(viewQuery?.collapsedGroupIds)
+      : undefined,
   });
 
   const {

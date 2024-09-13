@@ -15,7 +15,7 @@ interface IViewProviderProps {
 
 export const ViewProvider: FC<IViewProviderProps> = ({ children, fallback, serverData }) => {
   const { tableId } = useContext(AnchorContext);
-  const views = useInstances({
+  const { instances: views } = useInstances({
     collection: `${IdPrefix.View}_${tableId}`,
     factory: createViewInstance,
     initData: serverData,

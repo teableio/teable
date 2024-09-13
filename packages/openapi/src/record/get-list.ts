@@ -8,6 +8,7 @@ import {
   sortItemSchema,
 } from '@teable/core';
 import type { AxiosResponse } from 'axios';
+import { groupPointsVoSchema } from '../aggregation/type';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -129,6 +130,9 @@ export const contentQueryBaseSchema = queryBaseSchema.extend({
       type: 'string',
       description: 'An array of group objects that specifies how the records should be grouped.',
     }),
+  collapsedGroupIds: z.array(z.string()).optional().openapi({
+    description: 'An array of group ids that specifies which groups are collapsed',
+  }),
 });
 
 export const getRecordsRoSchema = getRecordQuerySchema.merge(contentQueryBaseSchema).extend({
@@ -191,6 +195,13 @@ export const recordsVoSchema = z.object({
     description:
       'If more records exist, the response includes an offset. Use this offset for fetching the next page of records.',
   }),
+  extra: z
+    .object({
+      groupPoints: groupPointsVoSchema.optional().openapi({
+        description: 'Group points for the view',
+      }),
+    })
+    .optional(),
 });
 
 export type IRecordsVo = z.infer<typeof recordsVoSchema>;

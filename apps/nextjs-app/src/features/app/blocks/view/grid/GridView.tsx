@@ -1,9 +1,4 @@
-import {
-  AggregationProvider,
-  RecordProvider,
-  RowCountProvider,
-  GroupPointProvider,
-} from '@teable/sdk/context';
+import { AggregationProvider, RecordProvider, RowCountProvider } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { DynamicCellGraph } from '../../graph/DynamicCellGraph';
@@ -13,7 +8,7 @@ import type { IViewBaseProps } from '../types';
 import { GridViewBase } from './GridViewBase';
 
 export const GridView = (props: IViewBaseProps) => {
-  const { recordServerData, recordsServerData } = props;
+  const { recordServerData, recordsServerData, groupPointsServerData } = props;
   const { graphOpen } = useCellGraphStore();
   const isHydrated = useIsHydrated();
 
@@ -22,13 +17,11 @@ export const GridView = (props: IViewBaseProps) => {
       <RecordProvider serverRecords={recordsServerData.records} serverRecord={recordServerData}>
         <AggregationProvider>
           <RowCountProvider>
-            <GroupPointProvider>
-              <GridToolBar />
-              <div className="w-full grow overflow-hidden sm:pl-2">
-                {isHydrated && <GridViewBase />}
-                {graphOpen && <DynamicCellGraph />}
-              </div>
-            </GroupPointProvider>
+            <GridToolBar />
+            <div className="w-full grow overflow-hidden sm:pl-2">
+              {isHydrated && <GridViewBase groupPointsServerData={groupPointsServerData} />}
+              {graphOpen && <DynamicCellGraph />}
+            </div>
           </RowCountProvider>
         </AggregationProvider>
       </RecordProvider>

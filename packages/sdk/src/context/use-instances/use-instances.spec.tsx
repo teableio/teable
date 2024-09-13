@@ -91,7 +91,7 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances({ ...mockProps, initData }), {
       wrapper: createUseInstancesWrap({ ...mockAppContext, connected: false }),
     });
-    expect(result.current).toEqual(initData.map((doc) => createTestInstance(doc)));
+    expect(result.current.instances).toEqual(initData.map((doc) => createTestInstance(doc)));
   });
 
   it('should create a subscribe query with correct parameters', () => {
@@ -108,7 +108,7 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current).toEqual([]);
+    expect(result.current.instances).toEqual([]);
 
     act(() => {
       const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
@@ -130,7 +130,7 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current).toEqual([]);
+    expect(result.current.instances).toEqual([]);
 
     act(() => {
       const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
@@ -159,7 +159,7 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current).toEqual([]);
+    expect(result.current.instances).toEqual([]);
 
     act(() => {
       const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
@@ -180,7 +180,7 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current).toEqual([]);
+    expect(result.current.instances).toEqual([]);
 
     act(() => {
       const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
@@ -197,7 +197,7 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current).toEqual([]);
+    expect(result.current.instances).toEqual([]);
 
     act(() => {
       const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
@@ -205,14 +205,14 @@ describe('useInstances hook', () => {
     });
 
     act(() => {
-      const opListener = result.current[0].doc.on.mock.calls.find(
+      const opListener = result.current.instances[0].doc.on.mock.calls.find(
         (args: any) => args[0] === 'op batch'
       );
       opListener[1](['op op op']);
     });
     expect(createTestInstance).toHaveBeenCalledWith(
-      result.current[0].doc.data,
-      result.current[0].doc
+      result.current.instances[0].doc.data,
+      result.current.instances[0].doc
     );
   });
 });
