@@ -12,8 +12,9 @@ import type {
   ICommentVo,
   IUpdateCommentRo,
   IGetCommentListQueryRo,
+  ICommentContent,
 } from '@teable/openapi';
-import { CommentPatchType } from '@teable/openapi';
+import { CommentNodeType, CommentPatchType } from '@teable/openapi';
 import { uniq, omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ShareDbService } from '../../share-db/share-db.service';
@@ -132,7 +133,10 @@ export class CommentOpenApiService {
       },
     });
 
-    await this.sendCommentNotify(tableId, recordId, id);
+    await this.sendCommentNotify(tableId, recordId, id, {
+      content: result.content,
+      quoteId: result.quoteId,
+    });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateComment, result);
 
@@ -164,7 +168,10 @@ export class CommentOpenApiService {
       });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.UpdateComment, result);
-    await this.sendCommentNotify(tableId, recordId, commentId);
+    await this.sendCommentNotify(tableId, recordId, commentId, {
+      quoteId: result.quoteId,
+      content: result.content,
+    });
   }
 
   async deleteComment(tableId: string, recordId: string, commentId: string) {
@@ -277,7 +284,10 @@ export class CommentOpenApiService {
       });
 
     await this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, result);
-    await this.sendCommentNotify(tableId, recordId, commentId);
+    await this.sendCommentNotify(tableId, recordId, commentId, {
+      quoteId: result.quoteId,
+      content: result.content,
+    });
   }
 
   async getNotifyDetail(tableId: string, recordId: string) {
@@ -327,9 +337,35 @@ export class CommentOpenApiService {
     });
   }
 
-  private async sendCommentNotify(tableId: string, recordId: string, commentId: string) {
-    const triggerUserId = this.cls.get('user.id');
-    const triggerUserName = this.cls.get('user.name');
+  private async sendCommentNotify(
+    tableId: string,
+    recordId: string,
+    commentId: string,
+    notifyVo: { quoteId: string | null; content: string | null }
+  ) {
+    const { quoteId, content } = notifyVo;
+    const { id: fromUserId, name: fromUserName } = this.cls.get('user');
+    const relativeUsers: string[] = [];
+
+    if (quoteId) {
+      const { createdBy: quoteCommentCreator } =
+        (await this.prismaService.comment.findFirst({
+          where: {
+            quoteId,
+          },
+          select: {
+            createdBy: true,
+          },
+        })) || {};
+      quoteCommentCreator && relativeUsers.push(quoteCommentCreator);
+    }
+
+    const mentionUsers = this.getMentionUserByContent(content);
+
+    if (mentionUsers.length) {
+      relativeUsers.push(...mentionUsers);
+    }
+
     const { baseId, name: tableName } =
       (await this.prismaService.tableMeta.findFirst({
         where: {
@@ -377,13 +413,14 @@ export class CommentOpenApiService {
         createdBy: true,
       },
     });
-    const notifiedUsersIds = notifyUsers.map(({ createdBy }) => createdBy);
 
-    const finalNotifyUsers = notifiedUsersIds.filter((userId) => userId !== triggerUserId);
+    const notifiedUsersIds = Array.from(
+      new Set([...notifyUsers.map(({ createdBy }) => createdBy), ...relativeUsers])
+    ).filter((userId) => userId !== fromUserId);
 
-    const message = `${triggerUserName} made a commented on ${recordName ? recordName : 'a record'} in ${tableName} in ${baseName}`;
+    const message = `${fromUserName} made a commented on ${recordName ? recordName : 'a record'} in ${tableName} in ${baseName}`;
 
-    finalNotifyUsers.forEach((userId) => {
+    notifiedUsersIds.forEach((userId) => {
       this.notificationService.sendCommentNotify({
         baseId,
         tableId,
@@ -391,9 +428,24 @@ export class CommentOpenApiService {
         commentId,
         toUserId: userId,
         message,
-        fromUserId: triggerUserId,
+        fromUserId,
       });
     });
+  }
+
+  private getMentionUserByContent(commentContentRaw: string | null) {
+    if (!commentContentRaw) {
+      return [];
+    }
+
+    const commentContent = JSON.parse(commentContentRaw) as ICommentContent;
+
+    return commentContent
+      .filter((comment) => comment.type === CommentNodeType.Paragraph)
+      .map((paragraphNode) => paragraphNode.children)
+      .flat()
+      .filter((lineNode) => lineNode)
+      .map((mentionNode) => mentionNode.value) as string[];
   }
 
   private createCommentPresence(tableId: string, recordId: string) {
