@@ -1,6 +1,18 @@
 import { BadRequestException } from '@nestjs/common';
-import type { IAttachmentCellValue, ILinkCellValue, UserFieldCore } from '@teable/core';
-import { ColorUtils, FieldType, generateChoiceId } from '@teable/core';
+import type {
+  IAttachmentCellValue,
+  IAttachmentItem,
+  ILinkCellValue,
+  UserFieldCore,
+} from '@teable/core';
+import {
+  ColorUtils,
+  FieldType,
+  generateAttachmentId,
+  generateChoiceId,
+  IdPrefix,
+  nullsToUndefined,
+} from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { keyBy, map } from 'lodash';
@@ -124,10 +136,10 @@ export class TypeCastAndValidate {
     callBack: (cellValue: unknown) => unknown
   ) {
     return cellValues.map((cellValue) => {
-      const validate = this.field.validateCellValue(cellValue);
       if (cellValue === undefined) {
         return;
       }
+      const validate = this.field.validateCellValue(cellValue);
       if (!validate.success) {
         if (this.typecast) {
           return callBack(cellValue);
@@ -258,9 +270,21 @@ export class TypeCastAndValidate {
   }
 
   private async castToAttachment(cellValues: unknown[]): Promise<unknown[]> {
-    const newCellValues = this.defaultCastTo(cellValues);
+    const attachmentItemsMap = this.typecast ? await this.getAttachmentItemMap(cellValues) : {};
+    const unsignedValues = this.mapFieldsCellValuesWithValidate(
+      cellValues,
+      (cellValue: unknown) => {
+        const splitValues = typeof cellValue === 'string' ? cellValue.split(',') : cellValue;
+        if (Array.isArray(splitValues)) {
+          const result = splitValues.map((v) => attachmentItemsMap[v]).filter(Boolean);
+          if (result.length) {
+            return result;
+          }
+        }
+      }
+    );
 
-    const allAttachmentsPromises = newCellValues.map((cellValues) => {
+    const allAttachmentsPromises = unsignedValues.map((cellValues) => {
       const attachmentCellValue = cellValues as IAttachmentCellValue;
       if (!attachmentCellValue) {
         return attachmentCellValue;
@@ -327,6 +351,42 @@ export class TypeCastAndValidate {
     );
 
     return keyBy(linkRecords, 'title');
+  }
+
+  private async getAttachmentItemMap(
+    cellValues: unknown[]
+  ): Promise<Record<string, IAttachmentItem>> {
+    // Extract and flatten attachment IDs from cell values
+    const attachmentIds = cellValues
+      .flat()
+      .flatMap((v) => (typeof v === 'string' ? v.split(',').map((s) => s.trim()) : []))
+      .filter((v) => v.startsWith(IdPrefix.Attachment));
+
+    // Fetch attachment metadata from attachmentsTable
+    const attachmentMetadata = await this.services.prismaService.attachmentsTable.findMany({
+      where: { attachmentId: { in: attachmentIds } },
+      select: { attachmentId: true, token: true, name: true },
+    });
+
+    const tokens = attachmentMetadata.map((item) => item.token);
+    const metadataMap = keyBy(attachmentMetadata, 'token');
+
+    // Fetch attachment details from attachments table
+    const attachmentDetails = await this.services.prismaService.attachments.findMany({
+      where: { token: { in: tokens } },
+      select: { token: true, size: true, mimetype: true, path: true, width: true, height: true },
+    });
+
+    // Combine metadata and details into a single map
+    return attachmentDetails.reduce<Record<string, IAttachmentItem>>((acc, detail) => {
+      const metadata = metadataMap[detail.token];
+      acc[metadata.attachmentId] = {
+        ...nullsToUndefined(detail),
+        name: metadata.name,
+        id: generateAttachmentId(),
+      };
+      return acc;
+    }, {});
   }
 
   /**
