@@ -635,5 +635,11 @@ describe('Numeric', () => {
 
       expect(result).toBe(-100.123);
     });
+
+    it('should throw an error when param is not a string', () => {
+      expect(() =>
+        valueFunc.validateParams([new TypedValue(100, CellValueType.Number, false)])
+      ).toThrowError(`${valueFunc.name} can't process string type param at 1`);
+    });
   });
 });
