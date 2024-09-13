@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { StatisticsFunc } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
-import { getAggregation, getRowCount } from '@teable/openapi';
+import { SortFunc, type StatisticsFunc } from '@teable/core';
+import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
+import { getAggregation, getGroupPoints, getRowCount, GroupPointType } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import {
   CHECKBOX_FIELD_CASES,
@@ -199,6 +199,43 @@ describe('OpenAPI AggregationController (e2e)', () => {
           expect(total?.value).toBeCloseTo(expectValue, 4);
         }
       );
+    });
+  });
+
+  describe('get group point by group', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'agg_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should get group points with collapsed group IDs', async () => {
+      const singleSelectField = table.fields[2];
+      const groupBy = [
+        {
+          fieldId: singleSelectField.id,
+          order: SortFunc.Asc,
+        },
+      ];
+      const groupPoints = (await getGroupPoints(table.id, { groupBy })).data!;
+      expect(groupPoints.length).toEqual(8);
+
+      const firstGroupHeader = groupPoints.find(
+        ({ type }) => type === GroupPointType.Header
+      ) as IGroupHeaderPoint;
+
+      const collapsedGroupPoints = (
+        await getGroupPoints(table.id, { groupBy, collapsedGroupIds: [firstGroupHeader.id] })
+      ).data!;
+
+      expect(collapsedGroupPoints.length).toEqual(7);
     });
   });
 });
