@@ -645,7 +645,7 @@ export class Value extends NumericFunc {
       throw new Error(`${FunctionName.Value} only allow 1 param`);
     }
     params.forEach((param, i) => {
-      if (param && param.type === CellValueType.String) {
+      if (param && param.type !== CellValueType.String) {
         throw new Error(`${FunctionName.Value} can't process string type param at ${i + 1}`);
       }
     });

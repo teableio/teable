@@ -13,7 +13,7 @@ import { GridViewBase } from './GridViewBase';
 import { Toolbar } from './toolbar';
 
 export const GridView = () => {
-  const { records, view } = useContext(ShareViewPageContext);
+  const { records, view, extra } = useContext(ShareViewPageContext);
   const isHydrated = useIsHydrated();
   const {
     query: { hideToolBar, embed },
@@ -38,7 +38,7 @@ export const GridView = () => {
                 <GroupPointProvider>
                   {!hideToolBar && <Toolbar />}
                   <div className="w-full grow overflow-hidden">
-                    {isHydrated && <GridViewBase />}
+                    {isHydrated && <GridViewBase groupPointsServerData={extra?.groupPoints} />}
                   </div>
                   {embed && <EmbedFooter />}
                 </GroupPointProvider>

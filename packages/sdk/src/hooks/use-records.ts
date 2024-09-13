@@ -28,7 +28,7 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
     };
   }, [query, searchQuery, viewId]);
 
-  const instances = useInstances({
+  const { instances, extra } = useInstances({
     collection: `${IdPrefix.Record}_${tableId}`,
     factory: createRecordInstance,
     queryParams,
@@ -36,6 +36,9 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
   });
   return useMemo(() => {
     const fieldMap = keyBy(fields, 'id');
-    return instances.map((instance) => recordInstanceFieldMap(instance, fieldMap));
-  }, [instances, fields]);
+    return {
+      records: instances.map((instance) => recordInstanceFieldMap(instance, fieldMap)),
+      extra,
+    };
+  }, [instances, fields, extra]);
 };

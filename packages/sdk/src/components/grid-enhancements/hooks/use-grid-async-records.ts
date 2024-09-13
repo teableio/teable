@@ -1,5 +1,5 @@
 import type { IRecord } from '@teable/core';
-import type { IGetRecordsRo } from '@teable/openapi';
+import type { IGetRecordsRo, IGroupPointsVo } from '@teable/openapi';
 import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
@@ -11,6 +11,7 @@ export const LOAD_PAGE_SIZE = 300;
 const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 
 type IRes = {
+  groupPoints: IGroupPointsVo | null;
   recordMap: IRecordIndexMap;
   onReset: () => void;
   onForceUpdate: () => void;
@@ -22,7 +23,8 @@ export type IRecordIndexMap = { [i: number | string]: Record };
 export const useGridAsyncRecords = (
   initRecords?: IRecord[],
   initQuery?: IGetRecordsRo,
-  outerQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'groupBy'>
+  outerQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'groupBy' | 'collapsedGroupIds'>,
+  initGroupPoints?: IGroupPointsVo
 ): IRes => {
   const [query, setQuery] = useState<IGetRecordsRo>({
     skip: 0,
@@ -32,12 +34,18 @@ export const useGridAsyncRecords = (
   const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
   const queryRef = useRef(query);
   queryRef.current = query;
-  const records = useRecords(recordsQuery, initRecords);
+  const { records, extra } = useRecords(recordsQuery, initRecords);
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
     records.reduce((acc, record, i) => {
       acc[i] = record;
       return acc;
     }, {} as IRecordIndexMap)
+  );
+  const [groupPoints, setGroupPoints] = useState<IGroupPointsVo>(
+    () =>
+      (extra == null
+        ? initGroupPoints
+        : (extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints) ?? null
   );
   const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
@@ -62,7 +70,11 @@ export const useGridAsyncRecords = (
       }
       return newRecordsState;
     });
-  }, [records]);
+
+    if (extra != null) {
+      setGroupPoints((extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints ?? null);
+    }
+  }, [records, extra]);
 
   useEffect(() => onForceUpdate(), [onForceUpdate]);
 
@@ -118,6 +130,7 @@ export const useGridAsyncRecords = (
   }, []);
 
   return {
+    groupPoints,
     recordMap: loadedRecordMap,
     onVisibleRegionChanged,
     onForceUpdate,

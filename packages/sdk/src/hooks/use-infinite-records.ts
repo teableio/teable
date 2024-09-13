@@ -34,7 +34,7 @@ export const useInfiniteRecords = (
   });
   const queryRef = useRef(query);
   queryRef.current = query;
-  const records = useRecords(query, initRecords);
+  const { records } = useRecords(query, initRecords);
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
     records.reduce((acc, record, i) => {
       acc[i] = record;

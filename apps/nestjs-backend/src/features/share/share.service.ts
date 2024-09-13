@@ -85,22 +85,25 @@ export class ShareService {
       throw new BadRequestException('share view not found');
     }
     const shareMeta = view.shareMeta ? (JSON.parse(view.shareMeta) as IShareViewMeta) : undefined;
-    const { tableId, id: viewId } = view;
+    const { tableId, id: viewId, group } = view;
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: view.id,
       filterHidden: !shareMeta?.includeHiddenField,
     });
 
     let records: IRecordsVo['records'] = [];
+    let extra: IRecordsVo['extra'];
     if (view.type !== ViewType.Form) {
       const recordsData = await this.recordService.getRecords(tableId, {
         viewId,
         skip: 0,
         take: 50,
+        groupBy: group ? JSON.parse(group) : undefined,
         fieldKeyType: FieldKeyType.Id,
         projection: fields.map((f) => f.id),
       });
       records = recordsData.records;
+      extra = recordsData.extra;
     }
 
     return {
@@ -111,6 +114,7 @@ export class ShareService {
       view: this.viewService.convertViewVoAttachmentUrl(createViewVoByRaw(view)),
       fields,
       records,
+      extra,
     };
   }
 

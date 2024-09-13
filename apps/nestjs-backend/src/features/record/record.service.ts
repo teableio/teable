@@ -10,6 +10,7 @@ import type {
   IAttachmentCellValue,
   IExtraResult,
   IFilter,
+  IFilterSet,
   IGroup,
   ILinkCellValue,
   IRecord,
@@ -17,23 +18,34 @@ import type {
   ISortItem,
 } from '@teable/core';
 import {
+  and,
   CellFormat,
   FieldKeyType,
   FieldType,
   generateRecordId,
   identify,
   IdPrefix,
+  mergeFilter,
   mergeWithDefaultFilter,
   mergeWithDefaultSort,
+  or,
   parseGroup,
   Relationship,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateRecordsRo, IGetRecordQuery, IGetRecordsRo, IRecordsVo } from '@teable/openapi';
-import { UploadType } from '@teable/openapi';
+import type {
+  ICreateRecordsRo,
+  IGetRecordQuery,
+  IGetRecordsRo,
+  IGroupHeaderPoint,
+  IGroupPoint,
+  IGroupPointsVo,
+  IRecordsVo,
+} from '@teable/openapi';
+import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { difference, keyBy } from 'lodash';
+import { difference, isDate, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -41,6 +53,8 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { string2Hash } from '../../utils';
+import { generateFilterItem } from '../../utils/filter';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -465,6 +479,7 @@ export class RecordService {
       | 'search'
       | 'filterLinkCellCandidate'
       | 'filterLinkCellSelected'
+      | 'collapsedGroupIds'
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
@@ -572,6 +587,7 @@ export class RecordService {
     );
     return {
       records: recordSnapshot.map((r) => r.data),
+      extra: queryResult.extra,
     };
   }
 
@@ -1064,7 +1080,11 @@ export class RecordService {
       throw new BadRequestException(`limit can't be greater than ${take}`);
     }
 
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, query);
+    const { groupPoints, filter: filterWithGroup } = await this.getGroupRelatedData(tableId, query);
+    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(tableId, {
+      ...query,
+      filter: filterWithGroup,
+    });
 
     queryBuilder.select(this.knex.ref(`${dbTableName}.__id`));
 
@@ -1078,7 +1098,22 @@ export class RecordService {
       .txClient()
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
-    return { ids };
+
+    return { ids, extra: { groupPoints } };
+  }
+
+  private convertValueToStringify(value: unknown): number | string | null {
+    if (typeof value === 'bigint' || typeof value === 'number') {
+      return Number(value);
+    }
+    if (isDate(value)) {
+      return value.toISOString();
+    }
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (value == null) return null;
+    return JSON.stringify(value);
   }
 
   async getRecordsFields(
@@ -1092,10 +1127,10 @@ export class RecordService {
     const {
       skip,
       take,
-      filter,
       orderBy,
       search,
       groupBy,
+      collapsedGroupIds,
       fieldKeyType,
       cellFormat,
       projection,
@@ -1111,12 +1146,15 @@ export class RecordService {
     );
     const fieldNames = fields.map((f) => f.dbFieldName);
 
+    const { filter: filterWithGroup } = await this.getGroupRelatedData(tableId, query);
+
     const { queryBuilder } = await this.buildFilterSortQuery(tableId, {
       viewId,
-      filter,
+      filter: filterWithGroup,
       orderBy,
       search,
       groupBy,
+      collapsedGroupIds,
       filterLinkCellCandidate,
       filterLinkCellSelected,
     });
@@ -1196,5 +1234,235 @@ export class RecordService {
   async getDiffIdsByIdAndFilter(tableId: string, recordIds: string[], filter?: IFilter | null) {
     const ids = await this.filterRecordIdsByFilter(tableId, recordIds, filter);
     return difference(recordIds, ids);
+  }
+
+  @Timing()
+  private groupDbCollection2GroupPoints(
+    groupResult: { [key: string]: unknown; __c: number }[],
+    groupFields: IFieldInstance[],
+    collapsedGroupIds: string[] | undefined,
+    rowCount: number
+  ) {
+    const groupPoints: IGroupPoint[] = [];
+    let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
+    let curRowCount = 0;
+
+    groupResult.forEach((item) => {
+      const { __c: count } = item;
+      let isCollapsed = false;
+
+      groupFields.forEach((field, index) => {
+        if (isCollapsed) return;
+
+        const { id, dbFieldName } = field;
+        const fieldValue = this.convertValueToStringify(item[dbFieldName]);
+
+        if (fieldValues[index] === fieldValue) return;
+
+        fieldValues[index] = fieldValue;
+        fieldValues = fieldValues.map((value, idx) => (idx > index ? Symbol() : value));
+
+        const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
+        const groupId = String(string2Hash(flagString));
+        const isCollapsedInner = collapsedGroupIds?.includes(groupId) ?? false;
+
+        groupPoints.push({
+          id: groupId,
+          type: GroupPointType.Header,
+          depth: index,
+          value: field.convertDBValue2CellValue(fieldValue),
+          isCollapsed: isCollapsedInner,
+        });
+
+        isCollapsed = isCollapsedInner;
+      });
+
+      curRowCount += Number(count);
+      if (isCollapsed) return;
+      groupPoints.push({ type: GroupPointType.Row, count: Number(count) });
+    });
+
+    if (curRowCount < rowCount) {
+      groupPoints.push(
+        {
+          id: 'unknown',
+          type: GroupPointType.Header,
+          depth: 0,
+          value: 'Unknown',
+          isCollapsed: false,
+        },
+        { type: GroupPointType.Row, count: rowCount - curRowCount }
+      );
+    }
+
+    return groupPoints;
+  }
+
+  private getFilterByCollapsedGroup({
+    groupBy,
+    groupPoints,
+    fieldInstanceMap,
+    collapsedGroupIds,
+  }: {
+    groupBy: IGroup;
+    groupPoints: IGroupPointsVo;
+    fieldInstanceMap: Record<string, IFieldInstance>;
+    collapsedGroupIds?: string[];
+  }) {
+    if (!groupBy?.length || groupPoints == null || collapsedGroupIds == null) return null;
+    const groupIds: string[] = [];
+    const groupId2DataMap = groupPoints.reduce(
+      (prev, cur) => {
+        if (cur.type !== GroupPointType.Header) {
+          return prev;
+        }
+        const { id, depth } = cur;
+
+        groupIds[depth] = id;
+        prev[id] = { ...cur, path: groupIds.slice(0, depth + 1) };
+        return prev;
+      },
+      {} as Record<string, IGroupHeaderPoint & { path: string[] }>
+    );
+
+    const filterQuery: IFilter = {
+      conjunction: and.value,
+      filterSet: [],
+    };
+
+    for (const groupId of collapsedGroupIds) {
+      const groupData = groupId2DataMap[groupId];
+
+      if (groupData == null) continue;
+
+      const { path } = groupData;
+      const innerFilterSet: IFilterSet = {
+        conjunction: or.value,
+        filterSet: [],
+      };
+
+      path.forEach((pathGroupId) => {
+        const pathGroupData = groupId2DataMap[pathGroupId];
+
+        if (pathGroupData == null) return;
+
+        const { depth } = pathGroupData;
+        const curGroup = groupBy[depth];
+
+        if (curGroup == null) return;
+
+        const { fieldId } = curGroup;
+        const field = fieldInstanceMap[fieldId];
+
+        if (field == null) return;
+
+        const filterItem = generateFilterItem(field, pathGroupData.value);
+        innerFilterSet.filterSet.push(filterItem);
+      });
+
+      filterQuery.filterSet.push(innerFilterSet);
+    }
+
+    return filterQuery;
+  }
+
+  private async getRowCountByFilter(
+    dbTableName: string,
+    fieldInstanceMap: Record<string, IFieldInstance>,
+    filter?: IFilter
+  ) {
+    const withUserId = this.cls.get('user.id');
+    const queryBuilder = this.knex(dbTableName);
+
+    this.dbProvider
+      .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
+      .appendQueryBuilder();
+
+    const rowCountSql = queryBuilder.count({ count: '*' });
+    const result = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(
+      rowCountSql.toQuery()
+    );
+    return Number(result[0].count);
+  }
+
+  public async getGroupRelatedData(tableId: string, query?: IGetRecordsRo) {
+    const { viewId, groupBy: extraGroupBy, filter, search, collapsedGroupIds } = query || {};
+    let groupPoints: IGroupPoint[] = [];
+
+    const groupBy = parseGroup(extraGroupBy);
+
+    if (!groupBy?.length) {
+      return {
+        groupPoints,
+        filter,
+      };
+    }
+
+    const viewRaw = await this.getTinyView(tableId, viewId);
+    const fieldInstanceMap = (await this.getNecessaryFieldMap(
+      tableId,
+      filter,
+      undefined,
+      groupBy,
+      search
+    ))!;
+    const dbTableName = await this.getDbTableName(tableId);
+
+    const filterStr = viewRaw?.filter;
+    const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
+    const groupFieldIds = groupBy.map((item) => item.fieldId);
+
+    const queryBuilder = this.knex(dbTableName);
+    const distinctQueryBuilder = this.knex(dbTableName);
+
+    if (mergedFilter) {
+      const withUserId = this.cls.get('user.id');
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldInstanceMap, mergedFilter, { withUserId })
+        .appendQueryBuilder();
+    }
+
+    if (search) {
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+      this.dbProvider.searchQuery(distinctQueryBuilder, fieldInstanceMap, search);
+    }
+
+    this.dbProvider
+      .groupQuery(distinctQueryBuilder, fieldInstanceMap, groupFieldIds, { isDistinct: true })
+      .appendGroupBuilder();
+
+    this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
+    this.dbProvider.groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds).appendGroupBuilder();
+
+    queryBuilder.count({ __c: '*' }).limit(this.thresholdConfig.maxGroupPoints);
+
+    const groupSql = queryBuilder.toQuery();
+    const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]);
+    const rowCount = await this.getRowCountByFilter(dbTableName, fieldInstanceMap, mergedFilter);
+
+    try {
+      const result =
+        await this.prismaService.$queryRawUnsafe<{ [key: string]: unknown; __c: number }[]>(
+          groupSql
+        );
+
+      groupPoints = this.groupDbCollection2GroupPoints(
+        result,
+        groupFields,
+        collapsedGroupIds,
+        rowCount
+      );
+    } catch (error) {
+      console.log(`Get group points error in table ${tableId}: `, error);
+    }
+
+    const filterWithCollapsed = this.getFilterByCollapsedGroup({
+      groupBy,
+      groupPoints,
+      fieldInstanceMap,
+      collapsedGroupIds,
+    });
+
+    return { groupPoints, filter: mergeFilter(filter, filterWithCollapsed) };
   }
 }

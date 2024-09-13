@@ -279,13 +279,11 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     const linearRows: ILinearRow[] = [];
     const rowHeightMap: IIndicesMap = {};
     const real2LinearRowMap: Record<number, number> = {};
-    const collapsedGroupSet: Set<string> = collapsedGroupIds ?? new Set();
 
     groupPoints.forEach((point) => {
       const { type } = point;
       if (type === LinearRowType.Group) {
-        const { id, value, depth } = point;
-        const isCollapsed = collapsedGroupSet.has(id);
+        const { id, value, depth, isCollapsed } = point;
         const isSubGroup = depth > collapsedDepth;
 
         if (isCollapsed) {
@@ -304,16 +302,13 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
           depth,
           value,
           realIndex: rowIndex,
-          isCollapsed,
+          isCollapsed: Boolean(isCollapsed),
         });
         currentValue = value;
         totalIndex++;
       }
       if (type === LinearRowType.Row) {
         const count = point.count;
-        const isCollapsed = collapsedDepth !== Number.MAX_VALUE;
-
-        if (isCollapsed) return;
 
         for (let i = 0; i < count; i++) {
           real2LinearRowMap[rowIndex + i] = totalIndex + i;
@@ -346,7 +341,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       rowCount: totalIndex,
       rowHeightMap,
     };
-  }, [groupPoints, hasAppendRow, collapsedGroupIds]);
+  }, [groupPoints, hasAppendRow]);
 
   const { rowCount, pureRowCount, rowHeightMap, linearRows, real2LinearRowMap } = useMemo(() => {
     return { ...defaultRowsInfo, ...groupRowsInfo };

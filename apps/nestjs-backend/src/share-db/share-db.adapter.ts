@@ -70,7 +70,7 @@ export class ShareDbAdapter extends ShareDb.DB {
         return callback(error, []);
       }
       if (!results.length) {
-        return callback(undefined, []);
+        return callback(undefined, [], extra);
       }
 
       this.getSnapshotBulk(

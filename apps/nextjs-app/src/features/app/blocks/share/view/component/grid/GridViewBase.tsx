@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IGridViewOptions, IFilter } from '@teable/core';
-import { RowHeightLevel, mergeFilter } from '@teable/core';
-import type { IGetRecordsRo, IRangesRo } from '@teable/openapi';
+import type { IGridViewOptions } from '@teable/core';
+import { RowHeightLevel } from '@teable/core';
+import type { IGetRecordsRo, IGroupPointsVo, IRangesRo } from '@teable/openapi';
 import { shareViewCopy } from '@teable/openapi';
 import type {
   CombinedSelection,
@@ -31,7 +31,6 @@ import {
   RegionType,
 } from '@teable/sdk/components';
 import {
-  useGroupPoint,
   useIsHydrated,
   useIsTouchDevice,
   useRowCount,
@@ -55,12 +54,16 @@ import { GIRD_ROW_HEIGHT_DEFINITIONS } from '../../../../view/grid/const';
 import { useSelectionOperation } from '../../../../view/grid/hooks';
 import { useGridViewStore } from '../../../../view/grid/store/gridView';
 
-export const GridViewBase = () => {
+interface IGridViewProps {
+  groupPointsServerData?: IGroupPointsVo;
+}
+
+export const GridViewBase = (props: IGridViewProps) => {
+  const { groupPointsServerData } = props;
   const view = useView();
   const tableId = useTableId();
   const router = useRouter();
   const isHydrated = useIsHydrated();
-  const groupPoints = useGroupPoint();
   const gridRef = useRef<IGridRef>(null);
   const container = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
@@ -81,15 +84,16 @@ export const GridViewBase = () => {
   const { openTooltip, closeTooltip } = useGridTooltipStore();
 
   const prepare = isHydrated && view && columns.length;
-  const { filter, sort, group } = view ?? {};
+  const { filter, sort } = view ?? {};
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
 
   const groupCollection = useGridGroupCollection();
 
-  const { viewGroupQuery, collapsedGroupIds, onCollapsedGroupChanged } = useGridCollapsedGroup(
-    generateLocalId(tableId, view?.id),
-    groupPoints
-  );
+  const {
+    viewQuery: viewQueryWithGroup,
+    collapsedGroupIds,
+    onCollapsedGroupChanged,
+  } = useGridCollapsedGroup(generateLocalId(tableId, view?.id));
 
   const { mutateAsync: copyReq } = useMutation({
     mutationFn: (copyRo: IRangesRo) =>
@@ -97,26 +101,30 @@ export const GridViewBase = () => {
         ...copyRo,
         orderBy: view?.sort?.sortObjs,
         groupBy: view?.group,
-        filter: mergeFilter(view?.filter, viewGroupQuery?.filter),
+        filter: view?.filter,
         search,
         excludeFieldIds: hiddenFields.map((field) => field.id),
+        collapsedGroupIds: viewQueryWithGroup?.collapsedGroupIds,
       }),
   });
-  const { copy } = useSelectionOperation({ copyReq });
+  const { copy } = useSelectionOperation({
+    copyReq,
+    collapsedGroupIds: collapsedGroupIds ? Array.from(collapsedGroupIds) : undefined,
+  });
 
   const viewQuery = useMemo(() => {
-    const mergedFilter = mergeFilter(filter, viewGroupQuery?.filter);
     return {
-      filter: mergedFilter as IFilter,
+      filter,
       orderBy: sort?.sortObjs as IGetRecordsRo['orderBy'],
-      groupBy: group as IGetRecordsRo['groupBy'],
+      ...viewQueryWithGroup,
     };
-  }, [filter, viewGroupQuery?.filter, sort?.sortObjs, group]);
+  }, [filter, sort?.sortObjs, viewQueryWithGroup]);
 
-  const { onVisibleRegionChanged, recordMap } = useGridAsyncRecords(
+  const { recordMap, groupPoints, onVisibleRegionChanged } = useGridAsyncRecords(
     ssrRecords,
     undefined,
-    viewQuery
+    viewQuery,
+    groupPointsServerData
   );
 
   useClickAway(container, () => {

@@ -1,5 +1,5 @@
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { IGetBaseVo, IGroupPointsVo } from '@teable/openapi';
 import { AnchorContext, FieldProvider, useTable, useUndoRedo, ViewProvider } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
@@ -17,6 +17,7 @@ export interface ITableProps {
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
   recordServerData?: IRecord;
+  groupPointsServerData?: IGroupPointsVo;
 }
 
 export const Table: React.FC<ITableProps> = ({
@@ -25,6 +26,7 @@ export const Table: React.FC<ITableProps> = ({
   viewServerData,
   recordsServerData,
   recordServerData,
+  groupPointsServerData,
 }) => {
   const table = useTable();
   const router = useRouter();
@@ -64,7 +66,11 @@ export const Table: React.FC<ITableProps> = ({
                   </div>
                 }
               >
-                <View recordServerData={recordServerData} recordsServerData={recordsServerData} />
+                <View
+                  recordServerData={recordServerData}
+                  recordsServerData={recordsServerData}
+                  groupPointsServerData={groupPointsServerData}
+                />
               </ErrorBoundary>
             </FieldProvider>
           </div>

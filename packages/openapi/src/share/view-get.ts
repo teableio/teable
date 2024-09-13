@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { fieldVoSchema, recordSchema, shareViewMetaSchema, viewVoSchema } from '@teable/core';
+import { groupPointsVoSchema } from '../aggregation';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -14,6 +15,13 @@ export const shareViewGetVoSchema = z.object({
   view: viewVoSchema,
   fields: fieldVoSchema.array(),
   records: recordSchema.array().openapi('first 50 records'),
+  extra: z
+    .object({
+      groupPoints: groupPointsVoSchema.optional().openapi({
+        description: 'Group points for the view',
+      }),
+    })
+    .optional(),
 });
 
 export type ShareViewGetVo = z.infer<typeof shareViewGetVoSchema>;

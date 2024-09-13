@@ -193,6 +193,7 @@ export interface IGroupHeaderPoint {
   type: LinearRowType.Group;
   depth: number;
   value?: unknown;
+  isCollapsed?: boolean;
 }
 
 export interface IGroupRowPoint {

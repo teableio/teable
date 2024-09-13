@@ -16,7 +16,7 @@ interface IFieldProviderProps {
 export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, serverSideData }) => {
   const { viewId, tableId } = useContext(AnchorContext);
 
-  const fields = useInstances({
+  const { instances: fields } = useInstances({
     collection: `${IdPrefix.Field}_${tableId}`,
     factory: createFieldInstance,
     initData: serverSideData,

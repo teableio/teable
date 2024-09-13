@@ -42,6 +42,6 @@ export const UpdateRecordsRoute: RouteConfig = registerRoute({
 export async function updateRecords(
   tableId: string,
   recordsRo: IUpdateRecordsRo
-): Promise<AxiosResponse<IRecord>> {
-  return axios.patch<IRecord>(urlBuilder(UPDATE_RECORDS, { tableId }), recordsRo);
+): Promise<AxiosResponse<IRecord[]>> {
+  return axios.patch<IRecord[]>(urlBuilder(UPDATE_RECORDS, { tableId }), recordsRo);
 }
