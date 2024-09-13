@@ -274,11 +274,9 @@ export class TypeCastAndValidate {
     const unsignedValues = this.mapFieldsCellValuesWithValidate(
       cellValues,
       (cellValue: unknown) => {
-        if (typeof cellValue === 'string') {
-          return attachmentItemsMap[cellValue] ? [attachmentItemsMap[cellValue]] : undefined;
-        }
-        if (Array.isArray(cellValue)) {
-          const result = cellValue.map((v) => attachmentItemsMap[v]).filter(Boolean);
+        const splitValues = typeof cellValue === 'string' ? cellValue.split(',') : cellValue;
+        if (Array.isArray(splitValues)) {
+          const result = splitValues.map((v) => attachmentItemsMap[v]).filter(Boolean);
           if (result.length) {
             return result;
           }

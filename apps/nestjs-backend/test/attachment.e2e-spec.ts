@@ -2,9 +2,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import { FieldType } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { permanentDeleteTable, uploadAttachment } from '@teable/openapi';
+import { permanentDeleteTable, updateRecord, uploadAttachment } from '@teable/openapi';
 import { createField, createTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AttachmentController (e2e)', () => {
@@ -36,8 +36,8 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     await permanentDeleteTable(baseId, table.id);
   });
 
-  it('should upload attachment', async () => {
-    const field = await createField(table.id, { name: 'field1', type: FieldType.Attachment });
+  it('should upload and typecast attachment', async () => {
+    const field = await createField(table.id, { type: FieldType.Attachment });
 
     expect(fs.existsSync(filePath)).toBe(true);
 
@@ -56,5 +56,33 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     );
     expect(record2.status).toBe(201);
     expect((record2.data.fields[field.id] as Array<object>).length).toEqual(2);
+
+    const field2 = await createField(table.id, { type: FieldType.Attachment });
+    const record3 = await updateRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      record: {
+        fields: {
+          [field2.id]: (record2.data.fields[field.id] as Array<{ id: string }>)
+            .map((item) => item.id)
+            .join(','),
+        },
+      },
+    });
+    expect((record3.data.fields[field2.id] as Array<object>).length).toEqual(2);
+
+    const field3 = await createField(table.id, { type: FieldType.Attachment });
+    const record4 = await updateRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: true,
+      record: {
+        fields: {
+          [field3.id]: (record2.data.fields[field.id] as Array<{ id: string }>).map(
+            (item) => item.id
+          ),
+        },
+      },
+    });
+    expect((record4.data.fields[field3.id] as Array<object>).length).toEqual(2);
   });
 });
