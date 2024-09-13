@@ -84,7 +84,7 @@ const secureHeaders = createSecureHeaders({
             "'self'",
             "'unsafe-eval'",
             "'unsafe-inline'",
-            "'https://www.clarity.ms'",
+            'https://www.clarity.ms',
             'https://*.teable.io',
             'https://*.teable.cn',
           ],
