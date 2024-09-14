@@ -17,7 +17,7 @@ export interface ITableProps {
   viewServerData: IViewVo[];
   recordsServerData: { records: IRecord[] };
   recordServerData?: IRecord;
-  groupPointsServerData?: IGroupPointsVo;
+  groupPointsServerDataMap?: { [viewId: string]: IGroupPointsVo | undefined };
 }
 
 export const Table: React.FC<ITableProps> = ({
@@ -26,7 +26,7 @@ export const Table: React.FC<ITableProps> = ({
   viewServerData,
   recordsServerData,
   recordServerData,
-  groupPointsServerData,
+  groupPointsServerDataMap,
 }) => {
   const table = useTable();
   const router = useRouter();
@@ -69,7 +69,7 @@ export const Table: React.FC<ITableProps> = ({
                 <View
                   recordServerData={recordServerData}
                   recordsServerData={recordsServerData}
-                  groupPointsServerData={groupPointsServerData}
+                  groupPointsServerDataMap={groupPointsServerDataMap}
                 />
               </ErrorBoundary>
             </FieldProvider>
