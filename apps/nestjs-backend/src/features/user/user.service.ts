@@ -118,7 +118,9 @@ export class UserService {
       notifyMeta: JSON.stringify(defaultNotifyMeta),
     };
 
-    const userTotalCount = await this.prismaService.txClient().user.count();
+    const userTotalCount = await this.prismaService.txClient().user.count({
+      where: { isSystem: null },
+    });
 
     const isAdmin = !this.baseConfig.isCloud && userTotalCount === 0;
 
