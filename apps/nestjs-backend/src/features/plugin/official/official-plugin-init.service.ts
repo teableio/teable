@@ -37,12 +37,15 @@ export class OfficialPluginInitService implements OnModuleInit {
         url: `${this.baseConfig.publicOrigin}/plugin/chart`,
       },
     ];
-    await this.prismaService.$tx(async () => {
-      for (const plugin of officialPlugins) {
-        this.logger.log(`Creating official plugin: ${plugin.name}`);
-        await this.createOfficialPlugin(plugin);
-      }
-    });
+    await this.prismaService.$tx(
+      async () => {
+        for (const plugin of officialPlugins) {
+          this.logger.log(`Creating official plugin: ${plugin.name}`);
+          await this.createOfficialPlugin(plugin);
+        }
+      },
+      { isolationLevel: 'Serializable' }
+    );
   }
 
   async uploadLogo(id: string, filePath: string) {
