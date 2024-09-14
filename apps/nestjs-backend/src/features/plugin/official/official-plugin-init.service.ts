@@ -2,7 +2,6 @@ import { join, resolve } from 'path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { generatePluginUserId, getPluginEmail } from '@teable/core';
-import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginStatus, UploadType } from '@teable/openapi';
 import { createReadStream } from 'fs-extra';
@@ -38,15 +37,23 @@ export class OfficialPluginInitService implements OnModuleInit {
         url: `${this.baseConfig.publicOrigin}/plugin/chart`,
       },
     ];
-    await this.prismaService.$tx(async (prisma) => {
-      for (const plugin of officialPlugins) {
-        this.logger.log(`Creating official plugin: ${plugin.name}`);
-        await this.createOfficialPlugin(prisma, plugin);
+
+    try {
+      await this.prismaService.$tx(async () => {
+        for (const plugin of officialPlugins) {
+          this.logger.log(`Creating official plugin: ${plugin.name}`);
+          await this.createOfficialPlugin(plugin);
+        }
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error.code !== 'P2002') {
+        throw error;
       }
-    });
+    }
   }
 
-  async uploadLogo(prisma: Prisma.TransactionClient, id: string, filePath: string) {
+  async uploadLogo(id: string, filePath: string) {
     const fileStream = createReadStream(resolve(process.cwd(), filePath));
     const metaReader = sharp();
     const sharpReader = fileStream.pipe(metaReader);
@@ -59,45 +66,40 @@ export class OfficialPluginInitService implements OnModuleInit {
       'Content-Type': mimetype,
     });
     // check if the attachment exists for locking
-    const rows = await prisma.$queryRawUnsafe<unknown[]>(
-      this.knex('attachments').select('token').where('token', id).forUpdate().toQuery()
-    );
-    if (rows.length === 0) {
-      await prisma.attachments.create({
-        data: {
-          token: id,
-          path,
-          size,
-          width,
-          height,
-          hash,
-          mimetype,
-          createdBy: 'system',
-        },
-      });
-    } else {
-      await prisma.attachments.update({
-        data: {
-          size,
-          width,
-          height,
-          hash,
-          mimetype,
-          lastModifiedBy: 'system',
-        },
-        where: {
-          token: id,
-          deletedTime: null,
-        },
-      });
-    }
+    await this.prismaService
+      .txClient()
+      .$queryRawUnsafe(
+        this.knex('attachments').select('token').where('token', id).forUpdate().toString()
+      );
+
+    await this.prismaService.txClient().attachments.upsert({
+      create: {
+        token: id,
+        path,
+        size,
+        width,
+        height,
+        hash,
+        mimetype,
+        createdBy: 'system',
+      },
+      update: {
+        size,
+        width,
+        height,
+        hash,
+        mimetype,
+        lastModifiedBy: 'system',
+      },
+      where: {
+        token: id,
+        deletedTime: null,
+      },
+    });
     return `/${path}/${id}`;
   }
 
-  async createOfficialPlugin(
-    prisma: Prisma.TransactionClient,
-    pluginConfig: typeof chartConfig & { secret: string; url: string }
-  ) {
+  async createOfficialPlugin(pluginConfig: typeof chartConfig & { secret: string; url: string }) {
     const {
       id: pluginId,
       name,
@@ -111,17 +113,11 @@ export class OfficialPluginInitService implements OnModuleInit {
       url,
     } = pluginConfig;
 
-    const rows = await prisma.$queryRawUnsafe<unknown[]>(
-      this.knex('plugin').select('name').where('id', pluginId).forUpdate().toQuery()
-    );
+    const rows = await this.prismaService.txClient().plugin.count({ where: { id: pluginId } });
 
-    await prisma.$queryRawUnsafe<unknown[]>(
-      this.knex('attachments').select('token').where('token', pluginId).forUpdate().toQuery()
-    );
-
-    if (rows.length > 0) {
+    if (rows > 0) {
       const { hashedSecret, maskedSecret } = await generateSecret(secret);
-      return prisma.plugin.update({
+      return this.prismaService.txClient().plugin.update({
         where: {
           id: pluginId,
         },
@@ -132,7 +128,7 @@ export class OfficialPluginInitService implements OnModuleInit {
       });
     }
     // upload logo
-    const logo = await this.uploadLogo(prisma, pluginId, logoPath);
+    const logo = await this.uploadLogo(pluginId, logoPath);
     const pluginUserId = generatePluginUserId();
     const user = await this.userService.createSystemUser({
       id: pluginUserId,
@@ -140,7 +136,7 @@ export class OfficialPluginInitService implements OnModuleInit {
       email: getPluginEmail(pluginId),
     });
     const { hashedSecret, maskedSecret } = await generateSecret(secret);
-    return prisma.plugin.create({
+    return this.prismaService.txClient().plugin.create({
       select: {
         id: true,
         name: true,
