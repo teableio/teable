@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build && node ./scripts/build-replace.js",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx --cache --cache-location ../../.cache/eslint/nextjs-app.eslintcache",
     "clean": "rimraf ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test": "echo \"Error: no test specified\""

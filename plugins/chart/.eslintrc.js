@@ -40,7 +40,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['src/pages/\\_*.{ts,tsx}'],
+      files: ['src/\\_*.{ts,tsx}'],
       rules: {
         'react/display-name': 'off',
       },
