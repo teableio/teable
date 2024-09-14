@@ -66,7 +66,7 @@ export class OfficialPluginInitService implements OnModuleInit {
       .$queryRawUnsafe<
         unknown[]
       >(this.knex('attachments').select('token').where('token', id).forUpdate().toString());
-    if (rows.length > 0) {
+    if (rows.length === 0) {
       await this.prismaService.txClient().attachments.create({
         data: {
           token: id,
