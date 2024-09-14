@@ -94,12 +94,14 @@ export class OfficialPluginInitService implements OnModuleInit {
       secret,
       url,
     } = pluginConfig;
-    const count = await this.prismaService.plugin.count({
-      where: {
-        id: pluginId,
-      },
-    });
-    if (count > 0) {
+
+    const rows = await this.prismaService.txClient().$queryRaw<unknown[]>`
+      SELECT name
+      FROM plugin 
+      WHERE id = ${pluginId} 
+      FOR UPDATE`;
+
+    if (rows.length > 0) {
       const { hashedSecret, maskedSecret } = await generateSecret(secret);
       return this.prismaService.txClient().plugin.update({
         where: {
