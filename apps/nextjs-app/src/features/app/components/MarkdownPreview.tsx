@@ -17,7 +17,7 @@ export const MarkdownPreview = (props: { children?: string }) => {
 
   return (
     <Markdown
-      className="markdown-body px-3 py-2 !text-sm"
+      className="markdown-body !bg-background px-3 py-2 !text-sm !text-foreground"
       rehypePlugins={[rehypeRaw]}
       remarkPlugins={[remarkGfm]}
     >
