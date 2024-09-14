@@ -61,36 +61,40 @@ export class OfficialPluginInitService implements OnModuleInit {
       'Content-Type': mimetype,
     });
     // check if the attachment exists for locking
-    await this.prismaService
+    const rows = await this.prismaService
       .txClient()
-      .$queryRawUnsafe(
-        this.knex('attachments').select('token').where('token', id).forUpdate().toString()
-      );
-
-    await this.prismaService.txClient().attachments.upsert({
-      create: {
-        token: id,
-        path,
-        size,
-        width,
-        height,
-        hash,
-        mimetype,
-        createdBy: 'system',
-      },
-      update: {
-        size,
-        width,
-        height,
-        hash,
-        mimetype,
-        lastModifiedBy: 'system',
-      },
-      where: {
-        token: id,
-        deletedTime: null,
-      },
-    });
+      .$queryRawUnsafe<
+        unknown[]
+      >(this.knex('attachments').select('token').where('token', id).forUpdate().toString());
+    if (rows.length > 0) {
+      await this.prismaService.txClient().attachments.create({
+        data: {
+          token: id,
+          path,
+          size,
+          width,
+          height,
+          hash,
+          mimetype,
+          createdBy: 'system',
+        },
+      });
+    } else {
+      await this.prismaService.txClient().attachments.update({
+        data: {
+          size,
+          width,
+          height,
+          hash,
+          mimetype,
+          lastModifiedBy: 'system',
+        },
+        where: {
+          token: id,
+          deletedTime: null,
+        },
+      });
+    }
     return `/${path}/${id}`;
   }
 
