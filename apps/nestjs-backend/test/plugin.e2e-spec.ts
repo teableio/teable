@@ -20,7 +20,7 @@ import { initApp } from './utils/init-app';
 
 const mockPlugin = {
   name: 'plugin',
-  logo: 'https://logo.com',
+  logo: '/plugin/xxxxxxx',
   description: 'desc',
   detailDesc: 'detail',
   helpUrl: 'https://help.com',
@@ -78,7 +78,7 @@ describe('PluginController', () => {
   it('/api/plugin (GET)', async () => {
     const getRes = await getPlugins();
     expect(getPluginsVoSchema.safeParse(getRes.data).success).toBe(true);
-    expect(getRes.data).toHaveLength(1);
+    expect(getRes.data).toHaveLength(2);
   });
 
   it('/api/plugin/{pluginId} (DELETE)', async () => {
@@ -95,7 +95,7 @@ describe('PluginController', () => {
       description: 'updated',
       detailDesc: 'updated',
       helpUrl: 'https://updated.com',
-      logo: 'https://updated.com',
+      logo: '/plugin/updated',
       positions: [PluginPosition.Dashboard],
       i18n: {
         en: {
@@ -106,20 +106,20 @@ describe('PluginController', () => {
       },
     };
     const putRes = await updatePlugin(res.data.id, updatePluginRo);
+    await deletePlugin(res.data.id);
     expect(putRes.data.name).toBe(updatePluginRo.name);
     expect(putRes.data.description).toBe(updatePluginRo.description);
     expect(putRes.data.detailDesc).toBe(updatePluginRo.detailDesc);
     expect(putRes.data.helpUrl).toBe(updatePluginRo.helpUrl);
-    expect(putRes.data.logo).toBe(updatePluginRo.logo);
+    expect(putRes.data.logo).toEqual(expect.stringContaining(updatePluginRo.logo));
     expect(putRes.data.i18n).toEqual(updatePluginRo.i18n);
-    await deletePlugin(res.data.id);
   });
 
   it('/api/plugin/{pluginId}/submit (POST)', async () => {
     const res = await createPlugin(mockPlugin);
     const submitRes = await submitPlugin(res.data.id);
-    expect(submitRes.status).toBe(200);
     await deletePlugin(res.data.id);
+    expect(submitRes.status).toBe(200);
   });
 
   it('/api/admin/plugin/{pluginId}/publish (PATCH)', async () => {
@@ -127,8 +127,8 @@ describe('PluginController', () => {
     await submitPlugin(res.data.id);
     await publishPlugin(res.data.id);
     const getRes = await getPlugin(res.data.id);
-    expect(getRes.data.status).toBe(PluginStatus.Published);
     await deletePlugin(res.data.id);
+    expect(getRes.data.status).toBe(PluginStatus.Published);
   });
 
   it('/api/admin/plugin/center/list (GET)', async () => {
@@ -136,9 +136,11 @@ describe('PluginController', () => {
     await submitPlugin(res.data.id);
     await publishPlugin(res.data.id);
     const getRes = await getPluginCenterList();
-    expect(getRes.data).toHaveLength(1);
-    expect(getRes.data[0].id).toBe(res.data.id);
-    expect(getPluginCenterListVoSchema.safeParse(getRes.data).success).toBe(true);
     await deletePlugin(res.data.id);
+
+    expect(getRes.data).toHaveLength(2);
+    const plugin = getRes.data.find((p) => p.id === res.data.id);
+    expect(plugin).not.toBeUndefined();
+    expect(getPluginCenterListVoSchema.safeParse(getRes.data).success).toBe(true);
   });
 });
