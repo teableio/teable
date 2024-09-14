@@ -5,6 +5,8 @@ import { generatePluginUserId, getPluginEmail } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginStatus, UploadType } from '@teable/openapi';
 import { createReadStream } from 'fs-extra';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import sharp from 'sharp';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import StorageAdapter from '../../attachments/plugins/adapter';
@@ -22,7 +24,8 @@ export class OfficialPluginInitService implements OnModuleInit {
     private readonly userService: UserService,
     private readonly configService: ConfigService,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
-    @BaseConfig() private readonly baseConfig: IBaseConfig
+    @BaseConfig() private readonly baseConfig: IBaseConfig,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   // init official plugins
@@ -95,11 +98,11 @@ export class OfficialPluginInitService implements OnModuleInit {
       url,
     } = pluginConfig;
 
-    const rows = await this.prismaService.txClient().$queryRaw<unknown[]>`
-      SELECT name
-      FROM plugin 
-      WHERE id = ${pluginId} 
-      FOR UPDATE`;
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<
+        unknown[]
+      >(this.knex('plugin').select('name').where('id', pluginId).forUpdate().toString());
 
     if (rows.length > 0) {
       const { hashedSecret, maskedSecret } = await generateSecret(secret);
