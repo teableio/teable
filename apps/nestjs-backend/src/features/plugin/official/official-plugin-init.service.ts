@@ -65,7 +65,7 @@ export class OfficialPluginInitService implements OnModuleInit {
       .txClient()
       .$queryRawUnsafe<
         unknown[]
-      >(this.knex('attachments').select('token').where('token', id).forUpdate().toString());
+      >(this.knex('attachments').select('token').where('token', id).forUpdate().toQuery());
     if (rows.length === 0) {
       await this.prismaService.txClient().attachments.create({
         data: {
@@ -116,7 +116,7 @@ export class OfficialPluginInitService implements OnModuleInit {
       .txClient()
       .$queryRawUnsafe<
         unknown[]
-      >(this.knex('plugin').select('name').where('id', pluginId).forUpdate().toString());
+      >(this.knex('plugin').select('name').where('id', pluginId).forUpdate().toQuery());
 
     if (rows.length > 0) {
       const { hashedSecret, maskedSecret } = await generateSecret(secret);
