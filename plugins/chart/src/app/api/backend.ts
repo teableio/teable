@@ -11,7 +11,9 @@ import {
   urlBuilder,
 } from '@teable/openapi';
 
-export const baseURL = process.env.CHART_PLUGIN_TEABLE_BACKEND_BASE_URL;
+export const baseURL = process.env.PLUGIN_TEABLE_BACKEND_BASE_URL || 'http://127.0.0.1:3000/api';
+export const secret =
+  process.env.PLUGIN_CHART_SECRET || process.env.SECRET_KEY || 'defaultSecretKey';
 
 export type IFetchResponse<T> =
   | { success: false; error: { status: number; message: string } }
@@ -71,7 +73,7 @@ export const fetchToken = async (
       body: JSON.stringify({
         baseId,
         scopes: ['base|query_data'],
-        secret: process.env.CHART_PLUGIN_SECRET as string,
+        secret,
         authCode,
       }),
     }
@@ -109,7 +111,7 @@ export const fetchRefreshToken = async (
       },
       body: JSON.stringify({
         refreshToken,
-        secret: process.env.CHART_PLUGIN_SECRET as string,
+        secret,
       }),
     }
   );

@@ -10,7 +10,7 @@ export class PluginProxyMiddleware implements NestMiddleware {
 
   constructor(@BaseConfig() private readonly baseConfig: IBaseConfig) {
     this.proxy = createProxyMiddleware({
-      target: `http://127.0.0.1:${baseConfig.pluginServerPort}`,
+      target: `http://localhost:${baseConfig.pluginServerPort}`,
     });
   }
 

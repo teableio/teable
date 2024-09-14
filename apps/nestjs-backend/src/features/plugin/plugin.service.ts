@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   generatePluginId,
@@ -6,7 +7,7 @@ import {
   nullsToUndefined,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
+import { UploadType, PluginStatus } from '@teable/openapi';
 import type {
   IGetPluginCenterListVo,
   ICreatePluginRo,
@@ -19,7 +20,6 @@ import type {
   IUpdatePluginVo,
   PluginPosition,
 } from '@teable/openapi';
-import { PluginStatus } from '@teable/openapi/src/plugin/types';
 import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
@@ -71,8 +71,26 @@ export class PluginService {
         avatar: true,
       },
     });
-    return users.reduce(
+    const systemUser = userIds.find((id) => id === 'system')
+      ? {
+          id: 'system',
+          name: 'Teable',
+          email: 'support@teable.io',
+          avatar: undefined,
+        }
+      : undefined;
+
+    const userMap = users.reduce(
       (acc, user) => {
+        if (user.id === 'system') {
+          acc[user.id] = {
+            id: user.id,
+            name: 'Teable',
+            email: 'support@teable.io',
+            avatar: undefined,
+          };
+          return acc;
+        }
         acc[user.id] = {
           ...user,
           avatar: user.avatar
@@ -83,6 +101,13 @@ export class PluginService {
       },
       {} as Record<string, { id: string; name: string; email: string; avatar?: string }>
     );
+
+    return systemUser
+      ? {
+          ...userMap,
+          system: systemUser,
+        }
+      : userMap;
   }
 
   async createPlugin(createPluginRo: ICreatePluginRo): Promise<ICreatePluginVo> {
@@ -147,6 +172,7 @@ export class PluginService {
 
   async updatePlugin(id: string, updatePluginRo: IUpdatePluginRo): Promise<IUpdatePluginVo> {
     const userId = this.cls.get('user.id');
+    const isAdmin = this.cls.get('user.isAdmin');
     const { name, description, detailDesc, helpUrl, logo, i18n, positions, url } = updatePluginRo;
     const res = await this.prismaService.$tx(async (prisma) => {
       const res = await prisma.plugin
@@ -167,7 +193,7 @@ export class PluginService {
             createdTime: true,
             lastModifiedTime: true,
           },
-          where: { id, createdBy: userId },
+          where: { id, createdBy: isAdmin ? { in: ['system', userId] } : userId },
           data: {
             name,
             description,
@@ -197,6 +223,8 @@ export class PluginService {
   }
 
   async getPlugin(id: string): Promise<IGetPluginVo> {
+    const userId = this.cls.get('user.id');
+    const isAdmin = this.cls.get('user.isAdmin');
     const res = await this.prismaService.plugin
       .findUniqueOrThrow({
         select: {
@@ -215,7 +243,7 @@ export class PluginService {
           createdTime: true,
           lastModifiedTime: true,
         },
-        where: { id, createdBy: this.cls.get('user.id') },
+        where: { id, createdBy: isAdmin ? { in: ['system', userId] } : userId },
       })
       .catch(() => {
         throw new NotFoundException('Plugin not found');
@@ -229,8 +257,11 @@ export class PluginService {
   }
 
   async getPlugins(): Promise<IGetPluginsVo> {
+    const userId = this.cls.get('user.id');
+    const isAdmin = this.cls.get('user.isAdmin');
+
     const res = await this.prismaService.plugin.findMany({
-      where: { createdBy: this.cls.get('user.id') },
+      where: { createdBy: isAdmin ? { in: ['system', userId] } : userId },
       select: {
         id: true,
         name: true,

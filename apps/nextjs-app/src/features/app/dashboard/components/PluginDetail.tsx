@@ -7,7 +7,6 @@ import { useTranslation } from 'next-i18next';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { MarkdownPreview } from '../../components/MarkdownPreview';
 import { UserAvatar } from '../../components/user/UserAvatar';
-import { usePreviewUrl } from '../../hooks/usePreviewUrl';
 
 export const PluginDetail = (props: {
   plugin: IGetPluginCenterListVo[number];
@@ -15,7 +14,6 @@ export const PluginDetail = (props: {
   onBack?: () => void;
 }) => {
   const { plugin, onBack, onInstall } = props;
-  const previewUrl = usePreviewUrl();
   const dayjs = useLanDayjs();
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   return (
@@ -28,7 +26,7 @@ export const PluginDetail = (props: {
         <div className="flex-1">
           <div className="mb-4 flex h-20 items-center gap-3 p-2">
             <Image
-              src={previewUrl(plugin.logo)}
+              src={plugin.logo}
               alt={plugin.name}
               width={56}
               height={56}

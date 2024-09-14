@@ -342,7 +342,6 @@ model OAuthApp {
   clientId         String    @unique @map("client_id")
   redirectUris     String?   @map("redirect_uris")
   scopes           String?
-  isPlugin         Boolean?  @map("is_plugin")
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   createdBy        String     @map("created_by")

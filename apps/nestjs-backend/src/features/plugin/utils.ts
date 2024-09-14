@@ -1,8 +1,8 @@
 import { getRandomString } from '@teable/core';
 import * as bcrypt from 'bcrypt';
 
-export const generateSecret = async () => {
-  const secret = getRandomString(40).toLocaleLowerCase();
+export const generateSecret = async (_secret?: string) => {
+  const secret = _secret ?? getRandomString(40).toLocaleLowerCase();
   const hashedSecret = await bcrypt.hash(secret, 10);
 
   const sensitivePart = secret.slice(0, secret.length - 10);

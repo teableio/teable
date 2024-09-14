@@ -12,14 +12,12 @@ import { get } from 'lodash';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { usePreviewUrl } from '../../hooks/usePreviewUrl';
 import { PluginDetail } from './PluginDetail';
 
 export const AddPluginDialog = (props: { children?: React.ReactNode; dashboardId: string }) => {
   const { children, dashboardId } = props;
   const baseId = useBaseId()!;
   const [open, setOpen] = useState(false);
-  const previewUrl = usePreviewUrl();
   const queryClient = useQueryClient();
   const { i18n } = useTranslation();
   const language = i18n.language as unknown as keyof IPluginI18n;
@@ -65,7 +63,7 @@ export const AddPluginDialog = (props: { children?: React.ReactNode; dashboardId
                 }
               >
                 <Image
-                  src={previewUrl(plugin.logo)}
+                  src={plugin.logo}
                   alt={name}
                   width={56}
                   height={56}

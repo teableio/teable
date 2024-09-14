@@ -149,11 +149,13 @@ export class LocalStorage implements StorageAdapter {
     });
   }
 
-  async save(filePath: string, rename: string) {
+  async save(filePath: string, rename: string, isDelete: boolean = true) {
     const distPath = resolve(this.storageDir);
     const newFilePath = resolve(distPath, rename);
     await fse.copy(filePath, newFilePath);
-    await fse.remove(filePath);
+    if (isDelete) {
+      await fse.remove(filePath);
+    }
     return join(this.path, rename);
   }
 
@@ -239,7 +241,7 @@ export class LocalStorage implements StorageAdapter {
     _metadata: Record<string, unknown>
   ) {
     const hash = await FileUtils.getHash(filePath);
-    await this.save(filePath, join(bucket, path));
+    await this.save(filePath, join(bucket, path), false);
     return {
       hash,
       path,
