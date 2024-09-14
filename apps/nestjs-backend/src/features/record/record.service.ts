@@ -1369,14 +1369,22 @@ export class RecordService {
   private async getRowCountByFilter(
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
-    filter?: IFilter
+    filter?: IFilter,
+    search?: [string, string]
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);
 
-    this.dbProvider
-      .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
-      .appendQueryBuilder();
+    if (filter) {
+      this.dbProvider
+        .filterQuery(queryBuilder, fieldInstanceMap, filter, { withUserId })
+        .appendQueryBuilder();
+    }
+
+    if (search) {
+      const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, handledSearch);
+    }
 
     const rowCountSql = queryBuilder.count({ count: '*' });
     const result = await this.prismaService.$queryRawUnsafe<{ count?: number }[]>(
@@ -1413,7 +1421,6 @@ export class RecordService {
     const groupFieldIds = groupBy.map((item) => item.fieldId);
 
     const queryBuilder = this.knex(dbTableName);
-    const distinctQueryBuilder = this.knex(dbTableName);
 
     if (mergedFilter) {
       const withUserId = this.cls.get('user.id');
@@ -1423,13 +1430,9 @@ export class RecordService {
     }
 
     if (search) {
-      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
-      this.dbProvider.searchQuery(distinctQueryBuilder, fieldInstanceMap, search);
+      const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
+      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, handledSearch);
     }
-
-    this.dbProvider
-      .groupQuery(distinctQueryBuilder, fieldInstanceMap, groupFieldIds, { isDistinct: true })
-      .appendGroupBuilder();
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
     this.dbProvider.groupQuery(queryBuilder, fieldInstanceMap, groupFieldIds).appendGroupBuilder();
@@ -1438,7 +1441,12 @@ export class RecordService {
 
     const groupSql = queryBuilder.toQuery();
     const groupFields = groupFieldIds.map((fieldId) => fieldInstanceMap[fieldId]);
-    const rowCount = await this.getRowCountByFilter(dbTableName, fieldInstanceMap, mergedFilter);
+    const rowCount = await this.getRowCountByFilter(
+      dbTableName,
+      fieldInstanceMap,
+      mergedFilter,
+      search
+    );
 
     try {
       const result =
