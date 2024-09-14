@@ -65,13 +65,6 @@ export class OfficialPluginInitService implements OnModuleInit {
       // eslint-disable-next-line @typescript-eslint/naming-convention
       'Content-Type': mimetype,
     });
-    // check if the attachment exists for locking
-    await this.prismaService
-      .txClient()
-      .$queryRawUnsafe(
-        this.knex('attachments').select('token').where('token', id).forUpdate().toString()
-      );
-
     await this.prismaService.txClient().attachments.upsert({
       create: {
         token: id,
