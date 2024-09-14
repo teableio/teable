@@ -4,14 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && mv .next/static .next/standalone/plugins/chart/.next/static && pnpm alternative-port && pnpm alternative-hostname",
+    "build": "next build && node ./scripts/build-replace.js",
     "start": "next start",
     "lint": "next lint",
     "clean": "rimraf ./.next ./out ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "test": "echo \"Error: no test specified\"",
-    "alternative-port": "uname | grep -q Darwin && sed -i '' 's/process.env.PORT/process.env.PLUGIN_SERVER_PORT/g' .next/standalone/plugins/chart/server.js || sed -i 's/process.env.PORT/process.env.PLUGIN_SERVER_PORT/g' .next/standalone/plugins/chart/server.js",
-    "alternative-hostname": "uname | grep -q Darwin && sed -i '' \"s/process.env.HOSTNAME/'0.0.0.0'/g\" .next/standalone/plugins/chart/server.js || sed -i \"s/process.env.HOSTNAME/'0.0.0.0'/g\" .next/standalone/plugins/chart/server.js"
+    "test": "echo \"Error: no test specified\""
   },
   "dependencies": {
     "@hookform/resolvers": "3.3.4",

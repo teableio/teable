@@ -20,7 +20,7 @@ const innerGetToken = async (
   const storage = tokenStorage[`${baseId}-${pluginId}`];
   // Check if the access token is still valid,
   if (storage && storage.expiresTime > Date.now()) {
-    console.log('access token is still valid', storage);
+    console.log('access token is still valid');
     return {
       success: true,
       data: { accessToken: storage.accessToken },
@@ -29,7 +29,7 @@ const innerGetToken = async (
   // Check if the refresh token is still valid,
   if (storage && storage.refreshExpiresTime > Date.now()) {
     const token = await fetchRefreshToken(pluginId, storage.refreshToken);
-    console.log('refresh token is still valid', token);
+    console.log('refresh token is still valid');
     if (!token.success) {
       return token;
     }
@@ -55,7 +55,7 @@ const innerGetToken = async (
   if (!token.success) {
     return token;
   }
-  console.log('refresh token expired, get new token', token);
+  console.log('refresh token expired, get new token');
   tokenStorage[`${baseId}-${pluginId}`] = {
     accessToken: token.data.accessToken,
     refreshToken: token.data.refreshToken,
