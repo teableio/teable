@@ -115,6 +115,10 @@ export class OfficialPluginInitService implements OnModuleInit {
       this.knex('plugin').select('name').where('id', pluginId).forUpdate().toQuery()
     );
 
+    await prisma.$queryRawUnsafe<unknown[]>(
+      this.knex('attachments').select('token').where('token', pluginId).forUpdate().toQuery()
+    );
+
     if (rows.length > 0) {
       const { hashedSecret, maskedSecret } = await generateSecret(secret);
       return prisma.plugin.update({

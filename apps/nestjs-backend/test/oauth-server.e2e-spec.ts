@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient, HttpError } from '@teable/core';
+import { HttpError } from '@teable/core';
 import {
   GET_TABLE_LIST,
   generateOAuthSecret,
@@ -195,52 +195,49 @@ describe('OpenAPI OAuthController (e2e)', () => {
     expect(error?.message).toBe('Invalid user');
   });
 
-  it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-    '/api/oauth/access_token (POST)',
-    async () => {
-      const { transactionID } = await gerAuthorize(axios, oauth);
+  it('/api/oauth/access_token (POST)', async () => {
+    const { transactionID } = await gerAuthorize(axios, oauth);
 
-      const res = await decision(axios, transactionID!);
+    const res = await decision(axios, transactionID!);
 
-      const url = new URL(res.headers.location);
-      const code = url.searchParams.get('code');
-      const secret = await generateOAuthSecret(oauth.clientId);
+    const url = new URL(res.headers.location);
+    const code = url.searchParams.get('code');
+    const secret = await generateOAuthSecret(oauth.clientId);
 
-      const tokenRes = await anonymousAxios.post(
-        `/oauth/access_token`,
-        {
-          grant_type: 'authorization_code',
-          code,
-          client_id: oauth.clientId,
-          client_secret: secret.data.secret,
-          redirect_uri: oauth.redirectUris[0],
-        },
-        {
-          maxRedirects: 0,
-          headers: {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-        }
-      );
-      expect(tokenRes.status).toBe(201);
-      expect(tokenRes.data).toEqual({
-        token_type: 'Bearer',
-        scopes: oauth.scopes,
-        access_token: expect.any(String),
-        refresh_token: expect.any(String),
-        expires_in: expect.any(Number),
-        refresh_expires_in: expect.any(Number),
-      });
-
-      const userInfo = await anonymousAxios.get(`/auth/user`, {
+    const tokenRes = await anonymousAxios.post(
+      `/oauth/access_token`,
+      {
+        grant_type: 'authorization_code',
+        code,
+        client_id: oauth.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauth.redirectUris[0],
+      },
+      {
+        maxRedirects: 0,
         headers: {
-          Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-      });
-      expect(userInfo.data.email).toEqual(globalThis.testConfig.email);
-    }
-  );
+      }
+    );
+    expect(tokenRes.status).toBe(201);
+    expect(tokenRes.data).toEqual({
+      token_type: 'Bearer',
+      scopes: oauth.scopes,
+      access_token: expect.any(String),
+      refresh_token: expect.any(String),
+      expires_in: expect.any(Number),
+      refresh_expires_in: expect.any(Number),
+    });
+
+    const userInfo = await anonymousAxios.get(`/auth/user`, {
+      headers: {
+        Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+      },
+    });
+    expect(userInfo.data.email).toEqual(globalThis.testConfig.email);
+  });
 
   it('/api/oauth/access_token (POST) - has decision', async () => {
     const { transactionID } = await gerAuthorize(axios, oauth);
