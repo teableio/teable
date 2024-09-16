@@ -48,6 +48,7 @@ export class CommentOpenApiService {
         lastModifiedTime: true,
         deletedTime: true,
         quoteId: true,
+        reaction: true,
       },
     });
 
@@ -57,6 +58,7 @@ export class CommentOpenApiService {
 
     return {
       ...rawComment,
+      reaction: rawComment.reaction ? JSON.parse(rawComment?.reaction) : null,
       content: rawComment?.content ? JSON.parse(rawComment?.content) : null,
     } as ICommentVo;
   }
@@ -143,8 +145,8 @@ export class CommentOpenApiService {
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.CreateComment);
 
     return {
-      id,
-      content: createCommentRo.content,
+      ...result,
+      content: result.content ? JSON.parse(result.content) : null,
     };
   }
 
@@ -205,7 +207,7 @@ export class CommentOpenApiService {
     let data: ICommentVo['reaction'] = [];
 
     if (commentRaw && commentRaw.reaction) {
-      const emojis = JSON.parse(commentRaw.reaction) as ICommentVo['reaction'];
+      const emojis = JSON.parse(commentRaw.reaction) as NonNullable<ICommentVo['reaction']>;
       const index = emojis.findIndex((item) => item.reaction === reaction);
       if (index > -1) {
         const newUser = emojis[index].user.filter((item) => item !== this.cls.get('user.id'));
@@ -249,7 +251,7 @@ export class CommentOpenApiService {
     let data: ICommentVo['reaction'];
 
     if (commentRaw && commentRaw.reaction) {
-      const emojis = JSON.parse(commentRaw.reaction) as ICommentVo['reaction'];
+      const emojis = JSON.parse(commentRaw.reaction) as NonNullable<ICommentVo['reaction']>;
       const index = emojis.findIndex((item) => item.reaction === reaction);
       if (index > -1) {
         emojis.splice(index, 1, {
@@ -299,6 +301,11 @@ export class CommentOpenApiService {
         where: {
           tableId,
           recordId,
+        },
+        select: {
+          tableId: true,
+          recordId: true,
+          createdBy: true,
         },
       })
       .catch((e) => {

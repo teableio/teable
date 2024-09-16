@@ -1,4 +1,6 @@
 import { z } from '../zod';
+import type { EmojiSymbol } from './reaction';
+import { SUPPORT_EMOJIS } from './reaction';
 
 export enum CommentNodeType {
   // inline
@@ -71,15 +73,22 @@ export const updateCommentRoSchema = createCommentRoSchema.pick({
   content: true,
 });
 
+export const commentReactionSymbolSchema = z
+  .string()
+  .emoji()
+  .refine((value) => {
+    return SUPPORT_EMOJIS.includes(value as EmojiSymbol);
+  });
+
 export const commentReactionSchema = z
   .object({
-    reaction: z.string().emoji(),
+    reaction: commentReactionSymbolSchema,
     user: z.array(z.string()),
   })
   .array();
 
 export const updateCommentReactionRoSchema = z.object({
-  reaction: z.string().emoji(),
+  reaction: commentReactionSymbolSchema,
 });
 
 export const getCommentListQueryRoSchema = z.object({
@@ -100,7 +109,9 @@ export const getCommentListQueryRoSchema = z.object({
       description: `The record count you want to take, maximum is ${1000}`,
     }),
   cursor: z.string().optional().nullable(),
-  includeCursor: z.string().or(z.boolean()).transform(Boolean).optional(),
+  includeCursor: z
+    .union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')])
+    .optional(),
   direction: z.union([z.literal('forward'), z.literal('backward')]).optional(),
 });
 
@@ -123,7 +134,7 @@ export const commentSchema = z.object({
   id: z.string(),
   content: commentContentSchema,
   createdBy: z.string(),
-  reaction: commentReactionSchema,
+  reaction: commentReactionSchema.optional().nullable(),
   createdTime: z.date(),
   lastModifiedTime: z.date(),
   quoteId: z.string().optional(),
@@ -147,3 +158,11 @@ export const commentCountVoSchema = z
 export type ICommentCountVo = z.infer<typeof commentCountVoSchema>;
 
 export type IGetCommentListVo = z.infer<typeof getCommentListVoSchema>;
+
+export const notifyVoSchema = z.object({
+  tableId: z.string(),
+  recordId: z.string(),
+  createdBy: z.string(),
+});
+
+export type INotifyVo = z.infer<typeof notifyVoSchema>;

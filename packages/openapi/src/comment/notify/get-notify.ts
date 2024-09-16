@@ -2,6 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
+import type { INotifyVo } from '../types';
 
 export const GET_COMMENT_NOTIFY = '/comment/{tableId}/{recordId}/notify';
 
@@ -24,5 +25,5 @@ export const GetCommentNotifyRoute: RouteConfig = registerRoute({
 });
 
 export const getCommentNotify = async (tableId: string, recordId: string) => {
-  return axios.get<void>(urlBuilder(GET_COMMENT_NOTIFY, { tableId, recordId }));
+  return axios.get<INotifyVo>(urlBuilder(GET_COMMENT_NOTIFY, { tableId, recordId }));
 };

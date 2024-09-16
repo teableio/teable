@@ -1,22 +1,28 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, ISelectFieldOptions } from '@teable/core';
-import { FieldType, ViewType, SortFunc } from '@teable/core';
-import { createComment, CommentContentType, getCommentList } from '@teable/openapi';
+import type { ICommentVo } from '@teable/openapi';
 import {
-  createTable,
-  createView,
-  deleteField,
-  deleteTable,
-  initApp,
-  getViews,
-  convertField,
-} from './utils/init-app';
+  createComment,
+  CommentNodeType,
+  getCommentList,
+  updateComment,
+  getCommentDetail,
+  createCommentReaction,
+  deleteCommentReaction,
+  createCommentNotify,
+  EmojiSymbol,
+  getCommentNotify,
+  deleteCommentNotify,
+} from '@teable/openapi';
+import { getError } from './utils/get-error';
+import { createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI CommentController (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const userId = globalThis.testConfig.userId;
   let tableId: string;
   let recordId: string;
+  let comments: ICommentVo[] = [];
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -31,20 +37,154 @@ describe('OpenAPI CommentController (e2e)', () => {
     const { id, records } = await createTable(baseId, { name: 'table' });
     tableId = id;
     recordId = records[0].id;
+
+    const commentList = [];
+    for (let i = 0; i < 20; i++) {
+      const result = await createComment(tableId, recordId, {
+        content: [
+          {
+            type: CommentNodeType.Paragraph,
+            children: [{ type: CommentNodeType.Text, value: `${i}` }],
+          },
+        ],
+        quoteId: null,
+      });
+      commentList.push(result.data);
+    }
+    comments = commentList;
   });
   afterEach(async () => {
     await deleteTable(baseId, tableId);
   });
 
-  // todo
-  it('should get a comment list', async () => {});
+  it('should achieve the whole comment curd flow', async () => {
+    // create comment
+    const createRes = await createComment(tableId, recordId, {
+      content: [
+        {
+          type: CommentNodeType.Paragraph,
+          children: [{ type: CommentNodeType.Text, value: 'hello world' }],
+        },
+      ],
+      quoteId: null,
+    });
 
-  // todo
-  it.only('should create a new comment', async () => {});
+    const result = await getCommentDetail(tableId, recordId, createRes.data.id);
+    const { content, id: commentId } = result.data;
+    expect(content).toEqual([
+      {
+        type: CommentNodeType.Paragraph,
+        children: [{ type: CommentNodeType.Text, value: 'hello world' }],
+      },
+    ]);
 
-  // todo
-  it('should delete comment', async () => {});
+    // update comment
+    await updateComment(tableId, recordId, commentId, {
+      content: [
+        {
+          type: CommentNodeType.Paragraph,
+          children: [{ type: CommentNodeType.Text, value: 'Good night, Paris.' }],
+        },
+      ],
+    });
 
-  // todo
-  it('should update comment', async () => {});
+    const updatedResult = await getCommentDetail(tableId, recordId, createRes.data.id);
+
+    expect(updatedResult.data.content).toEqual([
+      {
+        type: CommentNodeType.Paragraph,
+        children: [{ type: CommentNodeType.Text, value: 'Good night, Paris.' }],
+      },
+    ]);
+
+    // create reaction
+    await createCommentReaction(tableId, recordId, createRes.data.id, {
+      reaction: EmojiSymbol.eyes,
+    });
+
+    const createdReactionResult = await getCommentDetail(tableId, recordId, createRes.data.id);
+    expect(createdReactionResult.data.reaction?.[0]?.reaction).toEqual(EmojiSymbol.eyes);
+
+    // delete reaction
+    await deleteCommentReaction(tableId, recordId, createRes.data.id, {
+      reaction: EmojiSymbol.eyes,
+    });
+
+    const deletedReactionResult = await getCommentDetail(tableId, recordId, createRes.data.id);
+    expect(deletedReactionResult.data.reaction).toBeNull();
+  });
+
+  describe('get comment list with cursor', async () => {
+    it('should get latest comments when cursor is null', async () => {
+      const latestRes = await getCommentList(tableId, recordId, {
+        cursor: null,
+        take: 5,
+      });
+
+      expect(latestRes.data.comments.length).toBe(5);
+      expect(latestRes.data.comments.map((com) => com.id)).toEqual(
+        comments.slice(-5).map((com) => com.id)
+      );
+      expect(latestRes.data.nextCursor).toBe(comments.slice(-6).shift()?.id);
+    });
+
+    it('should return next 20 comments', async () => {
+      const nextCursorCommentRes = await getCommentList(tableId, recordId, {
+        cursor: comments[14].id,
+        take: 20,
+      });
+
+      expect(nextCursorCommentRes.data.comments.length).toBe(15);
+      expect(nextCursorCommentRes.data.comments.map((com) => com.id)).toEqual(
+        comments.slice(0, 15).map((com) => com.id)
+      );
+      expect(nextCursorCommentRes.data.nextCursor).toBeNull();
+    });
+    it('should get comment by cursor with backward direction', async () => {
+      const backwardRes = await getCommentList(tableId, recordId, {
+        cursor: comments[0].id,
+        take: 10,
+        direction: 'backward',
+      });
+      expect(backwardRes.data.comments.length).toBe(10);
+      expect(backwardRes.data.comments.map((com) => com.id)).toEqual(
+        comments.slice(0, 10).map((com) => com.id)
+      );
+      expect(backwardRes.data.nextCursor).toBe(comments[10].id);
+    });
+
+    it('should return the comment by cursor exclude cursor', async () => {
+      const result = await getCommentList(tableId, recordId, {
+        cursor: comments[0].id,
+        take: 10,
+        direction: 'backward',
+        includeCursor: false,
+      });
+
+      expect(result.data.comments.length).toBe(10);
+      expect(result.data.comments.map((com) => com.id)).toEqual(
+        comments.slice(1, 11).map((com) => com.id)
+      );
+      expect(result.data.nextCursor).toBe(comments[11].id);
+    });
+  });
+
+  describe.only('comment notify relative', () => {
+    it('should notify the record comment', async () => {
+      await createCommentNotify(tableId, recordId);
+      const result = await getCommentNotify(tableId, recordId);
+      expect(result.data.createdBy).toBe(userId);
+    });
+
+    it('should throw 400 when delete the notify', async () => {
+      await createCommentNotify(tableId, recordId);
+      const result = await getCommentNotify(tableId, recordId);
+      expect(result.data.createdBy).toBe(userId);
+
+      await deleteCommentNotify(tableId, recordId);
+      const error = await getError(() => getCommentNotify(tableId, recordId));
+      expect(error?.status).toEqual(400);
+      expect(error?.message).contain('No CommentNotify found');
+    });
+  });
 });

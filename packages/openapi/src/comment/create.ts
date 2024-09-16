@@ -3,7 +3,7 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { createCommentRoSchema } from './types';
-import type { ICreateCommentRo } from './types';
+import type { ICommentVo, ICreateCommentRo } from './types';
 
 export const CREATE_COMMENT = '/comment/{tableId}/{recordId}/create';
 
@@ -37,5 +37,5 @@ export const createComment = async (
   recordId: string,
   createCommentRo: ICreateCommentRo
 ) => {
-  return axios.post<void>(urlBuilder(CREATE_COMMENT, { tableId, recordId }), createCommentRo);
+  return axios.post<ICommentVo>(urlBuilder(CREATE_COMMENT, { tableId, recordId }), createCommentRo);
 };
