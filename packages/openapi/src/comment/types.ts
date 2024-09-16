@@ -159,10 +159,10 @@ export type ICommentCountVo = z.infer<typeof commentCountVoSchema>;
 
 export type IGetCommentListVo = z.infer<typeof getCommentListVoSchema>;
 
-export const notifyVoSchema = z.object({
+export const commentNotifyVoSchema = z.object({
   tableId: z.string(),
   recordId: z.string(),
   createdBy: z.string(),
 });
 
-export type INotifyVo = z.infer<typeof notifyVoSchema>;
+export type ICommentNotifyVo = z.infer<typeof commentNotifyVoSchema>;
