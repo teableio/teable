@@ -131,15 +131,17 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </TooltipWrap>
           )}
 
-          <TooltipWrap description="comment">
-            <Button
-              size={'xs'}
-              onClick={onCommentToggle}
-              variant={commentVisible ? 'secondary' : 'ghost'}
-            >
-              <MessageSquare />
-            </Button>
-          </TooltipWrap>
+          {editable && (
+            <TooltipWrap description="comment">
+              <Button
+                size={'xs'}
+                onClick={onCommentToggle}
+                variant={commentVisible ? 'secondary' : 'ghost'}
+              >
+                <MessageSquare />
+              </Button>
+            </TooltipWrap>
+          )}
 
           {canDelete ? (
             <DropdownMenu>

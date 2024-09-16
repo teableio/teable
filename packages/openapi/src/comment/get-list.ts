@@ -2,7 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { getCommentListQueryRoSchema, getCommentListVo } from './types';
+import { getCommentListQueryRoSchema, getCommentListVoSchema } from './types';
 import type { IGetCommentListQueryRo, IGetCommentListVo } from './types';
 
 export const GET_COMMENT_LIST = '/comment/{tableId}/{recordId}/list';
@@ -23,7 +23,7 @@ export const GetCommentListRoute: RouteConfig = registerRoute({
       description: "Returns the list of record's comment",
       content: {
         'application/json': {
-          schema: getCommentListVo,
+          schema: getCommentListVoSchema,
         },
       },
     },

@@ -8,6 +8,7 @@ import type {
   IQueryBaseRo,
   ResourceType,
   ListSpaceCollaboratorRo,
+  IGetRecordsRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -24,6 +25,9 @@ export const ReactQueryKeys = {
   tableList: (baseId: string) => ['table-list', baseId] as const,
 
   commentList: (tableId: string, recordId: string) => ['comment-list', tableId, recordId] as const,
+
+  commentCount: (tableId: string, query?: IGetRecordsRo) =>
+    ['comment-count', tableId, query] as const,
 
   commentDetail: (tableId: string, recordId: string, commentId: string) =>
     ['comment-detail', tableId, recordId, commentId] as const,

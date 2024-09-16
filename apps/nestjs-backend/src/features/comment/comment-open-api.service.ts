@@ -5,7 +5,7 @@ import {
   BadGatewayException,
   BadRequestException,
 } from '@nestjs/common';
-import { generateCommentId, getCommentChannel } from '@teable/core';
+import { generateCommentId, getCommentChannel, getTableCommentChannel } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateCommentRo,
@@ -13,6 +13,7 @@ import type {
   IUpdateCommentRo,
   IGetCommentListQueryRo,
   ICommentContent,
+  IGetRecordsRo,
 } from '@teable/openapi';
 import { CommentNodeType, CommentPatchType } from '@teable/openapi';
 import { uniq, omit } from 'lodash';
@@ -139,6 +140,7 @@ export class CommentOpenApiService {
     });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateComment, result);
+    this.sendTableCommentPatch(tableId, recordId, CommentPatchType.CreateComment);
 
     return {
       id,
@@ -233,6 +235,7 @@ export class CommentOpenApiService {
       });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteReaction, result);
+    this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
   }
 
   async createCommentReaction(
@@ -323,6 +326,28 @@ export class CommentOpenApiService {
         },
       },
     });
+  }
+
+  async getTableCommentCount(tableId: string, query: IGetRecordsRo) {
+    const recordVo = await this.recordService.getRecords(tableId, query);
+    const recordsId = recordVo.records.map((rec) => rec.id);
+
+    const result = await this.prismaService.comment.groupBy({
+      by: ['recordId'],
+      where: {
+        recordId: {
+          in: recordsId,
+        },
+      },
+      _count: {
+        ['recordId']: true,
+      },
+    });
+
+    return result.map(({ _count: { recordId: count }, recordId }) => ({
+      recordId,
+      count,
+    }));
   }
 
   private async getCommentReactionById(commentId: string) {
@@ -484,6 +509,24 @@ export class CommentOpenApiService {
       {
         type: type,
         data: finalData,
+      },
+      (error) => {
+        error && this.logger.error('Comment patch presence error: ', error);
+      }
+    );
+  }
+
+  private sendTableCommentPatch(tableId: string, recordId: string, type: CommentPatchType) {
+    const channel = getTableCommentChannel(tableId);
+    const presence = this.shareDbService.connect().getPresence(channel);
+    const localPresence = presence.create(channel);
+
+    localPresence.submit(
+      {
+        type,
+        data: {
+          recordId,
+        },
       },
       (error) => {
         error && this.logger.error('Comment patch presence error: ', error);

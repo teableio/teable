@@ -132,9 +132,18 @@ export const commentSchema = z.object({
 
 export type ICommentVo = z.infer<typeof commentSchema>;
 
-export const getCommentListVo = z.object({
+export const getCommentListVoSchema = z.object({
   comments: commentSchema.array(),
   nextCursor: z.string().optional().nullable(),
 });
 
-export type IGetCommentListVo = z.infer<typeof getCommentListVo>;
+export const commentCountVoSchema = z
+  .object({
+    recordId: z.string(),
+    count: z.number(),
+  })
+  .array();
+
+export type ICommentCountVo = z.infer<typeof commentCountVoSchema>;
+
+export type IGetCommentListVo = z.infer<typeof getCommentListVoSchema>;
