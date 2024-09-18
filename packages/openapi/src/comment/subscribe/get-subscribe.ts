@@ -32,5 +32,7 @@ export const GetCommentSubscribeRoute: RouteConfig = registerRoute({
 });
 
 export const getCommentSubscribe = async (tableId: string, recordId: string) => {
-  return axios.get<ICommentSubscribeVo>(urlBuilder(GET_COMMENT_SUBSCRIBE, { tableId, recordId }));
+  return axios.get<ICommentSubscribeVo | null>(
+    urlBuilder(GET_COMMENT_SUBSCRIBE, { tableId, recordId })
+  );
 };

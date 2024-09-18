@@ -172,17 +172,17 @@ describe('OpenAPI CommentController (e2e)', () => {
     it('should subscribe the record comment', async () => {
       await createCommentSubscribe(tableId, recordId);
       const result = await getCommentSubscribe(tableId, recordId);
-      expect(result.data.createdBy).toBe(userId);
+      expect(result?.data?.createdBy).toBe(userId);
     });
 
     it('should return null when can not found the subscribe info', async () => {
       await createCommentSubscribe(tableId, recordId);
       const result = await getCommentSubscribe(tableId, recordId);
-      expect(result.data.createdBy).toBe(userId);
+      expect(result?.data?.createdBy).toBe(userId);
 
       await deleteCommentSubscribe(tableId, recordId);
       const subscribeInfo = await getCommentSubscribe(tableId, recordId);
-      expect(subscribeInfo.data).toBeNull();
+      expect(subscribeInfo.data).toEqual('');
     });
   });
 });

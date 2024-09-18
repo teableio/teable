@@ -298,10 +298,13 @@ export class CommentOpenApiService {
 
   async getSubscribeDetail(tableId: string, recordId: string) {
     return await this.prismaService.commentSubscription
-      .findFirstOrThrow({
+      .findUnique({
         where: {
-          tableId,
-          recordId,
+          // eslint-disable-next-line
+          tableId_recordId: {
+            tableId,
+            recordId,
+          },
         },
         select: {
           tableId: true,

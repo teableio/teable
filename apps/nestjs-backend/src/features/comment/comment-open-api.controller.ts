@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
-import type { ICommentVo, IGetCommentListVo } from '@teable/openapi';
+import type { ICommentVo, IGetCommentListVo, ICommentSubscribeVo } from '@teable/openapi';
 import {
   getRecordsRoSchema,
   createCommentRoSchema,
@@ -38,7 +38,10 @@ export class CommentOpenApiController {
   // eslint-disable-next-line sonarjs/no-duplicate-string
   @Get('/:recordId/subscribe')
   @Permissions('record|read')
-  async getSubscribeDetail(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
+  async getSubscribeDetail(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string
+  ): Promise<ICommentSubscribeVo | null> {
     return this.commentOpenApiService.getSubscribeDetail(tableId, recordId);
   }
 
