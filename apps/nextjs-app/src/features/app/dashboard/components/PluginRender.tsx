@@ -56,5 +56,5 @@ export const PluginRender = (props: IPluginRenderProps) => {
   }, [onBridge, pluginInstallId, baseId, dashboardId, pluginId]);
 
   // eslint-disable-next-line jsx-a11y/iframe-has-title
-  return <iframe {...rest} ref={iframeRef} className="size-full rounded-b p-1" />;
+  return <iframe loading={'lazy'} {...rest} ref={iframeRef} className="rounded-b p-1" />;
 };

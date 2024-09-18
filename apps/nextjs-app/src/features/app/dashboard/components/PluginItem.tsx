@@ -40,19 +40,27 @@ export const PluginItem = (props: {
 
   const onExpand = () => {
     const query = { ...router.query, expandPluginId: pluginInstallId };
-    router.push({
-      pathname: router.pathname,
-      query,
-    });
+    router.push(
+      {
+        pathname: router.pathname,
+        query,
+      },
+      undefined,
+      { shallow: true }
+    );
   };
 
   const onClose = () => {
     const query = { ...router.query };
     delete query.expandPluginId;
-    router.push({
-      pathname: router.pathname,
-      query,
-    });
+    router.push(
+      {
+        pathname: router.pathname,
+        query,
+      },
+      undefined,
+      { shallow: true }
+    );
   };
 
   const isExpanded = isExpandPlugin(pluginInstallId);
@@ -84,6 +92,7 @@ export const PluginItem = (props: {
           isExpanded={isExpanded}
         />
         <PluginContent
+          dragging={dragging}
           pluginId={pluginId}
           pluginInstallId={pluginInstallId}
           pluginUrl={pluginUrl}

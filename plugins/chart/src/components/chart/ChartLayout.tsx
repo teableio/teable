@@ -20,7 +20,7 @@ export const ChartLayout: React.FC<{
   const { uiConfig, storage } = useContext(ChartContext);
 
   if (!storage && !uiConfig?.isShowingSettings) {
-    return <div className="text-muted-foreground">{t('noStorage')}</div>;
+    return <div className="text-muted-foreground text-center">{t('noStorage')}</div>;
   }
 
   return (

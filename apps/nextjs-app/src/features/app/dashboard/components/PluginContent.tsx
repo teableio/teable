@@ -7,6 +7,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
+import { useIframeSize } from '../hooks/useIframeSize';
 import { PluginRender } from './PluginRender';
 
 export const PluginContent = (props: {
@@ -15,8 +16,9 @@ export const PluginContent = (props: {
   pluginInstallId: string;
   pluginUrl?: string;
   dashboardId: string;
+  dragging?: boolean;
 }) => {
-  const { className, pluginInstallId, pluginUrl, dashboardId, pluginId } = props;
+  const { className, pluginInstallId, pluginUrl, dashboardId, pluginId, dragging } = props;
   const baseId = useBaseId()!;
   const router = useRouter();
   const expandPluginId = router.query.expandPluginId as string;
@@ -58,6 +60,8 @@ export const PluginContent = (props: {
     bridge?.syncBasePermissions(basePermissions);
   }, [basePermissions, bridge]);
 
+  const [ref, { width, height }] = useIframeSize(dragging);
+
   if (!iframeUrl) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -67,13 +71,15 @@ export const PluginContent = (props: {
   }
 
   return (
-    <div className={cn('relative size-full', className)}>
+    <div ref={ref} className={cn('relative size-full overflow-hidden', className)}>
       {!bridge && (
         <div className="flex size-full items-center justify-center">
           <Spin />
         </div>
       )}
       <PluginRender
+        width={width}
+        height={height}
         onBridge={setBridge}
         src={iframeUrl}
         {...{
