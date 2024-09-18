@@ -13,7 +13,7 @@ CREATE TABLE "comment" (
 );
 
 -- CreateTable
-CREATE TABLE "comment_notify" (
+CREATE TABLE "comment_subscription" (
     "table_id" TEXT NOT NULL,
     "record_id" TEXT NOT NULL,
     "created_by" TEXT NOT NULL,
@@ -21,4 +21,7 @@ CREATE TABLE "comment_notify" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "comment_notify_table_id_record_id_key" ON "comment_notify"("table_id", "record_id");
+CREATE INDEX "comment_subscription_table_id_record_id_idx" ON "comment_subscription"("table_id", "record_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "comment_subscription_table_id_record_id_key" ON "comment_subscription"("table_id", "record_id");

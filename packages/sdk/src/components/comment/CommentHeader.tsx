@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Bell } from '@teable/icons';
-import { getCommentNotify, createCommentNotify, deleteCommentNotify } from '@teable/openapi';
+import {
+  getCommentSubscribe,
+  createCommentSubscribe,
+  deleteCommentSubscribe,
+} from '@teable/openapi';
 import { Toggle, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
 import { ReactQueryKeys } from '../../config';
 import { useTranslation } from '../../context/app/i18n';
@@ -13,44 +17,40 @@ export const CommentHeader = (props: ICommentHeaderProps) => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
 
-  const { data: notifyStatus } = useQuery({
-    queryKey: ReactQueryKeys.commentNotifyStatus(tableId, recordId),
+  const { data: subscribeStatus } = useQuery({
+    queryKey: ReactQueryKeys.commentSubscribeStatus(tableId, recordId),
     queryFn: () =>
-      getCommentNotify(tableId!, recordId!)
-        .then((res) => {
-          return res.data;
-        })
-        .catch(() => {
-          return false;
-        }),
+      getCommentSubscribe(tableId!, recordId!).then((res) => {
+        return res.data;
+      }),
     enabled: !!(tableId && recordId),
   });
 
-  const { mutateAsync: createNotifyFn } = useMutation({
+  const { mutateAsync: createSubscribe } = useMutation({
     mutationFn: ({ tableId, recordId }: { tableId: string; recordId: string }) =>
-      createCommentNotify(tableId, recordId),
+      createCommentSubscribe(tableId, recordId),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.commentNotifyStatus(tableId, recordId),
+        queryKey: ReactQueryKeys.commentSubscribeStatus(tableId, recordId),
       });
     },
   });
 
-  const { mutateAsync: deleteNotifyFn } = useMutation({
+  const { mutateAsync: deleteSubscribeFn } = useMutation({
     mutationFn: ({ tableId, recordId }: { tableId: string; recordId: string }) =>
-      deleteCommentNotify(tableId, recordId),
+      deleteCommentSubscribe(tableId, recordId),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.commentNotifyStatus(tableId, recordId),
+        queryKey: ReactQueryKeys.commentSubscribeStatus(tableId, recordId),
       });
     },
   });
 
-  const notifyHandler = () => {
-    if (!notifyStatus) {
-      createNotifyFn({ tableId: tableId!, recordId: recordId! });
+  const subscribeHandler = () => {
+    if (!subscribeStatus) {
+      createSubscribe({ tableId: tableId!, recordId: recordId! });
     } else {
-      deleteNotifyFn({ tableId: tableId!, recordId: recordId! });
+      deleteSubscribeFn({ tableId: tableId!, recordId: recordId! });
     }
   };
 
@@ -64,15 +64,15 @@ export const CommentHeader = (props: ICommentHeaderProps) => {
               aria-label="Toggle italic"
               size={'sm'}
               variant={'default'}
-              pressed={!!notifyStatus}
-              onPressedChange={() => notifyHandler()}
+              pressed={!!subscribeStatus}
+              onPressedChange={() => subscribeHandler()}
             >
               <Bell />
             </Toggle>
           </TooltipTrigger>
         </div>
         <TooltipContent>
-          <p>{notifyStatus ? t('comment.tip.onNotify') : t('comment.tip.offNotify')}</p>
+          <p>{subscribeStatus ? t('comment.tip.onNotify') : t('comment.tip.offNotify')}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

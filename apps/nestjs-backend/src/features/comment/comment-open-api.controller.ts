@@ -36,22 +36,22 @@ export class CommentOpenApiController {
   }
 
   // eslint-disable-next-line sonarjs/no-duplicate-string
-  @Get('/:recordId/notify')
+  @Get('/:recordId/subscribe')
   @Permissions('record|read')
-  async getNotifyDetail(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
-    return this.commentOpenApiService.getNotifyDetail(tableId, recordId);
+  async getSubscribeDetail(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
+    return this.commentOpenApiService.getSubscribeDetail(tableId, recordId);
   }
 
-  @Post('/:recordId/notify')
+  @Post('/:recordId/subscribe')
   @Permissions('record|read')
-  async notifyComment(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
-    return this.commentOpenApiService.notifyComment(tableId, recordId);
+  async subscribeComment(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
+    return this.commentOpenApiService.subscribeComment(tableId, recordId);
   }
 
-  @Delete('/:recordId/notify')
+  @Delete('/:recordId/subscribe')
   @Permissions('record|read')
-  async unNotifyComment(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
-    return this.commentOpenApiService.unNotifyComment(tableId, recordId);
+  async unsubscribeComment(@Param('tableId') tableId: string, @Param('recordId') recordId: string) {
+    return this.commentOpenApiService.unsubscribeComment(tableId, recordId);
   }
 
   @Get('/:recordId/list')
@@ -79,7 +79,7 @@ export class CommentOpenApiController {
   // eslint-disable-next-line sonarjs/no-duplicate-string
   @Get('/:recordId/:commentId')
   @Permissions('record|read')
-  async getCommentDetail(@Param('commentId') commentId: string): Promise<ICommentVo> {
+  async getCommentDetail(@Param('commentId') commentId: string): Promise<ICommentVo | null> {
     return this.commentOpenApiService.getCommentDetail(commentId);
   }
 

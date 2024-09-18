@@ -480,12 +480,13 @@ model Comment {
   @@map("comment")
 }
 
-model CommentNotify {
+model CommentSubscription {
   tableId          String     @map("table_id")
   recordId         String     @map("record_id")
   createdBy        String     @map("created_by")
   createdTime      DateTime   @default(now()) @map("created_time")
 
   @@unique([tableId, recordId])
-  @@map("comment_notify")
+  @@index([tableId, recordId])
+  @@map("comment_subscription")
 }

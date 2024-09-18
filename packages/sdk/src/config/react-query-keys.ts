@@ -35,7 +35,7 @@ export const ReactQueryKeys = {
   commentAttachment: (tableId: string, recordId: string, path: string) =>
     ['comment-attachment', tableId, recordId, path] as const,
 
-  commentNotifyStatus: (tableId: string, recordId: string) =>
+  commentSubscribeStatus: (tableId: string, recordId: string) =>
     ['comment-notify-status', tableId, recordId] as const,
 
   subscriptionSummary: (spaceId: string) => ['subscription-summary', spaceId] as const,

@@ -5,6 +5,6 @@ export * from './update';
 export * from './get';
 export * from './delete';
 export * from './reaction';
-export * from './notify';
+export * from './subscribe';
 export * from './get-attachment-url';
 export * from './get-count';
