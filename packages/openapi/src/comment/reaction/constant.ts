@@ -1,5 +1,6 @@
 export enum EmojiSymbol {
   thumbsup = `👍`,
+  thumbsdown = `👎`,
   smile = `😄`,
   heart = `❤️`,
   eyes = `👀`,
@@ -9,9 +10,9 @@ export enum EmojiSymbol {
 
 export const SUPPORT_EMOJIS = [
   EmojiSymbol.thumbsup,
+  EmojiSymbol.thumbsdown,
   EmojiSymbol.smile,
   EmojiSymbol.heart,
-  EmojiSymbol.eyes,
   EmojiSymbol.eyes,
   EmojiSymbol.rocket,
   EmojiSymbol.tada,
@@ -23,6 +24,12 @@ export const Emojis = [
     value: EmojiSymbol.thumbsup,
     unified: '1f44d',
     unifiedWithoutSkinTone: '1f44d',
+  },
+  {
+    key: 'thumbsdown',
+    value: EmojiSymbol.thumbsdown,
+    unified: '1f44e',
+    unifiedWithoutSkinTone: '1f44e',
   },
   {
     key: 'smile',

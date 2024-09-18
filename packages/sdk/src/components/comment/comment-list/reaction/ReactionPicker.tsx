@@ -1,43 +1,5 @@
+import { Emojis } from '@teable/openapi';
 import { Button } from '@teable/ui-lib';
-
-const Emojis = [
-  {
-    key: 'thumbsup',
-    value: `👍`,
-    unified: '1f44d',
-    unifiedWithoutSkinTone: '1f44d',
-  },
-  {
-    key: 'smile',
-    value: '😄',
-    unified: '1f604',
-    unifiedWithoutSkinTone: '1f604',
-  },
-  {
-    key: 'heart',
-    value: `❤️`,
-    unified: '2764-fe0f',
-    unifiedWithoutSkinTone: '2764-fe0f',
-  },
-  {
-    key: 'eyes',
-    value: `👀`,
-    unified: '1f440',
-    unifiedWithoutSkinTone: '1f440',
-  },
-  {
-    key: 'rocket',
-    value: `🚀`,
-    unified: '1f680',
-    unifiedWithoutSkinTone: '1f680',
-  },
-  {
-    key: 'tada',
-    value: `🎉`,
-    unified: '1f389',
-    unifiedWithoutSkinTone: '1f389',
-  },
-];
 
 interface IEmojiPickerProps {
   onReactionClick: (emoji: string) => void;
