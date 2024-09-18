@@ -2,9 +2,16 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
-import type { ICommentNotifyVo } from '../types';
 
 export const GET_COMMENT_NOTIFY = '/comment/{tableId}/{recordId}/notify';
+
+export const commentNotifyVoSchema = z.object({
+  tableId: z.string(),
+  recordId: z.string(),
+  createdBy: z.string(),
+});
+
+export type ICommentNotifyVo = z.infer<typeof commentNotifyVoSchema>;
 
 export const GetCommentNotifyRoute: RouteConfig = registerRoute({
   method: 'get',

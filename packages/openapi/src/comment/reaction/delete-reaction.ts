@@ -2,8 +2,8 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
-import type { IUpdateCommentReactionRo } from '../types';
-import { updateCommentReactionRoSchema } from '../types';
+import type { IUpdateCommentReactionRo } from './create-reaction';
+import { updateCommentReactionRoSchema } from './create-reaction';
 
 export const DELETE_COMMENT_REACTION = '/comment/{tableId}/{recordId}/{commentId}/reaction';
 

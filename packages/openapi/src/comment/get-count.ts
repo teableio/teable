@@ -4,10 +4,17 @@ import type { IGetRecordsRo } from '../record';
 import { getRecordsRoSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import { commentCountVoSchema } from './types';
-import type { ICommentCountVo } from './types';
 
 export const GET_COMMENT_COUNT = '/comment/{tableId}/count';
+
+export const commentCountVoSchema = z
+  .object({
+    recordId: z.string(),
+    count: z.number(),
+  })
+  .array();
+
+export type ICommentCountVo = z.infer<typeof commentCountVoSchema>;
 
 export const GetCommentCountRoute: RouteConfig = registerRoute({
   method: 'get',

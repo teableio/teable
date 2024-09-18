@@ -2,8 +2,9 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import type { ICommentVo } from './get';
 import { createCommentRoSchema } from './types';
-import type { ICommentVo, ICreateCommentRo } from './types';
+import type { ICreateCommentRo } from './types';
 
 export const CREATE_COMMENT = '/comment/{tableId}/{recordId}/create';
 
