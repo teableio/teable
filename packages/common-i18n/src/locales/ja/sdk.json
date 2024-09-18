@@ -206,7 +206,7 @@
       "lookup": "関連テーブルから検索",
       "button": "ボタン",
       "createdBy": "作成者",
-      "lastModifiedBy": "最終更新��"
+      "lastModifiedBy": "最終更新者"
     }
   },
   "permission": {
@@ -611,7 +611,7 @@
     "unChecked": "チェックされていない",
     "percentEmpty": "空の割合",
     "percentFilled": "埋められた割合",
-    "percentUnique": "固有の割��",
+    "percentUnique": "固有の割合",
     "percentChecked": "チェックされた割合",
     "percentUnChecked": "チェックされていない割合",
     "earliestDate": "最も早い日付",
