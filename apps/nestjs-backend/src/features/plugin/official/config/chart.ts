@@ -29,4 +29,6 @@ export const chartConfig = {
     },
   },
   logoPath: 'static/plugin/chart.png',
+  pluginUserId: 'plup7mlNUeGkDa6vr8q',
+  avatarPath: 'static/plugin/chart.png',
 };
