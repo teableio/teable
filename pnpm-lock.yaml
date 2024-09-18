@@ -622,9 +622,6 @@ importers:
       fuse.js:
         specifier: 7.0.0
         version: 7.0.0
-      github-markdown-css:
-        specifier: 5.6.1
-        version: 5.6.1
       i18next:
         specifier: 23.10.1
         version: 23.10.1
@@ -17178,7 +17175,7 @@ packages:
     resolution: {integrity: sha512-oWb1Z6mkHIskLzEJ/XWX0srkpkTQ7vaopMQkyaEIoq0fmtFVxOthb8cCxeT+p3ynTdkk/RZwbgG4brR5BeWECw==}
     engines: {node: '>= 4.0'}
     os: [darwin]
-    deprecated: The v1 package contains DANGEROUS / INSECURE binaries. Upgrade to safe fsevents v2
+    deprecated: Upgrade to fsevents v2 to mitigate potential security issues
     requiresBuild: true
     dependencies:
       bindings: 1.5.0
@@ -17361,11 +17358,6 @@ packages:
 
   /github-from-package@0.0.0:
     resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
-    dev: false
-
-  /github-markdown-css@5.6.1:
-    resolution: {integrity: sha512-DItLFgHd+s7HQmk63YN4/TdvLeRqk1QP7pPKTTPrDTYoI5x7f/luJWSOZxesmuxBI2srHp8RDyoZd+9WF+WK8Q==}
-    engines: {node: '>=10'}
     dev: false
 
   /github-slugger@2.0.0:
@@ -26003,6 +25995,9 @@ packages:
   /sqlite3@5.1.7:
     resolution: {integrity: sha512-GGIyOiFaG+TUra3JIfkI/zGP8yZYLPQ0pl1bH+ODjiX57sPhrLU5sQJn1y9bDKZUFYkX1crlrPfSYt0BKKdkog==}
     requiresBuild: true
+    peerDependenciesMeta:
+      node-gyp:
+        optional: true
     dependencies:
       bindings: 1.5.0
       node-addon-api: 7.1.0

@@ -5,7 +5,6 @@ import { SettingLayout } from '@/features/app/layouts/SettingLayout';
 import { settingPluginConfig } from '@/features/i18n/setting-plugin.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
-import '@/styles/github-markdown.css';
 
 const Plugin: NextPageWithLayout = () => {
   return <PluginPage />;
