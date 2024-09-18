@@ -31,8 +31,9 @@ export const useCommentPatchListener = (
     presence.on('receive', receiveHandler);
 
     return () => {
-      presence.unsubscribe();
       presence?.removeListener('receive', receiveHandler);
+      presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
+      presence?.listenerCount('receive') === 0 && presence?.destroy();
     };
   }, [cb, connection, presence, presenceKey, recordId, tableId]);
 };
