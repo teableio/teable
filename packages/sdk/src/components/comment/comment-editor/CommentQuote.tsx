@@ -24,12 +24,7 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
   const { t } = useTranslation();
   const { data: quoteData } = useQuery({
     queryKey: ReactQueryKeys.commentDetail(tableId!, recordId!, quoteId!),
-    queryFn: () =>
-      getCommentDetail(tableId!, recordId!, quoteId!)
-        .then((res) => res.data)
-        .catch(() => {
-          return null;
-        }),
+    queryFn: () => getCommentDetail(tableId!, recordId!, quoteId!).then((res) => res.data),
     enabled: !!tableId && !!recordId && !!quoteId,
   });
 

@@ -24,7 +24,7 @@ export enum CommentPatchType {
 
 export const baseCommentContentSchema = z.object({
   type: z.nativeEnum(CommentNodeType),
-  value: z.unknown(),
+  value: z.unknown().optional(),
 });
 
 export const textCommentContentSchema = baseCommentContentSchema.extend({
@@ -37,16 +37,16 @@ export const mentionCommentContentSchema = baseCommentContentSchema.extend({
   value: z.string(),
 });
 
-export const imageCommentContentSchema = baseCommentContentSchema.extend({
-  type: z.literal(CommentNodeType.Img),
-  path: z.string(),
-  width: z.number().optional(),
-});
-
 export const linkCommentContentSchema = baseCommentContentSchema.extend({
   type: z.literal(CommentNodeType.Link),
   url: z.string(),
   title: z.string(),
+});
+
+export const imageCommentContentSchema = baseCommentContentSchema.extend({
+  type: z.literal(CommentNodeType.Img),
+  path: z.string(),
+  width: z.number().optional(),
 });
 
 export const paragraphCommentContentSchema = baseCommentContentSchema.extend({
@@ -55,6 +55,8 @@ export const paragraphCommentContentSchema = baseCommentContentSchema.extend({
     z.union([textCommentContentSchema, mentionCommentContentSchema, linkCommentContentSchema])
   ),
 });
+
+export type IParagraphCommentContent = z.infer<typeof paragraphCommentContentSchema>;
 
 export const commentContentSchema = z
   .union([paragraphCommentContentSchema, imageCommentContentSchema])

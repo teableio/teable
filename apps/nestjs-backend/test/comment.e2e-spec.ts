@@ -8,12 +8,11 @@ import {
   getCommentDetail,
   createCommentReaction,
   deleteCommentReaction,
-  createCommentNotify,
+  createCommentSubscribe,
   EmojiSymbol,
-  getCommentNotify,
-  deleteCommentNotify,
+  getCommentSubscribe,
+  deleteCommentSubscribe,
 } from '@teable/openapi';
-import { getError } from './utils/get-error';
 import { createTable, deleteTable, initApp } from './utils/init-app';
 
 describe('OpenAPI CommentController (e2e)', () => {
@@ -70,7 +69,7 @@ describe('OpenAPI CommentController (e2e)', () => {
     });
 
     const result = await getCommentDetail(tableId, recordId, createRes.data.id);
-    const { content, id: commentId } = result.data;
+    const { content, id: commentId } = result?.data as ICommentVo;
     expect(content).toEqual([
       {
         type: CommentNodeType.Paragraph,
@@ -90,7 +89,7 @@ describe('OpenAPI CommentController (e2e)', () => {
 
     const updatedResult = await getCommentDetail(tableId, recordId, createRes.data.id);
 
-    expect(updatedResult.data.content).toEqual([
+    expect(updatedResult?.data?.content).toEqual([
       {
         type: CommentNodeType.Paragraph,
         children: [{ type: CommentNodeType.Text, value: 'Good night, Paris.' }],
@@ -103,7 +102,7 @@ describe('OpenAPI CommentController (e2e)', () => {
     });
 
     const createdReactionResult = await getCommentDetail(tableId, recordId, createRes.data.id);
-    expect(createdReactionResult.data.reaction?.[0]?.reaction).toEqual(EmojiSymbol.eyes);
+    expect(createdReactionResult?.data?.reaction?.[0]?.reaction).toEqual(EmojiSymbol.eyes);
 
     // delete reaction
     await deleteCommentReaction(tableId, recordId, createRes.data.id, {
@@ -111,7 +110,7 @@ describe('OpenAPI CommentController (e2e)', () => {
     });
 
     const deletedReactionResult = await getCommentDetail(tableId, recordId, createRes.data.id);
-    expect(deletedReactionResult.data.reaction).toBeNull();
+    expect(deletedReactionResult?.data?.reaction).toBeNull();
   });
 
   describe('get comment list with cursor', async () => {
@@ -169,22 +168,21 @@ describe('OpenAPI CommentController (e2e)', () => {
     });
   });
 
-  describe.only('comment notify relative', () => {
-    it('should notify the record comment', async () => {
-      await createCommentNotify(tableId, recordId);
-      const result = await getCommentNotify(tableId, recordId);
+  describe('comment subscribe relative', () => {
+    it('should subscribe the record comment', async () => {
+      await createCommentSubscribe(tableId, recordId);
+      const result = await getCommentSubscribe(tableId, recordId);
       expect(result.data.createdBy).toBe(userId);
     });
 
-    it('should throw 400 when delete the notify', async () => {
-      await createCommentNotify(tableId, recordId);
-      const result = await getCommentNotify(tableId, recordId);
+    it('should return null when can not found the subscribe info', async () => {
+      await createCommentSubscribe(tableId, recordId);
+      const result = await getCommentSubscribe(tableId, recordId);
       expect(result.data.createdBy).toBe(userId);
 
-      await deleteCommentNotify(tableId, recordId);
-      const error = await getError(() => getCommentNotify(tableId, recordId));
-      expect(error?.status).toEqual(400);
-      expect(error?.message).contain('No CommentNotify found');
+      await deleteCommentSubscribe(tableId, recordId);
+      const subscribeInfo = await getCommentSubscribe(tableId, recordId);
+      expect(subscribeInfo.data).toBeNull();
     });
   });
 });

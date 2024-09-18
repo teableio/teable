@@ -9,7 +9,7 @@ export const BlockParagraphElement = (props: IBlockParagraphElementProps) => {
   const { children, className } = props;
   return (
     <div className={cn('text-wrap w-auto flex', className)}>
-      <span className="text-wrap text-left">{children}</span>
+      <span className="gap-1 text-wrap text-left">{children}</span>
     </div>
   );
 };

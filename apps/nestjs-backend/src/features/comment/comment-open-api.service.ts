@@ -14,6 +14,7 @@ import type {
   IGetCommentListQueryRo,
   ICommentContent,
   IGetRecordsRo,
+  IParagraphCommentContent,
 } from '@teable/openapi';
 import { CommentNodeType, CommentPatchType } from '@teable/openapi';
 import { uniq, omit } from 'lodash';
@@ -53,7 +54,7 @@ export class CommentOpenApiService {
     });
 
     if (!rawComment) {
-      throw new ForbiddenException('Comment not found');
+      return null;
     }
 
     return {
@@ -295,8 +296,8 @@ export class CommentOpenApiService {
     });
   }
 
-  async getNotifyDetail(tableId: string, recordId: string) {
-    return await this.prismaService.commentNotify
+  async getSubscribeDetail(tableId: string, recordId: string) {
+    return await this.prismaService.commentSubscription
       .findFirstOrThrow({
         where: {
           tableId,
@@ -308,13 +309,13 @@ export class CommentOpenApiService {
           createdBy: true,
         },
       })
-      .catch((e) => {
-        throw new BadRequestException(e);
+      .catch(() => {
+        return null;
       });
   }
 
-  async notifyComment(tableId: string, recordId: string) {
-    await this.prismaService.commentNotify.create({
+  async subscribeComment(tableId: string, recordId: string) {
+    await this.prismaService.commentSubscription.create({
       data: {
         tableId,
         recordId,
@@ -323,8 +324,8 @@ export class CommentOpenApiService {
     });
   }
 
-  async unNotifyComment(tableId: string, recordId: string) {
-    await this.prismaService.commentNotify.delete({
+  async unsubscribeComment(tableId: string, recordId: string) {
+    await this.prismaService.commentSubscription.delete({
       where: {
         // eslint-disable-next-line
         tableId_recordId: {
@@ -436,7 +437,7 @@ export class CommentOpenApiService {
 
     const recordName = await this.recordService.getCellValue(tableId, recordId, fieldId);
 
-    const notifyUsers = await this.prismaService.commentNotify.findMany({
+    const notifyUsers = await this.prismaService.commentSubscription.findMany({
       where: {
         tableId,
         recordId,
@@ -446,13 +447,13 @@ export class CommentOpenApiService {
       },
     });
 
-    const notifiedUsersIds = Array.from(
+    const subscribeUsersIds = Array.from(
       new Set([...notifyUsers.map(({ createdBy }) => createdBy), ...relativeUsers])
     ).filter((userId) => userId !== fromUserId);
 
-    const message = `${fromUserName} made a commented on ${recordName ? recordName : 'a record'} in ${tableName} in ${baseName}`;
+    const message = `${fromUserName} made a commented on ${recordName ? recordName : 'a record'} in ${tableName} ${baseName ? `in ${baseName}` : ''}`;
 
-    notifiedUsersIds.forEach((userId) => {
+    subscribeUsersIds.forEach((userId) => {
       this.notificationService.sendCommentNotify({
         baseId,
         tableId,
@@ -473,10 +474,12 @@ export class CommentOpenApiService {
     const commentContent = JSON.parse(commentContentRaw) as ICommentContent;
 
     return commentContent
-      .filter((comment) => comment.type === CommentNodeType.Paragraph)
-      .map((paragraphNode) => paragraphNode.children)
-      .flat()
-      .filter((lineNode) => lineNode)
+      .filter(
+        // so strange that infer automatically error
+        (comment): comment is IParagraphCommentContent => comment.type === CommentNodeType.Paragraph
+      )
+      .flatMap((paragraphNode) => paragraphNode.children)
+      .filter((lineNode) => lineNode.type === CommentNodeType.Mention)
       .map((mentionNode) => mentionNode.value) as string[];
   }
 

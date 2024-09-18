@@ -44,5 +44,7 @@ export const GetCommentDetailRoute: RouteConfig = registerRoute({
 });
 
 export const getCommentDetail = async (tableId: string, recordId: string, commentId: string) => {
-  return axios.get<ICommentVo>(urlBuilder(GET_COMMENT_DETAIL, { tableId, recordId, commentId }));
+  return axios.get<ICommentVo | null>(
+    urlBuilder(GET_COMMENT_DETAIL, { tableId, recordId, commentId })
+  );
 };

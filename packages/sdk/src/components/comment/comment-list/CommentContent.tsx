@@ -27,7 +27,7 @@ export const CommentContent = (props: ICommentContentProps) => {
       return (
         <BlockParagraphElement
           key={index}
-          className={cn({
+          className={cn('my-0.5', {
             'justify-end': isMe,
           })}
         >
@@ -41,7 +41,7 @@ export const CommentContent = (props: ICommentContentProps) => {
                   <MentionUser
                     id={node.value}
                     key={node.value}
-                    className="cursor-pointer rounded-md bg-secondary px-1 focus:ring-2"
+                    className="mx-0.5 cursor-pointer rounded-md bg-secondary px-1 focus:ring-2"
                   />
                 );
               }
