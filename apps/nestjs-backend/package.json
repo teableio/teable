@@ -159,6 +159,7 @@
     "fs-extra": "11.2.0",
     "handlebars": "4.7.8",
     "helmet": "7.1.0",
+    "http-proxy-middleware": "3.0.2",
     "ioredis": "5.4.1",
     "is-port-reachable": "3.1.0",
     "joi": "17.12.2",

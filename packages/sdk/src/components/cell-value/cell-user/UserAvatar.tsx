@@ -8,10 +8,11 @@ export interface IUserAvatarProps {
   size?: number;
   className?: string;
   style?: React.CSSProperties;
+  formatImageUrl?: (url: string) => string;
 }
 
 export const UserAvatar = (props: IUserAvatarProps) => {
-  const { name, avatar, size = 64, className, style } = props;
+  const { name, avatar, size = 64, className, style, formatImageUrl } = props;
 
   if (isValidElement(avatar)) {
     return avatar;
@@ -22,11 +23,13 @@ export const UserAvatar = (props: IUserAvatarProps) => {
       <AvatarImage
         src={
           avatar
-            ? convertNextImageUrl({
-                url: avatar as string,
-                w: size,
-                q: 75,
-              })
+            ? formatImageUrl
+              ? formatImageUrl(avatar as string)
+              : convertNextImageUrl({
+                  url: avatar as string,
+                  w: size,
+                  q: 75,
+                })
             : undefined
         }
         alt={name}

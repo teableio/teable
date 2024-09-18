@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { IAttachmentCellValue } from '@teable/core';
+import { CellFormat, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import type { IBaseQueryJoin, IBaseQuery, IBaseQueryVo, IBaseQueryColumn } from '@teable/openapi';
@@ -14,6 +16,7 @@ import {
   createFieldInstanceByVo,
   type IFieldInstance,
 } from '../../field/model/factory';
+import { RecordService } from '../../record/record.service';
 import { QueryAggregation } from './parse/aggregation';
 import { QueryFilter } from './parse/filter';
 import { QueryGroup } from './parse/group';
@@ -31,7 +34,8 @@ export class BaseQueryService {
 
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordService: RecordService
   ) {}
 
   private convertFieldMapToColumn(fieldMap: Record<string, IFieldInstance>): IBaseQueryColumn[] {
@@ -48,23 +52,56 @@ export class BaseQueryService {
     });
   }
 
-  private handleBigIntRows(rows: { [key in string]: unknown }[]) {
-    return rows.map((row) => {
-      return Object.entries(row).reduce(
-        (acc, [key, value]) => {
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private async dbRows2Rows(
+    rows: Record<string, unknown>[],
+    columns: IBaseQueryColumn[],
+    cellFormat: CellFormat
+  ) {
+    const resRows: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      const resRow: Record<string, unknown> = {};
+      for (const field of columns) {
+        if (!field.fieldSource) {
+          const value = row[field.column];
+          resRow[field.column] = row[field.column];
+          // handle bigint
           if (typeof value === 'bigint') {
-            acc[key] = Number(value);
+            resRow[field.column] = Number(value);
           } else {
-            acc[key] = value;
+            resRow[field.column] = value;
           }
-          return acc;
-        },
-        {} as { [key in string]: unknown }
-      );
-    });
+          continue;
+        }
+        const dbCellValue = row[field.column];
+        const fieldInstance = createFieldInstanceByVo(field.fieldSource);
+        const cellValue = fieldInstance.convertDBValue2CellValue(dbCellValue);
+
+        // number no need to convert string
+        if (typeof cellValue === 'number') {
+          resRow[field.column] = cellValue;
+          continue;
+        }
+        if (cellValue != null) {
+          resRow[field.column] =
+            cellFormat === CellFormat.Text ? fieldInstance.cellValue2String(cellValue) : cellValue;
+        }
+        if (fieldInstance.type === FieldType.Attachment) {
+          resRow[field.column] = await this.recordService.getAttachmentPresignedCellValue(
+            cellValue as IAttachmentCellValue
+          );
+        }
+      }
+      resRows.push(resRow);
+    }
+    return resRows;
   }
 
-  async baseQuery(baseId: string, baseQuery: IBaseQuery): Promise<IBaseQueryVo> {
+  async baseQuery(
+    baseId: string,
+    baseQuery: IBaseQuery,
+    cellFormat: CellFormat = CellFormat.Json
+  ): Promise<IBaseQueryVo> {
     const { queryBuilder, fieldMap } = await this.parseBaseQuery(baseId, baseQuery, 0);
     const query = queryBuilder.toQuery();
     this.logger.log('baseQuery SQL: ', query);
@@ -74,10 +111,11 @@ export class BaseQueryService {
         this.logger.error(e);
         throw new BadRequestException(`Query failed: ${query}, ${e.message}`);
       });
+    const columns = this.convertFieldMapToColumn(fieldMap);
 
     return {
-      rows: this.handleBigIntRows(rows),
-      columns: this.convertFieldMapToColumn(fieldMap),
+      rows: await this.dbRows2Rows(rows, columns, cellFormat),
+      columns,
     };
   }
 

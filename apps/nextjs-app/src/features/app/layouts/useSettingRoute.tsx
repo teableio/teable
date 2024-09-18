@@ -26,6 +26,12 @@ export const useSettingRoute = () => {
         route: '/setting/oauth-app',
         pathTo: '/setting/oauth-app',
       },
+      // {
+      //   Icon: Code,
+      //   label: t('setting:plugins'),
+      //   route: '/setting/plugin',
+      //   pathTo: '/setting/plugin',
+      // },
     ];
   }, [t]);
 };

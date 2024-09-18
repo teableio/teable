@@ -10,7 +10,7 @@ import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
-import { OAuthAppDetailLayout } from './OAuthAppDetailLayout';
+import { FormPageLayout } from '../../components/FormPageLayout';
 import type { IOAuthAppFormRef } from './OAuthAppForm';
 import { OAuthAppForm } from './OAuthAppForm';
 
@@ -58,7 +58,7 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
   });
 
   return (
-    <OAuthAppDetailLayout
+    <FormPageLayout
       onCancel={onBack}
       loading={isLoading}
       onSubmit={() => {
@@ -154,6 +154,6 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
       {!queryLoading && (
         <OAuthAppForm ref={formRef} showBasicTitle value={oauthApp} onChange={setUpdatedForm} />
       )}
-    </OAuthAppDetailLayout>
+    </FormPageLayout>
   );
 };

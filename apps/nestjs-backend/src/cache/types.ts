@@ -22,6 +22,7 @@ export interface ICacheStore {
   // userId:tableId:windowId
   [key: `operations:undo:${string}:${string}:${string}`]: IUndoRedoOperation[];
   [key: `operations:redo:${string}:${string}:${string}`]: IUndoRedoOperation[];
+  [key: `plugin:auth-code:${string}`]: IPluginAuthStore;
 }
 
 export interface IAttachmentSignatureCache {
@@ -242,3 +243,7 @@ export type IUndoRedoOperation =
   | ICreateViewOperation
   | IDeleteViewOperation
   | IUpdateViewOperation;
+export interface IPluginAuthStore {
+  baseId: string;
+  pluginId: string;
+}

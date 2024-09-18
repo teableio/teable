@@ -174,11 +174,12 @@ export class BaseController {
   }
 
   @Get(':baseId/query')
+  @Permissions('base|query_data')
   async sqlQuery(
     @Param('baseId') baseId: string,
     @Query(new ZodValidationPipe(baseQuerySchemaRo)) query: IBaseQuerySchemaRo
   ) {
-    return this.baseQueryService.baseQuery(baseId, query.query);
+    return this.baseQueryService.baseQuery(baseId, query.query, query.cellFormat);
   }
 
   @Permissions('base|invite_link')

@@ -1,4 +1,4 @@
-import { fieldVoSchema } from '@teable/core';
+import { CellFormat, fieldVoSchema } from '@teable/core';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
@@ -22,6 +22,11 @@ export const baseQuerySchemaRo = z.object({
     }
     return parsingResult.data;
   }),
+  cellFormat: z
+    .nativeEnum(CellFormat, {
+      errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
+    })
+    .default(CellFormat.Text),
 });
 
 export type IBaseQuerySchemaRo = z.infer<typeof baseQuerySchemaRo>;
@@ -64,8 +69,8 @@ export const baseQueryRoute = registerRoute({
   },
 });
 
-export const baseQuery = (baseId: string, query: IBaseQuery) => {
+export const baseQuery = (baseId: string, query: IBaseQuery, cellFormat?: CellFormat) => {
   return axios.get<IBaseQueryVo>(urlBuilder(BASE_QUERY, { baseId }), {
-    params: { query: JSON.stringify(query) },
+    params: { query: JSON.stringify(query), cellFormat },
   });
 };

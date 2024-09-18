@@ -1,0 +1,56 @@
+{
+  "add": "新增插件",
+  "title": {
+    "add": "新增插件",
+    "edit": "编辑插件"
+  },
+  "pluginUser": {
+    "name": "插件用户",
+    "description": "插件用户是系统自动生成的插件"
+  },
+  "secret": "密钥",
+  "regenerateSecret": "重新生成密钥",
+  "form": {
+    "name": {
+      "label": "名称",
+      "description": "插件的名称"
+    },
+    "description": {
+      "label": "描述",
+      "description": "插件的描述"
+    },
+    "detailDesc": {
+      "label": "详细描述",
+      "description": "插件的详细描述"
+    },
+    "logo": {
+      "label": "图标",
+      "description": "插件的图标，你可以上传图片或使用URL",
+      "upload": "上传",
+      "clear": "清除",
+      "placeholder": "将你的图标拖放到此处或点击上传",
+      "lengthError": "仅允许上传一个文件。",
+      "typeError": "只允许上传图片文件。"
+    },
+    "helpUrl": {
+      "label": "帮助网址",
+      "description": "插件帮助文档的URL"
+    },
+    "positions": {
+      "label": "位置",
+      "description": "插件的位置"
+    },
+    "i18n": {
+      "label": "国际化",
+      "description": "插件的国际化，包含（名称、描述、详细描述）"
+    },
+    "url": {
+      "label": "网址",
+      "description": "插件的URL"
+    }
+  },
+  "markdown": {
+    "write": "编写",
+    "preview": "预览"
+  }
+}

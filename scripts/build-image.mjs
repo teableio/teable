@@ -88,7 +88,7 @@ const buildArgs = toArray(buildArg);
 const cacheFrom = toArray(cacheFromArg);
 const cacheTo = toArray(cacheToArg);
 const tags = toArray(tag, false, true);
-const platform = platformArg;
+const platform = platformArg ?? '';
 const push = toBoolean(pushArg);
 const remotes = Array.from(new Set(tags.map((tag) => tag.split(':')[0])));
 

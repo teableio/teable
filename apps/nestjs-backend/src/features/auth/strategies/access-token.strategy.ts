@@ -30,7 +30,7 @@ export class AccessTokenStrategy extends PassportStrategy(PassportAccessTokenStr
 
     const user = await this.userService.getUserById(userId);
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('User not found');
     }
     if (user.deactivatedTime) {
       throw new UnauthorizedException('Your account has been deactivated by the administrator');

@@ -1,7 +1,9 @@
 import type auth from './locales/en/auth.json';
 import type common from './locales/en/common.json';
+import type dashboard from './locales/en/dashboard.json';
 import type developer from './locales/en/developer.json';
 import type oauth from './locales/en/oauth.json';
+import type plugin from './locales/en/plugin.json';
 import type sdk from './locales/en/sdk.json';
 import type setting from './locales/en/setting.json';
 import type share from './locales/en/share.json';
@@ -24,4 +26,6 @@ export interface I18nNamespaces {
   oauth: typeof oauth;
   zod: typeof zod;
   developer: typeof developer;
+  plugin: typeof plugin;
+  dashboard: typeof dashboard;
 }

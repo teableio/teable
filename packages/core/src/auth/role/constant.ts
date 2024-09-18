@@ -66,7 +66,7 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'base|table_export': true,
     'base|authority_matrix_config': true,
     'base|db_connection': false,
-    'base|query_data': false,
+    'base|query_data': true,
     'table|create': true,
     'table|read': true,
     'table|delete': true,

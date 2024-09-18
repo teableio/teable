@@ -45,15 +45,19 @@ export class AccessTokenService {
 
   async validate(splitAccessTokenObj: { accessTokenId: string; sign: string }) {
     const { accessTokenId, sign } = splitAccessTokenObj;
-    const accessTokenEntity = await this.prismaService.accessToken.findUniqueOrThrow({
-      where: { id: accessTokenId },
-      select: {
-        userId: true,
-        id: true,
-        sign: true,
-        expiredTime: true,
-      },
-    });
+    const accessTokenEntity = await this.prismaService.accessToken
+      .findUniqueOrThrow({
+        where: { id: accessTokenId },
+        select: {
+          userId: true,
+          id: true,
+          sign: true,
+          expiredTime: true,
+        },
+      })
+      .catch(() => {
+        throw new UnauthorizedException('token not found');
+      });
     if (sign !== accessTokenEntity.sign) {
       throw new UnauthorizedException('sign error');
     }

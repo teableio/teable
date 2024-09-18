@@ -37,10 +37,14 @@
       "import": "./ui.config.js",
       "require": "./ui.config.js",
       "types": "./ui.config.d.ts"
+    },
+    "global.shadcn.css": {
+      "import": "./dist/global.shadcn.css",
+      "require": "./dist/global.shadcn.css"
     }
   },
   "scripts": {
-    "build": "cross-env NODE_ENV=production tsc --build tsconfig.build.json",
+    "build": "cross-env NODE_ENV=production tsc --build tsconfig.build.json && cp src/shadcn/global.shadcn.css dist/",
     "build-react17jsx": "microbundle --tsconfig ./tsconfig.build.json --jsx jsx --jsxImportSource react --globals react/jsx-runtime=jsx --compress",
     "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "microbundle watch --tsconfig ./tsconfig.build.json",

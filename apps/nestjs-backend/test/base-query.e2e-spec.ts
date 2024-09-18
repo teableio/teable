@@ -531,8 +531,6 @@ describe('BaseSqlQuery e2e', () => {
         {
           [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Charlie',
           [`${table1.fields[1].id}_${table1.fields[1].name}`]: 40,
-          [`${table2.fields[0].id}_${table2.fields[0].name}`]: null,
-          [`${table2.fields[1].id}_${table2.fields[1].name}`]: null,
         },
       ]);
     });

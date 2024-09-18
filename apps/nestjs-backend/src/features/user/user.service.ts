@@ -118,7 +118,9 @@ export class UserService {
       notifyMeta: JSON.stringify(defaultNotifyMeta),
     };
 
-    const userTotalCount = await this.prismaService.txClient().user.count();
+    const userTotalCount = await this.prismaService.txClient().user.count({
+      where: { isSystem: null },
+    });
 
     const isAdmin = !this.baseConfig.isCloud && userTotalCount === 0;
 
@@ -343,6 +345,33 @@ export class UserService {
         ...user,
         avatar: avatar && getFullStorageUrl(StorageAdapter.getBucket(UploadType.Avatar), avatar),
       };
+    });
+  }
+
+  async createSystemUser({
+    id = generateUserId(),
+    email,
+    name,
+    avatar,
+  }: {
+    id?: string;
+    email: string;
+    name: string;
+    avatar?: string;
+  }) {
+    return this.prismaService.$tx(async () => {
+      if (!avatar) {
+        avatar = await this.generateDefaultAvatar(id);
+      }
+      return this.prismaService.txClient().user.create({
+        data: {
+          id,
+          email,
+          name,
+          avatar,
+          isSystem: true,
+        },
+      });
     });
   }
 }

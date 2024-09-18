@@ -66,6 +66,7 @@ export class AttachmentsController {
         headers['Content-Disposition'] = responseContentDisposition;
       }
     }
+    headers['Cross-Origin-Resource-Policy'] = 'unsafe-none';
     res.set(headers);
     return new StreamableFile(fileStream);
   }

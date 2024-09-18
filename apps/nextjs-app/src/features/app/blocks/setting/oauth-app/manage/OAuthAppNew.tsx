@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { oauthCreate, type OAuthCreateRo } from '@teable/openapi';
 import { useRef, useState } from 'react';
-import { OAuthAppDetailLayout } from './OAuthAppDetailLayout';
+import { FormPageLayout } from '../../components/FormPageLayout';
 import type { IOAuthAppFormRef } from './OAuthAppForm';
 import { OAuthAppForm } from './OAuthAppForm';
 
@@ -25,7 +25,7 @@ export const OAuthAppNew = (props: IOAuthAppNewProps) => {
     },
   });
   return (
-    <OAuthAppDetailLayout
+    <FormPageLayout
       onCancel={onBack}
       onSubmit={() => {
         formRef.current?.validate() && mutate(form);
@@ -33,6 +33,6 @@ export const OAuthAppNew = (props: IOAuthAppNewProps) => {
       loading={isLoading}
     >
       <OAuthAppForm ref={formRef} value={form} onChange={setForm} />
-    </OAuthAppDetailLayout>
+    </FormPageLayout>
   );
 };

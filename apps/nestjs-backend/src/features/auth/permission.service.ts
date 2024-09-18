@@ -81,7 +81,7 @@ export class PermissionService {
       select: { scopes: true, spaceIds: true, baseIds: true, clientId: true, userId: true },
     });
     const scopes = JSON.parse(stringifyScopes) as Action[];
-    if (clientId) {
+    if (clientId && clientId.startsWith(IdPrefix.OAuthClient)) {
       const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
         await this.getOAuthAccessBy(userId);
       return {
