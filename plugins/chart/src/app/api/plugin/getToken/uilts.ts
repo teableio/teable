@@ -80,11 +80,15 @@ export const getToken = async (
   // if there is a token request in progress, wait for it to finish
   if (tokenFetchPromises[key]) {
     console.log('waiting for token request to finish');
-    return tokenFetchPromises[key] as Promise<IFetchResponse<{ accessToken: string }>>;
+    const res = await (tokenFetchPromises[key] as Promise<IFetchResponse<{ accessToken: string }>>);
+    tokenFetchPromises[key] = null;
+    return res;
   }
 
   // if the token is expired, start a new request to get a new token and store it
   tokenFetchPromises[key] = innerGetToken(pluginId, baseId, cookie);
 
-  return tokenFetchPromises[key] as Promise<IFetchResponse<{ accessToken: string }>>;
+  const res = await (tokenFetchPromises[key] as Promise<IFetchResponse<{ accessToken: string }>>);
+  tokenFetchPromises[key] = null;
+  return res;
 };

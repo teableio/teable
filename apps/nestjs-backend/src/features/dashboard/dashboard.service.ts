@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { generateDashboardId, generatePluginInstallId } from '@teable/core';
+import type { IBaseRole } from '@teable/core';
+import { generateDashboardId, generatePluginInstallId, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, PluginStatus } from '@teable/openapi';
 import type {
@@ -14,12 +15,14 @@ import type {
 import type { IDashboardLayout, IDashboardPluginItem } from '@teable/openapi/src/dashboard/types';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
+import { CollaboratorService } from '../collaborator/collaborator.service';
 
 @Injectable()
 export class DashboardService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly collaboratorService: CollaboratorService
   ) {}
 
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {
@@ -176,6 +179,7 @@ export class DashboardService {
   async installPlugin(baseId: string, id: string, ro: IDashboardInstallPluginRo) {
     const userId = this.cls.get('user.id');
     await this.validatePluginPublished(baseId, ro.pluginId);
+
     return this.prismaService.$tx(async () => {
       const newInstallPlugin = await this.prismaService.txClient().pluginInstall.create({
         data: {
@@ -191,8 +195,31 @@ export class DashboardService {
           id: true,
           name: true,
           pluginId: true,
+          plugin: {
+            select: {
+              pluginUser: true,
+            },
+          },
         },
       });
+      if (newInstallPlugin.plugin.pluginUser) {
+        // invite pluginUser to base
+        const exist = await this.prismaService.txClient().collaborator.count({
+          where: {
+            userId,
+            resourceId: baseId,
+          },
+        });
+
+        if (!exist) {
+          await this.collaboratorService.createBaseCollaborator(
+            newInstallPlugin.plugin.pluginUser,
+            baseId,
+            Role.Owner as IBaseRole
+          );
+        }
+      }
+
       const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
         where: {
           id,

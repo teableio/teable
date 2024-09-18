@@ -1,7 +1,7 @@
 import { join, resolve } from 'path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generatePluginUserId, getPluginEmail } from '@teable/core';
+import { getPluginEmail } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginStatus, UploadType } from '@teable/openapi';
 import { createReadStream } from 'fs-extra';
@@ -53,13 +53,13 @@ export class OfficialPluginInitService implements OnModuleInit {
     }
   }
 
-  async uploadLogo(id: string, filePath: string) {
+  async uploadStatic(id: string, filePath: string, type: UploadType) {
     const fileStream = createReadStream(resolve(process.cwd(), filePath));
     const metaReader = sharp();
     const sharpReader = fileStream.pipe(metaReader);
     const { width, height, format = 'png', size = 0 } = await sharpReader.metadata();
-    const path = join(StorageAdapter.getDir(UploadType.Plugin), id);
-    const bucket = StorageAdapter.getBucket(UploadType.Plugin);
+    const path = join(StorageAdapter.getDir(type), id);
+    const bucket = StorageAdapter.getBucket(type);
     const mimetype = `image/${format}`;
     const { hash } = await this.storageAdapter.uploadFileWidthPath(bucket, path, filePath, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -89,7 +89,7 @@ export class OfficialPluginInitService implements OnModuleInit {
         deletedTime: null,
       },
     });
-    return `/${path}/${id}`;
+    return `/${path}`;
   }
 
   async createOfficialPlugin(pluginConfig: typeof chartConfig & { secret: string; url: string }) {
@@ -104,31 +104,51 @@ export class OfficialPluginInitService implements OnModuleInit {
       helpUrl,
       secret,
       url,
+      pluginUserId,
+      avatarPath,
     } = pluginConfig;
 
     const rows = await this.prismaService.txClient().plugin.count({ where: { id: pluginId } });
-
+    // upload logo
+    const logo = await this.uploadStatic(pluginId, logoPath, UploadType.Plugin);
+    const { hashedSecret, maskedSecret } = await generateSecret(secret);
+    const userEmail = getPluginEmail(pluginId);
+    // create plugin user
+    const user = await this.prismaService
+      .txClient()
+      .user.findFirst({ where: { id: pluginUserId, email: userEmail } });
+    // upload user avatar
+    const avatar = await this.uploadStatic(pluginUserId, avatarPath, UploadType.Avatar);
+    if (!user) {
+      await this.userService.createSystemUser({
+        id: pluginUserId,
+        name,
+        avatar,
+        email: userEmail,
+      });
+    }
     if (rows > 0) {
-      const { hashedSecret, maskedSecret } = await generateSecret(secret);
       return this.prismaService.txClient().plugin.update({
         where: {
           id: pluginId,
         },
         data: {
+          name,
+          description,
+          detailDesc,
+          positions: JSON.stringify(positions),
+          helpUrl,
+          url,
+          logo,
+          status: PluginStatus.Published,
+          i18n: JSON.stringify(i18n),
           secret: hashedSecret,
           maskedSecret,
+          pluginUser: user?.id || pluginUserId,
+          createdBy: 'system',
         },
       });
     }
-    // upload logo
-    const logo = await this.uploadLogo(pluginId, logoPath);
-    const pluginUserId = generatePluginUserId();
-    const user = await this.userService.createSystemUser({
-      id: pluginUserId,
-      name,
-      email: getPluginEmail(pluginId),
-    });
-    const { hashedSecret, maskedSecret } = await generateSecret(secret);
     return this.prismaService.txClient().plugin.create({
       select: {
         id: true,
@@ -157,7 +177,7 @@ export class OfficialPluginInitService implements OnModuleInit {
         i18n: JSON.stringify(i18n),
         secret: hashedSecret,
         maskedSecret,
-        pluginUser: user.id,
+        pluginUser: user?.id || pluginUserId,
         createdBy: 'system',
       },
     });

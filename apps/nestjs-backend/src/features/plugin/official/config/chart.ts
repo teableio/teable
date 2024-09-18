@@ -1,5 +1,5 @@
 export const chartConfig = {
-  id: 'plgRuucVT5FikQSIyC9',
+  id: 'plgchart',
   name: 'Chart',
   description: 'Visualize your records on a bar, line, pie',
   detailDesc: `
@@ -14,7 +14,7 @@ export const chartConfig = {
   When you need to drill down into your records, clicking on any bar or point on your chart will bring up the associated record or records.
   
   
-  Learn more](https://teable.io)",
+  Learn more](https://teable.io)"
 
   `,
   helpUrl: 'https://teable.io',
@@ -29,4 +29,6 @@ export const chartConfig = {
     },
   },
   logoPath: 'static/plugin/chart.png',
+  pluginUserId: 'pluchartuser',
+  avatarPath: 'static/plugin/chart.png',
 };

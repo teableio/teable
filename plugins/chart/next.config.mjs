@@ -24,7 +24,10 @@ const nextConfig = {
               imgSrc: ["'self'", 'https:', 'http:', 'data:'],
             } 
           }),
-          { key: 'X-Frame-Options', value: isProd ? 'SAMEORIGIN' : '*' },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
           { key: 'Cross-Origin-Opener-Policy', value: isProd ? 'same-origin' : 'unsafe-none' },
           { key: 'Cross-Origin-Embedder-Policy', value: isProd ? 'same-origin' : 'unsafe-none' }
         ],

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IBaseRole, IRole } from '@teable/core';
-import { canManageRole } from '@teable/core';
+import { canManageRole, Role } from '@teable/core';
 import {
   CollaboratorType,
   deleteBaseCollaborator,
@@ -63,7 +63,8 @@ export const BaseCollaborators = (props: { baseId: string; role: IRole }) => {
     >
       {filteredCollaborators?.map(
         ({ userId, role, userName, email, createdTime, resourceType, avatar }) => {
-          const canOperator = canManageRole(userRole, role) || userId === user.id;
+          const canOperator =
+            canManageRole(userRole, role) || userId === user.id || userRole === Role.Owner;
           return (
             <CollaboratorItem
               key={userId}
