@@ -110,7 +110,7 @@ export class OfficialPluginInitService implements OnModuleInit {
 
     const rows = await this.prismaService.txClient().plugin.count({ where: { id: pluginId } });
     // upload logo
-    const logo = await this.uploadStatic(pluginUserId, logoPath, UploadType.Plugin);
+    const logo = await this.uploadStatic(pluginId, logoPath, UploadType.Plugin);
     const { hashedSecret, maskedSecret } = await generateSecret(secret);
     const userEmail = getPluginEmail(pluginId);
     // create plugin user
