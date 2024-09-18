@@ -17,7 +17,6 @@ export const DashboardMain = (props: { dashboardId: string }) => {
   const baseId = useBaseId()!;
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];
-
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ReactQueryKeys.getDashboard(dashboardId),
     queryFn: () => getDashboard(baseId, dashboardId).then((res) => res.data),

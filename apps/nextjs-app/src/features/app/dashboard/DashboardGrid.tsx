@@ -7,8 +7,6 @@ import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { PluginItem } from './components/PluginItem';
 import { useIsExpandPlugin } from './hooks/useIsExpandPlugin';

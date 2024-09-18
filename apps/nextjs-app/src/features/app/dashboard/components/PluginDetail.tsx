@@ -5,7 +5,7 @@ import { Button } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
-import { MarkdownPreview } from '../../components/MarkdownPreview';
+import { MarkdownPreview } from '../../components/mark-down-preview';
 import { UserAvatar } from '../../components/user/UserAvatar';
 
 export const PluginDetail = (props: {

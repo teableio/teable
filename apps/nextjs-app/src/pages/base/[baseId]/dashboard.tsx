@@ -7,6 +7,9 @@ import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
+import '@/styles/github-markdown.css';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 
 const Node: NextPageWithLayout = () => <DashboardPage />;
 
