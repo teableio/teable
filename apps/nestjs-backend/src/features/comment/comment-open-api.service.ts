@@ -195,6 +195,7 @@ export class CommentOpenApiService {
       });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, { id: commentId });
+    this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
   }
 
   async deleteCommentReaction(
@@ -238,7 +239,6 @@ export class CommentOpenApiService {
       });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteReaction, result);
-    this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
   }
 
   async createCommentReaction(
@@ -349,6 +349,7 @@ export class CommentOpenApiService {
         recordId: {
           in: recordsId,
         },
+        deletedTime: null,
       },
       _count: {
         ['recordId']: true,
@@ -359,6 +360,20 @@ export class CommentOpenApiService {
       recordId,
       count,
     }));
+  }
+
+  async getRecordCommentCount(tableId: string, recordId: string) {
+    const result = await this.prismaService.comment.count({
+      where: {
+        tableId,
+        recordId,
+        deletedTime: null,
+      },
+    });
+
+    return {
+      count: result,
+    };
   }
 
   private async getCommentReactionById(commentId: string) {

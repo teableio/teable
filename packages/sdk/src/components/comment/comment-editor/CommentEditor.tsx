@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { generateAttachmentId } from '@teable/core';
 import type { ICreateCommentRo, IUpdateCommentRo } from '@teable/openapi';
 import { createComment, getCommentDetail, updateComment, UploadType } from '@teable/openapi';
@@ -21,6 +21,7 @@ import { SlashPlugin } from '@udecode/plate-slash-command';
 import { TrailingBlockPlugin } from '@udecode/plate-trailing-block';
 import { noop } from 'lodash';
 import { useEffect, useRef, useState } from 'react';
+import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useTablePermission } from '../../../hooks';
 import { AttachmentManager } from '../../editor';
@@ -76,6 +77,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
   };
   const [value, setValue] = useState(defaultEditorValue);
   const permission = useTablePermission();
+  const queryClient = useQueryClient();
   const modalElementRef = useModalRefElement();
   const editor = usePlateEditor({
     id: recordId,
@@ -198,6 +200,9 @@ export const CommentEditor = (props: ICommentEditorProps) => {
       createCommentRo: ICreateCommentRo;
     }) => createComment(tableId, recordId, createCommentRo),
     onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.recordCommentCount(tableId, recordId),
+      });
       editor?.api?.reset();
       setQuoteId(undefined);
     },

@@ -27,6 +27,24 @@ export class CommentOpenApiController {
     private readonly attachmentsStorageService: AttachmentsStorageService
   ) {}
 
+  @Get('/:recordId/count')
+  @Permissions('view|read')
+  async getRecordCommentCount(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string
+  ) {
+    return this.commentOpenApiService.getRecordCommentCount(tableId, recordId);
+  }
+
+  @Get('/count')
+  @Permissions('view|read')
+  async getTableCommentCount(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
+  ) {
+    return this.commentOpenApiService.getTableCommentCount(tableId, query);
+  }
+
   @Get('/:recordId/attachment/:path')
   // eslint-disable-next-line sonarjs/no-duplicate-string
   @Permissions('record|read')
@@ -137,14 +155,5 @@ export class CommentOpenApiController {
       commentId,
       reactionRo
     );
-  }
-
-  @Get('/count')
-  @Permissions('view|read')
-  async getTableCommentCount(
-    @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(getRecordsRoSchema), TqlPipe) query: IGetRecordsRo
-  ) {
-    return this.commentOpenApiService.getTableCommentCount(tableId, query);
   }
 }

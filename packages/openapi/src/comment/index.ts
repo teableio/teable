@@ -7,4 +7,5 @@ export * from './delete';
 export * from './reaction';
 export * from './subscribe';
 export * from './get-attachment-url';
+export * from './get-counts-by-query';
 export * from './get-count';

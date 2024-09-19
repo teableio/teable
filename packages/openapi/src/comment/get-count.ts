@@ -1,24 +1,20 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import type { IGetRecordsRo } from '../record';
 import { getRecordsRoSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
-export const GET_COMMENT_COUNT = '/comment/{tableId}/count';
+export const GET_RECORD_COMMENT_COUNT = '/comment/{tableId}/{recordId}/count';
 
-export const commentCountVoSchema = z
-  .object({
-    recordId: z.string(),
-    count: z.number(),
-  })
-  .array();
+export const recordCommentCountVoSchema = z.object({
+  count: z.number(),
+});
 
-export type ICommentCountVo = z.infer<typeof commentCountVoSchema>;
+export type IRecordCommentCountVo = z.infer<typeof recordCommentCountVoSchema>;
 
-export const GetCommentCountRoute: RouteConfig = registerRoute({
+export const GetRecordCommentCountRoute: RouteConfig = registerRoute({
   method: 'get',
-  path: GET_COMMENT_COUNT,
+  path: GET_RECORD_COMMENT_COUNT,
   description: 'Get record comment count',
   request: {
     params: z.object({
@@ -31,7 +27,7 @@ export const GetCommentCountRoute: RouteConfig = registerRoute({
       description: 'Returns the comment count by query',
       content: {
         'application/json': {
-          schema: commentCountVoSchema,
+          schema: recordCommentCountVoSchema,
         },
       },
     },
@@ -39,8 +35,8 @@ export const GetCommentCountRoute: RouteConfig = registerRoute({
   tags: ['comment'],
 });
 
-export const getCommentCount = async (tableId: string, query: IGetRecordsRo) => {
-  return axios.get<ICommentCountVo>(urlBuilder(GET_COMMENT_COUNT, { tableId }), {
-    params: query,
-  });
+export const getRecordCommentCount = async (tableId: string, recordId: string) => {
+  return axios.get<IRecordCommentCountVo>(
+    urlBuilder(GET_RECORD_COMMENT_COUNT, { tableId, recordId })
+  );
 };

@@ -132,20 +132,24 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
       className={cn({ 'max-w-5xl': commentVisible })}
     >
       <div className="flex h-full flex-col">
-        <ExpandRecordHeader
-          title={record?.name}
-          recordHistoryVisible={recordHistoryVisible}
-          commentVisible={commentVisible}
-          disabledPrev={disabledPrev}
-          disabledNext={disabledNext}
-          onClose={onClose}
-          onPrev={onPrevInner}
-          onNext={onNextInner}
-          onCopyUrl={onCopyUrl}
-          onRecordHistoryToggle={onRecordHistoryToggle}
-          onCommentToggle={onCommentToggle}
-          onDelete={onDelete}
-        />
+        {tableId && recordId && (
+          <ExpandRecordHeader
+            title={record?.name}
+            recordHistoryVisible={recordHistoryVisible}
+            commentVisible={commentVisible}
+            disabledPrev={disabledPrev}
+            disabledNext={disabledNext}
+            onClose={onClose}
+            onPrev={onPrevInner}
+            onNext={onNextInner}
+            onCopyUrl={onCopyUrl}
+            onRecordHistoryToggle={onRecordHistoryToggle}
+            onCommentToggle={onCommentToggle}
+            onDelete={onDelete}
+            recordId={recordId}
+            tableId={tableId}
+          />
+        )}
         <div className="relative flex flex-1 overflow-hidden">
           {recordHistoryVisible ? (
             <div className="flex size-full overflow-hidden rounded-b bg-background">

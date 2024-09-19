@@ -20,9 +20,12 @@ import {
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { useTablePermission } from '../../hooks';
+import { useRecordCommentCount } from '../comment/hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
+  tableId: string;
+  recordId: string;
   title?: string;
   recordHistoryVisible?: boolean;
   commentVisible?: boolean;
@@ -44,6 +47,8 @@ const MIN_OPERATOR_WIDTH = 200;
 
 export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const {
+    tableId,
+    recordId,
     title,
     recordHistoryVisible,
     commentVisible,
@@ -60,11 +65,13 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
 
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
+  const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
   const showOperator = width > MIN_OPERATOR_WIDTH;
+  const recordCommentCount = useRecordCommentCount(tableId, recordId, canRead);
 
   return (
     <div
@@ -137,8 +144,14 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                 size={'xs'}
                 onClick={onCommentToggle}
                 variant={commentVisible ? 'secondary' : 'ghost'}
+                className="relative"
               >
                 <MessageSquare />
+                {recordCommentCount ? (
+                  <div className="absolute left-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
+                    {recordCommentCount > 99 ? '99+' : recordCommentCount}
+                  </div>
+                ) : null}
               </Button>
             </TooltipWrap>
           )}

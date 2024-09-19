@@ -24,6 +24,9 @@ export const ReactQueryKeys = {
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
 
+  recordCommentCount: (tableId: string, recordId: string) =>
+    ['record-comment-count', tableId, recordId] as const,
+
   commentList: (tableId: string, recordId: string) => ['comment-list', tableId, recordId] as const,
 
   commentCount: (tableId: string, query?: IGetRecordsRo) =>
