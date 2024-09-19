@@ -107,8 +107,17 @@ const YAxisConfigEditor = (props: {
           <Input
             value={decimal ?? ''}
             type="number"
-            onBlur={() => onChange({ ...value, decimal })}
-            onChange={(e) => setDecimal(e.target.value ? Number(e.target.value) : undefined)}
+            onBlur={() => {
+              const newValue = decimal ? Math.max(0, Math.min(decimal, 10)) : undefined;
+              onChange({
+                ...value,
+                decimal: newValue,
+              });
+              setDecimal(newValue);
+            }}
+            onChange={(e) =>
+              setDecimal(e.target.value != undefined ? parseInt(e.target.value) : undefined)
+            }
           />
         </ConfigItem>
       </PopoverContent>

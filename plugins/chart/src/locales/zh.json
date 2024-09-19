@@ -77,7 +77,14 @@
     "showLabel": "在图表上显示数值标签",
     "showLegend": "显示图例",
     "value": "数值",
-    "label": "标签"
+    "label": "标签",
+    "padding": {
+      "label": "内边距",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左"
+    }
   },
   "reloadQuery": "重新加载查询",
   "noStorage": "请先配置图表插件",
