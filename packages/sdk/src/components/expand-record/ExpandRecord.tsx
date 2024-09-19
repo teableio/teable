@@ -158,7 +158,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
           ) : (
             <div className="relative flex w-full flex-1 justify-between overflow-y-auto">
               {fields.length > 0 ? (
-                <div className="w-full p-9">
+                <div className="size-full overflow-auto p-9">
                   <RecordEditor
                     record={record}
                     fields={fields}
