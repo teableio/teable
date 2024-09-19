@@ -8,12 +8,15 @@ import { ReactQueryKeys } from '../config';
 import { useConnection } from './use-connection';
 import { useSearch } from './use-search';
 import { useTableId } from './use-table-id';
+import { useView } from './use-view';
 import { useViewId } from './use-view-id';
 
 export const useCommentCountMap = (query?: IGetRecordsRo) => {
   const tableId = useTableId();
 
   const viewId = useViewId();
+
+  const view = useView();
 
   const { searchQuery } = useSearch();
 
@@ -26,10 +29,10 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
       type: IdPrefix.Record,
       ...query,
       groupBy: query?.groupBy ? JSON.stringify(query?.groupBy) : query?.groupBy,
-      filter: query?.filter ? JSON.stringify(query?.filter) : query?.filter,
-      orderBy: query?.orderBy ? JSON.stringify(query?.orderBy) : query?.orderBy,
+      filter: view?.filter ? JSON.stringify(view?.filter) : view?.filter,
+      orderBy: view?.sort?.sortObjs ? JSON.stringify(view?.sort?.sortObjs) : view?.sort?.sortObjs,
     } as IGetRecordsRo;
-  }, [query, searchQuery, viewId]);
+  }, [query, searchQuery, viewId, view]);
 
   const { data } = useQuery({
     queryKey: ReactQueryKeys.commentCount(tableId!, queryParams),
