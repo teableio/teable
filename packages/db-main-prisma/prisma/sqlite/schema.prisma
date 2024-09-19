@@ -478,6 +478,7 @@ model Comment {
   lastModifiedTime DateTime?  @updatedAt @map("last_modified_time")
 
   @@map("comment")
+  @@index([tableId, recordId])
 }
 
 model CommentSubscription {
