@@ -18,7 +18,20 @@ export const itemSpaceCollaboratorSchema = z.object({
   role: roleSchema,
   avatar: z.string().nullable(),
   createdTime: z.string(),
+  base: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+    })
+    .optional(),
 });
+
+export const listSpaceCollaboratorRoSchema = z.object({
+  includeSystem: z.boolean().optional(),
+  includeBase: z.boolean().optional(),
+});
+
+export type ListSpaceCollaboratorRo = z.infer<typeof listSpaceCollaboratorRoSchema>;
 
 export type ItemSpaceCollaboratorVo = z.infer<typeof itemSpaceCollaboratorSchema>;
 
@@ -34,6 +47,7 @@ export const ListSpaceCollaboratorRoute: RouteConfig = registerRoute({
     params: z.object({
       spaceId: z.string(),
     }),
+    query: listSpaceCollaboratorRoSchema,
   },
   responses: {
     200: {
@@ -48,10 +62,16 @@ export const ListSpaceCollaboratorRoute: RouteConfig = registerRoute({
   tags: ['space'],
 });
 
-export const getSpaceCollaboratorList = async (spaceId: string) => {
+export const getSpaceCollaboratorList = async (
+  spaceId: string,
+  query?: ListSpaceCollaboratorRo
+) => {
   return axios.get<ListSpaceCollaboratorVo>(
     urlBuilder(SPACE_COLLABORATE_LIST, {
       spaceId,
-    })
+    }),
+    {
+      params: query,
+    }
   );
 };

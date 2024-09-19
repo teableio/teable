@@ -7,6 +7,7 @@ import type {
   IGroupPointsRo,
   IQueryBaseRo,
   ResourceType,
+  ListSpaceCollaboratorRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -26,7 +27,10 @@ export const ReactQueryKeys = {
 
   subscriptionSummaryList: () => ['subscription-summary'] as const,
 
-  spaceCollaboratorList: (spaceId: string) => ['space-collaborator-list', spaceId] as const,
+  spaceCollaboratorList: (spaceId: string, options?: ListSpaceCollaboratorRo) =>
+    options
+      ? (['space-collaborator-list', spaceId, options] as const)
+      : (['space-collaborator-list', spaceId] as const),
 
   baseCollaboratorList: (baseId: string) => ['base-collaborator-list', baseId] as const,
 
