@@ -9,6 +9,7 @@ import {
   type ListSpaceCollaboratorVo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
+import { map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -123,13 +124,33 @@ export class CollaboratorService {
     }));
   }
 
-  async getListBySpace(spaceId: string): Promise<ListSpaceCollaboratorVo> {
+  async getListBySpace(
+    spaceId: string,
+    options?: { includeSystem?: boolean; includeBase?: boolean }
+  ): Promise<ListSpaceCollaboratorVo> {
+    const { includeSystem, includeBase } = options ?? {};
+    let baseIds: string[] = [];
+    let baseMap: Record<string, { name: string; id: string }> = {};
+    if (includeBase) {
+      const bases = await this.prismaService.txClient().base.findMany({
+        where: { spaceId, deletedTime: null, space: { deletedTime: null } },
+      });
+      baseIds = map(bases, 'id') as string[];
+      baseMap = bases.reduce(
+        (acc, base) => {
+          acc[base.id] = { name: base.name, id: base.id };
+          return acc;
+        },
+        {} as Record<string, { name: string; id: string }>
+      );
+    }
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
-        resourceId: spaceId,
-        resourceType: CollaboratorType.Space,
+        resourceId: baseIds.length ? { in: [...baseIds, spaceId] } : spaceId,
+        ...(includeSystem ? {} : { user: { isSystem: null } }),
       },
       select: {
+        resourceId: true,
         roleName: true,
         createdTime: true,
         user: {
@@ -151,6 +172,7 @@ export class CollaboratorService {
         : null,
       role: collaborator.roleName as IRole,
       createdTime: collaborator.createdTime.toISOString(),
+      base: baseMap[collaborator.resourceId],
     }));
   }
 

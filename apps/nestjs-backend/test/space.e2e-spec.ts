@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IdPrefix, Role } from '@teable/core';
+import { getPluginEmail, IdPrefix, Role } from '@teable/core';
 import type {
   ICreateSpaceVo,
   IUserMeVo,
@@ -36,10 +36,12 @@ import {
   getBaseCollaboratorList,
   CollaboratorType,
   getSpaceCollaboratorList,
+  deleteBase,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { Events } from '../src/event-emitter/events';
 import type { SpaceDeleteEvent, SpaceUpdateEvent } from '../src/event-emitter/events';
+import { chartConfig } from '../src/features/plugin/official/config/chart';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -115,6 +117,32 @@ describe('OpenAPI SpaceController (e2e)', () => {
     const collaborators: ListSpaceCollaboratorVo = (await apiGetSpaceCollaboratorList(spaceId))
       .data;
     expect(collaborators).toHaveLength(1);
+  });
+
+  it('/api/space/:spaceId/collaborators (GET) - includeSystem', async () => {
+    const base = await createBase({ spaceId, name: 'new base' });
+    await emailBaseInvitation({
+      baseId: base.data.id,
+      emailBaseInvitationRo: { emails: [getPluginEmail(chartConfig.id)], role: Role.Creator },
+    });
+    const collaborators: ListSpaceCollaboratorVo = (
+      await apiGetSpaceCollaboratorList(spaceId, { includeSystem: true, includeBase: true })
+    ).data;
+    await deleteBase(base.data.id);
+    expect(collaborators).toHaveLength(2);
+  });
+
+  it('/api/space/:spaceId/collaborators (GET) - includeBase', async () => {
+    const base = await createBase({ spaceId, name: 'new base' });
+    await emailBaseInvitation({
+      baseId: base.data.id,
+      emailBaseInvitationRo: { emails: ['space-coll-base@example.com'], role: Role.Creator },
+    });
+    const collaborators: ListSpaceCollaboratorVo = (
+      await apiGetSpaceCollaboratorList(spaceId, { includeBase: true })
+    ).data;
+    await deleteBase(base.data.id);
+    expect(collaborators).toHaveLength(2);
   });
 
   describe('Space Invitation and operator collaborators', () => {

@@ -33,7 +33,11 @@ export const CollaboratorPage = () => {
 
         {isHydrated && !!space && (
           <div className="w-full py-4">
-            <Collaborators spaceId={spaceId} role={space.role}>
+            <Collaborators
+              spaceId={spaceId}
+              role={space.role}
+              collaboratorQuery={{ includeBase: true }}
+            >
               <SpaceCollaboratorModalTrigger space={space}>
                 <Button size="sm">
                   <UserPlus className="size-4" /> {t('space:action.invite')}

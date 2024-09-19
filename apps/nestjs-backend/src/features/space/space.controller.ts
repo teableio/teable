@@ -151,8 +151,12 @@ export class SpaceController {
 
   @Permissions('space|read')
   @Get(':spaceId/collaborators')
-  async listCollaborator(@Param('spaceId') spaceId: string): Promise<ListSpaceCollaboratorVo> {
-    return await this.collaboratorService.getListBySpace(spaceId);
+  async listCollaborator(
+    @Param('spaceId') spaceId: string,
+    @Query('includeBase') includeBase?: boolean,
+    @Query('includeSystem') includeSystem?: boolean
+  ): Promise<ListSpaceCollaboratorVo> {
+    return await this.collaboratorService.getListBySpace(spaceId, { includeSystem, includeBase });
   }
 
   @Patch(':spaceId/collaborators')
