@@ -18,6 +18,7 @@ import type {
   IGetSharedBaseVo,
   IGroupPointsRo,
   IGroupPointsVo,
+  ListSpaceCollaboratorRo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -137,9 +138,11 @@ export class SsrApi {
     return await this.axios.get<IGetBaseVo[]>(GET_BASE_ALL).then(({ data }) => data);
   }
 
-  async getSpaceCollaboratorList(spaceId: string) {
+  async getSpaceCollaboratorList(spaceId: string, query?: ListSpaceCollaboratorRo) {
     return await this.axios
-      .get<ListSpaceCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_LIST, { spaceId }))
+      .get<ListSpaceCollaboratorVo>(urlBuilder(SPACE_COLLABORATE_LIST, { spaceId }), {
+        params: query,
+      })
       .then(({ data }) => data);
   }
 

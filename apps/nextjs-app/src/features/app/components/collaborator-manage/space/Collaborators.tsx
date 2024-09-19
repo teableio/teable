@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IRole } from '@teable/core';
-import { canManageRole } from '@teable/core';
+import { canManageRole, Role } from '@teable/core';
+import { Settings } from '@teable/icons';
+import type { ListSpaceCollaboratorRo } from '@teable/openapi';
 import {
   deleteSpaceCollaborator,
   getSpaceCollaboratorList,
   updateSpaceCollaborator,
 } from '@teable/openapi';
 import { ReactQueryKeys, useSession } from '@teable/sdk';
+import { Badge, Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import type { FC, PropsWithChildren } from 'react';
@@ -20,10 +23,11 @@ import { useFilteredRoleStatic } from './useFilteredRoleStatic';
 interface ICollaborators {
   spaceId: string;
   role: IRole;
+  collaboratorQuery?: ListSpaceCollaboratorRo;
 }
 
 export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
-  const { spaceId, role: currentRole, children } = props;
+  const { spaceId, role: currentRole, children, collaboratorQuery } = props;
   const [search, setSearch] = React.useState('');
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
@@ -31,8 +35,11 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
   const router = useRouter();
 
   const { data: collaborators } = useQuery({
-    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
-    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: collaboratorQuery
+      ? ReactQueryKeys.spaceCollaboratorList(spaceId, collaboratorQuery)
+      : ReactQueryKeys.spaceCollaboratorList(spaceId),
+    queryFn: ({ queryKey }) =>
+      getSpaceCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
   const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
@@ -63,40 +70,65 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
 
   const filteredRoleStatic = useFilteredRoleStatic(currentRole);
 
+  const goBase = (baseId: string) => {
+    router.push(`/base/${baseId}`);
+  };
+
   return (
     <CollaboratorList
       inputRight={children}
       onSearch={setSearch}
       searchPlaceholder={t('invite.dialog.collaboratorSearchPlaceholder')}
     >
-      {filteredCollaborators?.map(({ userId, role, userName, email, createdTime, avatar }) => {
-        const canOperator = canManageRole(currentRole, role) || userId === user.id || true;
-        return (
-          <CollaboratorItem
-            key={userId}
-            userId={userId}
-            userName={userName}
-            email={email}
-            avatar={avatar}
-            createdTime={createdTime}
-            onDeleted={(userId) => {
-              deleteCollaborator({ spaceId, userId });
-            }}
-            showDelete={canOperator}
-            deletable={!deleteCollaboratorLoading || canOperator}
-          >
-            <RoleSelect
-              className="mx-1"
-              value={role}
-              options={filteredRoleStatic}
-              disabled={updateCollaboratorLoading || !canOperator}
-              onChange={(role) =>
-                updateCollaborator({ spaceId, updateSpaceCollaborateRo: { userId, role } })
+      {filteredCollaborators?.map(
+        ({ userId, role, userName, email, createdTime, avatar, base }) => {
+          const isBase = Boolean(base);
+          const canOperator =
+            canManageRole(currentRole, role) || userId === user.id || currentRole === Role.Owner;
+          return (
+            <CollaboratorItem
+              key={userId}
+              userId={userId}
+              userName={userName}
+              email={email}
+              avatar={avatar}
+              createdTime={createdTime}
+              onDeleted={(userId) => {
+                deleteCollaborator({ spaceId, userId });
+              }}
+              showDelete={canOperator && !isBase}
+              deletable={!deleteCollaboratorLoading && canOperator}
+              collaboratorTips={
+                isBase && (
+                  <div className="ml-3 inline-flex items-center gap-2">
+                    <Badge className="text-muted-foreground" variant={'outline'}>
+                      {base?.name}
+                    </Badge>
+                    <Button
+                      className="h-auto p-0.5"
+                      size={'xs'}
+                      variant={'ghost'}
+                      onClick={() => goBase(base!.name)}
+                    >
+                      <Settings />
+                    </Button>
+                  </div>
+                )
               }
-            />
-          </CollaboratorItem>
-        );
-      })}
+            >
+              <RoleSelect
+                className="mx-1"
+                value={role}
+                options={filteredRoleStatic}
+                disabled={updateCollaboratorLoading || !canOperator || isBase}
+                onChange={(role) =>
+                  updateCollaborator({ spaceId, updateSpaceCollaborateRo: { userId, role } })
+                }
+              />
+            </CollaboratorItem>
+          );
+        }
+      )}
     </CollaboratorList>
   );
 };
