@@ -7,5 +7,6 @@ import { DashboardService } from './dashboard.service';
   imports: [CollaboratorModule],
   providers: [DashboardService],
   controllers: [DashboardController],
+  exports: [DashboardService],
 })
 export class DashboardModule {}

@@ -95,7 +95,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         {canManage && (
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="outline" className="size-6">
+              <Button size="icon" variant="outline" className="size-7">
                 <MoreHorizontal className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>

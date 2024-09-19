@@ -17,7 +17,7 @@ export const PluginDetail = (props: {
   const dayjs = useLanDayjs();
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   return (
-    <div className="absolute left-0 top-0 flex size-full flex-col bg-background">
+    <div className="absolute left-0 top-0 flex size-full flex-col rounded bg-background">
       <Button className="ml-2 mt-2 w-20" variant={'ghost'} size={'sm'} onClick={onBack}>
         <ArrowLeft />
         {t('common:actions.back')}
