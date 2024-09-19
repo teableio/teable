@@ -3,6 +3,7 @@ import { PlateElement } from '@udecode/plate-common/react';
 import { getMentionOnSelectItem } from '@udecode/plate-mention';
 import React, { useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
+import { useSession } from '../../../../hooks';
 import { UserAvatar } from '../../../cell-value';
 import { useCollaborators } from '../../hooks';
 import {
@@ -19,7 +20,9 @@ export const MentionInputElement = withRef<typeof PlateElement>(({ className, ..
   const { children, editor, element } = props;
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
+  const { user } = useSession();
   const collaborators = useCollaborators();
+  const mentionUsers = collaborators.filter((item) => item.userId !== user.id);
 
   return (
     <PlateElement
@@ -50,7 +53,7 @@ export const MentionInputElement = withRef<typeof PlateElement>(({ className, ..
         <InlineComboboxContent className="my-1.5">
           <InlineComboboxEmpty>{t('common.search.empty')}</InlineComboboxEmpty>
 
-          {collaborators.map((item) => (
+          {mentionUsers.map((item) => (
             <InlineComboboxItem
               key={item.userId}
               onClick={() =>

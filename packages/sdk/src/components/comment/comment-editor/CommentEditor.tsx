@@ -68,7 +68,6 @@ export const CommentEditor = (props: ICommentEditorProps) => {
     blur: noop,
   });
   const { t } = useTranslation();
-  const collaborators = useCollaborators();
   const { quoteId, setQuoteId, setEditorRef, editingCommentId, setEditingCommentId } =
     useCommentStore();
   const mentionUserRender = (element: TMentionElement) => {
@@ -155,12 +154,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
           [MentionPlugin.key]: (props: React.ComponentProps<typeof MentionElement>) => (
             <MentionElement {...props} render={mentionUserRender} />
           ),
-          [MentionInputPlugin.key]: (props: React.ComponentProps<typeof MentionInputElement>) => (
-            <MentionInputElement
-              {...props}
-              nodeProps={{ ...props.nodeProps, user: collaborators }}
-            />
-          ),
+          [MentionInputPlugin.key]: MentionInputElement,
           [ImagePlugin.key]: ImageElement,
         }),
         [ParagraphPlugin.key]: ParagraphElement,

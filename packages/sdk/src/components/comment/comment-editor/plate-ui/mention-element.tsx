@@ -17,7 +17,6 @@ export const MentionElement = withRef<
   const element = useElement<TMentionElement>();
   const selected = useSelected();
   const focused = useFocused();
-  console.log('element', element);
 
   return (
     <PlateElement
