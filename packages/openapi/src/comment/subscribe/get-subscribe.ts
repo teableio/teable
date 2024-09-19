@@ -26,6 +26,11 @@ export const GetCommentSubscribeRoute: RouteConfig = registerRoute({
   responses: {
     200: {
       description: 'Successfully get record comment subscribe detail.',
+      content: {
+        'application/json': {
+          schema: commentSubscribeVoSchema.nullable(),
+        },
+      },
     },
   },
   tags: ['comment'],

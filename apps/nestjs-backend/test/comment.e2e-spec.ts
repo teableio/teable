@@ -182,6 +182,7 @@ describe('OpenAPI CommentController (e2e)', () => {
 
       await deleteCommentSubscribe(tableId, recordId);
       const subscribeInfo = await getCommentSubscribe(tableId, recordId);
+      // actually the subscribe info is null but, there is no idea to return ''.
       expect(subscribeInfo.data).toEqual('');
     });
   });

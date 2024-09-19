@@ -298,7 +298,7 @@ export class CommentOpenApiService {
 
   async getSubscribeDetail(tableId: string, recordId: string) {
     return await this.prismaService.commentSubscription
-      .findUnique({
+      .findUniqueOrThrow({
         where: {
           // eslint-disable-next-line
           tableId_recordId: {
