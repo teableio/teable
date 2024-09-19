@@ -206,7 +206,7 @@ export class DashboardService {
         // invite pluginUser to base
         const exist = await this.prismaService.txClient().collaborator.count({
           where: {
-            userId,
+            userId: newInstallPlugin.plugin.pluginUser,
             resourceId: baseId,
           },
         });
