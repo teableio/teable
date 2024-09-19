@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { isEmpty, isEqual, keyBy } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { TimeZoneFormatting } from '../formatting/TimeZoneFormatting';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
 
@@ -48,7 +49,13 @@ export const FormulaOptionsInner = (props: {
 
   const onExpressionChange = (expr: string) => {
     const { cellValueType: newCellValueType } = calculateTypedValue(fields, expr);
-    const newOptions: IFormulaFieldOptions = { expression: expr };
+    const newOptions: IFormulaFieldOptions = {
+      expression: expr,
+      timeZone:
+        formatting && 'timeZone' in formatting && formatting?.timeZone
+          ? formatting.timeZone
+          : options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
     if (newCellValueType !== cellValueType) {
       const defaultFormatting = getDefaultFormatting(newCellValueType);
       newOptions.formatting = defaultFormatting;
@@ -66,9 +73,22 @@ export const FormulaOptionsInner = (props: {
       if (isEqual(formattingParsed, formatting)) {
         return;
       }
-      onChange?.({ formatting: isEmpty(formattingParsed) ? undefined : newFormatting });
+      onChange?.({
+        formatting: isEmpty(formattingParsed) ? undefined : newFormatting,
+        timeZone: options.timeZone,
+      });
     },
-    [cellValueType, formatting, onChange]
+    [cellValueType, formatting, onChange, options.timeZone]
+  );
+
+  const setTimeZone = useCallback(
+    (newTimeZone: string) => {
+      if (newTimeZone === options.timeZone) {
+        return;
+      }
+      onChange?.({ timeZone: newTimeZone });
+    },
+    [options.timeZone, onChange]
   );
 
   const setShowAs = useCallback(
@@ -109,6 +129,12 @@ export const FormulaOptionsInner = (props: {
           formatting={formatting}
           onChange={setFormatting}
         />
+        {cellValueType !== CellValueType.DateTime && (
+          <TimeZoneFormatting
+            timeZone={options?.timeZone}
+            onChange={(value) => setTimeZone(value)}
+          />
+        )}
       </div>
       {Boolean(expression) && (
         <div className="space-y-2">

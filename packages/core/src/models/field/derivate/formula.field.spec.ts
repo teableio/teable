@@ -39,6 +39,7 @@ describe('FormulaFieldCore', () => {
     options: {
       expression: '{fld123} + 2',
       formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+      timeZone: 'Asia/Shanghai',
       showAs: singleNumberShowAsProps,
     },
     cellValueType: CellValueType.Number,
@@ -351,7 +352,7 @@ describe('FormulaFieldCore', () => {
     });
 
     it('should get default options', () => {
-      expect(FormulaFieldCore.defaultOptions(CellValueType.Number)).toEqual({
+      expect(FormulaFieldCore.defaultOptions(CellValueType.Number)).toMatchObject({
         expression: '',
         formatting: {
           type: NumberFormattingType.Decimal,

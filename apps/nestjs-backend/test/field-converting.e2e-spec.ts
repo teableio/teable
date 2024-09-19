@@ -24,6 +24,7 @@ import {
   DateFormattingPreset,
   generateFieldId,
   DriverClient,
+  CellFormat,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -1433,8 +1434,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
     beforeEach(async () => {
       table1 = await createTable(baseId, { name: 'table1' });
-      table2 = await createTable(baseId, { name: 'table2' });
-      table3 = await createTable(baseId, { name: 'table3' });
 
       refField1 = await createField(table1.id, refField1Ro);
       refField2 = await createField(table1.id, refField2Ro);
@@ -1448,8 +1447,6 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
     afterEach(async () => {
       await permanentDeleteTable(baseId, table1.id);
-      await permanentDeleteTable(baseId, table2.id);
-      await permanentDeleteTable(baseId, table3.id);
     });
 
     it('should convert formula and modify expression', async () => {
@@ -1492,6 +1489,52 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       expect(records.records[0].fields[newField2.id]).toEqual(1);
       expect(records.records[1].fields[newField2.id]).toEqual(2);
+    });
+
+    it('should convert formula to text', async () => {
+      const dateTimeField = await createField(table1.id, {
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.Hour24,
+            timeZone: 'America/Los_Angeles',
+          },
+        },
+      });
+
+      const formulaField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${dateTimeField.id}}`,
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.Hour12,
+            timeZone: 'America/Los_Angeles',
+          },
+        },
+      });
+
+      const updated = await updateRecordByApi(
+        table1.id,
+        table1.records[0].id,
+        dateTimeField.id,
+        '2024-02-28 16:00'
+      );
+
+      expect(updated.fields[dateTimeField.id]).toEqual('2024-02-29T00:00:00.000Z');
+      expect(updated.fields[formulaField.id]).toEqual('2024-02-29T00:00:00.000Z');
+
+      const textResult = await getRecord(table1.id, table1.records[0].id, CellFormat.Text);
+      expect(textResult.fields[dateTimeField.id]).toEqual('2024-02-28 16:00');
+      expect(textResult.fields[formulaField.id]).toEqual('2024-02-28 04:00 PM');
+
+      await convertField(table1.id, formulaField.id, {
+        type: FieldType.SingleLineText,
+      });
+
+      const results = await getRecord(table1.id, table1.records[0].id);
+      expect(results.fields[formulaField.id]).toEqual('2024-02-28 04:00 PM');
     });
   });
 

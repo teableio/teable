@@ -319,7 +319,7 @@ describe('RollupFieldCore', () => {
     });
 
     it('should get default options', () => {
-      expect(RollupFieldCore.defaultOptions(CellValueType.Number)).toEqual({
+      expect(RollupFieldCore.defaultOptions(CellValueType.Number)).toMatchObject({
         expression: 'countall({values})',
         formatting: {
           type: NumberFormattingType.Decimal,

@@ -3,7 +3,12 @@ import { EvalVisitor } from '../../../formula/visitor';
 import type { CellValueType, FieldType } from '../constant';
 import type { FieldCore } from '../field';
 import type { ILookupOptionsVo } from '../field.schema';
-import { getDefaultFormatting, getFormattingSchema, unionFormattingSchema } from '../formatting';
+import {
+  getDefaultFormatting,
+  getFormattingSchema,
+  timeZoneStringSchema,
+  unionFormattingSchema,
+} from '../formatting';
 import { getShowAsSchema, unionShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
@@ -25,6 +30,7 @@ export const ROLLUP_FUNCTIONS = [
 
 export const rollupFieldOptionsSchema = z.object({
   expression: z.enum(ROLLUP_FUNCTIONS),
+  timeZone: timeZoneStringSchema.optional(),
   formatting: unionFormattingSchema.optional(),
   showAs: unionShowAsSchema.optional(),
 });
@@ -39,6 +45,7 @@ export class RollupFieldCore extends FormulaAbstractCore {
   static defaultOptions(cellValueType: CellValueType): IRollupFieldOptions {
     return {
       expression: ROLLUP_FUNCTIONS[0],
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as string,
       formatting: getDefaultFormatting(cellValueType),
     };
   }

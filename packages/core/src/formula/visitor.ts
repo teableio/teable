@@ -34,7 +34,8 @@ export class EvalVisitor
   private readonly converter = new TypedValueConverter();
   constructor(
     private dependencies: { [fieldId: string]: FieldCore },
-    private record?: IRecord
+    private record?: IRecord,
+    private timeZone = 'UTC'
   ) {
     super();
   }
@@ -304,6 +305,7 @@ export class EvalVisitor
     const value = func.eval(params as TypedValue<any>[], {
       record: this.record,
       dependencies: this.dependencies,
+      timeZone: this.timeZone,
     });
     return new TypedValue(value, type, isMultiple);
   }

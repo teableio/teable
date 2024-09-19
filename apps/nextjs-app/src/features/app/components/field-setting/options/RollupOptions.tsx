@@ -12,7 +12,8 @@ import { BaseSingleSelect } from '@teable/sdk/components/filter/view-filter/comp
 import { RollupField } from '@teable/sdk/model';
 import { isEmpty, isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import { TimeZoneFormatting } from '../formatting/TimeZoneFormatting';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
 
@@ -52,44 +53,73 @@ export const RollupOptions = (props: {
   const { expression, formatting, showAs } = options;
   const { t } = useTranslation(['table']);
 
-  const typedValue = isLookup
-    ? { cellValueType, isMultipleCellValue }
-    : calculateRollupTypedValue(expression, cellValueType, isMultipleCellValue);
+  const typedValue = useMemo(
+    () =>
+      isLookup
+        ? { cellValueType, isMultipleCellValue }
+        : calculateRollupTypedValue(expression, cellValueType, isMultipleCellValue),
+    [expression, cellValueType, isMultipleCellValue, isLookup]
+  );
 
-  const onExpressionChange = (expr: IRollupFieldOptions['expression']) => {
-    const { cellValueType: newCellValueType } = isLookup
-      ? { cellValueType }
-      : calculateRollupTypedValue(expr, cellValueType, isMultipleCellValue);
-    const newOptions: IRollupFieldOptions = { expression: expr };
-    if (newCellValueType !== cellValueType) {
-      const defaultFormatting = getDefaultFormatting(newCellValueType);
-      newOptions.formatting = defaultFormatting;
-      newOptions.showAs = undefined;
-    }
-    onChange?.(newOptions);
-  };
+  const onExpressionChange = useCallback(
+    (expr: IRollupFieldOptions['expression']) => {
+      const { cellValueType: newCellValueType } = isLookup
+        ? { cellValueType }
+        : calculateRollupTypedValue(expr, cellValueType, isMultipleCellValue);
+      const newOptions: IRollupFieldOptions = {
+        expression: expr,
+        timeZone:
+          formatting && 'timeZone' in formatting && formatting?.timeZone
+            ? formatting.timeZone
+            : options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+      if (newCellValueType !== cellValueType) {
+        const defaultFormatting = getDefaultFormatting(newCellValueType);
+        newOptions.formatting = defaultFormatting;
+        newOptions.showAs = undefined;
+      }
+      onChange?.(newOptions);
+    },
+    [cellValueType, formatting, isMultipleCellValue, isLookup, options.timeZone, onChange]
+  );
 
-  const onFormattingChange = (newFormatting?: IUnionFormatting) => {
-    const { cellValueType } = typedValue;
-    const formattingResult = getFormattingSchema(cellValueType).safeParse(newFormatting);
-    const formattingParsed = formattingResult.success ? formattingResult.data : undefined;
+  const onFormattingChange = useCallback(
+    (newFormatting?: IUnionFormatting) => {
+      const { cellValueType } = typedValue;
+      const formattingResult = getFormattingSchema(cellValueType).safeParse(newFormatting);
+      const formattingParsed = formattingResult.success ? formattingResult.data : undefined;
 
-    if (isEqual(formattingParsed, formatting)) {
-      return;
-    }
-    onChange?.({ formatting: isEmpty(formattingParsed) ? undefined : newFormatting });
-  };
+      if (isEqual(formattingParsed, formatting)) {
+        return;
+      }
+      onChange?.({ formatting: isEmpty(formattingParsed) ? undefined : newFormatting });
+    },
+    [formatting, onChange, typedValue]
+  );
 
-  const onShowAsChange = (newShowAs?: IUnionShowAs) => {
-    const { cellValueType, isMultipleCellValue } = typedValue;
-    const showAsResult = getShowAsSchema(cellValueType, isMultipleCellValue).safeParse(newShowAs);
-    const showAsParsed = showAsResult.success ? showAsResult.data : undefined;
+  const setTimeZone = useCallback(
+    (newTimeZone: string) => {
+      if (newTimeZone === options.timeZone) {
+        return;
+      }
+      onChange?.({ timeZone: newTimeZone });
+    },
+    [options.timeZone, onChange]
+  );
 
-    if (isEqual(showAsParsed, showAs)) {
-      return;
-    }
-    onChange?.({ showAs: isEmpty(showAsParsed) ? undefined : newShowAs });
-  };
+  const onShowAsChange = useCallback(
+    (newShowAs?: IUnionShowAs) => {
+      const { cellValueType, isMultipleCellValue } = typedValue;
+      const showAsResult = getShowAsSchema(cellValueType, isMultipleCellValue).safeParse(newShowAs);
+      const showAsParsed = showAsResult.success ? showAsResult.data : undefined;
+
+      if (isEqual(showAsParsed, showAs)) {
+        return;
+      }
+      onChange?.({ showAs: isEmpty(showAsParsed) ? undefined : newShowAs });
+    },
+    [showAs, onChange, typedValue]
+  );
 
   const candidates = useMemo(() => {
     return ROLLUP_FUNCTIONS.map((f) => {
@@ -212,6 +242,12 @@ export const RollupOptions = (props: {
               onChange={onFormattingChange}
             />
           </div>
+          {!isLookup && cellValueType !== CellValueType.DateTime && (
+            <TimeZoneFormatting
+              timeZone={options?.timeZone}
+              onChange={(value) => setTimeZone(value)}
+            />
+          )}
           <div className="space-y-2">
             <UnionShowAs
               showAs={options?.showAs}

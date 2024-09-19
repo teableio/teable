@@ -46,6 +46,7 @@ describe('SystemFunc', () => {
     const context = {
       record,
       dependencies: {},
+      timeZone: 'Asia/Shanghai',
     };
 
     it('should return record id', () => {
