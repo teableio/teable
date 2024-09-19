@@ -1,6 +1,14 @@
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { CellValueType } from '../../models/field/constant';
 import type { TypedValue } from '../typed-value';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
+
+dayjs.extend(relativeTime);
+dayjs.extend(timezone);
+dayjs.extend(utc);
 
 abstract class NumericFunc extends FormulaFunc {
   readonly type = FormulaFuncType.Numeric;
@@ -102,7 +110,7 @@ export class Average extends NumericFunc {
 export class Max extends NumericFunc {
   name = FunctionName.Max;
 
-  acceptValueType = new Set([CellValueType.Number]);
+  acceptValueType = new Set([CellValueType.Number, CellValueType.DateTime]);
 
   acceptMultipleValue = true;
 
@@ -111,44 +119,60 @@ export class Max extends NumericFunc {
       throw new Error(`${FunctionName.Max} needs at least 1 param`);
     }
     params.forEach((param, i) => {
-      if (param && param.type === CellValueType.String) {
-        throw new Error(`${FunctionName.Max} can't process string type param at ${i + 1}`);
+      if (param && param.type !== CellValueType.Number && param.type !== CellValueType.DateTime) {
+        throw new Error(
+          `${FunctionName.Max} can only process number or datetime type param at ${i + 1}`
+        );
       }
     });
   }
 
   getReturnType(params?: TypedValue[]) {
     params && this.validateParams(params);
-    return { type: CellValueType.Number };
+    return { type: params?.[0].type || CellValueType.Number };
   }
 
-  eval(params: TypedValue<number | null | (number | null)[]>[]): number | null {
+  eval(
+    params: TypedValue<number | string | null | (number | string | null)[]>[]
+  ): number | string | null {
     let max: number | null = null;
 
+    const updateMax = (value: number | string | null) => {
+      if (value === null) return;
+      const timestamp = typeof value === 'string' ? new Date(value).getTime() : value;
+      if (max === null || timestamp > max) {
+        max = timestamp;
+      }
+    };
+
     params.forEach((param) => {
-      if (param.isMultiple) {
-        if (!Array.isArray(param.value)) {
-          return;
-        }
-        const currentMax = Math.max(...(param.value.filter((v) => v !== null) as number[]));
-        if (max === null || currentMax > max) {
-          max = currentMax;
+      if (param.isMultiple && Array.isArray(param.value)) {
+        const values = param.value.filter((v): v is string | number => v !== null);
+        if (param.type === CellValueType.DateTime) {
+          const currentMax = values.reduce(
+            (maxDate, v) => {
+              const timestamp = new Date(v as string).getTime();
+              return maxDate === null || timestamp > maxDate ? timestamp : maxDate;
+            },
+            null as number | null
+          );
+          updateMax(currentMax);
+        } else {
+          updateMax(Math.max(...(values as number[])));
         }
       } else {
-        if (max === null || (param.value as number) > max) {
-          max = param.value as number;
-        }
+        updateMax(param.value as number | string | null);
       }
     });
 
-    return max;
+    if (max === null) return null;
+    return params[0].type === CellValueType.DateTime ? new Date(max).toISOString() : max;
   }
 }
-
 export class Min extends NumericFunc {
   name = FunctionName.Min;
 
-  acceptValueType = new Set([CellValueType.Number]);
+  acceptValueType = new Set([CellValueType.Number, CellValueType.DateTime]);
 
   acceptMultipleValue = true;
 
@@ -157,37 +181,54 @@ export class Min extends NumericFunc {
       throw new Error(`${FunctionName.Min} needs at least 1 param`);
     }
     params.forEach((param, i) => {
-      if (param && param.type === CellValueType.String) {
-        throw new Error(`${FunctionName.Min} can't process string type param at ${i + 1}`);
+      if (param && param.type !== CellValueType.Number && param.type !== CellValueType.DateTime) {
+        throw new Error(
+          `${FunctionName.Min} can only process number or datetime type param at ${i + 1}`
+        );
       }
     });
   }
 
   getReturnType(params?: TypedValue[]) {
     params && this.validateParams(params);
-    return { type: CellValueType.Number };
+    return { type: params?.[0].type || CellValueType.Number };
   }
 
-  eval(params: TypedValue<number | null | (number | null)[]>[]): number | null {
+  eval(
+    params: TypedValue<number | string | null | (number | string | null)[]>[]
+  ): number | string | null {
     let min: number | null = null;
 
+    const updateMin = (value: number | string | null) => {
+      if (value === null) return;
+      const timestamp = typeof value === 'string' ? new Date(value).getTime() : value;
+      if (min === null || timestamp < min) {
+        min = timestamp;
+      }
+    };
+
     params.forEach((param) => {
-      if (param.isMultiple) {
-        if (!Array.isArray(param.value)) {
-          return;
-        }
-        const currentMin = Math.min(...(param.value.filter((v) => v !== null) as number[]));
-        if (min === null || currentMin < min) {
-          min = currentMin;
+      if (param.isMultiple && Array.isArray(param.value)) {
+        const values = param.value.filter((v): v is string | number => v !== null);
+        if (param.type === CellValueType.DateTime) {
+          const currentMin = values.reduce(
+            (minDate, v) => {
+              const timestamp = new Date(v as string).getTime();
+              return minDate === null || timestamp < minDate ? timestamp : minDate;
+            },
+            null as number | null
+          );
+          updateMin(currentMin);
+        } else {
+          updateMin(Math.min(...(values as number[])));
         }
       } else {
-        if (min === null || (param.value as number) < min) {
-          min = param.value as number;
-        }
+        updateMin(param.value as number | string | null);
       }
     });
 
-    return min;
+    if (min === null) return null;
+    return params[0].type === CellValueType.DateTime ? new Date(min).toISOString() : min;
   }
 }
 

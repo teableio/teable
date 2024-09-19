@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import { z } from '../../../zod';
-import type { timeZoneStringSchema } from './time-zone';
+import { timeZoneStringSchema } from './time-zone';
 
 export enum DateFormattingPreset {
   US = 'M/D/YYYY',
@@ -28,24 +28,7 @@ export const datetimeFormattingSchema = z
     time: z.nativeEnum(TimeFormatting).openapi({
       description: 'the display formatting of the time.',
     }),
-    timeZone: z
-      .string()
-      .refine(
-        (value) => {
-          try {
-            new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions();
-            return true;
-          } catch (e) {
-            return false;
-          }
-        },
-        {
-          message: 'Invalid time zone string',
-        }
-      )
-      .openapi({
-        description: 'the display time zone of the time',
-      }),
+    timeZone: timeZoneStringSchema,
   })
   .openapi({
     description:
@@ -59,7 +42,7 @@ export type IDatetimeFormatting = z.infer<typeof datetimeFormattingSchema>;
 export const defaultDatetimeFormatting: IDatetimeFormatting = {
   date: DateFormattingPreset.ISO,
   time: TimeFormatting.None,
-  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
+  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 };
 
 export const formatDateToString = (

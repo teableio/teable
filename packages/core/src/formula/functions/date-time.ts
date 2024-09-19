@@ -1,8 +1,10 @@
 import type { ManipulateType, UnitType } from 'dayjs';
-import dayjs, { extend, isDayjs } from 'dayjs';
+import dayjs, { isDayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import isBetween from 'dayjs/plugin/isBetween';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import { isNumber, isString } from 'lodash';
 import { CellValueType } from '../../models/field/constant';
@@ -11,10 +13,14 @@ import type { IFormulaContext } from './common';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
 import { FormulaBaseError } from './logical';
 
-extend(relativeTime);
-extend(weekOfYear);
-extend(isBetween);
-extend(customParseFormat);
+dayjs.extend(relativeTime);
+dayjs.extend(weekOfYear);
+dayjs.extend(isBetween);
+dayjs.extend(customParseFormat);
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+export { dayjs };
 
 abstract class DateTimeFunc extends FormulaFunc {
   readonly type = FormulaFuncType.DateTime;
@@ -45,12 +51,28 @@ const getUnit = (unit?: string) => {
   return 'second';
 };
 
-export const getDayjs = (isoStr: string | null, customFormat?: string) => {
+function isISODateString(dateString: string) {
+  const isoDatePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+  return isoDatePattern.test(dateString);
+}
+
+export const getDayjs = (isoStr: string | null, timeZone: string, customFormat?: string) => {
   if (isoStr == null) return null;
   if (isDayjs(isoStr)) return isoStr;
   if (!isString(isoStr)) throw new FormulaBaseError();
 
-  const date = customFormat ? dayjs(isoStr, customFormat) : dayjs(isoStr);
+  let date;
+  if (customFormat) {
+    // For custom format, assume it's in the specified timezone
+    date = dayjs.tz(isoStr, customFormat, timeZone);
+  } else if (isISODateString(isoStr)) {
+    // If it's a valid ISO string, convert to the specified timezone
+    date = dayjs(isoStr).tz(timeZone);
+  } else {
+    // For other formats, assume it's in the specified timezone
+    date = dayjs.tz(isoStr, timeZone);
+  }
+
   if (!date.isValid()) throw new FormulaBaseError();
   return date;
 };
@@ -111,9 +133,9 @@ export class Year extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
-    return getDayjs(value)?.year() ?? null;
+    return getDayjs(value, context.timeZone)?.year() ?? null;
   }
 }
 
@@ -135,9 +157,9 @@ export class Month extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
-    const month = getDayjs(value)?.month() ?? null;
+    const month = getDayjs(value, context.timeZone)?.month() ?? null;
     return isNumber(month) ? month + 1 : null;
   }
 }
@@ -160,9 +182,9 @@ export class WeekNum extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
-    return getDayjs(value)?.week() ?? null;
+    return getDayjs(value, context.timeZone)?.week() ?? null;
   }
 }
 
@@ -184,10 +206,10 @@ export class Weekday extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
     const startDayOfWeek = params[1]?.value ?? 'sunday';
-    const currentDate = getDayjs(value);
+    const currentDate = getDayjs(value, context.timeZone);
     if (currentDate == null) return null;
     const weekday = currentDate.day();
     if (startDayOfWeek.toLowerCase() === 'monday') {
@@ -215,9 +237,9 @@ export class Day extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
-    return getDayjs(value)?.date() ?? null;
+    return getDayjs(value, context.timeZone)?.date() ?? null;
   }
 }
 
@@ -239,9 +261,9 @@ export class Hour extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
-    return getDayjs(value)?.hour() ?? null;
+    return getDayjs(value, context.timeZone)?.hour() ?? null;
   }
 }
 
@@ -263,9 +285,9 @@ export class Minute extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
-    return getDayjs(value)?.minute() ?? null;
+    return getDayjs(value, context.timeZone)?.minute() ?? null;
   }
 }
 
@@ -287,9 +309,9 @@ export class Second extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | null>[]): number | null {
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): number | null {
     const value = params[0].value;
-    return getDayjs(value)?.second() ?? null;
+    return getDayjs(value, context.timeZone)?.second() ?? null;
   }
 }
 
@@ -311,8 +333,8 @@ export class FromNow extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | boolean | null>[]): number | null {
-    const targetDate = getDayjs(params[0].value as string);
+  eval(params: TypedValue<string | boolean | null>[], context: IFormulaContext): number | null {
+    const targetDate = getDayjs(params[0].value as string, context.timeZone);
     const unit = (params[1]?.value ?? 'd') as UnitType;
     const isFloat = Boolean(params[2]?.value ?? false);
     const diffCount = dayjs().diff(targetDate, unit, isFloat);
@@ -331,7 +353,7 @@ export class ToNow extends FromNow {
 }
 
 export class DatetimeDiff extends DateTimeFunc {
-  name = FunctionName.FromNow;
+  name = FunctionName.DatetimeDiff;
 
   acceptValueType = new Set([CellValueType.DateTime, CellValueType.String, CellValueType.Boolean]);
 
@@ -348,9 +370,9 @@ export class DatetimeDiff extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | boolean | null>[]): number | null {
-    const startDate = getDayjs(params[0].value as string);
-    const endDate = getDayjs(params[1].value as string);
+  eval(params: TypedValue<string | boolean | null>[], context: IFormulaContext): number | null {
+    const startDate = getDayjs(params[0].value as string, context.timeZone);
+    const endDate = getDayjs(params[1].value as string, context.timeZone);
     const unit = (params[2]?.value ?? 'day') as UnitType;
     const isFloat = Boolean(params[3]?.value ?? false);
     if (startDate == null || endDate == null) return null;
@@ -377,8 +399,8 @@ export class Workday extends DateTimeFunc {
     return { type: CellValueType.DateTime };
   }
 
-  eval(params: TypedValue<string | number | null>[]): string | null {
-    const startDate = getDayjs(params[0].value as string);
+  eval(params: TypedValue<string | number | null>[], context: IFormulaContext): string | null {
+    const startDate = getDayjs(params[0].value as string, context.timeZone);
 
     if (startDate == null) return null;
 
@@ -388,7 +410,7 @@ export class Workday extends DateTimeFunc {
       isString(holidayStr)
         ? holidayStr
             .split(',')
-            .map((str) => getDayjs(str.trim()))
+            .map((str) => getDayjs(str.trim(), context.timeZone))
             .filter(Boolean)
         : []
     ) as dayjs.Dayjs[];
@@ -444,9 +466,9 @@ export class WorkdayDiff extends DateTimeFunc {
     return { type: CellValueType.Number };
   }
 
-  eval(params: TypedValue<string | number | null>[]): number | null {
-    const startDate = getDayjs(params[0].value as string);
-    const endDate = getDayjs(params[1].value as string);
+  eval(params: TypedValue<string | number | null>[], context: IFormulaContext): number | null {
+    const startDate = getDayjs(params[0].value as string, context.timeZone);
+    const endDate = getDayjs(params[1].value as string, context.timeZone);
 
     if (startDate == null || endDate == null) return null;
 
@@ -455,7 +477,7 @@ export class WorkdayDiff extends DateTimeFunc {
       isString(holidayStr)
         ? holidayStr
             .split(',')
-            .map((str) => getDayjs(str.trim()))
+            .map((str) => getDayjs(str.trim(), context.timeZone))
             .filter(Boolean)
         : []
     ) as dayjs.Dayjs[];
@@ -501,9 +523,9 @@ export class IsSame extends DateTimeFunc {
     return { type: CellValueType.Boolean };
   }
 
-  eval(params: TypedValue<string | null>[]): boolean | null {
-    const date1 = getDayjs(params[0].value as string);
-    const date2 = getDayjs(params[1].value as string);
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): boolean | null {
+    const date1 = getDayjs(params[0].value as string, context.timeZone);
+    const date2 = getDayjs(params[1].value as string, context.timeZone);
 
     if (date1 == null || date2 == null) return null;
 
@@ -530,9 +552,9 @@ export class IsAfter extends DateTimeFunc {
     return { type: CellValueType.Boolean };
   }
 
-  eval(params: TypedValue<string | null>[]): boolean | null {
-    const date1 = getDayjs(params[0].value as string);
-    const date2 = getDayjs(params[1].value as string);
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): boolean | null {
+    const date1 = getDayjs(params[0].value as string, context.timeZone);
+    const date2 = getDayjs(params[1].value as string, context.timeZone);
 
     if (date1 == null || date2 == null) return null;
 
@@ -559,9 +581,9 @@ export class IsBefore extends DateTimeFunc {
     return { type: CellValueType.Boolean };
   }
 
-  eval(params: TypedValue<string | null>[]): boolean | null {
-    const date1 = getDayjs(params[0].value as string);
-    const date2 = getDayjs(params[1].value as string);
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): boolean | null {
+    const date1 = getDayjs(params[0].value as string, context.timeZone);
+    const date2 = getDayjs(params[1].value as string, context.timeZone);
 
     if (date1 == null || date2 == null) return null;
 
@@ -588,8 +610,8 @@ export class DateAdd extends DateTimeFunc {
     return { type: CellValueType.DateTime };
   }
 
-  eval(params: TypedValue<string | number | null>[]): string | null {
-    const date = getDayjs(params[0].value as string);
+  eval(params: TypedValue<string | number | null>[], context: IFormulaContext): string | null {
+    const date = getDayjs(params[0].value as string, context.timeZone);
 
     if (date == null) return null;
 
@@ -617,8 +639,8 @@ export class Datestr extends DateTimeFunc {
     return { type: CellValueType.String };
   }
 
-  eval(params: TypedValue<string | null>[]): string | null {
-    const date = getDayjs(params[0].value);
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): string | null {
+    const date = getDayjs(params[0].value as string, context.timeZone);
 
     if (date == null) return null;
 
@@ -644,8 +666,8 @@ export class Timestr extends DateTimeFunc {
     return { type: CellValueType.String };
   }
 
-  eval(params: TypedValue<string | null>[]): string | null {
-    const date = getDayjs(params[0].value);
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): string | null {
+    const date = getDayjs(params[0].value as string, context.timeZone);
 
     if (date == null) return null;
 
@@ -671,8 +693,8 @@ export class DatetimeFormat extends DateTimeFunc {
     return { type: CellValueType.String };
   }
 
-  eval(params: TypedValue<string | null>[]): string | null {
-    const date = getDayjs(params[0].value);
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): string | null {
+    const date = getDayjs(params[0].value as string, context.timeZone);
 
     if (date == null) return null;
 
@@ -699,8 +721,8 @@ export class DatetimeParse extends DateTimeFunc {
     return { type: CellValueType.DateTime };
   }
 
-  eval(params: TypedValue<string | null>[]): string | null {
-    const date = getDayjs(params[0].value, params[1]?.value as string);
+  eval(params: TypedValue<string | null>[], context: IFormulaContext): string | null {
+    const date = getDayjs(params[0].value, context.timeZone, params[1]?.value as string);
 
     if (date == null) return null;
     return date.toISOString();

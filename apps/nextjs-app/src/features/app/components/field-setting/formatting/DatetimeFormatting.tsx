@@ -1,11 +1,15 @@
 import type { IDatetimeFormatting } from '@teable/core';
-import { DateFormattingPreset, TIME_ZONE_LIST, TimeFormatting } from '@teable/core';
+import { DateFormattingPreset, TimeFormatting } from '@teable/core';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@teable/ui-lib';
 import { Label } from '@teable/ui-lib/shadcn/ui/label';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { useTranslation } from 'next-i18next';
 import { Selector } from '@/components/Selector';
-import 'dayjs/plugin/utc';
+import { TimeZoneFormatting } from './TimeZoneFormatting';
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -46,14 +50,6 @@ const friendlyFormatStrings: { [key: string]: string } = {
   mr: 'D MMMM, YYYY', // Marathi
   ta: 'D MMMM, YYYY', // Tamil
 };
-
-function getUTCOffset(timeZone: string): string {
-  const offsetMinutes = dayjs().tz(timeZone).utcOffset();
-
-  const offsetHours = offsetMinutes / 60;
-
-  return offsetHours >= 0 ? `UTC+${offsetHours}` : `UTC${offsetHours}`;
-}
 
 function getFormatStringForLanguage(language: string, preset: { [key: string]: string }) {
   // If the full language tag is not found, fallback to the base language
@@ -122,13 +118,6 @@ const useSelectInfoMap = (currentDateFormatting: string) => {
       label: t('table:field.default.date.timeFormatting'),
       list: timeFormattingPresetOptions,
     },
-    timeZone: {
-      label: t('table:field.default.date.timeZone'),
-      list: TIME_ZONE_LIST.map((item) => ({
-        text: `${item} (${systemTimeZone === item ? t('common:settings.setting.system') : getUTCOffset(item)})`,
-        value: item,
-      })),
-    },
   };
 };
 
@@ -145,7 +134,7 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) =
     timeZone: formatting?.timeZone || systemTimeZone,
   };
 
-  const { date, time, timeZone } = useSelectInfoMap(formatting.date);
+  const { date, time } = useSelectInfoMap(formatting.date);
 
   const onFormattingChange = (value: string, typeKey: string) => {
     onChange?.({
@@ -183,16 +172,10 @@ export const DatetimeFormatting: React.FC<IProps> = ({ formatting, onChange }) =
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-2">
-        <Label className="font-normal">{timeZone.label}</Label>
-        <Selector
-          className="w-full"
-          contentClassName="w-[333px]"
-          candidates={timeZone.list.map((item) => ({ id: item.value, name: item.text }))}
-          selectedId={formatting.timeZone}
-          onChange={(value) => onFormattingChange(value, 'timeZone')}
-        />
-      </div>
+      <TimeZoneFormatting
+        timeZone={formatting.timeZone}
+        onChange={(value) => onFormattingChange(value, 'timeZone')}
+      />
     </div>
   );
 };

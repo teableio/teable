@@ -3,7 +3,12 @@ import { ConversionVisitor, EvalVisitor } from '../../../formula';
 import { FieldReferenceVisitor } from '../../../formula/field-reference.visitor';
 import type { FieldType, CellValueType } from '../constant';
 import type { FieldCore } from '../field';
-import { unionFormattingSchema, getFormattingSchema, getDefaultFormatting } from '../formatting';
+import {
+  unionFormattingSchema,
+  getFormattingSchema,
+  getDefaultFormatting,
+  timeZoneStringSchema,
+} from '../formatting';
 import { getShowAsSchema, unionShowAsSchema } from '../show-as';
 import { FormulaAbstractCore } from './abstract/formula.field.abstract';
 
@@ -12,6 +17,7 @@ export const formulaFieldOptionsSchema = z.object({
     description:
       'The formula including fields referenced by their IDs. For example, LEFT(4, {Birthday}) input will be returned as LEFT(4, {fldXXX}) via API.',
   }),
+  timeZone: timeZoneStringSchema.optional(),
   formatting: unionFormattingSchema.optional(),
   showAs: unionShowAsSchema.optional(),
 });
@@ -26,6 +32,7 @@ export class FormulaFieldCore extends FormulaAbstractCore {
   static defaultOptions(cellValueType: CellValueType): IFormulaFieldOptions {
     return {
       expression: '',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       formatting: getDefaultFormatting(cellValueType),
     };
   }

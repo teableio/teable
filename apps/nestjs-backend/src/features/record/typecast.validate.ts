@@ -117,6 +117,8 @@ export class TypeCastAndValidate {
         return await this.castToUser(cellValues);
       case FieldType.Attachment:
         return await this.castToAttachment(cellValues);
+      case FieldType.Date:
+        return await this.castToDate(cellValues);
       default:
         return this.defaultCastTo(cellValues);
     }
@@ -220,6 +222,19 @@ export class TypeCastAndValidate {
     });
     await this.createOptionsIfNotExists([...allValuesSet]);
     return newCellValues;
+  }
+
+  private async castToDate(cellValues: unknown[]): Promise<unknown[]> {
+    return cellValues.map((cellValue) => {
+      if (cellValue === undefined) {
+        return;
+      }
+      const validate = this.field.validateCellValue(cellValue);
+      if (!validate.success) {
+        return this.field.repair(cellValue);
+      }
+      return validate.data == null ? null : validate.data;
+    });
   }
 
   /**

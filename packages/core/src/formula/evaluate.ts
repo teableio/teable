@@ -10,7 +10,8 @@ import { EvalVisitor } from './visitor';
 export const evaluate = (
   input: string,
   dependFieldMap: { [fieldId: string]: FieldCore },
-  record?: IRecord
+  record?: IRecord,
+  timeZone?: string
 ): TypedValue => {
   const inputStream = CharStreams.fromString(input);
   const lexer = new FormulaLexer(inputStream);
@@ -20,6 +21,6 @@ export const evaluate = (
   const errorListener = new FormulaErrorListener();
   parser.addErrorListener(errorListener);
   const tree = parser.root();
-  const visitor = new EvalVisitor(dependFieldMap, record);
+  const visitor = new EvalVisitor(dependFieldMap, record, timeZone);
   return visitor.visit(tree);
 };

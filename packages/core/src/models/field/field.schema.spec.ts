@@ -14,6 +14,7 @@ describe('field Schema Test', () => {
         type: NumberFormattingType.Decimal,
         precision: 2,
       },
+      timeZone: 'Asia/Shanghai',
     };
 
     const result = unionFieldOptionsRoSchema.safeParse(options);

@@ -7,7 +7,7 @@ import {
   NumberFormattingType,
   Relationship,
 } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import { getRecord, type ITableFullVo } from '@teable/openapi';
 import {
   createField,
   createRecords,
@@ -197,6 +197,30 @@ describe('OpenAPI formula (e2e)', () => {
       });
 
       expect(field).toBeDefined();
+    });
+
+    it('should calculate formula with timeZone', async () => {
+      const field1 = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: "DAY('2024-02-29T00:00:00+08:00')",
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      const record1 = await getRecord(table.id, table.records[0].id);
+      expect(record1.data.fields[field1.name]).toEqual(29);
+
+      const field2 = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: "DAY('2024-02-28T00:00:00+09:00')",
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      const record2 = await getRecord(table.id, table.records[0].id);
+      expect(record2.data.fields[field2.name]).toEqual(27);
     });
   });
 });

@@ -475,7 +475,12 @@ export class ReferenceService {
     }
 
     try {
-      const typedValue = evaluate(field.options.expression, fieldMap, recordItem.record);
+      const typedValue = evaluate(
+        field.options.expression,
+        fieldMap,
+        recordItem.record,
+        'timeZone' in field.options ? field.options.timeZone : undefined
+      );
       return typedValue.toPlain();
     } catch (e) {
       this.logger.error(

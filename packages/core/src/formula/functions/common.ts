@@ -14,6 +14,7 @@ export enum FormulaFuncType {
 
 export interface IFormulaContext {
   record: IRecord;
+  timeZone: string;
   dependencies: { [fieldId: string]: FieldCore };
 }
 
