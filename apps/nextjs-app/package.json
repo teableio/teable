@@ -132,7 +132,6 @@
     "express": "4.19.1",
     "filesize": "10.1.1",
     "fuse.js": "7.0.0",
-    "github-markdown-css": "5.6.1",
     "i18next": "23.10.1",
     "is-port-reachable": "3.1.0",
     "jschardet": "3.1.3",
