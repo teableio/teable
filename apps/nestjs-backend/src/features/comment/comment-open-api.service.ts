@@ -400,9 +400,9 @@ export class CommentOpenApiService {
 
     if (quoteId) {
       const { createdBy: quoteCommentCreator } =
-        (await this.prismaService.comment.findFirst({
+        (await this.prismaService.comment.findUnique({
           where: {
-            quoteId,
+            id: quoteId,
           },
           select: {
             createdBy: true,
