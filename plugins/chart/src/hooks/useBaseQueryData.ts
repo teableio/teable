@@ -36,14 +36,42 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
         accessToken = res.accessToken;
       }
 
-      return fetch(`/api${url}?${params.toString()}`, {
+      const res = await fetch(`/api${url}?${params.toString()}`, {
         method: 'GET',
         credentials: 'omit',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-      }).then((res) => res.json() as Promise<IBaseQueryVo>);
+      });
+
+      if (res.status < 200 || res.status > 300) {
+        const error: HttpError = await res.json();
+        if (res.status === 401) {
+          await fetchGetToken({
+            pluginId,
+            baseId,
+          }).then((res) => {
+            accessToken = res.accessToken;
+            return accessToken;
+          });
+          return fetch(`/api${url}?${params.toString()}`, {
+            method: 'GET',
+            credentials: 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }).then((res) => res.json() as Promise<IBaseQueryVo>);
+        }
+        onQueryError?.(error.message);
+        return {
+          rows: [],
+          columns: [],
+        } as IBaseQueryVo;
+      }
+
+      return res.json() as Promise<IBaseQueryVo>;
     },
     useErrorBoundary(error: HttpError) {
       if (error.code === HttpErrorCode.UNAUTHORIZED) {

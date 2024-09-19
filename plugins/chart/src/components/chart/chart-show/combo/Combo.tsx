@@ -98,6 +98,19 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
   const showGoalLine = defaultYAxisId && config.goalLine?.enabled;
   const xAxisConfig = config.xAxis?.[0];
 
+  const defaultMargin = isExpand
+    ? {
+        top: 20,
+        left: 12,
+        right: 12,
+        bottom: 25,
+      }
+    : {
+        top: 10,
+        left: 10,
+        right: 4,
+        bottom: 25,
+      };
   return (
     <div
       className={cn('size-full', {
@@ -106,21 +119,10 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
     >
       <ChartContainer className="size-full" config={chartConfig}>
         <ComposedChart
-          margin={
-            isExpand
-              ? {
-                  top: 20,
-                  left: 12,
-                  right: 12,
-                  bottom: 25,
-                }
-              : {
-                  top: 10,
-                  left: -10,
-                  right: 4,
-                  bottom: 25,
-                }
-          }
+          margin={{
+            ...defaultMargin,
+            ...config.padding,
+          }}
           accessibilityLayer
           data={queryData?.rows}
         >
@@ -139,7 +141,12 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
             <YAxis
               key={column}
               yAxisId={column}
-              label={config.yAxisDisplay?.label}
+              label={{
+                value: config.yAxisDisplay?.label,
+                offset: config?.padding?.left ? defaultMargin.left - config.padding.left + 5 : 5,
+                angle: -90,
+                position: 'insideLeft',
+              }}
               domain={
                 index === 0
                   ? [
@@ -186,6 +193,7 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
           />
           {Object.keys(chartConfig).map((column) => {
             const display = yAxisMap[column]?.display;
+            const { prefix, decimal, suffix } = yAxisMap[column];
             const type = display.type || defaultType;
             const lineStyle = (display as IChartBaseAxisDisplayLine).lineStyle;
             const yAxisId = chartYAxis.find((axis) => axis.column === column)
@@ -225,6 +233,9 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
                         offset={12}
                         className="fill-foreground"
                         fontSize={12}
+                        formatter={(value: number) => {
+                          return `${prefix ?? ''}${decimal ? value.toFixed(decimal) : value}${suffix ?? ''}`;
+                        }}
                       />
                     )}
                   </Bar>

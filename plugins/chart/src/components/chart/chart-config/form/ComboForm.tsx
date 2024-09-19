@@ -18,6 +18,7 @@ import { ComboXAxisDisplayEditor } from '../common/ComboXAxisDisplayEditor';
 import { ComboYAxisDisplayEditor } from '../common/ComboYAisxDisplayEditor';
 import { ConfigItem } from '../common/ConfigItem';
 import { GoalLineEditor } from '../common/GoalLineEditor';
+import { PaddingEditor } from '../common/PaddingEditor';
 import { SwitchEditor } from '../common/SwitchEditor';
 import { ComboXAxisEditor } from './ComboXAxisEditor';
 import { ComboYAxisEditor } from './ComboYAxisEditor';
@@ -212,6 +213,20 @@ export const ComboForm = (props: {
                   onChange({
                     ...config,
                     yAxisDisplay: val,
+                  });
+                }}
+              />
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="item-3">
+            <AccordionTrigger>{t('form.padding.label')}</AccordionTrigger>
+            <AccordionContent>
+              <PaddingEditor
+                value={config.padding}
+                onChange={(val) => {
+                  onChange({
+                    ...config,
+                    padding: val,
                   });
                 }}
               />

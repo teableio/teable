@@ -1,16 +1,16 @@
 {
   "empty": {
-    "title": "暂无仪表板",
-    "description": "看起来您还没有创建任何仪表板。仪表板可以帮助您更有效地可视化和管理数据。",
-    "create": "创建您的第一个仪表板"
+    "title": "暂无仪表盘",
+    "description": "看起来您还没有创建任何仪表盘。仪表盘可以帮助您更有效地可视化和管理数据。",
+    "create": "创建您的第一个仪表盘"
   },
   "addPlugin": "添加插件",
   "createDashboard": {
-    "button": "创建仪表板",
-    "title": "创建新仪表板",
-    "placeholder": "输入仪表板名称"
+    "button": "创建仪表盘",
+    "title": "创建新仪表盘",
+    "placeholder": "输入仪表盘名称"
   },
-  "findDashboard": "查找仪表板...",
+  "findDashboard": "查找仪表盘...",
   "pluginUrlEmpty": "插件未设置 URL",
   "install": "安装",
   "publisher": "发布者",

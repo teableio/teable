@@ -47,6 +47,15 @@ export const goalLineSchema = z.object({
   label: z.string().optional(),
 });
 
+export const chartPaddingSchema = z.object({
+  top: z.number().optional(),
+  right: z.number().optional(),
+  bottom: z.number().optional(),
+  left: z.number().optional(),
+});
+
+export type IChartPadding = z.infer<typeof chartPaddingSchema>;
+
 export type IGoalLine = z.infer<typeof goalLineSchema>;
 
 export const comboConfigSchema = z.object({
@@ -64,7 +73,7 @@ export const comboConfigSchema = z.object({
         .extend({
           prefix: z.string().optional(),
           suffix: z.string().optional(),
-          decimal: z.number().optional(),
+          decimal: z.number().max(10).min(0).optional(),
         })
         .extend({ display: chartBaseAxisDisplaySchema })
     )
@@ -72,6 +81,7 @@ export const comboConfigSchema = z.object({
   yAxisDisplay: chartYAxisDisplaySchema.optional(),
   goalLine: goalLineSchema.optional(),
   showLabel: z.boolean().optional(),
+  padding: chartPaddingSchema.optional(),
 });
 
 export type IComboConfig = z.infer<typeof comboConfigSchema>;
@@ -106,7 +116,7 @@ export const pieConfigSchema = z.object({
   measure: z
     .object({
       column: z.string(),
-      decimal: z.number().optional(),
+      decimal: z.number().max(10).min(0).optional(),
       prefix: z.string().optional(),
       suffix: z.string().optional(),
     })
@@ -114,6 +124,7 @@ export const pieConfigSchema = z.object({
   showLabel: z.boolean().optional(),
   showTotal: z.boolean().optional(),
   showLegend: z.boolean().optional(),
+  padding: chartPaddingSchema.optional(),
 });
 
 export type IPieConfig = z.infer<typeof pieConfigSchema>;

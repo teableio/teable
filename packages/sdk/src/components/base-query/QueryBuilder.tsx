@@ -73,9 +73,17 @@ const QueryBuilderContainer = forwardRef<
 
   useEffect(() => {
     if (query) {
-      setFromType(typeof query.from === 'string' ? 'table' : 'query');
+      if (query.from == undefined) {
+        setFromType(undefined);
+        return;
+      }
+      setFromType(
+        typeof query.from === 'string' && fromType !== 'query' && query.from ? 'table' : 'query'
+      );
+    } else {
+      setFromType(undefined);
     }
-  }, [query]);
+  }, [query, fromType]);
 
   useImperativeHandle(ref, () => ({
     validateQuery: () => {
@@ -277,12 +285,10 @@ const QueryBuilderContainer = forwardRef<
 
   const onFromQueryChange = (query?: IBaseQuery) => {
     if (!query) {
-      onQueryChange('from', '');
+      setChildContext([]);
       setFromType(undefined);
       // if tableId is undefined, clear from
-      onChange({
-        from: '',
-      });
+      onChange(undefined);
       return;
     }
     onQueryChange('from', query ?? '');

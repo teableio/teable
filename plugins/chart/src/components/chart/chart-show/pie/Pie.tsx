@@ -51,6 +51,19 @@ export const ChartPie = (props: { config: IPieConfig }) => {
   };
 
   const [totalRef, { width: totalWidth }] = useRefObserve();
+  const defaultMargin = isExpand
+    ? {
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 20,
+      }
+    : {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+      };
   return (
     <div className="flex size-full items-center justify-center">
       {/* calculate total width */}
@@ -71,21 +84,10 @@ export const ChartPie = (props: { config: IPieConfig }) => {
       </svg>
       <ChartContainer config={pieConfig} className="size-full">
         <PieChart
-          margin={
-            isExpand
-              ? {
-                  top: 20,
-                  right: 20,
-                  bottom: 20,
-                  left: 20,
-                }
-              : {
-                  top: 0,
-                  right: 0,
-                  bottom: 0,
-                  left: 0,
-                }
-          }
+          margin={{
+            ...defaultMargin,
+            ...config.padding,
+          }}
         >
           <ChartTooltip
             cursor={false}

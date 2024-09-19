@@ -7,6 +7,7 @@ import { useFilterNumberColumns } from '../../../../hooks/useFilterNumberColumns
 import type { IPieConfig } from '../../../types';
 import { ColumnSelector } from '../common/ColumnSelector';
 import { ConfigItem } from '../common/ConfigItem';
+import { PaddingEditor } from '../common/PaddingEditor';
 import { SwitchEditor } from '../common/SwitchEditor';
 
 export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConfig) => void }) => {
@@ -60,16 +61,21 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
                     step={1}
                     value={decimal ?? ''}
                     onBlur={() => {
+                      const newValue = decimal ? Math.max(0, Math.min(decimal, 10)) : undefined;
+
                       onChange({
                         ...config,
                         measure: {
                           ...config.measure!,
-                          decimal,
+                          decimal: newValue,
                         },
                       });
+                      setDecimal(newValue);
                     }}
                     onChange={(e) => {
-                      setDecimal(e.target.value ? parseInt(e.target.value) : undefined);
+                      setDecimal(
+                        e.target.value != undefined ? parseInt(e.target.value) : undefined
+                      );
                     }}
                   />
                 </ConfigItem>
@@ -144,6 +150,17 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
           });
         }}
       />
+      <ConfigItem label={t('form.padding.label')}>
+        <PaddingEditor
+          value={config.padding}
+          onChange={(val) => {
+            onChange({
+              ...config,
+              padding: val,
+            });
+          }}
+        />
+      </ConfigItem>
     </div>
   );
 };

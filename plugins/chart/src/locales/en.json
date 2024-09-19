@@ -77,7 +77,14 @@
     "showLabel": "Show values label on chart",
     "showLegend": "Show legend",
     "value": "Value",
-    "label": "Label"
+    "label": "Label",
+    "padding": {
+      "label": "Padding",
+      "top": "Top",
+      "right": "Right",
+      "bottom": "Bottom",
+      "left": "Left"
+    }
   },
   "reloadQuery": "Reload Query",
   "noStorage": "Please configure the chart plugin first",
