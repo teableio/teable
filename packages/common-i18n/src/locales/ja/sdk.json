@@ -665,5 +665,29 @@
     "aggregation": {
       "title": "集約"
     }
+  },
+  "comment": {
+    "title": "コメント",
+    "placeholder": "コメントを残す...",
+    "emptyComment": "会話を始める",
+    "deletedComment": "削除されたコメント",
+    "imageSizeLimit": "画像サイズは{{size}}を超えることはできません",
+    "tip": {
+      "editing": "編集中...",
+      "edited": "(編集済み)",
+      "onNotify": "オフにすると、あなたに関連するコメントのみ通知されます",
+      "offNotify": "オンにすると、すべてのアクティビティが通知されます"
+    },
+    "toolbar": {
+      "link": "リンク",
+      "image": "画像"
+    },
+    "floatToolbar": {
+      "editLink": "リンクを編集",
+      "caption": "キャプション",
+      "delete": "削除",
+      "linkText": "リンクテキスト",
+      "enterUrl": "URLを入力"
+    }
   }
 }

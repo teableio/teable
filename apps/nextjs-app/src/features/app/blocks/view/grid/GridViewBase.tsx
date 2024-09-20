@@ -3,7 +3,7 @@ import type { GridView } from '@teable/sdk';
 import { useGridColumns } from '@teable/sdk';
 import { useView, useViewId } from '@teable/sdk/hooks';
 import { Skeleton } from '@teable/ui-lib';
-import React, { Fragment, useState } from 'react';
+import React, { useState } from 'react';
 import { useMount } from 'react-use';
 import { GridViewBaseInner } from './GridViewBaseInner';
 

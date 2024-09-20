@@ -16,6 +16,7 @@
     "composite": true,
     "sourceMap": true,
     "incremental": true,
+    "moduleResolution": "Bundler",
     "paths": {
       "@teable/icons": ["../icons/src"],
       "@teable/core": ["../core/src"],

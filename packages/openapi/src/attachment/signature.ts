@@ -10,6 +10,7 @@ export enum UploadType {
   OAuth = 4,
   Import = 5,
   Plugin = 6,
+  Comment = 7,
 }
 
 export const signatureRoSchema = z.object({

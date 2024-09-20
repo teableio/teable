@@ -72,6 +72,17 @@
       "./packages/eslint-config-bases",
       "./packages/ui-lib",
     ],
-    "cSpell.words": ["jschardet", "sharedb", "Teable"],
+    "cSpell.words": [
+      "combobox",
+      "jschardet",
+      "overscan",
+      "sharedb",
+      "tada",
+      "Teable",
+      "thumbsdown",
+      "thumbsup",
+      "udecode",
+      "zustand",
+    ],
   },
 }

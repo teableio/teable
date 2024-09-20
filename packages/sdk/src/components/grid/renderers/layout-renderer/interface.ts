@@ -26,6 +26,7 @@ export interface IRowHeaderDrawerProps extends IRectangle {
   isHover?: boolean;
   isChecked?: boolean;
   rowIndexVisible?: boolean;
+  commentCount?: number;
 }
 
 export interface IGroupRowHeaderDrawerProps extends IRectangle {

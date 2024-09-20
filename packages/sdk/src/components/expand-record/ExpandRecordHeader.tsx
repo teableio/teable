@@ -1,4 +1,13 @@
-import { ChevronDown, ChevronUp, History, Link, MoreHorizontal, Trash2, X } from '@teable/icons';
+import {
+  ChevronDown,
+  ChevronUp,
+  History,
+  Link,
+  MoreHorizontal,
+  Trash2,
+  X,
+  MessageSquare,
+} from '@teable/icons';
 import {
   Button,
   cn,
@@ -10,12 +19,16 @@ import {
 } from '@teable/ui-lib';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
-import { usePermissionActionsStatic, useTablePermission } from '../../hooks';
+import { useTablePermission } from '../../hooks';
+import { useRecordCommentCount } from '../comment/hooks';
 import { TooltipWrap } from './TooltipWrap';
 
 interface IExpandRecordHeader {
+  tableId: string;
+  recordId: string;
   title?: string;
   recordHistoryVisible?: boolean;
+  commentVisible?: boolean;
   disabledPrev?: boolean;
   disabledNext?: boolean;
   onClose?: () => void;
@@ -23,6 +36,7 @@ interface IExpandRecordHeader {
   onNext?: () => void;
   onCopyUrl?: () => void;
   onRecordHistoryToggle?: () => void;
+  onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
 }
 
@@ -33,8 +47,11 @@ const MIN_OPERATOR_WIDTH = 200;
 
 export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
   const {
+    tableId,
+    recordId,
     title,
     recordHistoryVisible,
+    commentVisible,
     disabledPrev,
     disabledNext,
     onPrev,
@@ -42,24 +59,26 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onClose,
     onCopyUrl,
     onRecordHistoryToggle,
+    onCommentToggle,
     onDelete,
   } = props;
 
-  const { actionStaticMap } = usePermissionActionsStatic();
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
+  const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
   const showOperator = width > MIN_OPERATOR_WIDTH;
+  const recordCommentCount = useRecordCommentCount(tableId, recordId, canRead);
 
   return (
     <div
       ref={ref}
       className={cn(
         'w-full h-12 flex items-center gap-4 px-4 border-b border-solid border-border',
-        'justify-between' && !showTitle
+        { 'justify-between': !showTitle }
       )}
     >
       <div>
@@ -95,7 +114,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
         </h4>
       )}
       {showOperator && (
-        <div className="flex items-center">
+        <div className="flex items-center gap-0.5">
           <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
             <Button variant={'ghost'} size={'xs'} onClick={onCopyUrl}>
               <Link />
@@ -115,6 +134,24 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                 onClick={onRecordHistoryToggle}
               >
                 <History />
+              </Button>
+            </TooltipWrap>
+          )}
+
+          {editable && (
+            <TooltipWrap description="comment">
+              <Button
+                size={'xs'}
+                onClick={onCommentToggle}
+                variant={commentVisible ? 'secondary' : 'ghost'}
+                className="relative"
+              >
+                <MessageSquare />
+                {recordCommentCount ? (
+                  <div className="absolute left-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
+                    {recordCommentCount > 99 ? '99+' : recordCommentCount}
+                  </div>
+                ) : null}
               </Button>
             </TooltipWrap>
           )}

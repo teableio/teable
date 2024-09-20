@@ -75,6 +75,7 @@ export { default as HelpCircle } from './components/HelpCircle';
 export { default as History } from './components/History';
 export { default as Home } from './components/Home';
 export { default as HttpRequest } from './components/HttpRequest';
+export { default as Image } from './components/Image';
 export { default as Import } from './components/Import';
 export { default as Inbox } from './components/Inbox';
 export { default as Kanban } from './components/Kanban';

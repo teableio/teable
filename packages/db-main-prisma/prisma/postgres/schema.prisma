@@ -463,3 +463,31 @@ model Dashboard {
 
   @@map("dashboard")
 }
+
+model Comment {
+  id               String     @id @default(cuid())
+  tableId          String     @map("table_id")
+  recordId         String     @map("record_id")
+  quoteId          String?    @map("quote_Id")
+  content          String?
+  reaction         String?
+
+  deletedTime      DateTime?  @map("deleted_time")
+  createdTime      DateTime   @default(now()) @map("created_time")
+  createdBy        String     @map("created_by")
+  lastModifiedTime DateTime?  @updatedAt @map("last_modified_time")
+
+  @@map("comment")
+  @@index([tableId, recordId])
+}
+
+model CommentSubscription {
+  tableId          String     @map("table_id")
+  recordId         String     @map("record_id")
+  createdBy        String     @map("created_by")
+  createdTime      DateTime   @default(now()) @map("created_time")
+
+  @@unique([tableId, recordId])
+  @@index([tableId, recordId])
+  @@map("comment_subscription")
+}

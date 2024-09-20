@@ -1,5 +1,6 @@
 import { contractColorForTheme } from '@teable/core';
 import { isEqual, groupBy, cloneDeep } from 'lodash';
+import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT, ROW_RELATED_REGIONS } from '../../configs';
 import type { IVisibleRegion } from '../../hooks';
 import { getDropTargetIndex } from '../../hooks';
@@ -110,6 +111,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
     hoverCellPosition,
     theme,
     columns,
+    commentCountMap,
     imageManager,
     spriteManager,
     groupCollection,
@@ -170,6 +172,9 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
       const { type: linearRowType } = linearRow;
       const rowHeight = coordInstance.getRowHeight(rowIndex);
       const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+
+      const cell = getCellContent([columnIndex, linearRow.realIndex]);
+      const recordId = cell.id?.split('-')[0];
 
       if (linearRowType === LinearRowType.Group) {
         const { depth, value, isCollapsed } = linearRow;
@@ -263,6 +268,7 @@ export const calcCells = (props: ILayoutDrawerProps, renderRegion: RenderRegion)
           rowControls,
           theme,
           spriteManager,
+          commentCount: recordId ? commentCountMap?.[recordId] : undefined,
         });
       }
 
@@ -813,6 +819,7 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
     rowControls,
     spriteManager,
     rowIndexVisible,
+    commentCount,
   } = props;
 
   const {
@@ -854,6 +861,19 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
   });
   const halfSize = iconSizeXS / 2;
 
+  ctx.font = `${10}px ${theme.fontFamily}`;
+
+  if (commentCount) {
+    const controlSize = width / rowControls.length;
+    const offsetX = controlSize * (2 + 0.5);
+    drawCommentCount(ctx, {
+      x: x + offsetX - halfSize,
+      y: y + rowHeadIconPaddingTop,
+      count: commentCount,
+      theme,
+    });
+  }
+
   if (isChecked || isHover || !rowIndexVisible) {
     const controlSize = width / rowControls.length;
     for (let i = 0; i < rowControls.length; i++) {
@@ -871,23 +891,58 @@ export const drawRowHeader = (ctx: CanvasRenderingContext2D, props: IRowHeaderDr
         });
       } else {
         if (isChecked && !isHover && rowIndexVisible && type === RowControlType.Expand) continue;
-        spriteManager.drawSprite(ctx, {
-          sprite: icon || spriteIconMap[type],
-          x: x + offsetX - halfSize,
-          y: y + rowHeadIconPaddingTop,
-          size: iconSizeXS,
-          theme,
-        });
+        if (!commentCount || type !== RowControlType.Expand) {
+          spriteManager.drawSprite(ctx, {
+            sprite: icon || spriteIconMap[type],
+            x: x + offsetX - halfSize,
+            y: y + rowHeadIconPaddingTop,
+            size: iconSizeXS,
+            theme,
+          });
+        }
       }
     }
     return;
   }
+
   drawSingleLineText(ctx, {
     x: x + width / 2,
     y: y + cellVerticalPaddingMD + 1,
     text: displayIndex,
     textAlign: 'center',
     fill: rowHeaderTextColor,
+  });
+};
+
+export const drawCommentCount = (
+  ctx: CanvasRenderingContext2D,
+  props: {
+    x: number;
+    y: number;
+    count: number;
+    theme: IGridTheme;
+  }
+) => {
+  drawRect(ctx, {
+    ...props,
+    x: props.x,
+    y: props.y,
+    width: 18,
+    height: 16,
+    stroke: 'rgb(251 146 60)',
+    radius: 3,
+    fill: 'rgb(251 146 60)',
+  });
+
+  drawSingleLineText(ctx, {
+    ...props,
+    x: props.x + 9,
+    y: props.y + 3.5,
+    text: props.count > 99 ? '99+' : props.count.toString(),
+    textAlign: 'center',
+    verticalAlign: 'middle',
+    fontSize: 10,
+    fill: '#fff',
   });
 };
 

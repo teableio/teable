@@ -30,3 +30,4 @@ export * from './trash';
 export * from './undo-redo';
 export * from './plugin';
 export * from './dashboard';
+export * from './comment';

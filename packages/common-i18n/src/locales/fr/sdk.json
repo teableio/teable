@@ -678,5 +678,29 @@
     "aggregation": {
       "title": "Agrégation"
     }
+  },
+  "comment": {
+    "title": "Commentaire",
+    "placeholder": "Laissez un commentaire...",
+    "emptyComment": "Démarrer une conversation",
+    "deletedComment": "Commentaire supprimé",
+    "imageSizeLimit": "La taille de l'image ne peut pas dépasser {{size}}",
+    "tip": {
+      "editing": "Modification en cours...",
+      "edited": "(Modifié)",
+      "onNotify": "Vous ne serez notifié que des commentaires vous concernant si vous désactivez",
+      "offNotify": "Vous serez notifié de toutes les activités si vous activez"
+    },
+    "toolbar": {
+      "link": "Lien",
+      "image": "Image"
+    },
+    "floatToolbar": {
+      "editLink": "Modifier le lien",
+      "caption": "Légende",
+      "delete": "Supprimer",
+      "linkText": "Texte du lien",
+      "enterUrl": "Entrez l'URL"
+    }
   }
 }

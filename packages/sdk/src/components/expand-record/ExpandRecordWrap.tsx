@@ -6,15 +6,17 @@ import { ExpandRecordModel } from './type';
 export const ExpandRecordWrap: FC<
   PropsWithChildren<{
     model?: ExpandRecordModel;
+    modal?: boolean;
     visible?: boolean;
     onClose?: () => void;
+    className?: string;
   }>
 > = (props) => {
-  const { children, model, visible, onClose } = props;
+  const { children, model, visible, onClose, modal, className } = props;
 
   if (model === ExpandRecordModel.Modal)
     return (
-      <Modal visible={visible} onClose={onClose}>
+      <Modal visible={visible} onClose={onClose} modal={modal} className={className}>
         {children}
       </Modal>
     );
