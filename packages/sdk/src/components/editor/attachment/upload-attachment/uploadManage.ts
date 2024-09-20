@@ -1,5 +1,5 @@
 import type { INotifyVo, UploadType } from '@teable/openapi';
-import { getSignature, notify } from '@teable/openapi';
+import { getSignature, notify, uploadFile } from '@teable/openapi';
 import axios from 'axios';
 import { noop } from 'lodash';
 
@@ -92,22 +92,22 @@ export class AttachmentManager {
         uploadTask.errorCallback(uploadTask.file, 'Failed to get upload URL');
         return;
       }
-      const { url, uploadMethod, token, requestHeaders } = res.data;
+      const { token, requestHeaders } = res.data;
       delete requestHeaders['Content-Length'];
-      await axios(url, {
-        method: uploadMethod,
-        data: fileInstance,
-        onUploadProgress: (progressEvent) => {
-          const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 0));
-          uploadTask.progress = progress;
-          uploadTask.progressCallback(uploadTask.file, progress); // Update progress
-        },
-        headers: {
+      const arrayBuffer = await fileInstance.arrayBuffer();
+      await uploadFile(
+        token,
+        Buffer.from(arrayBuffer),
+        {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ...(requestHeaders as any),
         },
-      });
-
+        (progressEvent) => {
+          const progress = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 0));
+          uploadTask.progress = progress;
+          uploadTask.progressCallback(uploadTask.file, progress); // Update progress
+        }
+      );
       const notifyRes = await notify(token, this.shareId, fileInstance.name);
       if (!notifyRes.data) {
         uploadTask.errorCallback(uploadTask.file);
