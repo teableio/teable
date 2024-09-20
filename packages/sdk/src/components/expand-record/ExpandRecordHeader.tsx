@@ -1,4 +1,13 @@
-import { ChevronDown, ChevronUp, History, Link, MoreHorizontal, Trash2, X } from '@teable/icons';
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  History,
+  Link,
+  MoreHorizontal,
+  Trash2,
+  X,
+} from '@teable/icons';
 import {
   Button,
   cn,
@@ -24,6 +33,7 @@ interface IExpandRecordHeader {
   onCopyUrl?: () => void;
   onRecordHistoryToggle?: () => void;
   onDelete?: () => Promise<void>;
+  onDuplicate?: () => Promise<void>;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -43,6 +53,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onCopyUrl,
     onRecordHistoryToggle,
     onDelete,
+    onDuplicate,
   } = props;
 
   const { actionStaticMap } = usePermissionActionsStatic();
@@ -125,6 +136,15 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
                 <MoreHorizontal />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
+                <DropdownMenuItem
+                  className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm  outline-none"
+                  onClick={async () => {
+                    await onDuplicate?.();
+                    onClose?.();
+                  }}
+                >
+                  <Copy /> {t('expandRecord.duplicateRecord')}
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
                   onClick={async () => {

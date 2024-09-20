@@ -29,6 +29,8 @@ import {
   IGetRecordHistoryQuery,
   updateRecordsRoSchema,
   IUpdateRecordsRo,
+  recordInsertOrderRoSchema,
+  IRecordInsertOrderRo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../../event-emitter/events';
@@ -137,6 +139,16 @@ export class RecordOpenApiController {
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
     return await this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsRo);
+  }
+
+  @Permissions('record|create')
+  @Post(':recordId')
+  async duplicateRecords(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Body(new ZodValidationPipe(recordInsertOrderRoSchema)) order: IRecordInsertOrderRo
+  ) {
+    return await this.recordOpenApiService.duplicateRecords(tableId, recordId, order);
   }
 
   @Permissions('record|delete')
