@@ -26,6 +26,8 @@ import type {
   ITableFullVo,
   ICreateSpaceRo,
   ICreateBaseRo,
+  IDuplicateVo,
+  IRecordInsertOrderRo,
 } from '@teable/openapi';
 import {
   axios,
@@ -39,6 +41,7 @@ import {
   createField as apiCreateField,
   deleteField as apiDeleteField,
   convertField as apiConvertField,
+  duplicateRecords as apiDuplicateRecords,
   getFields as apiGetFields,
   getField as apiGetField,
   getViewList as apiGetViewList,
@@ -312,6 +315,25 @@ export async function getRecords(tableId: string, query?: IGetRecordsRo): Promis
   const result = await apiGetRecords(tableId, query);
 
   return result.data;
+}
+
+export async function duplicateRecord(
+  tableId: string,
+  recordId: string,
+  order: IRecordInsertOrderRo,
+  expectStatus = 201
+) {
+  try {
+    const res = await apiDuplicateRecords(tableId, recordId, order);
+
+    expect(res.status).toEqual(expectStatus);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IDuplicateVo;
+  }
 }
 
 export async function createRecords(

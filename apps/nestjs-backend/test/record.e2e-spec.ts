@@ -12,6 +12,7 @@ import {
   deleteRecord,
   deleteRecords,
   permanentDeleteTable,
+  duplicateRecord,
   getField,
   getRecord,
   getRecords,
@@ -279,6 +280,31 @@ describe('OpenAPI RecordController (e2e)', () => {
           },
         ],
       });
+    });
+
+    it('should duplicate a record', async () => {
+      const value1 = 'New Record';
+      const addRecordRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: value1,
+            },
+          },
+        ],
+      });
+      const addRecord = await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
+      expect(addRecord.fields[table.fields[0].id]).toEqual(value1);
+
+      const viewId = table.views[0].id;
+      const duplicateRes = await duplicateRecord(table.id, addRecord.id, {
+        viewId,
+        anchorId: addRecord.id,
+        position: 'after',
+      });
+      const record = await getRecord(table.id, duplicateRes.ids[0], undefined, 200);
+      expect(record.fields[table.fields[0].id]).toEqual(value1);
     });
   });
 

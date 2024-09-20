@@ -36,6 +36,7 @@ interface IExpandRecordProps {
   onRecordHistoryToggle?: () => void;
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
+  onDuplicate?: () => Promise<void>;
 }
 
 export const ExpandRecord = (props: IExpandRecordProps) => {
@@ -55,6 +56,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     onRecordHistoryToggle,
     onCommentToggle,
     onDelete,
+    onDuplicate,
   } = props;
   const views = useViews() as (GridView | undefined)[];
   const tableId = useTableId();
@@ -150,6 +152,21 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             tableId={tableId}
           />
         )}
+        <ExpandRecordHeader
+          title={record?.name}
+          recordHistoryVisible={recordHistoryVisible}
+          disabledPrev={disabledPrev}
+          disabledNext={disabledNext}
+          onClose={onClose}
+          onPrev={onPrevInner}
+          onNext={onNextInner}
+          onCopyUrl={onCopyUrl}
+          onRecordHistoryToggle={onRecordHistoryToggle}
+          onDelete={onDelete}
+          onDuplicate={onDuplicate}
+          tableId={tableId}
+          recordId={recordId}
+        />
         <div className="relative flex flex-1 overflow-hidden">
           {recordHistoryVisible ? (
             <div className="flex size-full overflow-hidden rounded-b bg-background">

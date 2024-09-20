@@ -1,5 +1,5 @@
 import type { IRecord } from '@teable/core';
-import { deleteRecord } from '@teable/openapi';
+import { deleteRecord, duplicateRecords } from '@teable/openapi';
 import { useToast } from '@teable/ui-lib';
 import { useEffect, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -47,6 +47,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     onClose,
     onUpdateRecordIdCallback,
     commentId,
+    viewId,
   } = props;
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -71,6 +72,15 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   if (!recordId) {
     return <></>;
   }
+
+  const onDuplicate = async (tableId: string, recordId: string) => {
+    await duplicateRecords(tableId, recordId, {
+      viewId: viewId || '',
+      anchorId: recordId,
+      position: 'after',
+    });
+    toast({ description: t('expandRecord.duplicateRecord') });
+  };
 
   const updateCurrentRecordId = (recordId: string) => {
     onUpdateRecordIdCallback?.(recordId);
@@ -108,6 +118,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
           onPrev={updateCurrentRecordId}
           onNext={updateCurrentRecordId}
           onCopyUrl={onCopyUrl}
+          onDuplicate={async () => await onDuplicate(tableId, recordId)}
           onRecordHistoryToggle={onRecordHistoryToggle}
           onCommentToggle={onCommentToggle}
           onDelete={async () => {

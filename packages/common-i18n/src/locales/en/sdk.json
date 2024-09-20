@@ -179,6 +179,7 @@
   },
   "expandRecord": {
     "copy": "Copy to clipboard",
+    "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "Copy record URL",
     "deleteRecord": "Delete record",
     "recordHistory": {
