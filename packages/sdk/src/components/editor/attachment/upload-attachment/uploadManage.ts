@@ -1,6 +1,5 @@
 import type { INotifyVo, UploadType } from '@teable/openapi';
 import { getSignature, notify, uploadFile } from '@teable/openapi';
-import axios from 'axios';
 import { noop } from 'lodash';
 
 interface IUploadTask {

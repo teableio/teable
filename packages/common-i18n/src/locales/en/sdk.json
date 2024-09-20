@@ -38,7 +38,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Release to upload file",
-      "uploadDragDefault": "Paste or drag and drop to upload here"
+      "uploadDragDefault": "Paste or drag and drop to upload here",
+      "upload": "upload"
     },
     "date": {
       "placeholder": "Pick a date",
