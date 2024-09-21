@@ -171,6 +171,8 @@
       "editField": "编辑字段",
       "insertField": "插入字段",
       "graph": "关系图",
+      "defaultValue": "Default value",
+      "reset": "Reset",
       "fieldUpdated": "字段已更新",
       "fieldCreated": "字段已创建",
       "previewDependenciesGraph": "预览依赖关系图",
