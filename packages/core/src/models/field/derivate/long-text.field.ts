@@ -2,7 +2,9 @@ import { z } from 'zod';
 import type { CellValueType, FieldType } from '../constant';
 import { FieldCore } from '../field';
 
-export const longTextFieldOptionsSchema = z.object({}).strict();
+export const longTextFieldOptionsSchema = z
+  .object({ defaultValue: z.string().optional() })
+  .strict();
 
 export type ILongTextFieldOptions = z.infer<typeof longTextFieldOptionsSchema>;
 

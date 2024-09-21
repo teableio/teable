@@ -6,8 +6,8 @@ import { useMemo } from 'react';
 import type { ICellValue } from '../type';
 import { SelectTag } from './SelectTag';
 
-export const transformSelectOptions = (options: ISelectFieldOptions) => {
-  return options.choices.map(({ name, color }) => ({
+export const transformSelectOptions = (choices: ISelectFieldOptions['choices']) => {
+  return choices.map(({ name, color }) => ({
     label: name,
     value: name,
     color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',

@@ -109,7 +109,7 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
         }}
       />
       <OptionList options={filteredOptions} onSelect={onSelect} checkIsActive={checkIsActive} />
-      {(filteredOptions.length === 0 || optionAddable) && (
+      {onOptionAdd && (filteredOptions.length === 0 || optionAddable) && (
         <CommandItem
           className={cn('items-center justify-center', !optionAddable && 'opacity-0 h-0 p-0')}
           onSelect={onOptionAddInner}

@@ -1,25 +1,18 @@
 import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
-import type { ISelectFieldChoice, ISelectFieldOptions, Colors } from '@teable/core';
-import { COLOR_PALETTE, ColorUtils } from '@teable/core';
+import type { ISelectFieldChoice, ISelectFieldOptions } from '@teable/core';
+import { ColorUtils } from '@teable/core';
 import { DraggableHandle, Plus, Trash } from '@teable/icons';
-import { Input, cn } from '@teable/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn/ui/popover';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import type { VirtuosoHandle } from 'react-virtuoso';
 import { Virtuoso } from 'react-virtuoso';
 import { HeightPreservingItem } from '@/features/app/blocks/view/kanban/components/KanbanStack';
 import { tableConfig } from '@/features/i18n/table.config';
-
-interface IOptionItemProps {
-  choice: ISelectFieldChoice;
-  readonly?: boolean;
-  onChange: (key: keyof ISelectFieldChoice, value: string) => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  onInputRef?: (el: HTMLInputElement | null) => void;
-}
+import { ChoiceItem } from './ChoiceItem';
+import { SelectDefaultValue } from './SelectDefaultValue';
 
 const getChoiceId = (choice: ISelectFieldChoice, index: number) => {
   const { id, color, name } = choice;
@@ -27,11 +20,12 @@ const getChoiceId = (choice: ISelectFieldChoice, index: number) => {
 };
 
 export const SelectOptions = (props: {
+  isMultiple: boolean;
   options: Partial<ISelectFieldOptions> | undefined;
   isLookup?: boolean;
   onChange?: (options: Partial<ISelectFieldOptions>) => void;
 }) => {
-  const { options, isLookup, onChange } = props;
+  const { isMultiple, options, isLookup, onChange } = props;
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -49,6 +43,10 @@ export const SelectOptions = (props: {
       return v;
     });
     onChange?.({ choices: newChoice });
+  };
+
+  const onDefaultValueChange = (defaultValue: string | string[] | undefined) => {
+    onChange?.({ defaultValue });
   };
 
   const deleteChoice = (index: number) => {
@@ -95,7 +93,7 @@ export const SelectOptions = (props: {
 
   return (
     <div className="flex grow flex-col space-y-2">
-      <div className="grow">
+      <div className="grow" style={{ maxHeight: choices.length * 36 }}>
         <DragDropContext onDragEnd={onDragEnd}>
           <Droppable
             droppableId={'select-choice-container'}
@@ -197,129 +195,25 @@ export const SelectOptions = (props: {
         </DragDropContext>
       </div>
       {!isLookup && (
-        <div className="mt-1 shrink-0">
-          <Button
-            className="w-full gap-2 text-sm font-normal"
-            size={'sm'}
-            variant={'outline'}
-            onClick={addOption}
-          >
-            <Plus className="size-4" />
-            {t('table:field.editor.addOption')}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export const ChoiceItem = (props: IOptionItemProps) => {
-  const { choice, readonly, onChange, onKeyDown, onInputRef } = props;
-  const { color, name } = choice;
-  const bgColor = ColorUtils.getHexForColor(color);
-
-  return (
-    <li className="flex grow items-center">
-      {readonly ? (
-        <div className="h-auto rounded-full border-2 p-[2px]" style={{ borderColor: bgColor }}>
-          <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
-        </div>
-      ) : (
-        <Popover>
-          <PopoverTrigger>
+        <>
+          <div className="mt-1 shrink-0">
             <Button
-              variant={'ghost'}
-              className="h-auto rounded-full border-2 p-[2px]"
-              style={{ borderColor: bgColor }}
+              className="w-full gap-2 text-sm font-normal"
+              size={'sm'}
+              variant={'outline'}
+              onClick={addOption}
             >
-              <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
+              <Plus className="size-4" />
+              {t('table:field.editor.addOption')}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-2">
-            <ColorPicker color={color} onSelect={(color) => onChange('color', color)} />
-          </PopoverContent>
-        </Popover>
-      )}
-      <div className="flex-1 px-2">
-        <ChoiceInput
-          reRef={(el) => onInputRef?.(el)}
-          name={name}
-          readOnly={readonly}
-          onKeyDown={(e) => onKeyDown?.(e)}
-          onChange={(value) => onChange('name', value)}
-        />
-      </div>
-    </li>
-  );
-};
-
-export const ChoiceInput: React.FC<{
-  reRef: React.Ref<HTMLInputElement>;
-  readOnly?: boolean;
-  name: string;
-  onChange: (name: string) => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-}> = ({ name, readOnly, onChange, onKeyDown, reRef }) => {
-  const [value, setValue] = useState<string>(name);
-  const onChangeInner = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const curValue = e.target.value;
-    setValue(curValue);
-  };
-
-  return (
-    <Input
-      ref={reRef}
-      className="h-7"
-      type="text"
-      value={value}
-      readOnly={readOnly}
-      onChange={onChangeInner}
-      onKeyDown={onKeyDown}
-      onBlur={() => onChange(value)}
-    />
-  );
-};
-
-export const ColorPicker = ({
-  color,
-  onSelect,
-}: {
-  color: Colors;
-  onSelect: (color: Colors) => void;
-}) => {
-  return (
-    <div className="flex w-64 flex-wrap p-2">
-      {COLOR_PALETTE.map((group, index) => {
-        return (
-          <div key={index}>
-            {group.map((c) => {
-              const bg = ColorUtils.getHexForColor(c);
-
-              return (
-                <Button
-                  key={c}
-                  variant={'ghost'}
-                  className={cn('p-1 my-1 rounded-full h-auto', {
-                    'border-2 p-[2px]': color === c,
-                  })}
-                  style={{ borderColor: bg }}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    onSelect(c);
-                  }}
-                >
-                  <div
-                    style={{
-                      backgroundColor: bg,
-                    }}
-                    className="size-4 rounded-full"
-                  />
-                </Button>
-              );
-            })}
           </div>
-        );
-      })}
+          <SelectDefaultValue
+            isMultiple={isMultiple}
+            onChange={onDefaultValueChange}
+            options={options}
+          />
+        </>
+      )}
     </div>
   );
 };

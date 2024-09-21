@@ -69,7 +69,7 @@ export const CellValue = (props: ICellValueContainer) => {
       return (
         <CellSelect
           value={value as ISingleSelectCellValue | IMultipleSelectCellValue}
-          options={transformSelectOptions(options)}
+          options={transformSelectOptions(options.choices)}
           className={className}
           itemClassName={itemClassName}
           maxWidth={maxWidth}

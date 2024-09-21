@@ -12,6 +12,7 @@ import { getShowAsSchema, numberShowAsSchema } from '../show-as';
 export const numberFieldOptionsSchema = z.object({
   formatting: numberFormattingSchema,
   showAs: numberShowAsSchema.optional(),
+  defaultValue: z.number().optional(),
 });
 
 export const numberFieldOptionsRoSchema = numberFieldOptionsSchema.partial({
