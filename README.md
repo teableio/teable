@@ -57,8 +57,8 @@
 
 All you want is here
 
-- Batch cell Editing
-- Formula Suppor
+- Batch Cell Editing
+- Formula Support
 - Data Sorting and Filtering
 - Aggregation Function
 - Data Formatting
@@ -67,8 +67,8 @@ All you want is here
 - Import/Export
 - Undo/Redo
 - Data Validation
-- Charts & Visualization (coming soon)
-- Comments (coming soon)
+- Charts & Visualization
+- Comments
 - Row Styling(coming soon)
 
 #### 🗂️ Multiple Views
