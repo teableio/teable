@@ -171,6 +171,8 @@
       "editField": "Редактировать поле",
       "insertField": "Вставить поле",
       "graph": "Граф",
+      "defaultValue": "Default value",
+      "reset": "Reset",
       "fieldUpdated": "Поле было обновлено",
       "fieldCreated": "Поле было создано",
       "previewDependenciesGraph": "Просмотреть граф зависимостей",
