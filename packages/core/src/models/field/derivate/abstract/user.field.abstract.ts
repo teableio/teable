@@ -37,7 +37,11 @@ export abstract class UserAbstractCore extends FieldCore {
 
   validateCellValue(cellValue: unknown) {
     if (this.isMultipleCellValue) {
-      return z.array(userCellValueSchema).nonempty().nullable().safeParse(cellValue);
+      return z
+        .array(userCellValueSchema)
+        .transform((arr) => (arr.length === 0 ? null : arr))
+        .nullable()
+        .safeParse(cellValue);
     }
     return userCellValueSchema.nullable().safeParse(cellValue);
   }

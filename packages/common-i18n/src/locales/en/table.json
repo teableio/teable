@@ -171,6 +171,8 @@
       "editField": "Edit Field",
       "insertField": "Insert Field",
       "graph": "Graph",
+      "defaultValue": "Default value",
+      "reset": "Reset",
       "fieldUpdated": "Field has been updated",
       "fieldCreated": "Field has been created",
       "previewDependenciesGraph": "Preview Dependencies Graph",

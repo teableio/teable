@@ -24,6 +24,7 @@ describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
 
   const baseId = globalThis.testConfig.baseId;
+  const userId = globalThis.testConfig.userId;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -559,6 +560,132 @@ describe('OpenAPI RecordController (e2e)', () => {
 
       expect(data.records[0].fields[lookupField.id]).toBeUndefined();
       expect(data.records[0].fields[rollup.id]).toBeUndefined();
+    });
+  });
+
+  describe('create record with default value', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should create a record with default single select', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'default value' }],
+          defaultValue: 'default value',
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toEqual('default value');
+    });
+
+    it('should create a record with default multiple select', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [{ name: 'default value' }, { name: 'default value2' }],
+          defaultValue: ['default value', 'default value2'],
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toEqual(['default value', 'default value2']);
+    });
+
+    it('should create a record with default number', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Number,
+        options: {
+          defaultValue: 1,
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toEqual(1);
+    });
+
+    it('should create a record with default user', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          defaultValue: userId,
+        },
+      });
+      const field2 = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          defaultValue: ['me'],
+        },
+      });
+      const field3 = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          defaultValue: [userId],
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toMatchObject({
+        id: userId,
+        title: expect.any(String),
+        email: expect.any(String),
+        avatarUrl: expect.any(String),
+      });
+      expect(records[0].fields[field2.id]).toMatchObject([
+        {
+          id: userId,
+          title: expect.any(String),
+          email: expect.any(String),
+          avatarUrl: expect.any(String),
+        },
+      ]);
+      expect(records[0].fields[field3.id]).toMatchObject([
+        {
+          id: userId,
+          title: expect.any(String),
+          email: expect.any(String),
+          avatarUrl: expect.any(String),
+        },
+      ]);
     });
   });
 });
