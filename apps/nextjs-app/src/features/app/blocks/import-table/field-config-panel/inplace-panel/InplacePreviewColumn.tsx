@@ -25,7 +25,31 @@ interface IPreviewColumnProps {
   onChange: (columns: IInplaceImportOptionRo['insertConfig']['sourceColumnMap']) => void;
 }
 
-const UNSUPPORTFIELDTYPES = [FieldType.User, FieldType.Rollup, FieldType.Formula];
+// all field support in inplace-import
+const SupportTypeMaps: Record<FieldType, boolean> = {
+  [FieldType.SingleLineText]: true,
+  [FieldType.LongText]: true,
+  [FieldType.Checkbox]: true,
+  [FieldType.MultipleSelect]: true,
+  [FieldType.SingleSelect]: true,
+  [FieldType.Date]: true,
+  [FieldType.Number]: true,
+  [FieldType.Duration]: true,
+  [FieldType.Rating]: true,
+  [FieldType.Formula]: false,
+  [FieldType.Rollup]: false,
+  [FieldType.Count]: true,
+  [FieldType.Link]: true,
+  // unSupport
+  [FieldType.User]: false,
+  [FieldType.Attachment]: false,
+  [FieldType.CreatedTime]: false,
+  [FieldType.LastModifiedTime]: false,
+  [FieldType.CreatedBy]: false,
+  [FieldType.LastModifiedBy]: false,
+  [FieldType.AutoNumber]: false,
+  [FieldType.Button]: false,
+};
 
 export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
   const { onChange, fields, workSheets, insertConfig } = props;
@@ -56,7 +80,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     // TODO add more match logic
     if (isEmptySourceColumnMap && analyzeColumns?.length) {
       columns.forEach((col, index) => {
-        if (analyzeColumns[index] && !UNSUPPORTFIELDTYPES.includes(col.type)) {
+        if (analyzeColumns[index] && SupportTypeMaps[col.type]) {
           const matchIndex = analyzeColumns.findIndex(
             (c) => c.name.toLowerCase() === col.name.toLowerCase()
           );
@@ -107,7 +131,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
                       <FieldSelector
                         value={value}
                         options={options}
-                        disabled={UNSUPPORTFIELDTYPES.includes(column.type)}
+                        disabled={!SupportTypeMaps[column.type]}
                         onSelect={(value) => {
                           const result: Record<string, number | null> = {};
                           const selectedIndex = options.findIndex((o) => o.value === value);
@@ -115,7 +139,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
                           onChange(result);
                         }}
                       />
-                      {UNSUPPORTFIELDTYPES.includes(column.type) && (
+                      {!SupportTypeMaps[column.type] && (
                         <TooltipContent>
                           <p>{t('table:import.tips.notSupportFieldType')}</p>
                         </TooltipContent>
