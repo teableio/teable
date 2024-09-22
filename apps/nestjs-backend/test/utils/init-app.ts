@@ -103,7 +103,7 @@ export async function initApp() {
   await app.listen(0);
   const nestUrl = await app.getUrl();
   const port = new URL(nestUrl).port;
-  const url = `http://127.0.0.1:${port}`;
+  const url = `http://localhost:${port}`;
 
   process.env.PORT = port;
   // for attachment origin set
