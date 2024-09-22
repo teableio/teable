@@ -245,8 +245,11 @@ export class ImportOpenApiService {
             return;
           }
           try {
+            const createFn = columnInfo
+              ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
+              : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
             workerId === id &&
-              (await this.recordOpenApiService.createRecordsOnlySql(table.id, {
+              (await createFn(table.id, {
                 fieldKeyType: FieldKeyType.Id,
                 typecast: true,
                 records,
