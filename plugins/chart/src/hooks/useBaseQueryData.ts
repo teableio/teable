@@ -7,6 +7,31 @@ import { fetchGetToken } from '../api';
 import { ChartContext } from '../components/ChartProvider';
 import { useEnv } from './useEnv';
 
+export const formatRes = (res?: IBaseQueryVo): IBaseQueryVo => {
+  if (!res) {
+    return {
+      rows: [],
+      columns: [],
+    };
+  }
+  const { columns, rows } = res;
+  // recharts does not support column name with space
+  const formatColumn = (column: string) => column.replaceAll(' ', '_');
+  return {
+    columns: columns.map((column) => ({
+      ...column,
+      column: formatColumn(column.column),
+    })),
+    rows: rows.map((row) => {
+      const newRow: Record<string, unknown> = {};
+      columns.forEach((column) => {
+        newRow[formatColumn(column.column)] = row[column.column];
+      });
+      return newRow;
+    }),
+  };
+};
+
 let accessToken: string = '';
 
 export const useBaseQueryData = (cellFormat?: CellFormat) => {
@@ -62,7 +87,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${accessToken}`,
             },
-          }).then((res) => res.json() as Promise<IBaseQueryVo>);
+          }).then((res) => res.json().then((res) => formatRes(res)) as Promise<IBaseQueryVo>);
         }
         onQueryError?.(error.message);
         return {
@@ -71,7 +96,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
         } as IBaseQueryVo;
       }
 
-      return res.json() as Promise<IBaseQueryVo>;
+      return res.json().then((res) => formatRes(res));
     },
     useErrorBoundary(error: HttpError) {
       if (error.code === HttpErrorCode.UNAUTHORIZED) {

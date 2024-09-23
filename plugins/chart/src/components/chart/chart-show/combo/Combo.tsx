@@ -106,7 +106,7 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
         bottom: 25,
       }
     : {
-        top: 10,
+        top: 20,
         left: 10,
         right: 4,
         bottom: 25,
@@ -120,8 +120,10 @@ export const ChartCombo = (props: { config: IComboConfig; defaultType?: IComboTy
       <ChartContainer className="size-full" config={chartConfig}>
         <ComposedChart
           margin={{
-            ...defaultMargin,
-            ...config.padding,
+            top: config.padding?.top ?? defaultMargin.top,
+            left: config.padding?.left ?? defaultMargin.left,
+            right: config.padding?.right ?? defaultMargin.right,
+            bottom: config.padding?.bottom ?? defaultMargin.bottom,
           }}
           accessibilityLayer
           data={queryData?.rows}

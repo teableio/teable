@@ -71,6 +71,7 @@ export const comboConfigSchema = z.object({
     .array(
       chartBaseAxisSchema
         .extend({
+          label: z.string().optional(),
           prefix: z.string().optional(),
           suffix: z.string().optional(),
           decimal: z.number().max(10).min(0).optional(),

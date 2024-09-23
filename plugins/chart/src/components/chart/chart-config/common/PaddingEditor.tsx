@@ -11,7 +11,7 @@ export const PaddingEditor = (props: {
   const { t } = useTranslation();
   const [padding, setPadding] = useState(value);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 p-0.5">
       <div className="flex items-center gap-2">
         <Label className="w-14 text-right text-xs">{t('form.padding.top')}</Label>
         <Input
@@ -20,9 +20,10 @@ export const PaddingEditor = (props: {
           value={padding?.top || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
+            const number = parseFloat(e.target.value);
             setPadding({
               ...padding,
-              top: e.target.value ? parseFloat(e.target.value) : undefined,
+              top: isNaN(number) ? undefined : number,
             });
           }}
         />
@@ -35,9 +36,10 @@ export const PaddingEditor = (props: {
           value={padding?.right || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
+            const number = parseFloat(e.target.value);
             setPadding({
               ...padding,
-              right: e.target.value ? parseFloat(e.target.value) : undefined,
+              right: isNaN(number) ? undefined : number,
             });
           }}
         />
@@ -50,9 +52,10 @@ export const PaddingEditor = (props: {
           value={padding?.bottom || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
+            const number = parseFloat(e.target.value);
             setPadding({
               ...padding,
-              bottom: e.target.value ? parseFloat(e.target.value) : undefined,
+              bottom: isNaN(number) ? undefined : number,
             });
           }}
         />
@@ -65,9 +68,10 @@ export const PaddingEditor = (props: {
           value={padding?.left || ''}
           onBlur={() => onChange(padding)}
           onChange={(e) => {
+            const number = parseFloat(e.target.value);
             setPadding({
               ...padding,
-              left: e.target.value ? parseFloat(e.target.value) : undefined,
+              left: isNaN(number) ? undefined : number,
             });
           }}
         />

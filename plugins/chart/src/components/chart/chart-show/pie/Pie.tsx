@@ -65,7 +65,7 @@ export const ChartPie = (props: { config: IPieConfig }) => {
         left: 0,
       };
   return (
-    <div className="flex size-full items-center justify-center">
+    <div className="chart-pie flex size-full items-center justify-center">
       {/* calculate total width */}
       <svg className="pointer-events-none absolute -z-10" style={{ visibility: 'hidden' }}>
         <text
@@ -85,8 +85,10 @@ export const ChartPie = (props: { config: IPieConfig }) => {
       <ChartContainer config={pieConfig} className="size-full">
         <PieChart
           margin={{
-            ...defaultMargin,
-            ...config.padding,
+            top: config.padding?.top ?? defaultMargin.top,
+            left: config.padding?.left ?? defaultMargin.left,
+            right: config.padding?.right ?? defaultMargin.right,
+            bottom: config.padding?.bottom ?? defaultMargin.bottom,
           }}
         >
           <ChartTooltip

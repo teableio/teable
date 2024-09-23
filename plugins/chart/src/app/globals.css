@@ -67,3 +67,11 @@
 html, body {
   height: 100%;
 }
+
+.chart-pie .recharts-legend-wrapper {
+  margin-top: 0;
+}
+
+.recharts-legend-wrapper {
+  margin-top: -12px;
+}

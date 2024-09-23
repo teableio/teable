@@ -73,9 +73,8 @@ export const PieForm = (props: { config: IPieConfig; onChange: (config: IPieConf
                       setDecimal(newValue);
                     }}
                     onChange={(e) => {
-                      setDecimal(
-                        e.target.value != undefined ? parseInt(e.target.value) : undefined
-                      );
+                      const number = parseInt(e.target.value);
+                      setDecimal(isNaN(number) ? undefined : number);
                     }}
                   />
                 </ConfigItem>

@@ -25,7 +25,7 @@ export const useComboConfig = (config: IComboConfig, columns?: IBaseQueryColumn[
         ...acc,
         [y.column]: {
           color: getColor(index),
-          label: columnMap[y.column]?.name || y.column,
+          label: y.label || columnMap[y.column]?.name || y.column,
         },
       };
     }, {} as ChartConfig);

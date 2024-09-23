@@ -36,6 +36,7 @@ export const ComboYAxisEditor = (props: {
       prefix: config.prefix,
       suffix: config.suffix,
       display: config.display,
+      label: config.label,
     });
   };
 
@@ -74,7 +75,7 @@ const YAxisConfigEditor = (props: {
   const [suffix, setSuffix] = useState(value.suffix);
   const [prefix, setPrefix] = useState(value.prefix);
   const [decimal, setDecimal] = useState(value.decimal);
-
+  const [label, setLabel] = useState(value.label);
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -89,8 +90,17 @@ const YAxisConfigEditor = (props: {
             onChange({ ...value, display: val });
           }}
         />
+        <ConfigItem label={t('form.label')}>
+          <Input
+            className="h-7 text-[13px]"
+            value={label || ''}
+            onBlur={() => onChange({ ...value, label })}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+        </ConfigItem>
         <ConfigItem label={t('form.prefix')}>
           <Input
+            className="h-7 text-[13px]"
             value={prefix || ''}
             onBlur={() => onChange({ ...value, prefix })}
             onChange={(e) => setPrefix(e.target.value)}
@@ -98,6 +108,7 @@ const YAxisConfigEditor = (props: {
         </ConfigItem>
         <ConfigItem label={t('form.suffix')}>
           <Input
+            className="h-7 text-[13px]"
             value={suffix || ''}
             onBlur={() => onChange({ ...value, suffix })}
             onChange={(e) => setSuffix(e.target.value)}
@@ -106,6 +117,7 @@ const YAxisConfigEditor = (props: {
         <ConfigItem label={t('form.decimal')}>
           <Input
             value={decimal ?? ''}
+            className="h-7 text-[13px]"
             type="number"
             onBlur={() => {
               const newValue = decimal ? Math.max(0, Math.min(decimal, 10)) : undefined;
@@ -115,9 +127,10 @@ const YAxisConfigEditor = (props: {
               });
               setDecimal(newValue);
             }}
-            onChange={(e) =>
-              setDecimal(e.target.value != undefined ? parseInt(e.target.value) : undefined)
-            }
+            onChange={(e) => {
+              const number = parseInt(e.target.value);
+              setDecimal(isNaN(number) ? undefined : number);
+            }}
           />
         </ConfigItem>
       </PopoverContent>
