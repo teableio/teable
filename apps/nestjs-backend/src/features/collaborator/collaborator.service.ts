@@ -221,6 +221,22 @@ export class CollaboratorService {
     return { currentColl, targetColl };
   }
 
+  async isUniqueOwnerUser(spaceId: string, userId: string) {
+    const collaborators = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        resourceType: CollaboratorType.Space,
+        resourceId: spaceId,
+        roleName: Role.Owner,
+        user: {
+          isSystem: null,
+          deletedTime: null,
+          deactivatedTime: null,
+        },
+      },
+    });
+    return collaborators.length === 1 && collaborators[0].userId === userId;
+  }
+
   async deleteCollaborator({
     resourceId,
     resourceType,
@@ -246,7 +262,6 @@ export class CollaboratorService {
     ) {
       throw new ForbiddenException(`You do not have permission to delete this user: ${userId}`);
     }
-
     const result = await this.prismaService.txClient().collaborator.delete({
       where: {
         // eslint-disable-next-line @typescript-eslint/naming-convention
