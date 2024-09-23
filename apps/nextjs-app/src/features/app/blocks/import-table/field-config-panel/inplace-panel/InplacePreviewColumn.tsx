@@ -1,4 +1,4 @@
-import { type IFieldVo, FieldType } from '@teable/core';
+import { type IFieldVo } from '@teable/core';
 import { ArrowLeft } from '@teable/icons';
 import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk';
@@ -25,8 +25,6 @@ interface IPreviewColumnProps {
   onChange: (columns: IInplaceImportOptionRo['insertConfig']['sourceColumnMap']) => void;
 }
 
-const UNSUPPORTFIELDTYPES = [FieldType.User, FieldType.Rollup, FieldType.Formula];
-
 export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
   const { onChange, fields, workSheets, insertConfig } = props;
   const fieldStaticGetter = useFieldStaticGetter();
@@ -37,6 +35,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     type: col.type,
     name: col.name,
     id: col.id,
+    isComputed: col.isComputed,
   }));
 
   const sourceColumnMap = workSheets?.[insertConfig.sourceWorkSheetKey] || {};
@@ -56,7 +55,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     // TODO add more match logic
     if (isEmptySourceColumnMap && analyzeColumns?.length) {
       columns.forEach((col, index) => {
-        if (analyzeColumns[index] && !UNSUPPORTFIELDTYPES.includes(col.type)) {
+        if (analyzeColumns[index] && !col.isComputed) {
           const matchIndex = analyzeColumns.findIndex(
             (c) => c.name.toLowerCase() === col.name.toLowerCase()
           );
@@ -107,7 +106,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
                       <FieldSelector
                         value={value}
                         options={options}
-                        disabled={UNSUPPORTFIELDTYPES.includes(column.type)}
+                        disabled={column.isComputed}
                         onSelect={(value) => {
                           const result: Record<string, number | null> = {};
                           const selectedIndex = options.findIndex((o) => o.value === value);
@@ -115,7 +114,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
                           onChange(result);
                         }}
                       />
-                      {UNSUPPORTFIELDTYPES.includes(column.type) && (
+                      {column.isComputed && (
                         <TooltipContent>
                           <p>{t('table:import.tips.notSupportFieldType')}</p>
                         </TooltipContent>
