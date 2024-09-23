@@ -429,6 +429,86 @@ describe('BaseSqlQuery e2e', () => {
           },
         ]);
       });
+
+      it('from query include aggregation, filter and group query aggregation field - query include select', async () => {
+        const res = await baseQuery(baseId, {
+          select: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+            {
+              column: table.fields[2].id,
+              type: BaseQueryColumnType.Field,
+            },
+          ],
+          where: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+                type: BaseQueryColumnType.Aggregation,
+                operator: isGreater.value,
+                value: 25,
+              },
+            ],
+          },
+          groupBy: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+            {
+              column: table.fields[2].id,
+              type: BaseQueryColumnType.Field,
+            },
+          ],
+          orderBy: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+              type: BaseQueryColumnType.Aggregation,
+              order: SortFunc.Desc,
+            },
+          ],
+          from: {
+            select: [
+              {
+                column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+                type: BaseQueryColumnType.Aggregation,
+              },
+              {
+                column: table.fields[2].id,
+                type: BaseQueryColumnType.Field,
+              },
+            ],
+            from: table.id,
+            aggregation: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                statisticFunc: StatisticsFunc.Sum,
+              },
+            ],
+            groupBy: [
+              {
+                column: table.fields[2].id,
+                type: BaseQueryColumnType.Field,
+              },
+            ],
+          },
+        });
+        expect(res.data.columns).toHaveLength(2);
+        expect(res.data.rows).toEqual([
+          {
+            [`${table.fields[1].id}_${StatisticsFunc.Sum}`]: 60,
+            [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+          },
+          {
+            [`${table.fields[1].id}_${StatisticsFunc.Sum}`]: 30,
+            [`${table.fields[2].id}_${table.fields[2].name}`]: 'Backend Developer',
+          },
+        ]);
+      });
     });
   });
 

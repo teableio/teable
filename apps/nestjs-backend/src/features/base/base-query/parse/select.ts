@@ -49,6 +49,9 @@ export class QuerySelect {
             } else if (field && !aggregationColumn.includes(cur.column)) {
               // filter aggregation column, because aggregation column has selected when parse aggregation
               queryBuilder.select(cur.column);
+            } else if (field) {
+              // aggregation field id as alias
+              currentFieldMap[cur.column].dbFieldName = cur.column;
             }
             return acc;
           },
@@ -75,7 +78,12 @@ export class QuerySelect {
     // tips: The current query has an aggregation and cannot be deleted. ( select * count(fld) as fld_count from xxxxx) => fld_count cannot be deleted
     if (select) {
       Object.keys(currentFieldMap).forEach((key) => {
-        if (!select.find((s) => s.column === key) && !aggregationColumn.includes(key)) {
+        if (!select.find((s) => s.column === key)) {
+          if (aggregationColumn.includes(key)) {
+            // aggregation field id as alias
+            currentFieldMap[key].dbFieldName = key;
+            return;
+          }
           delete currentFieldMap[key];
         }
       });
