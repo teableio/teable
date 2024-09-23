@@ -1,4 +1,4 @@
-import { type IFieldVo, FieldType } from '@teable/core';
+import { type IFieldVo } from '@teable/core';
 import { ArrowLeft } from '@teable/icons';
 import type { IInplaceImportOptionRo, IImportOptionRo } from '@teable/openapi';
 import { useFieldStaticGetter } from '@teable/sdk';
@@ -25,32 +25,6 @@ interface IPreviewColumnProps {
   onChange: (columns: IInplaceImportOptionRo['insertConfig']['sourceColumnMap']) => void;
 }
 
-// all field support in inplace-import
-const SupportTypeMaps: Record<FieldType, boolean> = {
-  [FieldType.SingleLineText]: true,
-  [FieldType.LongText]: true,
-  [FieldType.Checkbox]: true,
-  [FieldType.MultipleSelect]: true,
-  [FieldType.SingleSelect]: true,
-  [FieldType.Date]: true,
-  [FieldType.Number]: true,
-  [FieldType.Duration]: true,
-  [FieldType.Rating]: true,
-  [FieldType.Formula]: false,
-  [FieldType.Rollup]: false,
-  [FieldType.Count]: true,
-  [FieldType.Link]: true,
-  // unSupport
-  [FieldType.User]: false,
-  [FieldType.Attachment]: false,
-  [FieldType.CreatedTime]: false,
-  [FieldType.LastModifiedTime]: false,
-  [FieldType.CreatedBy]: false,
-  [FieldType.LastModifiedBy]: false,
-  [FieldType.AutoNumber]: false,
-  [FieldType.Button]: false,
-};
-
 export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
   const { onChange, fields, workSheets, insertConfig } = props;
   const fieldStaticGetter = useFieldStaticGetter();
@@ -61,6 +35,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     type: col.type,
     name: col.name,
     id: col.id,
+    isComputed: col.isComputed,
   }));
 
   const sourceColumnMap = workSheets?.[insertConfig.sourceWorkSheetKey] || {};
@@ -80,7 +55,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     // TODO add more match logic
     if (isEmptySourceColumnMap && analyzeColumns?.length) {
       columns.forEach((col, index) => {
-        if (analyzeColumns[index] && SupportTypeMaps[col.type]) {
+        if (analyzeColumns[index] && !col.isComputed) {
           const matchIndex = analyzeColumns.findIndex(
             (c) => c.name.toLowerCase() === col.name.toLowerCase()
           );
@@ -131,7 +106,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
                       <FieldSelector
                         value={value}
                         options={options}
-                        disabled={!SupportTypeMaps[column.type]}
+                        disabled={column.isComputed}
                         onSelect={(value) => {
                           const result: Record<string, number | null> = {};
                           const selectedIndex = options.findIndex((o) => o.value === value);
@@ -139,7 +114,7 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
                           onChange(result);
                         }}
                       />
-                      {!SupportTypeMaps[column.type] && (
+                      {column.isComputed && (
                         <TooltipContent>
                           <p>{t('table:import.tips.notSupportFieldType')}</p>
                         </TooltipContent>
