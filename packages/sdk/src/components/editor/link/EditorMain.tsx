@@ -187,7 +187,8 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
 ) => {
   const { options } = props;
   const tableId = options.foreignTableId;
-  const baseId = useBaseId();
+  const selfBaseId = useBaseId();
+  const baseId = options.baseId || selfBaseId;
 
   return (
     <StandaloneViewProvider baseId={baseId} tableId={tableId}>
