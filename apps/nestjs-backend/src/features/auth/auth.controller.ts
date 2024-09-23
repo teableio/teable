@@ -90,11 +90,15 @@ export class AuthController {
   @Post('/reset-password')
   @Public()
   async resetPassword(@Body(new ZodValidationPipe(resetPasswordRoSchema)) body: IResetPasswordRo) {
-    return this.authService.resetPassword(body.code, body.password);
+    await this.authService.resetPassword(body.code, body.password);
   }
 
   @Post('/add-password')
-  async addPassword(@Body(new ZodValidationPipe(addPasswordRoSchema)) body: IAddPasswordRo) {
-    return this.authService.addPassword(body.password);
+  async addPassword(
+    @Res({ passthrough: true }) res: Response,
+    @Body(new ZodValidationPipe(addPasswordRoSchema)) body: IAddPasswordRo
+  ) {
+    await this.authService.addPassword(body.password);
+    res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 }
