@@ -51,6 +51,7 @@ export class OfficialPluginInitService implements OnModuleInit {
         throw error;
       }
     }
+    this.logger.log('Official plugins initialized');
   }
 
   async uploadStatic(id: string, filePath: string, type: UploadType) {

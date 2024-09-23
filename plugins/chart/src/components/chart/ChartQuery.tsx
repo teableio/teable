@@ -12,9 +12,13 @@ export const ChartQuery = () => {
   const [isLoading, setLoading] = useState(false);
   const queryBuilderRef = useRef<IBaseQueryBuilderRef>(null);
   const { t } = useTranslation();
+
   useEffect(() => {
     if (tab === 'query') {
-      queryBuilderRef.current?.initContext(undefined);
+      // TODO: refactor query builder, remove setTimeout
+      setTimeout(() => {
+        queryBuilderRef.current?.initContext();
+      });
     }
   }, [tab]);
 
@@ -22,7 +26,7 @@ export const ChartQuery = () => {
     <div className="flex size-full flex-col">
       <div className="flex h-10 w-full items-center justify-between border-b px-6">
         <div>{t('queryTitle')}</div>
-        <div>
+        <div className="flex items-center gap-2">
           <Button
             className={cn({
               hidden: !storage?.query,
@@ -58,12 +62,14 @@ export const ChartQuery = () => {
         </div>
       </div>
       {tab === 'query' && (
-        <BaseQueryBuilder
-          ref={queryBuilderRef}
-          className="border-none p-8"
-          query={query}
-          onChange={setQuery}
-        />
+        <div className="flex-1 overflow-auto">
+          <BaseQueryBuilder
+            ref={queryBuilderRef}
+            className="border-none p-8"
+            query={query}
+            onChange={setQuery}
+          />
+        </div>
       )}
     </div>
   );

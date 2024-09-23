@@ -44,7 +44,8 @@ export const GoalLineEditor = (props: {
                 })
               }
               onChange={(e) => {
-                setNumber(e.target.value ? parseFloat(e.target.value) : undefined);
+                const number = parseFloat(e.target.value);
+                setNumber(isNaN(number) ? undefined : number);
               }}
             />
           </ConfigItem>
