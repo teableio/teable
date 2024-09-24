@@ -32,7 +32,7 @@ export const ChartDisplay = (props: { previewTable?: boolean }) => {
     case 'pie':
       return <ChartPie config={storage.config} />;
     case 'table':
-      return <ChartTable />;
+      return <ChartTable config={storage.config} />;
     default:
       return <div>{t('notSupport')}</div>;
   }

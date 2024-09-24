@@ -83,7 +83,7 @@ const YAxisConfigEditor = (props: {
           <Settings />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="space-y-4">
+      <PopoverContent className="max-h-64 space-y-4 overflow-auto">
         <AxisDisplayBaseContent
           value={value.display}
           onChange={(val) => {
