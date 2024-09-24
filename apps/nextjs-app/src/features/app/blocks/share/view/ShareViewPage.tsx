@@ -5,6 +5,7 @@ import {
   AppProvider,
   FieldProvider,
   SessionProvider,
+  ShareViewProxy,
   ViewProvider,
 } from '@teable/sdk/context';
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
@@ -18,7 +19,6 @@ import { addQueryParamsToWebSocketUrl } from '@/features/app/utils/socket-url';
 import { ShareTablePermissionProvider } from './ShareTablePermissionProvider';
 import { ShareView } from './ShareView';
 import { ShareViewPageContext } from './ShareViewPageContext';
-import { ViewProxy } from './ViewProxy';
 
 export interface IShareViewPageProps {
   shareViewData: ShareViewGetVo;
@@ -67,15 +67,17 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
                 viewId,
               }}
             >
-              <ViewProvider serverData={[view]}>
-                <ViewProxy serverData={[view]}>
-                  <FieldProvider serverSideData={fields}>
-                    <ShareTablePermissionProvider>
-                      <ShareView />
-                    </ShareTablePermissionProvider>
-                  </FieldProvider>
-                </ViewProxy>
-              </ViewProvider>
+              {view && (
+                <ViewProvider serverData={[view]}>
+                  <ShareViewProxy serverData={[view]}>
+                    <FieldProvider serverSideData={fields}>
+                      <ShareTablePermissionProvider>
+                        <ShareView />
+                      </ShareTablePermissionProvider>
+                    </FieldProvider>
+                  </ShareViewProxy>
+                </ViewProvider>
+              )}
             </AnchorContext.Provider>
           </SessionProvider>
         </AppLayout>

@@ -4,7 +4,13 @@ import { getRowCount } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useIsHydrated, useSearch, useTableListener, useViewListener } from '../../hooks';
+import {
+  useIsHydrated,
+  useLinkFilter,
+  useSearch,
+  useTableListener,
+  useViewListener,
+} from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { RowCountContext } from './RowCountContext';
 
@@ -17,9 +23,12 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const { tableId, viewId } = useContext(AnchorContext);
   const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
+  const { filterLinkCellSelected, filterLinkCellCandidate } = useLinkFilter();
 
-  const rowCountQuery = useMemo(() => ({ viewId, search: searchQuery }), [searchQuery, viewId]);
-
+  const rowCountQuery = useMemo(
+    () => ({ viewId, search: searchQuery, filterLinkCellSelected, filterLinkCellCandidate }),
+    [filterLinkCellCandidate, filterLinkCellSelected, searchQuery, viewId]
+  );
   const { data: resRowCount } = useQuery({
     queryKey: ReactQueryKeys.rowCount(tableId as string, rowCountQuery),
     queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]).then((data) => data.data),

@@ -49,7 +49,7 @@ export class MinioStorage implements StorageAdapter {
     const requestHeaders = {
       'Content-Type': contentType,
       'Content-Length': contentLength,
-      'response-cache-control': 'max-age=518400',
+      'response-cache-control': 'max-age=31536000, immutable',
     };
     try {
       const client = internal ? this.minioClientPrivateNetwork : this.minioClient;

@@ -1,13 +1,22 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { FieldType } from '@teable/core';
 import type { IViewVo, IShareViewMeta } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../types/cls';
+import { createFieldInstanceByRaw } from '../field/model/factory';
 import { createViewVoByRaw } from '../view/model/factory';
 
 export interface IShareViewInfo {
   shareId: string;
   tableId: string;
-  view: IViewVo;
+  view?: IViewVo;
 }
 
 export interface IJwtShareInfo {
@@ -19,7 +28,8 @@ export interface IJwtShareInfo {
 export class ShareAuthService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async validateJwtToken(token: string) {
@@ -62,6 +72,33 @@ export class ShareAuthService {
       shareId,
       tableId: view.tableId,
       view: createViewVoByRaw(view),
+    };
+  }
+
+  async getLinkViewInfo(linkFieldId: string): Promise<IShareViewInfo> {
+    const userId = this.cls.get('user.id');
+    const fieldRaw = await this.prismaService.field
+      .findFirstOrThrow({
+        where: { id: linkFieldId, deletedTime: null },
+      })
+      .catch((_err) => {
+        throw new NotFoundException(`Field ${linkFieldId} not exist`);
+      });
+
+    const field = createFieldInstanceByRaw(fieldRaw);
+
+    if (field.type !== FieldType.Link) {
+      throw new BadRequestException('field is not a link field');
+    }
+
+    // TODO: check tableId permission for this user
+    // if (!userId) {
+    //   throw new ForbiddenException('user is required');
+    // }
+
+    return {
+      shareId: linkFieldId,
+      tableId: field.options.foreignTableId,
     };
   }
 }

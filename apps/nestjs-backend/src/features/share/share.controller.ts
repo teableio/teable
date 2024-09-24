@@ -46,9 +46,9 @@ import { Public } from '../auth/decorators/public.decorator';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { AuthGuard } from './guard/auth.guard';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
+import type { IShareViewInfo } from './share-auth.service';
 import { ShareAuthService } from './share-auth.service';
 import { ShareSocketService } from './share-socket.service';
-import type { IShareViewInfo } from './share.service';
 import { ShareService } from './share.service';
 
 @Controller('api/share')
@@ -78,9 +78,10 @@ export class ShareController {
   @Get('/:shareId/view')
   async getShareView(
     @Param('shareId') shareId: string,
-    @Request() _req?: any
+    @Request() req?: any
   ): Promise<ShareViewGetVo> {
-    return await this.shareService.getShareView(shareId);
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return await this.shareService.getShareView(shareInfo);
   }
 
   @UseGuards(AuthGuard)

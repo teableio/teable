@@ -1,7 +1,7 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
-import { ANONYMOUS_USER_ID, HttpErrorCode } from '@teable/core';
+import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
@@ -20,7 +20,9 @@ export class AuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
   async validate(context: ExecutionContext, shareId: string) {
     const req = context.switchToHttp().getRequest();
     try {
-      const shareInfo = await this.shareAuthService.getShareViewInfo(shareId);
+      const shareInfo = shareId.startsWith(IdPrefix.Field)
+        ? await this.shareAuthService.getLinkViewInfo(shareId)
+        : await this.shareAuthService.getShareViewInfo(shareId);
       req.shareInfo = shareInfo;
 
       this.cls.set('user', {
@@ -29,7 +31,7 @@ export class AuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
         email: '',
       });
 
-      if (shareInfo.view.shareMeta?.password) {
+      if (shareInfo.view?.shareMeta?.password) {
         return (await super.canActivate(context)) as boolean;
       }
       return true;
