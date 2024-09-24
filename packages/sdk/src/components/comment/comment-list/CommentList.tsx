@@ -36,6 +36,11 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
   const [commentList, setCommentList] = useState<ICommentVo[]>([]);
   const { user: self } = useSession();
 
+  useEffect(() => {
+    // reset comment list when switch record
+    setCommentList([]);
+  }, [tableId, recordId]);
+
   const queryClient = useQueryClient();
   useEffect(() => {
     return () => queryClient.removeQueries(ReactQueryKeys.commentList(tableId, recordId));
