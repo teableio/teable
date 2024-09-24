@@ -6,6 +6,10 @@ import { FieldCore } from '../field';
 
 export const linkFieldOptionsSchema = z
   .object({
+    baseId: z.string().optional().openapi({
+      description:
+        'the base id of the table that this field is linked to, only required for cross base link',
+    }),
     relationship: z.nativeEnum(Relationship).openapi({
       description: 'describe the relationship from this table to the foreign table',
     }),
@@ -38,6 +42,7 @@ export const linkFieldOptionsSchema = z
 export type ILinkFieldOptions = z.infer<typeof linkFieldOptionsSchema>;
 
 export const linkFieldOptionsRoSchema = linkFieldOptionsSchema.pick({
+  baseId: true,
   relationship: true,
   foreignTableId: true,
   isOneWay: true,

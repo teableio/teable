@@ -4,12 +4,12 @@ import { Relationship } from '@teable/core';
 import { ArrowUpRight } from '@teable/icons';
 import { getTablePermission } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId, useTableId, useTables } from '@teable/sdk/hooks';
+import { useBaseId, useTableId } from '@teable/sdk/hooks';
 import { Label, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { Trans, useTranslation } from 'next-i18next';
-import { Selector } from '@/components/Selector';
 import { tableConfig } from '@/features/i18n/table.config';
+import { SelectTable } from './SelectTable';
 
 export const LinkOptions = (props: {
   options: Partial<ILinkFieldOptionsRo> | undefined;
@@ -18,19 +18,22 @@ export const LinkOptions = (props: {
 }) => {
   const { options, isLookup, onChange } = props;
   const tableId = useTableId();
-  const tables = useTables();
-  const baseId = useBaseId() as string;
+  const selfBaseId = useBaseId() as string;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const relationship = options?.relationship ?? Relationship.ManyOne;
   const foreignTableId = options?.foreignTableId;
   const isOneWay = options?.isOneWay;
+  const baseId = options?.baseId ?? selfBaseId;
 
   const { data: tablePermission } = useQuery({
     refetchOnWindowFocus: false,
     queryKey: ReactQueryKeys.getTablePermission(baseId, foreignTableId!),
     enabled: !!foreignTableId,
-    queryFn: ({ queryKey }) => getTablePermission(queryKey[1], queryKey[2]).then((res) => res.data),
+    queryFn: ({ queryKey }) =>
+      getTablePermission(queryKey[1], queryKey[2])
+        .then((res) => res.data)
+        .catch(() => ({ field: { create: false } })),
   });
 
   const canCreateField = tablePermission?.field.create;
@@ -74,15 +77,12 @@ export const LinkOptions = (props: {
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <span className="neutral-content label-text">{t('table:field.editor.linkTable')}</span>
-      <Selector
-        selectedId={foreignTableId}
-        onChange={(foreignTableId) => onSelect('foreignTableId', foreignTableId)}
-        candidates={tables.map((table) => ({
-          id: table.id,
-          name: table.name + (tableId === table.id ? ` (${t('table:field.editor.self')})` : ''),
-        }))}
-        placeholder={t('table:field.editor.selectTable')}
+      <SelectTable
+        baseId={options?.baseId}
+        tableId={options?.foreignTableId}
+        onChange={(baseId, tableId) => {
+          onChange?.({ baseId, foreignTableId: tableId, relationship, isOneWay });
+        }}
       />
       {foreignTableId && (
         <>

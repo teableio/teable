@@ -1,7 +1,9 @@
 import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup } from '@teable/core';
-import { ViewContext, createViewInstance, useView } from '@teable/sdk';
-import type { IViewInstance } from '@teable/sdk';
 import { useEffect, useState } from 'react';
+import { useView } from '../../hooks/use-view';
+import type { IViewInstance } from '../../model/view/factory';
+import { createViewInstance } from '../../model/view/factory';
+import { ViewContext } from '../view/ViewContext';
 
 // Properties that don't need to be updated when view updates come from op
 const enableKey = ['filter', 'sort'];
@@ -37,7 +39,7 @@ export const getViewData = (view?: IViewInstance, initData?: IViewVo[]) => {
   return { ...data, ...enableValue };
 };
 
-export const ViewProxy = (props: IViewProxyProps) => {
+export const ShareViewProxy = (props: IViewProxyProps) => {
   const { serverData, children } = props;
   const view = useView();
   const [viewData, setViewData] = useState<IViewVo>(getViewData(view, serverData));

@@ -44,11 +44,11 @@ import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
 import { TqlPipe } from '../record/open-api/tql.pipe';
-import { AuthGuard } from './guard/auth.guard';
+import { ShareAuthGuard } from './guard/auth.guard';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
+import type { IShareViewInfo } from './share-auth.service';
 import { ShareAuthService } from './share-auth.service';
 import { ShareSocketService } from './share-socket.service';
-import type { IShareViewInfo } from './share.service';
 import { ShareService } from './share.service';
 
 @Controller('api/share')
@@ -74,16 +74,17 @@ export class ShareController {
     return { token };
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view')
   async getShareView(
     @Param('shareId') shareId: string,
-    @Request() _req?: any
+    @Request() req?: any
   ): Promise<ShareViewGetVo> {
-    return await this.shareService.getShareView(shareId);
+    const shareInfo = req.shareInfo as IShareViewInfo;
+    return await this.shareService.getShareView(shareInfo);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/aggregations')
   async getViewAggregations(
     @Request() req: any,
@@ -94,7 +95,7 @@ export class ShareController {
     return await this.shareService.getViewAggregations(shareInfo, query);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/row-count')
   async getViewRowCount(
     @Request() req: any,
@@ -105,7 +106,7 @@ export class ShareController {
     return await this.shareService.getViewRowCount(shareInfo, query);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Post('/:shareId/view/form-submit')
   async submitRecord(
     @Request() req: any,
@@ -116,7 +117,7 @@ export class ShareController {
     return await this.shareService.formSubmit(shareInfo, shareViewFormSubmitRo);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/copy')
   async copy(
     @Request() req: any,
@@ -126,7 +127,7 @@ export class ShareController {
     return this.shareService.copy(shareInfo, shareViewCopyRo);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/group-points')
   async getViewGroupPoints(
     @Request() req: any,
@@ -137,7 +138,7 @@ export class ShareController {
     return await this.shareService.getViewGroupPoints(shareInfo, query);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/link-records')
   async viewLinkRecords(
     @Request() req: any,
@@ -148,7 +149,7 @@ export class ShareController {
     return this.shareService.getViewLinkRecords(shareInfo, shareViewLinkRecordsRo);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view/collaborators')
   async getViewCollaborators(
     @Request() req: any,
@@ -158,28 +159,28 @@ export class ShareController {
     return this.shareService.getViewCollaborators(shareInfo, query);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/view/snapshot-bulk')
   async getViewSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareSocketService.getViewSnapshotBulk(shareInfo, ids);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/view/doc-ids')
   async getViewDocIds(@Request() req: any) {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareSocketService.getViewDocIdsByQuery(shareInfo);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/field/snapshot-bulk')
   async getFieldSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareSocketService.getFieldSnapshotBulk(shareInfo, ids);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/field/doc-ids')
   async getFieldDocIds(
     @Request() req: any,
@@ -190,14 +191,14 @@ export class ShareController {
     return this.shareSocketService.getFieldDocIdsByQuery(shareInfo, query);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/record/snapshot-bulk')
   async getRecordSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;
     return this.shareSocketService.getRecordSnapshotBulk(shareInfo, ids);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(ShareAuthGuard)
   @Get('/:shareId/socket/record/doc-ids')
   async getRecordDocIds(
     @Request() req: any,

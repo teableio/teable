@@ -1,11 +1,18 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey, IViewActionKey } from '@teable/core';
-import { getRowCount } from '@teable/openapi';
+import { getRowCount, getShareViewRowCount } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useIsHydrated, useSearch, useTableListener, useViewListener } from '../../hooks';
+import {
+  useIsHydrated,
+  useLinkFilter,
+  useSearch,
+  useTableListener,
+  useViewListener,
+} from '../../hooks';
 import { AnchorContext } from '../anchor';
+import { ShareViewContext } from '../table/ShareViewContext';
 import { RowCountContext } from './RowCountContext';
 
 interface RowCountProviderProps {
@@ -17,23 +24,44 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const { tableId, viewId } = useContext(AnchorContext);
   const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
+  const { shareId } = useContext(ShareViewContext);
+  const { filterLinkCellSelected, filterLinkCellCandidate } = useLinkFilter();
 
-  const rowCountQuery = useMemo(() => ({ viewId, search: searchQuery }), [searchQuery, viewId]);
+  const rowCountQuery = useMemo(
+    () => ({ viewId, search: searchQuery, filterLinkCellSelected, filterLinkCellCandidate }),
+    [filterLinkCellCandidate, filterLinkCellSelected, searchQuery, viewId]
+  );
 
-  const { data: resRowCount } = useQuery({
-    queryKey: ReactQueryKeys.rowCount(tableId as string, rowCountQuery),
+  const rowCountQueryKey = useMemo(
+    () => ReactQueryKeys.rowCount(shareId || (tableId as string), rowCountQuery),
+    [shareId, tableId, rowCountQuery]
+  );
+
+  const { data: commonRowCount } = useQuery({
+    queryKey: rowCountQueryKey,
     queryFn: ({ queryKey }) => getRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
-    enabled: !!tableId && isHydrated,
+    enabled: Boolean(!shareId && tableId && isHydrated),
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   });
 
+  const { data: shareRowCount } = useQuery({
+    queryKey: rowCountQueryKey,
+    queryFn: ({ queryKey }) =>
+      getShareViewRowCount(queryKey[1], queryKey[2]).then((data) => data.data),
+    enabled: Boolean(shareId && tableId && isHydrated),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+  });
+
+  const resRowCount = shareId ? shareRowCount : commonRowCount;
+
   const updateRowCount = useCallback(
     (cleanAll?: boolean) =>
-      queryClient.invalidateQueries(
-        ReactQueryKeys.rowCount(tableId as string, rowCountQuery).slice(0, cleanAll ? 2 : 3)
-      ),
-    [queryClient, tableId, rowCountQuery]
+      queryClient.invalidateQueries({
+        queryKey: rowCountQueryKey.slice(0, cleanAll ? 2 : 3),
+      }),
+    [queryClient, rowCountQueryKey]
   );
 
   const updateRowCountForTable = useCallback(() => {

@@ -15,6 +15,7 @@ export * from './use-base';
 export * from './use-records';
 export * from './use-record';
 export * from './use-search';
+export * from './use-link-filter';
 export * from './use-aggregation';
 export * from './use-field-static-getter';
 export * from './use-is-hydrated';

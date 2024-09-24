@@ -8,11 +8,11 @@ import { z } from '../zod';
 export const SHARE_VIEW_GET = '/share/{shareId}/view';
 
 export const shareViewGetVoSchema = z.object({
-  viewId: z.string(),
+  viewId: z.string().optional(),
   tableId: z.string(),
   shareId: z.string(),
   shareMeta: shareViewMetaSchema.optional(),
-  view: viewVoSchema,
+  view: viewVoSchema.optional(),
   fields: fieldVoSchema.array(),
   records: recordSchema.array().openapi('first 50 records'),
   extra: z
@@ -48,6 +48,6 @@ export const ShareViewGetRouter: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const shareViewGet = (shareId: string) => {
+export const getShareView = (shareId: string) => {
   return axios.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }));
 };

@@ -8,6 +8,7 @@ import {
 } from '@teable/openapi';
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { ShareViewContext } from '@teable/sdk/context';
 import {
   useView,
   useFields,
@@ -26,7 +27,6 @@ import type {
 } from '@teable/sdk/model';
 import type { ReactNode } from 'react';
 import { useContext, useMemo, useState } from 'react';
-import { ShareViewPageContext } from '../../../share/view/ShareViewPageContext';
 import {
   KANBAN_STACK_FIELD_TYPES,
   UNCATEGORIZED_STACK_EMAIL,
@@ -38,7 +38,7 @@ import { KanbanContext } from './KanbanContext';
 export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
-  const { shareId } = useContext(ShareViewPageContext) ?? {};
+  const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const baseId = useBaseId() as string;
   const permission = useTablePermission();

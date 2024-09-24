@@ -1,21 +1,30 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { act, renderHook } from '@testing-library/react';
-import type { Query } from 'sharedb/lib/client';
+import type { Connection, Query } from 'sharedb/lib/client';
 import { vi } from 'vitest';
 import { createAppContext } from '../__tests__/createAppContext';
+import { createConnectionContext } from '../__tests__/createConnectionContext';
 import { createSessionContext } from '../__tests__/createSessionContext';
 import type { IAppContext } from '../app';
 import type { IUseInstancesProps } from './useInstances';
 import { useInstances } from './useInstances';
 
-const createUseInstancesWrap = (appContext: Partial<IAppContext>) => {
+const createUseInstancesWrap = (
+  appContext: Partial<IAppContext & { connected: boolean; connection: Connection }>
+) => {
   const AppProvider = createAppContext(appContext);
+  const ConnectionProvider = createConnectionContext({
+    connected: appContext.connected ?? false,
+    connection: appContext.connection,
+  });
   const SessionProvider = createSessionContext();
 
   // eslint-disable-next-line react/display-name
   return ({ children }: { children: React.ReactNode }) => (
     <AppProvider>
-      <SessionProvider>{children}</SessionProvider>
+      <ConnectionProvider>
+        <SessionProvider>{children}</SessionProvider>
+      </ConnectionProvider>
     </AppProvider>
   );
 };

@@ -52,7 +52,7 @@ describe('PermissionService', () => {
       const spaceId = 'space-id';
       prismaServiceMock.collaborator.findFirst.mockResolvedValue(null);
       await expect(service['getRoleBySpaceId'](spaceId)).rejects.toThrowError(
-        new ForbiddenException(`can't find collaborator`)
+        new ForbiddenException(`you have no permission to access this space`)
       );
     });
   });

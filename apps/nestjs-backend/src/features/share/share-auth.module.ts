@@ -3,12 +3,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { authConfig, type IAuthConfig } from '../../configs/auth.config';
 import { DbProvider } from '../../db-provider/db.provider';
-import { AuthGuard } from './guard/auth.guard';
+import { AuthModule } from '../auth/auth.module';
+import { ShareAuthGuard } from './guard/auth.guard';
 import { ShareAuthService } from './share-auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
+    AuthModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: (config: IAuthConfig) => ({
@@ -20,7 +22,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       inject: [authConfig.KEY],
     }),
   ],
-  providers: [JwtStrategy, ShareAuthService, DbProvider, AuthGuard],
-  exports: [ShareAuthService, AuthGuard],
+  providers: [JwtStrategy, ShareAuthService, DbProvider, ShareAuthGuard],
+  exports: [ShareAuthService, ShareAuthGuard],
 })
 export class ShareAuthModule {}

@@ -1,10 +1,7 @@
 import React from 'react';
-import type { Connection } from 'sharedb/lib/client';
 import type { ILocale } from './i18n';
 
 export interface IAppContext {
-  connection?: Connection;
-  connected: boolean;
   locale: ILocale;
   lang?: string;
   shareId?: string;

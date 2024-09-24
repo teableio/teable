@@ -1,12 +1,12 @@
 import { ViewType } from '@teable/core';
+import { ShareViewContext } from '@teable/sdk/context';
 import { useContext } from 'react';
 import { FormView } from './component/form/FormView';
 import { GridView } from './component/grid/GridView';
 import { KanbanView } from './component/kanban/KanbanView';
-import { ShareViewPageContext } from './ShareViewPageContext';
 
 export const ShareView = () => {
-  const { view } = useContext(ShareViewPageContext);
+  const { view } = useContext(ShareViewContext);
   const viewType = view?.type;
 
   const getViewComponent = () => {

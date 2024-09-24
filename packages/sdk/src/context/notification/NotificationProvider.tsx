@@ -1,10 +1,10 @@
 import type { INotificationBuffer } from '@teable/core';
 import { getUserNotificationChannel } from '@teable/core';
 import type { FC, ReactNode } from 'react';
-import { useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Presence } from 'sharedb/lib/client';
 import { useSession } from '../../hooks';
-import { AppContext } from '../app';
+import { useConnection } from '../../hooks/use-connection';
 import { NotificationContext } from './NotificationContext';
 
 interface INotificationProviderProps {
@@ -13,7 +13,7 @@ interface INotificationProviderProps {
 
 export const NotificationProvider: FC<INotificationProviderProps> = ({ children }) => {
   const { user } = useSession();
-  const { connection } = useContext(AppContext);
+  const { connection } = useConnection();
 
   const [remotePresence, setRemotePresence] = useState<Presence>();
   const [notification, setNotification] = useState<INotificationBuffer | null>(null);

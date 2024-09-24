@@ -1,19 +1,18 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 import { TeableNew } from '@teable/icons';
-import { RecordProvider } from '@teable/sdk/context';
+import { RecordProvider, RowCountProvider, ShareViewContext } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useContext } from 'react';
 import { EmbedFooter } from '../../EmbedFooter';
-import { ShareViewPageContext } from '../../ShareViewPageContext';
-import { AggregationProvider, RowCountProvider, GroupPointProvider } from './aggregation';
+import { AggregationProvider, GroupPointProvider } from './aggregation';
 import { GridViewBase } from './GridViewBase';
 import { Toolbar } from './toolbar';
 
 export const GridView = () => {
-  const { records, view, extra } = useContext(ShareViewPageContext);
+  const { records, view, extra } = useContext(ShareViewContext);
   const isHydrated = useIsHydrated();
   const {
     query: { hideToolBar, embed },

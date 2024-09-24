@@ -7,7 +7,13 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { convertField, deleteRecords, updateDbTableName } from '@teable/openapi';
+import {
+  convertField,
+  createBase,
+  deleteBase,
+  deleteRecords,
+  updateDbTableName,
+} from '@teable/openapi';
 import {
   createField,
   createRecords,
@@ -28,6 +34,7 @@ import {
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const spaceId = globalThis.testConfig.spaceId;
   const split = globalThis.testConfig.driver === 'postgresql' ? '.' : '_';
 
   beforeAll(async () => {
@@ -2932,6 +2939,63 @@ describe('OpenAPI link (e2e)', () => {
       expect(
         (updatedLookupField.lookupOptions as ILookupOptionsVo).fkHostTableName.split(/[._]/)
       ).toEqual(['bseTestBaseId', 'newAwesomeName']);
+    });
+  });
+
+  describe('cross base link db table name', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let baseId2: string;
+    beforeEach(async () => {
+      baseId2 = (await createBase({ spaceId, name: 'base2' })).data.id;
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId2, { name: 'table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId2, table2.id);
+      await deleteBase(baseId2);
+    });
+
+    it('should create link cross base', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = await createField(table1.id, linkFieldRo);
+      expect((linkField.options as ILinkFieldOptions).baseId).toEqual(baseId2);
+
+      const symLinkField = await getField(
+        table2.id,
+        (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+
+      expect((symLinkField.options as ILinkFieldOptions).baseId).toEqual(baseId);
+
+      await convertField(table1.id, linkField.id, {
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      const updatedLinkField = await getField(table1.id, linkField.id);
+      expect((updatedLinkField.options as ILinkFieldOptions).baseId).toEqual(baseId2);
+
+      const symUpdatedLinkField = await getField(
+        table2.id,
+        (updatedLinkField.options as ILinkFieldOptions).symmetricFieldId as string
+      );
+      expect((symUpdatedLinkField.options as ILinkFieldOptions).baseId).toEqual(baseId);
     });
   });
 });

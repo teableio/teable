@@ -1,17 +1,11 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import {
   BadRequestException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import type {
-  IFilter,
-  IFieldVo,
-  IViewVo,
-  IShareViewMeta,
-  ILinkFieldOptions,
-  StatisticsFunc,
-} from '@teable/core';
+import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
@@ -47,14 +41,8 @@ import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SelectionService } from '../selection/selection.service';
-import { createViewVoByRaw } from '../view/model/factory';
 import { ViewService } from '../view/view.service';
-
-export interface IShareViewInfo {
-  shareId: string;
-  tableId: string;
-  view: IViewVo;
-}
+import type { IShareViewInfo } from './share-auth.service';
 
 export interface IJwtShareInfo {
   shareId: string;
@@ -65,6 +53,7 @@ export interface IJwtShareInfo {
 export class ShareService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly aggregationService: AggregationService,
@@ -72,33 +61,27 @@ export class ShareService {
     private readonly selectionService: SelectionService,
     private readonly collaboratorService: CollaboratorService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly viewService: ViewService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  async getShareView(shareId: string): Promise<ShareViewGetVo> {
-    const view = await this.prismaService.view.findFirst({
-      where: { shareId, enableShare: true, deletedTime: null },
-    });
-    if (!view) {
-      throw new BadRequestException('share view not found');
-    }
-    const shareMeta = view.shareMeta ? (JSON.parse(view.shareMeta) as IShareViewMeta) : undefined;
-    const { tableId, id: viewId, group } = view;
+  async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
+    const { shareId, tableId, view } = shareInfo;
+
+    const { id: viewId, group, shareMeta } = view ?? {};
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId: view.id,
+      viewId,
       filterHidden: !shareMeta?.includeHiddenField,
     });
 
     let records: IRecordsVo['records'] = [];
     let extra: IRecordsVo['extra'];
-    if (view.type !== ViewType.Form) {
+    if (view?.type !== ViewType.Form) {
       const recordsData = await this.recordService.getRecords(tableId, {
         viewId,
         skip: 0,
         take: 50,
-        groupBy: group ? JSON.parse(group) : undefined,
+        groupBy: group,
         fieldKeyType: FieldKeyType.Id,
         projection: fields.map((f) => f.id),
       });
@@ -111,7 +94,7 @@ export class ShareService {
       shareId,
       tableId,
       viewId,
-      view: this.viewService.convertViewVoAttachmentUrl(createViewVoByRaw(view)),
+      view: view ? this.viewService.convertViewVoAttachmentUrl(view) : undefined,
       fields,
       records,
       extra,
@@ -122,7 +105,7 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query: IShareViewAggregationsRo = {}
   ): Promise<IAggregationVo> {
-    const viewId = shareInfo.view.id;
+    const viewId = shareInfo.view?.id;
     const tableId = shareInfo.tableId;
     const filter = query?.filter ?? null;
     const fieldStats: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
@@ -147,7 +130,7 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query?: IShareViewRowCountRo
   ): Promise<IRowCountVo> {
-    const viewId = shareInfo.view.id;
+    const viewId = shareInfo.view?.id;
     const tableId = shareInfo.tableId;
     const result = await this.aggregationService.performRowCount(tableId, { viewId, ...query });
 
@@ -159,12 +142,19 @@ export class ShareService {
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
     const { tableId, view } = shareInfo;
     const { fields } = shareViewFormSubmitRo;
+    if (!view) {
+      throw new ForbiddenException('view is required');
+    }
+
     if (view.type !== ViewType.Form) {
       throw new ForbiddenException('view type is not form');
     }
+
+    const viewId = view.id;
+
     // check field hidden
     const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId: view.id,
+      viewId,
       filterHidden: !view.shareMeta?.includeHiddenField,
     });
     const visibleFieldIds = visibleFields.map(({ id }) => id);
@@ -178,7 +168,7 @@ export class ShareService {
     }
 
     const { records } = await this.prismaService.$tx(async () => {
-      this.cls.set('entry', { type: 'form', id: view.id });
+      this.cls.set('entry', { type: 'form', id: viewId });
       return await this.recordOpenApiService.createRecords(tableId, {
         records: [{ fields }],
         fieldKeyType: FieldKeyType.Id,
@@ -191,12 +181,12 @@ export class ShareService {
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
-    if (!shareInfo.view.shareMeta?.allowCopy) {
+    if (shareInfo.view && !shareInfo.view.shareMeta?.allowCopy) {
       throw new ForbiddenException('not allowed to copy');
     }
 
     return this.selectionService.copy(shareInfo.tableId, {
-      viewId: shareInfo.view.id,
+      viewId: shareInfo.view?.id,
       ...shareViewCopyRo,
     });
   }
@@ -211,8 +201,11 @@ export class ShareService {
   async getViewLinkRecords(shareInfo: IShareViewInfo, query: IShareViewLinkRecordsRo) {
     const { tableId, view } = shareInfo;
     const { fieldId } = query;
+    if (!view) {
+      throw new ForbiddenException('view is required');
+    }
 
-    await this.preCheckFieldHidden(view, fieldId);
+    await this.preCheckFieldHidden(view as IViewVo, fieldId);
 
     // link field check
     const field = await this.fieldService.getField(tableId, fieldId);
@@ -262,7 +255,7 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query?: IShareViewGroupPointsRo
   ): Promise<IGroupPointsVo> {
-    const viewId = shareInfo.view.id;
+    const viewId = shareInfo.view?.id;
     const tableId = shareInfo.tableId;
 
     if (viewId == null) return null;
@@ -274,6 +267,10 @@ export class ShareService {
     const { view, tableId } = shareInfo;
     const { fieldId } = query;
 
+    if (!view) {
+      return this.getViewAllCollaborators(shareInfo);
+    }
+
     // only form and kanban view can get all records
     if ([ViewType.Form, ViewType.Kanban].includes(view.type)) {
       return this.getViewAllCollaborators(shareInfo);
@@ -283,7 +280,7 @@ export class ShareService {
       throw new BadRequestException('fieldId is required');
     }
 
-    await this.preCheckFieldHidden(view, fieldId);
+    await this.preCheckFieldHidden(view as IViewVo, fieldId);
 
     // user field check
     const field = await this.fieldService.getField(tableId, fieldId);
@@ -318,6 +315,10 @@ export class ShareService {
 
   async getViewFilterCollaborators(shareInfo: IShareViewInfo, field: IFieldVo) {
     const { tableId, view } = shareInfo;
+    if (!view) {
+      throw new ForbiddenException('view is required');
+    }
+
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: view.id,
     });
@@ -353,13 +354,13 @@ export class ShareService {
   async getViewAllCollaborators(shareInfo: IShareViewInfo) {
     const { tableId, view } = shareInfo;
 
-    if (![ViewType.Form, ViewType.Kanban].includes(view.type)) {
+    if (view && ![ViewType.Form, ViewType.Kanban].includes(view.type)) {
       throw new ForbiddenException('view type is not allowed');
     }
 
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
-      viewId: view.id,
-      filterHidden: !view.shareMeta?.includeHiddenField,
+      viewId: view?.id,
+      filterHidden: !view?.shareMeta?.includeHiddenField,
     });
     // If there is no user field, return an empty array
     if (
