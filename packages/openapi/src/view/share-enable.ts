@@ -9,7 +9,7 @@ export const enableShareViewVoSchema = z.object({
   shareId: z.string(),
 });
 
-export type EnableShareViewVo = z.infer<typeof enableShareViewVoSchema>;
+export type IEnableShareViewVo = z.infer<typeof enableShareViewVoSchema>;
 
 export const EnableShareViewRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -35,5 +35,5 @@ export const EnableShareViewRoute: RouteConfig = registerRoute({
 });
 
 export const enableShareView = (params: { tableId: string; viewId: string }) => {
-  return axios.post<EnableShareViewVo>(urlBuilder(ENABLE_SHARE_VIEW, params));
+  return axios.post<IEnableShareViewVo>(urlBuilder(ENABLE_SHARE_VIEW, params));
 };

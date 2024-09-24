@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable/core';
 import { Edit, RefreshCcw, Qrcode } from '@teable/icons';
-import { useView } from '@teable/sdk/hooks';
+import { useTablePermission, useView } from '@teable/sdk/hooks';
 import type { View } from '@teable/sdk/model';
 import {
   Button,
@@ -68,6 +68,7 @@ export const SharePopover: React.FC<{
   const { children } = props;
   const view = useView();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permission = useTablePermission();
 
   const ShareViewText = t('table:toolbar.others.share.label');
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
@@ -145,7 +146,7 @@ export const SharePopover: React.FC<{
             className="ml-auto"
             id="share-switch"
             checked={enableShare}
-            disabled={enableShareLoading || disableShareLoading}
+            disabled={enableShareLoading || disableShareLoading || !permission['view|share']}
             onCheckedChange={setEnableShare}
           />
         </div>
@@ -324,7 +325,9 @@ export const SharePopover: React.FC<{
           </>
         ) : (
           <div className="text-center text-sm text-muted-foreground">
-            {t('table:toolbar.others.share.tips')}
+            {!enableShare && permission['view|share']
+              ? t('table:toolbar.others.share.tips')
+              : t('table:toolbar.others.share.noPermission')}
           </div>
         )}
         <Dialog
