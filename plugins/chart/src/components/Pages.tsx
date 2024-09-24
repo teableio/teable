@@ -77,7 +77,6 @@ const Container = (props: IPageProps & { uiConfig?: IUIConfig }) => {
     return (
       <div className="flex flex-col items-center justify-center">
         <p className="text-muted-foreground text-center">{t('initBridge')}</p>
-        <Spin />
       </div>
     );
   }
