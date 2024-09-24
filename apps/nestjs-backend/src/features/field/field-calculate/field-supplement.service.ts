@@ -190,7 +190,7 @@ export class FieldSupplementService {
     fieldId: string,
     optionsRo: ILinkFieldOptionsRo
   ): Promise<ILinkFieldOptions> {
-    const { foreignTableId, isOneWay } = optionsRo;
+    const { baseId, foreignTableId, isOneWay } = optionsRo;
     const symmetricFieldId = isOneWay ? undefined : generateFieldId();
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
@@ -199,6 +199,19 @@ export class FieldSupplementService {
       where: { tableId: foreignTableId, isPrimary: true },
       select: { id: true },
     });
+
+    if (baseId) {
+      await this.prismaService.tableMeta
+        .findFirstOrThrow({
+          where: { id: foreignTableId, baseId, deletedTime: null },
+          select: { id: true },
+        })
+        .catch(() => {
+          throw new BadRequestException(
+            `foreignTableId ${foreignTableId} is not exist in base ${baseId}`
+          );
+        });
+    }
 
     return this.generateLinkOptionsVo({
       tableId,
@@ -217,7 +230,7 @@ export class FieldSupplementService {
     oldOptions: ILinkFieldOptions,
     newOptionsRo: ILinkFieldOptionsRo
   ): Promise<ILinkFieldOptions> {
-    const { foreignTableId, isOneWay } = newOptionsRo;
+    const { baseId, foreignTableId, isOneWay } = newOptionsRo;
 
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
@@ -237,6 +250,19 @@ export class FieldSupplementService {
               select: { id: true },
             })
           ).id;
+
+    if (baseId) {
+      await this.prismaService.tableMeta
+        .findFirstOrThrow({
+          where: { id: foreignTableId, baseId, deletedTime: null },
+          select: { id: true },
+        })
+        .catch(() => {
+          throw new BadRequestException(
+            `foreignTableId ${foreignTableId} is not exist in base ${baseId}`
+          );
+        });
+    }
 
     return this.generateLinkOptionsVo({
       tableId,
@@ -1063,9 +1089,9 @@ export class FieldSupplementService {
     }
 
     const prisma = this.prismaService.txClient();
-    const { name: tableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { name: true },
+    const { name: tableName, baseId } = await prisma.tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { name: true, baseId: true },
     });
 
     const fieldName = await this.uniqFieldName(tableId, tableName);
@@ -1089,6 +1115,7 @@ export class FieldSupplementService {
       dbFieldName,
       type: FieldType.Link,
       options: {
+        baseId: field.options.baseId ? baseId : undefined,
         relationship,
         foreignTableId: tableId,
         lookupFieldId,
