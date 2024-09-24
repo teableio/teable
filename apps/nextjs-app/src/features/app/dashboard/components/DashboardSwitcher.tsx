@@ -34,8 +34,8 @@ export const DashboardSwitcher = (props: {
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const createDashboardDialogRef = useRef<ICreateDashboardDialogRef>(null);
   const { data: dashboardList } = useQuery({
-    queryKey: ReactQueryKeys.getDashboardList(),
-    queryFn: () => getDashboardList(baseId).then((res) => res.data),
+    queryKey: ReactQueryKeys.getDashboardList(baseId),
+    queryFn: ({ queryKey }) => getDashboardList(queryKey[1]).then((res) => res.data),
   });
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];

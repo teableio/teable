@@ -17,8 +17,10 @@ export const PluginContent = (props: {
   pluginUrl?: string;
   dashboardId: string;
   dragging?: boolean;
+  onExpand?: () => void;
 }) => {
-  const { className, pluginInstallId, pluginUrl, dashboardId, pluginId, dragging } = props;
+  const { className, pluginInstallId, pluginUrl, dashboardId, pluginId, dragging, onExpand } =
+    props;
   const baseId = useBaseId()!;
   const router = useRouter();
   const expandPluginId = router.query.expandPluginId as string;
@@ -81,6 +83,7 @@ export const PluginContent = (props: {
         width={width}
         height={height}
         onBridge={setBridge}
+        onExpand={onExpand}
         src={iframeUrl}
         {...{
           pluginInstallId,

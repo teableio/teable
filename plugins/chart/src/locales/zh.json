@@ -90,5 +90,6 @@
   },
   "reloadQuery": "重新加载查询",
   "noStorage": "请先配置图表插件",
-  "noPermission": "无权限访问"
+  "noPermission": "无权限访问",
+  "goConfig": "前往配置"
 }
