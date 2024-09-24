@@ -7,11 +7,12 @@ import type {
 import { getPluginCenterList, installPlugin, PluginPosition } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
-import { Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
+import { Button, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { get } from 'lodash';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { PluginDetail } from './PluginDetail';
 
 export const AddPluginDialog = (props: { children?: React.ReactNode; dashboardId: string }) => {
@@ -19,7 +20,7 @@ export const AddPluginDialog = (props: { children?: React.ReactNode; dashboardId
   const baseId = useBaseId()!;
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation(dashboardConfig.i18nNamespaces);
   const language = i18n.language as unknown as keyof IPluginI18n;
   const [detailPlugin, setDetailPlugin] = useState<IGetPluginCenterListVo[number]>();
 
@@ -81,6 +82,19 @@ export const AddPluginDialog = (props: { children?: React.ReactNode; dashboardId
                     {description}
                   </div>
                 </div>
+                <Button
+                  size={'xs'}
+                  variant={'outline'}
+                  onClick={(e) => {
+                    installPluginMutate({
+                      pluginId: plugin.id,
+                      name,
+                    });
+                    e.stopPropagation();
+                  }}
+                >
+                  {t('dashboard:install')}
+                </Button>
               </button>
             );
           })}
