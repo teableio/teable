@@ -130,9 +130,19 @@ export const pieConfigSchema = z.object({
 
 export type IPieConfig = z.infer<typeof pieConfigSchema>;
 
+export const tableConfigColumn = z.object({
+  column: z.string(),
+  width: z.number().optional(),
+  label: z.string().optional(),
+  hidden: z.boolean().optional(),
+});
+export type ITableConfigColumn = z.infer<typeof tableConfigColumn>;
 export const tableConfigSchema = z.object({
   type: z.literal('table'),
+  columns: z.array(tableConfigColumn).optional(),
 });
+
+export type ITableConfig = z.infer<typeof tableConfigSchema>;
 
 export const chartConfigSchema = z.union([
   barConfigSchema,

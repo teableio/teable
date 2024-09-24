@@ -13,6 +13,7 @@ import {
   Input,
 } from '@teable/ui-lib';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useBaseQueryData } from '../../../../hooks/useBaseQueryData';
 import type { ITableConfig } from '../../../types';
 import { sortTableColumns, tableConfigColumnsToMap } from '../../utils';
@@ -29,7 +30,7 @@ export const TableForm = (props: {
   const columns = queryData?.columns;
   const [sortedColumns, setSortedColumns] = useState<IBaseQueryColumn[]>([]);
   const isHydrated = useIsHydrated();
-
+  const { t } = useTranslation();
   const configColumnMap = useMemo(() => tableConfigColumnsToMap(configColumns), [configColumns]);
 
   useEffect(() => {
@@ -114,7 +115,7 @@ export const TableForm = (props: {
   };
 
   return (
-    <ConfigItem label="config">
+    <ConfigItem label={t('form.tableConfig')}>
       <div className="space-y-4">
         <DndKitContext onDragEnd={onDragEndHandler}>
           <Droppable items={sortedColumns.map((v) => v.column)}>
@@ -136,14 +137,14 @@ export const TableForm = (props: {
                           <Settings />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent>
-                        <ConfigItem label="width">
+                      <PopoverContent className="space-y-2">
+                        <ConfigItem label={t('form.width')}>
                           <NumberInput
                             value={configColumnMap[column.column].width}
                             onValueChange={(val) => onWidthChange(column.column, val)}
                           />
                         </ConfigItem>
-                        <ConfigItem label="label">
+                        <ConfigItem label={t('form.label')}>
                           <LabelInput
                             value={configColumnMap[column.column].label}
                             onChange={(val) => onLabelChange(column.column, val)}

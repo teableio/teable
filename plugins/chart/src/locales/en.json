@@ -84,7 +84,9 @@
       "right": "Right",
       "bottom": "Bottom",
       "left": "Left"
-    }
+    },
+    "tableConfig": "Table Configuration",
+    "width": "Width"
   },
   "reloadQuery": "Reload Query",
   "noStorage": "Please configure the chart plugin first",
