@@ -15,10 +15,13 @@ import {
   updateViewShareMeta as apiUpdateViewShareMeta,
   SHARE_VIEW_COPY,
   SHARE_VIEW_AUTH,
+  getShareView,
+  createField,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import {
   createTable,
@@ -476,6 +479,42 @@ describe('OpenAPI ShareController (e2e)', () => {
         })
       );
       expect(error?.status).toEqual(403);
+    });
+  });
+
+  describe('link view permission', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, { name: 'table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should get link view', async () => {
+      const linkField = await createField(table1.id, {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      });
+      const shareResult = await getShareView(linkField.data.id);
+
+      // should not allow access by other user
+      const user2Request = await createNewUserAxios({
+        email: 'newuser@example.com',
+        password: '12345678',
+      });
+      expect(
+        user2Request.get(urlBuilder(SHARE_VIEW_GET, { shareId: shareResult.data.shareId }))
+      ).rejects.toThrow();
     });
   });
 });

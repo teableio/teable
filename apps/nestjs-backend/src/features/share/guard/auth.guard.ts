@@ -9,7 +9,7 @@ import { ShareAuthService } from '../share-auth.service';
 import { SHARE_JWT_STRATEGY } from './constant';
 
 @Injectable()
-export class AuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
+export class AuthGuard extends PassportAuthGuard(['session', SHARE_JWT_STRATEGY]) {
   constructor(
     private readonly shareAuthService: ShareAuthService,
     private readonly cls: ClsService<IClsStore>
@@ -19,10 +19,17 @@ export class AuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
 
   async validate(context: ExecutionContext, shareId: string) {
     const req = context.switchToHttp().getRequest();
+    const isLinkView = shareId.startsWith(IdPrefix.Field);
+
+    if (isLinkView) {
+      const activate = (await super.canActivate(context)) as boolean;
+      const shareInfo = await this.shareAuthService.getLinkViewInfo(shareId);
+      req.shareInfo = shareInfo;
+      return activate;
+    }
+
     try {
-      const shareInfo = shareId.startsWith(IdPrefix.Field)
-        ? await this.shareAuthService.getLinkViewInfo(shareId)
-        : await this.shareAuthService.getShareViewInfo(shareId);
+      const shareInfo = await this.shareAuthService.getShareViewInfo(shareId);
       req.shareInfo = shareInfo;
 
       this.cls.set('user', {
@@ -40,7 +47,7 @@ export class AuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
     }
   }
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
+  async canActivate(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
     const shareId = req.params.shareId;
     return this.validate(context, shareId);

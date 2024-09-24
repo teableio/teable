@@ -8,8 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { FieldType } from '@teable/core';
 import type { IViewVo, IShareViewMeta } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
-import type { IClsStore } from '../../types/cls';
+import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { createViewVoByRaw } from '../view/model/factory';
 
@@ -27,9 +26,9 @@ export interface IJwtShareInfo {
 @Injectable()
 export class ShareAuthService {
   constructor(
+    private readonly permissionService: PermissionService,
     private readonly prismaService: PrismaService,
-    private readonly jwtService: JwtService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly jwtService: JwtService
   ) {}
 
   async validateJwtToken(token: string) {
@@ -76,7 +75,6 @@ export class ShareAuthService {
   }
 
   async getLinkViewInfo(linkFieldId: string): Promise<IShareViewInfo> {
-    const userId = this.cls.get('user.id');
     const fieldRaw = await this.prismaService.field
       .findFirstOrThrow({
         where: { id: linkFieldId, deletedTime: null },
@@ -91,10 +89,12 @@ export class ShareAuthService {
       throw new BadRequestException('field is not a link field');
     }
 
-    // TODO: check tableId permission for this user
-    // if (!userId) {
-    //   throw new ForbiddenException('user is required');
-    // }
+    // make sure user has permission to access the table where the link field from
+    await this.permissionService.validPermissions(fieldRaw.tableId, [
+      'table|read',
+      'record|read',
+      'field|read',
+    ]);
 
     return {
       shareId: linkFieldId,

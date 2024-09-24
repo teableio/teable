@@ -139,7 +139,6 @@ export class ShareService {
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
     const { tableId, view } = shareInfo;
-    const viewId = view?.id;
     const { fields } = shareViewFormSubmitRo;
     if (!view) {
       throw new ForbiddenException('view is required');
@@ -149,9 +148,7 @@ export class ShareService {
       throw new ForbiddenException('view type is not form');
     }
 
-    if (!viewId) {
-      throw new ForbiddenException('view id is required');
-    }
+    const viewId = view.id;
 
     // check field hidden
     const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
