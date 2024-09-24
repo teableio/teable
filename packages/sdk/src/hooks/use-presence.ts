@@ -1,10 +1,10 @@
 import { getActionTriggerChannel } from '@teable/core';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Presence } from 'sharedb/lib/sharedb';
-import { AppContext } from '../context/app/AppContext';
+import { useConnection } from './use-connection';
 
 export const usePresence = (channel: string | undefined) => {
-  const { connection } = useContext(AppContext);
+  const { connection } = useConnection();
   const [presence, setPresence] = useState<Presence>();
 
   useEffect(() => {

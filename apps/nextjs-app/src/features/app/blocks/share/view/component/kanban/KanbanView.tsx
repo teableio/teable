@@ -1,6 +1,6 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 import { TeableNew } from '@teable/icons';
-import { RecordProvider } from '@teable/sdk/context';
+import { RecordProvider, ShareViewContext } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -9,12 +9,11 @@ import { useContext } from 'react';
 import { KanbanProvider } from '@/features/app/blocks/view/kanban/context';
 import { KanbanViewBase } from '@/features/app/blocks/view/kanban/KanbanViewBase';
 import { EmbedFooter } from '../../EmbedFooter';
-import { ShareViewPageContext } from '../../ShareViewPageContext';
 import { GroupPointProvider } from '../grid/aggregation';
 import { KanbanToolbar } from './toolbar';
 
 export const KanbanView = () => {
-  const { view } = useContext(ShareViewPageContext);
+  const { view } = useContext(ShareViewContext);
   const isHydrated = useIsHydrated();
   const {
     query: { hideToolBar, embed },

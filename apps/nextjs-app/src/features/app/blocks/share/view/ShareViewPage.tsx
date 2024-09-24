@@ -7,18 +7,18 @@ import {
   SessionProvider,
   ShareViewProxy,
   ViewProvider,
+  ShareViewContext,
 } from '@teable/sdk/context';
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
+import { addQueryParamsToWebSocketUrl } from '@teable/sdk/utils';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSdkLocale } from '@/features/app/hooks/useSdkLocale';
 import { AppLayout } from '@/features/app/layouts';
-import { addQueryParamsToWebSocketUrl } from '@/features/app/utils/socket-url';
 import { ShareTablePermissionProvider } from './ShareTablePermissionProvider';
 import { ShareView } from './ShareView';
-import { ShareViewPageContext } from './ShareViewPageContext';
 
 export interface IShareViewPageProps {
   shareViewData: ShareViewGetVo;
@@ -46,7 +46,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
       locale={sdkLocale}
       forcedTheme={query.theme as string}
     >
-      <ShareViewPageContext.Provider value={props.shareViewData}>
+      <ShareViewContext.Provider value={props.shareViewData}>
         <Head>
           <title>{view?.name ?? 'Teable'}</title>
         </Head>
@@ -81,7 +81,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
             </AnchorContext.Provider>
           </SessionProvider>
         </AppLayout>
-      </ShareViewPageContext.Provider>
+      </ShareViewContext.Provider>
     </AppProvider>
   );
 };
