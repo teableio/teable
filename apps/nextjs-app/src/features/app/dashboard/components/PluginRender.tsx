@@ -43,10 +43,8 @@ export const PluginRender = (props: IPluginRenderProps) => {
       methods: methods as unknown as Methods,
     });
 
-    let childBridge: IChildBridgeMethods;
     connection.promise.then((child) => {
       onBridge(child);
-      childBridge = child;
     });
 
     connection.promise.catch((error) => {
