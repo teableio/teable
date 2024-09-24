@@ -7,7 +7,13 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { convertField, createBase, deleteRecords, updateDbTableName } from '@teable/openapi';
+import {
+  convertField,
+  createBase,
+  deleteBase,
+  deleteRecords,
+  updateDbTableName,
+} from '@teable/openapi';
 import {
   createField,
   createRecords,
@@ -2949,6 +2955,7 @@ describe('OpenAPI link (e2e)', () => {
     afterEach(async () => {
       await permanentDeleteTable(baseId, table1.id);
       await permanentDeleteTable(baseId2, table2.id);
+      await deleteBase(baseId2);
     });
 
     it('should create link cross base', async () => {

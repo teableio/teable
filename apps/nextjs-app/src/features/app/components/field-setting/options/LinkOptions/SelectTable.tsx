@@ -98,7 +98,7 @@ const TablePicker = ({ tableId, selfTableId, readonly, onChange }: ITablePickerP
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   let tables = useTables() as { id: string; name: string; icon?: string }[];
 
-  if (!tables.find((table) => table.id === tableId)) {
+  if (tableId && !tables.find((table) => table.id === tableId)) {
     tables = tables.concat({
       id: tableId!,
       name: t('table:field.editor.tableNoPermission'),
@@ -137,10 +137,10 @@ const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
       >,
   });
 
-  if (!bases?.find((base) => base.id === baseId)) {
+  if (baseId && !bases?.find((base) => base.id === baseId)) {
     bases = bases?.concat({
       id: baseId!,
-      name: t('table:field.editor.tableNoPermission'),
+      name: t('table:field.editor.baseNoPermission'),
     });
   }
 
