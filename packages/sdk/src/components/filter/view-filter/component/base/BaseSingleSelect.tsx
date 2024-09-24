@@ -25,6 +25,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
     options,
     className,
     popoverClassName,
+    placeholderClassName,
     disabled = false,
     optionRender,
     notFoundText = t('common.noRecords'),
@@ -80,7 +81,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
               <span className="truncate">{label}</span>
             )
           ) : (
-            <span className="text-xs font-light text-muted-foreground">
+            <span className={cn('text-sm font-normal text-muted-foreground', placeholderClassName)}>
               {t('common.selectPlaceHolder')}
             </span>
           )}
