@@ -41,6 +41,7 @@ import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SelectionService } from '../selection/selection.service';
+import { ViewService } from '../view/view.service';
 import type { IShareViewInfo } from './share-auth.service';
 
 export interface IJwtShareInfo {
@@ -52,6 +53,7 @@ export interface IJwtShareInfo {
 export class ShareService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
     private readonly recordService: RecordService,
     private readonly aggregationService: AggregationService,
@@ -92,7 +94,7 @@ export class ShareService {
       shareId,
       tableId,
       viewId,
-      view,
+      view: view ? this.viewService.convertViewVoAttachmentUrl(view) : undefined,
       fields,
       records,
       extra,

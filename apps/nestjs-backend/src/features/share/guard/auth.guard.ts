@@ -5,14 +5,16 @@ import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import { AuthGuard } from '../../auth/guard/auth.guard';
 import { ShareAuthService } from '../share-auth.service';
 import { SHARE_JWT_STRATEGY } from './constant';
 
 @Injectable()
-export class AuthGuard extends PassportAuthGuard(['session', SHARE_JWT_STRATEGY]) {
+export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
   constructor(
     private readonly shareAuthService: ShareAuthService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly authGuard: AuthGuard
   ) {
     super();
   }
@@ -22,7 +24,7 @@ export class AuthGuard extends PassportAuthGuard(['session', SHARE_JWT_STRATEGY]
     const isLinkView = shareId.startsWith(IdPrefix.Field);
 
     if (isLinkView) {
-      const activate = (await super.canActivate(context)) as boolean;
+      const activate = (await this.authGuard.validate(context)) as boolean;
       const shareInfo = await this.shareAuthService.getLinkViewInfo(shareId);
       req.shareInfo = shareInfo;
       return activate;
