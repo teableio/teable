@@ -689,7 +689,10 @@
       "editing": "Modification en cours...",
       "edited": "(Modifié)",
       "onNotify": "Vous ne serez notifié que des commentaires vous concernant si vous désactivez",
-      "offNotify": "Vous serez notifié de toutes les activités si vous activez"
+      "offNotify": "Vous serez notifié de toutes les activités si vous activez",
+      "reactionUserSuffix": "a réagi avec l'emoji {{emoji}}",
+      "me": "Vous",
+      "connection": "et"
     },
     "toolbar": {
       "link": "Lien",

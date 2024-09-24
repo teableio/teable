@@ -676,7 +676,10 @@
       "editing": "編集中...",
       "edited": "(編集済み)",
       "onNotify": "オフにすると、あなたに関連するコメントのみ通知されます",
-      "offNotify": "オンにすると、すべてのアクティビティが通知されます"
+      "offNotify": "オンにすると、すべてのアクティビティが通知されます",
+      "reactionUserSuffix": "{{emoji}}の絵文字でリアクションしました",
+      "me": "あなた",
+      "connection": "と"
     },
     "toolbar": {
       "link": "リンク",
