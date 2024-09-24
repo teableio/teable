@@ -654,21 +654,21 @@
       "title": "选择"
     },
     "where": {
-      "title": "条件"
+      "title": "筛选"
     },
     "groupBy": {
-      "title": "分组依据"
+      "title": "分组"
     },
     "orderBy": {
-      "title": "排序依据",
+      "title": "排序",
       "asc": "升序",
       "desc": "降序"
     },
     "limit": {
-      "title": "限制"
+      "title": "跳过"
     },
     "offset": {
-      "title": "偏移"
+      "title": "查询数量"
     },
     "join": {
       "title": "连接",
