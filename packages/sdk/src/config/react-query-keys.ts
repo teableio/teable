@@ -62,6 +62,8 @@ export const ReactQueryKeys = {
   aggregations: (tableId: string, query: IAggregationRo) =>
     ['aggregations', tableId, query] as const,
 
+  shareView: (shareId: string) => ['share-view', shareId] as const,
+
   shareViewRowCount: (shareId: string, query: IShareViewRowCountRo) =>
     ['share-view-row-count', shareId, query] as const,
   shareViewGroupPoints: (shareId: string, query: IGroupPointsRo) =>

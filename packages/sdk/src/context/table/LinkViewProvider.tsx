@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getShareView } from '@teable/openapi';
 import { map } from 'lodash';
 import React, { useMemo } from 'react';
+import { ReactQueryKeys } from '../../config/react-query-keys';
 import { useFields } from '../../hooks';
 import { addQueryParamsToWebSocketUrl } from '../../utils/urlParams';
 import { AnchorContext } from '../anchor/AnchorContext';
@@ -52,8 +53,8 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
   children,
   fallback,
 }) => {
-  const { data: shareData } = useQuery({
-    queryKey: ['share-view'],
+  const { data: shareData, isLoading } = useQuery({
+    queryKey: ReactQueryKeys.shareView(linkFieldId),
     enabled: Boolean(linkFieldId),
     queryFn: () => getShareView(linkFieldId).then(({ data }) => data),
   });
@@ -65,7 +66,7 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
     return undefined;
   }, [linkFieldId]);
 
-  if (!linkFieldId || !shareData) {
+  if (isLoading || !linkFieldId || !shareData) {
     return fallback;
   }
 
