@@ -16,6 +16,6 @@
   "previewReturnValue": "Предварительный просмотр возвращаемого значения",
   "replaceToken": "Заменить токен",
   "createNewToken": "Создать новый токен",
-  "only10Records": "Отображены только первые 10 записей",
+  "showPagination": "Pagination parameters are displayed in JSON mode",
   "addSort": "Добавить сортировку"
 }
