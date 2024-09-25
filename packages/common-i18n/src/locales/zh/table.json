@@ -7,6 +7,7 @@
       "share": {
         "label": "分享",
         "statusLabel": "分享视图",
+        "noPermission": "No permission to share view",
         "shareLink": "分享链接",
         "copied": "已复制",
         "genLink": "生成新链接",
