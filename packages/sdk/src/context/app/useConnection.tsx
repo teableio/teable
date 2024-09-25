@@ -1,6 +1,6 @@
 import { HttpError, HttpErrorCode } from '@teable/core';
 import { toast } from '@teable/ui-lib';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import ReconnectingWebSocket from 'reconnecting-websocket';
 import { Connection } from 'sharedb/lib/client';
 import type { ConnectionReceiveRequest, Socket } from 'sharedb/lib/sharedb';
@@ -29,22 +29,16 @@ const shareDbErrorHandler = (error: unknown) => {
 };
 
 export const useConnection = (path?: string) => {
-  const [connection, setConnection] = useState(() => {
-    if (typeof window === 'object') {
-      const socket = new ReconnectingWebSocket(path || getWsPath());
-      return new Connection(socket as Socket);
-    }
-  });
   const [connected, setConnected] = useState(false);
+  const connectionRef = useRef<Connection | null>(null);
 
   useEffect(() => {
-    if (!connection) {
+    if (!connectionRef.current && typeof window === 'object') {
       const socket = new ReconnectingWebSocket(path || getWsPath());
-      setConnection(new Connection(socket as Socket));
+      connectionRef.current = new Connection(socket as Socket);
     }
-  }, [connection, path]);
 
-  useEffect(() => {
+    const connection = connectionRef.current;
     if (!connection) {
       return;
     }
@@ -69,6 +63,7 @@ export const useConnection = (path?: string) => {
     connection.on('closed', onDisconnected);
     connection.on('error', shareDbErrorHandler);
     connection.on('receive', onReceive);
+
     return () => {
       pingInterval && clearInterval(pingInterval);
       connection.removeListener('connected', onConnected);
@@ -76,10 +71,12 @@ export const useConnection = (path?: string) => {
       connection.removeListener('closed', onDisconnected);
       connection.removeListener('error', shareDbErrorHandler);
       connection.removeListener('receive', onReceive);
+      connection.close();
+      connectionRef.current = null;
     };
-  }, [connection]);
+  }, [path]);
 
   return useMemo(() => {
-    return { connection, connected };
-  }, [connected, connection]);
+    return { connection: connectionRef.current || undefined, connected };
+  }, [connected]);
 };
