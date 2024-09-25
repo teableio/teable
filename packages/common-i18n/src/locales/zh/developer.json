@@ -16,6 +16,6 @@
   "previewReturnValue": "返回值预览",
   "replaceToken": "替换 Token",
   "createNewToken": "创建新 Token",
-  "only10Records": "只展示前 10 条记录",
+  "showPagination": "分页参数在 JSON 模式下显示",
   "addSort": "添加一个排序"
 }

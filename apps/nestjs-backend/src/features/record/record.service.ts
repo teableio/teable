@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
+  IColumnMeta,
   IExtraResult,
   IFilter,
   IFilterSet,
@@ -565,6 +566,63 @@ export class RecordService {
     };
   }
 
+  private async getViewProjection(
+    tableId: string,
+    query: IGetRecordsRo
+  ): Promise<Record<string, boolean> | undefined> {
+    const viewId = query.viewId;
+    if (!viewId) {
+      return;
+    }
+
+    const fieldKeyType = query.fieldKeyType || FieldKeyType.Name;
+    const view = await this.prismaService.txClient().view.findFirstOrThrow({
+      where: { id: viewId, deletedTime: null },
+      select: { id: true, columnMeta: true },
+    });
+
+    const columnMeta = JSON.parse(view.columnMeta) as IColumnMeta;
+    const useVisible = Object.values(columnMeta).some((column) => 'visible' in column);
+    const useHidden = Object.values(columnMeta).some((column) => 'hidden' in column);
+
+    if (!useVisible && !useHidden) {
+      return;
+    }
+
+    const fieldIdOrNames = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, name: true },
+    });
+
+    const fieldMap = keyBy(fieldIdOrNames, 'id');
+
+    const projection = Object.entries(columnMeta).reduce<Record<string, boolean>>(
+      (acc, [fieldId, column]) => {
+        const field = fieldMap[fieldId];
+        if (!field) return acc;
+
+        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+
+        if (useVisible) {
+          if ('visible' in column && column.visible) {
+            acc[fieldKey] = true;
+          }
+        } else if (useHidden) {
+          if (!('hidden' in column) || !column.hidden) {
+            acc[fieldKey] = true;
+          }
+        } else {
+          acc[fieldKey] = true;
+        }
+
+        return acc;
+      },
+      {}
+    );
+
+    return Object.keys(projection).length > 0 ? projection : undefined;
+  }
+
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
     const queryResult = await this.getDocIdsByQuery(tableId, {
       viewId: query.viewId,
@@ -578,13 +636,18 @@ export class RecordService {
       filterLinkCellSelected: query.filterLinkCellSelected,
     });
 
+    const projection = query.projection
+      ? this.convertProjection(query.projection)
+      : await this.getViewProjection(tableId, query);
+
     const recordSnapshot = await this.getSnapshotBulk(
       tableId,
       queryResult.ids,
-      this.convertProjection(query.projection),
+      projection,
       query.fieldKeyType || FieldKeyType.Name,
       query.cellFormat
     );
+
     return {
       records: recordSnapshot.map((r) => r.data),
       extra: queryResult.extra,

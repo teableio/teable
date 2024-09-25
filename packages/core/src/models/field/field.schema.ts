@@ -394,7 +394,6 @@ export const getFieldsQuerySchema = z.object({
     description: 'The id of the view.',
   }),
   filterHidden: z.coerce.boolean().optional(),
-  filterDenied: z.coerce.boolean().optional(),
   excludeFieldIds: z.array(z.string().startsWith(IdPrefix.Field)).optional(),
 });
 

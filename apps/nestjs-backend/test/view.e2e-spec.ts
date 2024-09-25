@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IColumn, IFieldRo, IFieldVo, IViewRo } from '@teable/core';
-import { FieldType, Relationship, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, Relationship, ViewType } from '@teable/core';
 import type { ICreateTableRo, ITableFullVo } from '@teable/openapi';
 import {
   updateViewDescription,
@@ -9,6 +9,9 @@ import {
   getViewFilterLinkRecords,
   updateViewShareMeta,
   enableShareView,
+  updateViewColumnMeta,
+  updateRecord,
+  getRecords,
 } from '@teable/openapi';
 import { getError } from './utils/get-error';
 import {
@@ -347,6 +350,55 @@ describe('OpenAPI ViewController (e2e)', () => {
 
       expect(error?.status).toEqual(400);
       expect(error?.message).toEqual(`View type(${ViewType.Form}) not support copy`);
+    });
+  });
+
+  describe('filter by view ', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: 'table1' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should get records with a field filtered view', async () => {
+      const res = await createView(table.id, {
+        name: 'view1',
+        type: ViewType.Grid,
+      });
+
+      await updateViewColumnMeta(table.id, res.id, [
+        {
+          fieldId: table.fields[1].id,
+          columnMeta: {
+            hidden: true,
+          },
+        },
+      ]);
+
+      await updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table.fields[0].id]: 'text',
+            [table.fields[1].id]: 1,
+          },
+        },
+      });
+
+      const recordResult = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: res.id,
+      });
+      const fieldResult = await getFields(table.id, res.id);
+
+      expect(recordResult.data.records[0].fields[table.fields[0].id]).toEqual('text');
+      expect(recordResult.data.records[0].fields[table.fields[1].id]).toBeUndefined();
+
+      expect(fieldResult.length).toEqual(table.fields.length - 1);
+      expect(fieldResult.find((field) => field.id === table.fields[1].id)).toBeUndefined();
     });
   });
 });
