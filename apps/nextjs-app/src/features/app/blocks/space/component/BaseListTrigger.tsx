@@ -16,14 +16,14 @@ export const BaseListTrigger = ({
   spaceId,
   children,
 }: {
-  collaboratorType: CollaboratorType;
+  collaboratorType?: CollaboratorType;
   spaceId: string;
   children: React.ReactNode;
 }) => {
   const { data: spaceBases } = useQuery({
     queryKey: ReactQueryKeys.baseList(spaceId),
     queryFn: ({ queryKey }) => getBaseList({ spaceId: queryKey[1] }).then((res) => res.data),
-    enabled: collaboratorType === CollaboratorType.Space,
+    enabled: collaboratorType !== CollaboratorType.Base,
   });
 
   const { data: sharedBases } = useQuery({

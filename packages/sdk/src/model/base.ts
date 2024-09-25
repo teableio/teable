@@ -8,7 +8,7 @@ export class Base implements IGetBaseVo {
   spaceId: string;
   icon: string | null;
   role: IRole;
-  collaboratorType: CollaboratorType;
+  collaboratorType?: CollaboratorType;
 
   constructor(base: IGetBaseVo) {
     const { id, name, spaceId, icon, role, collaboratorType } = base;
