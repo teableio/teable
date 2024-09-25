@@ -175,8 +175,15 @@ const checkIsAppendColumn = (props: ICheckRegionProps): IRegionData | null => {
   return null;
 };
 
-const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, columnStatistics, height, scrollState, coordInstance, getLinearRow } = props;
+export const getColumnStatisticData = (
+  props: Pick<
+    IRenderLayerProps,
+    'height' | 'scrollState' | 'coordInstance' | 'columnStatistics' | 'getLinearRow'
+  > & {
+    position: IRegionPosition;
+  }
+) => {
+  const { columnStatistics, scrollState, coordInstance, getLinearRow, position, height } = props;
   if (columnStatistics == null) return null;
   const { scrollLeft, scrollTop } = scrollState;
   const { x, y, rowIndex, columnIndex } = position;
@@ -235,6 +242,10 @@ const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null =>
   }
 
   return null;
+};
+
+const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null => {
+  return getColumnStatisticData(props);
 };
 
 const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {

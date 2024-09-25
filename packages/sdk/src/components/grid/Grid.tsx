@@ -543,6 +543,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             spriteManager={spriteManager}
             coordInstance={coordInstance}
             columnStatistics={columnStatistics}
+            collapsedGroupIds={collapsedGroupIds}
             columnHeaderVisible={columnHeaderVisible}
             forceRenderFlag={forceRenderFlag}
             rowIndexVisible={rowIndexVisible}
@@ -560,6 +561,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnAppend={onColumnAppend}
             onColumnHeaderClick={onColumnHeaderClick}
             onColumnStatisticClick={onColumnStatisticClick}
+            onCollapsedGroupChanged={onCollapsedGroupChanged}
             onSelectionChanged={onSelectionChanged}
           />
         ) : (
