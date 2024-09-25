@@ -32,6 +32,7 @@ import type {
   IRowHeaderDrawerProps,
   IGroupRowHeaderDrawerProps,
   IAppendRowDrawerProps,
+  IGroupStatisticDrawerProps,
 } from './interface';
 import { RenderRegion, DividerRegion } from './interface';
 
@@ -58,6 +59,7 @@ const {
   cellHorizontalPadding,
   columnFreezeHandlerWidth,
   columnFreezeHandlerHeight,
+  minColumnStatisticWidth,
 } = GRID_DEFAULT;
 
 export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawerProps) => {
@@ -1485,15 +1487,26 @@ export const drawColumnStatistics = (
     mouseState,
     scrollState,
     columnStatistics,
+    groupCollection,
+    getLinearRow,
   } = props;
 
   if (columnStatistics == null) return;
 
-  const { scrollLeft } = scrollState;
+  const { scrollLeft, scrollTop } = scrollState;
   let { startColumnIndex, stopColumnIndex } = visibleRegion;
-  const { type, columnIndex: hoverColumnIndex } = mouseState;
-  const { containerHeight, containerWidth, freezeRegionWidth, freezeColumnCount } = coordInstance;
-  const { fontSizeXS, fontFamily, rowHeaderTextColor, columnHeaderBgHovered } = theme;
+  const { startRowIndex, stopRowIndex } = visibleRegion;
+  const { type, columnIndex: hoverColumnIndex, rowIndex: hoverRowIndex } = mouseState;
+  const { rowInitSize, containerHeight, containerWidth, freezeRegionWidth, freezeColumnCount } =
+    coordInstance;
+  const {
+    fontSizeXS,
+    fontFamily,
+    columnHeaderBg,
+    groupHeaderBgTertiary,
+    groupHeaderBgSecondary,
+    groupHeaderBgPrimary,
+  } = theme;
   const isFreezeRegion = renderRegion === RenderRegion.Freeze;
   const y = containerHeight + 0.5;
 
@@ -1503,7 +1516,7 @@ export const drawColumnStatistics = (
   ctx.save();
   ctx.rect(
     isFreezeRegion ? 0 : freezeRegionWidth,
-    0,
+    rowInitSize,
     isFreezeRegion ? freezeRegionWidth : containerWidth - freezeRegionWidth,
     height
   );
@@ -1511,45 +1524,115 @@ export const drawColumnStatistics = (
   ctx.beginPath();
   ctx.font = `${fontSizeXS}px ${fontFamily}`;
 
+  const { groupColumns } = groupCollection ?? {};
+
   for (let columnIndex = startColumnIndex; columnIndex <= stopColumnIndex; columnIndex++) {
     const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
     const columnWidth = coordInstance.getColumnWidth(columnIndex);
-    const isHovered = type === RegionType.ColumnStatistic && columnIndex === hoverColumnIndex;
+    const isFirstColumn = columnIndex === 0;
+    const isColumnHovered = columnIndex === hoverColumnIndex;
     const column = columns[columnIndex];
-
-    if (isHovered) {
-      drawRect(ctx, {
-        x,
-        y,
-        width: columnWidth,
-        height: columnStatisticHeight,
-        fill: columnHeaderBgHovered,
-      });
-    }
 
     if (column == null) continue;
 
-    const { id: columnId, name } = column;
+    const { id: columnId, name, statisticLabel } = column;
+
+    if (groupColumns != null) {
+      const bgList = [groupHeaderBgTertiary, groupHeaderBgSecondary, groupHeaderBgPrimary].slice(
+        -groupColumns.length
+      );
+
+      for (let rowIndex = startRowIndex; rowIndex <= stopRowIndex; rowIndex++) {
+        const linearRow = getLinearRow(rowIndex);
+        const rowHeight = coordInstance.getRowHeight(rowIndex);
+        const { type: linearRowType } = linearRow;
+        const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+
+        if (linearRowType === LinearRowType.Group) {
+          const { id, depth } = linearRow;
+          const text = columnStatistics[columnId ?? name]?.[id];
+
+          drawStatisticCell(ctx, {
+            x: isFirstColumn ? x + columnWidth - minColumnStatisticWidth : x + 1,
+            y: y + 1,
+            textOffsetY: columnStatisticHeight / 2 - 2,
+            width: isFirstColumn ? minColumnStatisticWidth : columnWidth - 1,
+            height: rowHeight - 1,
+            text,
+            defaultLabel: statisticLabel?.label,
+            bgColor: isFirstColumn && text ? bgList[depth] : undefined,
+            isHovered:
+              isColumnHovered && rowIndex === hoverRowIndex && type === RegionType.GroupStatistic,
+            theme,
+          });
+        }
+      }
+    }
+
     const text = columnStatistics[columnId ?? name]?.total;
-    const textProp: Omit<ISingleLineTextProps, 'text'> = {
-      x: x + 0.5,
-      y: y + cellVerticalPaddingMD,
-      textAlign: 'right',
-      maxWidth: columnWidth - 4,
-      fill: rowHeaderTextColor,
-    };
 
-    if (isHovered || column.statisticLabel?.showAlways) {
-      !text &&
-        drawSingleLineText(ctx, { ...textProp, text: column.statisticLabel?.label || 'Summary' });
-    }
-
-    if (text) {
-      drawSingleLineText(ctx, { ...textProp, text });
-    }
+    drawStatisticCell(ctx, {
+      x,
+      y: y + 1,
+      textOffsetY: cellVerticalPaddingMD,
+      width: columnWidth,
+      height: columnStatisticHeight,
+      text,
+      bgColor: columnHeaderBg,
+      isHovered: isColumnHovered && type === RegionType.ColumnStatistic,
+      showAlways: statisticLabel?.showAlways,
+      defaultLabel: statisticLabel?.label,
+      theme,
+    });
   }
 
   ctx.restore();
+};
+
+export const drawStatisticCell = (
+  ctx: CanvasRenderingContext2D,
+  props: IGroupStatisticDrawerProps
+) => {
+  const {
+    x,
+    y,
+    width,
+    height,
+    text,
+    textOffsetY,
+    isHovered,
+    showAlways,
+    theme,
+    defaultLabel,
+    bgColor,
+  } = props;
+  const { rowHeaderTextColor, columnStatisticBgHovered } = theme;
+
+  if (text || isHovered || showAlways || bgColor) {
+    drawRect(ctx, {
+      x,
+      y,
+      width,
+      height,
+      fill: isHovered ? columnStatisticBgHovered : bgColor,
+    });
+  }
+
+  const textProp: Omit<ISingleLineTextProps, 'text'> = {
+    x: x + 0.5,
+    y: y + (textOffsetY ?? 0.5),
+    textAlign: 'right',
+    maxWidth: width - 4,
+    fill: rowHeaderTextColor,
+  };
+
+  if (isHovered || showAlways) {
+    !text && drawSingleLineText(ctx, { ...textProp, text: defaultLabel || 'Summary' });
+  }
+
+  if (text) {
+    drawSingleLineText(ctx, { ...textProp, text });
+  }
 };
 
 export const drawColumnStatisticsRegion = (
@@ -1558,10 +1641,12 @@ export const drawColumnStatisticsRegion = (
 ) => {
   const { coordInstance, theme, columnStatistics, height } = props;
   const { containerWidth } = coordInstance;
-  const { columnHeaderBg, cellLineColor } = theme;
+  const { cellLineColor } = theme;
   const y = height - columnStatisticHeight + 0.5;
 
   if (columnStatistics == null) return;
+
+  [RenderRegion.Freeze, RenderRegion.Other].forEach((r) => drawColumnStatistics(ctx, props, r));
 
   drawLine(ctx, {
     x: 0,
@@ -1569,16 +1654,6 @@ export const drawColumnStatisticsRegion = (
     points: [0, 0, containerWidth, 0],
     stroke: cellLineColor,
   });
-
-  drawRect(ctx, {
-    x: 0,
-    y: y + 0.5,
-    width: containerWidth,
-    height: columnStatisticHeight - 0.5,
-    fill: columnHeaderBg,
-  });
-
-  [RenderRegion.Freeze, RenderRegion.Other].forEach((r) => drawColumnStatistics(ctx, props, r));
 };
 
 export const computeShouldRerender = (current: ILayoutDrawerProps, last?: ILayoutDrawerProps) => {

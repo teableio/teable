@@ -185,7 +185,8 @@ export const useSelection = (props: IUseSelectionProps) => {
     // eslint-disable-next-line sonarjs/cognitive-complexity
   ) => {
     const { x, y, columnIndex, rowIndex: hoverRowIndex, type } = mouseState;
-    if ([RegionType.Blank, RegionType.ColumnStatistic].includes(type)) return;
+    if ([RegionType.Blank, RegionType.ColumnStatistic, RegionType.GroupStatistic].includes(type))
+      return;
     const {
       isCellSelection: isPrevCellSelection,
       isRowSelection: isPrevRowSelection,

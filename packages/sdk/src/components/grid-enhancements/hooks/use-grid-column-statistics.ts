@@ -57,7 +57,7 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
 
         const columnAggregations = aggregationMap[columnId];
 
-        const { total } = columnAggregations ?? {};
+        const { total, group } = columnAggregations ?? {};
 
         if (columnAggregations === null || total === null) {
           acc[columnId] = null;
@@ -65,12 +65,22 @@ export function useGridColumnStatistics(columns: (IGridColumn & { id: string })[
         }
 
         const field = fieldMap[columnId];
+        const groupAggregations: Record<string, string> = {};
+
+        if (group) {
+          Object.entries(group).forEach(([groupId, item]) => {
+            const { aggFunc, value } = item;
+            const displayValue = statisticsValue2DisplayValue(aggFunc, value, field);
+            groupAggregations[groupId] = `${statisticFunc2NameMap[aggFunc]} ${displayValue}`;
+          });
+        }
 
         if (total != null && field != null) {
           const { aggFunc, value } = total;
 
           const displayValue = statisticsValue2DisplayValue(aggFunc, value, field);
           acc[columnId] = {
+            ...groupAggregations,
             total: `${statisticFunc2NameMap[aggFunc]} ${displayValue}`,
           };
         }

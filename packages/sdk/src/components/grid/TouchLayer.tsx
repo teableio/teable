@@ -11,7 +11,7 @@ import {
 } from './configs';
 import type { IGridProps } from './Grid';
 import { useSelection, useVisibleRegion } from './hooks';
-import { RegionType, SelectionRegionType } from './interface';
+import { LinearRowType, RegionType, SelectionRegionType } from './interface';
 import type {
   ICellItem,
   ILinearRow,
@@ -23,6 +23,7 @@ import type {
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { emptySelection } from './managers';
 import { RenderLayer } from './RenderLayer';
+import { getColumnStatisticData } from './utils';
 
 export interface ITouchLayerProps
   extends Omit<
@@ -77,6 +78,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     forceRenderFlag,
     rowIndexVisible,
     groupCollection,
+    collapsedGroupIds,
     columnHeaderVisible,
     getCellContent,
     getLinearRow,
@@ -88,6 +90,8 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     onColumnAppend,
     onColumnHeaderClick,
     onSelectionChanged,
+    onColumnStatisticClick,
+    onCollapsedGroupChanged,
   } = props;
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
@@ -128,12 +132,27 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     setTimeout(() => setMouseState(DEFAULT_MOUSE_STATE), 500);
   };
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const onTap = (e: HammerInput) => {
     const pointerEvent = e.changedPointers[0];
     const x = pointerEvent?.offsetX ?? pointerEvent?.layerX;
     const y = pointerEvent?.offsetY ?? pointerEvent?.layerY;
     const [columnIndex, rowIndex] = getRangeByPosition(x, y);
     const posInfo = { x, y, rowIndex, columnIndex, isOutOfBounds: false };
+
+    // Tap the column statistic
+    const statisticBoundData = getColumnStatisticData({
+      columnStatistics,
+      scrollState,
+      coordInstance,
+      getLinearRow,
+      position: { x, y, rowIndex, columnIndex },
+      height: rowInitSize,
+    });
+    if (statisticBoundData != null) {
+      const { type, ...rest } = statisticBoundData;
+      return onColumnStatisticClick?.(columnIndex, { ...rest });
+    }
 
     // Tap the column header
     if (rowIndex === -1 && columnIndex > -1) {
@@ -160,11 +179,24 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
 
     // Tap the row
     if (rowIndex >= 0) {
+      const linearRow = getLinearRow(rowIndex);
+
+      if (linearRow.type === LinearRowType.Group && x < coordInstance.rowInitSize) {
+        const { id } = linearRow;
+        if (collapsedGroupIds == null) return onCollapsedGroupChanged?.(new Set([id]));
+        if (collapsedGroupIds.has(id)) {
+          const newCollapsedGroupIds = new Set(collapsedGroupIds);
+          newCollapsedGroupIds.delete(id);
+          return onCollapsedGroupChanged?.(newCollapsedGroupIds);
+        }
+        return onCollapsedGroupChanged?.(new Set([...collapsedGroupIds, id]));
+      }
+
       const range = [0, rowIndex];
       setActiveCell(range as IRange);
       setSelection(selection.set(SelectionRegionType.Cells, [range, range] as IRange[]));
       onTapStyleEffect({ ...posInfo, type: RegionType.Cell });
-      onRowExpand?.(rowIndex);
+      onRowExpand?.(linearRow.realIndex);
     }
   };
 

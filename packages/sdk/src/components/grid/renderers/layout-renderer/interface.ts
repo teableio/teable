@@ -94,3 +94,13 @@ export interface ICacheDrawerProps {
   shouldRerender?: boolean;
   draw: (cacheCtx: CanvasRenderingContext2D) => void;
 }
+
+export interface IGroupStatisticDrawerProps extends IRectangle {
+  theme: IGridTheme;
+  bgColor?: string;
+  isHovered: boolean;
+  text?: string;
+  textOffsetY?: number;
+  showAlways?: boolean;
+  defaultLabel?: string;
+}

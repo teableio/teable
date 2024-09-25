@@ -34,6 +34,7 @@ export const GRID_DEFAULT = {
 
   // Statistics
   columnStatisticHeight: 40,
+  minColumnStatisticWidth: 110,
 
   // Others
   scrollBuffer: 100,

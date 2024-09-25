@@ -10,6 +10,7 @@ import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
 import { CellType } from '../../grid/renderers';
+import { convertNextImageUrl } from '../utils';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 100 });
 
@@ -247,7 +248,18 @@ const useGenerateGroupCellFn = () => {
           case FieldType.CreatedBy:
           case FieldType.LastModifiedBy: {
             const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-            const data = cv.map(({ id, title }) => ({ id, name: title }));
+            const data = cv.map((item) => {
+              const { title, avatarUrl } = item;
+              return {
+                ...item,
+                name: title,
+                avatarUrl: convertNextImageUrl({
+                  url: avatarUrl,
+                  w: 64,
+                  q: 100,
+                }),
+              };
+            });
 
             return {
               type: CellType.User,

@@ -108,6 +108,7 @@ export class ShareService {
     const viewId = shareInfo.view?.id;
     const tableId = shareInfo.tableId;
     const filter = query?.filter ?? null;
+    const groupBy = query?.groupBy ?? null;
     const fieldStats: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
     if (query?.field) {
       Object.entries(query.field).forEach(([key, value]) => {
@@ -120,7 +121,7 @@ export class ShareService {
     }
     const result = await this.aggregationService.performAggregation({
       tableId,
-      withView: { viewId, customFilter: filter, customFieldStats: fieldStats },
+      withView: { viewId, customFilter: filter, customFieldStats: fieldStats, groupBy },
     });
 
     return { aggregations: result?.aggregations };

@@ -157,7 +157,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     setPrefillingFieldValueMap,
   } = useGridPrefillingRow(columns);
 
-  const { mutate: mutateCreateRecord } = useMutation({
+  const { mutate: mutateCreateRecord, isLoading: isCreatingRecord } = useMutation({
     mutationFn: () =>
       createRecords(tableId!, {
         records: [{ fields: prefillingFieldValueMap! }],
@@ -718,7 +718,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       {inPrefilling && (
         <PrefillingRowContainer
           style={prefillingRowStyle}
+          isLoading={isCreatingRecord}
           onClickOutside={async () => {
+            if (isCreatingRecord) return;
             await mutateCreateRecord();
           }}
           onCancel={() => {

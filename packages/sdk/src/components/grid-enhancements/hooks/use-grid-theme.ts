@@ -33,6 +33,9 @@ const darkTheme = {
   columnResizeHandlerBg: colors.gray[400],
   columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.2),
 
+  // Column Statistic
+  columnStatisticBgHovered: colors.gray[800],
+
   // Row Header
   rowHeaderTextColor: colors.slate[50],
 
