@@ -1,4 +1,5 @@
 import { HelpCircle, Plus } from '@teable/icons';
+import { Spin } from '@teable/ui-lib/base';
 import {
   Button,
   Tooltip,
@@ -14,12 +15,13 @@ import { tableConfig } from '@/features/i18n/table.config';
 interface IPrefillingRowContainerProps {
   style?: React.CSSProperties;
   children: React.ReactNode;
+  isLoading?: boolean;
   onCancel?: () => void;
   onClickOutside?: () => void;
 }
 
 export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
-  const { style, children, onCancel, onClickOutside } = props;
+  const { style, children, isLoading, onCancel, onClickOutside } = props;
   const prefillingGridContainerRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
@@ -34,7 +36,7 @@ export const PrefillingRowContainer = (props: IPrefillingRowContainerProps) => {
       style={style}
     >
       <div className="absolute left-0 top-[-32px] flex h-8 items-center rounded-ss-lg bg-violet-500 px-2 py-1 text-background dark:border-violet-700">
-        <Plus className="mr-1" />
+        {isLoading ? <Spin className="mr-1 size-4" /> : <Plus className="mr-1" />}
         <span className="text-[13px]">{t('table:grid.prefillingRowTitle')}</span>
         <TooltipProvider>
           <Tooltip delayDuration={200}>
