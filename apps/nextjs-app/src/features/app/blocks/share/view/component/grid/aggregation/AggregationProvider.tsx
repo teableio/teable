@@ -38,8 +38,8 @@ const useAggregationQuery = (): IShareViewAggregationsRo => {
     [view?.columnMeta]
   );
   return useMemo(
-    () => ({ filter: view?.filter, field, search: searchQuery }),
-    [field, searchQuery, view?.filter]
+    () => ({ filter: view?.filter, field, search: searchQuery, groupBy: view?.group }),
+    [field, searchQuery, view?.filter, view?.group]
   );
 };
 

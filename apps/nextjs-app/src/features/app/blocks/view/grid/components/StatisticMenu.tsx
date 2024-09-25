@@ -22,8 +22,10 @@ export const StatisticMenu = () => {
   const visible = Boolean(statisticMenu);
   const style = position
     ? {
-        left: position.x + position.width,
+        left: position.x,
         top: position.y + 4,
+        width: position.width,
+        height: position.height,
       }
     : {};
 

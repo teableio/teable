@@ -4,7 +4,7 @@ import { getAggregation } from '@teable/openapi';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useSearch, useTableListener, useViewListener } from '../../hooks';
+import { useSearch, useTableListener, useView, useViewListener } from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { AggregationContext } from './AggregationContext';
 
@@ -14,9 +14,20 @@ interface IAggregationProviderProps {
 
 export const AggregationProvider: FC<IAggregationProviderProps> = ({ children }) => {
   const { tableId, viewId } = useContext(AnchorContext);
+  const view = useView(viewId);
   const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
-  const aggQuery = useMemo(() => ({ viewId, search: searchQuery }), [searchQuery, viewId]);
+  const { group } = view || {};
+
+  const aggQuery = useMemo(
+    () => ({
+      viewId,
+      search: searchQuery,
+      groupBy: group,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [searchQuery, viewId, JSON.stringify(group)]
+  );
   const { data: resAggregations } = useQuery({
     queryKey: ReactQueryKeys.aggregations(tableId as string, aggQuery),
     queryFn: ({ queryKey }) => getAggregation(queryKey[1], queryKey[2]).then((data) => data.data),

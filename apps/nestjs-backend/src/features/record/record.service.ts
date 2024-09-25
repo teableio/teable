@@ -45,7 +45,7 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { difference, isDate, keyBy } from 'lodash';
+import { difference, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -53,7 +53,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import { string2Hash } from '../../utils';
+import { convertValueToStringify, string2Hash } from '../../utils';
 import { generateFilterItem } from '../../utils/filter';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
@@ -1102,20 +1102,6 @@ export class RecordService {
     return { ids, extra: { groupPoints } };
   }
 
-  private convertValueToStringify(value: unknown): number | string | null {
-    if (typeof value === 'bigint' || typeof value === 'number') {
-      return Number(value);
-    }
-    if (isDate(value)) {
-      return value.toISOString();
-    }
-    if (typeof value === 'string') {
-      return value;
-    }
-    if (value == null) return null;
-    return JSON.stringify(value);
-  }
-
   async getRecordsFields(
     tableId: string,
     query: IGetRecordsRo
@@ -1255,7 +1241,7 @@ export class RecordService {
         if (isCollapsed) return;
 
         const { id, dbFieldName } = field;
-        const fieldValue = this.convertValueToStringify(item[dbFieldName]);
+        const fieldValue = convertValueToStringify(item[dbFieldName]);
 
         if (fieldValues[index] === fieldValue) return;
 

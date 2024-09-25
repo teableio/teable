@@ -18,9 +18,9 @@ export class AggregationOpenApiService {
   constructor(private readonly aggregationService: AggregationService) {}
 
   async getAggregation(tableId: string, query?: IAggregationRo): Promise<IAggregationVo> {
-    const { viewId, filter: customFilter, field: aggregationFields } = query || {};
+    const { viewId, filter: customFilter, field: aggregationFields, groupBy } = query || {};
 
-    let withView: IWithView = { viewId, customFilter };
+    let withView: IWithView = { viewId, customFilter, groupBy };
 
     const fieldStatistics: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
 

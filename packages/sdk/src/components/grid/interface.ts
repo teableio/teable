@@ -39,6 +39,7 @@ export enum RegionType {
   AppendRow = 'AppendRow',
   AppendColumn = 'AppendColumn',
   ColumnHeader = 'ColumnHeader',
+  GroupStatistic = 'GroupStatistic',
   ColumnStatistic = 'ColumnStatistic',
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnPrimaryIcon = 'ColumnPrimaryIcon',
