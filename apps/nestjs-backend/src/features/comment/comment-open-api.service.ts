@@ -341,8 +341,8 @@ export class CommentOpenApiService {
   }
 
   async getTableCommentCount(tableId: string, query: IGetRecordsRo) {
-    const recordVo = await this.recordService.getRecords(tableId, query);
-    const recordsId = recordVo.records.map((rec) => rec.id);
+    const docResult = await this.recordService.getDocIdsByQuery(tableId, query);
+    const recordsId = docResult.ids;
 
     const result = await this.prismaService.comment.groupBy({
       by: ['recordId'],

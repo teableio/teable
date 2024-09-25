@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 export const useImportStatus = (tableId: string) => {
   const { connection } = useConnection();
-  const presence = connection.getPresence(getTableImportChannel(tableId));
+  const presence = connection?.getPresence(getTableImportChannel(tableId));
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

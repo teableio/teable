@@ -7,6 +7,7 @@ import type {
   IOtOperation,
   IColumnMeta,
   ILinkFieldOptions,
+  IGetFieldsQuery,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { instanceToPlain } from 'class-transformer';
@@ -66,6 +67,13 @@ export class FieldOpenApiService {
   // TODO add delete relative check
   async planFieldConvert(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     return await this.graphService.planFieldConvert(tableId, fieldId, updateFieldRo);
+  }
+
+  async getFields(tableId: string, query: IGetFieldsQuery) {
+    return await this.fieldService.getFieldsByQuery(tableId, {
+      ...query,
+      filterHidden: query.filterHidden == null ? true : query.filterHidden,
+    });
   }
 
   private async validateLookupField(field: IFieldInstance) {

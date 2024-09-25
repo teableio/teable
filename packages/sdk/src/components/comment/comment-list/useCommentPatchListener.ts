@@ -10,7 +10,7 @@ export const useCommentPatchListener = (
 ) => {
   const { connection } = useConnection();
   const presenceKey = getCommentChannel(tableId, recordId);
-  const presence = connection.getPresence(presenceKey);
+  const presence = connection?.getPresence(presenceKey);
 
   useEffect(() => {
     if (!presence || !tableId || !connection || !recordId) {

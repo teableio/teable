@@ -16,6 +16,6 @@
   "previewReturnValue": "Return value preview",
   "replaceToken": "Replace token",
   "createNewToken": "Create new token",
-  "only10Records": "Only the first 10 records are displayed",
+  "showPagination": "Pagination parameters are displayed in JSON mode",
   "addSort": "Add a sort"
 }

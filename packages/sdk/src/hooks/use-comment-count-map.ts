@@ -52,7 +52,7 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
     }
 
     const presenceKey = getTableCommentChannel(tableId);
-    const presence = connection.getPresence(presenceKey);
+    const presence = connection?.getPresence(presenceKey);
 
     if (!presence || !connection) {
       return;
