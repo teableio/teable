@@ -400,11 +400,20 @@ export class AggregationService {
       })
       .from(tableAlias);
 
-    const extra = groupBy ? { groupBy: groupBy.map((item) => item.fieldId) } : undefined;
-    const aggSql = this.dbProvider
-      .aggregationQuery(queryBuilder, tableAlias, fieldInstanceMap, statisticFields, extra)
-      .appendBuilder()
-      .toQuery();
+    const qb = this.dbProvider
+      .aggregationQuery(queryBuilder, tableAlias, fieldInstanceMap, statisticFields)
+      .appendBuilder();
+
+    if (groupBy) {
+      this.dbProvider
+        .groupQuery(
+          qb,
+          fieldInstanceMap,
+          groupBy.map((item) => item.fieldId)
+        )
+        .appendGroupBuilder();
+    }
+    const aggSql = qb.toQuery();
     return this.prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
   }
 
