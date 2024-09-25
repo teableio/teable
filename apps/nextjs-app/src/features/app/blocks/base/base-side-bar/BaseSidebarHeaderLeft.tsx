@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { ChevronsLeft, TeableNew, ChevronDown } from '@teable/icons';
-import { deleteBase, updateBase } from '@teable/openapi';
+import { ChevronsLeft, TeableNew, ChevronDown, Menu } from '@teable/icons';
+import { CollaboratorType, deleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
 import { Button, Input } from '@teable/ui-lib';
@@ -9,6 +9,7 @@ import { useRouter } from 'next/router';
 import { useRef, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { BaseActionTrigger } from '../../space/component/BaseActionTrigger';
+import { BaseListTrigger } from '../../space/component/BaseListTrigger';
 
 export const BaseSidebarHeaderLeft = () => {
   const base = useBase();
@@ -57,16 +58,22 @@ export const BaseSidebarHeaderLeft = () => {
   const hasDeletePermission = hasPermission(base.role, 'base|delete');
 
   const backSpace = () => {
-    router.push({
-      pathname: '/space/[spaceId]',
-      query: { spaceId: base.spaceId },
-    });
+    if (base.collaboratorType === CollaboratorType.Base) {
+      router.push({
+        pathname: '/space/shared-base',
+      });
+    } else {
+      router.push({
+        pathname: '/space/[spaceId]',
+        query: { spaceId: base.spaceId },
+      });
+    }
   };
 
   return (
-    <>
+    <div className="flex max-w-[calc(100%-28px)] shrink grow items-center">
       <div
-        className="group relative size-6 shrink-0 cursor-pointer"
+        className="relative mr-2 size-6 shrink-0 cursor-pointer"
         onClick={backSpace}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -76,48 +83,55 @@ export const BaseSidebarHeaderLeft = () => {
         role="button"
         tabIndex={0}
       >
-        <div className="absolute top-0 size-6 group-hover:opacity-0">
+        <div className="absolute top-0 size-6 transition-all group-hover/sidebar:opacity-0">
           {base.icon ? (
             <Emoji emoji={base.icon} size={'1.5rem'} />
           ) : (
             <TeableNew className="size-6 text-black" />
           )}
         </div>
-        <ChevronsLeft className="absolute top-0 size-6 opacity-0 group-hover:opacity-100" />
+        <ChevronsLeft className="absolute top-0 size-6 opacity-0 transition-all group-hover/sidebar:opacity-100" />
       </div>
-      {renaming ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            toggleRenameBase();
-          }}
+      <div className="flex shrink grow items-center gap-1 overflow-hidden p-1">
+        {renaming ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              toggleRenameBase();
+            }}
+          >
+            <Input
+              ref={inputRef}
+              className="h-7 flex-1 shrink"
+              value={baseName}
+              onChange={(e) => setBaseName(e.target.value)}
+              onBlur={toggleRenameBase}
+            />
+          </form>
+        ) : (
+          <p className="shrink truncate text-sm" title={base.name}>
+            {base.name}
+          </p>
+        )}
+        <BaseActionTrigger
+          base={base}
+          showRename={hasUpdatePermission}
+          showDuplicate={hasReadPermission}
+          showDelete={hasDeletePermission}
+          onDelete={() => deleteBaseMutator(base.id)}
+          onRename={onRename}
+          align="start"
         >
-          <Input
-            ref={inputRef}
-            className="h-7 flex-1"
-            value={baseName}
-            onChange={(e) => setBaseName(e.target.value)}
-            onBlur={toggleRenameBase}
-          />
-        </form>
-      ) : (
-        <p className="truncate text-sm" title={base.name}>
-          {base.name}
-        </p>
-      )}
-      <BaseActionTrigger
-        base={base}
-        showRename={hasUpdatePermission}
-        showDuplicate={hasReadPermission}
-        showDelete={hasDeletePermission}
-        onDelete={() => deleteBaseMutator(base.id)}
-        onRename={onRename}
-        align="start"
-      >
+          <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
+            <ChevronDown className="size-4" />
+          </Button>
+        </BaseActionTrigger>
+      </div>
+      <BaseListTrigger spaceId={base.spaceId} collaboratorType={base.collaboratorType}>
         <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
-          <ChevronDown className="size-4" />
+          <Menu className="size-4" />
         </Button>
-      </BaseActionTrigger>
-    </>
+      </BaseListTrigger>
+    </div>
   );
 };

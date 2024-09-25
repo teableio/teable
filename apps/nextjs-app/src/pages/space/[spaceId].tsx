@@ -1,5 +1,4 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import type { IHttpError } from '@teable/core';
 import { ReactQueryKeys } from '@teable/sdk';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
@@ -15,27 +14,12 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
   const { spaceId } = context.query;
   const queryClient = new QueryClient();
 
-  const result = await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.space(spaceId as string),
-    queryFn: async ({ queryKey }) =>
-      ssrApi.getSpaceById(queryKey[1]).catch((e: IHttpError) => {
-        if (e.status === 403) {
-          return {
-            redirect: {
-              destination: '/space/shared-base',
-              permanent: false,
-            },
-          };
-        }
-        throw e;
-      }),
-  });
-
-  if ('redirect' in result) {
-    return result;
-  }
-
   await Promise.all([
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.space(spaceId as string),
+      queryFn: ({ queryKey }) => ssrApi.getSpaceById(queryKey[1]),
+    }),
+
     queryClient.fetchQuery({
       queryKey: ReactQueryKeys.baseAll(),
       queryFn: () => ssrApi.getBaseList(),

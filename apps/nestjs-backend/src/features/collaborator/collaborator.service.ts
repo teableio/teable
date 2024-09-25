@@ -425,6 +425,7 @@ export class CollaboratorService {
       role: roleMap[base.id],
       icon: base.icon,
       spaceId: base.spaceId,
+      collaboratorType: CollaboratorType.Base,
     }));
   }
 }

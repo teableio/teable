@@ -71,6 +71,7 @@ export class BaseService {
     return {
       ...base,
       role: role,
+      collaboratorType: collaborator.resourceType as CollaboratorType,
       isUnrestricted: isUnrestrictedRole(role),
     };
   }

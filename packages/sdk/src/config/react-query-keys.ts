@@ -18,6 +18,8 @@ export const ReactQueryKeys = {
 
   baseAll: () => ['base-all'] as const,
 
+  baseList: (spaceId: string) => ['base-list', spaceId] as const,
+
   pinList: () => ['pin-list'] as const,
 
   spaceList: () => ['space-list'] as const,

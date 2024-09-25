@@ -7,7 +7,7 @@ import { getBaseItemSchema } from './get';
 
 export const GET_BASE_ALL = '/base/access/all';
 
-export type IGetBaseAllVo = Omit<IGetBaseVo, 'isUnrestricted'>[];
+export type IGetBaseAllVo = Omit<IGetBaseVo, 'isUnrestricted' | 'collaboratorType'>[];
 
 export const GetBaseAllRoute: RouteConfig = registerRoute({
   method: 'get',
