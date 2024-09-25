@@ -7,6 +7,7 @@
       "share": {
         "label": "Share",
         "statusLabel": "Sharing",
+        "noPermission": "No permission to share view",
         "shareLink": "Share Link",
         "copied": "Copied",
         "genLink": "Generate new link",
