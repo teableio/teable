@@ -27,7 +27,6 @@ import { useTablePermission } from '../../../hooks';
 import { AttachmentManager } from '../../editor';
 import { useModalRefElement } from '../../expand-record/useModalRefElement';
 import { MentionUser } from '../comment-list/node';
-import { useCollaborators } from '../hooks';
 import { useCommentStore } from '../useCommentStore';
 import { CommentQuote } from './CommentQuote';
 import { Editor } from './Editor';
@@ -70,6 +69,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
   const { t } = useTranslation();
   const { quoteId, setQuoteId, setEditorRef, editingCommentId, setEditingCommentId } =
     useCommentStore();
+  const [composition, setComposition] = useState(false);
   const mentionUserRender = (element: TMentionElement) => {
     const value = element.value;
     return <MentionUser id={value} />;
@@ -287,8 +287,14 @@ export const CommentEditor = (props: ICommentEditorProps) => {
             className="h-24 rounded-none border-none outline-none focus:outline-none"
             variant={'ghost'}
             disabled={!permission['record|comment']}
+            onCompositionStart={() => {
+              setComposition(true);
+            }}
+            onCompositionEnd={() => {
+              setComposition(false);
+            }}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
+              if (event.key === 'Enter' && !event.shiftKey && !composition) {
                 event.preventDefault();
                 submit();
               }

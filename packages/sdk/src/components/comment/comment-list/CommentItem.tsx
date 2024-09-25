@@ -91,7 +91,7 @@ export const CommentItem = (props: ICommentItemProps) => {
 
   return (
     createdBy && (
-      <HoverCard>
+      <HoverCard openDelay={200}>
         <HoverCardTrigger asChild>
           <div
             className={cn('flex w-full gap-1 rounded-sm p-1 hover:bg-secondary', {

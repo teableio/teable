@@ -232,6 +232,7 @@ export class CommentOpenApiService {
         },
         data: {
           reaction: data.length ? JSON.stringify(data) : null,
+          lastModifiedTime: commentRaw?.lastModifiedTime,
         },
       })
       .catch((e) => {

@@ -18,6 +18,7 @@ import { useSession } from '../../../hooks';
 import { useCollaborators } from '../hooks';
 import type { IBaseQueryParams } from '../types';
 import { CommentItem } from './CommentItem';
+import { CommentSkeleton } from './CommentSkeleton';
 import { useCommentPatchListener } from './useCommentPatchListener';
 
 export interface ICommentListProps extends IBaseQueryParams {
@@ -35,6 +36,11 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
   const listRef = useRef<HTMLDivElement>(null);
   const [commentList, setCommentList] = useState<ICommentVo[]>([]);
   const { user: self } = useSession();
+
+  useEffect(() => {
+    // reset comment list when switch record
+    setCommentList([]);
+  }, [tableId, recordId]);
 
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -65,37 +71,38 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
     scrollToBottom: scrollToBottom,
   }));
 
-  const { data, fetchPreviousPage, isFetchingPreviousPage, hasPreviousPage } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.commentList(tableId, recordId),
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: false,
-    queryFn: ({ pageParam }) =>
-      getCommentList(tableId!, recordId!, {
-        cursor: pageParam?.cursor,
-        take: 20,
-        direction: pageParam?.direction || 'forward',
-      }).then((res) => res.data),
-    getPreviousPageParam: (firstPage) =>
-      firstPage.nextCursor
-        ? {
-            cursor: firstPage.nextCursor,
-            direction: 'forward',
-          }
-        : undefined,
-    onSuccess: (data) => {
-      // first come move to bottom
-      if (data.pages.length === 1 && listRef.current) {
-        const scrollToBottom = () => {
-          if (listRef.current) {
-            const scrollHeight = listRef.current.scrollHeight;
-            listRef.current.scrollTop = scrollHeight;
-          }
-        };
-        setTimeout(scrollToBottom, 100);
-      }
-    },
-    enabled: !!tableId && !!recordId,
-  });
+  const { data, fetchPreviousPage, isFetchingPreviousPage, hasPreviousPage, isLoading } =
+    useInfiniteQuery({
+      queryKey: ReactQueryKeys.commentList(tableId, recordId),
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: false,
+      queryFn: ({ pageParam }) =>
+        getCommentList(tableId!, recordId!, {
+          cursor: pageParam?.cursor,
+          take: 20,
+          direction: pageParam?.direction || 'forward',
+        }).then((res) => res.data),
+      getPreviousPageParam: (firstPage) =>
+        firstPage.nextCursor
+          ? {
+              cursor: firstPage.nextCursor,
+              direction: 'forward',
+            }
+          : undefined,
+      onSuccess: (data) => {
+        // first come move to bottom
+        if (data.pages.length === 1 && listRef.current) {
+          const scrollToBottom = () => {
+            if (listRef.current) {
+              const scrollHeight = listRef.current.scrollHeight;
+              listRef.current.scrollTop = scrollHeight;
+            }
+          };
+          setTimeout(scrollToBottom, 100);
+        }
+      },
+      enabled: !!tableId && !!recordId,
+    });
 
   useEffect(() => {
     let result = [...commentList];
@@ -180,37 +187,43 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
 
   return (
     <div className="my-1 flex w-full flex-1 flex-col overflow-y-auto px-1" ref={listRef}>
-      {isFetchingPreviousPage && (
-        <div className="flex h-6 w-full justify-center">
-          <Spin />
-        </div>
-      )}
-      {isFetchingPreviousPage ? (
-        <div className="flex h-6 w-full justify-center">
-          <Spin />
-        </div>
+      {isLoading ? (
+        <CommentSkeleton />
       ) : (
-        hasPreviousPage && (
-          <Button size="xs" variant={'ghost'} onClick={() => fetchPreviousPage()} className="p-1">
-            {t('common.loadMore')}
-          </Button>
-        )
-      )}
+        <>
+          {isFetchingPreviousPage ? (
+            <div className="flex h-6 w-full justify-center">
+              <Spin />
+            </div>
+          ) : (
+            hasPreviousPage && (
+              <Button
+                size="xs"
+                variant={'ghost'}
+                onClick={() => fetchPreviousPage()}
+                className="p-1"
+              >
+                {t('common.loadMore')}
+              </Button>
+            )
+          )}
 
-      {commentListWithCollaborators?.length ? (
-        commentListWithCollaborators.map((comment) => (
-          <CommentItem
-            key={comment.id}
-            {...comment}
-            tableId={tableId}
-            recordId={recordId}
-            commentId={commentId}
-          />
-        ))
-      ) : (
-        <div className="flex size-full items-center justify-center text-center text-gray-400">
-          {t('comment.emptyComment')}
-        </div>
+          {commentListWithCollaborators?.length ? (
+            commentListWithCollaborators.map((comment) => (
+              <CommentItem
+                key={comment.id}
+                {...comment}
+                tableId={tableId}
+                recordId={recordId}
+                commentId={commentId}
+              />
+            ))
+          ) : (
+            <div className="flex size-full items-center justify-center text-center text-gray-400">
+              {t('comment.emptyComment')}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
