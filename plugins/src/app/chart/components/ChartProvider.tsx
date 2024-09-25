@@ -8,7 +8,7 @@ export interface IChartContext {
   storage?: IChartStorage;
   uiConfig?: IUIConfig;
   queryError?: string;
-  onQueryError?: (error: string) => void;
+  onQueryError?: (error?: string) => void;
   onTabChange: (tab: 'chart' | 'query') => void;
   onStorageChange: (storage: IChartStorage) => Promise<unknown>;
 }

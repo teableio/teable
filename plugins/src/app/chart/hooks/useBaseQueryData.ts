@@ -44,6 +44,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
     queryKey: ['baseQuery', baseId, query, cellFormat] as const,
     enabled: !!query || Boolean(pluginId),
     queryFn: async ({ queryKey }) => {
+      onQueryError?.(undefined);
       const url = urlBuilder(BASE_QUERY, { baseId: queryKey[1] });
       const params = new URLSearchParams({
         query: JSON.stringify(queryKey[2]),
