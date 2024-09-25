@@ -1232,18 +1232,21 @@ export class RecordService {
     const groupPoints: IGroupPoint[] = [];
     let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
     let curRowCount = 0;
+    let collapsedDepth = Number.MAX_SAFE_INTEGER;
 
     groupResult.forEach((item) => {
       const { __c: count } = item;
-      let isCollapsed = false;
 
       groupFields.forEach((field, index) => {
-        if (isCollapsed) return;
+        if (index > collapsedDepth) return;
 
         const { id, dbFieldName } = field;
         const fieldValue = convertValueToStringify(item[dbFieldName]);
 
         if (fieldValues[index] === fieldValue) return;
+
+        // Reset the collapsedDepth when encountering the next peer grouping
+        collapsedDepth = Number.MAX_SAFE_INTEGER;
 
         fieldValues[index] = fieldValue;
         fieldValues = fieldValues.map((value, idx) => (idx > index ? Symbol() : value));
@@ -1260,11 +1263,13 @@ export class RecordService {
           isCollapsed: isCollapsedInner,
         });
 
-        isCollapsed = isCollapsedInner;
+        if (isCollapsedInner) {
+          collapsedDepth = index;
+        }
       });
 
       curRowCount += Number(count);
-      if (isCollapsed) return;
+      if (collapsedDepth !== Number.MAX_SAFE_INTEGER) return;
       groupPoints.push({ type: GroupPointType.Row, count: Number(count) });
     });
 
