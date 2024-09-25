@@ -692,7 +692,10 @@
       "editing": "Editing...",
       "edited": "(Edited)",
       "onNotify": "Only be notified comment relative to you if you turn off",
-      "offNotify": "You will be notified by all active if you turn on"
+      "offNotify": "You will be notified by all active if you turn on",
+      "reactionUserSuffix": "reacted with {{emoji}} emoji",
+      "me": "You",
+      "connection": "and"
     },
     "toolbar": {
       "link": "Link",
