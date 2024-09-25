@@ -7,6 +7,7 @@
       "share": {
         "label": "Поделиться",
         "statusLabel": "Поделиться",
+        "noPermission": "No permission to share view",
         "shareLink": "Поделиться ссылкой",
         "copied": "Скопировано",
         "genLink": "Создать новую ссылку",
