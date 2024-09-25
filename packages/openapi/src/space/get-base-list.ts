@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
-import type { IGetBaseVo } from '../base';
+import type { IGetBaseAllVo } from '../base';
 import { getBaseItemSchema } from '../base';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -34,5 +34,5 @@ export const GetBaseListRoute: RouteConfig = registerRoute({
 });
 
 export const getBaseList = async (query: IGetBasesListRo) => {
-  return axios.get<IGetBaseVo[]>(urlBuilder(GET_BASE_LIST, query));
+  return axios.get<IGetBaseAllVo>(urlBuilder(GET_BASE_LIST, query));
 };

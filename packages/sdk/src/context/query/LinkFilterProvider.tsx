@@ -21,13 +21,25 @@ export const LinkFilterProvider: React.FC<ILinkFilterProviderProps> = (props) =>
       value={{
         filterLinkCellSelected,
         filterLinkCellCandidate,
-        setLinkCellCandidate: (value: string[]) => {
-          setLinkCellCandidate(value as [string, string]);
+        setLinkCellCandidate: (value: string[] | string) => {
+          setLinkCellCandidate(
+            Array.isArray(value)
+              ? value.length === 2
+                ? (value as [string, string])
+                : (value[0] as string)
+              : (value as string)
+          );
           setLinkCellSelected(undefined);
         },
-        setLinkCellSelected: (value) => {
+        setLinkCellSelected: (value: string[] | string) => {
           setLinkCellCandidate(undefined);
-          setLinkCellSelected(value as [string, string]);
+          setLinkCellSelected(
+            Array.isArray(value)
+              ? value.length === 2
+                ? (value as [string, string])
+                : (value[0] as string)
+              : (value as string)
+          );
         },
       }}
     >

@@ -95,6 +95,9 @@ const actionsI18nMap: Record<
   'view|update': {
     description: 'permission.actionDescription.viewUpdate',
   },
+  'view|share': {
+    description: 'permission.actionDescription.viewShare',
+  },
   'field|create': {
     description: 'permission.actionDescription.fieldCreate',
   },

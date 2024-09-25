@@ -13,9 +13,8 @@ export const SidebarHeader = (prop: ISidebarHeaderProps) => {
   const { t } = useTranslation('common');
 
   return (
-    <div className="m-2 flex h-7 items-center gap-1">
+    <div className="flex h-10 w-full items-center gap-1 p-2">
       {headerLeft}
-      <div className="grow basis-0" />
       {onExpand && (
         <TooltipProvider>
           <Tooltip>
