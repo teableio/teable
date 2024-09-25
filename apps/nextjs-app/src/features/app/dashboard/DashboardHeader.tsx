@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
   Input,
 } from '@teable/ui-lib/shadcn';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
@@ -37,21 +38,21 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
     mutationFn: () => deleteDashboard(baseId, dashboardId),
     onSuccess: () => {
       setMenuOpen(false);
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList());
+      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
       router.push(`/base/${baseId}/dashboard`);
     },
   });
 
   const { data: dashboardList } = useQuery({
-    queryKey: ReactQueryKeys.getDashboardList(),
-    queryFn: () => getDashboardList(baseId).then((res) => res.data),
+    queryKey: ReactQueryKeys.getDashboardList(baseId),
+    queryFn: ({ queryKey }) => getDashboardList(queryKey[1]).then((res) => res.data),
   });
 
   const { mutate: renameDashboardMutate } = useMutation({
     mutationFn: () => renameDashboard(baseId, dashboardId, rename!),
     onSuccess: () => {
       setRename(null);
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList());
+      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
     },
   });
 
@@ -59,6 +60,9 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
 
   return (
     <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+      <Head>
+        <title>{selectedDashboard?.name ? `${selectedDashboard?.name} - Teable` : 'Teable'}</title>
+      </Head>
       <DashboardSwitcher
         className={cn('w-44', {
           hidden: rename !== null,

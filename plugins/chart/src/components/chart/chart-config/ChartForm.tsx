@@ -4,6 +4,7 @@ import { AreaForm } from './form/AreaForm';
 import { BarForm } from './form/BarForm';
 import { LineForm } from './form/LineForm';
 import { PieForm } from './form/PieForm';
+import { TableForm } from './form/TableForm';
 
 export const ChartForm = (props: {
   value: IChartConfig;
@@ -21,7 +22,7 @@ export const ChartForm = (props: {
     case 'pie':
       return <PieForm config={value} onChange={onChange} />;
     case 'table':
-      return;
+      return <TableForm config={value} onChange={onChange} />;
     default:
       throw new Error(t('form.typeError'));
   }

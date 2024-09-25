@@ -13,6 +13,7 @@ export interface IParentBridgeMethods {
   expandRecord: (recordIds: string[]) => void;
   updateStorage: (storage?: Record<string, unknown>) => Promise<Record<string, unknown>>;
   getAuthCode: () => Promise<string>;
+  expandPlugin: () => void;
 }
 
 export interface IChildBridgeMethods {

@@ -108,7 +108,7 @@ export const ReactQueryKeys = {
 
   getBaseTrashItems: (baseId: string) => ['base-trash-items', baseId] as const,
 
-  getDashboardList: () => ['dashboard-list'] as const,
+  getDashboardList: (baseId: string) => ['dashboard-list', baseId] as const,
 
   getDashboard: (dashboardId: string) => ['dashboard', dashboardId] as const,
 };

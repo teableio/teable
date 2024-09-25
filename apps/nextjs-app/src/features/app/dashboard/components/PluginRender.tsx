@@ -11,9 +11,10 @@ interface IPluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElemen
   pluginId: string;
   baseId: string;
   onBridge: (bridge?: IChildBridgeMethods) => void;
+  onExpand?: () => void;
 }
 export const PluginRender = (props: IPluginRenderProps) => {
-  const { onBridge, pluginInstallId, baseId, dashboardId, pluginId, ...rest } = props;
+  const { onBridge, onExpand, pluginInstallId, baseId, dashboardId, pluginId, ...rest } = props;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
@@ -31,6 +32,9 @@ export const PluginRender = (props: IPluginRenderProps) => {
       },
       getAuthCode: () => {
         return pluginGetAuthCode(pluginId, baseId).then((res) => res.data);
+      },
+      expandPlugin: () => {
+        onExpand?.();
       },
     };
     const connection = connectToChild<IChildBridgeMethods>({
@@ -53,7 +57,8 @@ export const PluginRender = (props: IPluginRenderProps) => {
       connection.destroy();
       onBridge(undefined);
     };
-  }, [onBridge, pluginInstallId, baseId, dashboardId, pluginId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // eslint-disable-next-line jsx-a11y/iframe-has-title
   return <iframe loading={'lazy'} {...rest} ref={iframeRef} className="rounded-b p-1" />;

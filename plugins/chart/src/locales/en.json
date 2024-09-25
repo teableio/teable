@@ -84,9 +84,12 @@
       "right": "Right",
       "bottom": "Bottom",
       "left": "Left"
-    }
+    },
+    "tableConfig": "Table Configuration",
+    "width": "Width"
   },
   "reloadQuery": "Reload Query",
   "noStorage": "Please configure the chart plugin first",
-  "noPermission": "No permission to access"
+  "noPermission": "No permission to access",
+  "goConfig": "Go to configuration"
 }

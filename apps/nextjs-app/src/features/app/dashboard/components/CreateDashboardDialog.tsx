@@ -54,7 +54,7 @@ export const CreateDashboardDialog = forwardRef<
       onSuccess: (res) => {
         setOpen(false);
         setName('');
-        queryClient.invalidateQueries(ReactQueryKeys.getDashboardList());
+        queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
         router.push(`/base/${baseId}/dashboard?id=${res.data.id}`);
         if (onSuccessCallback) {
           onSuccessCallback?.(res.data.id);

@@ -5,7 +5,9 @@ import {
   AppProvider,
   BaseProvider,
   TableProvider,
+  usePluginBridge,
 } from '@teable/sdk';
+import { Button } from '@teable/ui-lib';
 import { useSearchParams } from 'next/navigation';
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,9 +20,17 @@ export const ChartLayout: React.FC<{
   const baseId = searchParams.get('baseId');
   const { i18n, t } = useTranslation();
   const { uiConfig, storage } = useContext(ChartContext);
+  const pluginBridge = usePluginBridge();
 
   if (!storage && !uiConfig?.isShowingSettings) {
-    return <div className="text-muted-foreground text-center">{t('noStorage')}</div>;
+    return (
+      <div className="flex flex-col items-center gap-2 px-4">
+        <div className="text-muted-foreground text-center">{t('noStorage')}</div>
+        <Button className="m-auto h-7" size="sm" onClick={() => pluginBridge?.expandPlugin()}>
+          {t('goConfig')}
+        </Button>
+      </div>
+    );
   }
 
   return (
