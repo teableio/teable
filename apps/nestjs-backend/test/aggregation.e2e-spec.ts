@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import { SortFunc, type StatisticsFunc } from '@teable/core';
+import { SortFunc } from '@teable/core';
+import type { IGroup, StatisticsFunc } from '@teable/core';
 import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import { getAggregation, getGroupPoints, getRowCount, GroupPointType } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
@@ -31,12 +32,14 @@ describe('OpenAPI AggregationController (e2e)', () => {
     tableId: string,
     viewId: string,
     funcs: StatisticsFunc,
-    fieldId: string[]
+    fieldId: string[],
+    groupBy?: IGroup
   ) {
     return (
       await getAggregation(tableId, {
         viewId: viewId,
         field: { [funcs]: fieldId },
+        groupBy,
       })
     ).data;
   }
@@ -81,6 +84,34 @@ describe('OpenAPI AggregationController (e2e)', () => {
           expect(total?.value).toBeCloseTo(expectValue, 4);
         }
       );
+
+      test.each(TEXT_FIELD_CASES)(
+        `should agg func [$aggFunc] value with groupBy: $expectGroupedCount`,
+        async ({ fieldIndex, aggFunc, expectGroupedCount }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(
+            tableId,
+            viewId,
+            aggFunc,
+            [fieldId],
+            [
+              {
+                fieldId,
+                order: SortFunc.Asc,
+              },
+            ]
+          );
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ group }] = result.aggregations!;
+          expect(group).toBeDefined();
+          expect(Object.keys(group ?? []).length).toBe(expectGroupedCount);
+        }
+      );
     });
 
     describe('simple aggregation number field record', () => {
@@ -98,6 +129,32 @@ describe('OpenAPI AggregationController (e2e)', () => {
           const [{ total }] = result.aggregations!;
           expect(total?.aggFunc).toBe(aggFunc);
           expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+
+      test.each(NUMBER_FIELD_CASES)(
+        `should agg func [$aggFunc] value: $expectGroupedCount`,
+        async ({ fieldIndex, aggFunc, expectGroupedCount }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(
+            tableId,
+            viewId,
+            aggFunc,
+            [fieldId],
+            [
+              {
+                fieldId,
+                order: SortFunc.Asc,
+              },
+            ]
+          );
+
+          const [{ group }] = result.aggregations!;
+          expect(group).toBeDefined();
+          expect(Object.keys(group ?? []).length).toBe(expectGroupedCount);
         }
       );
     });
@@ -119,6 +176,34 @@ describe('OpenAPI AggregationController (e2e)', () => {
           expect(total?.value).toBeCloseTo(expectValue, 4);
         }
       );
+
+      test.each(SINGLE_SELECT_FIELD_CASES)(
+        `should agg func [$aggFunc] value with groupBy: $expectGroupedCount`,
+        async ({ fieldIndex, aggFunc, expectGroupedCount }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(
+            tableId,
+            viewId,
+            aggFunc,
+            [fieldId],
+            [
+              {
+                fieldId,
+                order: SortFunc.Asc,
+              },
+            ]
+          );
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ group }] = result.aggregations!;
+          expect(group).toBeDefined();
+          expect(Object.keys(group ?? []).length).toEqual(expectGroupedCount);
+        }
+      );
     });
 
     describe('simple aggregation multiple select field record', () => {
@@ -136,6 +221,34 @@ describe('OpenAPI AggregationController (e2e)', () => {
           const [{ total }] = result.aggregations!;
           expect(total?.aggFunc).toBe(aggFunc);
           expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+
+      test.each(MULTIPLE_SELECT_FIELD_CASES)(
+        `should agg func [$aggFunc] value with groupBy: $expectGroupedCount`,
+        async ({ fieldIndex, aggFunc, expectGroupedCount }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(
+            tableId,
+            viewId,
+            aggFunc,
+            [fieldId],
+            [
+              {
+                fieldId,
+                order: SortFunc.Asc,
+              },
+            ]
+          );
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ group }] = result.aggregations!;
+          expect(group).toBeDefined();
+          expect(Object.keys(group ?? []).length).toEqual(expectGroupedCount);
         }
       );
     });
@@ -161,6 +274,34 @@ describe('OpenAPI AggregationController (e2e)', () => {
           }
         }
       );
+
+      test.each(DATE_FIELD_CASES)(
+        `should agg func [$aggFunc] value with groupBy: $expectGroupedCount`,
+        async ({ fieldIndex, aggFunc, expectGroupedCount }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(
+            tableId,
+            viewId,
+            aggFunc,
+            [fieldId],
+            [
+              {
+                fieldId,
+                order: SortFunc.Asc,
+              },
+            ]
+          );
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ group }] = result.aggregations!;
+          expect(group).toBeDefined();
+          expect(Object.keys(group ?? []).length).toEqual(expectGroupedCount);
+        }
+      );
     });
 
     describe('simple aggregation checkbox field record', () => {
@@ -180,6 +321,34 @@ describe('OpenAPI AggregationController (e2e)', () => {
           expect(total?.value).toBeCloseTo(expectValue, 4);
         }
       );
+
+      test.each(CHECKBOX_FIELD_CASES)(
+        `should agg func [$aggFunc] value with groupBy: $expectGroupedCount`,
+        async ({ fieldIndex, aggFunc, expectGroupedCount }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(
+            tableId,
+            viewId,
+            aggFunc,
+            [fieldId],
+            [
+              {
+                fieldId,
+                order: SortFunc.Asc,
+              },
+            ]
+          );
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ group }] = result.aggregations!;
+          expect(group).toBeDefined();
+          expect(Object.keys(group ?? []).length).toEqual(expectGroupedCount);
+        }
+      );
     });
 
     describe('simple aggregation user field record', () => {
@@ -197,6 +366,34 @@ describe('OpenAPI AggregationController (e2e)', () => {
           const [{ total }] = result.aggregations!;
           expect(total?.aggFunc).toBe(aggFunc);
           expect(total?.value).toBeCloseTo(expectValue, 4);
+        }
+      );
+
+      test.each(USER_FIELD_CASES)(
+        `should agg func [$aggFunc] value with groupBy: $expectGroupedCount`,
+        async ({ fieldIndex, aggFunc, expectGroupedCount }) => {
+          const tableId = table.id;
+          const viewId = table.views[0].id;
+          const fieldId = table.fields[fieldIndex].id;
+
+          const result = await getViewAggregations(
+            tableId,
+            viewId,
+            aggFunc,
+            [fieldId],
+            [
+              {
+                fieldId,
+                order: SortFunc.Asc,
+              },
+            ]
+          );
+          expect(result).toBeDefined();
+          expect(result.aggregations?.length).toBeGreaterThan(0);
+
+          const [{ group }] = result.aggregations!;
+          expect(group).toBeDefined();
+          expect(Object.keys(group ?? []).length).toEqual(expectGroupedCount);
         }
       );
     });
