@@ -3,7 +3,7 @@ import { RefreshCcw } from '@teable/icons';
 import { Button, cn } from '@teable/ui-lib';
 import { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useEnv } from '../../../hooks/useEnv';
+import { useEnv } from '../../../../../hooks/useEnv';
 import { ChartContext } from '../../ChartProvider';
 
 export const QueryStatus = () => {
