@@ -175,9 +175,7 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
   return (
     <LinkViewProvider linkFieldId={props.fieldId}>
       <LinkFilterProvider
-        filterLinkCellCandidate={
-          [props.fieldId, props.recordId].filter(Boolean) as [string, string]
-        }
+        filterLinkCellCandidate={props.recordId ? [props.fieldId, props.recordId] : props.fieldId}
       >
         <RowCountProvider>
           <LinkEditorInner ref={forwardRef} {...props} />
