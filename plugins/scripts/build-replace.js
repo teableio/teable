@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Path to the server.js file
-const serverJsPath = path.join(process.cwd(), '.next/standalone/plugins/chart/server.js');
+const serverJsPath = path.join(process.cwd(), '.next/standalone/plugins/server.js');
 
 // Read the file content
 let serverJs = fs.readFileSync(serverJsPath, 'utf8');
@@ -19,7 +19,7 @@ fs.writeFileSync(serverJsPath, serverJs, 'utf8');
 // Move the static directory
 // Path for moving the static directory
 const staticSrc = path.join(process.cwd(), '.next/static');
-const staticDest = path.join(process.cwd(), '.next/standalone/plugins/chart/.next/static');
+const staticDest = path.join(process.cwd(), '.next/standalone/plugins/.next/static');
 
 try {
   // Check if the source directory exists

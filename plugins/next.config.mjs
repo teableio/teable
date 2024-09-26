@@ -1,7 +1,7 @@
 import { createSecureHeaders } from 'next-secure-headers';
 
 const isProd = process.env.NODE_ENV === 'production';
-const basePath = '/plugin/chart';
+const basePath = '/plugin';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

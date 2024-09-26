@@ -3,9 +3,9 @@ import { HttpErrorCode, type CellFormat, type HttpError } from '@teable/core';
 import type { IBaseQueryVo } from '@teable/openapi';
 import { BASE_QUERY, urlBuilder } from '@teable/openapi';
 import { useContext } from 'react';
-import { fetchGetToken } from '../api';
+import { fetchGetToken, GetTokenType } from '../../../api';
+import { useEnv } from '../../../hooks/useEnv';
 import { ChartContext } from '../components/ChartProvider';
-import { useEnv } from './useEnv';
 
 export const formatRes = (res?: IBaseQueryVo): IBaseQueryVo => {
   if (!res) {
@@ -44,6 +44,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
     queryKey: ['baseQuery', baseId, query, cellFormat] as const,
     enabled: !!query || Boolean(pluginId),
     queryFn: async ({ queryKey }) => {
+      onQueryError?.(undefined);
       const url = urlBuilder(BASE_QUERY, { baseId: queryKey[1] });
       const params = new URLSearchParams({
         query: JSON.stringify(queryKey[2]),
@@ -57,6 +58,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
         const res = await fetchGetToken({
           pluginId,
           baseId,
+          type: GetTokenType.chart,
         });
         accessToken = res.accessToken;
       }
@@ -76,6 +78,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
           await fetchGetToken({
             pluginId,
             baseId,
+            type: GetTokenType.chart,
           }).then((res) => {
             accessToken = res.accessToken;
             return accessToken;
@@ -103,6 +106,7 @@ export const useBaseQueryData = (cellFormat?: CellFormat) => {
         fetchGetToken({
           pluginId,
           baseId,
+          type: GetTokenType.chart,
         }).then((res) => {
           accessToken = res.accessToken;
           queryClient.refetchQueries(['baseQuery', baseId, query, cellFormat]);

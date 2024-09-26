@@ -76,8 +76,8 @@ export const PluginHeader = (props: {
         />
       </div>
       <div
-        className={cn('w-0 flex gap-1 group-hover:w-auto', {
-          'w-auto px-2': menuOpen,
+        className={cn('hidden gap-1 group-hover:flex', {
+          flex: menuOpen,
         })}
       >
         <Button

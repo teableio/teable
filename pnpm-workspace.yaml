@@ -1,5 +1,5 @@
 packages:
   - 'apps/*'
   - 'packages/*'
-  - 'plugins/*'
+  - 'plugins'
   - '!apps/electron'
