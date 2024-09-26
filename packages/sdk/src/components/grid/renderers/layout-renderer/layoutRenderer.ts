@@ -59,7 +59,6 @@ const {
   cellHorizontalPadding,
   columnFreezeHandlerWidth,
   columnFreezeHandlerHeight,
-  minColumnStatisticWidth,
 } = GRID_DEFAULT;
 
 export const drawCellContent = (ctx: CanvasRenderingContext2D, props: ICellDrawerProps) => {
@@ -1514,6 +1513,7 @@ export const drawColumnStatistics = (
   stopColumnIndex = isFreezeRegion ? Math.max(freezeColumnCount - 1, 0) : stopColumnIndex;
 
   ctx.save();
+  ctx.beginPath();
   ctx.rect(
     isFreezeRegion ? 0 : freezeRegionWidth,
     rowInitSize,
@@ -1521,7 +1521,6 @@ export const drawColumnStatistics = (
     height
   );
   ctx.clip();
-  ctx.beginPath();
   ctx.font = `${fontSizeXS}px ${fontFamily}`;
 
   const { groupColumns } = groupCollection ?? {};
@@ -1552,11 +1551,23 @@ export const drawColumnStatistics = (
           const { id, depth } = linearRow;
           const text = columnStatistics[columnId ?? name]?.[id];
 
+          const labelWidth = isFirstColumn
+            ? Math.min(
+                drawSingleLineText(ctx, {
+                  maxWidth: columnWidth,
+                  text: text ?? statisticLabel?.label ?? 'Summary',
+                  needRender: false,
+                  fontSize: fontSizeXS,
+                }).width + cellHorizontalPadding,
+                columnWidth
+              )
+            : columnWidth - 1;
+
           drawStatisticCell(ctx, {
-            x: isFirstColumn ? x + columnWidth - minColumnStatisticWidth : x + 1,
+            x: isFirstColumn ? x + columnWidth - labelWidth : x + 1,
             y: y + 1,
             textOffsetY: columnStatisticHeight / 2 - 2,
-            width: isFirstColumn ? minColumnStatisticWidth : columnWidth - 1,
+            width: labelWidth,
             height: rowHeight - 1,
             text,
             defaultLabel: statisticLabel?.label,
@@ -1606,7 +1617,7 @@ export const drawStatisticCell = (
     defaultLabel,
     bgColor,
   } = props;
-  const { rowHeaderTextColor, columnStatisticBgHovered } = theme;
+  const { rowHeaderTextColor, columnStatisticBgHovered, fontSizeXS } = theme;
 
   if (text || isHovered || showAlways || bgColor) {
     drawRect(ctx, {
@@ -1622,8 +1633,9 @@ export const drawStatisticCell = (
     x: x + 0.5,
     y: y + (textOffsetY ?? 0.5),
     textAlign: 'right',
-    maxWidth: width - 4,
+    maxWidth: width - cellHorizontalPadding / 2,
     fill: rowHeaderTextColor,
+    fontSize: fontSizeXS,
   };
 
   if (isHovered || showAlways) {

@@ -156,21 +156,26 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     const ellipsisWidth = ctx.measureText(ellipsis).width;
 
     for (let i = 0; i < text.length; i++) {
-      displayText = text.substring(0, i + 1);
       const char = text[i];
       const charWidth = ctx.measureText(char).width;
-      width += charWidth;
 
-      if (width + ellipsisWidth > maxWidth) break;
+      if (width + charWidth > maxWidth) break;
+
+      displayText += char;
+      width += charWidth;
     }
 
-    const isDisplayEllipsis = width + ellipsisWidth > maxWidth;
-    displayText = isDisplayEllipsis
-      ? ctx.direction === 'rtl'
-        ? ellipsis + displayText.slice(0, -1)
-        : displayText.slice(0, -1) + ellipsis
-      : text;
-    width = isDisplayEllipsis ? maxWidth : width;
+    const isDisplayEllipsis = displayText.length < text.length;
+    if (isDisplayEllipsis) {
+      while (width + ellipsisWidth > maxWidth && displayText.length > 0) {
+        displayText = displayText.slice(0, -1);
+        width -= ctx.measureText(displayText[displayText.length - 1]).width;
+      }
+      displayText = ctx.direction === 'rtl' ? ellipsis + displayText : displayText + ellipsis;
+      width = Math.min(width + ellipsisWidth, maxWidth);
+    } else {
+      displayText = text;
+    }
 
     singleLineTextInfoCache.set(cacheKey, { text: displayText, width });
   }
