@@ -211,8 +211,8 @@ export const TableHeader: React.FC = () => {
       </div>
       <AddView />
       <div className="grow basis-0"></div>
-      <RightList className="hidden gap-2 @sm/view-header:flex" />
-      <RightMenu className="flex @sm/view-header:hidden" />
+      <RightList className="hidden gap-2 @md/view-header:flex" />
+      <RightMenu className="flex @md/view-header:hidden" />
     </div>
   );
 };
