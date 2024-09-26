@@ -38,11 +38,13 @@ export class QuerySelect {
             const field = currentFieldMap[cur.column];
             if (field && getQueryColumnTypeByFieldInstance(field) === BaseQueryColumnType.Field) {
               if (cur.alias) {
-                acc[cur.alias] = field.dbFieldName;
-                currentFieldMap[cur.column].name = cur.alias;
-                currentFieldMap[cur.column].dbFieldName = cur.alias;
+                // replace ? to _ because of knex queryBuilder cannot use ? as alias
+                const alias = cur.alias.replace(/\?/g, '_');
+                acc[alias] = field.dbFieldName;
+                currentFieldMap[cur.column].name = alias;
+                currentFieldMap[cur.column].dbFieldName = alias;
               } else {
-                const alias = `${field.id}_${field.name}`;
+                const alias = field.id;
                 acc[alias] = field.dbFieldName;
                 currentFieldMap[cur.column].dbFieldName = alias;
               }
@@ -60,7 +62,7 @@ export class QuerySelect {
       : Object.values(currentFieldMap).reduce(
           (acc, cur) => {
             if (getQueryColumnTypeByFieldInstance(cur) === BaseQueryColumnType.Field) {
-              const alias = `${cur.id}_${cur.name}`;
+              const alias = cur.id;
               acc[alias] = cur.dbFieldName;
               currentFieldMap[cur.id].dbFieldName = alias;
             } else {
@@ -72,8 +74,9 @@ export class QuerySelect {
           },
           {} as Record<string, string>
         );
-
-    !isEmpty(aliasSelect) && queryBuilder.select(aliasSelect);
+    if (!isEmpty(aliasSelect)) {
+      queryBuilder.select(aliasSelect);
+    }
     // delete not selected field from fieldMap
     // tips: The current query has an aggregation and cannot be deleted. ( select * count(fld) as fld_count from xxxxx) => fld_count cannot be deleted
     if (select) {

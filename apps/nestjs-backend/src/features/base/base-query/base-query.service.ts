@@ -43,7 +43,8 @@ export class BaseQueryService {
       const type = getQueryColumnTypeByFieldInstance(field);
 
       return {
-        column: type === BaseQueryColumnType.Field ? field.dbFieldName : field.id,
+        column:
+          type === BaseQueryColumnType.Field ? field.dbFieldName.replace(/\\\?/g, '?') : field.id,
         name: field.name,
         type,
         fieldSource:
