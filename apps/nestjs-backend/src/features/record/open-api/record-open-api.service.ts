@@ -16,6 +16,8 @@ import type {
 } from '@teable/openapi';
 import { forEach, keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { bufferCount, concatMap, from, lastValueFrom, reduce } from 'rxjs';
+import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
@@ -48,6 +50,7 @@ export class RecordOpenApiService {
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly attachmentsService: AttachmentsService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -55,9 +58,14 @@ export class RecordOpenApiService {
     tableId: string,
     createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
-    return await this.prismaService.$tx(async () => {
-      return await this.createRecords(tableId, createRecordsRo);
-    });
+    return await this.prismaService.$tx(
+      async () => {
+        return await this.createRecords(tableId, createRecordsRo);
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
   }
 
   /**
@@ -123,7 +131,7 @@ export class RecordOpenApiService {
     }
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
-
+    const chunkSize = this.thresholdConfig.calcChunkSize;
     const typecastRecords = await this.validateFieldsAndTypecast(
       tableId,
       records,
@@ -133,7 +141,20 @@ export class RecordOpenApiService {
 
     const preparedRecords = await this.appendRecordOrderIndexes(tableId, typecastRecords, order);
 
-    return await this.recordCalculateService.createRecords(tableId, preparedRecords, fieldKeyType);
+    return await lastValueFrom(
+      from(preparedRecords).pipe(
+        bufferCount(chunkSize),
+        concatMap((chunk) =>
+          from(this.recordCalculateService.createRecords(tableId, chunk, fieldKeyType))
+        ),
+        reduce(
+          (acc, result) => ({
+            records: [...acc.records, ...result.records],
+          }),
+          { records: [] } as ICreateRecordsVo
+        )
+      )
+    );
   }
 
   private async createPureRecords(
