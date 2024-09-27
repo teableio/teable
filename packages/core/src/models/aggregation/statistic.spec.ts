@@ -16,6 +16,7 @@ describe('getValidStatisticFunc', () => {
     };
     const result = getValidStatisticFunc(field);
     expect(result).toEqual([
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.PercentEmpty,
@@ -30,6 +31,7 @@ describe('getValidStatisticFunc', () => {
     };
     const result = getValidStatisticFunc(field);
     expect(result).toEqual([
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.Unique,
@@ -46,6 +48,7 @@ describe('getValidStatisticFunc', () => {
     };
     const result = getValidStatisticFunc(field);
     expect(result).toEqual([
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.PercentEmpty,
@@ -60,6 +63,7 @@ describe('getValidStatisticFunc', () => {
     };
     const result = getValidStatisticFunc(field);
     expect(result).toEqual([
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.Unique,
@@ -80,6 +84,7 @@ describe('getValidStatisticFunc', () => {
       StatisticsFunc.Average,
       StatisticsFunc.Min,
       StatisticsFunc.Max,
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.Unique,
@@ -96,6 +101,7 @@ describe('getValidStatisticFunc', () => {
     };
     const result = getValidStatisticFunc(field);
     expect(result).toEqual([
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.Unique,
@@ -116,6 +122,7 @@ describe('getValidStatisticFunc', () => {
     };
     const result = getValidStatisticFunc(field);
     expect(result).toEqual([
+      StatisticsFunc.Count,
       StatisticsFunc.Checked,
       StatisticsFunc.UnChecked,
       StatisticsFunc.PercentChecked,
@@ -130,6 +137,7 @@ describe('getValidStatisticFunc', () => {
     };
     const result = getValidStatisticFunc(field);
     expect(result).toEqual([
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.PercentEmpty,
