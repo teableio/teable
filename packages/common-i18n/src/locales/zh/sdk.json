@@ -38,7 +38,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "释放以上传文件",
-      "uploadDragDefault": "粘贴或拖放文件到此处上传"
+      "uploadDragDefault": "粘贴或拖放文件到此处上传",
+      "upload": "upload"
     },
     "date": {
       "placeholder": "选择日期",
@@ -617,6 +618,7 @@
   },
   "statisticFunc": {
     "none": "空",
+    "count": "Count",
     "empty": "未填写",
     "filled": "已填写",
     "unique": "唯一值",
