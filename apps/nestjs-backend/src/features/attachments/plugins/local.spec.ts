@@ -336,7 +336,7 @@ describe('LocalStorage', () => {
         respHeaders: mockRespHeaders,
       });
       expect(result).toBe(
-        'http://127.0.0.1:3000/api/attachments/read/mock-bucket/mock/file/path?token=mock-token'
+        'http://localhost:3000/api/attachments/read/mock-bucket/mock/file/path?token=mock-token'
       );
     });
   });
