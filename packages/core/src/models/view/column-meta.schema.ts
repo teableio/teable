@@ -18,6 +18,8 @@ export type IGridColumnMeta = z.infer<typeof gridColumnMetaSchema>;
 
 export type IKanbanColumnMeta = z.infer<typeof kanbanColumnMetaSchema>;
 
+export type IGalleryColumnMeta = z.infer<typeof galleryColumnMetaSchema>;
+
 export type IFormColumnMeta = z.infer<typeof formColumnMetaSchema>;
 
 export type IColumn = z.infer<typeof columnSchema>;
@@ -27,6 +29,8 @@ export type IGridColumn = z.infer<typeof gridColumnSchema>;
 export type IKanbanColumn = z.infer<typeof kanbanColumnSchema>;
 
 export type IFormColumn = z.infer<typeof formColumnSchema>;
+
+export type IGalleryColumn = z.infer<typeof galleryColumnSchema>;
 
 export const columnSchemaBase = z
   .object({
@@ -71,6 +75,14 @@ export const formColumnSchema = columnSchemaBase.merge(
   })
 );
 
+export const galleryColumnSchema = columnSchemaBase.merge(
+  z.object({
+    width: z.number().optional().openapi({
+      description: 'Column width in the view.',
+    }),
+  })
+);
+
 export const columnSchema = z.union([gridColumnSchema, kanbanColumnSchema, formColumnSchema]);
 
 export const columnMetaSchema = z.record(z.string().startsWith(IdPrefix.Field), columnSchema);
@@ -88,6 +100,11 @@ export const kanbanColumnMetaSchema = z.record(
 export const formColumnMetaSchema = z.record(
   z.string().startsWith(IdPrefix.Field),
   formColumnSchema
+);
+
+export const galleryColumnMetaSchema = z.record(
+  z.string().startsWith(IdPrefix.Field),
+  galleryColumnSchema
 );
 
 export const columnMetaRoSchema = z
