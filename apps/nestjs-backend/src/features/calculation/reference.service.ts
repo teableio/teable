@@ -313,7 +313,7 @@ export class ReferenceService {
     //   .flat()
     //   .filter(Boolean)
     //   .map((d) => d.id);
-    const startRecordIds = recordData.map((data) => data.id);
+    const startRecordIds = uniq(recordData.map((data) => data.id));
     const linkFieldIds = linkData.map((data) => data.fieldId);
 
     // when link cell change, we need to get all lookup field
