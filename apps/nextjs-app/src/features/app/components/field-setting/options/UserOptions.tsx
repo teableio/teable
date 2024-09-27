@@ -22,8 +22,9 @@ export const UserOptions = (props: {
   const baseId = useBaseId();
 
   const { data: collaborators, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, { includeSystem: true }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
   const onIsMultipleChange = (checked: boolean) => {

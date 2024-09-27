@@ -13,8 +13,9 @@ export const BaseCollaboratorContent = (props: { baseId: string; role: IRole }) 
   const { t } = useTranslation('common');
 
   const { data: collaborators } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
   if (!collaborators?.length) {
