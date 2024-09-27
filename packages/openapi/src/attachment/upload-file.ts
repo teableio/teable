@@ -1,14 +1,14 @@
 import type { ReadStream } from 'fs';
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import type { AxiosProgressEvent } from 'axios';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
+
 import { z } from '../zod';
 
 export const UPLOAD_FILE_URL = '/attachments/upload/{token}';
 
 export const UploadFileRoute: RouteConfig = registerRoute({
-  method: 'put',
+  method: 'post',
   path: UPLOAD_FILE_URL,
   description: 'Upload attachment',
   request: {
@@ -37,7 +37,6 @@ export const uploadFile = async (
   token: string,
   data: Buffer | ReadStream,
   header: Record<string, unknown>,
-  onProgress?: (ProcessEvent: AxiosProgressEvent) => void,
   shareId?: string
 ) => {
   return axios.put(`/attachments/upload/${token}`, data, {
@@ -45,6 +44,5 @@ export const uploadFile = async (
       ...header,
       'Tea-Share-Id': shareId,
     },
-    onUploadProgress: onProgress,
   });
 };
