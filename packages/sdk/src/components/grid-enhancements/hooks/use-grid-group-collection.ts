@@ -100,7 +100,7 @@ const useGenerateGroupCellFn = () => {
             }
             return {
               type: CellType.Text,
-              data: (cellValue as string) || '',
+              data: (cellValue as string) || emptyStr,
               displayData,
             };
           }
@@ -126,8 +126,8 @@ const useGenerateGroupCellFn = () => {
             if (cellValueType === CellValueType.DateTime) {
               return {
                 type: CellType.Text,
-                data: (cellValue as string) || '',
-                displayData: field.cellValue2String(cellValue),
+                data: (cellValue as string) || emptyStr,
+                displayData: (cellValue as string) || emptyStr,
               };
             }
 
