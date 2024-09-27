@@ -34,7 +34,7 @@ export const getValidStatisticFunc = (field?: {
       StatisticsFunc.PercentFilled,
     ];
     if (!isMultipleCellValue) {
-      statisticSet.splice(2, 0, StatisticsFunc.Unique);
+      statisticSet.splice(3, 0, StatisticsFunc.Unique);
       statisticSet.push(StatisticsFunc.PercentUnique);
     }
     return statisticSet;
