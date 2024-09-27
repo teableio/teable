@@ -3,6 +3,12 @@ import { StatisticsFunc } from '@teable/core';
 export const DATE_FIELD_CASES = [
   {
     fieldIndex: 3,
+    aggFunc: StatisticsFunc.Count,
+    expectValue: 23,
+    expectGroupedCount: 18,
+  },
+  {
+    fieldIndex: 3,
     aggFunc: StatisticsFunc.Empty,
     expectValue: 6,
     expectGroupedCount: 18,

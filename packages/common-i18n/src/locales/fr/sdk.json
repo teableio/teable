@@ -613,6 +613,7 @@
   },
   "statisticFunc": {
     "none": "Aucun",
+    "count": "Compter",
     "empty": "Vide",
     "filled": "Rempli",
     "unique": "Unique",

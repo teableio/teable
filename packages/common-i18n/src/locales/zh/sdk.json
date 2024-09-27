@@ -619,6 +619,7 @@
   },
   "statisticFunc": {
     "none": "空",
+    "count": "计数",
     "empty": "未填写",
     "filled": "已填写",
     "unique": "唯一值",

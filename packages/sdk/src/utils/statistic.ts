@@ -22,6 +22,7 @@ export const statisticsValue2DisplayValue = (
   const { cellValueType } = field;
 
   switch (statFunc) {
+    case StatisticsFunc.Count:
     case StatisticsFunc.Empty:
     case StatisticsFunc.Filled:
     case StatisticsFunc.Unique:

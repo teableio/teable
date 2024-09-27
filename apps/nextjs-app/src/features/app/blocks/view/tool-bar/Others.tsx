@@ -130,13 +130,13 @@ const OthersMenu = ({ className }: { className?: string }) => {
 
 export const Others: React.FC = () => {
   return (
-    <div className="flex flex-1 justify-end gap-1 @container/toolbar-others">
+    <div className="flex flex-1 justify-end @container/toolbar-others md:gap-1">
       <SearchButton />
       <OthersList
-        className="hidden @sm/toolbar:flex"
+        className="hidden @md/toolbar:flex"
         classNames={{ textClassName: '@[300px]/toolbar-others:inline' }}
       />
-      <OthersMenu className="@sm/toolbar:hidden" />
+      <OthersMenu className="@md/toolbar:hidden" />
     </div>
   );
 };

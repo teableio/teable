@@ -1286,7 +1286,8 @@ export class RecordService {
   }
 
   @Timing()
-  private groupDbCollection2GroupPoints(
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private async groupDbCollection2GroupPoints(
     groupResult: { [key: string]: unknown; __c: number }[],
     groupFields: IFieldInstance[],
     collapsedGroupIds: string[] | undefined,
@@ -1297,16 +1298,18 @@ export class RecordService {
     let curRowCount = 0;
     let collapsedDepth = Number.MAX_SAFE_INTEGER;
 
-    groupResult.forEach((item) => {
+    for (let i = 0; i < groupResult.length; i++) {
+      const item = groupResult[i];
       const { __c: count } = item;
 
-      groupFields.forEach((field, index) => {
-        if (index > collapsedDepth) return;
+      for (let index = 0; index < groupFields.length; index++) {
+        if (index > collapsedDepth) break;
 
+        const field = groupFields[index];
         const { id, dbFieldName } = field;
         const fieldValue = convertValueToStringify(item[dbFieldName]);
 
-        if (fieldValues[index] === fieldValue) return;
+        if (fieldValues[index] === fieldValue) continue;
 
         // Reset the collapsedDepth when encountering the next peer grouping
         collapsedDepth = Number.MAX_SAFE_INTEGER;
@@ -1317,24 +1320,29 @@ export class RecordService {
         const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
         const groupId = String(string2Hash(flagString));
         const isCollapsedInner = collapsedGroupIds?.includes(groupId) ?? false;
+        let value = field.convertDBValue2CellValue(fieldValue);
+
+        if (field.type === FieldType.Attachment) {
+          value = await this.getAttachmentPresignedCellValue(value as IAttachmentCellValue);
+        }
 
         groupPoints.push({
           id: groupId,
           type: GroupPointType.Header,
           depth: index,
-          value: field.convertDBValue2CellValue(fieldValue),
+          value,
           isCollapsed: isCollapsedInner,
         });
 
         if (isCollapsedInner) {
           collapsedDepth = index;
         }
-      });
+      }
 
       curRowCount += Number(count);
-      if (collapsedDepth !== Number.MAX_SAFE_INTEGER) return;
+      if (collapsedDepth !== Number.MAX_SAFE_INTEGER) continue;
       groupPoints.push({ type: GroupPointType.Row, count: Number(count) });
-    });
+    }
 
     if (curRowCount < rowCount) {
       groupPoints.push(
@@ -1508,7 +1516,7 @@ export class RecordService {
           groupSql
         );
 
-      groupPoints = this.groupDbCollection2GroupPoints(
+      groupPoints = await this.groupDbCollection2GroupPoints(
         result,
         groupFields,
         collapsedGroupIds,

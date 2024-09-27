@@ -16,6 +16,7 @@ export const getValidStatisticFunc = (field?: {
 
   if (type === FieldType.Link) {
     statisticSet = [
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.PercentEmpty,
@@ -26,13 +27,14 @@ export const getValidStatisticFunc = (field?: {
 
   if ([FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(type)) {
     statisticSet = [
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.Filled,
       StatisticsFunc.PercentEmpty,
       StatisticsFunc.PercentFilled,
     ];
     if (!isMultipleCellValue) {
-      statisticSet.splice(2, 0, StatisticsFunc.Unique);
+      statisticSet.splice(3, 0, StatisticsFunc.Unique);
       statisticSet.push(StatisticsFunc.PercentUnique);
     }
     return statisticSet;
@@ -41,6 +43,7 @@ export const getValidStatisticFunc = (field?: {
   switch (cellValueType) {
     case CellValueType.String: {
       statisticSet = [
+        StatisticsFunc.Count,
         StatisticsFunc.Empty,
         StatisticsFunc.Filled,
         StatisticsFunc.Unique,
@@ -56,6 +59,7 @@ export const getValidStatisticFunc = (field?: {
         StatisticsFunc.Average,
         StatisticsFunc.Min,
         StatisticsFunc.Max,
+        StatisticsFunc.Count,
         StatisticsFunc.Empty,
         StatisticsFunc.Filled,
         StatisticsFunc.Unique,
@@ -67,6 +71,7 @@ export const getValidStatisticFunc = (field?: {
     }
     case CellValueType.DateTime: {
       statisticSet = [
+        StatisticsFunc.Count,
         StatisticsFunc.Empty,
         StatisticsFunc.Filled,
         StatisticsFunc.Unique,
@@ -82,6 +87,7 @@ export const getValidStatisticFunc = (field?: {
     }
     case CellValueType.Boolean: {
       statisticSet = [
+        StatisticsFunc.Count,
         StatisticsFunc.Checked,
         StatisticsFunc.UnChecked,
         StatisticsFunc.PercentChecked,

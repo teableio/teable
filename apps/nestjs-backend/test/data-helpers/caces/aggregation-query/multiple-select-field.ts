@@ -3,6 +3,12 @@ import { StatisticsFunc } from '@teable/core';
 export const MULTIPLE_SELECT_FIELD_CASES = [
   {
     fieldIndex: 6,
+    aggFunc: StatisticsFunc.Count,
+    expectValue: 23,
+    expectGroupedCount: 8,
+  },
+  {
+    fieldIndex: 6,
     aggFunc: StatisticsFunc.Empty,
     expectValue: 15,
     expectGroupedCount: 8,

@@ -600,6 +600,7 @@
   },
   "statisticFunc": {
     "none": "なし",
+    "count": "計数",
     "empty": "空",
     "filled": "埋められた",
     "unique": "固有",

@@ -5,12 +5,12 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
-import { getFileCover } from '../../editor';
+import { getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
 import { CellType } from '../../grid/renderers';
-import { convertNextImageUrl } from '../utils';
+import { convertNextImageUrl, findClosestWidth } from '../utils';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 100 });
 
@@ -100,7 +100,7 @@ const useGenerateGroupCellFn = () => {
             }
             return {
               type: CellType.Text,
-              data: (cellValue as string) || '',
+              data: (cellValue as string) || emptyStr,
               displayData,
             };
           }
@@ -126,8 +126,8 @@ const useGenerateGroupCellFn = () => {
             if (cellValueType === CellValueType.DateTime) {
               return {
                 type: CellType.Text,
-                data: (cellValue as string) || '',
-                displayData: field.cellValue2String(cellValue),
+                data: (cellValue as string) || emptyStr,
+                displayData: (cellValue as string) || emptyStr,
               };
             }
 
@@ -205,10 +205,19 @@ const useGenerateGroupCellFn = () => {
           }
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
-            const data = cv.map(({ id, mimetype, presignedUrl }) => ({
-              id,
-              url: getFileCover(mimetype, presignedUrl),
-            }));
+            const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => {
+              const url = getFileCover(mimetype, presignedUrl);
+              return {
+                id,
+                url: isSystemFileIcon(mimetype)
+                  ? url
+                  : convertNextImageUrl({
+                      url,
+                      w: findClosestWidth(width as number, height as number),
+                      q: 75,
+                    }),
+              };
+            });
             const displayData = data.map(({ url }) => url);
             return {
               type: CellType.Image,

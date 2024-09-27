@@ -618,6 +618,7 @@
   },
   "statisticFunc": {
     "none": "None",
+    "count": "Count",
     "empty": "Empty",
     "filled": "Filled",
     "unique": "Unique",

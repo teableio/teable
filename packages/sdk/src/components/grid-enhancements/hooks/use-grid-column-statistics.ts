@@ -14,6 +14,7 @@ export const useStatisticFunc2NameMap = () => {
   return useMemo(
     () => ({
       [NoneFunc.None]: t('statisticFunc.none'),
+      [StatisticsFunc.Count]: t('statisticFunc.count'),
       [StatisticsFunc.Empty]: t('statisticFunc.empty'),
       [StatisticsFunc.Filled]: t('statisticFunc.filled'),
       [StatisticsFunc.Unique]: t('statisticFunc.unique'),

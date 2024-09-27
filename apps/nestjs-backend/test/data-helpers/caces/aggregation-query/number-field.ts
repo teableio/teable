@@ -27,6 +27,12 @@ export const NUMBER_FIELD_CASES = [
   },
   {
     fieldIndex: 1,
+    aggFunc: StatisticsFunc.Count,
+    expectValue: 23,
+    expectGroupedCount: 22,
+  },
+  {
+    fieldIndex: 1,
     aggFunc: StatisticsFunc.Empty,
     expectValue: 1,
     expectGroupedCount: 22,

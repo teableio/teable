@@ -23,7 +23,7 @@ import type {
 import type { CoordinateManager, ImageManager, SpriteManager } from './managers';
 import { emptySelection } from './managers';
 import { RenderLayer } from './RenderLayer';
-import { getColumnStatisticData } from './utils';
+import { getColumnStatisticData, inRange } from './utils';
 
 export interface ITouchLayerProps
   extends Omit<
@@ -96,7 +96,15 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
   const hasAppendRow = onRowAppend != null;
   const hasAppendColumn = onColumnAppend != null;
   const { scrollTop, scrollLeft } = scrollState;
-  const { freezeRegionWidth, totalWidth, columnInitSize, rowCount, rowInitSize } = coordInstance;
+  const {
+    totalHeight,
+    containerHeight,
+    freezeRegionWidth,
+    totalWidth,
+    columnInitSize,
+    rowCount,
+    rowInitSize,
+  } = coordInstance;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -147,7 +155,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
       coordInstance,
       getLinearRow,
       position: { x, y, rowIndex, columnIndex },
-      height: rowInitSize,
+      height,
     });
     if (statisticBoundData != null) {
       const { type, ...rest } = statisticBoundData;
@@ -181,7 +189,7 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
     if (rowIndex >= 0) {
       const linearRow = getLinearRow(rowIndex);
 
-      if (linearRow.type === LinearRowType.Group && x < coordInstance.rowInitSize) {
+      if (linearRow.type === LinearRowType.Group && x < rowInitSize) {
         const { id } = linearRow;
         if (collapsedGroupIds == null) return onCollapsedGroupChanged?.(new Set([id]));
         if (collapsedGroupIds.has(id)) {
@@ -192,6 +200,9 @@ export const TouchLayer: FC<ITouchLayerProps> = (props) => {
         return onCollapsedGroupChanged?.(new Set([...collapsedGroupIds, id]));
       }
 
+      if (scrollTop + y > totalHeight && !inRange(y, containerHeight, height)) {
+        return;
+      }
       const range = [0, rowIndex];
       setActiveCell(range as IRange);
       setSelection(selection.set(SelectionRegionType.Cells, [range, range] as IRange[]));
