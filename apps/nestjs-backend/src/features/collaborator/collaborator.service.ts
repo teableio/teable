@@ -73,7 +73,11 @@ export class CollaboratorService {
     return collaborator;
   }
 
-  async getListByBase(baseId: string): Promise<ListBaseCollaboratorVo> {
+  async getListByBase(
+    baseId: string,
+    options?: { includeSystem?: boolean }
+  ): Promise<ListBaseCollaboratorVo> {
+    const { includeSystem } = options ?? {};
     const base = await this.prismaService
       .txClient()
       .base.findUniqueOrThrow({ select: { spaceId: true }, where: { id: baseId } });
@@ -81,6 +85,7 @@ export class CollaboratorService {
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
         resourceId: { in: [baseId, base.spaceId] },
+        ...(includeSystem ? {} : { user: { isSystem: null } }),
       },
       select: {
         roleName: true,
@@ -92,9 +97,11 @@ export class CollaboratorService {
             name: true,
             email: true,
             avatar: true,
+            isSystem: true,
           },
         },
       },
+      orderBy: { createdTime: 'asc' },
     });
 
     return collaborators.map((collaborator) => ({
@@ -107,6 +114,7 @@ export class CollaboratorService {
       role: collaborator.roleName as IRole,
       createdTime: collaborator.createdTime.toISOString(),
       resourceType: collaborator.resourceType as CollaboratorType,
+      isSystem: collaborator.user.isSystem || undefined,
     }));
   }
 
@@ -162,6 +170,7 @@ export class CollaboratorService {
           },
         },
       },
+      orderBy: { createdTime: 'asc' },
     });
     return collaborators.map((collaborator) => ({
       userId: collaborator.user.id,

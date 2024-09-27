@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ISelectFieldChoice, ISelectFieldOptions, IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
+import type { ListBaseCollaboratorRo } from '@teable/openapi';
 import {
   GroupPointType,
   getBaseCollaboratorList,
@@ -72,11 +73,13 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const { data: userList } = useQuery({
     queryKey: shareId
       ? ReactQueryKeys.shareViewCollaborators(shareId)
-      : ReactQueryKeys.baseCollaboratorList(baseId),
+      : ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true }),
     queryFn: ({ queryKey }) =>
       shareId
         ? getShareViewCollaborators(queryKey[1], {}).then((data) => data.data)
-        : getBaseCollaboratorList(queryKey[1]).then((data) => data.data),
+        : getBaseCollaboratorList(queryKey[1], queryKey[2] as ListBaseCollaboratorRo).then(
+            (data) => data.data
+          ),
     enabled: Boolean((shareId || baseId) && stackFieldType === FieldType.User),
   });
 

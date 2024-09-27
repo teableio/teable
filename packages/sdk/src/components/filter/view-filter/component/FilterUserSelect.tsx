@@ -141,8 +141,9 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
 const FilterUserSelect = (props: IFilterUserProps) => {
   const baseId = useBaseId();
   const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, { includeSystem: true }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
   return collaboratorsData && <FilterUserSelectBase {...props} data={collaboratorsData} />;
 };

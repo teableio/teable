@@ -34,6 +34,9 @@ export class DashboardService {
         id: true,
         name: true,
       },
+      orderBy: {
+        createdTime: 'asc',
+      },
     });
   }
 
