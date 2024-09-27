@@ -21,6 +21,7 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
 
   compiler(builderClient: Knex.QueryBuilder, aggFunc: StatisticsFunc) {
     const functionHandlers = {
+      [StatisticsFunc.Count]: this.count,
       [StatisticsFunc.Empty]: this.empty,
       [StatisticsFunc.Filled]: this.filled,
       [StatisticsFunc.Unique]: this.unique,
@@ -52,6 +53,7 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     let rawSql: string = chosenHandler();
 
     const ignoreMcvFunc = [
+      StatisticsFunc.Count,
       StatisticsFunc.Empty,
       StatisticsFunc.UnChecked,
       StatisticsFunc.Filled,
@@ -72,6 +74,10 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     }
 
     return builderClient.select(this.knex.raw(`${rawSql} AS ??`, [`${fieldId}_${aggFunc}`]));
+  }
+
+  count(): string {
+    return this.knex.raw('COUNT(*)').toQuery();
   }
 
   empty(): string {
