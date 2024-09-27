@@ -3,6 +3,12 @@ import { StatisticsFunc } from '@teable/core';
 export const CHECKBOX_FIELD_CASES = [
   {
     fieldIndex: 4,
+    aggFunc: StatisticsFunc.Count,
+    expectValue: 23,
+    expectGroupedCount: 2,
+  },
+  {
+    fieldIndex: 4,
     aggFunc: StatisticsFunc.Checked,
     expectValue: 4,
     expectGroupedCount: 2,
