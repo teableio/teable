@@ -133,8 +133,16 @@ export const SharePopover: React.FC<{
     view.setShareMeta(omit(view.shareMeta, 'password'));
   };
 
+  const onSubmitRequireLoginChange = (check: boolean) => {
+    if (!shareMeta?.submit) {
+      return;
+    }
+    setShareMeta({ submit: { ...shareMeta?.submit, requireLogin: check } });
+  };
+
   const needConfigCopy = [ViewType.Grid].includes(view.type);
   const needConfigIncludeHiddenField = [ViewType.Grid].includes(view.type);
+  const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
 
   return (
     <Popover>
@@ -229,6 +237,28 @@ export const SharePopover: React.FC<{
                   </Button>
                 )}
               </div>
+              {shareMeta?.submit && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="share-required-login"
+                    checked={Boolean(shareMeta?.submit?.requireLogin)}
+                    onCheckedChange={onSubmitRequireLoginChange}
+                  />
+                  <Label className="text-xs" htmlFor="share-password">
+                    {t('table:toolbar.others.share.requireLogin')}
+                  </Label>
+                  {Boolean(shareMeta?.password) && (
+                    <Button
+                      className="h-5 py-0 hover:text-muted-foreground"
+                      variant={'link'}
+                      size={'xs'}
+                      onClick={() => setShowPasswordDialog(true)}
+                    >
+                      <Edit />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
             <hr />
             <div>
@@ -237,7 +267,7 @@ export const SharePopover: React.FC<{
                 {t('table:toolbar.others.share.URLSettingDescription')}
               </p>
             </div>
-            {view.type !== ViewType.Form && (
+            {needEmbedHiddenToolbar && (
               <div className="flex items-center gap-2">
                 <Switch
                   id="share-hideToolBar"

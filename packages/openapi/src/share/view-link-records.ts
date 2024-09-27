@@ -5,6 +5,11 @@ import { z } from '../zod';
 
 export const SHARE_VIEW_LINK_RECORDS = '/share/{shareId}/view/link-records';
 
+export enum ShareViewLinkRecordsType {
+  Candidate = 'candidate',
+  Selected = 'selected',
+}
+
 export const shareViewLinkRecordsRoSchema = getRecordsRoSchema
   .pick({
     take: true,
@@ -13,6 +18,7 @@ export const shareViewLinkRecordsRoSchema = getRecordsRoSchema
   .extend({
     fieldId: z.string(),
     search: z.string().optional(),
+    type: z.nativeEnum(ShareViewLinkRecordsType).optional().openapi('Only used for plugin views'),
   });
 
 export type IShareViewLinkRecordsRo = z.infer<typeof shareViewLinkRecordsRoSchema>;

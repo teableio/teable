@@ -22,6 +22,7 @@ import {
   type IRecordsVo,
   type IShareViewCollaboratorsRo,
   UploadType,
+  ShareViewLinkRecordsType,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
@@ -66,9 +67,9 @@ export class ShareService {
   ) {}
 
   async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
-    const { shareId, tableId, view } = shareInfo;
+    const { shareId, tableId, view, shareMeta } = shareInfo;
 
-    const { id: viewId, group, shareMeta } = view ?? {};
+    const { id: viewId, group } = view ?? {};
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId,
       filterHidden: !shareMeta?.includeHiddenField,
@@ -76,7 +77,7 @@ export class ShareService {
 
     let records: IRecordsVo['records'] = [];
     let extra: IRecordsVo['extra'];
-    if (view?.type !== ViewType.Form) {
+    if (shareMeta?.includeRecords) {
       const recordsData = await this.recordService.getRecords(tableId, {
         viewId,
         skip: 0,
@@ -105,17 +106,26 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query: IShareViewAggregationsRo = {}
   ): Promise<IAggregationVo> {
+    const { tableId, shareMeta } = shareInfo;
+    if (!shareMeta?.includeRecords) {
+      throw new ForbiddenException('not allowed to get aggregations, please enable includeRecords');
+    }
     const viewId = shareInfo.view?.id;
-    const tableId = shareInfo.tableId;
     const filter = query?.filter ?? null;
     const groupBy = query?.groupBy ?? null;
     const fieldStats: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
     if (query?.field) {
       Object.entries(query.field).forEach(([key, value]) => {
-        const stats = value.map((fieldId) => ({
-          fieldId,
-          statisticFunc: key as StatisticsFunc,
-        }));
+        const stats = value.map((fieldId) => {
+          // check field hidden
+          if (shareInfo.view) {
+            this.preCheckFieldHidden(shareInfo.view as IViewVo, key);
+          }
+          return {
+            fieldId,
+            statisticFunc: key as StatisticsFunc,
+          };
+        });
         fieldStats.push(...stats);
       });
     }
@@ -131,6 +141,9 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query?: IShareViewRowCountRo
   ): Promise<IRowCountVo> {
+    if (!shareInfo?.shareMeta?.includeRecords) {
+      return { rowCount: 0 };
+    }
     const viewId = shareInfo.view?.id;
     const tableId = shareInfo.tableId;
     const result = await this.aggregationService.performRowCount(tableId, { viewId, ...query });
@@ -141,8 +154,11 @@ export class ShareService {
   }
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
-    const { tableId, view } = shareInfo;
+    const { tableId, view, shareMeta } = shareInfo;
     const { fields } = shareViewFormSubmitRo;
+    if (!shareMeta?.submit?.allow) {
+      throw new ForbiddenException('not allowed to submit');
+    }
     if (!view) {
       throw new ForbiddenException('view is required');
     }
@@ -170,7 +186,7 @@ export class ShareService {
 
     const { records } = await this.prismaService.$tx(async () => {
       this.cls.set('entry', { type: 'form', id: viewId });
-      return await this.recordOpenApiService.createRecords(tableId, {
+      return this.recordOpenApiService.createRecords(tableId, {
         records: [{ fields }],
         fieldKeyType: FieldKeyType.Id,
       });
@@ -182,7 +198,7 @@ export class ShareService {
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
-    if (shareInfo.view && !shareInfo.view.shareMeta?.allowCopy) {
+    if (!shareInfo.shareMeta?.allowCopy) {
       throw new ForbiddenException('not allowed to copy');
     }
 
@@ -192,7 +208,7 @@ export class ShareService {
     });
   }
 
-  private async preCheckFieldHidden(view: IViewVo, fieldId: string) {
+  private preCheckFieldHidden(view: IViewVo, fieldId: string) {
     // hidden check
     if (!view.shareMeta?.includeHiddenField && !isNotHiddenField(fieldId, view)) {
       throw new ForbiddenException('field is hidden, not allowed');
@@ -206,7 +222,7 @@ export class ShareService {
       throw new ForbiddenException('view is required');
     }
 
-    await this.preCheckFieldHidden(view as IViewVo, fieldId);
+    this.preCheckFieldHidden(view as IViewVo, fieldId);
 
     // link field check
     const field = await this.fieldService.getField(tableId, fieldId);
@@ -217,6 +233,11 @@ export class ShareService {
     let recordsVo: IRecordsVo;
     if (view.type === ViewType.Form) {
       recordsVo = await this.getFormLinkRecords(field, query);
+    } else if (view.type === ViewType.Plugin) {
+      recordsVo =
+        query.type === ShareViewLinkRecordsType.Candidate
+          ? await this.getFormLinkRecords(field, query)
+          : await this.getViewFilterLinkRecords(field, query);
     } else {
       recordsVo = await this.getViewFilterLinkRecords(field, query);
     }
@@ -256,12 +277,21 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query?: IShareViewGroupPointsRo
   ): Promise<IGroupPointsVo> {
+    if (!shareInfo.shareMeta?.includeRecords) {
+      return [];
+    }
     const viewId = shareInfo.view?.id;
     const tableId = shareInfo.tableId;
-
+    const view = shareInfo.view;
     if (viewId == null) return null;
 
-    return await this.aggregationService.getGroupPoints(tableId, { ...query, viewId });
+    if (view) {
+      query?.groupBy?.forEach(({ fieldId }) => {
+        this.preCheckFieldHidden(view, fieldId);
+      });
+    }
+
+    return this.aggregationService.getGroupPoints(tableId, { ...query, viewId });
   }
 
   async getViewCollaborators(shareInfo: IShareViewInfo, query: IShareViewCollaboratorsRo) {
@@ -273,7 +303,7 @@ export class ShareService {
     }
 
     // only form and kanban view can get all records
-    if ([ViewType.Form, ViewType.Kanban].includes(view.type)) {
+    if ([ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
       return this.getViewAllCollaborators(shareInfo);
     }
 

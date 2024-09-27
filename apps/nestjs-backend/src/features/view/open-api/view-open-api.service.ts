@@ -29,6 +29,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  IEnableShareViewRo,
   IGetViewFilterLinkRecordsVo,
   IUpdateOrderRo,
   IUpdateRecordOrdersRo,
@@ -48,6 +49,7 @@ import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
+import { defaultShareMetaMap } from '../constant';
 import { ViewService } from '../view.service';
 
 @Injectable()
@@ -213,23 +215,7 @@ export class ViewOpenApiService {
   }
 
   async updateShareMeta(tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) {
-    const curView = await this.prismaService.view
-      .findFirstOrThrow({
-        select: { type: true },
-        where: { tableId, id: viewId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new BadRequestException('View not found');
-      });
-
-    // allow copy view type
-    if (
-      'allowCopy' in viewShareMetaRo &&
-      ![ViewType.Grid, ViewType.Gantt].includes(curView.type as ViewType)
-    ) {
-      throw new BadRequestException(`View type(${curView.type}) not support copy`);
-    }
-    return await this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
+    return this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
   }
 
   async setViewProperty(
@@ -605,10 +591,10 @@ export class ViewOpenApiService {
     return { shareId: newShareId };
   }
 
-  async enableShare(tableId: string, viewId: string) {
+  async enableShare(tableId: string, viewId: string, ro: IEnableShareViewRo) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
-      select: { shareId: true, enableShare: true },
+      select: { shareId: true, enableShare: true, shareMeta: true, type: true },
     });
     if (!view) {
       throw new NotFoundException(`View ${viewId} does not exist`);
@@ -628,7 +614,17 @@ export class ViewOpenApiService {
       newValue: newShareId,
       oldValue: shareId || undefined,
     });
-    await this.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
+
+    const ops = [enableShareOp, setShareIdOp];
+    const initMeta = ro?.initMeta ?? defaultShareMetaMap[view.type as ViewType];
+    if (!view.shareMeta && initMeta) {
+      const initShareMetaOp = ViewOpBuilder.editor.setViewProperty.build({
+        key: 'shareMeta',
+        newValue: initMeta,
+      });
+      ops.push(initShareMetaOp);
+    }
+    await this.updateViewByOps(tableId, viewId, ops);
     return { shareId: newShareId };
   }
 

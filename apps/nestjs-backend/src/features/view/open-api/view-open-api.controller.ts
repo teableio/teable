@@ -39,6 +39,8 @@ import {
   IUpdateOrderRo,
   updateRecordOrdersRoSchema,
   IUpdateRecordOrdersRo,
+  enableShareViewRoSchema,
+  IEnableShareViewRo,
 } from '@teable/openapi';
 import type { IEnableShareViewVo, IGetViewFilterLinkRecordsVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
@@ -265,9 +267,10 @@ export class ViewOpenApiController {
   @Post('/:viewId/enable-share')
   async enableShare(
     @Param('tableId') tableId: string,
-    @Param('viewId') viewId: string
+    @Param('viewId') viewId: string,
+    @Body(new ZodValidationPipe(enableShareViewRoSchema)) ro: IEnableShareViewRo
   ): Promise<IEnableShareViewVo> {
-    return await this.viewOpenApiService.enableShare(tableId, viewId);
+    return await this.viewOpenApiService.enableShare(tableId, viewId, ro);
   }
 
   @Permissions('view|update')
