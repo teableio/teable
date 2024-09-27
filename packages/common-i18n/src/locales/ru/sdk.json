@@ -38,7 +38,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Отпустить для загрузки файла",
-      "uploadDragDefault": "Пасть или перетащить и отпустить для загрузки сюда"
+      "uploadDragDefault": "Пасть или перетащить и отпустить для загрузки сюда",
+      "upload": "upload"
     },
     "date": {
       "placeholder": "Выберите дату",
@@ -617,6 +618,7 @@
   },
   "statisticFunc": {
     "none": "Нет",
+    "count": "Count",
     "empty": "Пустой",
     "filled": "Заполненный",
     "unique": "Уникальный",
