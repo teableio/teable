@@ -75,7 +75,13 @@ export const formColumnSchema = columnSchemaBase.merge(
   })
 );
 
-export const pluginColumnSchema = columnSchemaBase;
+export const pluginColumnSchema = columnSchemaBase.merge(
+  z.object({
+    hidden: z.boolean().optional().openapi({
+      description: 'If column hidden in the view.',
+    }),
+  })
+);
 
 export const columnSchema = z.union([
   gridColumnSchema,
