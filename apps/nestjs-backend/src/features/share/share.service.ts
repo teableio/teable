@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
@@ -23,6 +24,7 @@ import {
   type IShareViewCollaboratorsRo,
   UploadType,
   ShareViewLinkRecordsType,
+  PluginPosition,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
@@ -76,7 +78,7 @@ export class ShareService {
     });
 
     let records: IRecordsVo['records'] = [];
-    let extra: IRecordsVo['extra'];
+    let extra: ShareViewGetVo['extra'];
     if (shareMeta?.includeRecords) {
       const recordsData = await this.recordService.getRecords(tableId, {
         viewId,
@@ -88,6 +90,38 @@ export class ShareService {
       });
       records = recordsData.records;
       extra = recordsData.extra;
+    }
+
+    if (view?.type === ViewType.Plugin) {
+      const pluginInstall = await this.prismaService.pluginInstall.findFirst({
+        where: { positionId: viewId, position: PluginPosition.View },
+        select: {
+          id: true,
+          pluginId: true,
+          name: true,
+          storage: true,
+          plugin: {
+            select: {
+              url: true,
+            },
+          },
+        },
+      });
+      if (!pluginInstall) {
+        throw new NotFoundException(`Plugin install not found`);
+      }
+      const plugin = {
+        pluginId: pluginInstall.pluginId,
+        pluginInstallId: pluginInstall.id,
+        name: pluginInstall.name,
+        storage: pluginInstall.storage ? JSON.parse(pluginInstall.storage) : undefined,
+        url: pluginInstall.plugin.url || undefined,
+      };
+      if (extra) {
+        extra.plugin = plugin;
+      } else {
+        extra = { plugin: plugin };
+      }
     }
 
     return {

@@ -7,8 +7,8 @@ import { useBaseId } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
+import { PluginContent } from '../../components/plugin/PluginContent';
 import { useIsExpandPlugin } from '../hooks/useIsExpandPlugin';
-import { PluginContent } from './PluginContent';
 import { PluginHeader } from './PluginHeader';
 
 export const PluginItem = (props: {
@@ -97,7 +97,7 @@ export const PluginItem = (props: {
           pluginId={pluginId}
           pluginInstallId={pluginInstallId}
           pluginUrl={pluginUrl}
-          dashboardId={dashboardId}
+          positionId={dashboardId}
           onExpand={onExpand}
         />
       </div>

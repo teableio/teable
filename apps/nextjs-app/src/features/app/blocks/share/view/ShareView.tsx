@@ -4,11 +4,11 @@ import { useContext } from 'react';
 import { FormView } from './component/form/FormView';
 import { GridView } from './component/grid/GridView';
 import { KanbanView } from './component/kanban/KanbanView';
+import { PluginView } from './component/plugin/SharePluginView';
 
 export const ShareView = () => {
-  const { view } = useContext(ShareViewContext);
+  const { view, shareId, extra } = useContext(ShareViewContext);
   const viewType = view?.type;
-
   const getViewComponent = () => {
     // eslint-disable-next-line sonarjs/no-small-switch
     switch (viewType) {
@@ -18,6 +18,8 @@ export const ShareView = () => {
         return <GridView />;
       case ViewType.Kanban:
         return <KanbanView />;
+      case ViewType.Plugin:
+        return <PluginView shareId={shareId} plugin={extra?.plugin} />;
       default:
         return null;
     }

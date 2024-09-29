@@ -44,6 +44,7 @@ export const viewVoSchema = z.object({
   columnMeta: columnMetaSchema.openapi({
     description: 'A mapping of view IDs to their corresponding column metadata.',
   }),
+  pluginId: z.string().optional(),
 });
 
 export type IViewVo = z.infer<typeof viewVoSchema>;

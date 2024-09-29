@@ -1,3 +1,4 @@
+import { ViewType } from '@teable/core';
 import { Pencil, Trash2, Export } from '@teable/icons';
 import { useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
@@ -10,6 +11,7 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef } from 'react';
@@ -53,7 +55,17 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
 
   const commonPart = (
     <div className="relative flex w-full items-center overflow-hidden px-0.5">
-      <ViewIcon className="mr-1 size-4 shrink-0" />
+      {view.type === ViewType.Plugin ? (
+        <Image
+          className="mr-1 size-4 shrink-0"
+          width={16}
+          height={16}
+          src={view.options.pluginLogo}
+          alt={view.name}
+        />
+      ) : (
+        <ViewIcon className="mr-1 size-4 shrink-0" />
+      )}
       {isActive && showViewMenu ? (
         <PopoverTrigger asChild>
           <div className="flex flex-1 items-center justify-center overflow-hidden">

@@ -1,4 +1,7 @@
-export const chartConfig = {
+import { PluginPosition } from '@teable/openapi';
+import type { IOfficialPluginConfig } from './types';
+
+export const chartConfig: IOfficialPluginConfig = {
   id: 'plgchart',
   name: 'Chart',
   description: 'Visualize your records on a bar, line, pie',
@@ -14,7 +17,7 @@ export const chartConfig = {
 
   `,
   helpUrl: 'https://teable.io',
-  positions: ['dashboard'],
+  positions: [PluginPosition.Dashboard],
   i18n: {
     zh: {
       name: '图表',

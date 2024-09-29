@@ -22,7 +22,6 @@ export const useIframeSize = (dragging?: boolean) => {
         observer.observe(currentElement);
       }
     });
-
     if (currentElement) {
       const { width, height } = currentElement.getBoundingClientRect();
       setSize({ width, height });
@@ -33,7 +32,7 @@ export const useIframeSize = (dragging?: boolean) => {
         observer.unobserve(currentElement);
       }
     };
-  }, []);
+  }, [ref]);
 
   return [ref, dragging ? preSize : size] as const;
 };
