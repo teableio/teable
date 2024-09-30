@@ -54,7 +54,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
   } = useKanban() as Required<IKanbanContext>;
 
   const { cardCreatable, cardDeletable } = permission;
-  const { id: fieldId, type: fieldType } = stackField;
+  const { id: fieldId } = stackField;
   const coverFieldId = coverField?.id;
   const coverCellValue = card.getCellValue(coverFieldId as string) as
     | IAttachmentCellValue
@@ -78,7 +78,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
 
   const onInsert = async (position: IRecordInsertOrderRo['position']) => {
     if (tableId == null || viewId == null) return;
-    const cellValue = getCellValueByStack(fieldType, stack);
+    const cellValue = getCellValueByStack(stack);
     const res = await createRecords(tableId, {
       fieldKeyType: FieldKeyType.Id,
       records: [
