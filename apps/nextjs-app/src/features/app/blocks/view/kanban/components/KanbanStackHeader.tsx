@@ -38,10 +38,10 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
   const { permission, stackField } = useKanban() as Required<IKanbanContext>;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
-  const { type, options } = stackField;
+  const { type, options, isLookup } = stackField;
   const { id: stackId, data: stackData } = stack;
   const { stackEditable, stackDeletable } = permission;
-  const isSingleSelectField = type === FieldType.SingleSelect;
+  const isSingleSelectField = type === FieldType.SingleSelect && !isLookup;
 
   const choiceRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | null>();

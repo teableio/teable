@@ -383,7 +383,7 @@
       "customizeCards": "卡片配置",
       "stackedBy": "分组依据 <0/>",
       "chooseStackingField": "选择分组依据",
-      "chooseStackingFieldDescription": "您希望使用哪个单选或用户字段来设置看板？您的记录将根据这个字段来进行分组。",
+      "chooseStackingFieldDescription": "您希望使用哪个字段来设置看板？您的记录将根据这个字段来进行分组。",
       "hideEmptyStack": "隐藏空的分组",
       "imageSetting": "封面设置",
       "fit": "适应",

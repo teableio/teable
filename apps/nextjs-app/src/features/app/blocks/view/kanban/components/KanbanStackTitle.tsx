@@ -1,5 +1,3 @@
-import type { ISelectFieldChoice, IUserCellValue } from '@teable/core';
-import { FieldType } from '@teable/core';
 import { CellValue } from '@teable/sdk/components';
 import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -18,12 +16,7 @@ export const KanbanStackTitle = (props: IKanbanStackTitle) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { stackField } = useKanban() as Required<IKanbanContext>;
 
-  const fieldType = stackField.type;
   const { data: stackData, count: stackCount } = stack;
-  const isSingleSelectField = fieldType === FieldType.SingleSelect;
-  const cellValue = isSingleSelectField
-    ? (stackData as ISelectFieldChoice).name
-    : (stackData as IUserCellValue);
 
   return (
     <>
@@ -40,7 +33,7 @@ export const KanbanStackTitle = (props: IKanbanStackTitle) => {
         >
           <CellValue
             field={stackField}
-            value={cellValue}
+            value={stackData}
             className="overflow-hidden"
             itemClassName="shrink overflow-hidden"
           />

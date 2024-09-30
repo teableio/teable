@@ -376,7 +376,7 @@
       "customizeCards": "Personnaliser les cartes",
       "stackedBy": "Empilé par <0/>",
       "chooseStackingField": "Choisir un champ d'empilement",
-      "chooseStackingFieldDescription": "Quel champ à sélection unique ou utilisateur souhaitez-vous utiliser pour cette vue kanban ? Vos enregistrements seront empilés en fonction de ce champ.",
+      "chooseStackingFieldDescription": "Voulez-vous utiliser un champ pour cette vue kanban ? Vos enregistrements seront empilés en fonction de ce champ.",
       "hideEmptyStack": "Masquer l'empilement vide",
       "imageSetting": "Paramètre de l'image",
       "fit": "Ajuster",
