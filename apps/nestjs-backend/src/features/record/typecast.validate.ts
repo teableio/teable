@@ -267,7 +267,9 @@ export class TypeCastAndValidate {
   }
 
   private async castToUser(cellValues: unknown[]): Promise<unknown[]> {
-    const ctx = await this.services.collaboratorService.getBaseCollabsWithPrimary(this.tableId);
+    const ctx = this.typecast
+      ? await this.services.collaboratorService.getBaseCollabsWithPrimary(this.tableId)
+      : [];
 
     return this.mapFieldsCellValuesWithValidate(cellValues, (cellValue: unknown) => {
       const strValue = convertUser(cellValue);

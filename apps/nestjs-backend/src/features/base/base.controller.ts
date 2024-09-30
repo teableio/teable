@@ -23,6 +23,8 @@ import {
   UpdateBaseCollaborateRo,
   UpdateBaseInvitationLinkRo,
   CollaboratorType,
+  listBaseCollaboratorRoSchema,
+  ListBaseCollaboratorRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -163,8 +165,11 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId/collaborators')
-  async listCollaborator(@Param('baseId') baseId: string): Promise<ListBaseCollaboratorVo> {
-    return await this.collaboratorService.getListByBase(baseId);
+  async listCollaborator(
+    @Param('baseId') baseId: string,
+    @Query(new ZodValidationPipe(listBaseCollaboratorRoSchema)) options: ListBaseCollaboratorRo
+  ): Promise<ListBaseCollaboratorVo> {
+    return await this.collaboratorService.getListByBase(baseId, options);
   }
 
   @Permissions('base|read')

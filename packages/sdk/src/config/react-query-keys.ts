@@ -9,6 +9,7 @@ import type {
   ResourceType,
   ListSpaceCollaboratorRo,
   IGetRecordsRo,
+  ListBaseCollaboratorRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -52,7 +53,10 @@ export const ReactQueryKeys = {
       ? (['space-collaborator-list', spaceId, options] as const)
       : (['space-collaborator-list', spaceId] as const),
 
-  baseCollaboratorList: (baseId: string) => ['base-collaborator-list', baseId] as const,
+  baseCollaboratorList: (baseId: string, options?: ListBaseCollaboratorRo) =>
+    options
+      ? (['base-collaborator-list', baseId, options] as const)
+      : (['base-collaborator-list', baseId] as const),
 
   notifyList: (filter: { status: NotificationStatesEnum }) =>
     ['notification', 'list', filter] as const,

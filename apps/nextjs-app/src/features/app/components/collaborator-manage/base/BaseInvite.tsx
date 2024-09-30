@@ -17,8 +17,10 @@ export const BaseInvite = (props: { baseId: string; role: IRole }) => {
 
   const { mutate: emailInvitation, isLoading: updateCollaboratorLoading } = useMutation({
     mutationFn: emailBaseInvitation,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries(ReactQueryKeys.baseCollaboratorList(baseId));
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
+      });
     },
   });
 
