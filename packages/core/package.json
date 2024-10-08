@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "6.4.0",
-    "@soluble/dsn-parser": "1.9.2",
+    "@httpx/dsn-parser": "1.8.4",
     "@types/color": "3.0.6",
     "@types/papaparse": "5.3.14",
     "antlr4ts": "0.5.0-alpha.4",
