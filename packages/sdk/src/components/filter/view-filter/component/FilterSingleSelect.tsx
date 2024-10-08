@@ -52,6 +52,7 @@ function FilterSingleSelect(props: ISingleSelect) {
       optionRender={optionRender}
       displayRender={optionRender}
       defaultLabel={<DefaultErrorLabel />}
+      placeholderClassName="text-xs"
     />
   );
 }

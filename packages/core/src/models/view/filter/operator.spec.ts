@@ -82,6 +82,22 @@ describe('Filter operators and sub-operators utility functions', () => {
       expect(validOps).not.toContain(doesNotContain.value);
       expect(validOps).toContain(isAnyOf.value);
       expect(validOps).toContain(isNoneOf.value);
+
+      const multipleSelectField: any = {
+        cellValueType: CellValueType.String,
+        type: FieldType.SingleSelect,
+        isMultipleCellValue: true,
+      };
+
+      const validOpsWithMultiple = getValidFilterOperators(multipleSelectField);
+
+      // same with multiple select
+      expect(validOpsWithMultiple).not.toContain(contains.value);
+      expect(validOpsWithMultiple).not.toContain(doesNotContain.value);
+      expect(validOpsWithMultiple).toContain(hasAnyOf.value);
+      expect(validOpsWithMultiple).toContain(hasAllOf.value);
+      expect(validOpsWithMultiple).toContain(isExactly.value);
+      expect(validOpsWithMultiple).toContain(hasNoneOf.value);
     });
 
     it('should adjust operators based on the field type (MultipleSelect)', () => {

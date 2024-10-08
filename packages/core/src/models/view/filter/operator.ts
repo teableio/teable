@@ -325,8 +325,20 @@ export function getValidFilterOperators(field: {
   // 2. Then repair the operator according to fieldType
   switch (type) {
     case FieldType.SingleSelect: {
-      pullAll(operationSet, [contains.value, doesNotContain.value]);
-      operationSet.splice(2, 0, ...[isAnyOf.value, isNoneOf.value]);
+      if (isMultipleCellValue) {
+        operationSet = [
+          hasAnyOf.value,
+          hasAllOf.value,
+          isExactly.value,
+          hasNoneOf.value,
+          isEmpty.value,
+          isNotEmpty.value,
+        ];
+      } else {
+        pullAll(operationSet, [contains.value, doesNotContain.value]);
+        operationSet.splice(2, 0, isAnyOf.value, isNoneOf.value);
+      }
+
       break;
     }
     case FieldType.MultipleSelect: {

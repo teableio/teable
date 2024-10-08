@@ -1,4 +1,15 @@
-import { is, isAnyOf, isEmpty, isNoneOf, isNot, isNotEmpty } from '@teable/core';
+import {
+  is,
+  isAnyOf,
+  isEmpty,
+  isNoneOf,
+  isNot,
+  isNotEmpty,
+  hasAllOf,
+  hasAnyOf,
+  hasNoneOf,
+  isExactly,
+} from '@teable/core';
 
 export const SINGLE_SELECT_FIELD_CASES = [
   {
@@ -62,30 +73,30 @@ export const SINGLE_SELECT_LOOKUP_FIELD_CASES = [
   },
   {
     fieldIndex: 5,
-    operator: is.value,
-    queryValue: 'x',
+    operator: hasAnyOf.value,
+    queryValue: ['x'],
     expectResultLength: 5,
     expectMoreResults: false,
   },
   {
     fieldIndex: 5,
-    operator: isNot.value,
-    queryValue: 'x',
-    expectResultLength: 16,
+    operator: hasAllOf.value,
+    queryValue: ['x'],
+    expectResultLength: 5,
     expectMoreResults: false,
   },
   {
     fieldIndex: 5,
-    operator: isAnyOf.value,
-    queryValue: ['x', 'y'],
-    expectResultLength: 6,
+    operator: hasNoneOf.value,
+    queryValue: ['x'],
+    expectResultLength: 16,
     expectMoreResults: true,
   },
   {
     fieldIndex: 5,
-    operator: isNoneOf.value,
-    queryValue: ['x', 'y'],
-    expectResultLength: 15,
+    operator: isExactly.value,
+    queryValue: ['x'],
+    expectResultLength: 4,
     expectMoreResults: false,
   },
 ];
