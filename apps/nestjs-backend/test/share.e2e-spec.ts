@@ -94,13 +94,14 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(shareViewData.viewId).toEqual(viewId);
     });
 
-    it('records return [] in form view', async () => {
-      const result = await createView(tableId, formViewRo);
-      const formViewId = result.id;
-      const shareResult = await apiEnableShareView({ tableId, viewId: formViewId });
-      const formViewShareId = shareResult.data.shareId;
+    it('records return [] in not includeRecords', async () => {
+      const result = await createView(tableId, gridViewRo);
+      const viewId = result.id;
+      const shareResult = await apiEnableShareView({ tableId, viewId });
+      await updateViewShareMeta(tableId, viewId, { includeRecords: false });
+      const viewShareId = shareResult.data.shareId;
       const resultData = await anonymousUser.get<ShareViewGetVo>(
-        urlBuilder(SHARE_VIEW_GET, { shareId: formViewShareId })
+        urlBuilder(SHARE_VIEW_GET, { shareId: viewShareId })
       );
       expect(resultData.data.records).toEqual([]);
     });
