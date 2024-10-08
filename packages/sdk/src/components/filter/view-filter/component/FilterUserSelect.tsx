@@ -122,6 +122,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           optionRender={optionRender}
           className="flex w-64 overflow-hidden"
           popoverClassName="w-64"
+          placeholderClassName="text-xs"
         />
       ) : (
         <BaseMultipleSelect
@@ -132,6 +133,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           optionRender={optionRender}
           className="w-64"
           popoverClassName="w-64"
+          placeholderClassName="text-xs"
         />
       )}
     </>

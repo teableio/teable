@@ -15,7 +15,7 @@ import {
   FilterUserSelect,
 } from '../component';
 import type { ILinkContext } from '../component/filter-link/context';
-import { EMPTY_OPERATORS, MULTIPLE_OPERATORS } from '../constant';
+import { EMPTY_OPERATORS } from '../constant';
 import type { IFilterComponents } from '../types';
 
 interface IBaseFieldValue {
@@ -61,7 +61,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
         />
       );
     case FieldType.SingleSelect:
-      return MULTIPLE_OPERATORS.includes(operator) ? (
+      return field?.isMultipleCellValue ? (
         <FilterMultipleSelect
           field={field}
           value={value as string[]}
