@@ -203,7 +203,7 @@ describe('EvalVisitor', () => {
     expect(result.toPlain()).toEqual(null);
   });
 
-  it.only('should calculate string with escape characters', () => {
+  it('should calculate string with escape characters', () => {
     expect(evalFormula("'Hello\nWorld'")).toBe(`Hello\nWorld`);
     expect(evalFormula("'Hello\rWorld'")).toBe(`Hello\rWorld`);
     expect(evalFormula("'Hello\bWorld'")).toBe(`Hello\bWorld`);
