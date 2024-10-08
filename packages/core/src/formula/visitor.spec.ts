@@ -202,4 +202,16 @@ describe('EvalVisitor', () => {
     const result = evaluate('1 > 2', {});
     expect(result.toPlain()).toEqual(null);
   });
+
+  it.only('should calculate string with escape characters', () => {
+    expect(evalFormula("'Hello\nWorld'")).toBe(`Hello\nWorld`);
+    expect(evalFormula("'Hello\rWorld'")).toBe(`Hello\rWorld`);
+    expect(evalFormula("'Hello\bWorld'")).toBe(`Hello\bWorld`);
+    expect(evalFormula("'Hello\fWorld'")).toBe(`Hello\fWorld`);
+    expect(evalFormula("'Hello\vWorld'")).toBe(`Hello\vWorld`);
+    expect(evalFormula("'Hello\tWorld'")).toBe('Hello\tWorld');
+    expect(evalFormula("'Hello\0World'")).toBe('Hello\0World');
+    expect(evalFormula("'Hello\\World'")).toBe('Hello\\World');
+    expect(evalFormula("'Hello\"World'")).toBe('Hello"World');
+  });
 });
