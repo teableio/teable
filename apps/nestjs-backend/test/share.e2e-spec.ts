@@ -17,6 +17,8 @@ import {
   SHARE_VIEW_AUTH,
   getShareView,
   createField,
+  updateViewShareMeta,
+  shareViewFormSubmit,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -188,6 +190,26 @@ describe('OpenAPI ShareController (e2e)', () => {
         })
       );
       expect(error?.status).toEqual(403);
+    });
+
+    it('required login', async () => {
+      await updateViewShareMeta(tableId, formViewId, {
+        submit: {
+          requireLogin: true,
+          allow: true,
+        },
+      });
+      const error = await getError(() =>
+        anonymousUser.post(urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId: fromViewShareId }), {
+          fields: {},
+        })
+      );
+      expect(error?.status).toEqual(401);
+      const res = await shareViewFormSubmit({
+        shareId: fromViewShareId,
+        fields: {},
+      });
+      expect(res.status).toEqual(201);
     });
   });
 

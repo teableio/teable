@@ -6,7 +6,7 @@ import { z } from '../zod';
 export const VIEW_INSTALL_PLUGIN = 'table/{tableId}/view/plugin';
 
 export const viewInstallPluginRoSchema = z.object({
-  name: z.string(),
+  name: z.string().optional(),
   pluginId: z.string(),
 });
 

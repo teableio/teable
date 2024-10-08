@@ -143,6 +143,8 @@ export const SharePopover: React.FC<{
   const needConfigCopy = [ViewType.Grid].includes(view.type);
   const needConfigIncludeHiddenField = [ViewType.Grid].includes(view.type);
   const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
+  // TODO: need fixed createBy not support yet
+  const needSubmit = false;
 
   return (
     <Popover>
@@ -237,7 +239,7 @@ export const SharePopover: React.FC<{
                   </Button>
                 )}
               </div>
-              {shareMeta?.submit && (
+              {needSubmit && shareMeta?.submit && (
                 <div className="flex items-center gap-2">
                   <Switch
                     id="share-required-login"
@@ -247,16 +249,6 @@ export const SharePopover: React.FC<{
                   <Label className="text-xs" htmlFor="share-password">
                     {t('table:toolbar.others.share.requireLogin')}
                   </Label>
-                  {Boolean(shareMeta?.password) && (
-                    <Button
-                      className="h-5 py-0 hover:text-muted-foreground"
-                      variant={'link'}
-                      size={'xs'}
-                      onClick={() => setShowPasswordDialog(true)}
-                    >
-                      <Edit />
-                    </Button>
-                  )}
                 </div>
               )}
             </div>

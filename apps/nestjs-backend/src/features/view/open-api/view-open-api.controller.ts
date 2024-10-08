@@ -39,8 +39,6 @@ import {
   IUpdateOrderRo,
   updateRecordOrdersRoSchema,
   IUpdateRecordOrdersRo,
-  enableShareViewRoSchema,
-  IEnableShareViewRo,
   viewInstallPluginRoSchema,
   IViewInstallPluginRo,
   viewPluginUpdateStorageRoSchema,
@@ -276,10 +274,9 @@ export class ViewOpenApiController {
   @Post('/:viewId/enable-share')
   async enableShare(
     @Param('tableId') tableId: string,
-    @Param('viewId') viewId: string,
-    @Body(new ZodValidationPipe(enableShareViewRoSchema)) ro: IEnableShareViewRo
+    @Param('viewId') viewId: string
   ): Promise<IEnableShareViewVo> {
-    return await this.viewOpenApiService.enableShare(tableId, viewId, ro);
+    return await this.viewOpenApiService.enableShare(tableId, viewId);
   }
 
   @Permissions('view|update')

@@ -33,7 +33,6 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, PluginStatus } from '@teable/openapi';
 import type {
   IViewPluginUpdateStorageRo,
-  IEnableShareViewRo,
   IGetViewFilterLinkRecordsVo,
   IUpdateOrderRo,
   IUpdateRecordOrdersRo,
@@ -54,7 +53,7 @@ import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
-import { defaultShareMetaMap } from '../constant';
+import { createViewInstanceByRaw } from '../model/factory';
 import { ViewService } from '../view.service';
 
 @Injectable()
@@ -73,6 +72,13 @@ export class ViewOpenApiService {
   ) {}
 
   async createView(tableId: string, viewRo: IViewRo) {
+    if (viewRo.type === ViewType.Plugin) {
+      const res = await this.pluginInstall(tableId, {
+        name: viewRo.name,
+        pluginId: (viewRo.options as IPluginViewOptions).pluginId,
+      });
+      return this.viewService.getViewById(res.viewId);
+    }
     return await this.prismaService.$tx(async () => {
       return this.createViewInner(tableId, viewRo);
     });
@@ -596,10 +602,9 @@ export class ViewOpenApiService {
     return { shareId: newShareId };
   }
 
-  async enableShare(tableId: string, viewId: string, ro: IEnableShareViewRo) {
+  async enableShare(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
-      select: { shareId: true, enableShare: true, shareMeta: true, type: true },
     });
     if (!view) {
       throw new NotFoundException(`View ${viewId} does not exist`);
@@ -621,11 +626,12 @@ export class ViewOpenApiService {
     });
 
     const ops = [enableShareOp, setShareIdOp];
-    const initMeta = ro?.initMeta ?? defaultShareMetaMap[view.type as ViewType];
-    if (!view.shareMeta && initMeta) {
+
+    const viewInstance = createViewInstanceByRaw(view);
+    if (!view.shareMeta && viewInstance.defaultShareMeta) {
       const initShareMetaOp = ViewOpBuilder.editor.setViewProperty.build({
         key: 'shareMeta',
-        newValue: initMeta,
+        newValue: viewInstance.defaultShareMeta,
       });
       ops.push(initShareMetaOp);
     }
@@ -769,15 +775,19 @@ export class ViewOpenApiService {
     const { name, pluginId } = ro;
     const plugin = await this.prismaService.plugin.findUnique({
       where: { id: pluginId, status: PluginStatus.Published },
-      select: { id: true, name: true, logo: true },
+      select: { id: true, name: true, logo: true, positions: true },
     });
     if (!plugin) {
       throw new NotFoundException(`Plugin ${pluginId} not found`);
     }
+    if (!plugin.positions.includes(PluginPosition.View)) {
+      throw new BadRequestException(`Plugin ${pluginId} does not support install in view`);
+    }
+    const viewName = name || plugin.name;
     return this.prismaService.$tx(async (prisma) => {
       const pluginInstallId = generatePluginInstallId();
       const view = await this.createViewInner(tableId, {
-        name,
+        name: viewName,
         type: ViewType.Plugin,
         options: {
           pluginInstallId,
@@ -795,7 +805,7 @@ export class ViewOpenApiService {
           baseId: table?.baseId,
           positionId: view.id,
           position: PluginPosition.View,
-          name: ro.name,
+          name: viewName,
           pluginId: ro.pluginId,
           createdBy: userId,
         },
