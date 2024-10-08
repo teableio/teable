@@ -170,8 +170,13 @@ export const useCreateCellValue2GridDisplay = () => {
 
   return useCallback(
     (fields: IFieldInstance[], editable: (field: IFieldInstance) => boolean) =>
-      // eslint-disable-next-line sonarjs/cognitive-complexity
-      (record: Record, col: number, isPrefilling?: boolean): ICell => {
+      (
+        record: Record,
+        col: number,
+        isPrefilling?: boolean,
+        expandRecord?: (tableId: string, recordId: string) => void
+        // eslint-disable-next-line sonarjs/cognitive-complexity
+      ): ICell => {
         const field = fields[col];
 
         if (field == null) return { type: CellType.Loading };
@@ -368,6 +373,7 @@ export const useCreateCellValue2GridDisplay = () => {
             const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
             const displayData = cv.map(({ title }) => title || t('common.untitled'));
             const choices = cv.map(({ id, title }) => ({ id, name: title }));
+            const { foreignTableId } = field.options;
             return {
               ...baseCellProps,
               type: CellType.Select,
@@ -375,6 +381,9 @@ export const useCreateCellValue2GridDisplay = () => {
               displayData,
               choiceSorted: choices,
               isMultiple,
+              onPreview: (activeId: string) => {
+                expandRecord?.(foreignTableId, activeId);
+              },
               customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
             };
           }

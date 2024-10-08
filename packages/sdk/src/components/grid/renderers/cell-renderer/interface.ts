@@ -125,6 +125,7 @@ export interface ISelectCell extends IEditableCell {
   choiceSorted?: ISelectChoiceSorted[];
   isMultiple?: boolean;
   isEditingOnClick?: boolean;
+  onPreview?: (activeId: string) => void;
 }
 
 export interface IImageData {
