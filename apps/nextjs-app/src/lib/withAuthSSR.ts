@@ -20,7 +20,7 @@ export type GetServerSideProps<
 export default function withAuthSSR<P extends { [key: string]: any }, T extends SsrApi = SsrApi>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData, T>,
   ssrClass: new () => T = SsrApi as new () => T
-): NextGetServerSideProps {
+): NextGetServerSideProps<P> {
   return async (context: GetServerSidePropsContext) => {
     const req = context.req;
     try {
