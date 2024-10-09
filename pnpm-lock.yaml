@@ -929,9 +929,9 @@ importers:
       '@asteasolutions/zod-to-openapi':
         specifier: 6.4.0
         version: 6.4.0(zod@3.22.4)
-      '@soluble/dsn-parser':
-        specifier: 1.9.2
-        version: 1.9.2
+      '@httpx/dsn-parser':
+        specifier: 1.8.4
+        version: 1.8.4
       '@types/color':
         specifier: 3.0.6
         version: 3.0.6
@@ -1039,9 +1039,9 @@ importers:
       '@faker-js/faker':
         specifier: 8.4.1
         version: 8.4.1
-      '@soluble/dsn-parser':
-        specifier: 1.9.2
-        version: 1.9.2
+      '@httpx/dsn-parser':
+        specifier: 1.8.4
+        version: 1.8.4
       '@teable/eslint-config-bases':
         specifier: workspace:^
         version: link:../eslint-config-bases
@@ -6044,6 +6044,10 @@ packages:
       react-hook-form: 7.51.1(react@18.2.0)
     dev: false
 
+  /@httpx/dsn-parser@1.8.4:
+    resolution: {integrity: sha512-/8kxTR8ryQ2K9jZRmbWfrLHTJS/Eb4Mc8MicyOlK4P5aWUbLKekt4LIBWZxeq2lA10Eb04+FHpmt23A8e1C2sQ==}
+    engines: {node: '>=18'}
+
   /@humanwhocodes/config-array@0.11.14:
     resolution: {integrity: sha512-3T8LkOmg45BV5FICb15QQMsyUSWrQ8AygVfC7ZG32zOalnqrilm018ZVCw0eapXux8FtA33q8PSRSstjee3jSg==}
     engines: {node: '>=10.10.0'}
@@ -9700,9 +9704,6 @@ packages:
       '@smithy/types': 3.3.0
       tslib: 2.6.2
     dev: false
-
-  /@soluble/dsn-parser@1.9.2:
-    resolution: {integrity: sha512-FgkvHHHSCzjQ1/ouW6Vtw2hy0k5/KWeu116swH5VYX267I4rx+8MCy9/6eZ60IWGIQVNgh0sektKAu0n9gtzzA==}
 
   /@storybook/addon-actions@8.0.4:
     resolution: {integrity: sha512-EyCWo+8T11/TJGYNL/AXtW4yaB+q1v2E9mixbumryCLxpTl2NtaeGZ4e0dlwfIMuw/7RWgHk2uIypcIPR/UANQ==}
@@ -26808,9 +26809,6 @@ packages:
   /sqlite3@5.1.7:
     resolution: {integrity: sha512-GGIyOiFaG+TUra3JIfkI/zGP8yZYLPQ0pl1bH+ODjiX57sPhrLU5sQJn1y9bDKZUFYkX1crlrPfSYt0BKKdkog==}
     requiresBuild: true
-    peerDependenciesMeta:
-      node-gyp:
-        optional: true
     dependencies:
       bindings: 1.5.0
       node-addon-api: 7.1.0
