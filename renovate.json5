@@ -70,7 +70,7 @@
       "groupName": "cache-interop monorepo",
       "groupSlug": "cache-interop",
       "matchPackageNames": [
-        "@soluble/dsn-parser",
+        "@httpx/dsn-parser",
         "@soluble/cache-ioredis",
         "@soluble/cache-redis",
         "@soluble/cache-interop"
