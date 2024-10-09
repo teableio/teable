@@ -1,5 +1,5 @@
 #!/usr/bin/env zx
-import { parseDsn as parse } from '@soluble/dsn-parser';
+import { parseDsn as parse } from '@httpx/dsn-parser';
 
 const env = $.env;
 let isCi = ['true', '1'].includes(env?.CI ?? '');
