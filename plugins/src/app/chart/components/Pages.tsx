@@ -8,20 +8,13 @@ import { isIframe, usePluginBridge } from '@teable/sdk';
 import { Spin } from '@teable/ui-lib';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { IPageParams } from '../../../types';
 import { ChartLayout } from '../components/chart/ChartLayout';
 import { ChartPage } from '../components/chart/ChartPage';
 import { ChartProvider } from './ChartProvider';
 import type { IChartStorage } from './types';
 
-interface IPageProps {
-  lang: string;
-  baseId: string;
-  dashboardId: string;
-  pluginInstallId: string;
-  theme: string;
-}
-
-export const Pages = (props: IPageProps) => {
+export const Pages = (props: IPageParams) => {
   const pluginBridge = usePluginBridge();
   const [uiConfig, setUIConfig] = useState<IUIConfig | undefined>();
 
@@ -45,8 +38,8 @@ export const Pages = (props: IPageProps) => {
   );
 };
 
-const Container = (props: IPageProps & { uiConfig?: IUIConfig }) => {
-  const { baseId, dashboardId, pluginInstallId, uiConfig } = props;
+const Container = (props: IPageParams & { uiConfig?: IUIConfig }) => {
+  const { baseId, positionId: dashboardId, pluginInstallId, uiConfig } = props;
   const [isIframeMode, setIsIframeMode] = useState(true);
   const pluginBridge = usePluginBridge();
   const { t } = useTranslation();

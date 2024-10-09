@@ -39,6 +39,7 @@ export const getPluginCenterListVoSchema = z.array(
     logo: z.string(),
     helpUrl: z.string().optional(),
     i18n: pluginI18nSchema.optional(),
+    url: z.string().optional(),
     createdTime: z.string(),
     lastModifiedTime: z.string().optional(),
     createdBy: pluginCreatedBySchema,

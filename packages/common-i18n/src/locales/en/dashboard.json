@@ -11,13 +11,5 @@
     "placeholder": "Enter dashboard name"
   },
   "findDashboard": "Find a dashboard...",
-  "pluginUrlEmpty": "Plugin Not Setting url",
-  "install": "Install",
-  "publisher": "Publisher",
-  "lastUpdated": "Last Updated",
-  "expand": "Expand",
-  "pluginNotFound": "Plugin Not Found",
-  "pluginEmpty": {
-    "title": "No Plugins Yet"
-  }
+  "expand": "Expand"
 }

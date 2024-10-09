@@ -3,9 +3,13 @@ import { fieldVoSchema, recordSchema, shareViewMetaSchema, viewVoSchema } from '
 import { groupPointsVoSchema } from '../aggregation';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
+import { getViewInstallPluginVoSchema } from '../view/plugin-get';
 import { z } from '../zod';
 
 export const SHARE_VIEW_GET = '/share/{shareId}/view';
+
+const shareViewPluginSchema = getViewInstallPluginVoSchema.omit({ baseId: true });
+export type IShareViewPlugin = z.infer<typeof shareViewPluginSchema>;
 
 export const shareViewGetVoSchema = z.object({
   viewId: z.string().optional(),
@@ -20,6 +24,7 @@ export const shareViewGetVoSchema = z.object({
       groupPoints: groupPointsVoSchema.optional().openapi({
         description: 'Group points for the view',
       }),
+      plugin: shareViewPluginSchema.optional(),
     })
     .optional(),
 });

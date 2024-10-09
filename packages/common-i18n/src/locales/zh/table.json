@@ -23,7 +23,8 @@
         "URLSetting": "链接参数设置",
         "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，您需要复制带上新参数的链接以使其生效",
         "cancel": "取消",
-        "save": "保存"
+        "save": "保存",
+        "requireLogin": "需要登录提交"
       },
       "extensions": {
         "label": "插件",
@@ -445,7 +446,8 @@
     "crash": {
       "title": "页面崩溃!",
       "description": "当前页面意外崩溃，请刷新重试，如果持续出现问题请咨询 support@teable.io 获取帮助"
-    }
+    },
+    "addPluginView": "添加插件视图"
   },
   "lastModifiedTime": "修改时间",
   "lastModify": "上次修改："

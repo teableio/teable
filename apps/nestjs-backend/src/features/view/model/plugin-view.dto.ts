@@ -1,7 +1,7 @@
 import type { IShareViewMeta } from '@teable/core';
-import { GridViewCore } from '@teable/core';
+import { PluginViewCore } from '@teable/core';
 
-export class GridViewDto extends GridViewCore {
+export class PluginViewDto extends PluginViewCore {
   defaultShareMeta: IShareViewMeta = {
     includeRecords: true,
   };

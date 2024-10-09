@@ -6,8 +6,7 @@ import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { dashboardConfig } from '@/features/i18n/dashboard.config';
-import { useIframeSize } from '../hooks/useIframeSize';
+import { useIframeSize } from './hooks/useIframeSize';
 import { PluginRender } from './PluginRender';
 
 export const PluginContent = (props: {
@@ -15,19 +14,28 @@ export const PluginContent = (props: {
   pluginId: string;
   pluginInstallId: string;
   pluginUrl?: string;
-  dashboardId: string;
+  positionId: string;
+  shareId?: string;
   dragging?: boolean;
   onExpand?: () => void;
 }) => {
-  const { className, pluginInstallId, pluginUrl, dashboardId, pluginId, dragging, onExpand } =
-    props;
+  const {
+    className,
+    pluginInstallId,
+    pluginUrl,
+    positionId,
+    pluginId,
+    shareId,
+    dragging,
+    onExpand,
+  } = props;
   const baseId = useBaseId()!;
   const router = useRouter();
   const expandPluginId = router.query.expandPluginId as string;
   const {
     t,
     i18n: { resolvedLanguage },
-  } = useTranslation(dashboardConfig.i18nNamespaces);
+  } = useTranslation(['common']);
   const { resolvedTheme } = useTheme();
   const [bridge, setBridge] = useState<IChildBridgeMethods>();
   const basePermissions = useBasePermission();
@@ -39,12 +47,13 @@ export const PluginContent = (props: {
     const url = new URL(pluginUrl);
     url.searchParams.set('pluginInstallId', pluginInstallId);
     url.searchParams.set('baseId', baseId);
-    url.searchParams.set('dashboardId', dashboardId);
+    url.searchParams.set('positionId', positionId);
     url.searchParams.set('pluginId', pluginId);
+    shareId && url.searchParams.set('shareId', shareId);
     defaultTheme.current && url.searchParams.set('theme', defaultTheme.current);
     resolvedLanguage && url.searchParams.set('lang', resolvedLanguage);
     return url.toString();
-  }, [pluginUrl, pluginInstallId, baseId, dashboardId, pluginId, resolvedLanguage]);
+  }, [pluginUrl, pluginInstallId, baseId, positionId, pluginId, resolvedLanguage, shareId]);
 
   const canSetting = basePermissions?.['base|update'];
   useEffect(() => {
@@ -66,8 +75,11 @@ export const PluginContent = (props: {
 
   if (!iframeUrl) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        {t('dashboard:pluginUrlEmpty')}
+      <div
+        ref={ref}
+        className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
+      >
+        {t('common:pluginCenter.pluginUrlEmpty')}
       </div>
     );
   }
@@ -87,7 +99,7 @@ export const PluginContent = (props: {
         src={iframeUrl}
         {...{
           pluginInstallId,
-          dashboardId,
+          positionId,
           baseId,
           pluginId,
         }}

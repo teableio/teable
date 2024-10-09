@@ -20,6 +20,8 @@ export type IKanbanColumnMeta = z.infer<typeof kanbanColumnMetaSchema>;
 
 export type IFormColumnMeta = z.infer<typeof formColumnMetaSchema>;
 
+export type IPluginColumnMeta = z.infer<typeof pluginColumnMetaSchema>;
+
 export type IColumn = z.infer<typeof columnSchema>;
 
 export type IGridColumn = z.infer<typeof gridColumnSchema>;
@@ -27,6 +29,8 @@ export type IGridColumn = z.infer<typeof gridColumnSchema>;
 export type IKanbanColumn = z.infer<typeof kanbanColumnSchema>;
 
 export type IFormColumn = z.infer<typeof formColumnSchema>;
+
+export type IPluginColumn = z.infer<typeof pluginColumnSchema>;
 
 export const columnSchemaBase = z
   .object({
@@ -71,7 +75,20 @@ export const formColumnSchema = columnSchemaBase.merge(
   })
 );
 
-export const columnSchema = z.union([gridColumnSchema, kanbanColumnSchema, formColumnSchema]);
+export const pluginColumnSchema = columnSchemaBase.merge(
+  z.object({
+    hidden: z.boolean().optional().openapi({
+      description: 'If column hidden in the view.',
+    }),
+  })
+);
+
+export const columnSchema = z.union([
+  gridColumnSchema,
+  kanbanColumnSchema,
+  formColumnSchema,
+  pluginColumnSchema,
+]);
 
 export const columnMetaSchema = z.record(z.string().startsWith(IdPrefix.Field), columnSchema);
 
@@ -90,6 +107,11 @@ export const formColumnMetaSchema = z.record(
   formColumnSchema
 );
 
+export const pluginColumnMetaSchema = z.record(
+  z.string().startsWith(IdPrefix.Field),
+  pluginColumnSchema
+);
+
 export const columnMetaRoSchema = z
   .object({
     fieldId: z
@@ -101,6 +123,7 @@ export const columnMetaRoSchema = z
       gridColumnSchema.partial().strict(),
       kanbanColumnSchema.partial().strict(),
       formColumnSchema.partial().strict(),
+      pluginColumnSchema.partial().strict(),
     ]),
   })
   .array();

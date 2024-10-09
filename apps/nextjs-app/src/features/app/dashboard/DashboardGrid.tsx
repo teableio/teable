@@ -92,7 +92,7 @@ export const DashboardGrid = (props: { dashboardId: string }) => {
               pluginInstallId={pluginMap[pluginInstallId].pluginInstallId}
             />
           ) : (
-            <div>{t('dashboard:pluginNotFound')}</div>
+            <div>{t('common:pluginCenter.pluginNotFound')}</div>
           )}
         </div>
       ))}

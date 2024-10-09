@@ -27,6 +27,7 @@ export type IPluginI18n = z.infer<typeof pluginI18nSchema>;
 
 export enum PluginPosition {
   Dashboard = 'dashboard',
+  View = 'view',
 }
 
 export enum PluginStatus {
