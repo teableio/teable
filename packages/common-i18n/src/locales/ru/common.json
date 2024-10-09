@@ -269,5 +269,15 @@
     "fromSpace": "From \"{{name}}\" space",
     "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Are you sure you want to empty the trash?"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "Plugin Not Setting url",
+    "install": "Install",
+    "publisher": "Publisher",
+    "lastUpdated": "Last Updated",
+    "pluginNotFound": "Plugin Not Found",
+    "pluginEmpty": {
+      "title": "No Plugins Yet"
+    }
   }
 }
