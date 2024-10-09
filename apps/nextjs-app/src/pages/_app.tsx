@@ -95,12 +95,6 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
   // calls page's `getInitialProps` and fills `appProps.pageProps`
   const appProps = await App.getInitialProps(appContext);
   const res = appContext.ctx.res;
-  if (!res || !res?.writeHead) {
-    return appProps;
-  }
-
-  const isLoginPage = appContext.ctx.pathname === '/auth/login';
-  const needLoginPage = isAuthLoginPage(appContext.ctx.pathname);
   const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
 
   const initialProps = {
@@ -116,6 +110,12 @@ MyApp.getInitialProps = async (appContext: AppContext) => {
       storagePrefix: process.env.STORAGE_PREFIX,
     },
   };
+  if (!res || !res?.writeHead) {
+    return initialProps;
+  }
+
+  const isLoginPage = appContext.ctx.pathname === '/auth/login';
+  const needLoginPage = isAuthLoginPage(appContext.ctx.pathname);
   if (!isLoginPage && !needLoginPage) {
     return initialProps;
   }
