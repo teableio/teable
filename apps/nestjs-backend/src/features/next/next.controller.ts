@@ -27,7 +27,6 @@ export class NextController {
     'share/?*',
     'setting/?*',
     'admin/?*',
-    'api/next/?*',
     'oauth/?*',
     'developer/?*',
     'public/?*',
