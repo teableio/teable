@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '@teable/sdk/context';
 import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
+import { useState } from 'react';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { authConfig } from '@/features/i18n/auth.config';
 import ensureLogin from '@/lib/ensureLogin';
@@ -11,9 +12,9 @@ type Props = {
   /** Add props here */
 };
 
-const queryClient = createQueryClient();
-
 export default function LoginRoute(_props: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  const [queryClient] = useState(() => createQueryClient());
+
   return (
     <QueryClientProvider client={queryClient}>
       <LoginPage />

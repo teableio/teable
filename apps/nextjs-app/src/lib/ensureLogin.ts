@@ -60,13 +60,17 @@ export default function ensureLogin<P extends { [key: string]: any }>(
           },
         };
       }
+      if (isLoginPage) {
+        return handler(context);
+      }
       const res = await handler(context);
       if ('props' in res) {
         return {
           ...res,
           props: {
             ...(await res.props),
-            err: error,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            err: (error as any)?.message,
           },
         };
       }

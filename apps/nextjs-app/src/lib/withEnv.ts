@@ -19,22 +19,21 @@ type GetServerSideProps<
 export default function withEnv<P extends { [key: string]: any }>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData>
 ): NextGetServerSideProps<P> {
-  const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
-  const env = omitBy(
-    {
-      driver,
-      templateSiteLink: process.env.TEMPLATE_SITE_LINK,
-      microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
-      umamiUrl: process.env.UMAMI_URL,
-      umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
-      sentryDsn: process.env.SENTRY_DSN,
-      socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
-      storagePrefix: process.env.STORAGE_PREFIX,
-    },
-    isUndefined
-  );
-
   return async (context: GetServerSidePropsContext) => {
+    const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
+    const env = omitBy(
+      {
+        driver,
+        templateSiteLink: process.env.TEMPLATE_SITE_LINK,
+        microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
+        umamiUrl: process.env.UMAMI_URL,
+        umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
+        sentryDsn: process.env.SENTRY_DSN,
+        socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
+        storagePrefix: process.env.STORAGE_PREFIX,
+      },
+      isUndefined
+    );
     const res = await handler(context);
     if ('props' in res) {
       return {
