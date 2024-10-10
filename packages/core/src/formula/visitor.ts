@@ -68,8 +68,6 @@ export class EvalVisitor
           return '\f';
         case 'v':
           return '\v';
-        case '0':
-          return '\0';
         case '\\':
           return '\\';
         case '"':
