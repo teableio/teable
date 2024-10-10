@@ -277,7 +277,7 @@ export const SharePopover: React.FC<{
                 checked={embed}
                 onCheckedChange={(checked) => setEmbed(checked)}
               />
-              <Label className="text-xs" htmlFor="share-hideToolBar">
+              <Label className="text-xs" htmlFor="share-embed">
                 {t('table:toolbar.others.share.embed')}
               </Label>
               {embed && shareUrl && (
