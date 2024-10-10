@@ -35,7 +35,7 @@ export const extractTableHeader = (html?: string) => {
   const doc = parser.parseFromString(html, 'text/html');
   const table = doc.querySelector('table');
   const headerRow = table?.querySelector('thead tr');
-  const headerCells = headerRow?.querySelectorAll('td') || [];
+  const headerCells = headerRow?.querySelectorAll('th') || [];
 
   const headers = Array.from(headerCells);
   let error = '';
