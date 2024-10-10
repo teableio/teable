@@ -385,7 +385,7 @@
       "customizeCards": "Customize cards",
       "stackedBy": "Stacked by <0/>",
       "chooseStackingField": "Choose a stacking field",
-      "chooseStackingFieldDescription": "Which single select or user field would you like to use for this kanban view? Your records will be stacked based on this field.",
+      "chooseStackingFieldDescription": "Which field would you like to use for this kanban view? Your records will be stacked based on this field.",
       "hideEmptyStack": "Hide empty stack",
       "imageSetting": "Image Setting",
       "fit": "Fit",
