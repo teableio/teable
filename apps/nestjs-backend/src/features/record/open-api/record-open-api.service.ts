@@ -222,6 +222,10 @@ export class RecordOpenApiService {
 
     const newRecordsFields: Record<string, unknown>[] = recordsFields.map(() => ({}));
     for (const field of effectFieldInstance) {
+      // skip computed field
+      if (field.isComputed) {
+        continue;
+      }
       const typeCastAndValidate = new TypeCastAndValidate({
         services: {
           prismaService: this.prismaService,
@@ -315,7 +319,7 @@ export class RecordOpenApiService {
         windowId,
         userId: this.cls.get('user.id'),
         recordIds,
-        fieldIds: Object.keys(records[0].fields),
+        fieldIds: Object.keys(records[0]?.fields || {}),
         cellContexts,
         orderIndexesBefore,
         orderIndexesAfter,

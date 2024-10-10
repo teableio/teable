@@ -222,14 +222,16 @@ export class SelectionService {
       excludeFieldIds,
     });
 
+    const selectedFields = fields.slice(start[0], end[0] + 1);
+
     const records = await this.recordService.getRecordsFields(tableId, {
       ...queryRo,
       skip: start[1],
       take: end[1] + 1 - start[1],
       fieldKeyType: FieldKeyType.Id,
-      projection: this.fieldsToProjection(fields, FieldKeyType.Id),
+      projection: this.fieldsToProjection(selectedFields, FieldKeyType.Id),
     });
-    return { records, fields: fields.slice(start[0], end[0] + 1) };
+    return { records, fields: selectedFields };
   }
 
   private async parseRange(
