@@ -385,7 +385,7 @@
       "customizeCards": "Настроить карты",
       "stackedBy": "Сгруппировано по <0/>",
       "chooseStackingField": "Выберите поле для группировки",
-      "chooseStackingFieldDescription": "Какое одиночное поле или поле пользователя вы хотите использовать для этого представления канбана? Ваши записи будут складываться на основе этого поля.",
+      "chooseStackingFieldDescription": "Which field would you like to use for this kanban view? Your records will be stacked based on this field.",
       "hideEmptyStack": "Скрыть пустой стек",
       "imageSetting": "Настройки изображения",
       "fit": "Подогнать",
