@@ -59,7 +59,8 @@
       "selectRecord": "Выбрать запись",
       "unselected": "Не выбрано",
       "selected": "Выбранные",
-      "expandRecordError": "Нет разрешения на просмотр этой записи."
+      "expandRecordError": "Нет разрешения на просмотр этой записи.",
+      "alreadyOpen": "This record is already open."
     },
     "user": {
       "searchPlaceholder": "Найти пользователей по имени",
