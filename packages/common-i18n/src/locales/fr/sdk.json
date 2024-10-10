@@ -59,7 +59,8 @@
       "selectRecord": "Select Record",
       "unselected": "Unselected",
       "selected": "Selected",
-      "expandRecordError": "No permission to view this record."
+      "expandRecordError": "No permission to view this record.",
+      "alreadyOpen": "This record is already open."
     },
     "user": {
       "searchPlaceholder": "Find users by name",
