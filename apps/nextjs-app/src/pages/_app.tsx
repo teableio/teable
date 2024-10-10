@@ -37,7 +37,7 @@ export type AppProps<T> = NextAppProps<T> & {
   err?: Error;
 };
 
-type AppPropsWithLayout = AppProps<{ user?: IUser; env: IServerEnv; err?: Error }> & {
+type AppPropsWithLayout = AppProps<{ user?: IUser; env?: IServerEnv; err?: Error }> & {
   Component: NextPageWithLayout;
 };
 
@@ -46,7 +46,7 @@ type AppPropsWithLayout = AppProps<{ user?: IUser; env: IServerEnv; err?: Error 
  */
 const MyApp = (appProps: AppPropsWithLayout) => {
   const { Component, err, pageProps } = appProps;
-  const { user, env, err: pageErr } = pageProps;
+  const { user, env = {}, err: pageErr } = pageProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
   useEffect(() => {
