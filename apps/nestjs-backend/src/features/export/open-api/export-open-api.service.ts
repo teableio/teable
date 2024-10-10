@@ -70,6 +70,7 @@ export class ExportOpenApiService {
     // set headers as first row
     const headers = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: viewRaw?.id ? viewRaw?.id : undefined,
+      filterHidden: viewRaw?.id ? true : undefined,
     });
     const headerData = Papa.unparse([headers.map((h) => h.name)]);
 
