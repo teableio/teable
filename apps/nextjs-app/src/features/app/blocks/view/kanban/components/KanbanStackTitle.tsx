@@ -34,8 +34,8 @@ export const KanbanStackTitle = (props: IKanbanStackTitle) => {
           <CellValue
             field={stackField}
             value={stackData}
-            className="overflow-hidden"
-            itemClassName="shrink overflow-hidden"
+            className="flex-nowrap overflow-hidden"
+            itemClassName="overflow-hidden shrink-0"
           />
           <span className="rounded-xl border px-2 text-xs">{stackCount}</span>
         </div>

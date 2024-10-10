@@ -60,7 +60,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     return allFields.find(({ id }) => id === stackFieldId);
   }, [stackFieldId, allFields]);
 
-  const { type, isMultipleCellValue, isLookup } = stackField ?? {};
+  const { type, isMultipleCellValue } = stackField ?? {};
 
   const { data: userList } = useQuery({
     queryKey: shareId
@@ -72,9 +72,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
         : getBaseCollaboratorList(queryKey[1], queryKey[2] as ListBaseCollaboratorRo).then(
             (data) => data.data
           ),
-    enabled: Boolean(
-      (shareId || baseId) && type === FieldType.User && !isMultipleCellValue && !isLookup
-    ),
+    enabled: Boolean((shareId || baseId) && type === FieldType.User && !isMultipleCellValue),
   });
 
   const kanbanPermission = useMemo(() => {
@@ -93,8 +91,8 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const stackCollection = useMemo(() => {
     if (groupPoints == null || stackField == null) return;
 
-    const { type, options, isLookup, isMultipleCellValue } = stackField;
-    const isDisabledStackField = isLookup || type === FieldType.Attachment;
+    const { type, options, isMultipleCellValue } = stackField;
+    const isDisabledStackField = type === FieldType.Attachment;
 
     if (isDisabledStackField) return;
 
