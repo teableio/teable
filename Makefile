@@ -201,6 +201,7 @@ build.db-migrate:
 
 sqlite.integration.test:
 	@export PRISMA_DATABASE_URL='file:../../db/main.db'; \
+	export CALC_CHUNK_SIZE=400; \
 	make sqlite.mode; \
 	pnpm -F "./packages/**" run build; \
 	pnpm g:test-e2e-cover
