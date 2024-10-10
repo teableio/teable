@@ -375,7 +375,7 @@
       "customizeCards": "カードをカスタマイズする",
       "stackedBy": "<0/> でスタック",
       "chooseStackingField": "スタッキングフィールドを選択",
-      "chooseStackingFieldDescription": "このカンバンビューには、どの単一選択フィールドまたはユーザーフィールドを使用しますか？レコードはこのフィールドに基づいてスタックされます。",
+      "chooseStackingFieldDescription": "カンバンを設定するためにどのフィールドを使用しますか？レコードはこのフィールドに基づいてスタックされます。",
       "hideEmptyStack": "空のスタックを非表示",
       "imageSetting": "画像設定",
       "fit": "フィット",

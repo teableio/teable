@@ -33,7 +33,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
 
   number(field: IFieldInstance): Knex.QueryBuilder {
     const { dbFieldName, options } = field;
-    const { precision } = (options as INumberFieldOptions).formatting;
+    const { precision = 0 } = (options as INumberFieldOptions).formatting ?? {};
     const column = this.knex.raw('ROUND(??::numeric, ?)::float as ??', [
       dbFieldName,
       precision,
@@ -108,7 +108,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
 
   multipleNumber(field: IFieldInstance): Knex.QueryBuilder {
     const { dbFieldName, options } = field;
-    const { precision } = (options as INumberFieldOptions).formatting;
+    const { precision = 0 } = (options as INumberFieldOptions).formatting ?? {};
     const column = this.knex.raw(
       `
       (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
