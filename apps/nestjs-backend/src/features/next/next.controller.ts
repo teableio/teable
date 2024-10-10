@@ -20,7 +20,6 @@ export class NextController {
     '404/*',
     '403/?*',
     '402/?*',
-    'api/((?!table).)*',
     'space/?*',
     'auth/?*',
     'base/?*',

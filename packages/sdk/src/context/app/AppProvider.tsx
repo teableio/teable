@@ -1,13 +1,12 @@
 import { Hydrate, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@teable/next-themes';
 import { isObject, merge } from 'lodash';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AppContext } from '../app/AppContext';
 import { ConnectionProvider } from './ConnectionProvider';
 import type { ILocalePartial } from './i18n';
 import { defaultLocale } from './i18n';
 import { createQueryClient } from './queryClient';
-const queryClient = createQueryClient();
 
 interface IAppProviderProps {
   forcedTheme?: string;
@@ -20,7 +19,7 @@ interface IAppProviderProps {
 
 export const AppProvider = (props: IAppProviderProps) => {
   const { forcedTheme, children, wsPath, lang, locale, dehydratedState } = props;
-
+  const [queryClient] = useState(() => createQueryClient());
   const value = useMemo(() => {
     return {
       lang,

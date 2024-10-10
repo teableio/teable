@@ -1,6 +1,5 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import * as Sentry from '@sentry/nextjs';
-import { HttpError, parseDsn } from '@teable/core';
 import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -11,7 +10,6 @@ import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import { useEffect } from 'react';
 import { z } from 'zod';
-import { getUserMe } from '@/backend/api/rest/get-user';
 import { Guide } from '@/components/Guide';
 import { MicrosoftClarity, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
@@ -34,25 +32,23 @@ import '../styles/global.css';
 import '@fontsource-variable/inter';
 
 // Workaround for https://github.com/zeit/next.js/issues/8592
-export type AppProps = NextAppProps & {
+export type AppProps<T> = NextAppProps<T> & {
   /** Will be defined only is there was an error */
   err?: Error;
 };
 
-type AppPropsWithLayout = AppProps & {
+type AppPropsWithLayout = AppProps<{ user?: IUser; env?: IServerEnv; err?: Error }> & {
   Component: NextPageWithLayout;
-  user?: IUser;
-  env: IServerEnv;
 };
 
 /**
  * @link https://nextjs.org/docs/advanced-features/custom-app
  */
 const MyApp = (appProps: AppPropsWithLayout) => {
-  const { Component, pageProps, err, user, env } = appProps;
+  const { Component, err, pageProps } = appProps;
+  const { user, env = {}, err: pageErr } = pageProps;
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
-
   useEffect(() => {
     Sentry.setUser(user ? { id: user.id, email: user.email } : null);
   }, [user]);
@@ -78,7 +74,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
           }}
         />
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
-        {getLayout(<Component {...pageProps} err={err} />, { ...pageProps, user })}
+        {getLayout(<Component {...pageProps} err={err || pageErr} />, { ...pageProps })}
       </AppProviders>
       <Guide user={user} />
       <RouterProgressBar />
@@ -94,60 +90,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
 MyApp.getInitialProps = async (appContext: AppContext) => {
   // calls page's `getInitialProps` and fills `appProps.pageProps`
   const appProps = await App.getInitialProps(appContext);
-  const res = appContext.ctx.res;
-  if (!res || !res?.writeHead) {
-    return appProps;
-  }
-
-  const isLoginPage = appContext.ctx.pathname === '/auth/login';
-  const needLoginPage = isAuthLoginPage(appContext.ctx.pathname);
-  const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
-
-  const initialProps = {
-    ...appProps,
-    env: {
-      driver,
-      templateSiteLink: process.env.TEMPLATE_SITE_LINK,
-      microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
-      umamiUrl: process.env.UMAMI_URL,
-      umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
-      sentryDsn: process.env.SENTRY_DSN,
-      socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
-      storagePrefix: process.env.STORAGE_PREFIX,
-    },
-  };
-  if (!isLoginPage && !needLoginPage) {
-    return initialProps;
-  }
-
-  try {
-    const user = await getUserMe(appContext.ctx.req?.headers.cookie);
-    // Already logged in
-    if (user && isLoginPage) {
-      res.writeHead(302, {
-        Location: `/space`,
-      });
-      res.end();
-      return {};
-    }
-    return { ...initialProps, user };
-  } catch (error) {
-    if (error instanceof HttpError && !isLoginPage) {
-      const redirect = encodeURIComponent(appContext.ctx.req?.url || '');
-      const query = redirect ? `redirect=${redirect}` : '';
-      res.writeHead(302, {
-        Location: `/auth/login?${query}`,
-      });
-      res.end();
-      return {};
-    }
-    return { ...initialProps, err: error };
-  }
-};
-
-const isAuthLoginPage = (pathname: string) => {
-  const needLoginPage = ['/space', '/base', '/invite', '/setting', '/oauth', '/developer'];
-  return needLoginPage.some((path) => pathname.startsWith(path));
+  return { ...appProps };
 };
 
 export default appWithTranslation(MyApp, {

@@ -13,6 +13,7 @@ export const PositionSelector = (props: {
   const positionStatic = useMemo(() => {
     return {
       [PluginPosition.Dashboard]: t('common:noun.dashboard'),
+      [PluginPosition.View]: t('common:noun.view'),
     };
   }, [t]);
   return (

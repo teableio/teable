@@ -1,16 +1,10 @@
 'use client';
+import { PluginPosition } from '@teable/openapi';
 import { useSearchParams } from 'next/navigation';
 import React from 'react';
+import type { IPageParams } from '../types';
 
-export const EvnContext = React.createContext({
-  lang: 'en',
-  baseId: '',
-  dashboardId: '',
-  shareId: '',
-  tableId: '',
-  pluginId: '',
-  pluginInstallId: '',
-});
+export const EvnContext = React.createContext<IPageParams>(null!);
 
 export const EnvProvider = (props: { children: React.ReactNode }) => {
   const { children } = props;
@@ -21,11 +15,13 @@ export const EnvProvider = (props: { children: React.ReactNode }) => {
       value={{
         lang: searchParams.get('lang') || 'en',
         baseId: searchParams.get('baseId') || '',
-        dashboardId: searchParams.get('dashboardId') || '',
         pluginId: searchParams.get('pluginId') || '',
-        shareId: searchParams.get('shareId') || '',
-        tableId: searchParams.get('tableId') || '',
+        shareId: searchParams.get('shareId') || undefined,
         pluginInstallId: searchParams.get('pluginInstallId') || '',
+        positionId: searchParams.get('dashboardId') || '',
+        theme: searchParams.get('theme') || 'light',
+        positionType:
+          (searchParams.get('positionType') as PluginPosition) || PluginPosition.Dashboard,
       }}
     >
       {children}

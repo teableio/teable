@@ -1,5 +1,5 @@
 import { ViewType } from '@teable/core';
-import { Sheet, ClipboardList as Form, Kanban } from '@teable/icons';
+import { Sheet, ClipboardList as Form, Kanban, Code } from '@teable/icons';
 
 export const VIEW_ICON_MAP = {
   [ViewType.Grid]: Sheet,
@@ -8,4 +8,5 @@ export const VIEW_ICON_MAP = {
   [ViewType.Gallery]: Sheet,
   [ViewType.Calendar]: Sheet,
   [ViewType.Form]: Form,
+  [ViewType.Plugin]: Code,
 };

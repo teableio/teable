@@ -7,7 +7,6 @@ import {
   UseGuards,
   Request,
   Get,
-  Param,
   Body,
   Query,
 } from '@nestjs/common';
@@ -46,6 +45,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { ShareAuthGuard } from './guard/auth.guard';
 import { ShareAuthLocalGuard } from './guard/share-auth-local.guard';
+import { ShareSubmit } from './guard/submit.decorator';
 import type { IShareViewInfo } from './share-auth.service';
 import { ShareAuthService } from './share-auth.service';
 import { ShareSocketService } from './share-socket.service';
@@ -76,12 +76,9 @@ export class ShareController {
 
   @UseGuards(ShareAuthGuard)
   @Get('/:shareId/view')
-  async getShareView(
-    @Param('shareId') shareId: string,
-    @Request() req?: any
-  ): Promise<ShareViewGetVo> {
+  async getShareView(@Request() req?: any): Promise<ShareViewGetVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return await this.shareService.getShareView(shareInfo);
+    return this.shareService.getShareView(shareInfo);
   }
 
   @UseGuards(ShareAuthGuard)
@@ -92,7 +89,7 @@ export class ShareController {
     query?: IShareViewAggregationsRo
   ): Promise<IAggregationVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return await this.shareService.getViewAggregations(shareInfo, query);
+    return this.shareService.getViewAggregations(shareInfo, query);
   }
 
   @UseGuards(ShareAuthGuard)
@@ -103,9 +100,10 @@ export class ShareController {
     query?: IShareViewRowCountRo
   ): Promise<IRowCountVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return await this.shareService.getViewRowCount(shareInfo, query);
+    return this.shareService.getViewRowCount(shareInfo, query);
   }
 
+  @ShareSubmit()
   @UseGuards(ShareAuthGuard)
   @Post('/:shareId/view/form-submit')
   async submitRecord(
@@ -114,7 +112,7 @@ export class ShareController {
     shareViewFormSubmitRo: ShareViewFormSubmitRo
   ): Promise<IRecord> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return await this.shareService.formSubmit(shareInfo, shareViewFormSubmitRo);
+    return this.shareService.formSubmit(shareInfo, shareViewFormSubmitRo);
   }
 
   @UseGuards(ShareAuthGuard)
@@ -135,7 +133,7 @@ export class ShareController {
     query?: IShareViewGroupPointsRo
   ): Promise<IGroupPointsVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
-    return await this.shareService.getViewGroupPoints(shareInfo, query);
+    return this.shareService.getViewGroupPoints(shareInfo, query);
   }
 
   @UseGuards(ShareAuthGuard)

@@ -11,13 +11,5 @@
     "placeholder": "输入仪表盘名称"
   },
   "findDashboard": "查找仪表盘...",
-  "pluginUrlEmpty": "插件未设置 URL",
-  "install": "安装",
-  "publisher": "发布者",
-  "lastUpdated": "最后更新",
-  "expand": "展开",
-  "pluginNotFound": "插件未找到",
-  "pluginEmpty": {
-    "title": "暂无插件"
-  }
+  "expand": "展开"
 }

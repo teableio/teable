@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import type {
   IDateFieldOptions,
   IFieldRo,
+  IFieldVo,
   INumberFieldOptions,
   ISelectFieldOptions,
   ISortItem,
@@ -14,6 +15,8 @@ import {
   FieldType,
   formatNumberToString,
   formatDateToString,
+  DateFormattingPreset,
+  TimeFormatting,
 } from '@teable/core';
 import type { IGetRecordsRo, ITableFullVo } from '@teable/openapi';
 import { updateViewSort as apiSetViewSort } from '@teable/openapi';
@@ -335,6 +338,90 @@ describe('OpenAPI Sort (e2e) Multiple CellValueType', () => {
 
       const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields2);
       const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields2);
+
+      expect(ascOriginRecords).toEqual(ascManualSortRecords);
+      expect(descOriginRecords).toEqual(descManualSortRecords);
+    }
+  );
+});
+
+describe('OpenAPI Sort (e2e) Date Formatting', () => {
+  let tableId: string;
+  let viewId: string;
+  let fields: IFieldVo[];
+
+  const generateDateField = (name: string, date: DateFormattingPreset) => {
+    return {
+      name,
+      type: FieldType.Date,
+      options: {
+        formatting: {
+          date,
+          time: TimeFormatting.None,
+          timeZone: 'Asia/Singapore',
+        },
+      },
+    };
+  };
+
+  const originFields = [
+    generateDateField('Year', DateFormattingPreset.Y),
+    generateDateField('Month', DateFormattingPreset.YM),
+    generateDateField('Day', DateFormattingPreset.ISO),
+  ];
+
+  const generateFieldValues = (dateString: string) => {
+    return {
+      fields: {
+        [originFields[0].name!]: new Date(dateString).toISOString(),
+        [originFields[1].name!]: new Date(dateString).toISOString(),
+        [originFields[2].name!]: new Date(dateString).toISOString(),
+      },
+    };
+  };
+
+  beforeEach(async () => {
+    const result = await createTable(baseId, {
+      name: 'sort_by_date',
+      fields: originFields,
+      records: [
+        generateFieldValues('2024-01-10 10:00:00'),
+        generateFieldValues('2024-01-10 08:00:00'),
+        generateFieldValues('2023-05-01 09:00:00'),
+        generateFieldValues('2022-08-01 06:00:00'),
+        generateFieldValues('2022-05-01 10:00:00'),
+        generateFieldValues('2024-01-01 10:00:00'),
+      ],
+    });
+    tableId = result.id;
+    viewId = result.defaultViewId!;
+    fields = result.fields!;
+  });
+
+  afterEach(async () => {
+    await permanentDeleteTable(baseId, tableId);
+  });
+
+  test.each([
+    { index: 0, fieldName: originFields[0].name as string },
+    { index: 1, fieldName: originFields[1].name as string },
+    { index: 2, fieldName: originFields[2].name as string },
+  ])(
+    '/api/table/{tableId}/view/{viewId}/sort sort by date with different formatting: $fieldName',
+    async ({ index }) => {
+      const sortByFieldId = fields[index].id as string;
+      const ascOrders: IGetRecordsRo['orderBy'] = [{ fieldId: sortByFieldId, order: SortFunc.Asc }];
+      const descOrders: IGetRecordsRo['orderBy'] = [
+        { fieldId: sortByFieldId, order: SortFunc.Desc },
+      ];
+
+      await setRecordsOrder(tableId, viewId, ascOrders);
+
+      const ascOriginRecords = await getSortRecords(tableId, { orderBy: ascOrders });
+      const descOriginRecords = await getSortRecords(tableId, { orderBy: descOrders });
+
+      const ascManualSortRecords = getRecordsByOrder(ascOriginRecords, ascOrders, fields);
+      const descManualSortRecords = getRecordsByOrder(descOriginRecords, descOrders, fields);
 
       expect(ascOriginRecords).toEqual(ascManualSortRecords);
       expect(descOriginRecords).toEqual(descManualSortRecords);

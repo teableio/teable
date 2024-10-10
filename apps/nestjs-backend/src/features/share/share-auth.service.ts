@@ -16,6 +16,7 @@ export interface IShareViewInfo {
   shareId: string;
   tableId: string;
   view?: IViewVo;
+  shareMeta?: IShareViewMeta;
 }
 
 export interface IJwtShareInfo {
@@ -66,11 +67,12 @@ export class ShareAuthService {
     if (!view) {
       throw new BadRequestException('share view not found');
     }
-
+    const viewVo = createViewVoByRaw(view);
     return {
       shareId,
       tableId: view.tableId,
       view: createViewVoByRaw(view),
+      shareMeta: viewVo.shareMeta,
     };
   }
 
@@ -99,6 +101,10 @@ export class ShareAuthService {
     return {
       shareId: linkFieldId,
       tableId: field.options.foreignTableId,
+      shareMeta: {
+        allowCopy: true,
+        includeRecords: true,
+      },
     };
   }
 }

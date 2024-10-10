@@ -5,6 +5,7 @@ import type { Doc } from 'sharedb/lib/client';
 import { FormView } from './form.view';
 import { GridView } from './grid.view';
 import { KanbanView } from './kanban.view';
+import { PluginView } from './plugin.view';
 
 export function createViewInstance(view: IViewVo, doc?: Doc<IViewVo>) {
   const instance = (() => {
@@ -15,6 +16,8 @@ export function createViewInstance(view: IViewVo, doc?: Doc<IViewVo>) {
         return plainToInstance(KanbanView, view);
       case ViewType.Form:
         return plainToInstance(FormView, view);
+      case ViewType.Plugin:
+        return plainToInstance(PluginView, view);
       case ViewType.Calendar:
       case ViewType.Gallery:
       case ViewType.Gantt:

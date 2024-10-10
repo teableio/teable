@@ -13,7 +13,7 @@ import {
   updateRecord,
   getRecords,
 } from '@teable/openapi';
-import { getError } from './utils/get-error';
+import { VIEW_DEFAULT_SHARE_META } from './data-helpers/caces/view-default-share-meta';
 import {
   createField,
   getFields,
@@ -343,14 +343,18 @@ describe('OpenAPI ViewController (e2e)', () => {
       expect(view.shareMeta?.allowCopy).toBe(true);
     });
 
-    it('update allowCopy with disallowed view types', async () => {
-      const error = await getError(() =>
-        updateViewShareMeta(tableId, formViewId, { allowCopy: true })
-      );
-
-      expect(error?.status).toEqual(400);
-      expect(error?.message).toEqual(`View type(${ViewType.Form}) not support copy`);
-    });
+    it.each(VIEW_DEFAULT_SHARE_META)(
+      'viewType($viewType) with enabled share with default shareMeta',
+      async (viewShareDefault) => {
+        const view = await createView(tableId, {
+          name: `${viewShareDefault.viewType} view`,
+          type: viewShareDefault.viewType,
+        });
+        await enableShareView({ tableId, viewId: view.id });
+        const { shareMeta } = await getView(tableId, view.id);
+        expect(shareMeta).toEqual(viewShareDefault.defaultShareMeta);
+      }
+    );
   });
 
   describe('filter by view ', () => {

@@ -5,6 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import { FormViewDto } from './form-view.dto';
 import { GridViewDto } from './grid-view.dto';
 import { KanbanViewDto } from './kanban-view.dto';
+import { PluginViewDto } from './plugin-view.dto';
 
 export function createViewInstanceByRaw(viewRaw: View) {
   const viewVo = createViewVoByRaw(viewRaw);
@@ -16,6 +17,8 @@ export function createViewInstanceByRaw(viewRaw: View) {
       return plainToInstance(KanbanViewDto, viewVo);
     case ViewType.Form:
       return plainToInstance(FormViewDto, viewVo);
+    case ViewType.Plugin:
+      return plainToInstance(PluginViewDto, viewVo);
     case ViewType.Gallery:
     case ViewType.Gantt:
     case ViewType.Calendar:

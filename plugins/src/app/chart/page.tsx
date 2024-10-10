@@ -7,6 +7,7 @@ import QueryClientProvider from '../../components/QueryClientProvider';
 import { PageType } from '../../components/types';
 import enCommonJson from '../../locales/chart/en.json';
 import zhCommonJson from '../../locales/chart/zh.json';
+import type { IPageParams } from '../../types';
 import { Pages } from './components/Pages';
 import icon from './favicon.ico';
 
@@ -29,16 +30,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   };
 }
 
-export default async function Home(props: {
-  searchParams: {
-    lang: string;
-    baseId: string;
-    pluginInstallId: string;
-    dashboardId: string;
-    pluginId: string;
-    theme: string;
-  };
-}) {
+export default async function Home(props: { searchParams: IPageParams }) {
   return (
     <main className="flex h-screen flex-col items-center justify-center">
       <EnvProvider>

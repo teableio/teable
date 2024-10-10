@@ -46,8 +46,40 @@ export class EvalVisitor
 
   visitStringLiteral(ctx: StringLiteralContext): any {
     // Extract and return the string value without quotes
-    const value = ctx.text.slice(1, -1);
-    return new TypedValue(value, CellValueType.String);
+    const quotedString = ctx.text;
+    const rawString = quotedString.slice(1, -1);
+    // Handle escape characters
+    const unescapedString = this.unescapeString(rawString);
+    return new TypedValue(unescapedString, CellValueType.String);
+  }
+
+  private unescapeString(str: string): string {
+    return str.replace(/\\(.)/g, (_, char) => {
+      switch (char) {
+        case 'n':
+          return '\n';
+        case 'r':
+          return '\r';
+        case 't':
+          return '\t';
+        case 'b':
+          return '\b';
+        case 'f':
+          return '\f';
+        case 'v':
+          return '\v';
+        case '0':
+          return '\0';
+        case '\\':
+          return '\\';
+        case '"':
+          return '"';
+        case "'":
+          return "'";
+        default:
+          return '\\' + char;
+      }
+    });
   }
 
   visitIntegerLiteral(ctx: IntegerLiteralContext): any {

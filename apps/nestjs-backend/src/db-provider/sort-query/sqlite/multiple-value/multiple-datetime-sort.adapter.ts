@@ -1,27 +1,24 @@
-import { TimeFormatting, type IDateFieldOptions } from '@teable/core';
+import type { DateFormattingPreset, IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
+import { getSqliteDateTimeFormatString } from '../../../group-query/format-string';
 import { getOffset } from '../../../search-query/get-offset';
 import { SortFunctionSqlite } from '../sort-query.function';
 
 export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
   asc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     const { options } = this.field;
-    const { time, timeZone } = (options as IDateFieldOptions).formatting;
+    const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
+    const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
+    const offsetString = `${getOffset(timeZone)} hour`;
 
-    if (time !== TimeFormatting.None) {
-      builderClient.orderByRaw(`json_extract(??, '$[0]') ASC NULLS FIRST`, [this.columnName]);
-      return builderClient;
-    }
-
-    const offsetStr = `${getOffset(timeZone)} hour`;
     const orderByColumn = this.knex.raw(
       `
       (
-        SELECT group_concat(DATE(elem.value, ?), ', ')
+        SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
         FROM json_each(??) as elem
       ) ASC NULLS FIRST
       `,
-      [offsetStr, this.columnName]
+      [formatString, offsetString, this.columnName]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -29,22 +26,18 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
 
   desc(builderClient: Knex.QueryBuilder): Knex.QueryBuilder {
     const { options } = this.field;
-    const { time, timeZone } = (options as IDateFieldOptions).formatting;
+    const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
+    const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
+    const offsetString = `${getOffset(timeZone)} hour`;
 
-    if (time !== TimeFormatting.None) {
-      builderClient.orderByRaw(`json_extract(??, '$[0]') DESC NULLS LAST`, [this.columnName]);
-      return builderClient;
-    }
-
-    const offsetStr = `${getOffset(timeZone)} hour`;
     const orderByColumn = this.knex.raw(
       `
       (
-        SELECT group_concat(DATE(elem.value, ?), ', ')
+        SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
         FROM json_each(??) as elem
       ) DESC NULLS LAST
       `,
-      [offsetStr, this.columnName]
+      [formatString, offsetString, this.columnName]
     );
     builderClient.orderByRaw(orderByColumn);
     return builderClient;
@@ -52,44 +45,38 @@ export class MultipleDateTimeSortAdapter extends SortFunctionSqlite {
 
   getAscSQL() {
     const { options } = this.field;
-    const { time, timeZone } = (options as IDateFieldOptions).formatting;
+    const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
+    const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
+    const offsetString = `${getOffset(timeZone)} hour`;
 
-    if (time !== TimeFormatting.None) {
-      return this.knex.raw(`json_extract(??, '$[0]') ASC NULLS FIRST`, [this.columnName]).toQuery();
-    }
-
-    const offsetStr = `${getOffset(timeZone)} hour`;
     return this.knex
       .raw(
         `
-      (
-        SELECT group_concat(DATE(elem.value, ?), ', ')
-        FROM json_each(??) as elem
-      ) ASC NULLS FIRST
-      `,
-        [offsetStr, this.columnName]
+        (
+          SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
+          FROM json_each(??) as elem
+        ) ASC NULLS FIRST
+        `,
+        [formatString, offsetString, this.columnName]
       )
       .toQuery();
   }
 
   getDescSQL() {
     const { options } = this.field;
-    const { time, timeZone } = (options as IDateFieldOptions).formatting;
+    const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
+    const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
+    const offsetString = `${getOffset(timeZone)} hour`;
 
-    if (time !== TimeFormatting.None) {
-      return this.knex.raw(`json_extract(??, '$[0]') DESC NULLS LAST`, [this.columnName]).toQuery();
-    }
-
-    const offsetStr = `${getOffset(timeZone)} hour`;
     return this.knex
       .raw(
         `
-      (
-        SELECT group_concat(DATE(elem.value, ?), ', ')
-        FROM json_each(??) as elem
-      ) DESC NULLS LAST
-      `,
-        [offsetStr, this.columnName]
+        (
+          SELECT group_concat(strftime(?, DATETIME(elem.value, ?)), ', ')
+          FROM json_each(??) as elem
+        ) DESC NULLS LAST
+        `,
+        [formatString, offsetString, this.columnName]
       )
       .toQuery();
   }

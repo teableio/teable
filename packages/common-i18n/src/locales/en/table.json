@@ -23,7 +23,8 @@
         "URLSetting": "URL parameters config",
         "URLSettingDescription": "Adjusting the following settings will not affect the shared links. You need to copy the link with new parameters to make it take effect",
         "cancel": "Cancel",
-        "save": "Save"
+        "save": "Save",
+        "requireLogin": "Require login submit"
       },
       "extensions": {
         "label": "Extensions",
@@ -446,7 +447,8 @@
     "crash": {
       "title": "Crash!",
       "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
-    }
+    },
+    "addPluginView": "Add Plugin View"
   },
   "lastModifiedTime": "Last modified time",
   "lastModify": "Last modify: "

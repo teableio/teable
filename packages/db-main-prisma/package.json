@@ -52,7 +52,7 @@
     "nanoid": "3.3.7"
   },
   "devDependencies": {
-    "@soluble/dsn-parser": "1.9.2",
+    "@httpx/dsn-parser": "1.8.4",
     "@faker-js/faker": "8.4.1",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "20.9.0",

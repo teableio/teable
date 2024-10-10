@@ -17,6 +17,8 @@ import {
   SHARE_VIEW_AUTH,
   getShareView,
   createField,
+  updateViewShareMeta,
+  shareViewFormSubmit,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -92,13 +94,14 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(shareViewData.viewId).toEqual(viewId);
     });
 
-    it('records return [] in form view', async () => {
-      const result = await createView(tableId, formViewRo);
-      const formViewId = result.id;
-      const shareResult = await apiEnableShareView({ tableId, viewId: formViewId });
-      const formViewShareId = shareResult.data.shareId;
+    it('records return [] in not includeRecords', async () => {
+      const result = await createView(tableId, gridViewRo);
+      const viewId = result.id;
+      const shareResult = await apiEnableShareView({ tableId, viewId });
+      await updateViewShareMeta(tableId, viewId, { includeRecords: false });
+      const viewShareId = shareResult.data.shareId;
       const resultData = await anonymousUser.get<ShareViewGetVo>(
-        urlBuilder(SHARE_VIEW_GET, { shareId: formViewShareId })
+        urlBuilder(SHARE_VIEW_GET, { shareId: viewShareId })
       );
       expect(resultData.data.records).toEqual([]);
     });
@@ -188,6 +191,26 @@ describe('OpenAPI ShareController (e2e)', () => {
         })
       );
       expect(error?.status).toEqual(403);
+    });
+
+    it('required login', async () => {
+      await updateViewShareMeta(tableId, formViewId, {
+        submit: {
+          requireLogin: true,
+          allow: true,
+        },
+      });
+      const error = await getError(() =>
+        anonymousUser.post(urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId: fromViewShareId }), {
+          fields: {},
+        })
+      );
+      expect(error?.status).toEqual(401);
+      const res = await shareViewFormSubmit({
+        shareId: fromViewShareId,
+        fields: {},
+      });
+      expect(res.status).toEqual(201);
     });
   });
 
