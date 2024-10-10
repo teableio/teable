@@ -1,4 +1,4 @@
-import { fieldVoSchema, parseClipboardText, type IFieldVo } from '@teable/core';
+import { FieldType, fieldVoSchema, parseClipboardText, type IFieldVo } from '@teable/core';
 import { fromZodError } from 'zod-validation-error';
 
 const teableHtmlMarker = 'data-teable-html-marker';
@@ -7,16 +7,24 @@ export const serializerHtml = (data: string, headers: IFieldVo[]) => {
   const tableData = parseClipboardText(data);
   const bodyContent = tableData
     .map((row) => {
-      return `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`;
+      return `<tr>${row
+        .map((cell, index) => {
+          const header = headers[index];
+          if (header.type === FieldType.LongText) {
+            return `<td>${cell.replaceAll('\n', '<br style="mso-data-placement:same-cell;"/>')}</td>`;
+          }
+          return `<td>${cell}</td>`;
+        })
+        .join('')}</tr>`;
     })
     .join('');
   const headerContent = headers
     .map((header) => {
-      return `<td id="${header.id}" data-field="${encodeURIComponent(JSON.stringify(header))}">${header.name}</td>`;
+      return `<th id="${header.id}" data-field="${encodeURIComponent(JSON.stringify(header))}">${header.name}</th>`;
     })
     .join('');
 
-  return `<table ${teableHtmlMarker}="1"><thead><tr>${headerContent}</tr></thead><tbody>${bodyContent}</tbody></table>`;
+  return `<meta charset="utf-8"><table ${teableHtmlMarker}="1"><thead><tr>${headerContent}</tr></thead><tbody>${bodyContent}</tbody></table>`;
 };
 
 export const extractTableHeader = (html?: string) => {
@@ -27,7 +35,7 @@ export const extractTableHeader = (html?: string) => {
   const doc = parser.parseFromString(html, 'text/html');
   const table = doc.querySelector('table');
   const headerRow = table?.querySelector('thead tr');
-  const headerCells = headerRow?.querySelectorAll('td') || [];
+  const headerCells = headerRow?.querySelectorAll('th') || [];
 
   const headers = Array.from(headerCells);
   let error = '';
