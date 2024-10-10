@@ -246,7 +246,7 @@ export const SharePopover: React.FC<{
                     checked={Boolean(shareMeta?.submit?.requireLogin)}
                     onCheckedChange={onSubmitRequireLoginChange}
                   />
-                  <Label className="text-xs" htmlFor="share-password">
+                  <Label className="text-xs" htmlFor="share-required-login">
                     {t('table:toolbar.others.share.requireLogin')}
                   </Label>
                 </div>
@@ -266,7 +266,7 @@ export const SharePopover: React.FC<{
                   checked={hideToolBar}
                   onCheckedChange={(checked) => setHideToolBar(checked)}
                 />
-                <Label className="text-xs" htmlFor="share-includeHiddenField">
+                <Label className="text-xs" htmlFor="share-hideToolBar">
                   {t('table:toolbar.others.share.hideToolbar')}
                 </Label>
               </div>
@@ -277,7 +277,7 @@ export const SharePopover: React.FC<{
                 checked={embed}
                 onCheckedChange={(checked) => setEmbed(checked)}
               />
-              <Label className="text-xs" htmlFor="share-includeHiddenField">
+              <Label className="text-xs" htmlFor="share-embed">
                 {t('table:toolbar.others.share.embed')}
               </Label>
               {embed && shareUrl && (
