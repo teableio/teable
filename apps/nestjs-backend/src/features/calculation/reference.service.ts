@@ -530,7 +530,7 @@ export class ReferenceService {
             const result = dependenciesIndexed[v.id];
             if (!result) {
               throw new InternalServerErrorException(
-                `Record not found for: ${JSON.stringify}, fieldId: ${field.id}`
+                `Record not found for: ${JSON.stringify(v)}, fieldId: ${field.id}`
               );
             }
             return result;

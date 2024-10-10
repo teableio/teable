@@ -71,7 +71,8 @@
       "selectRecord": "选择记录",
       "unselected": "未选择",
       "selected": "已选择",
-      "expandRecordError": "无权查看此记录"
+      "expandRecordError": "无权查看此记录",
+      "alreadyOpen": "此记录已被打开"
     },
     "user": {
       "searchPlaceholder": "通过姓名查找用户",

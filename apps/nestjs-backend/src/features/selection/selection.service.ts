@@ -817,10 +817,7 @@ export class SelectionService {
       fields: fieldInstances,
       headerFields: undefined,
     });
-    console.log('updateRecords', updateRecords);
-    console.log('updateRecords', records);
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    console.log('updateRecordsRo', JSON.stringify(updateRecordsRo, null, 2));
     await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId);
   }
 
