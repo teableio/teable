@@ -97,8 +97,19 @@ describe('EvalVisitor', () => {
     expect(evalFormula('FALSE')).toBe(false);
   });
 
-  it('addition', () => {
+  it.only('addition', () => {
+    const record: IRecord = {
+      id: 'recTest',
+      fields: {
+        fldMultipleNumber: [1],
+        fldMultipleLink: [{ id: 'recxxxxxxx' }, { id: 'recyyyyyyy', title: 'A2' }],
+      },
+      createdTime: new Date().toISOString(),
+    };
+
     expect(evalFormula('1 + 2')).toBe(3);
+    expect(evalFormula('1 + {fldNumber}', fieldContext, record)).toBe(1);
+    expect(evalFormula('1 + {fldMultipleNumber}', fieldContext, record)).toBe(2);
   });
 
   it('subtraction', () => {
