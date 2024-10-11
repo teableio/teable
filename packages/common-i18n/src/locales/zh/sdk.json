@@ -669,10 +669,10 @@
       "desc": "降序"
     },
     "limit": {
-      "title": "跳过"
+      "title": "查询数量"
     },
     "offset": {
-      "title": "查询数量"
+      "title": "跳过"
     },
     "join": {
       "title": "连接",

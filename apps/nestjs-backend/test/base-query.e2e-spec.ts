@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { Colors, FieldType, isGreater, SortFunc, StatisticsFunc } from '@teable/core';
+import {
+  Colors,
+  FieldType,
+  isGreater,
+  SortFunc,
+  StatisticsFunc,
+  TimeFormatting,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import { createTable, baseQuery, BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import { initApp } from './utils/init-app';
@@ -106,7 +113,6 @@ describe('BaseSqlQuery e2e', () => {
           ],
         },
       });
-      console.log(res.data.rows, res.data.columns);
       expect(res.data.columns).toHaveLength(3);
       expect(res.data.rows).toEqual([
         {
@@ -188,6 +194,59 @@ describe('BaseSqlQuery e2e', () => {
       ]);
     });
 
+    it('groupBy with date', async () => {
+      const table = await createTable(baseId, {
+        fields: [
+          {
+            name: 'id',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'date',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: 'YYYY-MM-DD',
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              id: '1',
+              date: '2024-01-01',
+            },
+          },
+          {
+            fields: {
+              id: '2',
+              date: '2024-01-02',
+            },
+          },
+          {
+            fields: {
+              id: '3',
+              date: '2024-01-01',
+            },
+          },
+        ],
+      }).then((res) => res.data);
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        groupBy: [{ column: table.fields[1].id, type: BaseQueryColumnType.Field }],
+      });
+      expect(res.data.columns).toHaveLength(1);
+      expect(res.data.rows).toEqual(
+        expect.arrayContaining([
+          { [`${table.fields[1].id}`]: '2024-01-01' },
+          { [`${table.fields[1].id}`]: '2024-01-02' },
+        ])
+      );
+    });
+
     it('limit and offset', async () => {
       const res = await baseQuery(baseId, {
         from: table.id,
@@ -217,7 +276,6 @@ describe('BaseSqlQuery e2e', () => {
           },
         });
         expect(res.data.columns).toHaveLength(3);
-        console.log(res.data.rows, res.data.columns);
         expect(res.data.rows).toEqual([
           {
             [`${table.fields[0].id}`]: 'Charlie',
