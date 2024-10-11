@@ -65,7 +65,7 @@ export class ShareSocketService {
   getRecordDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetRecordsRo) {
     const { tableId, view, shareMeta } = shareInfo;
     if (!shareMeta?.includeRecords) {
-      return [];
+      return { ids: [] };
     }
     return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId: view?.id });
   }
