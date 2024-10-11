@@ -17,5 +17,10 @@ export const exceptionParse = (
     return new CustomHttpException(exception.message, getDefaultCodeByStatus(status));
   }
 
-  return new CustomHttpException('Internal Server Error', HttpErrorCode.INTERNAL_SERVER_ERROR);
+  return new CustomHttpException(
+    process.env.NODE_ENV === 'test'
+      ? `Internal Server Error: ${exception.message}`
+      : 'Internal Server Error',
+    HttpErrorCode.INTERNAL_SERVER_ERROR
+  );
 };
