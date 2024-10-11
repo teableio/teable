@@ -142,7 +142,7 @@ export class ShareService {
   ): Promise<IAggregationVo> {
     const { tableId, shareMeta } = shareInfo;
     if (!shareMeta?.includeRecords) {
-      throw new ForbiddenException('not allowed to get aggregations, please enable includeRecords');
+      return { aggregations: [] };
     }
     const viewId = shareInfo.view?.id;
     const filter = query?.filter ?? null;

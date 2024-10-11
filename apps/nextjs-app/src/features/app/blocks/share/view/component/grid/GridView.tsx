@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import { useContext } from 'react';
 import { isSafari } from '@/features/app/blocks/view/grid/utils/copyAndPaste';
 import { EmbedFooter } from '../../EmbedFooter';
-import { AggregationProvider, GroupPointProvider } from './aggregation';
+import { AggregationProvider } from './aggregation';
 import { GridViewBase } from './GridViewBase';
 import { Toolbar } from './toolbar';
 
@@ -35,17 +35,13 @@ export const GridView = () => {
           <RecordProvider serverRecords={records}>
             <AggregationProvider>
               <RowCountProvider>
-                <GroupPointProvider>
-                  {!hideToolBar && <Toolbar />}
-                  {isHydrated && (
-                    <div
-                      className={cn('w-full grow overflow-hidden', isSafari() && 'pb-20 sm:pb-0')}
-                    >
-                      <GridViewBase groupPointsServerData={extra?.groupPoints} />
-                    </div>
-                  )}
-                  {embed && <EmbedFooter />}
-                </GroupPointProvider>
+                {!hideToolBar && <Toolbar />}
+                {isHydrated && (
+                  <div className={cn('w-full grow overflow-hidden', isSafari() && 'pb-20 sm:pb-0')}>
+                    <GridViewBase groupPointsServerData={extra?.groupPoints} />
+                  </div>
+                )}
+                {embed && <EmbedFooter />}
               </RowCountProvider>
             </AggregationProvider>
           </RecordProvider>
