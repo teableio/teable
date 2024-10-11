@@ -97,7 +97,7 @@ describe('EvalVisitor', () => {
     expect(evalFormula('FALSE')).toBe(false);
   });
 
-  it.only('addition', () => {
+  it('addition', () => {
     const record: IRecord = {
       id: 'recTest',
       fields: {
