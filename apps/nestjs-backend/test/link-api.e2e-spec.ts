@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
+import type { IFieldRo, IFieldVo, ILinkFieldOptions, ILookupOptionsVo } from '@teable/core';
 import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -2996,6 +2996,125 @@ describe('OpenAPI link (e2e)', () => {
         (updatedLinkField.options as ILinkFieldOptions).symmetricFieldId as string
       );
       expect((symUpdatedLinkField.options as ILinkFieldOptions).baseId).toEqual(baseId);
+    });
+  });
+
+  describe('lookup a link field cross 2 table', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    let table3: ITableFullVo;
+    let table2LinkField: IFieldVo;
+    let table3LinkField: IFieldVo;
+
+    beforeEach(async () => {
+      // create tables
+      const textFieldRo: IFieldRo = {
+        name: 'text field',
+        type: FieldType.SingleLineText,
+      };
+
+      const formulaFieldRo: IFieldRo = {
+        name: 'formula field',
+        type: FieldType.Formula,
+        options: {
+          expression: '"x"',
+        },
+      };
+
+      table1 = await createTable(baseId, {
+        fields: [formulaFieldRo],
+      });
+
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: [textFieldRo],
+        records: [
+          { fields: { ['text field']: 't2 r1' } },
+          { fields: { ['text field']: 't2 r2' } },
+          { fields: { ['text field']: 't2 r3' } },
+        ],
+      });
+
+      table3 = await createTable(baseId, {
+        name: 'table3',
+        fields: [textFieldRo],
+        records: [
+          { fields: { ['text field']: 't3 r1' } },
+          { fields: { ['text field']: 't3 r2' } },
+          { fields: { ['text field']: 't3 r3' } },
+        ],
+      });
+
+      // create link field
+
+      table2LinkField = await createField(table2.id, {
+        name: '1 - 2 link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      });
+
+      table3LinkField = await createField(table3.id, {
+        name: '2 - 3 link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      await createField(table3.id, {
+        name: 'lookup',
+        isLookup: true,
+        type: FieldType.Link,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2LinkField.id,
+          linkFieldId: table3LinkField.id,
+        },
+      });
+
+      table1.fields = await getFields(table1.id);
+      table2.fields = await getFields(table2.id);
+      table3.fields = await getFields(table3.id);
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+      await permanentDeleteTable(baseId, table3.id);
+    });
+
+    it('should work with cross table lookup', async () => {
+      await updateRecord(table3.id, table3.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table3LinkField.id]: [{ id: table2.records[0].id }, { id: table2.records[1].id }],
+          },
+        },
+      });
+
+      await updateRecord(table2.id, table2.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table2LinkField.id]: [{ id: table1.records[0].id }, { id: table1.records[1].id }],
+          },
+        },
+      });
+
+      const newTable3LookupField = await convertField(table1.id, table1.fields[0].id, {
+        name: 'formula field',
+        type: FieldType.Formula,
+        options: {
+          expression: '"xx"',
+        },
+      });
+
+      expect(newTable3LookupField.data).toBeDefined();
     });
   });
 });
