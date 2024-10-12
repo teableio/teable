@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseQueryColumnType } from '@teable/openapi';
 import type { IQueryAggregation, IBaseQuerySelect, IBaseQueryGroupBy } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -9,16 +10,23 @@ export class QuerySelect {
   parse(
     select: IBaseQuerySelect[] | undefined,
     content: {
+      knex: Knex;
       queryBuilder: Knex.QueryBuilder;
       fieldMap: Record<string, IFieldInstance>;
       aggregation: IQueryAggregation | undefined;
       groupBy: IBaseQueryGroupBy | undefined;
     }
   ): { queryBuilder: Knex.QueryBuilder; fieldMap: Record<string, IFieldInstance> } {
-    const { queryBuilder, fieldMap, groupBy, aggregation } = content;
+    const { queryBuilder, fieldMap, groupBy, aggregation, knex } = content;
     let currentFieldMap = cloneDeep(fieldMap);
-    const allowSelectColumnIds = this.allowSelectedColumnIds(currentFieldMap, groupBy, aggregation);
+
     // column must appear in the GROUP BY clause or be used in an aggregate function
+    const groupFieldMap = this.selectGroup(queryBuilder, {
+      knex,
+      groupBy,
+      fieldMap: currentFieldMap,
+    });
+    const allowSelectColumnIds = this.allowSelectedColumnIds(currentFieldMap, groupBy, aggregation);
     if (aggregation?.length || groupBy?.length) {
       currentFieldMap = Object.entries(currentFieldMap).reduce(
         (acc, current) => {
@@ -31,6 +39,7 @@ export class QuerySelect {
         {} as Record<string, IFieldInstance>
       );
     }
+
     const aggregationColumn = aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
     const aliasSelect = select
       ? select.reduce(
@@ -91,7 +100,13 @@ export class QuerySelect {
         }
       });
     }
-    return { queryBuilder, fieldMap: currentFieldMap };
+    return {
+      queryBuilder,
+      fieldMap: {
+        ...currentFieldMap,
+        ...groupFieldMap,
+      },
+    };
   }
 
   allowSelectedColumnIds(
@@ -102,8 +117,79 @@ export class QuerySelect {
     if (!aggregation && !groupBy) {
       return Object.keys(fieldMap);
     }
-    const groupByColumns = groupBy?.map((v) => v.column) || [];
-    const aggregationColumns = aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
-    return [...groupByColumns, ...aggregationColumns];
+    return aggregation?.map((v) => `${v.column}_${v.statisticFunc}`) || [];
+  }
+
+  private extractGroupByColumnMap(
+    queryBuilder: Knex.QueryBuilder,
+    fieldMap: Record<string, IFieldInstance>
+  ): Record<string, any> {
+    const groupByStatements = (queryBuilder as any)._statements.filter(
+      (statement: any) => statement.grouping === 'group'
+    );
+
+    // get the outermost GROUP BY columns
+    const currentGroupByColumns = groupByStatements.flatMap((statement: any) => statement.value);
+    const fieldIdDbFieldNamesMap = Object.values(fieldMap).reduce(
+      (acc, cur) => {
+        acc[cur.dbFieldName] = cur.id;
+        return acc;
+      },
+      {} as Record<string, string>
+    );
+    const fieldDbFieldNames = Object.keys(fieldIdDbFieldNamesMap);
+    return currentGroupByColumns.reduce(
+      (acc: Record<string, any>, column: any) => {
+        const dbFieldName = fieldDbFieldNames.find((name) =>
+          typeof column === 'string'
+            ? column === name
+            : column.sql?.includes(name) || column.bindings?.includes(name)
+        );
+        if (dbFieldName) {
+          acc[fieldIdDbFieldNamesMap[dbFieldName]] = column;
+        }
+        return acc;
+      },
+      {} as Record<string, any>
+    );
+  }
+
+  selectGroup(
+    queryBuilder: Knex.QueryBuilder,
+    content: {
+      groupBy: IBaseQueryGroupBy | undefined;
+      fieldMap: Record<string, IFieldInstance>;
+      knex: Knex;
+    }
+  ): Record<string, IFieldInstance> | undefined {
+    const { groupBy, fieldMap, knex } = content;
+    if (!groupBy) {
+      return;
+    }
+    const groupFieldMap = Object.values(fieldMap).reduce(
+      (acc, field) => {
+        if (groupBy?.map((v) => v.column).includes(field.id)) {
+          acc[field.id] = field;
+        }
+        return acc;
+      },
+      {} as Record<string, IFieldInstance>
+    );
+    const groupByColumnMap = this.extractGroupByColumnMap(queryBuilder, groupFieldMap);
+    Object.entries(groupByColumnMap).forEach(([dbFieldName, column]) => {
+      queryBuilder.select(
+        typeof column === 'string'
+          ? {
+              [dbFieldName]: column,
+            }
+          : knex.raw(`${column.sql} as ??`, [...column.bindings, dbFieldName])
+      );
+    });
+
+    const res = cloneDeep(groupFieldMap);
+    Object.values(res).forEach((field) => {
+      field.dbFieldName = field.id;
+    });
+    return res;
   }
 }

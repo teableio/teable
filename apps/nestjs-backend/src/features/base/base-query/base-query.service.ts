@@ -231,6 +231,7 @@ export class BaseQueryService {
         // column must appear in the GROUP BY clause or be used in an aggregate function
         aggregation: baseQuery.aggregation,
         groupBy: baseQuery.groupBy,
+        knex: this.knex,
       });
 
     return { queryBuilder: selectedQueryBuilder, fieldMap: selectedFieldMap };
