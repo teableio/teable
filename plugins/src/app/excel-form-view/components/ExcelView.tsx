@@ -187,17 +187,21 @@ export const ExcelView = () => {
                                 </ToggleGroupItem>
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent>
-                              <>
-                                {field.isComputed ||
-                                  (UnSupportFieldType.includes(field.type) && (
-                                    <p>{t('tooltips.unSupportFieldType')}</p>
-                                  ))}
-                                {insertedFields.includes(field.id) && (
-                                  <p>{t('tooltips.selected')}</p>
-                                )}
-                              </>
-                            </TooltipContent>
+                            {(field.isComputed ||
+                              UnSupportFieldType.includes(field.type) ||
+                              insertedFields.includes(field.id)) && (
+                              <TooltipContent>
+                                <>
+                                  {field.isComputed ||
+                                    (UnSupportFieldType.includes(field.type) && (
+                                      <p>{t('tooltips.unSupportFieldType')}</p>
+                                    ))}
+                                  {insertedFields.includes(field.id) && (
+                                    <p>{t('tooltips.selected')}</p>
+                                  )}
+                                </>
+                              </TooltipContent>
+                            )}
                           </Tooltip>
                         </TooltipProvider>
                       );

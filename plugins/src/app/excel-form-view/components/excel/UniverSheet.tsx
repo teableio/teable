@@ -79,6 +79,7 @@ export interface IUniverSheetProps {
   workBookData?: IWorkbookData;
   toolbarVisible?: boolean;
   footerVisible?: boolean;
+  validate?: boolean;
   onChange?: (workBookData: IWorkbookData) => void;
 }
 
@@ -87,6 +88,7 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
   const {
     toolbarVisible = true,
     footerVisible = false,
+    validate = false,
     workBookData: remoteWorkBookData,
     onChange,
   } = props;
@@ -312,12 +314,15 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
     // sheet feature plugins
     univer.registerPlugin(UniverFormulaEnginePlugin);
     univer.registerPlugin(UniverSheetsFormulaPlugin);
-    univer.registerPlugin(UniverDataValidationPlugin);
-    univer.registerPlugin(UniverSheetsDataValidationPlugin, {
-      // Whether to show the edit button in the dropdown menu
-      // version >= 0.2.16
-      showEditOnDropdown: false,
-    });
+
+    if (validate) {
+      univer.registerPlugin(UniverDataValidationPlugin);
+      univer.registerPlugin(UniverSheetsDataValidationPlugin, {
+        // Whether to show the edit button in the dropdown menu
+        // version >= 0.2.16
+        showEditOnDropdown: false,
+      });
+    }
 
     // create univer sheet instance
     univer.createUnit(UniverInstanceType.UNIVER_SHEET, workBookData || {});

@@ -248,6 +248,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
             toolbarVisible={false}
             footerVisible={false}
             ref={univerRef}
+            validate={true}
           />
         ) : (
           <ExcelSkeleton className="p-1" />

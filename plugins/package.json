@@ -21,6 +21,7 @@
     "@teable/openapi": "workspace:^",
     "@teable/sdk": "workspace:^",
     "@teable/ui-lib": "workspace:^",
+    "@types/lodash": "4.17.0",
     "@univerjs/core": "0.3.0",
     "@univerjs/data-validation": "0.3.0",
     "@univerjs/design": "0.3.0",
@@ -48,7 +49,6 @@
     "react-i18next": "14.1.0",
     "react-use": "17.5.0",
     "recharts": "2.12.3",
-    "sonner": "1.4.41",
     "zod": "3.22.4",
     "zod-i18n-map": "2.27.0"
   },
