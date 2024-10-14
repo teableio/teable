@@ -13,7 +13,7 @@ import {
   TEXT_FIELD_CASES,
   USER_FIELD_CASES,
 } from './data-helpers/caces/aggregation-query';
-import { createTable, permanentDeleteTable, initApp } from './utils/init-app';
+import { createTable, permanentDeleteTable, initApp, createRecords } from './utils/init-app';
 
 describe('OpenAPI AggregationController (e2e)', () => {
   let app: INestApplication;
@@ -433,6 +433,67 @@ describe('OpenAPI AggregationController (e2e)', () => {
       ).data!;
 
       expect(collapsedGroupPoints.length).toEqual(7);
+    });
+
+    it('should get group points by user field', async () => {
+      const userField = table.fields[5];
+      const multipleUserField = table.fields[7];
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [userField.id]: {
+                id: 'usrTestUserId',
+                title: 'test',
+                avatarUrl: 'https://test.com',
+              },
+              [multipleUserField.id]: [
+                { id: 'usrTestUserId_1', title: 'test', email: 'test@test1.com' },
+              ],
+            },
+          },
+          {
+            fields: {
+              [userField.id]: {
+                id: 'usrTestUserId',
+                title: 'test',
+                email: 'test@test.com',
+                avatarUrl: 'https://test.com',
+              },
+              [multipleUserField.id]: [
+                {
+                  id: 'usrTestUserId_1',
+                  title: 'test',
+                  email: 'test@test.com',
+                  avatarUrl: 'https://test1.com',
+                },
+              ],
+            },
+          },
+        ],
+      });
+
+      const groupByUserField = [
+        {
+          fieldId: userField.id,
+          order: SortFunc.Asc,
+        },
+      ];
+
+      const groupByMultipleUserField = [
+        {
+          fieldId: multipleUserField.id,
+          order: SortFunc.Asc,
+        },
+      ];
+      const groupPoints = (await getGroupPoints(table.id, { groupBy: groupByUserField })).data!;
+      expect(groupPoints.length).toEqual(4);
+
+      const groupPointsForMultiple = (
+        await getGroupPoints(table.id, { groupBy: groupByMultipleUserField })
+      ).data!;
+      expect(groupPointsForMultiple.length).toEqual(6);
     });
   });
 });

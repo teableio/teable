@@ -1,6 +1,7 @@
 import type { INumberFieldOptions, IDateFieldOptions, DateFormattingPreset } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import { isUserOrLink } from '../../utils/is-user-or-link';
 import { getPostgresDateTimeFormatString } from './format-string';
 import { AbstractGroupQuery } from './group-query.abstract';
 import type { IGroupQueryExtra } from './group-query.interface';
@@ -71,12 +72,52 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
   }
 
   json(field: IFieldInstance): Knex.QueryBuilder {
-    const { dbFieldName } = field;
-    const column = this.knex.raw(`CAST(?? as text)`, [dbFieldName]);
+    const { type, dbFieldName, isMultipleCellValue } = field;
 
     if (this.isDistinct) {
+      if (isUserOrLink(type)) {
+        if (!isMultipleCellValue) {
+          const column = this.knex.raw(`??::jsonb ->> 'id'`, [dbFieldName]);
+
+          return this.originQueryBuilder.countDistinct(column);
+        }
+
+        const column = this.knex.raw(`jsonb_path_query_array(??::jsonb, '$[*].id')::text`, [
+          dbFieldName,
+        ]);
+
+        return this.originQueryBuilder.countDistinct(column);
+      }
       return this.originQueryBuilder.countDistinct(dbFieldName);
     }
+
+    if (isUserOrLink(type)) {
+      if (!isMultipleCellValue) {
+        const column = this.knex.raw(
+          `NULLIF(jsonb_build_object(
+            'id', ??::jsonb ->> 'id',
+            'title', ??::jsonb ->> 'title'
+          ), '{"id":null,"title":null}') as ??`,
+          [dbFieldName, dbFieldName, dbFieldName]
+        );
+        const groupByColumn = this.knex.raw(`??::jsonb ->> 'id', ??::jsonb ->> 'title'`, [
+          dbFieldName,
+          dbFieldName,
+        ]);
+
+        return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+      }
+
+      const column = this.knex.raw(`(jsonb_agg(??::jsonb) -> 0) as ??`, [dbFieldName, dbFieldName]);
+      const groupByColumn = this.knex.raw(
+        `jsonb_path_query_array(??::jsonb, '$[*].id')::text, jsonb_path_query_array(??::jsonb, '$[*].title')::text`,
+        [dbFieldName, dbFieldName]
+      );
+
+      return this.originQueryBuilder.select(column).groupBy(groupByColumn);
+    }
+
+    const column = this.knex.raw(`CAST(?? as text)`, [dbFieldName]);
     return this.originQueryBuilder.select(column).groupBy(dbFieldName);
   }
 

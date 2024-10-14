@@ -1,6 +1,7 @@
 import type { DateFormattingPreset, INumberFieldOptions, IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import { isUserOrLink } from '../../utils/is-user-or-link';
 import { getOffset } from '../search-query/get-offset';
 import { getSqliteDateTimeFormatString } from './format-string';
 import { AbstractGroupQuery } from './group-query.abstract';
@@ -70,12 +71,41 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
   }
 
   json(field: IFieldInstance): Knex.QueryBuilder {
-    const { dbFieldName } = field;
-    const column = this.knex.raw(`CAST(?? as text) as ??`, [dbFieldName, dbFieldName]);
+    const { type, dbFieldName, isMultipleCellValue } = field;
 
     if (this.isDistinct) {
+      if (isUserOrLink(type)) {
+        if (!isMultipleCellValue) {
+          const groupByColumn = this.knex.raw(
+            `json_extract(??, '$.id') || json_extract(??, '$.title')`,
+            [dbFieldName, dbFieldName]
+          );
+          return this.originQueryBuilder.countDistinct(groupByColumn);
+        }
+        const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
+          dbFieldName,
+        ]);
+        return this.originQueryBuilder.countDistinct(groupByColumn);
+      }
       return this.originQueryBuilder.countDistinct(dbFieldName);
     }
+
+    if (isUserOrLink(type)) {
+      if (!isMultipleCellValue) {
+        const groupByColumn = this.knex.raw(
+          `json_extract(??, '$.id') || json_extract(??, '$.title')`,
+          [dbFieldName, dbFieldName]
+        );
+        return this.originQueryBuilder.select(dbFieldName).groupBy(groupByColumn);
+      }
+
+      const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
+        dbFieldName,
+      ]);
+      return this.originQueryBuilder.select(dbFieldName).groupBy(groupByColumn);
+    }
+
+    const column = this.knex.raw(`CAST(?? as text) as ??`, [dbFieldName, dbFieldName]);
     return this.originQueryBuilder.select(column).groupBy(dbFieldName);
   }
 
