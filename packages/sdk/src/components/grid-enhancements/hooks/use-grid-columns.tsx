@@ -1,5 +1,5 @@
 import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
-import { CellValueType, ColorUtils, FieldType } from '@teable/core';
+import { RowHeightLevel, CellValueType, ColorUtils, FieldType } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
 import { LRUCache } from 'lru-cache';
@@ -10,7 +10,6 @@ import {
   CellType,
   hexToRGBA,
   getFileCover,
-  findClosestWidth,
   isSystemFileIcon,
   convertNextImageUrl,
   onMixedTextClick,
@@ -165,7 +164,7 @@ const useGenerateColumns = () => {
   );
 };
 
-export const useCreateCellValue2GridDisplay = () => {
+export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
   const { t } = useTranslation();
 
   return useCallback(
@@ -380,19 +379,17 @@ export const useCreateCellValue2GridDisplay = () => {
           }
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
-            const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => {
-              const url = getFileCover(mimetype, presignedUrl);
-              return {
-                id,
-                url: isSystemFileIcon(mimetype)
-                  ? url
-                  : convertNextImageUrl({
-                      url,
-                      w: findClosestWidth(width as number, height as number),
-                      q: 75,
-                    }),
-              };
-            });
+            const data = cv.map(
+              ({ id, mimetype, presignedUrl, smThumbnailUrl, lgThumbnailUrl }) => {
+                const url = getFileCover(mimetype, presignedUrl);
+                const thumbnailUrl =
+                  !rowHeight || rowHeight === RowHeightLevel.Tall ? smThumbnailUrl : lgThumbnailUrl;
+                return {
+                  id,
+                  url: isSystemFileIcon(mimetype) ? url : thumbnailUrl ?? url,
+                };
+              }
+            );
             const displayData = data.map(({ url }) => url);
             return {
               ...baseCellProps,
@@ -471,7 +468,7 @@ export const useCreateCellValue2GridDisplay = () => {
           }
         }
       },
-    [t]
+    [rowHeight, t]
   );
 };
 
@@ -508,7 +505,7 @@ export function useGridColumns(hasMenu?: boolean) {
     if (filter == null) return;
     return getFilterFieldIds(filter?.filterSet, keyBy(totalFields, 'id'));
   }, [filter, totalFields]);
-  const createCellValue2GridDisplay = useCreateCellValue2GridDisplay();
+  const createCellValue2GridDisplay = useCreateCellValue2GridDisplay(view?.options?.rowHeight);
   const generateColumns = useGenerateColumns();
   return useMemo(
     () => ({

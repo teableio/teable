@@ -120,8 +120,8 @@ export const KanbanCard = (props: IKanbanCardProps) => {
                 }}
               >
                 <CarouselContent className="ml-0">
-                  {coverCellValue.map(({ id, mimetype, presignedUrl }) => {
-                    const url = getFileCover(mimetype, presignedUrl);
+                  {coverCellValue.map(({ id, mimetype, presignedUrl, lgThumbnailUrl }) => {
+                    const url = lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
 
                     return (
                       <CarouselItem

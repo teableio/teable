@@ -10,7 +10,7 @@ import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
 import { CellType } from '../../grid/renderers';
-import { convertNextImageUrl, findClosestWidth } from '../utils';
+import { convertNextImageUrl } from '../utils';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 100 });
 
@@ -205,17 +205,11 @@ const useGenerateGroupCellFn = () => {
           }
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
-            const data = cv.map(({ id, mimetype, presignedUrl, width, height }) => {
+            const data = cv.map(({ id, mimetype, presignedUrl, smThumbnailUrl }) => {
               const url = getFileCover(mimetype, presignedUrl);
               return {
                 id,
-                url: isSystemFileIcon(mimetype)
-                  ? url
-                  : convertNextImageUrl({
-                      url,
-                      w: findClosestWidth(width as number, height as number),
-                      q: 75,
-                    }),
+                url: isSystemFileIcon(mimetype) ? url : smThumbnailUrl ?? url,
               };
             });
             const displayData = data.map(({ url }) => url);

@@ -153,9 +153,9 @@ export const UploadAttachment = (props: IUploadAttachment) => {
     return attachments.length + Object.keys(uploadingFiles).length;
   }, [attachments, uploadingFiles]);
 
-  const fileCover = useCallback(({ mimetype, presignedUrl }: IAttachmentItem) => {
+  const fileCover = useCallback(({ mimetype, presignedUrl, lgThumbnailUrl }: IAttachmentItem) => {
     if (!presignedUrl) return '';
-    return getFileCover(mimetype, presignedUrl);
+    return lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
   }, []);
 
   const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));

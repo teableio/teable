@@ -1,10 +1,14 @@
+import os from 'node:os';
 import type { Readable as ReadableStream } from 'node:stream';
+import { resolve } from 'path';
 import { BadRequestException } from '@nestjs/common';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';
 import type { IObjectMeta, IPresignParams, IPresignRes } from './types';
 
 export default abstract class StorageAdapter {
+  static readonly TEMPORARY_DIR = resolve(os.tmpdir(), '.temporary');
+
   static readonly getBucket = (type: UploadType) => {
     switch (type) {
       case UploadType.Table:
@@ -108,4 +112,14 @@ export default abstract class StorageAdapter {
     stream: Buffer | ReadableStream,
     metadata?: Record<string, unknown>
   ): Promise<{ hash: string; path: string }>;
+
+  /**
+   * cut image
+   * @param bucket bucket name
+   * @param path path name
+   * @param width width
+   * @param height height
+   * @returns cut image url
+   */
+  abstract cutImage(bucket: string, path: string, width: number, height: number): Promise<string>;
 }
