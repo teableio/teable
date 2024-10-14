@@ -15,6 +15,7 @@ export const PluginContent = (props: {
   pluginInstallId: string;
   pluginUrl?: string;
   positionId: string;
+  tableId?: string;
   shareId?: string;
   dragging?: boolean;
   onExpand?: () => void;
@@ -24,6 +25,7 @@ export const PluginContent = (props: {
     pluginInstallId,
     pluginUrl,
     positionId,
+    tableId,
     pluginId,
     shareId,
     dragging,
@@ -49,11 +51,22 @@ export const PluginContent = (props: {
     url.searchParams.set('baseId', baseId);
     url.searchParams.set('positionId', positionId);
     url.searchParams.set('pluginId', pluginId);
+
+    tableId && url.searchParams.set('tableId', tableId);
     shareId && url.searchParams.set('shareId', shareId);
     defaultTheme.current && url.searchParams.set('theme', defaultTheme.current);
     resolvedLanguage && url.searchParams.set('lang', resolvedLanguage);
     return url.toString();
-  }, [pluginUrl, pluginInstallId, baseId, positionId, pluginId, resolvedLanguage, shareId]);
+  }, [
+    pluginUrl,
+    pluginInstallId,
+    baseId,
+    positionId,
+    pluginId,
+    resolvedLanguage,
+    shareId,
+    tableId,
+  ]);
 
   const canSetting = basePermissions?.['base|update'];
   useEffect(() => {

@@ -8,5 +8,6 @@ export interface IPageParams {
   positionType: PluginPosition;
   pluginId: string;
   theme: string;
+  tableId?: string;
   shareId?: string;
 }

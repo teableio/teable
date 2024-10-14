@@ -189,16 +189,12 @@ export class ShareService {
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
     const { tableId, view, shareMeta } = shareInfo;
-    const { fields } = shareViewFormSubmitRo;
+    const { fields, typecast } = shareViewFormSubmitRo;
     if (!shareMeta?.submit?.allow) {
       throw new ForbiddenException('not allowed to submit');
     }
     if (!view) {
       throw new ForbiddenException('view is required');
-    }
-
-    if (view.type !== ViewType.Form) {
-      throw new ForbiddenException('view type is not form');
     }
 
     const viewId = view.id;
@@ -223,6 +219,7 @@ export class ShareService {
       return this.recordOpenApiService.createRecords(tableId, {
         records: [{ fields }],
         fieldKeyType: FieldKeyType.Id,
+        typecast,
       });
     });
     if (records.length === 0) {

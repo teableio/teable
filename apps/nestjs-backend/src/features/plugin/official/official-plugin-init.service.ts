@@ -14,6 +14,7 @@ import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { UserService } from '../../user/user.service';
 import { generateSecret } from '../utils';
 import { chartConfig } from './config/chart';
+import { excelFormConfig } from './config/excel-form-view';
 import type { IOfficialPluginConfig } from './config/types';
 
 @Injectable()
@@ -36,6 +37,13 @@ export class OfficialPluginInitService implements OnModuleInit {
         ...chartConfig,
         secret: this.configService.get<string>('PLUGIN_CHART_SECRET') || this.baseConfig.secretKey,
         url: `${this.baseConfig.publicOrigin}/plugin/chart`,
+      },
+      {
+        ...excelFormConfig,
+        secret:
+          this.configService.get<string>('PLUGIN_EXCELFORMVIEW_SECRET') ||
+          this.baseConfig.secretKey,
+        url: `${this.baseConfig.publicOrigin}/plugin/excel-form-view`,
       },
     ];
 

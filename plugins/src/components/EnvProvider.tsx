@@ -18,7 +18,8 @@ export const EnvProvider = (props: { children: React.ReactNode }) => {
         pluginId: searchParams.get('pluginId') || '',
         shareId: searchParams.get('shareId') || undefined,
         pluginInstallId: searchParams.get('pluginInstallId') || '',
-        positionId: searchParams.get('dashboardId') || '',
+        positionId: searchParams.get('positionId') || '',
+        tableId: searchParams.get('tableId') || '',
         theme: searchParams.get('theme') || 'light',
         positionType:
           (searchParams.get('positionType') as PluginPosition) || PluginPosition.Dashboard,

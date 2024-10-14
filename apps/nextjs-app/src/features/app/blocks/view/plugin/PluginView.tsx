@@ -28,6 +28,7 @@ export const PluginView = () => {
       pluginInstallId={pluginInstallId}
       positionId={id}
       pluginUrl={plugin.url}
+      tableId={tableId}
     />
   );
 };
