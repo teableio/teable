@@ -161,7 +161,7 @@ export class MinioStorage implements StorageAdapter {
       return true;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      if (err.code === 'NoSuchKey') {
+      if (err.code === 'NoSuchKey' || err.code === 'NotFound') {
         return false;
       }
       throw err;
@@ -170,7 +170,10 @@ export class MinioStorage implements StorageAdapter {
 
   async cutImage(bucket: string, path: string, width: number, height: number) {
     const newPath = generateCutImagePath(path, width, height);
-    const resizedImagePath = resolve(StorageAdapter.TEMPORARY_DIR, bucket, newPath);
+    const resizedImagePath = resolve(
+      StorageAdapter.TEMPORARY_DIR,
+      encodeURIComponent(join(bucket, newPath))
+    );
     if (await this.fileExists(bucket, newPath)) {
       return newPath;
     }

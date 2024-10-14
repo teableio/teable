@@ -284,6 +284,13 @@ export class RecordOpenApiService {
           );
         attachmentItem.lgThumbnailPath = lgThumbnailPath;
         attachmentItem.smThumbnailPath = smThumbnailPath;
+        const { smThumbnailUrl, lgThumbnailUrl } =
+          await this.attachmentsStorageService.getTableAttachmentThumbnailUrl(
+            smThumbnailPath,
+            lgThumbnailPath
+          );
+        attachmentItem.smThumbnailUrl = smThumbnailUrl;
+        attachmentItem.lgThumbnailUrl = lgThumbnailUrl;
       }
     }
     return records.map((record, i) => ({

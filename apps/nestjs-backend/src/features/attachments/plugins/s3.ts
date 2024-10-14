@@ -231,7 +231,10 @@ export class S3Storage implements StorageAdapter {
 
   async cutImage(bucket: string, path: string, width: number, height: number) {
     const newPath = generateCutImagePath(path, width, height);
-    const resizedImagePath = resolve(StorageAdapter.TEMPORARY_DIR, bucket, newPath);
+    const resizedImagePath = resolve(
+      StorageAdapter.TEMPORARY_DIR,
+      encodeURIComponent(join(bucket, newPath))
+    );
     if (await this.fileExists(bucket, newPath)) {
       return newPath;
     }
