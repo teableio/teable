@@ -243,14 +243,56 @@ export class RecordOpenApiService {
       const cellValues = recordsFields.map((recordFields) => recordFields[fieldIdOrName]);
 
       const newCellValues = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
+      const collectionAttachmentThumbnails: {
+        index: number;
+        key: string;
+        attachmentIndex: number;
+      }[] = [];
       newRecordsFields.forEach((recordField, i) => {
         // do not generate undefined field key
         if (newCellValues[i] !== undefined) {
           recordField[fieldIdOrName] = newCellValues[i];
+          const attachmentCv = newCellValues[i] as IAttachmentCellValue;
+          if (field.type === FieldType.Attachment && attachmentCv) {
+            attachmentCv.forEach((attachmentItem, index) => {
+              const { mimetype, lgThumbnailPath, smThumbnailPath } = attachmentItem;
+              if (mimetype.startsWith('image/') && (!lgThumbnailPath || !smThumbnailPath)) {
+                collectionAttachmentThumbnails.push({
+                  index: i,
+                  key: fieldIdOrName,
+                  attachmentIndex: index,
+                });
+              }
+            });
+          }
         }
       });
+      for (const thumbnail of collectionAttachmentThumbnails) {
+        const { index, key } = thumbnail;
+        const attachmentCv = newRecordsFields[index][key] as IAttachmentCellValue;
+        const attachmentItem = attachmentCv[thumbnail.attachmentIndex];
+        const { path, width, height } = attachmentItem;
+        if (!width || !height) {
+          continue;
+        }
+        const { smThumbnailPath, lgThumbnailPath } =
+          await this.attachmentsStorageService.cutTableImage(
+            StorageAdapter.getBucket(UploadType.Table),
+            path,
+            width,
+            height
+          );
+        attachmentItem.lgThumbnailPath = lgThumbnailPath;
+        attachmentItem.smThumbnailPath = smThumbnailPath;
+        const { smThumbnailUrl, lgThumbnailUrl } =
+          await this.attachmentsStorageService.getTableAttachmentThumbnailUrl(
+            smThumbnailPath,
+            lgThumbnailPath
+          );
+        attachmentItem.smThumbnailUrl = smThumbnailUrl;
+        attachmentItem.lgThumbnailUrl = lgThumbnailUrl;
+      }
     }
-
     return records.map((record, i) => ({
       ...record,
       fields: newRecordsFields[i],

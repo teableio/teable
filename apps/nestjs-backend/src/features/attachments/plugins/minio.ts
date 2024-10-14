@@ -1,19 +1,22 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import os from 'node:os';
 import type { Readable as ReadableStream } from 'node:stream';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
 import * as minio from 'minio';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { second } from '../../../utils/second';
-import type StorageAdapter from './adapter';
+import StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
+import { generateCutImagePath } from './utils';
 
 @Injectable()
 export class MinioStorage implements StorageAdapter {
   minioClient: minio.Client;
   minioClientPrivateNetwork: minio.Client;
+  temporaryDir = resolve(os.tmpdir(), '.temporary');
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     const { endPoint, internalEndPoint, internalPort, port, useSSL, accessKey, secretKey } =
@@ -149,5 +152,46 @@ export class MinioStorage implements StorageAdapter {
       hash,
       path,
     };
+  }
+
+  // minio file exists
+  private async fileExists(bucket: string, path: string) {
+    try {
+      await this.minioClient.statObject(bucket, path);
+      return true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      if (err.code === 'NoSuchKey' || err.code === 'NotFound') {
+        return false;
+      }
+      throw err;
+    }
+  }
+
+  async cutImage(bucket: string, path: string, width: number, height: number) {
+    const newPath = generateCutImagePath(path, width, height);
+    const resizedImagePath = resolve(
+      StorageAdapter.TEMPORARY_DIR,
+      encodeURIComponent(join(bucket, newPath))
+    );
+    if (await this.fileExists(bucket, newPath)) {
+      return newPath;
+    }
+
+    const objectName = path;
+    const { metaData } = await this.minioClient.statObject(bucket, objectName);
+    const mimetype = metaData['content-type'] as string;
+    if (!mimetype?.startsWith('image/')) {
+      throw new BadRequestException('Invalid image');
+    }
+    const stream = await this.minioClient.getObject(bucket, objectName);
+    const metaReader = sharp();
+    const sharpReader = stream.pipe(metaReader);
+    const resizedImage = sharpReader.resize(width, height);
+    await resizedImage.toFile(resizedImagePath);
+    const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
+      'Content-Type': mimetype,
+    });
+    return upload.path;
   }
 }

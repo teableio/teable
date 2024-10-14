@@ -15,7 +15,7 @@ export const CellAttachment = (props: ICellAttachment) => {
     <FilePreviewProvider>
       <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
         {value?.map((attachment) => {
-          const { id, name, mimetype, size, presignedUrl } = attachment;
+          const { id, name, mimetype, size, presignedUrl, lgThumbnailUrl } = attachment;
 
           return (
             <FilePreviewItem
@@ -34,7 +34,7 @@ export const CellAttachment = (props: ICellAttachment) => {
             >
               <img
                 className="size-full object-contain"
-                src={getFileCover(mimetype, presignedUrl)}
+                src={lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl)}
                 alt={name}
               />
             </FilePreviewItem>

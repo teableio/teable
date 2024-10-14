@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createReadStream, createWriteStream } from 'fs';
-import os from 'node:os';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
@@ -14,8 +13,9 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
 import { second } from '../../../utils/second';
-import type StorageAdapter from './adapter';
+import StorageAdapter from './adapter';
 import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
+import { generateCutImagePath } from './utils';
 
 interface ITokenEncryptor {
   expiresDate: number;
@@ -26,7 +26,6 @@ interface ITokenEncryptor {
 export class LocalStorage implements StorageAdapter {
   path: string;
   storageDir: string;
-  temporaryDir = resolve(os.tmpdir(), '.temporary');
   expireTokenEncryptor: Encryptor<ITokenEncryptor>;
   static readPath = '/api/attachments/read';
 
@@ -38,8 +37,7 @@ export class LocalStorage implements StorageAdapter {
     this.expireTokenEncryptor = new Encryptor(this.config.encryption);
     this.path = this.config.local.path;
     this.storageDir = resolve(process.cwd(), this.path);
-
-    fse.ensureDirSync(this.temporaryDir);
+    fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
     fse.ensureDirSync(this.storageDir);
   }
 
@@ -116,7 +114,7 @@ export class LocalStorage implements StorageAdapter {
 
   async saveTemporaryFile(req: Request) {
     const name = getRandomString(12);
-    const path = resolve(this.temporaryDir, name);
+    const path = resolve(StorageAdapter.TEMPORARY_DIR, name);
     let size = 0;
     return new Promise<ILocalFileUpload>((resolve, reject) => {
       try {
@@ -255,7 +253,7 @@ export class LocalStorage implements StorageAdapter {
     _metadata?: Record<string, unknown>
   ) {
     const name = getRandomString(12);
-    const temPath = resolve(this.temporaryDir, name);
+    const temPath = resolve(StorageAdapter.TEMPORARY_DIR, name);
     if (stream instanceof Buffer) {
       await fse.writeFile(temPath, stream);
     } else {
@@ -281,5 +279,22 @@ export class LocalStorage implements StorageAdapter {
       hash,
       path,
     };
+  }
+
+  async cutImage(bucket: string, path: string, width: number, height: number) {
+    const newPath = generateCutImagePath(path, width, height);
+    const resizedImagePath = resolve(this.storageDir, bucket, newPath);
+    if (fse.existsSync(resizedImagePath)) {
+      return newPath;
+    }
+    const imagePath = resolve(this.storageDir, bucket, path);
+    const image = sharp(imagePath);
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      throw new BadRequestException('Invalid image');
+    }
+    const resizedImage = image.resize(width, height);
+    await resizedImage.toFile(resizedImagePath);
+    return newPath;
   }
 }

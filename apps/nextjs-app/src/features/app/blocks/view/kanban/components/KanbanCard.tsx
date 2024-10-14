@@ -20,7 +20,6 @@ import {
   ContextMenuTrigger,
   cn,
 } from '@teable/ui-lib/shadcn';
-import Image from 'next/image';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -120,22 +119,21 @@ export const KanbanCard = (props: IKanbanCardProps) => {
                 }}
               >
                 <CarouselContent className="ml-0">
-                  {coverCellValue.map(({ id, mimetype, presignedUrl }) => {
-                    const url = getFileCover(mimetype, presignedUrl);
-
+                  {coverCellValue.map(({ id, mimetype, presignedUrl, lgThumbnailUrl }) => {
+                    const url = lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
                     return (
                       <CarouselItem
                         key={id}
                         style={{ height: CARD_COVER_HEIGHT }}
-                        className="relative w-full"
+                        className="relative w-full pl-0"
                       >
-                        <Image
+                        <img
                           src={url}
                           alt="card cover"
-                          fill
-                          sizes="10vw"
                           style={{
                             objectFit: isCoverFit ? 'contain' : 'cover',
+                            width: '100%',
+                            height: '100%',
                           }}
                         />
                       </CarouselItem>
