@@ -78,7 +78,7 @@ export class MinioStorage implements StorageAdapter {
 
   private async getShape(bucket: string, objectName: string) {
     try {
-      const stream = await this.minioClient.getObject(bucket, objectName);
+      const stream = await this.minioClientPrivateNetwork.getObject(bucket, objectName);
       const metaReader = sharp();
       const sharpReader = stream.pipe(metaReader);
       const { width, height } = await sharpReader.metadata();
@@ -94,7 +94,11 @@ export class MinioStorage implements StorageAdapter {
 
   async getObjectMeta(bucket: string, path: string, _token: string) {
     const objectName = path;
-    const { metaData, size, etag: hash } = await this.minioClient.statObject(bucket, objectName);
+    const {
+      metaData,
+      size,
+      etag: hash,
+    } = await this.minioClientPrivateNetwork.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
     const url = `/${bucket}/${objectName}`;
     if (!mimetype?.startsWith('image/')) {
@@ -132,7 +136,7 @@ export class MinioStorage implements StorageAdapter {
     bucket: string,
     path: string,
     filePath: string,
-    metadata: Record<string, unknown>
+    metadata: Record<string, string | number>
   ) {
     const { etag: hash } = await this.minioClient.fPutObject(bucket, path, filePath, metadata);
     return {
@@ -145,9 +149,15 @@ export class MinioStorage implements StorageAdapter {
     bucket: string,
     path: string,
     stream: Buffer | ReadableStream,
-    metadata?: Record<string, unknown>
+    metadata: Record<string, string | number>
   ) {
-    const { etag: hash } = await this.minioClient.putObject(bucket, path, stream, metadata);
+    const { etag: hash } = await this.minioClientPrivateNetwork.putObject(
+      bucket,
+      path,
+      stream,
+      undefined,
+      metadata
+    );
     return {
       hash,
       path,
@@ -157,7 +167,7 @@ export class MinioStorage implements StorageAdapter {
   // minio file exists
   private async fileExists(bucket: string, path: string) {
     try {
-      await this.minioClient.statObject(bucket, path);
+      await this.minioClientPrivateNetwork.statObject(bucket, path);
       return true;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -179,12 +189,12 @@ export class MinioStorage implements StorageAdapter {
     }
 
     const objectName = path;
-    const { metaData } = await this.minioClient.statObject(bucket, objectName);
+    const { metaData } = await this.minioClientPrivateNetwork.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
     if (!mimetype?.startsWith('image/')) {
       throw new BadRequestException('Invalid image');
     }
-    const stream = await this.minioClient.getObject(bucket, objectName);
+    const stream = await this.minioClientPrivateNetwork.getObject(bucket, objectName);
     const metaReader = sharp();
     const sharpReader = stream.pipe(metaReader);
     const resizedImage = sharpReader.resize(width, height);

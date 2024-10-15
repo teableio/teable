@@ -76,7 +76,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         {/* Workaround for https://github.com/vercel/next.js/issues/8592 */}
         {getLayout(<Component {...pageProps} err={err || pageErr} />, { ...pageProps })}
       </AppProviders>
-      <Guide user={user} />
+      {user && <Guide user={user} />}
       <RouterProgressBar />
     </>
   );
