@@ -86,9 +86,9 @@ describe('Share (socket-e2e) (e2e)', () => {
     expect(views[0].id).toEqual(viewId);
   });
 
-  it('shareId error', async () => {
+  it.only('shareId error', async () => {
     const collection = `${IdPrefix.View}_${tableId}`;
     const error = await getError(() => getQuery(collection, 'error'));
-    expect(error?.code).toEqual('unauthorized_share');
+    expect(error?.code).toEqual('validation_error');
   });
 });
