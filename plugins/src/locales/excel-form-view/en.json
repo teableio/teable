@@ -14,7 +14,8 @@
   "validation": {
     "coordinate": "coordinate",
     "validateError": "validate error",
-    "errorInfo": "error message"
+    "errorInfo": "error message",
+    "unknownError": "unknown error"
   },
   "share": {
     "label": "Share",

@@ -1,7 +1,7 @@
 import enSDkJson from '@teable/common-i18n/src/locales/en/sdk.json';
-// import enZodJson from '@teable/common-i18n/src/locales/en/zod.json';
+import enZodJson from '@teable/common-i18n/src/locales/en/zod.json';
 import zhSDkJson from '@teable/common-i18n/src/locales/zh/sdk.json';
-// import zhZodJson from '@teable/common-i18n/src/locales/zh/zod.json';
+import zhZodJson from '@teable/common-i18n/src/locales/zh/zod.json';
 import type { Metadata } from 'next';
 import { EnvProvider } from '../../components/EnvProvider';
 import { I18nProvider } from '../../components/I18nProvider';
@@ -9,8 +9,6 @@ import QueryClientProvider from '../../components/QueryClientProvider';
 import { PageType } from '../../components/types';
 import enCommonJson from '../../locales/excel-form-view/en.json';
 import zhCommonJson from '../../locales/excel-form-view/zh.json';
-import enZodJson from '../../locales/zod/en.json';
-import zhZodJson from '../../locales/zod/zh.json';
 import { Pages } from './components/Pages';
 import icon from './favicon.ico';
 

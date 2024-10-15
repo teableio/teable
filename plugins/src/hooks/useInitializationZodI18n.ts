@@ -1,6 +1,6 @@
+import { z } from '@teable/openapi';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { z } from 'zod';
 import { makeZodI18nMap } from 'zod-i18n-map';
 
 export const useInitializationZodI18n = () => {

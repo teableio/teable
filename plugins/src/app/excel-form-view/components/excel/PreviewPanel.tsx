@@ -8,7 +8,6 @@ import { Spin, Button, toast } from '@teable/ui-lib';
 import type { IWorkbookData } from '@univerjs/core';
 import { lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type ZodError } from 'zod';
 import { useInitializationZodI18n } from '../../../../hooks/useInitializationZodI18n';
 import { ExcelSkeleton } from './ExcelSkeleton';
 import type { IUniverSheetProps, IUniverSheetRef } from './UniverSheet';
@@ -131,10 +130,10 @@ export const PreviewPanel = (props: IPreviewPanel) => {
       }
     };
 
-    const animationFrameId = requestAnimationFrame(initCellRules);
+    const timeoutId = setTimeout(initCellRules, 0);
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      clearTimeout(timeoutId);
     };
   }, [fields, getRecordsMap]);
 
@@ -195,7 +194,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
       });
 
       if (shareId) {
-        const validateErrors: { coordinate: string; error: ZodError }[] = [];
+        const validateErrors: { coordinate: string; errorMessage: string }[] = [];
 
         fieldsArray.forEach((f) => {
           const res = f.fieldIns.validateCellValue(f.cellValue);
@@ -203,7 +202,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
           if (!res?.success && f.cellValue !== undefined && f.fieldIns.type !== FieldType.Link) {
             validateErrors.push({
               coordinate: f.coordinate,
-              error: res.error,
+              errorMessage: res?.error?.issues?.[0]?.message,
             });
           }
         });
@@ -219,7 +218,8 @@ export const PreviewPanel = (props: IPreviewPanel) => {
                 </span>
 
                 <span>
-                  {t('validation.errorInfo')}: {firstError.error.message},
+                  {t('validation.errorInfo')}:{' '}
+                  {firstError.errorMessage || t('validation.unknownError')},
                 </span>
               </div>
             ),
