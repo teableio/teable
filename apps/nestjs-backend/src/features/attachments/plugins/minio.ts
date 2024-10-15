@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import os from 'node:os';
 import type { Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
+import * as fse from 'fs-extra';
 import * as minio from 'minio';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
@@ -16,7 +16,6 @@ import { generateCutImagePath } from './utils';
 export class MinioStorage implements StorageAdapter {
   minioClient: minio.Client;
   minioClientPrivateNetwork: minio.Client;
-  temporaryDir = resolve(os.tmpdir(), '.temporary');
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     const { endPoint, internalEndPoint, internalPort, port, useSSL, accessKey, secretKey } =
@@ -37,6 +36,7 @@ export class MinioStorage implements StorageAdapter {
           secretKey: secretKey!,
         })
       : this.minioClient;
+    fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
   }
 
   async presigned(

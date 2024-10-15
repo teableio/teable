@@ -11,6 +11,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
+import * as fse from 'fs-extra';
 import ms from 'ms';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
@@ -45,6 +46,7 @@ export class S3Storage implements StorageAdapter {
           },
         })
       : this.s3Client;
+    fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
   }
 
   private checkConfig() {
