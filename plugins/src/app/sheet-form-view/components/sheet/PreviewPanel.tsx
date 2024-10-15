@@ -9,7 +9,7 @@ import type { IWorkbookData } from '@univerjs/core';
 import { lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInitializationZodI18n } from '../../../../hooks/useInitializationZodI18n';
-import { ExcelSkeleton } from './ExcelSkeleton';
+import { SheetSkeleton } from './SheetSkeleton';
 import type { IUniverSheetProps, IUniverSheetRef } from './UniverSheet';
 import { clearTemplateMarker, getRecordRangesMap, getLetterCoordinateByRange } from './utils';
 const UniverSheet = lazy(() => import('./UniverSheet'));
@@ -260,7 +260,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
             validate={true}
           />
         ) : (
-          <ExcelSkeleton className="p-1" />
+          <SheetSkeleton className="p-1" />
         )}
       </div>
     </div>

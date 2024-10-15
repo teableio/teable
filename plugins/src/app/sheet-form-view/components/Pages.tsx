@@ -30,8 +30,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEnv } from '../../../hooks/useEnv';
 import { useInitializationZodI18n } from '../../../hooks/useInitializationZodI18n';
-import { ExcelShareView } from './ExcelShareView';
-import { ExcelView } from './ExcelView';
+import { SheetShareView } from './SheetShareView';
+import { SheetView } from './SheetView';
 
 function addQueryParamsToWebSocketUrl(url: string, params: Record<string, string>) {
   const urlObj = new URL(url);
@@ -155,7 +155,7 @@ const Container = (props: IPageProps & { uiConfig?: IUIConfig }) => {
                     <FieldProvider>
                       <Toaster />
                       <div className="size-full" id="portal">
-                        <ExcelShareView shareId={shareId} />
+                        <SheetShareView shareId={shareId} />
                       </div>
                     </FieldProvider>
                   </ShareViewProxy>
@@ -170,7 +170,7 @@ const Container = (props: IPageProps & { uiConfig?: IUIConfig }) => {
                     <FieldProvider>
                       <Toaster />
                       <div className="size-full" id="portal">
-                        <ExcelView />
+                        <SheetView />
                       </div>
                     </FieldProvider>
                   </ViewProvider>

@@ -1,6 +1,6 @@
 import { useIsHydrated } from '@teable/sdk';
 import { forwardRef, lazy } from 'react';
-import { ExcelSkeleton } from './ExcelSkeleton';
+import { SheetSkeleton } from './SheetSkeleton';
 import type { IUniverSheetProps, IUniverSheetRef } from './UniverSheet';
 
 // univer could not support SSR Well, if use next/dynamic, ref will be lost.
@@ -13,7 +13,7 @@ export const DesignPanel = forwardRef<IUniverSheetRef | null, IUniverSheetProps>
       <UniverSheet {...props} ref={ref} />
     </div>
   ) : (
-    <ExcelSkeleton />
+    <SheetSkeleton />
   );
 });
 

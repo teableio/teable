@@ -1,10 +1,10 @@
 import { cn, Skeleton } from '@teable/ui-lib';
 
-interface IExcelSkeletonProps {
+interface ISheetSkeletonProps {
   className?: string;
 }
 
-export const ExcelSkeleton = (props: IExcelSkeletonProps) => {
+export const SheetSkeleton = (props: ISheetSkeletonProps) => {
   const { className } = props;
 
   return (

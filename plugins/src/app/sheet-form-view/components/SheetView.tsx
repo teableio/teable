@@ -20,19 +20,19 @@ import type { IWorkbookData } from '@univerjs/core';
 import { get, isEqual } from 'lodash';
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { DefaultWorkBookData, DefaultSheetId, UnSupportFieldType } from './excel/constant';
-import { DesignPanel } from './excel/DesignPanel';
-import { PreviewPanel } from './excel/PreviewPanel';
-import type { IUniverSheetRef } from './excel/UniverSheet';
-import { getRecordRangesMap } from './excel/utils';
 import { SharePopover } from './SharePopover';
+import { DefaultWorkBookData, DefaultSheetId, UnSupportFieldType } from './sheet/constant';
+import { DesignPanel } from './sheet/DesignPanel';
+import { PreviewPanel } from './sheet/PreviewPanel';
+import type { IUniverSheetRef } from './sheet/UniverSheet';
+import { getRecordRangesMap } from './sheet/utils';
 
 enum SheetMode {
   Design = 'design',
   Preview = 'preview',
 }
 
-export const ExcelView = () => {
+export const SheetView = () => {
   const fields = useFields({ withHidden: true, withDenied: true });
   const view = useView();
   const viewId = view?.id;

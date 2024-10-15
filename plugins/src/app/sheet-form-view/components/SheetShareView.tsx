@@ -2,13 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { getShareView } from '@teable/openapi';
 import type { IWorkbookData } from '@univerjs/core';
 import React from 'react';
-import { PreviewPanel } from './excel/PreviewPanel';
+import { PreviewPanel } from './sheet/PreviewPanel';
 
-interface IExcelShareViewProps {
+interface ISheetShareViewProps {
   shareId: string;
 }
 
-export const ExcelShareView = (props: IExcelShareViewProps) => {
+export const SheetShareView = (props: ISheetShareViewProps) => {
   const { shareId } = props;
 
   const { data: shareView } = useQuery({

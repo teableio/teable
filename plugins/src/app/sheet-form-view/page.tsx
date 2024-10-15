@@ -7,8 +7,8 @@ import { EnvProvider } from '../../components/EnvProvider';
 import { I18nProvider } from '../../components/I18nProvider';
 import QueryClientProvider from '../../components/QueryClientProvider';
 import { PageType } from '../../components/types';
-import enCommonJson from '../../locales/excel-form-view/en.json';
-import zhCommonJson from '../../locales/excel-form-view/zh.json';
+import enCommonJson from '../../locales/sheet-form-view/en.json';
+import zhCommonJson from '../../locales/sheet-form-view/zh.json';
 import { Pages } from './components/Pages';
 import icon from './favicon.ico';
 
@@ -26,7 +26,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const lang = searchParams.lang;
 
   return {
-    title: lang === 'zh' ? 'Excel 表单' : 'Excel Form',
+    title: lang === 'zh' ? '表格表单' : 'Sheet Form',
     icons: icon.src,
   };
 }

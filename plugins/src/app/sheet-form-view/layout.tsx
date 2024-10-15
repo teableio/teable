@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import '@teable/ui-lib/dist/global.shadcn.css';
 
 export const metadata: Metadata = {
-  title: 'Excel Form Designer',
+  title: 'Sheet Form Designer',
 };
 
 export default function RootLayout({
