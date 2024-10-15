@@ -329,9 +329,9 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
 
     fUniverRef.current = FUniver.newAPI(univer);
     fUniverRef.current.onCommandExecuted((command) => {
-      setCommandQueue((prev) => [...prev, command]);
+      onChange && setCommandQueue((prev) => [...prev, command]);
     });
-  }, [footerVisible, resolvedLanguage, toolbarVisible, workBookData]);
+  }, [footerVisible, onChange, resolvedLanguage, toolbarVisible, validate, workBookData]);
 
   return (
     <div

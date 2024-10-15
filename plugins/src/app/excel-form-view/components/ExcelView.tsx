@@ -18,7 +18,7 @@ import {
 } from '@teable/ui-lib';
 import type { IWorkbookData } from '@univerjs/core';
 import { get, isEqual } from 'lodash';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DefaultWorkBookData, DefaultSheetId, UnSupportFieldType } from './excel/constant';
 import { DesignPanel } from './excel/DesignPanel';
@@ -40,7 +40,6 @@ export const ExcelView = () => {
   const fieldStaticGetter = useFieldStaticGetter();
   const [selectedField, setSelectedField] = useState('');
   const [insertedFields, setInsertedFields] = useState<string[]>([]);
-  // const [workBookData, setWorkBookData] = useState<IWorkbookData | undefined>(DefaultWorkBookData);
   const univerRef = useRef<IUniverSheetRef>(null);
   const { t } = useTranslation();
   const [mode, setMode] = useState<SheetMode>(SheetMode.Design);
@@ -52,7 +51,9 @@ export const ExcelView = () => {
     enabled: Boolean(tableId && viewId),
   });
 
-  const workBookData = (pluginInstall?.storage || DefaultWorkBookData) as IWorkbookData;
+  const workBookData = useMemo<IWorkbookData>(() => {
+    return (pluginInstall?.storage || DefaultWorkBookData) as IWorkbookData;
+  }, [pluginInstall?.storage]);
 
   const cellData = get(pluginInstall?.storage, ['sheets', DefaultSheetId, 'cellData']);
   const rangeMap = getRecordRangesMap(cellData);
@@ -92,16 +93,19 @@ export const ExcelView = () => {
     },
   });
 
-  const updateStorage = async (storage: unknown) => {
-    if (tableId && viewId && pluginInstall?.pluginInstallId && workBookData) {
-      await updateStorageFn({
-        tableId,
-        viewId,
-        pluginInstallId: pluginInstall?.pluginInstallId,
-        storage: storage as Record<string, unknown>,
-      });
-    }
-  };
+  const updateStorage = useCallback(
+    async (storage: unknown) => {
+      if (tableId && viewId && pluginInstall?.pluginInstallId && workBookData) {
+        await updateStorageFn({
+          tableId,
+          viewId,
+          pluginInstallId: pluginInstall?.pluginInstallId,
+          storage: storage as Record<string, unknown>,
+        });
+      }
+    },
+    [pluginInstall?.pluginInstallId, tableId, updateStorageFn, viewId, workBookData]
+  );
 
   if (isLoading) {
     return (
@@ -113,7 +117,7 @@ export const ExcelView = () => {
 
   return (
     <div className="flex size-full flex-1 flex-col overflow-hidden">
-      {!isLoading && (
+      {
         <>
           <div className="flex h-12 items-center justify-between border-y py-2 pl-8 pr-4">
             <div className="flex gap-2">
@@ -237,20 +241,14 @@ export const ExcelView = () => {
             )}
             <div className="m-2 flex flex-1 items-start justify-center overflow-hidden rounded-sm">
               {mode === 'design' ? (
-                <DesignPanel
-                  workBookData={workBookData}
-                  ref={univerRef}
-                  onChange={async (value) => {
-                    await updateStorage(value);
-                  }}
-                />
+                <DesignPanel workBookData={workBookData} ref={univerRef} onChange={updateStorage} />
               ) : (
                 <PreviewPanel workBookData={workBookData} />
               )}
             </div>
           </div>
         </>
-      )}
+      }
     </div>
   );
 };

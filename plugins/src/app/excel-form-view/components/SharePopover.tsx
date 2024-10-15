@@ -18,8 +18,6 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  RadioGroup,
-  RadioGroupItem,
   Separator,
   Switch,
   Tooltip,
@@ -33,22 +31,11 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CopyButton } from './CopyButton';
 
-const getShareUrl = ({
-  shareId,
-  theme,
-  hideToolBar,
-}: {
-  shareId: string;
-  theme?: string;
-  hideToolBar?: boolean;
-}) => {
+const getShareUrl = ({ shareId, theme }: { shareId: string; theme?: string }) => {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.teable.io';
   const url = new URL(`/share/${shareId}/view`, origin);
   if (theme && theme !== 'system') {
     url.searchParams.append('theme', theme);
-  }
-  if (hideToolBar) {
-    url.searchParams.append('hideToolBar', 'true');
   }
   return url.toString();
 };
@@ -64,7 +51,6 @@ export const SharePopover: React.FC<{
   const ShareViewText = t('share.label');
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
   const [sharePassword, setSharePassword] = useState<string>('');
-  const [shareTheme, setShareTheme] = useState<string>('system');
 
   const { mutate: enableShareFn, isLoading: enableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.apiEnableShare(),
@@ -75,8 +61,8 @@ export const SharePopover: React.FC<{
   });
 
   const shareUrl = useMemo(() => {
-    return view?.shareId ? getShareUrl({ shareId: view?.shareId, theme: shareTheme }) : undefined;
-  }, [view?.shareId, shareTheme]);
+    return view?.shareId ? getShareUrl({ shareId: view?.shareId }) : undefined;
+  }, [view?.shareId]);
 
   if (!view) {
     return children(ShareViewText, false);
@@ -209,35 +195,6 @@ export const SharePopover: React.FC<{
                   </Label>
                 </div>
               }
-            </div>
-            <div className="flex gap-4">
-              <Label className="text-xs" htmlFor="share-password">
-                {t('share.theme.label')}
-              </Label>
-              <RadioGroup
-                className="flex gap-2"
-                defaultValue={shareTheme}
-                onValueChange={(e) => setShareTheme(e)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="system" id="r1" />
-                  <Label className="text-xs font-normal" htmlFor="r1">
-                    {t('share.theme.system')}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="light" id="r2" />
-                  <Label className="text-xs font-normal" htmlFor="r2">
-                    {t('share.theme.light')}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="dark" id="r3" />
-                  <Label className="text-xs font-normal" htmlFor="r3">
-                    {t('share.theme.dark')}
-                  </Label>
-                </div>
-              </RadioGroup>
             </div>
           </>
         ) : (
