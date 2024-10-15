@@ -11,7 +11,7 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { GUIDE_CREATE_VIEW } from '@/components/Guide';
 import { VIEW_ICON_MAP } from '../../view/constant';
 import { useAddView } from '../../view/list/useAddView';
@@ -23,6 +23,10 @@ export const AddView: React.FC = () => {
   const permission = useTablePermission();
   const [isOpen, setOpen] = useState(false);
   const { t } = useTranslation('table');
+
+  const closePopover = useCallback(() => {
+    setOpen(false);
+  }, []);
 
   const viewInfoList = [
     {
@@ -83,7 +87,7 @@ export const AddView: React.FC = () => {
           );
         })}
         <Separator />
-        <AddPluginView />
+        <AddPluginView onClose={closePopover} />
       </PopoverContent>
     </Popover>
   );

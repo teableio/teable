@@ -23,6 +23,7 @@
     "testid",
     "topo",
     "umami",
+    "univer",
     "zustand"
   ],
   "eslint.workingDirectories": [

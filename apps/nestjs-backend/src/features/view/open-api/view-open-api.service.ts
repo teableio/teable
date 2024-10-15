@@ -829,7 +829,7 @@ export class ViewOpenApiService {
     }
     return this.prismaService.pluginInstall.update({
       where: { id: pluginInstall.id },
-      data: { storage },
+      data: { storage: JSON.stringify(storage) },
     });
   }
 

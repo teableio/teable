@@ -99,6 +99,7 @@ export const PluginItem = (props: {
           pluginUrl={pluginUrl}
           positionId={dashboardId}
           onExpand={onExpand}
+          renderClassName="p-1"
         />
       </div>
     </div>

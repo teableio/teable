@@ -33,8 +33,9 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
       return activate;
     }
 
+    const shareInfo = await this.shareAuthService.getShareViewInfo(shareId);
+
     try {
-      const shareInfo = await this.shareAuthService.getShareViewInfo(shareId);
       req.shareInfo = shareInfo;
       // submit route
       const isShareSubmit = this.reflector.getAllAndOverride<boolean>(IS_SHARE_SUBMIT_KEY, [

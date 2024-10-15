@@ -78,7 +78,7 @@ describe('PluginController', () => {
   it('/api/plugin (GET)', async () => {
     const getRes = await getPlugins();
     expect(getPluginsVoSchema.safeParse(getRes.data).success).toBe(true);
-    expect(getRes.data).toHaveLength(2);
+    expect(getRes.data).toHaveLength(3);
   });
 
   it('/api/plugin/{pluginId} (DELETE)', async () => {
@@ -138,7 +138,7 @@ describe('PluginController', () => {
     const getRes = await getPluginCenterList();
     await deletePlugin(res.data.id);
 
-    expect(getRes.data).toHaveLength(2);
+    expect(getRes.data).toHaveLength(3);
     const plugin = getRes.data.find((p) => p.id === res.data.id);
     expect(plugin).not.toBeUndefined();
     expect(getPluginCenterListVoSchema.safeParse(getRes.data).success).toBe(true);

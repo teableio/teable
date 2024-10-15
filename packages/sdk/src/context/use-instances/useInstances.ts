@@ -161,6 +161,10 @@ export function useInstances<T, R extends { id: string }>({
       );
     };
 
+    if (query.ready) {
+      readyListener();
+    }
+
     query.on('ready', readyListener);
 
     query.on('changed', changedListener);

@@ -1,5 +1,6 @@
 import { pluginGetAuthCode, updateDashboardPluginStorage } from '@teable/openapi';
 import type { IChildBridgeMethods, IParentBridgeMethods } from '@teable/sdk/plugin-bridge';
+import { cn } from '@teable/ui-lib';
 import type { Methods } from 'penpal';
 import { connectToChild } from 'penpal';
 import { useEffect, useRef } from 'react';
@@ -14,7 +15,8 @@ interface IPluginRenderProps extends React.IframeHTMLAttributes<HTMLIFrameElemen
   onExpand?: () => void;
 }
 export const PluginRender = (props: IPluginRenderProps) => {
-  const { onBridge, onExpand, pluginInstallId, baseId, positionId, pluginId, ...rest } = props;
+  const { onBridge, onExpand, pluginInstallId, baseId, positionId, pluginId, className, ...rest } =
+    props;
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
@@ -61,5 +63,13 @@ export const PluginRender = (props: IPluginRenderProps) => {
   }, []);
 
   // eslint-disable-next-line jsx-a11y/iframe-has-title
-  return <iframe loading={'lazy'} {...rest} ref={iframeRef} className="rounded-b p-1" />;
+  return (
+    <iframe
+      loading={'lazy'}
+      {...rest}
+      ref={iframeRef}
+      className={cn('rounded-b', className)}
+      title={pluginInstallId}
+    />
+  );
 };

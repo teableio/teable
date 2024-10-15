@@ -1,4 +1,5 @@
 import { createSecureHeaders } from 'next-secure-headers';
+import { UniverPlugin } from '@univerjs/webpack-plugin'
 
 const isProd = process.env.NODE_ENV === 'production';
 const basePath = '/plugin';
@@ -7,6 +8,9 @@ const basePath = '/plugin';
 const nextConfig = {
   basePath,
   output: 'standalone',
+  plugins: [
+   new UniverPlugin()
+  ],
   async headers() {
     return [
       {

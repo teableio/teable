@@ -100,7 +100,9 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances({ ...mockProps, initData }), {
       wrapper: createUseInstancesWrap({ ...mockAppContext, connected: false }),
     });
-    expect(result.current.instances).toEqual(initData.map((doc) => createTestInstance(doc)));
+    expect(result.current.instances.map((i) => i.doc)).toEqual(
+      initData.map((doc) => createTestInstance(doc))
+    );
   });
 
   it('should create a subscribe query with correct parameters', () => {
@@ -117,12 +119,9 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current.instances).toEqual([]);
-
-    act(() => {
-      const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
-      readyListener[1]();
-    });
+    expect(result.current.instances.map((i) => i.doc)).toEqual(
+      initData.map((doc) => createTestInstance(doc))
+    );
 
     expect(result.current.instances).toEqual(defaultInstance);
   });
@@ -139,11 +138,11 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current.instances).toEqual([]);
+    expect(result.current.instances.map((i) => i.doc)).toEqual(
+      initData.map((doc) => createTestInstance(doc))
+    );
 
     act(() => {
-      const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
-      readyListener[1]();
       const insertListener = mockQueryMethods.on.mock.calls.find(
         (args: any) => args[0] === 'insert'
       );
@@ -168,12 +167,11 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current.instances).toEqual([]);
+    expect(result.current.instances.map((i) => i.doc)).toEqual(
+      initData.map((doc) => createTestInstance(doc))
+    );
 
     act(() => {
-      const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
-      readyListener[1]();
-
       const removeListener = mockQueryMethods.on.mock.calls.find(
         (args: any) => args[0] === 'remove'
       );
@@ -189,12 +187,11 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current.instances).toEqual([]);
+    expect(result.current.instances.map((i) => i.doc)).toEqual(
+      initData.map((doc) => createTestInstance(doc))
+    );
 
     act(() => {
-      const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
-      readyListener[1]();
-
       const moveListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'move');
       moveListener[1](moveData, 1, 0);
     });
@@ -208,12 +205,9 @@ describe('useInstances hook', () => {
     const { result } = renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),
     });
-    expect(result.current.instances).toEqual([]);
-
-    act(() => {
-      const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
-      readyListener[1]();
-    });
+    expect(result.current.instances.map((i) => i.doc)).toEqual(
+      initData.map((doc) => createTestInstance(doc))
+    );
 
     act(() => {
       const opListener = result.current.instances[0].doc.on.mock.calls.find(

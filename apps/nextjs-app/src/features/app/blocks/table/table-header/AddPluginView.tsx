@@ -14,8 +14,13 @@ import { VIEW_ICON_MAP } from '../../view/constant';
 
 const PluginViewIcon = VIEW_ICON_MAP[ViewType.Plugin];
 
-export const AddPluginView = () => {
+interface IAddPluginViewProps {
+  onClose: () => void;
+}
+
+export const AddPluginView = (props: IAddPluginViewProps) => {
   const tableId = useTableId()!;
+  const { onClose } = props;
   const router = useRouter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const ref = useRef<IPluginCenterDialogRef>(null);
@@ -43,6 +48,7 @@ export const AddPluginView = () => {
           pluginId: id,
           name,
         });
+        onClose();
       }}
     >
       <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">
