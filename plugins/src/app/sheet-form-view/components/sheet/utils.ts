@@ -1,5 +1,5 @@
 import type { IWorksheetData, ICellData } from '@univerjs/core';
-import { cloneDeep, has } from 'lodash';
+import { cloneDeep, has, isObject } from 'lodash';
 
 const exactCountPattern = /^\{\{([^:{}]+):([^{}]+)\}\}$/;
 
@@ -33,6 +33,9 @@ export const getRecordRangesMap = (sheetData?: IWorksheetData['cellData']) => {
 
   for (const [key, row] of Object.entries(sheetData)) {
     for (const [key2, cell] of Object.entries(row)) {
+      if (!isObject(cell)) {
+        continue;
+      }
       const { v: cellValue } = cell as ICellData;
       const match = typeof cellValue === 'string' ? cellValue?.match(exactCountPattern) : null;
       if (match) {
