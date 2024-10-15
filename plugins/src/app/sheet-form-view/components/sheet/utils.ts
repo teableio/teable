@@ -33,6 +33,9 @@ export const getRecordRangesMap = (sheetData?: IWorksheetData['cellData']) => {
 
   for (const [key, row] of Object.entries(sheetData)) {
     for (const [key2, cell] of Object.entries(row)) {
+      if (cell === undefined) {
+        continue;
+      }
       const { v: cellValue } = cell as ICellData;
       const match = typeof cellValue === 'string' ? cellValue?.match(exactCountPattern) : null;
       if (match) {
