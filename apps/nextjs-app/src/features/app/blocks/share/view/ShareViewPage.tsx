@@ -60,6 +60,7 @@ export const ShareViewPage = (props: IShareViewPageProps) => {
               hasPassword: false,
               isAdmin: false,
             }}
+            disabledApi
           >
             <AnchorContext.Provider
               value={{
