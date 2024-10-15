@@ -5,7 +5,14 @@ import { configDefaults, defineConfig } from 'vitest/config';
 const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
-  plugins: [swc.vite({}), tsconfigPaths()],
+  plugins: [
+    swc.vite({
+      jsc: {
+        target: 'es2022',
+      },
+    }),
+    tsconfigPaths(),
+  ],
   cacheDir: '../../.cache/vitest/nestjs-backend/unit',
   test: {
     globals: true,
