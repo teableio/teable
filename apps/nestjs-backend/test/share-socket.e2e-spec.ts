@@ -86,7 +86,7 @@ describe('Share (socket-e2e) (e2e)', () => {
     expect(views[0].id).toEqual(viewId);
   });
 
-  it.only('shareId error', async () => {
+  it('shareId error', async () => {
     const collection = `${IdPrefix.View}_${tableId}`;
     const error = await getError(() => getQuery(collection, 'error'));
     expect(error?.code).toEqual('validation_error');
