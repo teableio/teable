@@ -1869,9 +1869,6 @@ importers:
       '@teable/ui-lib':
         specifier: workspace:^
         version: link:../packages/ui-lib
-      '@types/lodash':
-        specifier: 4.17.0
-        version: 4.17.0
       '@univerjs/core':
         specifier: 0.3.0
         version: 0.3.0(@grpc/grpc-js@1.9.14)(react@18.2.0)(rxjs@7.8.1)
@@ -1960,6 +1957,9 @@ importers:
         specifier: 2.27.0
         version: 2.27.0(i18next@23.10.1)(zod@3.22.4)
     devDependencies:
+      '@types/lodash':
+        specifier: 4.17.0
+        version: 4.17.0
       '@types/node':
         specifier: 20.9.0
         version: 20.9.0
@@ -11662,6 +11662,7 @@ packages:
 
   /@types/lodash@4.17.0:
     resolution: {integrity: sha512-t7dhREVv6dbNj0q17X12j7yDG4bD/DHYX7o5/DbDxobP0HnGPgpRz2Ej77aL7TZT3DSw13fqUTj8J4mMnqa7WA==}
+    dev: true
 
   /@types/markdown-it@13.0.7:
     resolution: {integrity: sha512-U/CBi2YUUcTHBt5tjO2r5QV/x0Po6nsYwQU4Y04fBS6vfoImaiZ6f8bi3CjTCxBPQSO1LMyUqkByzi8AidyxfA==}
