@@ -37,9 +37,7 @@ const NEXT_ENV_IMAGES_ALL_REMOTE = trueEnv.includes(
 const NEXT_BUILD_ENV_SENTRY_ENABLED = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_ENABLED ?? 'false'
 );
-const NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN = trueEnv.includes(
-  process.env?.NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN ?? 'false'
-);
+
 const NEXT_BUILD_ENV_SENTRY_DEBUG = trueEnv.includes(
   process.env?.NEXT_BUILD_ENV_SENTRY_DEBUG ?? 'false'
 );
@@ -297,7 +295,6 @@ if (NEXT_BUILD_ENV_SENTRY_ENABLED === true) {
       // For all available options, see:
       // https://github.com/getsentry/sentry-webpack-plugin#options.
       // silent: isProd, // Suppresses all logs
-      dryRun: NEXT_BUILD_ENV_SENTRY_UPLOAD_DRY_RUN === true,
       silent: NEXT_BUILD_ENV_SENTRY_DEBUG === false,
     });
     console.log(`- ${pc.green('info')} Sentry enabled for this build`);

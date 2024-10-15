@@ -7,7 +7,7 @@ import { Knex } from 'knex';
 import { has, intersection, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { NotificationService } from '../../features/notification/notification.service';
-import type { IChangeRecord, IChangeValue, RecordCreateEvent, RecordUpdateEvent } from '../events';
+import type { IChangeRecord, RecordCreateEvent, RecordUpdateEvent } from '../events';
 import { Events } from '../events';
 
 type IListenerEvent = RecordCreateEvent | RecordUpdateEvent;
@@ -109,7 +109,7 @@ export class CollaboratorNotificationListener {
         }
 
         Object.entries(changeFields).forEach(([fieldId, value]) => {
-          const cellValue = has(value, 'newValue') ? (value as IChangeValue).newValue : value;
+          const cellValue = has(value, 'newValue') ? value.newValue : value;
 
           if (userFieldIds.includes(fieldId) && cellValue) {
             const collaborators = Array.isArray(cellValue) ? cellValue : [cellValue];

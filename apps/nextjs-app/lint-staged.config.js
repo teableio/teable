@@ -7,7 +7,7 @@
  * {@link https://github.com/teableio/nextjs-monorepo-example/blob/main/docs/about-lint-staged.md}
  */
 
-const { concatFilesForPrettier, getEslintFixCmd } = require('../../lint-staged.common.js');
+import { concatFilesForPrettier, getEslintFixCmd } from '../../lint-staged.common.js';
 
 /**
  * @type {Record<string, (filenames: string[]) => string | string[] | Promise<string | string[]>>}
@@ -30,4 +30,4 @@ const rules = {
   },
 };
 
-module.exports = rules;
+export default rules;

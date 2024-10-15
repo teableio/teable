@@ -10,4 +10,6 @@ reject: [
     'is-port-reachable',
     'nanoid',
     'node-fetch',
+    '@prisma/client',
+    '@prisma/instrumentation',
   ]

@@ -10,6 +10,7 @@ import { match } from 'ts-pattern';
 import type { ICacheConfig } from '../configs/cache.config';
 import { cacheConfig } from '../configs/cache.config';
 import { CacheService } from './cache.service';
+import { ICacheStore } from './types';
 
 export const CacheProvider: Provider = {
   provide: CacheService,

@@ -205,11 +205,12 @@ const useGenerateGroupCellFn = () => {
           }
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
+            console.log('cv', cv);
             const data = cv.map(({ id, mimetype, presignedUrl, smThumbnailUrl }) => {
               const url = getFileCover(mimetype, presignedUrl);
               return {
                 id,
-                url: isSystemFileIcon(mimetype) ? url : smThumbnailUrl ?? url,
+                url: isSystemFileIcon(mimetype) ? url : (smThumbnailUrl ?? url),
               };
             });
             const displayData = data.map(({ url }) => url);

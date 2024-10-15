@@ -24,8 +24,8 @@
   ],
   "scripts": {
     "clean:global-cache": "rimraf ./.cache",
-    "deps:check": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName ncurc.yml --workspaces --root --mergeConfig",
-    "deps:update": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName ncurc.yml -u --workspaces --root --mergeConfig",
+    "deps:check": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName .ncurc.yml --workspaces --root --mergeConfig",
+    "deps:update": "pnpm --package=npm-check-updates@latest dlx npm-check-updates --configFileName .ncurc.yml -u --workspaces --root --mergeConfig",
     "g:build": "pnpm -r run build",
     "g:build-changed": "pnpm -r -F '...[origin/main]' build",
     "g:check-dist": "pnpm -r --parallel check-dist",
@@ -58,25 +58,25 @@
     "cross-env": "7.0.3"
   },
   "devDependencies": {
-    "@commitlint/cli": "19.2.1",
-    "@commitlint/config-conventional": "19.1.0",
+    "@commitlint/cli": "19.5.0",
+    "@commitlint/config-conventional": "19.5.0",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/shell-quote": "1.7.5",
     "eslint": "8.57.0",
-    "husky": "9.0.11",
-    "lint-staged": "15.2.2",
-    "npm-run-all2": "6.1.2",
-    "openapi-typescript": "6.7.5",
-    "prettier": "3.2.5",
-    "rimraf": "5.0.5",
+    "husky": "9.1.6",
+    "lint-staged": "15.2.10",
+    "npm-run-all2": "6.2.3",
+    "openapi-typescript": "7.4.1",
+    "prettier": "3.3.3",
+    "rimraf": "6.0.1",
     "shell-quote": "1.8.1",
-    "typescript": "5.4.3",
-    "zx": "7.2.3"
+    "typescript": "5.6.3",
+    "zx": "8.1.9"
   },
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=8.15.0",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@8.15.5"
+  "packageManager": "pnpm@9.12.1"
 }

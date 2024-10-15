@@ -1,4 +1,3 @@
-import { Key } from 'ts-key-enum';
 import { Key as KeyCode } from 'ts-keycode-enum';
 
 export const isPrintableKey = (event: KeyboardEvent) => {
@@ -16,7 +15,7 @@ export const isPrintableKey = (event: KeyboardEvent) => {
     keyCode === KeyCode.Space ||
     keyCode === 61 ||
     keyCode === 173 ||
-    ((keyCode === 229 || keyCode === 0) && event.key !== Key.Shift)
+    ((keyCode === 229 || keyCode === 0) && event.key !== 'Shift')
   );
 };
 

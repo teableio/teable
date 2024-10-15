@@ -8,6 +8,7 @@ require('@teable/eslint-config-bases/patch/modern-module-resolution');
 
 const { getDefaultIgnorePatterns } = require('@teable/eslint-config-bases/helpers');
 
+/** @type {import("eslint").Linter.Config} */
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
