@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Share2 } from '@teable/icons';
 import { getViewInstallPlugin, updateViewPluginStorage } from '@teable/openapi';
 
@@ -43,12 +43,12 @@ export const SheetView = () => {
   const univerRef = useRef<IUniverSheetRef>(null);
   const { t } = useTranslation();
   const [mode, setMode] = useState<SheetMode>(SheetMode.Design);
-  const queryClient = useQueryClient();
 
   const { data: pluginInstall, isLoading } = useQuery({
     queryKey: ['view_plugin', tableId, viewId],
     queryFn: () => getViewInstallPlugin(tableId!, viewId!).then((res) => res.data),
     enabled: Boolean(tableId && viewId),
+    staleTime: Infinity,
   });
 
   const workBookData = useMemo<IWorkbookData>(() => {
@@ -88,9 +88,6 @@ export const SheetView = () => {
       pluginInstallId: string;
       storage: Record<string, unknown>;
     }) => updateViewPluginStorage(tableId, viewId, pluginInstallId, storage),
-    onSuccess: () => {
-      queryClient.invalidateQueries(['view_plugin', tableId, viewId]);
-    },
   });
 
   const updateStorage = useCallback(

@@ -32,6 +32,9 @@ export const getRecordRangesMap = (sheetData?: IWorksheetData['cellData']) => {
   }
 
   for (const [key, row] of Object.entries(sheetData)) {
+    if (!isObject(row)) {
+      continue;
+    }
     for (const [key2, cell] of Object.entries(row)) {
       if (!isObject(cell)) {
         continue;
