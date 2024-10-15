@@ -172,6 +172,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
     }) => shareViewFormSubmit({ shareId, fields, typecast }),
     onSuccess: () => {
       resetWorkBookData();
+      toast({ description: t('tooltips.submitSuccess') });
     },
   });
 
@@ -180,6 +181,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
       createRecords(tableId, recordsRo),
     onSuccess: () => {
       resetWorkBookData();
+      toast({ description: t('tooltips.submitSuccess') });
     },
   });
 
@@ -193,40 +195,41 @@ export const PreviewPanel = (props: IPreviewPanel) => {
         submitField[key] = v.cellValue;
       });
 
-      if (shareId) {
-        const validateErrors: { coordinate: string; errorMessage: string }[] = [];
+      const validateErrors: { coordinate: string; errorMessage: string }[] = [];
 
-        fieldsArray.forEach((f) => {
-          const res = f.fieldIns.validateCellValue(f.cellValue);
-          // TODO don't check link using typecast
-          if (!res?.success && f.cellValue !== undefined && f.fieldIns.type !== FieldType.Link) {
-            validateErrors.push({
-              coordinate: f.coordinate,
-              errorMessage: res?.error?.issues?.[0]?.message,
-            });
-          }
-        });
-
-        if (validateErrors.length) {
-          const firstError = validateErrors[0];
-          toast({
-            variant: 'destructive',
-            description: (
-              <div className="flex flex-col">
-                <span>
-                  {t('validation.coordinate')}: {firstError.coordinate}
-                </span>
-
-                <span>
-                  {t('validation.errorInfo')}:{' '}
-                  {firstError.errorMessage || t('validation.unknownError')},
-                </span>
-              </div>
-            ),
-            title: t('validation.validateError'),
+      fieldsArray.forEach((f) => {
+        const res = f.fieldIns.validateCellValue(f.cellValue);
+        // TODO don't check link using typecast
+        if (!res?.success && f.cellValue !== undefined && f.fieldIns.type !== FieldType.Link) {
+          validateErrors.push({
+            coordinate: f.coordinate,
+            errorMessage: res?.error?.issues?.[0]?.message,
           });
-          return;
         }
+      });
+
+      if (validateErrors.length) {
+        const firstError = validateErrors[0];
+        toast({
+          variant: 'destructive',
+          description: (
+            <div className="flex flex-col">
+              <span>
+                {t('validation.coordinate')}: {firstError.coordinate}
+              </span>
+
+              <span>
+                {t('validation.errorInfo')}:{' '}
+                {firstError.errorMessage || t('validation.unknownError')},
+              </span>
+            </div>
+          ),
+          title: t('validation.validateError'),
+        });
+        return;
+      }
+
+      if (shareId) {
         submitFormFn({ shareId, fields: submitField, typecast: true });
       } else {
         submitTestFn({

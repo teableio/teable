@@ -9,7 +9,8 @@
   "tooltips": {
     "insertCellTips": "请先选择一个插入的字段",
     "unSupportFieldType": "不支持的字段类型",
-    "selected": "已选择"
+    "selected": "已选择",
+    "submitSuccess": "提交成功"
   },
   "validation": {
     "coordinate": "坐标",

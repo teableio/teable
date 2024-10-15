@@ -9,7 +9,8 @@
   "tooltips": {
     "insertCellTips": "Please select a field first",
     "unSupportFieldType": "UnSupport field type",
-    "selected": "This field has been selected"
+    "selected": "This field has been selected",
+    "submitSuccess": "Submit success"
   },
   "validation": {
     "coordinate": "coordinate",
