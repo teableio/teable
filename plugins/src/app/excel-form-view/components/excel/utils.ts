@@ -13,7 +13,8 @@ export const clearTemplateMarker = (sheetData?: IWorksheetData['cellData']) => {
   for (const key in newSheetData) {
     if (has(newSheetData, key)) {
       for (const key2 in newSheetData[key]) {
-        if (has(newSheetData[key], key2) && exactCountPattern.test(newSheetData[key][key2].v)) {
+        const cellValue = newSheetData[key][key2].v ?? '';
+        if (has(newSheetData[key], key2) && exactCountPattern.test(String(cellValue))) {
           delete newSheetData[key][key2];
         }
       }
