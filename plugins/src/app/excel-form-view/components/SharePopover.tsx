@@ -132,9 +132,6 @@ export const SharePopover: React.FC<{
         {enableShare ? (
           <>
             <div className="flex items-center gap-1">
-              <Label className="sr-only" htmlFor="share-link">
-                Share Link
-              </Label>
               <Input className="h-7 grow" id="share-link" value={shareUrl} readOnly />
 
               <Popover>

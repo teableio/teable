@@ -122,14 +122,20 @@ export const PreviewPanel = (props: IPreviewPanel) => {
   };
 
   useEffect(() => {
-    setTimeout(() => {
+    const initCellRules = () => {
       if (univerRef?.current && fields?.length) {
         const recordMap = getRecordsMap();
         Object.values(recordMap).forEach(({ cellCoordinate, fieldIns }) => {
           setCellRules(fieldIns, cellCoordinate);
         });
       }
-    }, 0);
+    };
+
+    const animationFrameId = requestAnimationFrame(initCellRules);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
   }, [fields, getRecordsMap]);
 
   const newWorkBookData = useMemo(
