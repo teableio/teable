@@ -87,7 +87,7 @@ export const AddView: React.FC = () => {
           );
         })}
         <Separator />
-        <AddPluginView closePopoverCb={closePopover} />
+        <AddPluginView onClose={closePopover} />
       </PopoverContent>
     </Popover>
   );

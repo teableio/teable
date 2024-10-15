@@ -15,12 +15,12 @@ import { VIEW_ICON_MAP } from '../../view/constant';
 const PluginViewIcon = VIEW_ICON_MAP[ViewType.Plugin];
 
 interface IAddPluginViewProps {
-  closePopoverCb: () => void;
+  onClose: () => void;
 }
 
 export const AddPluginView = (props: IAddPluginViewProps) => {
   const tableId = useTableId()!;
-  const { closePopoverCb } = props;
+  const { onClose } = props;
   const router = useRouter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const ref = useRef<IPluginCenterDialogRef>(null);
@@ -48,7 +48,7 @@ export const AddPluginView = (props: IAddPluginViewProps) => {
           pluginId: id,
           name,
         });
-        closePopoverCb();
+        onClose();
       }}
     >
       <Button variant={'ghost'} size={'xs'} className="w-full justify-start font-normal">

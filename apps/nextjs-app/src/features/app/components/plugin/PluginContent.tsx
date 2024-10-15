@@ -11,6 +11,7 @@ import { PluginRender } from './PluginRender';
 
 export const PluginContent = (props: {
   className?: string;
+  renderClassName?: string;
   pluginId: string;
   pluginInstallId: string;
   pluginUrl?: string;
@@ -22,6 +23,7 @@ export const PluginContent = (props: {
 }) => {
   const {
     className,
+    renderClassName,
     pluginInstallId,
     pluginUrl,
     positionId,
@@ -110,6 +112,7 @@ export const PluginContent = (props: {
         onBridge={setBridge}
         onExpand={onExpand}
         src={iframeUrl}
+        className={renderClassName}
         {...{
           pluginInstallId,
           positionId,

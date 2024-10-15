@@ -17,7 +17,6 @@ import {
   FieldProvider,
   AnchorContext,
   AppProvider,
-  SessionProvider,
   TableProvider,
   ViewProvider,
   TablePermissionProvider,
@@ -104,32 +103,30 @@ const Container = (props: IPageProps & { uiConfig?: IUIConfig }) => {
         lang={i18n.resolvedLanguage}
         locale={i18n.getDataByLanguage(i18n.resolvedLanguage || i18n.language)?.sdk}
       >
-        <SessionProvider>
-          <AnchorContext.Provider
-            value={{
-              baseId,
-              tableId: finalTableId,
-              viewId,
-            }}
-          >
-            <TableProvider>
-              <ViewProvider>
-                <FieldProvider>
-                  <Toaster />
-                  <div className="size-full" id="portal">
-                    {shareId ? (
-                      <ExcelShareView shareId={shareId} />
-                    ) : (
-                      <TablePermissionProvider baseId={baseId}>
-                        <ExcelView />
-                      </TablePermissionProvider>
-                    )}
-                  </div>
-                </FieldProvider>
-              </ViewProvider>
-            </TableProvider>
-          </AnchorContext.Provider>
-        </SessionProvider>
+        <AnchorContext.Provider
+          value={{
+            baseId,
+            tableId: finalTableId,
+            viewId,
+          }}
+        >
+          <TableProvider>
+            <ViewProvider>
+              <FieldProvider>
+                <Toaster />
+                <div className="size-full" id="portal">
+                  {shareId ? (
+                    <ExcelShareView shareId={shareId} />
+                  ) : (
+                    <TablePermissionProvider baseId={baseId}>
+                      <ExcelView />
+                    </TablePermissionProvider>
+                  )}
+                </div>
+              </FieldProvider>
+            </ViewProvider>
+          </TableProvider>
+        </AnchorContext.Provider>
       </AppProvider>
     </ThemeProvider>
   );
