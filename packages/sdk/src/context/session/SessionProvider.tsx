@@ -6,13 +6,14 @@ import { SessionContext } from './SessionContext';
 
 interface ISessionProviderProps {
   user?: IUser;
+  disabledApi?: boolean;
   fallback?: React.ReactNode;
 }
 
 export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderProps>> = (
   props
 ) => {
-  const { user, fallback, children } = props;
+  const { user, fallback, children, disabledApi = false } = props;
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<IUser | undefined>(() => {
     if (user) {
@@ -24,6 +25,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   const { data: userQuery } = useQuery({
     queryKey: ['user-me'],
     queryFn: () => userMe().then((res) => res.data),
+    enabled: !disabledApi,
   });
   const { mutateAsync: getUser } = useMutation({ mutationFn: userMe });
 
@@ -51,7 +53,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   }, [currentUser, refresh]);
 
   const value = useMemo(
-    () => ({ user: userQuery, currentUser, refresh, refreshAvatar }),
+    () => ({ user: userQuery || currentUser, refresh, refreshAvatar }),
     [currentUser, userQuery, refresh, refreshAvatar]
   );
 

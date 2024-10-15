@@ -76,7 +76,6 @@ export const viewRoSchema = viewVoSchema
       [ViewType.Grid]: gridViewOptionSchema,
       [ViewType.Plugin]: pluginViewOptionSchema,
     } as const;
-    console.log('type in optionsSchemaMap', type in optionsSchemaMap);
     if (!(type in optionsSchemaMap)) {
       return ctx.addIssue({
         path: ['options'],
