@@ -22,11 +22,11 @@ import {
   updateFieldRoSchema,
   IUpdateFieldRo,
 } from '@teable/core';
-import {
-  deleteFieldsQuerySchema,
-  IDeleteFieldsQuery,
-  type IPlanFieldConvertVo,
-  type IPlanFieldVo,
+import { deleteFieldsQuerySchema, IDeleteFieldsQuery } from '@teable/openapi';
+import type {
+  IGetViewFilterLinkRecordsVo,
+  IPlanFieldConvertVo,
+  IPlanFieldVo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
@@ -135,6 +135,15 @@ export class FieldOpenApiController {
     @Headers('x-window-id') windowId: string
   ) {
     await this.fieldOpenApiService.deleteFields(tableId, query.fieldIds, windowId);
+  }
+
+  @Permissions('field|update')
+  @Get('/:fieldId/filter-link-records')
+  async getFilterLinkRecords(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<IGetViewFilterLinkRecordsVo> {
+    return this.fieldOpenApiService.getFilterLinkRecords(tableId, fieldId);
   }
 
   @Permissions('field|read')

@@ -155,18 +155,21 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
         component: props.components,
       }}
     >
-      <div className={cn('flex flex-1 flex-col overflow-auto', contentClassName)}>
-        {children.map((condition, index) => (
-          <Condition
-            key={index}
-            index={index}
-            value={condition}
-            path={['children', index]}
-            depth={0}
-            conjunction={conjunction}
-          />
-        ))}
-      </div>
+      {children.length > 0 && (
+        <div className={cn('flex flex-1 flex-col overflow-auto', contentClassName)}>
+          {children.map((condition, index) => (
+            <Condition
+              key={index}
+              index={index}
+              value={condition}
+              path={['children', index]}
+              depth={0}
+              conjunction={conjunction}
+            />
+          ))}
+        </div>
+      )}
+
       {footer}
     </BaseFilterContext.Provider>
   );

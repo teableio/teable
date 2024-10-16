@@ -66,13 +66,18 @@ export class ShareService {
   ) {}
 
   async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
-    const { shareId, tableId, view } = shareInfo;
+    const { shareId, tableId, view, linkOptions } = shareInfo;
+    const { id, group, shareMeta } = view ?? {};
+    const { filterByViewId, filter, hiddenFieldIds } = linkOptions ?? {};
+    const viewId = filterByViewId ?? id;
 
-    const { id: viewId, group, shareMeta } = view ?? {};
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId,
-      filterHidden: !shareMeta?.includeHiddenField,
+      filterHidden: Boolean(filterByViewId) || !shareMeta?.includeHiddenField,
     });
+    const filteredFields = hiddenFieldIds?.length
+      ? fields.filter((f) => !hiddenFieldIds?.includes(f.id))
+      : fields;
 
     let records: IRecordsVo['records'] = [];
     let extra: IRecordsVo['extra'];
@@ -81,9 +86,10 @@ export class ShareService {
         viewId,
         skip: 0,
         take: 50,
+        filter,
         groupBy: group,
         fieldKeyType: FieldKeyType.Id,
-        projection: fields.map((f) => f.id),
+        projection: filteredFields.map((f) => f.id),
       });
       records = recordsData.records;
       extra = recordsData.extra;
@@ -95,7 +101,7 @@ export class ShareService {
       tableId,
       viewId,
       view: view ? this.viewService.convertViewVoAttachmentUrl(view) : undefined,
-      fields,
+      fields: filteredFields,
       records,
       extra,
     };
@@ -131,9 +137,16 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query?: IShareViewRowCountRo
   ): Promise<IRowCountVo> {
-    const viewId = shareInfo.view?.id;
+    const { view, linkOptions } = shareInfo;
+    const { id } = view ?? {};
+    const { filterByViewId, filter } = linkOptions ?? {};
+    const viewId = filterByViewId ?? id;
     const tableId = shareInfo.tableId;
-    const result = await this.aggregationService.performRowCount(tableId, { viewId, ...query });
+    const result = await this.aggregationService.performRowCount(tableId, {
+      viewId,
+      filter,
+      ...query,
+    });
 
     return {
       rowCount: result.rowCount,
@@ -224,10 +237,13 @@ export class ShareService {
   }
 
   async getFormLinkRecords(field: IFieldVo, query: IShareViewLinkRecordsRo) {
-    const { lookupFieldId, foreignTableId } = field.options as ILinkFieldOptions;
+    const { lookupFieldId, foreignTableId, filter, filterByViewId } =
+      field.options as ILinkFieldOptions;
     const { take, skip, search } = query;
 
     return this.recordService.getRecords(foreignTableId, {
+      viewId: filterByViewId ?? undefined,
+      filter,
       take,
       skip,
       search: search ? [search, lookupFieldId] : undefined,

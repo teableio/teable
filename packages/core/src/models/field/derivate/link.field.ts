@@ -1,5 +1,6 @@
 import { IdPrefix } from '../../../utils';
 import { z } from '../../../zod';
+import { filterSchema } from '../../view';
 import type { FieldType, CellValueType } from '../constant';
 import { Relationship } from '../constant';
 import { FieldCore } from '../field';
@@ -36,6 +37,13 @@ export const linkFieldOptionsSchema = z
     symmetricFieldId: z.string().optional().openapi({
       description: 'the symmetric field in the foreign table, empty if the field is a one-way link',
     }),
+    filterByViewId: z.string().nullable().optional().openapi({
+      description: 'the view id that limits the number of records in the link field',
+    }),
+    hiddenFieldIds: z.array(z.string()).nullable().optional().openapi({
+      description: 'the fields that will be hidden in the link field',
+    }),
+    filter: filterSchema.optional(),
   })
   .strip();
 
@@ -46,6 +54,9 @@ export const linkFieldOptionsRoSchema = linkFieldOptionsSchema.pick({
   relationship: true,
   foreignTableId: true,
   isOneWay: true,
+  filterByViewId: true,
+  hiddenFieldIds: true,
+  filter: true,
 });
 
 export type ILinkFieldOptionsRo = z.infer<typeof linkFieldOptionsRoSchema>;

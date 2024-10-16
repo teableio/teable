@@ -40,14 +40,24 @@ export class ShareSocketService {
     return this.viewService.getSnapshotBulk(tableId, [view.id]);
   }
 
-  getFieldDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetFieldsQuery = {}) {
-    const { tableId, view } = shareInfo;
+  async getFieldDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetFieldsQuery = {}) {
+    const { tableId, view, linkOptions } = shareInfo;
+    const { filterByViewId, hiddenFieldIds } = linkOptions ?? {};
+    const viewId = filterByViewId ?? view?.id;
     const filterHidden = !view?.shareMeta?.includeHiddenField;
-    return this.fieldService.getDocIdsByQuery(tableId, {
+
+    const { ids: fieldIds } = await this.fieldService.getDocIdsByQuery(tableId, {
       ...query,
-      viewId: view?.id,
-      filterHidden,
+      viewId,
+      filterHidden: Boolean(filterByViewId) || filterHidden,
     });
+
+    if (hiddenFieldIds?.length) {
+      return {
+        ids: fieldIds.filter((id) => !hiddenFieldIds?.includes(id)),
+      };
+    }
+    return { ids: fieldIds };
   }
 
   async getFieldSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
@@ -59,12 +69,22 @@ export class ShareSocketService {
         `Field(${unPermissionIds.join(',')}) permission not allowed: read`
       );
     }
-    return this.fieldService.getSnapshotBulk(tableId, ids);
+    return this.fieldService.getSnapshotBulk(tableId, fieldIds);
   }
 
-  getRecordDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetRecordsRo) {
-    const { tableId, view } = shareInfo;
-    return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId: view?.id });
+  async getRecordDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetRecordsRo) {
+    const { tableId, view, linkOptions } = shareInfo;
+    const { id } = view ?? {};
+    const { filterByViewId, hiddenFieldIds } = linkOptions ?? {};
+    const viewId = filterByViewId ?? id;
+    const filter = linkOptions?.filter ?? query.filter;
+    let projection = query.projection;
+
+    if (filterByViewId || hiddenFieldIds?.length) {
+      projection = (await this.getFieldDocIdsByQuery(shareInfo, query)).ids;
+    }
+
+    return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId, filter, projection });
   }
 
   async getRecordSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { FieldKeyType, FieldOpBuilder, IFieldRo } from '@teable/core';
+import { FieldKeyType, FieldOpBuilder, FieldType, IFieldRo } from '@teable/core';
 import type {
   IFieldVo,
   IConvertFieldRo,
@@ -22,6 +22,7 @@ import { FieldCalculationService } from '../../calculation/field-calculation.ser
 import type { IOpsMap } from '../../calculation/reference.service';
 import { GraphService } from '../../graph/graph.service';
 import { RecordService } from '../../record/record.service';
+import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { FieldConvertingService } from '../field-calculate/field-converting.service';
 import { FieldCreatingService } from '../field-calculate/field-creating.service';
@@ -44,6 +45,7 @@ export class FieldOpenApiService {
     private readonly prismaService: PrismaService,
     private readonly fieldService: FieldService,
     private readonly viewService: ViewService,
+    private readonly viewOpenApiService: ViewOpenApiService,
     private readonly fieldCreatingService: FieldCreatingService,
     private readonly fieldDeletingService: FieldDeletingService,
     private readonly fieldConvertingService: FieldConvertingService,
@@ -466,5 +468,17 @@ export class FieldOpenApiService {
     }
 
     return newFieldVo;
+  }
+
+  async getFilterLinkRecords(tableId: string, fieldId: string) {
+    const field = await this.fieldService.getField(tableId, fieldId);
+
+    if (field.type !== FieldType.Link) return [];
+
+    const { filter, foreignTableId } = field.options as ILinkFieldOptions;
+
+    if (!foreignTableId || !filter) return [];
+
+    return this.viewOpenApiService.getFilterLinkRecordsByTable(foreignTableId, filter);
   }
 }

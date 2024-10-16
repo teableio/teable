@@ -223,7 +223,11 @@
       "enableValidateFieldUnique": "Включить проверку на уникальность значения",
       "enableValidateFieldNotNull": "Включить проверку на ненулевое значение",
       "knowMore": "узнать больше",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link"
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "filterByView": "Фильтровать записи по представлению",
+      "filter": "Фильтровать записи",
+      "hideFields": "Скрыть поля",
+      "moreOptions": "Дополнительные параметры"
     },
     "subTitle": {
       "link": "Связать с записями в выбранной таблице",

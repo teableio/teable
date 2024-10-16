@@ -484,9 +484,9 @@ export const useCreateCellValue2GridDisplay = () => {
   );
 };
 
-export function useGridColumns(hasMenu?: boolean) {
+export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
   const view = useView() as GridView | undefined;
-  const fields = useFields();
+  const originFields = useFields();
   const totalFields = useFields({ withHidden: true, withDenied: true });
   const fieldEditable = useFieldCellEditable();
   const { resolvedTheme } = useTheme();
@@ -494,6 +494,11 @@ export function useGridColumns(hasMenu?: boolean) {
   const group = view?.group;
   const filter = view?.filter;
   const isAutoSort = sort && !sort?.manualSort;
+
+  const fields = useMemo(() => {
+    const hiddenSet = new Set(hiddenFieldIds ?? []);
+    return originFields.filter((field) => !hiddenSet.has(field.id));
+  }, [originFields, hiddenFieldIds]);
 
   const sortFieldIds = useMemo(() => {
     if (!isAutoSort) return;

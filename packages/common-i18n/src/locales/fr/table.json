@@ -223,7 +223,11 @@
       "enableValidateFieldUnique": "Activer la validation des valeurs uniques",
       "enableValidateFieldNotNull": "Activer la validation des valeurs non nulles",
       "knowMore": "en savoir plus",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link"
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "filterByView": "Filtrer les enregistrements par vue",
+      "filter": "Filtrer les enregistrements",
+      "hideFields": "Masquer les champs",
+      "moreOptions": "Plus d'options"
     },
     "subTitle": {
       "link": "Lien vers les enregistrements dans la table que vous choisissez",
