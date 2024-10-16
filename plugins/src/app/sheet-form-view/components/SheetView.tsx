@@ -5,7 +5,7 @@ import { Share2 } from '@teable/icons';
 import { getViewInstallPlugin, updateViewPluginStorage } from '@teable/openapi';
 
 import type { IFieldInstance } from '@teable/sdk';
-import { useView, useFields, useFieldStaticGetter, useTableId } from '@teable/sdk';
+import { useView, useFields, useFieldStaticGetter, useTableId, useBaseId } from '@teable/sdk';
 import {
   Button,
   ToggleGroup,
@@ -38,6 +38,7 @@ export const SheetView = () => {
   const view = useView();
   const viewId = view?.id;
   const tableId = useTableId();
+  const baseId = useBaseId();
   const fieldStaticGetter = useFieldStaticGetter();
   const selectedField = useRef<IFieldInstance>();
   const [insertedFields, setInsertedFields] = useState<string[]>([]);
@@ -222,7 +223,7 @@ export const SheetView = () => {
                   onDragDrop={onDragDrop}
                 />
               ) : (
-                <PreviewPanel workBookData={workBookData} />
+                <PreviewPanel workBookData={workBookData} baseId={baseId} />
               )}
             </div>
           </div>

@@ -1,7 +1,7 @@
 {
   "toolbar": {
     "design": "设计",
-    "previewAndSave": "预览并保存",
+    "previewAndSave": "预览",
     "share": "分享",
     "insertCell": "插入单元格",
     "submit": "提交"
@@ -16,7 +16,8 @@
     "coordinate": "坐标",
     "validateError": "数据校验失败",
     "errorInfo": "错误信息",
-    "unknownError": "未知错误"
+    "unknownError": "未知错误",
+    "unTitle": "未命名"
   },
   "share": {
     "label": "分享",
