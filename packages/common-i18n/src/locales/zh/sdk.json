@@ -72,6 +72,7 @@
       "unselected": "未选择",
       "selected": "已选择",
       "expandRecordError": "无权查看此记录",
+      "alreadyOpen": "此记录已被打开",
       "goToForeignTable": "跳转至关联表"
     },
     "user": {
@@ -669,10 +670,10 @@
       "desc": "降序"
     },
     "limit": {
-      "title": "跳过"
+      "title": "查询数量"
     },
     "offset": {
-      "title": "查询数量"
+      "title": "跳过"
     },
     "join": {
       "title": "连接",

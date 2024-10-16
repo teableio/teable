@@ -268,5 +268,15 @@
     "fromSpace": "来自 \"{{name}}\" 空间",
     "permanentDeleteTips": "确定要永久删除 \"{{name}}\" {{resource}}吗？",
     "resetTrashConfirm": "确定要清空回收站吗？"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "插件未设置 URL",
+    "install": "安装",
+    "publisher": "发布者",
+    "lastUpdated": "最后更新",
+    "pluginNotFound": "插件未找到",
+    "pluginEmpty": {
+      "title": "暂无插件"
+    }
   }
 }

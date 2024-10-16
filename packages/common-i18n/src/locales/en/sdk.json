@@ -60,6 +60,7 @@
       "unselected": "Unselected",
       "selected": "Selected",
       "expandRecordError": "No permission to view this record.",
+      "alreadyOpen": "This record is already open.",
       "goToForeignTable": "Go to foreign table"
     },
     "user": {

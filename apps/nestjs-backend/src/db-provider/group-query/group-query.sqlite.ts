@@ -1,8 +1,9 @@
-import { TimeFormatting } from '@teable/core';
-import type { INumberFieldOptions, IDateFieldOptions } from '@teable/core';
+import type { DateFormattingPreset, INumberFieldOptions, IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IFieldInstance } from '../../features/field/model/factory';
+import { isUserOrLink } from '../../utils/is-user-or-link';
 import { getOffset } from '../search-query/get-offset';
+import { getSqliteDateTimeFormatString } from './format-string';
 import { AbstractGroupQuery } from './group-query.abstract';
 import type { IGroupQueryExtra } from './group-query.interface';
 
@@ -47,21 +48,21 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
   }
 
   date(field: IFieldInstance): Knex.QueryBuilder {
-    if (!field) return this.originQueryBuilder;
-
     const { dbFieldName, options } = field;
-    const { time, timeZone } = (options as IDateFieldOptions).formatting;
-
-    if (time !== TimeFormatting.None) {
-      const column = this.knex.ref(dbFieldName);
-      return this.isDistinct
-        ? this.originQueryBuilder.countDistinct(dbFieldName)
-        : this.originQueryBuilder.select(column).groupBy(dbFieldName);
-    }
-
+    const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
+    const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
     const offsetStr = `${getOffset(timeZone)} hour`;
-    const column = this.knex.raw('DATE(??, ?) as ??', [dbFieldName, offsetStr, dbFieldName]);
-    const groupByColumn = this.knex.raw('DATE(??, ?)', [dbFieldName, offsetStr]);
+    const column = this.knex.raw('strftime(?, DATETIME(??, ?)) as ??', [
+      formatString,
+      dbFieldName,
+      offsetStr,
+      dbFieldName,
+    ]);
+    const groupByColumn = this.knex.raw('strftime(?, DATETIME(??, ?))', [
+      formatString,
+      dbFieldName,
+      offsetStr,
+    ]);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
@@ -70,46 +71,67 @@ export class GroupQuerySqlite extends AbstractGroupQuery {
   }
 
   json(field: IFieldInstance): Knex.QueryBuilder {
-    if (!field) return this.originQueryBuilder;
-
-    const { dbFieldName } = field;
-    const column = this.knex.raw(`CAST(?? as text) as ??`, [dbFieldName, dbFieldName]);
+    const { type, dbFieldName, isMultipleCellValue } = field;
 
     if (this.isDistinct) {
+      if (isUserOrLink(type)) {
+        if (!isMultipleCellValue) {
+          const groupByColumn = this.knex.raw(
+            `json_extract(??, '$.id') || json_extract(??, '$.title')`,
+            [dbFieldName, dbFieldName]
+          );
+          return this.originQueryBuilder.countDistinct(groupByColumn);
+        }
+        const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
+          dbFieldName,
+        ]);
+        return this.originQueryBuilder.countDistinct(groupByColumn);
+      }
       return this.originQueryBuilder.countDistinct(dbFieldName);
     }
+
+    if (isUserOrLink(type)) {
+      if (!isMultipleCellValue) {
+        const groupByColumn = this.knex.raw(
+          `json_extract(??, '$.id') || json_extract(??, '$.title')`,
+          [dbFieldName, dbFieldName]
+        );
+        return this.originQueryBuilder.select(dbFieldName).groupBy(groupByColumn);
+      }
+
+      const groupByColumn = this.knex.raw(`json_extract(??, '$[0].id', '$[0].title')`, [
+        dbFieldName,
+      ]);
+      return this.originQueryBuilder.select(dbFieldName).groupBy(groupByColumn);
+    }
+
+    const column = this.knex.raw(`CAST(?? as text) as ??`, [dbFieldName, dbFieldName]);
     return this.originQueryBuilder.select(column).groupBy(dbFieldName);
   }
 
   multipleDate(field: IFieldInstance): Knex.QueryBuilder {
     const { dbFieldName, options } = field;
-    const { time, timeZone } = (options as IDateFieldOptions).formatting;
-
-    if (time !== TimeFormatting.None) {
-      const column = this.knex.ref(dbFieldName);
-      return this.isDistinct
-        ? this.originQueryBuilder.countDistinct(dbFieldName)
-        : this.originQueryBuilder.select(column).groupBy(dbFieldName);
-    }
+    const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
+    const formatString = getSqliteDateTimeFormatString(date as DateFormattingPreset, time);
 
     const offsetStr = `${getOffset(timeZone)} hour`;
     const column = this.knex.raw(
       `
       (
-        SELECT json_group_array(DATE(value, ?))
+        SELECT json_group_array(strftime(?, DATETIME(value, ?)))
         FROM json_each(??)
       ) as ??
       `,
-      [offsetStr, dbFieldName, dbFieldName]
+      [formatString, offsetStr, dbFieldName, dbFieldName]
     );
     const groupByColumn = this.knex.raw(
       `
       (
-        SELECT json_group_array(DATE(value, ?))
+        SELECT json_group_array(strftime(?, DATETIME(value, ?)))
         FROM json_each(??)
       )
       `,
-      [offsetStr, dbFieldName]
+      [formatString, offsetStr, dbFieldName]
     );
 
     if (this.isDistinct) {

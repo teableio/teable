@@ -16,6 +16,7 @@ import type {
   IFilter,
   IFilterItem,
   ILinkFieldOptions,
+  IPluginViewOptions,
 } from '@teable/core';
 import {
   ViewType,
@@ -26,12 +27,16 @@ import {
   validateOptionsType,
   FieldType,
   IdPrefix,
+  generatePluginInstallId,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { PluginPosition, PluginStatus } from '@teable/openapi';
 import type {
+  IViewPluginUpdateStorageRo,
   IGetViewFilterLinkRecordsVo,
   IUpdateOrderRo,
   IUpdateRecordOrdersRo,
+  IViewInstallPluginRo,
   IViewShareMetaRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -48,6 +53,7 @@ import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
+import { createViewInstanceByRaw } from '../model/factory';
 import { ViewService } from '../view.service';
 
 @Injectable()
@@ -66,6 +72,13 @@ export class ViewOpenApiService {
   ) {}
 
   async createView(tableId: string, viewRo: IViewRo) {
+    if (viewRo.type === ViewType.Plugin) {
+      const res = await this.pluginInstall(tableId, {
+        name: viewRo.name,
+        pluginId: (viewRo.options as IPluginViewOptions).pluginId,
+      });
+      return this.viewService.getViewById(res.viewId);
+    }
     return await this.prismaService.$tx(async () => {
       return this.createViewInner(tableId, viewRo);
     });
@@ -213,23 +226,7 @@ export class ViewOpenApiService {
   }
 
   async updateShareMeta(tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) {
-    const curView = await this.prismaService.view
-      .findFirstOrThrow({
-        select: { type: true },
-        where: { tableId, id: viewId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new BadRequestException('View not found');
-      });
-
-    // allow copy view type
-    if (
-      'allowCopy' in viewShareMetaRo &&
-      ![ViewType.Grid, ViewType.Gantt].includes(curView.type as ViewType)
-    ) {
-      throw new BadRequestException(`View type(${curView.type}) not support copy`);
-    }
-    return await this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
+    return this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
   }
 
   async setViewProperty(
@@ -608,7 +605,6 @@ export class ViewOpenApiService {
   async enableShare(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
-      select: { shareId: true, enableShare: true },
     });
     if (!view) {
       throw new NotFoundException(`View ${viewId} does not exist`);
@@ -628,7 +624,18 @@ export class ViewOpenApiService {
       newValue: newShareId,
       oldValue: shareId || undefined,
     });
-    await this.updateViewByOps(tableId, viewId, [enableShareOp, setShareIdOp]);
+
+    const ops = [enableShareOp, setShareIdOp];
+
+    const viewInstance = createViewInstanceByRaw(view);
+    if (!view.shareMeta && viewInstance.defaultShareMeta) {
+      const initShareMetaOp = ViewOpBuilder.editor.setViewProperty.build({
+        key: 'shareMeta',
+        newValue: viewInstance.defaultShareMeta,
+      });
+      ops.push(initShareMetaOp);
+    }
+    await this.updateViewByOps(tableId, viewId, ops);
     return { shareId: newShareId };
   }
 
@@ -761,5 +768,98 @@ export class ViewOpenApiService {
       });
     }
     return res;
+  }
+
+  async pluginInstall(tableId: string, ro: IViewInstallPluginRo) {
+    const userId = this.cls.get('user.id');
+    const { name, pluginId } = ro;
+    const plugin = await this.prismaService.plugin.findUnique({
+      where: { id: pluginId, status: PluginStatus.Published },
+      select: { id: true, name: true, logo: true, positions: true },
+    });
+    if (!plugin) {
+      throw new NotFoundException(`Plugin ${pluginId} not found`);
+    }
+    if (!plugin.positions.includes(PluginPosition.View)) {
+      throw new BadRequestException(`Plugin ${pluginId} does not support install in view`);
+    }
+    const viewName = name || plugin.name;
+    return this.prismaService.$tx(async (prisma) => {
+      const pluginInstallId = generatePluginInstallId();
+      const view = await this.createViewInner(tableId, {
+        name: viewName,
+        type: ViewType.Plugin,
+        options: {
+          pluginInstallId,
+          pluginId,
+          pluginLogo: plugin.logo,
+        } as IPluginViewOptions,
+      });
+      const table = await prisma.tableMeta.findUniqueOrThrow({
+        where: { id: tableId, deletedTime: null },
+        select: { baseId: true },
+      });
+      const newPlugin = await prisma.pluginInstall.create({
+        data: {
+          id: pluginInstallId,
+          baseId: table?.baseId,
+          positionId: view.id,
+          position: PluginPosition.View,
+          name: viewName,
+          pluginId: ro.pluginId,
+          createdBy: userId,
+        },
+      });
+      return {
+        pluginId: newPlugin.pluginId,
+        pluginInstallId: newPlugin.id,
+        name: newPlugin.name,
+        viewId: view.id,
+      };
+    });
+  }
+
+  async updatePluginStorage(viewId: string, storage: IViewPluginUpdateStorageRo['storage']) {
+    const pluginInstall = await this.prismaService.pluginInstall.findFirst({
+      where: { positionId: viewId, position: PluginPosition.View },
+      select: { id: true },
+    });
+    if (!pluginInstall) {
+      throw new NotFoundException(`Plugin install not found`);
+    }
+    return this.prismaService.pluginInstall.update({
+      where: { id: pluginInstall.id },
+      data: { storage: JSON.stringify(storage) },
+    });
+  }
+
+  async getPluginInstall(tableId: string, viewId: string) {
+    const table = await this.prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { baseId: true },
+    });
+    const pluginInstall = await this.prismaService.pluginInstall.findFirst({
+      where: { positionId: viewId, position: PluginPosition.View },
+      select: {
+        id: true,
+        pluginId: true,
+        name: true,
+        storage: true,
+        plugin: {
+          select: { url: true },
+        },
+      },
+    });
+    if (!pluginInstall) {
+      throw new NotFoundException(`Plugin install not found`);
+    }
+    return {
+      name: pluginInstall.name,
+      pluginId: pluginInstall.pluginId,
+      pluginInstallId: pluginInstall.id,
+      storage: pluginInstall.storage ? JSON.parse(pluginInstall.storage) : undefined,
+      baseId: table.baseId,
+      url: pluginInstall.plugin.url || undefined,
+    };
   }
 }

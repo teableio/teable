@@ -20,6 +20,10 @@ import { requestWrap } from '../../utils/requestWrap';
 import type { IFieldInstance } from '../field/factory';
 
 export class Record extends RecordCore {
+  private _title?: {
+    value?: string;
+  };
+
   static createRecords = requestWrap((tableId: string, recordsRo: ICreateRecordsRo) =>
     createRecords(tableId, recordsRo)
   );
@@ -44,6 +48,23 @@ export class Record extends RecordCore {
     protected fieldMap: { [fieldId: string]: IFieldInstance }
   ) {
     super(fieldMap);
+  }
+
+  get title() {
+    if (!this.fieldMap) {
+      return undefined;
+    }
+    if (!this._title) {
+      const primaryFieldId = Object.values(this.fieldMap).find((field) => field.isPrimary)?.id;
+      const primaryField = primaryFieldId ? this.fieldMap[primaryFieldId] : undefined;
+      if (!primaryFieldId || !primaryField) {
+        return undefined;
+      }
+      this._title = {
+        value: primaryField.cellValue2String(this.fields[primaryFieldId]),
+      };
+    }
+    return this._title.value;
   }
 
   private onCommitLocal(fieldId: string, cellValue: unknown, undo?: boolean) {

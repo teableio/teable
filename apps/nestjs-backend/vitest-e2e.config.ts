@@ -6,7 +6,14 @@ const timeout = process.env.CI ? 30000 : 10000;
 const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
 
 export default defineConfig({
-  plugins: [swc.vite({}), tsconfigPaths()],
+  plugins: [
+    swc.vite({
+      jsc: {
+        target: 'es2022',
+      },
+    }),
+    tsconfigPaths(),
+  ],
   cacheDir: '../../.cache/vitest/nestjs-backend/e2e',
   test: {
     globals: true,

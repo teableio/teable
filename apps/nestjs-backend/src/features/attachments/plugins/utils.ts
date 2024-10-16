@@ -11,3 +11,7 @@ export const getFullStorageUrl = (bucket: string, path: string) => {
   }
   return storagePrefix + join('/', bucket, path);
 };
+
+export const generateCutImagePath = (path: string, width: number, height: number) => {
+  return `${path}_${width}_${height}`;
+};

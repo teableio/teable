@@ -11,7 +11,7 @@ ENV NODE_ENV=production
 ENV BUILD_VERSION=$BUILD_VERSION
 
 RUN set -eux; \
-        npm install zx @soluble/dsn-parser \
+        npm install zx @httpx/dsn-parser \
                        @prisma/client@${PRISMA_VERSION} \
                        prisma@${PRISMA_VERSION} -g; \
         apt-get update; \

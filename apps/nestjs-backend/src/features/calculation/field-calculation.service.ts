@@ -156,7 +156,7 @@ export class FieldCalculationService {
       return [];
     }
 
-    return this.referenceService.getAffectedRecordItems(
+    return this.referenceService.getRelatedItems(
       startFieldIds,
       fieldMap,
       linkAdjacencyMap,

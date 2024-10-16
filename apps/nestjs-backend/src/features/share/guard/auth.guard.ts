@@ -1,5 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { AuthGuard as PassportAuthGuard } from '@nestjs/passport';
 import { ANONYMOUS_USER_ID, HttpErrorCode, IdPrefix } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
@@ -8,13 +9,15 @@ import type { IClsStore } from '../../../types/cls';
 import { AuthGuard } from '../../auth/guard/auth.guard';
 import { ShareAuthService } from '../share-auth.service';
 import { SHARE_JWT_STRATEGY } from './constant';
+import { IS_SHARE_SUBMIT_KEY } from './submit.decorator';
 
 @Injectable()
 export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
   constructor(
     private readonly shareAuthService: ShareAuthService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly authGuard: AuthGuard
+    private readonly authGuard: AuthGuard,
+    private readonly reflector: Reflector
   ) {
     super();
   }
@@ -30,9 +33,19 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
       return activate;
     }
 
+    const shareInfo = await this.shareAuthService.getShareViewInfo(shareId);
+
     try {
-      const shareInfo = await this.shareAuthService.getShareViewInfo(shareId);
       req.shareInfo = shareInfo;
+      // submit route
+      const isShareSubmit = this.reflector.getAllAndOverride<boolean>(IS_SHARE_SUBMIT_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      const submit = shareInfo.shareMeta?.submit;
+      if (isShareSubmit && submit?.allow && submit?.requireLogin) {
+        return this.authGuard.validate(context);
+      }
 
       this.cls.set('user', {
         id: ANONYMOUS_USER_ID,

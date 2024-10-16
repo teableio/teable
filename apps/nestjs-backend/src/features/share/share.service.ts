@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
 import { FieldKeyType, FieldType, ViewType } from '@teable/core';
@@ -22,6 +23,8 @@ import {
   type IRecordsVo,
   type IShareViewCollaboratorsRo,
   UploadType,
+  ShareViewLinkRecordsType,
+  PluginPosition,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty, pick } from 'lodash';
@@ -66,8 +69,8 @@ export class ShareService {
   ) {}
 
   async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
-    const { shareId, tableId, view, linkOptions } = shareInfo;
-    const { id, group, shareMeta } = view ?? {};
+    const { shareId, tableId, view, linkOptions, shareMeta } = shareInfo;
+    const { id, group } = view ?? {};
     const { filterByViewId, filter, hiddenFieldIds } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
 
@@ -80,8 +83,8 @@ export class ShareService {
       : fields;
 
     let records: IRecordsVo['records'] = [];
-    let extra: IRecordsVo['extra'];
-    if (view?.type !== ViewType.Form) {
+    let extra: ShareViewGetVo['extra'];
+    if (shareMeta?.includeRecords) {
       const recordsData = await this.recordService.getRecords(tableId, {
         viewId,
         skip: 0,
@@ -93,6 +96,38 @@ export class ShareService {
       });
       records = recordsData.records;
       extra = recordsData.extra;
+    }
+
+    if (view?.type === ViewType.Plugin) {
+      const pluginInstall = await this.prismaService.pluginInstall.findFirst({
+        where: { positionId: viewId, position: PluginPosition.View },
+        select: {
+          id: true,
+          pluginId: true,
+          name: true,
+          storage: true,
+          plugin: {
+            select: {
+              url: true,
+            },
+          },
+        },
+      });
+      if (!pluginInstall) {
+        throw new NotFoundException(`Plugin install not found`);
+      }
+      const plugin = {
+        pluginId: pluginInstall.pluginId,
+        pluginInstallId: pluginInstall.id,
+        name: pluginInstall.name,
+        storage: pluginInstall.storage ? JSON.parse(pluginInstall.storage) : undefined,
+        url: pluginInstall.plugin.url || undefined,
+      };
+      if (extra) {
+        extra.plugin = plugin;
+      } else {
+        extra = { plugin: plugin };
+      }
     }
 
     return {
@@ -111,17 +146,26 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query: IShareViewAggregationsRo = {}
   ): Promise<IAggregationVo> {
+    const { tableId, shareMeta } = shareInfo;
+    if (!shareMeta?.includeRecords) {
+      return { aggregations: [] };
+    }
     const viewId = shareInfo.view?.id;
-    const tableId = shareInfo.tableId;
     const filter = query?.filter ?? null;
     const groupBy = query?.groupBy ?? null;
     const fieldStats: Array<{ fieldId: string; statisticFunc: StatisticsFunc }> = [];
     if (query?.field) {
       Object.entries(query.field).forEach(([key, value]) => {
-        const stats = value.map((fieldId) => ({
-          fieldId,
-          statisticFunc: key as StatisticsFunc,
-        }));
+        const stats = value.map((fieldId) => {
+          // check field hidden
+          if (shareInfo.view) {
+            this.preCheckFieldHidden(shareInfo.view as IViewVo, key);
+          }
+          return {
+            fieldId,
+            statisticFunc: key as StatisticsFunc,
+          };
+        });
         fieldStats.push(...stats);
       });
     }
@@ -137,7 +181,12 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query?: IShareViewRowCountRo
   ): Promise<IRowCountVo> {
-    const { view, linkOptions } = shareInfo;
+    const { view, linkOptions, shareMeta } = shareInfo;
+
+    if (!shareMeta?.includeRecords) {
+      return { rowCount: 0 };
+    }
+
     const { id } = view ?? {};
     const { filterByViewId, filter } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
@@ -154,14 +203,13 @@ export class ShareService {
   }
 
   async formSubmit(shareInfo: IShareViewInfo, shareViewFormSubmitRo: ShareViewFormSubmitRo) {
-    const { tableId, view } = shareInfo;
-    const { fields } = shareViewFormSubmitRo;
+    const { tableId, view, shareMeta } = shareInfo;
+    const { fields, typecast } = shareViewFormSubmitRo;
+    if (!shareMeta?.submit?.allow) {
+      throw new ForbiddenException('not allowed to submit');
+    }
     if (!view) {
       throw new ForbiddenException('view is required');
-    }
-
-    if (view.type !== ViewType.Form) {
-      throw new ForbiddenException('view type is not form');
     }
 
     const viewId = view.id;
@@ -183,9 +231,10 @@ export class ShareService {
 
     const { records } = await this.prismaService.$tx(async () => {
       this.cls.set('entry', { type: 'form', id: viewId });
-      return await this.recordOpenApiService.createRecords(tableId, {
+      return this.recordOpenApiService.createRecords(tableId, {
         records: [{ fields }],
         fieldKeyType: FieldKeyType.Id,
+        typecast,
       });
     });
     if (records.length === 0) {
@@ -195,7 +244,7 @@ export class ShareService {
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
-    if (shareInfo.view && !shareInfo.view.shareMeta?.allowCopy) {
+    if (!shareInfo.shareMeta?.allowCopy) {
       throw new ForbiddenException('not allowed to copy');
     }
 
@@ -205,7 +254,7 @@ export class ShareService {
     });
   }
 
-  private async preCheckFieldHidden(view: IViewVo, fieldId: string) {
+  private preCheckFieldHidden(view: IViewVo, fieldId: string) {
     // hidden check
     if (!view.shareMeta?.includeHiddenField && !isNotHiddenField(fieldId, view)) {
       throw new ForbiddenException('field is hidden, not allowed');
@@ -219,7 +268,7 @@ export class ShareService {
       throw new ForbiddenException('view is required');
     }
 
-    await this.preCheckFieldHidden(view as IViewVo, fieldId);
+    this.preCheckFieldHidden(view as IViewVo, fieldId);
 
     // link field check
     const field = await this.fieldService.getField(tableId, fieldId);
@@ -230,6 +279,11 @@ export class ShareService {
     let recordsVo: IRecordsVo;
     if (view.type === ViewType.Form) {
       recordsVo = await this.getFormLinkRecords(field, query);
+    } else if (view.type === ViewType.Plugin) {
+      recordsVo =
+        query.type === ShareViewLinkRecordsType.Candidate
+          ? await this.getFormLinkRecords(field, query)
+          : await this.getViewFilterLinkRecords(field, query);
     } else {
       recordsVo = await this.getViewFilterLinkRecords(field, query);
     }
@@ -272,12 +326,21 @@ export class ShareService {
     shareInfo: IShareViewInfo,
     query?: IShareViewGroupPointsRo
   ): Promise<IGroupPointsVo> {
+    if (!shareInfo.shareMeta?.includeRecords) {
+      return [];
+    }
     const viewId = shareInfo.view?.id;
     const tableId = shareInfo.tableId;
-
+    const view = shareInfo.view;
     if (viewId == null) return null;
 
-    return await this.aggregationService.getGroupPoints(tableId, { ...query, viewId });
+    if (view) {
+      query?.groupBy?.forEach(({ fieldId }) => {
+        this.preCheckFieldHidden(view, fieldId);
+      });
+    }
+
+    return this.aggregationService.getGroupPoints(tableId, { ...query, viewId });
   }
 
   async getViewCollaborators(shareInfo: IShareViewInfo, query: IShareViewCollaboratorsRo) {
@@ -289,7 +352,7 @@ export class ShareService {
     }
 
     // only form and kanban view can get all records
-    if ([ViewType.Form, ViewType.Kanban].includes(view.type)) {
+    if ([ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
       return this.getViewAllCollaborators(shareInfo);
     }
 

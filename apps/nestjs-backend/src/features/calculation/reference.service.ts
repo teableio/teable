@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import type {
   IFieldVo,
   ILinkCellValue,
@@ -522,7 +527,13 @@ export class ReferenceService {
       if (linkCellValues) {
         return linkCellValues
           .map((v) => {
-            return dependenciesIndexed[v.id];
+            const result = dependenciesIndexed[v.id];
+            if (!result) {
+              throw new InternalServerErrorException(
+                `Record not found for: ${JSON.stringify(v)}, fieldId: ${field.id}`
+              );
+            }
+            return result;
           })
           .map((depRecord) => depRecord.fields[fieldId]);
       }

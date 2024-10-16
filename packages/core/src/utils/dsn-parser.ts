@@ -1,5 +1,5 @@
-import type { parseDsnOrThrow } from '@soluble/dsn-parser';
-import { isParsableDsn as isParsable, parseDsn as parse } from '@soluble/dsn-parser';
+import type { parseDsnOrThrow } from '@httpx/dsn-parser';
+import { isParsableDsn as isParsable, parseDsn as parse } from '@httpx/dsn-parser';
 
 export type IDsn = ReturnType<typeof parseDsnOrThrow>;
 

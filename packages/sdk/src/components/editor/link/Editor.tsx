@@ -77,7 +77,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     if (recordId) {
       const existed = document.getElementById(`${foreignTableId}-${recordId}`);
       if (existed) {
-        toast({ description: 'This record is already open.' });
+        toast({ description: t('editor.link.alreadyOpen') });
         return;
       }
     }

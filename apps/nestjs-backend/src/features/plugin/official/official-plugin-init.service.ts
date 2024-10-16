@@ -14,6 +14,8 @@ import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { UserService } from '../../user/user.service';
 import { generateSecret } from '../utils';
 import { chartConfig } from './config/chart';
+import { sheetFormConfig } from './config/sheet-form-view';
+import type { IOfficialPluginConfig } from './config/types';
 
 @Injectable()
 export class OfficialPluginInitService implements OnModuleInit {
@@ -35,6 +37,13 @@ export class OfficialPluginInitService implements OnModuleInit {
         ...chartConfig,
         secret: this.configService.get<string>('PLUGIN_CHART_SECRET') || this.baseConfig.secretKey,
         url: `${this.baseConfig.publicOrigin}/plugin/chart`,
+      },
+      {
+        ...sheetFormConfig,
+        secret:
+          this.configService.get<string>('PLUGIN_SHEETFORMVIEW_SECRET') ||
+          this.baseConfig.secretKey,
+        url: `${this.baseConfig.publicOrigin}/plugin/sheet-form-view`,
       },
     ];
 
@@ -93,7 +102,9 @@ export class OfficialPluginInitService implements OnModuleInit {
     return `/${path}`;
   }
 
-  async createOfficialPlugin(pluginConfig: typeof chartConfig & { secret: string; url: string }) {
+  async createOfficialPlugin(
+    pluginConfig: IOfficialPluginConfig & { secret: string; url: string }
+  ) {
     const {
       id: pluginId,
       name,
@@ -113,20 +124,27 @@ export class OfficialPluginInitService implements OnModuleInit {
     // upload logo
     const logo = await this.uploadStatic(pluginId, logoPath, UploadType.Plugin);
     const { hashedSecret, maskedSecret } = await generateSecret(secret);
-    const userEmail = getPluginEmail(pluginId);
-    // create plugin user
-    const user = await this.prismaService
-      .txClient()
-      .user.findFirst({ where: { id: pluginUserId, email: userEmail } });
-    // upload user avatar
-    const avatar = await this.uploadStatic(pluginUserId, avatarPath, UploadType.Avatar);
-    if (!user) {
-      await this.userService.createSystemUser({
-        id: pluginUserId,
-        name,
-        avatar,
-        email: userEmail,
-      });
+    let userId: string | undefined;
+    if (pluginUserId) {
+      const userEmail = getPluginEmail(pluginId);
+      // create plugin user
+      const user = await this.prismaService
+        .txClient()
+        .user.findFirst({ where: { id: pluginUserId, email: userEmail } });
+      let avatar: string | undefined;
+      if (avatarPath) {
+        // upload user avatar
+        avatar = await this.uploadStatic(pluginUserId, avatarPath, UploadType.Avatar);
+      }
+      if (!user) {
+        await this.userService.createSystemUser({
+          id: pluginUserId,
+          name,
+          avatar,
+          email: userEmail,
+        });
+      }
+      userId = pluginUserId;
     }
     if (rows > 0) {
       return this.prismaService.txClient().plugin.update({
@@ -145,7 +163,7 @@ export class OfficialPluginInitService implements OnModuleInit {
           i18n: JSON.stringify(i18n),
           secret: hashedSecret,
           maskedSecret,
-          pluginUser: user?.id || pluginUserId,
+          pluginUser: userId || pluginUserId,
           createdBy: 'system',
         },
       });
@@ -178,7 +196,7 @@ export class OfficialPluginInitService implements OnModuleInit {
         i18n: JSON.stringify(i18n),
         secret: hashedSecret,
         maskedSecret,
-        pluginUser: user?.id || pluginUserId,
+        pluginUser: userId || pluginUserId,
         createdBy: 'system',
       },
     });

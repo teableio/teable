@@ -17,7 +17,6 @@ export const TablePermissionProvider = ({
   children: React.ReactNode;
 }) => {
   const tableId = useTableId();
-
   const { data: tablePermission, refetch } = useQuery({
     queryKey: ReactQueryKeys.getTablePermission(baseId!, tableId!),
     queryFn: ({ queryKey }) => getTablePermission(queryKey[1], queryKey[2]).then((res) => res.data),

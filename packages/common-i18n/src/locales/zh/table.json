@@ -23,7 +23,8 @@
         "URLSetting": "链接参数设置",
         "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，您需要复制带上新参数的链接以使其生效",
         "cancel": "取消",
-        "save": "保存"
+        "save": "保存",
+        "requireLogin": "需要登录提交"
       },
       "extensions": {
         "label": "插件",
@@ -387,7 +388,7 @@
       "customizeCards": "卡片配置",
       "stackedBy": "分组依据 <0/>",
       "chooseStackingField": "选择分组依据",
-      "chooseStackingFieldDescription": "您希望使用哪个单选或用户字段来设置看板？您的记录将根据这个字段来进行分组。",
+      "chooseStackingFieldDescription": "您希望使用哪个字段来设置看板？您的记录将根据这个字段来进行分组。",
       "hideEmptyStack": "隐藏空的分组",
       "imageSetting": "封面设置",
       "fit": "适应",
@@ -449,7 +450,8 @@
     "crash": {
       "title": "页面崩溃!",
       "description": "当前页面意外崩溃，请刷新重试，如果持续出现问题请咨询 support@teable.io 获取帮助"
-    }
+    },
+    "addPluginView": "添加视图插件"
   },
   "lastModifiedTime": "修改时间",
   "lastModify": "上次修改："

@@ -140,13 +140,13 @@ export const TableForm = (props: {
                       <PopoverContent className="space-y-2">
                         <ConfigItem label={t('form.width')}>
                           <NumberInput
-                            value={configColumnMap[column.column].width}
+                            value={configColumnMap[column.column]?.width}
                             onValueChange={(val) => onWidthChange(column.column, val)}
                           />
                         </ConfigItem>
                         <ConfigItem label={t('form.label')}>
                           <LabelInput
-                            value={configColumnMap[column.column].label}
+                            value={configColumnMap[column.column]?.label}
                             onChange={(val) => onLabelChange(column.column, val)}
                           />
                         </ConfigItem>

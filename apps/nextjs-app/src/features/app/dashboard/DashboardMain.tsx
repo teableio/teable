@@ -31,7 +31,7 @@ export const DashboardMain = (props: { dashboardId: string }) => {
   if (isEmpty(dashboardData?.pluginMap) && !isLoading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3">
-        <p>{t('dashboard:pluginEmpty.title')}</p>
+        <p>{t('common:pluginCenter.pluginEmpty.title')}</p>
         {canManage && (
           <AddPluginDialog dashboardId={dashboardId}>
             <Button size={'xs'}>

@@ -3,6 +3,9 @@ import { IdPrefix } from '../../../utils';
 import { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
+export const ATTACHMENT_SM_THUMBNAIL_HEIGHT = 56;
+export const ATTACHMENT_LG_THUMBNAIL_HEIGHT = 525;
+
 export const attachmentFieldOptionsSchema = z.object({}).strict();
 
 export type IAttachmentFieldOptions = z.infer<typeof attachmentFieldOptionsSchema>;
@@ -17,6 +20,10 @@ export const attachmentItemSchema = z.object({
   presignedUrl: z.string().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
+  smThumbnailPath: z.string().optional(),
+  lgThumbnailPath: z.string().optional(),
+  smThumbnailUrl: z.string().optional(),
+  lgThumbnailUrl: z.string().optional(),
 });
 
 export type IAttachmentItem = z.infer<typeof attachmentItemSchema>;

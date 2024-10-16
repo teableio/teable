@@ -322,6 +322,7 @@ export class PluginService {
         description: true,
         detailDesc: true,
         logo: true,
+        url: true,
         helpUrl: true,
         i18n: true,
         createdTime: true,

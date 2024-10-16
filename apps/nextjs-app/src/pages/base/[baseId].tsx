@@ -4,9 +4,11 @@ import { Trans, useTranslation } from 'next-i18next';
 import type { ReactElement } from 'react';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
+import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
+import withEnv from '@/lib/withEnv';
 
 const Node: NextPageWithLayout = () => {
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
@@ -44,29 +46,33 @@ const Node: NextPageWithLayout = () => {
   );
 };
 
-export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
-  const { baseId } = context.query;
-  const tables = await ssrApi.getTables(baseId as string);
-  const defaultTable = tables[0];
-  if (defaultTable) {
-    const defaultView = await ssrApi.getDefaultViewId(baseId as string, defaultTable.id);
-    return {
-      redirect: {
-        destination: `/base/${baseId}/${defaultTable.id}/${defaultView.id}`,
-        permanent: false,
-      },
-    };
-  }
-  const base = await ssrApi.getBaseById(baseId as string);
+export const getServerSideProps: GetServerSideProps = withEnv(
+  ensureLogin(
+    withAuthSSR(async (context, ssrApi) => {
+      const { baseId } = context.query;
+      const tables = await ssrApi.getTables(baseId as string);
+      const defaultTable = tables[0];
+      if (defaultTable) {
+        const defaultView = await ssrApi.getDefaultViewId(baseId as string, defaultTable.id);
+        return {
+          redirect: {
+            destination: `/base/${baseId}/${defaultTable.id}/${defaultView.id}`,
+            permanent: false,
+          },
+        };
+      }
+      const base = await ssrApi.getBaseById(baseId as string);
 
-  return {
-    props: {
-      tableServerData: tables,
-      baseServerData: base,
-      ...(await getTranslationsProps(context, ['common', 'sdk', 'table'])),
-    },
-  };
-});
+      return {
+        props: {
+          tableServerData: tables,
+          baseServerData: base,
+          ...(await getTranslationsProps(context, ['common', 'sdk', 'table'])),
+        },
+      };
+    })
+  )
+);
 
 Node.getLayout = function getLayout(
   page: ReactElement,

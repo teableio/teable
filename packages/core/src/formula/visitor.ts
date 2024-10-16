@@ -46,8 +46,38 @@ export class EvalVisitor
 
   visitStringLiteral(ctx: StringLiteralContext): any {
     // Extract and return the string value without quotes
-    const value = ctx.text.slice(1, -1);
-    return new TypedValue(value, CellValueType.String);
+    const quotedString = ctx.text;
+    const rawString = quotedString.slice(1, -1);
+    // Handle escape characters
+    const unescapedString = this.unescapeString(rawString);
+    return new TypedValue(unescapedString, CellValueType.String);
+  }
+
+  private unescapeString(str: string): string {
+    return str.replace(/\\(.)/g, (_, char) => {
+      switch (char) {
+        case 'n':
+          return '\n';
+        case 'r':
+          return '\r';
+        case 't':
+          return '\t';
+        case 'b':
+          return '\b';
+        case 'f':
+          return '\f';
+        case 'v':
+          return '\v';
+        case '\\':
+          return '\\';
+        case '"':
+          return '"';
+        case "'":
+          return "'";
+        default:
+          return '\\' + char;
+      }
+    });
   }
 
   visitIntegerLiteral(ctx: IntegerLiteralContext): any {
@@ -142,14 +172,6 @@ export class EvalVisitor
       return typedValue;
     }
 
-    if (
-      [CellValueType.Number, CellValueType.Boolean, CellValueType.String].includes(
-        field.cellValueType
-      )
-    ) {
-      return typedValue;
-    }
-
     if (field.isMultipleCellValue && field.cellValueType === CellValueType.Number) {
       if (!typedValue.value?.length) return null;
       if (typedValue.value.length > 1) {
@@ -160,6 +182,14 @@ export class EvalVisitor
       return new TypedValue(Number(typedValue.value[0]), CellValueType.Number);
     }
 
+    if (
+      [CellValueType.Number, CellValueType.Boolean, CellValueType.String].includes(
+        field.cellValueType
+      )
+    ) {
+      return typedValue;
+    }
+
     return new TypedValue(field.cellValue2String(typedValue.value), CellValueType.String);
   }
 
@@ -168,8 +198,8 @@ export class EvalVisitor
     const rightNode = ctx.expr(1);
     const left = this.visit(leftNode)!;
     const right = this.visit(rightNode)!;
-    const lv = this.transformNodeValue(left, ctx)?.value;
-    const rv = this.transformNodeValue(right, ctx)?.value;
+    const lv = this.transformNodeValue(left, ctx)?.value ?? null;
+    const rv = this.transformNodeValue(right, ctx)?.value ?? null;
 
     const valueType = this.getBinaryOpValueType(ctx, left, right);
     let value: any;

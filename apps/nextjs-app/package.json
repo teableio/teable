@@ -44,8 +44,8 @@
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start"
   },
   "devDependencies": {
-    "@next/bundle-analyzer": "14.1.4",
-    "@next/env": "14.1.4",
+    "@next/bundle-analyzer": "14.2.14",
+    "@next/env": "14.2.14",
     "@playwright/test": "1.42.1",
     "@size-limit/file": "11.1.2",
     "@svgr/webpack": "8.1.0",
@@ -72,7 +72,7 @@
     "dotenv-flow-cli": "1.1.1",
     "es-check": "7.1.1",
     "eslint": "8.57.0",
-    "eslint-config-next": "14.1.4",
+    "eslint-config-next": "14.2.14",
     "get-tsconfig": "4.7.3",
     "happy-dom": "14.3.6",
     "npm-run-all2": "6.1.2",
@@ -88,7 +88,7 @@
     "typescript": "5.4.3",
     "vite-plugin-svgr": "4.2.0",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "1.4.0"
+    "vitest": "1.6.0"
   },
   "dependencies": {
     "@antv/g6": "4.8.24",
@@ -139,7 +139,7 @@
     "lodash": "4.17.21",
     "lru-cache": "10.2.0",
     "lucide-react": "0.363.0",
-    "next": "14.1.4",
+    "next": "14.2.14",
     "next-i18next": "15.2.0",
     "next-secure-headers": "2.2.0",
     "next-seo": "6.5.0",
@@ -148,10 +148,10 @@
     "penpal": "6.2.2",
     "picocolors": "1.0.0",
     "qrcode.react": "3.1.0",
-    "react": "18.2.0",
+    "react": "18.3.1",
     "react-confetti": "6.1.0",
     "react-day-picker": "8.10.0",
-    "react-dom": "18.2.0",
+    "react-dom": "18.3.1",
     "react-error-boundary": "4.0.13",
     "react-grid-layout": "1.4.4",
     "react-hook-form": "7.51.1",
