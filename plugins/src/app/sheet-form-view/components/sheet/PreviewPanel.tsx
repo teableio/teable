@@ -229,13 +229,9 @@ export const PreviewPanel = (props: IPreviewPanel) => {
         return;
       }
 
+      // only submit when share page
       if (shareId) {
         submitFormFn({ shareId, fields: submitField, typecast: true });
-      } else {
-        submitTestFn({
-          tableId: tableId!,
-          recordsRo: { fieldKeyType: FieldKeyType.Id, records: [{ fields: submitField }] },
-        });
       }
     }, 0);
   };
