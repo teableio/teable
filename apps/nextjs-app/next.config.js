@@ -95,7 +95,6 @@ const secureHeaders = createSecureHeaders({
             'https://*.teable.io',
             'https://*.teable.cn',
             'https://*.clarity.ms',
-            'http:',
           ],
           mediaSrc: ["'self'", 'https:', 'http:', 'data:'],
           imgSrc: ["'self'", 'https:', 'http:', 'data:'],
@@ -213,14 +212,10 @@ const nextConfig = {
   async rewrites() {
     const socketProxy = {
       source: '/socket/:path*',
-      destination: `https://app.teable.cn/socket/:path*`,
+      destination: `http://localhost:${NEXTJS_SOCKET_PORT}/socket/:path*`,
     };
 
-    const httpProxy = {
-      source: '/api/:path*',
-      destination: `https://app.teable.cn/api/:path*`,
-    };
-    return isProd ? [] : [socketProxy, httpProxy];
+    return isProd ? [] : [socketProxy];
   },
 
   // @link https://nextjs.org/docs/api-reference/next.config.js/headers
