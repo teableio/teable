@@ -9,7 +9,7 @@ import {
   getRecords,
   ShareViewLinkRecordsType,
 } from '@teable/openapi';
-import type { IFieldInstance } from '@teable/sdk';
+import type { IFieldInstance, LinkField } from '@teable/sdk';
 import { useIsHydrated, useView, useFields } from '@teable/sdk';
 import { Spin, Button, toast } from '@teable/ui-lib';
 import type { IWorkbookData } from '@univerjs/core';
@@ -126,13 +126,13 @@ export const PreviewPanel = (props: IPreviewPanel) => {
       .filter((f) => f.type === FieldType.Link);
 
     for (let i = 0; i < linkFields.length; i++) {
-      const linkField = linkFields[i];
+      const linkField = linkFields[i] as LinkField;
       let records: IRecordsVo['records'] | { id: string; title?: string }[] = [];
       if (shareId) {
         const result = await getShareLinkRecordsFn({ shareId, fieldId: linkField.id });
         records = result?.data;
       } else {
-        const result = await getRecordsFn({ tableId: linkField.options.foreignTableId });
+        const result = await getRecordsFn({ tableId: linkField?.options?.foreignTableId });
         records = result?.data?.records;
       }
       linkRecordMap[linkField.id] = uniq(
