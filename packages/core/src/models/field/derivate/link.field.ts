@@ -1,6 +1,6 @@
 import { IdPrefix } from '../../../utils';
 import { z } from '../../../zod';
-import { filterSchema } from '../../view';
+import { filterSchema } from '../../view/filter';
 import type { FieldType, CellValueType } from '../constant';
 import { Relationship } from '../constant';
 import { FieldCore } from '../field';

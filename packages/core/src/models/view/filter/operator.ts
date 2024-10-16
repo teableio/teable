@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { pick, pullAll, uniq } from 'lodash';
 import { z } from 'zod';
-import type { FieldCore } from '../../field';
-import { CellValueType, FieldType } from '../../field';
+import { CellValueType, FieldType } from '../../field/constant';
+import type { FieldCore } from '../../field/field';
 
 export const is = z.literal('is');
 export const isNot = z.literal('isNot');

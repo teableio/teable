@@ -24,6 +24,12 @@ describe('LinkFieldCore', () => {
       selfKeyName: '__id',
       foreignKeyName: '__fk_fldxxxxxxx',
       symmetricFieldId: 'fldxxxxxxx',
+      filterByViewId: 'viwxxxxxxx',
+      hiddenFieldIds: ['fldxxxxxxx'],
+      filter: {
+        conjunction: 'and',
+        filterSet: [],
+      },
     },
     type: FieldType.Link,
     dbFieldType: DbFieldType.Json,
@@ -142,11 +148,23 @@ describe('LinkFieldCore', () => {
         lookupFieldId: 'fldXWPHcgSGeKgFFuOI',
         dbForeignKeyName: '__fk_fldiBBKwOZuW8rlrtoW',
         symmetricFieldId: 'fld8bh5u0MkjdmtFCxv',
+        filterByViewId: 'viwXWPHcgSGeKgFFuOI',
+        hiddenFieldIds: ['fldXWPHcgSGeKgFFuOI'],
+        filter: {
+          conjunction: 'and',
+          filterSet: [],
+        },
       };
       expect(linkFieldOptionsRoSchema.safeParse(object).success).toBeTruthy();
       expect(linkFieldOptionsRoSchema.parse(object)).toEqual({
         relationship: 'manyOne',
         foreignTableId: 'tblERSkHpp4KDRK1hvL',
+        filterByViewId: 'viwXWPHcgSGeKgFFuOI',
+        hiddenFieldIds: ['fldXWPHcgSGeKgFFuOI'],
+        filter: {
+          conjunction: 'and',
+          filterSet: [],
+        },
       });
     });
   });
