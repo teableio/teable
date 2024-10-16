@@ -4,7 +4,8 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { Share2 } from '@teable/icons';
 import { getViewInstallPlugin, updateViewPluginStorage } from '@teable/openapi';
 
-import { useView, useFields, useFieldStaticGetter, useTableId } from '@teable/sdk';
+import type { IFieldInstance } from '@teable/sdk';
+import { useView, useFields, useFieldStaticGetter, useTableId, useBaseId } from '@teable/sdk';
 import {
   Button,
   ToggleGroup,
@@ -37,8 +38,9 @@ export const SheetView = () => {
   const view = useView();
   const viewId = view?.id;
   const tableId = useTableId();
+  const baseId = useBaseId();
   const fieldStaticGetter = useFieldStaticGetter();
-  const [selectedField, setSelectedField] = useState('');
+  const selectedField = useRef<IFieldInstance>();
   const [insertedFields, setInsertedFields] = useState<string[]>([]);
   const univerRef = useRef<IUniverSheetRef>(null);
   const { t } = useTranslation();
@@ -66,11 +68,6 @@ export const SheetView = () => {
       return pre;
     });
   }, [rangeMap, selectedField]);
-
-  const insertActiveCell = () => {
-    const field = fields.find((f) => f.id === selectedField);
-    univerRef?.current?.insertActiveCell(`{{${field?.name}:${field?.id}}}`);
-  };
 
   const getActiveWorkBookData = () => {
     return univerRef?.current?.getActiveWorkBookData();
@@ -103,6 +100,11 @@ export const SheetView = () => {
     },
     [pluginInstall?.pluginInstallId, tableId, updateStorageFn, viewId, workBookData]
   );
+
+  const onDragDrop = useCallback((range: [number, number, number, number]) => {
+    const { name, id } = selectedField?.current || {};
+    id && univerRef?.current?.insertCellByRange(range, `{{${name}:${id}}}`);
+  }, []);
 
   if (isLoading) {
     return (
@@ -159,9 +161,6 @@ export const SheetView = () => {
                   <ToggleGroup
                     type="single"
                     className="flex size-full flex-col items-start justify-start"
-                    onValueChange={(fieldId: string) => {
-                      setSelectedField(fieldId);
-                    }}
                   >
                     {fields.map((field) => {
                       const Icon = fieldStaticGetter(field.type, false).Icon;
@@ -175,6 +174,10 @@ export const SheetView = () => {
                                   value={field.id}
                                   key={field.id}
                                   variant={'outline'}
+                                  draggable={true}
+                                  onDragStart={() => {
+                                    selectedField.current = fields.find((f) => f.id === field.id);
+                                  }}
                                   disabled={
                                     field.isComputed ||
                                     insertedFields.includes(field.id) ||
@@ -209,38 +212,18 @@ export const SheetView = () => {
                     })}
                   </ToggleGroup>
                 </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex w-full shrink-0 items-center justify-center">
-                        <Button
-                          size={'lg'}
-                          variant={'outline'}
-                          className="w-4/5"
-                          onClick={() => {
-                            insertActiveCell();
-                            setSelectedField('');
-                          }}
-                          disabled={!selectedField}
-                        >
-                          {t('toolbar.insertCell')}
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    {!selectedField && (
-                      <TooltipContent>
-                        <p>{t('tooltips.insertCellTips')}</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
               </div>
             )}
             <div className="m-2 flex flex-1 items-start justify-center overflow-hidden rounded-sm">
               {mode === 'design' ? (
-                <DesignPanel workBookData={workBookData} ref={univerRef} onChange={updateStorage} />
+                <DesignPanel
+                  workBookData={workBookData}
+                  ref={univerRef}
+                  onChange={updateStorage}
+                  onDragDrop={onDragDrop}
+                />
               ) : (
-                <PreviewPanel workBookData={workBookData} />
+                <PreviewPanel workBookData={workBookData} baseId={baseId} />
               )}
             </div>
           </div>

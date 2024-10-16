@@ -3,9 +3,10 @@ import type { IWorkbookData } from '@univerjs/core';
 import { LocaleType } from '@univerjs/core';
 
 export const DefaultSheetId = 'sheet1';
-const DefaultWorkBookName = 'workbook1';
+export const DefaultWorkBookName = 'workbook1';
+export const LinkDisplayCount = 1000;
 
-export const UnSupportFieldType = [FieldType.User, FieldType.Attachment];
+export const UnSupportFieldType = [FieldType.Attachment];
 
 export const DefaultWorkBookData: IWorkbookData = {
   id: DefaultSheetId,
@@ -26,8 +27,8 @@ export const DefaultWorkBookData: IWorkbookData = {
       },
       name: DefaultSheetId,
       hidden: 0,
-      rowCount: 10,
-      columnCount: 6,
+      rowCount: 50,
+      columnCount: 20,
       zoomRatio: 1,
       scrollTop: 200,
       scrollLeft: 100,

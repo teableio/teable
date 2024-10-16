@@ -1,14 +1,23 @@
-import { useMutation } from '@tanstack/react-query';
-import { FieldKeyType, FieldType } from '@teable/core';
-import type { ICreateRecordsRo } from '@teable/openapi';
-import { createRecords, shareViewFormSubmit } from '@teable/openapi';
-import type { IFieldInstance } from '@teable/sdk';
-import { useIsHydrated, useView, useTableId, useFields } from '@teable/sdk';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { FieldType } from '@teable/core';
+import type { IRecordsVo } from '@teable/openapi';
+import {
+  shareViewFormSubmit,
+  getShareViewCollaborators,
+  getBaseCollaboratorList,
+  getShareViewLinkRecords,
+  getRecords,
+  ShareViewLinkRecordsType,
+} from '@teable/openapi';
+import type { IFieldInstance, LinkField } from '@teable/sdk';
+import { useIsHydrated, useView, useFields } from '@teable/sdk';
 import { Spin, Button, toast } from '@teable/ui-lib';
 import type { IWorkbookData } from '@univerjs/core';
+import { uniq, get } from 'lodash';
 import { lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInitializationZodI18n } from '../../../../hooks/useInitializationZodI18n';
+import { LinkDisplayCount, DefaultSheetId } from './constant';
 import { SheetSkeleton } from './SheetSkeleton';
 import type { IUniverSheetProps, IUniverSheetRef } from './UniverSheet';
 import { clearTemplateMarker, getRecordRangesMap, getLetterCoordinateByRange } from './utils';
@@ -16,19 +25,43 @@ const UniverSheet = lazy(() => import('./UniverSheet'));
 
 interface IPreviewPanel extends IUniverSheetProps {
   shareId?: string;
+  baseId?: string;
 }
 
 export const PreviewPanel = (props: IPreviewPanel) => {
-  const { shareId, workBookData, ...restProps } = props;
+  const { shareId, baseId, workBookData, ...restProps } = props;
   const isHydrated = useIsHydrated();
   const view = useView();
   const { t } = useTranslation();
-  const tableId = useTableId();
   const univerRef = useRef<IUniverSheetRef>(null);
   const fields = useFields({ withHidden: true, withDenied: true });
   useInitializationZodI18n();
 
-  const proxyCellValue2RecordValue = (field: IFieldInstance, cellValue: unknown) => {
+  const { data: shareCollaborators } = useQuery({
+    queryKey: ['sheet_form_collaborator', shareId, baseId],
+    queryFn: () =>
+      shareId
+        ? getShareViewCollaborators(shareId!, {}).then((res) => res.data)
+        : getBaseCollaboratorList(baseId!, {}).then((res) => res.data),
+    enabled: Boolean((shareId || baseId) && isHydrated),
+  });
+
+  const { mutateAsync: getShareLinkRecordsFn } = useMutation({
+    mutationFn: ({ shareId, fieldId }: { shareId: string; fieldId: string }) =>
+      getShareViewLinkRecords(shareId, {
+        fieldId: fieldId,
+        take: LinkDisplayCount,
+        skip: 0,
+        type: ShareViewLinkRecordsType.Candidate,
+      }),
+  });
+
+  const { mutateAsync: getRecordsFn } = useMutation({
+    mutationFn: ({ tableId }: { tableId: string }) =>
+      getRecords(tableId, { take: LinkDisplayCount, skip: 0 }),
+  });
+
+  const proxyCellValue2RecordValue = useCallback((field: IFieldInstance, cellValue: unknown) => {
     const { type } = field;
 
     if (!field || !cellValue) {
@@ -56,10 +89,10 @@ export const PreviewPanel = (props: IPreviewPanel) => {
       default:
         return String(cellValue);
     }
-  };
+  }, []);
 
   const getRecordsMap = useCallback(() => {
-    const fieldRangesMap = getRecordRangesMap(workBookData?.sheets?.['sheet1']?.cellData);
+    const fieldRangesMap = getRecordRangesMap(workBookData?.sheets?.[DefaultSheetId]?.cellData);
     const fieldsMap: Record<
       string,
       {
@@ -83,42 +116,92 @@ export const PreviewPanel = (props: IPreviewPanel) => {
     }
 
     return fieldsMap;
-  }, [fields, workBookData?.sheets]);
+  }, [fields, proxyCellValue2RecordValue, workBookData?.sheets]);
 
-  const setCellRules = (field: IFieldInstance, range?: [number, number, number, number]) => {
-    const { type, isComputed } = field;
+  const getLinkRecordMap = useCallback(async () => {
+    const linkRecordMap: Record<string, string[]> = {};
+    const recordMap = getRecordsMap();
+    const linkFields = Object.values(recordMap)
+      .map((v) => v.fieldIns)
+      .filter((f) => f.type === FieldType.Link);
 
-    if (isComputed || !range) {
-      return;
+    for (let i = 0; i < linkFields.length; i++) {
+      const linkField = linkFields[i] as LinkField;
+      let records: IRecordsVo['records'] | { id: string; title?: string }[] = [];
+      if (shareId) {
+        const result = await getShareLinkRecordsFn({ shareId, fieldId: linkField.id });
+        records = result?.data;
+      } else {
+        const result = await getRecordsFn({ tableId: linkField?.options?.foreignTableId });
+        records = result?.data?.records;
+      }
+      linkRecordMap[linkField.id] = uniq(
+        records.map((r) => get(r, 'name') || get(r, 'title') || t('validation.unTitle'))
+      );
     }
 
-    switch (type) {
-      case FieldType.SingleSelect: {
-        const cellOption = field.options.choices.map((c) => c.name);
-        univerRef?.current?.setCellSelectRulesByRange(range, cellOption, false);
-        break;
+    return linkRecordMap;
+  }, [getRecordsFn, getRecordsMap, getShareLinkRecordsFn, shareId, t]);
+
+  const { data: linkRecordMap } = useQuery({
+    queryKey: ['sheet_form_link_records'],
+    queryFn: () => getLinkRecordMap().then((res) => res),
+    enabled: Boolean(
+      fields.some((f) => f.type === FieldType.Link) && isHydrated && univerRef?.current
+    ),
+  });
+
+  const collaborator = useMemo(() => shareCollaborators, [shareCollaborators]);
+
+  const setCellRules = useCallback(
+    async (field: IFieldInstance, range?: [number, number, number, number]) => {
+      const { type, isComputed, isMultipleCellValue, id } = field;
+
+      if (isComputed || !range) {
+        return;
       }
-      case FieldType.MultipleSelect: {
-        const cellOption = field.options.choices.map((c) => c.name);
-        univerRef?.current?.setCellSelectRulesByRange(range, cellOption, true);
-        break;
+
+      switch (type) {
+        case FieldType.SingleSelect: {
+          const cellOption = field.options.choices.map((c) => c.name);
+          univerRef?.current?.setCellSelectRulesByRange(range, cellOption, false);
+          break;
+        }
+        case FieldType.MultipleSelect: {
+          const cellOption = field.options.choices.map((c) => c.name);
+          univerRef?.current?.setCellSelectRulesByRange(range, cellOption, true);
+          break;
+        }
+        case FieldType.User: {
+          const cellOption = uniq(collaborator?.map((c) => c.userName)) || null;
+          cellOption &&
+            univerRef?.current?.setCellSelectRulesByRange(range, cellOption, isMultipleCellValue);
+          break;
+        }
+        case FieldType.Link: {
+          const records = linkRecordMap?.[id] || null;
+          records &&
+            univerRef?.current?.setCellSelectRulesByRange(range, records, isMultipleCellValue);
+          break;
+        }
+        case FieldType.Checkbox: {
+          univerRef?.current?.setCellCheckBoxByRange(range);
+          break;
+        }
+        case FieldType.Date: {
+          univerRef?.current?.setCellDateByRange(range);
+          break;
+        }
+        case FieldType.Number: {
+          univerRef?.current?.setCellNumberByRange(range);
+          break;
+        }
+        default:
+          break;
       }
-      case FieldType.Checkbox: {
-        univerRef?.current?.setCellCheckBoxByRange(range);
-        break;
-      }
-      case FieldType.Date: {
-        univerRef?.current?.setCellDateByRange(range);
-        break;
-      }
-      case FieldType.Number: {
-        univerRef?.current?.setCellNumberByRange(range);
-        break;
-      }
-      default:
-        break;
-    }
-  };
+    },
+    [collaborator, linkRecordMap]
+  );
 
   useEffect(() => {
     const initCellRules = () => {
@@ -135,16 +218,16 @@ export const PreviewPanel = (props: IPreviewPanel) => {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [fields, getRecordsMap]);
+  }, [fields, getRecordsMap, setCellRules]);
 
   const newWorkBookData = useMemo(
     () =>
       ({
         ...workBookData,
         sheets: {
-          ['sheet1']: {
-            ...workBookData?.sheets?.['sheet1'],
-            cellData: clearTemplateMarker(workBookData?.sheets?.['sheet1']?.cellData),
+          [DefaultSheetId]: {
+            ...workBookData?.sheets?.[DefaultSheetId],
+            cellData: clearTemplateMarker(workBookData?.sheets?.[DefaultSheetId]?.cellData),
           },
         },
       }) as IWorkbookData,
@@ -176,15 +259,6 @@ export const PreviewPanel = (props: IPreviewPanel) => {
     },
   });
 
-  const { mutateAsync: submitTestFn } = useMutation({
-    mutationFn: ({ tableId, recordsRo }: { tableId: string; recordsRo: ICreateRecordsRo }) =>
-      createRecords(tableId, recordsRo),
-    onSuccess: () => {
-      resetWorkBookData();
-      toast({ description: t('tooltips.submitSuccess') });
-    },
-  });
-
   const submitForm = async () => {
     univerRef.current?.exitCellEditor();
     setTimeout(() => {
@@ -200,7 +274,11 @@ export const PreviewPanel = (props: IPreviewPanel) => {
       fieldsArray.forEach((f) => {
         const res = f.fieldIns.validateCellValue(f.cellValue);
         // TODO don't check link using typecast
-        if (!res?.success && f.cellValue !== undefined && f.fieldIns.type !== FieldType.Link) {
+        if (
+          !res?.success &&
+          f.cellValue !== undefined &&
+          ![FieldType.Link, FieldType.User].includes(f.fieldIns.type)
+        ) {
           validateErrors.push({
             coordinate: f.coordinate,
             errorMessage: res?.error?.issues?.[0]?.message,
@@ -229,13 +307,9 @@ export const PreviewPanel = (props: IPreviewPanel) => {
         return;
       }
 
+      // only submit when share page
       if (shareId) {
         submitFormFn({ shareId, fields: submitField, typecast: true });
-      } else {
-        submitTestFn({
-          tableId: tableId!,
-          recordsRo: { fieldKeyType: FieldKeyType.Id, records: [{ fields: submitField }] },
-        });
       }
     }, 0);
   };

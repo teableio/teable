@@ -58,6 +58,7 @@ import { DefaultSheetId } from './constant';
 
 export interface IUniverSheetRef {
   insertActiveCell: (value: string) => void;
+  insertCellByRange: (range: [number, number, number, number], value: string) => void;
   getActiveWorkBookData: () => IWorkbookData | undefined;
   getActiveSheetCellData: () => IWorksheetData['cellData'] | undefined;
   getCellValueByRange: (range: [number, number]) => unknown;
@@ -81,6 +82,7 @@ export interface IUniverSheetProps {
   footerVisible?: boolean;
   validate?: boolean;
   onChange?: (workBookData: IWorkbookData) => void;
+  onDragDrop?: (cell: [number, number, number, number]) => void;
 }
 
 // eslint-disable-next-line react/display-name
@@ -91,6 +93,7 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
     validate = false,
     workBookData: remoteWorkBookData,
     onChange,
+    onDragDrop,
   } = props;
   const containerRef = useRef(null);
   const fUniverRef = useRef<FUniver | null>(null);
@@ -113,6 +116,17 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
       v: value,
     });
   }, []);
+
+  const insertCellByRange = useCallback(
+    (range: [number, number, number, number], value: string) => {
+      const sheet = fUniverRef?.current?.getActiveWorkbook()?.getActiveSheet();
+      const ranges = sheet?.getRange(...range);
+      ranges?.setValue({
+        v: value,
+      });
+    },
+    []
+  );
 
   const setCellValueByRange = useCallback(
     (range?: [number, number, number, number], value?: unknown) => {
@@ -228,6 +242,7 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
 
   useImperativeHandle(ref, () => ({
     insertActiveCell,
+    insertCellByRange,
     getActiveWorkBookData,
     getActiveSheetCellData,
     getCellValueByRange,
@@ -331,7 +346,24 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
     fUniverRef.current.onCommandExecuted((command) => {
       onChange && setCommandQueue((prev) => [...prev, command]);
     });
-  }, [footerVisible, onChange, resolvedLanguage, toolbarVisible, validate, workBookData]);
+
+    fUniverRef.current.getSheetHooks().onCellDrop((cell) => {
+      const row = cell?.location?.row;
+      const col = cell?.location?.col;
+      if (row !== undefined && col !== undefined) {
+        const ranges = getWholeRangesFromPartial([row, col]);
+        onDragDrop?.(ranges);
+      }
+    });
+  }, [
+    footerVisible,
+    onChange,
+    onDragDrop,
+    resolvedLanguage,
+    toolbarVisible,
+    validate,
+    workBookData,
+  ]);
 
   return (
     <div

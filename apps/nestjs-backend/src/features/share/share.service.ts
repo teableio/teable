@@ -416,7 +416,7 @@ export class ShareService {
   async getViewAllCollaborators(shareInfo: IShareViewInfo) {
     const { tableId, view } = shareInfo;
 
-    if (view && ![ViewType.Form, ViewType.Kanban].includes(view.type)) {
+    if (view && ![ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
       throw new ForbiddenException('view type is not allowed');
     }
 
