@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { IFilter, ILinkFieldOptionsRo } from '@teable/core';
-import { EyeOff } from '@teable/icons';
+import { EyeOff, Maximize2 } from '@teable/icons';
 import { getFields } from '@teable/openapi';
 import {
   FilterWithTable,
@@ -11,7 +11,7 @@ import {
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import { Button, cn, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -78,11 +78,30 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
         <ViewSelect
           tableId={foreignTableId}
           value={filterByViewId}
-          onChange={(viewId) => viewId && onChange?.({ filterByViewId: viewId })}
+          onChange={(viewId) => onChange?.({ filterByViewId: viewId })}
+          cancelable
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <span>{t('table:field.editor.filter')}</span>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between">
+          <span>{t('table:field.editor.filter')}</span>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size={'xs'} variant={'ghost'}>
+                <Maximize2 />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="min-w-96 max-w-fit">
+              <FilterWithTable
+                fields={totalFields as IFieldInstance[]}
+                value={filter ?? null}
+                context={context}
+                onChange={(value) => onChange?.({ filter: value })}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
+
         <FilterWithTable
           fields={totalFields as IFieldInstance[]}
           value={filter ?? null}
