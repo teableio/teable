@@ -58,7 +58,8 @@
       "selectRecord": "Выбрать запись",
       "unselected": "Не выбрано",
       "selected": "Выбрано",
-      "expandRecordError": "Нет доступа для просмотра этой записи."
+      "expandRecordError": "Нет доступа для просмотра этой записи.",
+      "goToForeignTable": "Перейти к связанной таблице"
     },
     "user": {
       "searchPlaceholder": "Найдите пользователей по имени",

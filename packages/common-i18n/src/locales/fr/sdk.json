@@ -46,7 +46,8 @@
       "selectRecord": "Sélectionner un enregistrement",
       "unselected": "Non sélectionné",
       "selected": "Sélectionné",
-      "expandRecordError": "Aucun droit pour voir cet enregistrement."
+      "expandRecordError": "Aucun droit pour voir cet enregistrement.",
+      "goToForeignTable": "Accéder à la table liée"
     },
     "user": {
       "searchPlaceholder": "Trouver des utilisateurs par nom",

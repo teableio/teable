@@ -90,7 +90,15 @@ export const LinkOptions = (props: {
         baseId={options?.baseId}
         tableId={options?.foreignTableId}
         onChange={(baseId, tableId) => {
-          onChange?.({ baseId, foreignTableId: tableId, relationship, isOneWay });
+          onChange?.({
+            baseId,
+            foreignTableId: tableId,
+            relationship,
+            isOneWay,
+            filterByViewId: null,
+            hiddenFieldIds: null,
+            filter: null,
+          });
         }}
       />
       {options?.foreignTableId && (
