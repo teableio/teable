@@ -134,7 +134,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
       <div className="flex h-full flex-col">
         {tableId && recordId && (
           <ExpandRecordHeader
-            title={record?.name}
+            title={record?.title}
             recordHistoryVisible={recordHistoryVisible}
             commentVisible={commentVisible}
             disabledPrev={disabledPrev}

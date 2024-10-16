@@ -383,7 +383,9 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
               ({ id, mimetype, presignedUrl, smThumbnailUrl, lgThumbnailUrl }) => {
                 const url = getFileCover(mimetype, presignedUrl);
                 const thumbnailUrl =
-                  !rowHeight || rowHeight === RowHeightLevel.Tall ? smThumbnailUrl : lgThumbnailUrl;
+                  !rowHeight || rowHeight === RowHeightLevel.Short
+                    ? smThumbnailUrl
+                    : lgThumbnailUrl;
                 return {
                   id,
                   url: isSystemFileIcon(mimetype) ? url : thumbnailUrl ?? url,
