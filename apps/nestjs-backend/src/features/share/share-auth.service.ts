@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { FieldType } from '@teable/core';
-import type { IViewVo, IShareViewMeta } from '@teable/core';
+import type { IViewVo, IShareViewMeta, ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -16,6 +16,7 @@ export interface IShareViewInfo {
   shareId: string;
   tableId: string;
   view?: IViewVo;
+  linkOptions?: Pick<ILinkFieldOptions, 'filterByViewId' | 'hiddenFieldIds' | 'filter'>;
   shareMeta?: IShareViewMeta;
 }
 
@@ -98,9 +99,12 @@ export class ShareAuthService {
       'field|read',
     ]);
 
+    const { filterByViewId, hiddenFieldIds, filter } = field.options;
+
     return {
       shareId: linkFieldId,
       tableId: field.options.foreignTableId,
+      linkOptions: { filterByViewId, hiddenFieldIds, filter },
       shareMeta: {
         allowCopy: true,
         includeRecords: true,

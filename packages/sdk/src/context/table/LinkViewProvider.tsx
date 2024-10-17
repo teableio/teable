@@ -16,6 +16,7 @@ import { ShareViewContext } from './ShareViewContext';
 
 export interface ILinkViewProvider {
   linkFieldId: string;
+  linkBaseId?: string;
   fallback?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -50,6 +51,7 @@ const ReadonlyFieldsPermissionProvider = ({ children }: { children: React.ReactN
 
 export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
   linkFieldId,
+  linkBaseId,
   children,
   fallback,
 }) => {
@@ -74,7 +76,7 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
   return (
     <ConnectionProvider wsPath={wsPath}>
       <ShareViewContext.Provider value={shareData}>
-        <AnchorContext.Provider value={{ tableId, viewId }}>
+        <AnchorContext.Provider value={{ baseId: linkBaseId, tableId, viewId }}>
           <SearchProvider>
             <FieldProvider fallback={fallback} serverSideData={fields}>
               <ReadonlyFieldsPermissionProvider>

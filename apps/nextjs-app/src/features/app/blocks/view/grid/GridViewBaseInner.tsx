@@ -47,6 +47,7 @@ import {
   useGridPrefillingRow,
   SelectableType,
   useGridRowOrder,
+  ExpandRecorder,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
@@ -67,7 +68,7 @@ import { useToast } from '@teable/ui-lib';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { usePrevious, useClickAway } from 'react-use';
 import { ExpandRecordContainer } from '@/features/app/components/ExpandRecordContainer';
@@ -125,6 +126,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = useFieldCellEditable();
   const { undo, redo } = useUndoRedo();
+  const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
 
   const groupCollection = useGridGroupCollection();
 
@@ -214,7 +216,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       if (record !== undefined) {
         const fieldId = columns[colIndex]?.id;
         if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(record, colIndex);
+        return cellValue2GridDisplay(record, colIndex, false, (tableId, recordId) =>
+          setExpandRecord({ tableId, recordId })
+        );
       }
       return { type: CellType.Loading };
     },
@@ -758,6 +762,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
       <DomBox id={componentId} />
       {!onRowExpand && <ExpandRecordContainer ref={expandRecordRef} recordServerData={ssrRecord} />}
+      {expandRecord != null && (
+        <ExpandRecorder
+          tableId={expandRecord.tableId}
+          recordId={expandRecord.recordId}
+          recordIds={[expandRecord.recordId]}
+          onClose={() => setExpandRecord(undefined)}
+        />
+      )}
     </div>
   );
 };

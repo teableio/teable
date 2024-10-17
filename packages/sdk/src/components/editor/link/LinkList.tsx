@@ -30,6 +30,7 @@ import { LinkListType } from './interface';
 interface ILinkListProps {
   type: LinkListType;
   rowCount: number;
+  hiddenFieldIds?: string[];
   readonly?: boolean;
   isMultiple?: boolean;
   recordQuery?: IGetRecordsRo;
@@ -49,8 +50,17 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   props,
   forwardRef
 ) => {
-  const { readonly, type, rowCount, cellValue, recordQuery, isMultiple, onChange, onExpand } =
-    props;
+  const {
+    readonly,
+    type,
+    rowCount,
+    cellValue,
+    recordQuery,
+    isMultiple,
+    hiddenFieldIds,
+    onChange,
+    onExpand,
+  } = props;
 
   useImperativeHandle(forwardRef, () => ({
     onReset,
@@ -66,7 +76,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   const theme = useGridTheme();
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
-  const { columns, cellValue2GridDisplay } = useGridColumns(false);
+  const { columns, cellValue2GridDisplay } = useGridColumns(false, hiddenFieldIds);
 
   const gridRef = useRef<IGridRef>(null);
   const rowCountRef = useRef<number>(rowCount);

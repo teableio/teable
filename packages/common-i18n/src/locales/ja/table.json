@@ -223,7 +223,11 @@
       "enableValidateFieldUnique": "固有の値の検証を有効にする",
       "enableValidateFieldNotNull": "NULLでない値の検証を有効にする",
       "knowMore": "さらに詳しく",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link"
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "filterByView": "ビューでレコードをフィルターする",
+      "filter": "レコードをフィルターする",
+      "hideFields": "フィールドを非表示にする",
+      "moreOptions": "オプションを表示"
     },
     "subTitle": {
       "link": "選択したテーブル内のレコードへのリンク",
