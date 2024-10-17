@@ -56,10 +56,20 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
         <span className="truncate leading-6 text-secondary-foreground/50">
           {displayLine.map((node, index) => {
             switch (node.type) {
-              case CommentNodeType.Link:
-                return <span key={index}>{node.title || node.url}</span>;
+              case CommentNodeType.Link: {
+                const title = node.title || node.url;
+                return (
+                  <span key={index} title={title}>
+                    {title}
+                  </span>
+                );
+              }
               case CommentNodeType.Text:
-                return <span key={index}>{node.value}</span>;
+                return (
+                  <span key={index} title={node.value}>
+                    {node.value}
+                  </span>
+                );
               case CommentNodeType.Mention:
                 return <MentionUser key={index} id={node.value} />;
               default:
@@ -80,9 +90,12 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
   return (
     quoteId && (
       <div
-        className={cn('flex items-center justify-between truncate bg-secondary px-2', className)}
+        className={cn(
+          'flex items-center justify-between truncate bg-secondary px-2 py-1 h-8 overflow-hidden',
+          className
+        )}
       >
-        <div className="item-center flex truncate text-xs">
+        <div className="flex h-full items-center truncate text-xs">
           <MentionUser id={quoteData ? quoteData.createdBy : ''} />
           <span className="self-center pr-1">:</span>
           {!quoteData ? (
