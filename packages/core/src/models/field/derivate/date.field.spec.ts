@@ -70,6 +70,8 @@ describe('DateFieldCore', () => {
     expect(field.convertStringToCellValue('abc')).toBeNull();
     expect(lookupField.convertStringToCellValue('2023/06/19 06:50')).toBeNull();
     expect(lookupField.convertStringToCellValue('abc')).toBeNull();
+    expect(field.convertStringToCellValue('2023/1/13 06:50')).toBe('2023-01-13T06:50:00.000Z');
+
     // european and us date format
     const europeanField = plainToInstance(DateFieldCore, {
       ...json,
