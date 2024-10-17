@@ -1,7 +1,7 @@
 {
   "toolbar": {
     "design": "设计",
-    "previewAndSave": "预览",
+    "preview": "预览",
     "share": "分享",
     "insertCell": "插入单元格",
     "submit": "提交"
