@@ -10,6 +10,7 @@ import { BooleanLiteralContext } from "./Formula";
 import { LeftWhitespaceOrCommentsContext } from "./Formula";
 import { RightWhitespaceOrCommentsContext } from "./Formula";
 import { BracketsContext } from "./Formula";
+import { UnaryOpContext } from "./Formula";
 import { BinaryOpContext } from "./Formula";
 import { FieldReferenceCurlyContext } from "./Formula";
 import { FunctionCallContext } from "./Formula";
@@ -85,6 +86,14 @@ export interface FormulaVisitor<Result> extends ParseTreeVisitor<Result> {
 	 * @return the visitor result
 	 */
 	visitBrackets?: (ctx: BracketsContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by the `UnaryOp`
+	 * labeled alternative in `Formula.expr`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitUnaryOp?: (ctx: UnaryOpContext) => Result;
 
 	/**
 	 * Visit a parse tree produced by the `BinaryOp`

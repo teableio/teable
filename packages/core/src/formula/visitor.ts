@@ -20,6 +20,7 @@ import type {
   RootContext,
   StringLiteralContext,
   FieldReferenceCurlyContext,
+  UnaryOpContext,
 } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';
 import { TypedValue } from './typed-value';
@@ -191,6 +192,34 @@ export class EvalVisitor
     }
 
     return new TypedValue(field.cellValue2String(typedValue.value), CellValueType.String);
+  }
+
+  private transformUnaryNodeValue(typedValue: TypedValue) {
+    if (!typedValue.field) {
+      return typedValue;
+    }
+
+    const { cellValueType, isMultipleCellValue } = typedValue.field;
+
+    if (cellValueType !== CellValueType.Number) return null;
+
+    if (isMultipleCellValue) {
+      if (!typedValue.value?.length) return null;
+      if (typedValue.value.length > 1) {
+        throw new TypeError(
+          'Cannot perform mathematical calculations on an array with more than one numeric element.'
+        );
+      }
+      return new TypedValue(Number(typedValue.value[0]), CellValueType.Number);
+    }
+    return typedValue;
+  }
+
+  visitUnaryOp(ctx: UnaryOpContext) {
+    const expr = ctx.expr();
+    const typedValue = this.visit(expr);
+    const value = this.transformUnaryNodeValue(typedValue)?.value ?? null;
+    return new TypedValue(value ? -value : null, CellValueType.Number);
   }
 
   visitBinaryOp(ctx: BinaryOpContext) {
