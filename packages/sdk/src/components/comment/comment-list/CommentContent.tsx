@@ -6,10 +6,12 @@ import { useIsMe } from './useIsMe';
 
 interface ICommentContentProps {
   content: ICommentContent;
+  className?: string;
+  isExpanded?: boolean;
 }
 
 export const CommentContent = (props: ICommentContentProps) => {
-  const { content } = props;
+  const { content, className, isExpanded = false } = props;
   const isMe = useIsMe();
   const finalContent = content.map((item: ICommentContent[number], index) => {
     if (item.type === CommentNodeType.Img) {
@@ -19,7 +21,7 @@ export const CommentContent = (props: ICommentContentProps) => {
           path={item.path}
           width={item.width}
           className={cn({
-            'justify-end': isMe,
+            'justify-end': isMe && !isExpanded,
           })}
         />
       );
@@ -28,7 +30,7 @@ export const CommentContent = (props: ICommentContentProps) => {
         <BlockParagraphElement
           key={index}
           className={cn('my-0.5', {
-            'justify-end': isMe,
+            'justify-end': isMe && !isExpanded,
           })}
         >
           {item.children.map((node, index) => {
@@ -54,5 +56,5 @@ export const CommentContent = (props: ICommentContentProps) => {
       );
     }
   });
-  return <div className="text-sm">{finalContent}</div>;
+  return <div className={cn('text-sm', className)}>{finalContent}</div>;
 };

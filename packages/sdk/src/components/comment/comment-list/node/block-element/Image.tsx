@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getCommentAttachmentUrl } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
+import { FilePreviewItem, FilePreviewProvider } from '@teable/ui-lib/src/base/file/preview/';
 import { ReactQueryKeys } from '../../../../../config';
 import { useTableId } from '../../../../../hooks';
 import { useRecordId } from '../../../hooks';
@@ -25,14 +26,23 @@ export const BlockImageElement = (props: IBlockImageElementProps) => {
   if (imageData && !attachmentPresignedUrls[path as string]) {
     setAttachmentPresignedUrls(path, imageData);
   }
+
   return (
-    <div className={cn('flex', className)}>
-      <img
-        src={imageData ?? attachmentPresignedUrls[path]}
-        width={width || 'auto'}
-        alt="img"
-        className="cursor-pointer rounded"
-      />
-    </div>
+    <FilePreviewProvider>
+      <div className={cn('flex', className)}>
+        <FilePreviewItem
+          src={imageData ?? attachmentPresignedUrls[path]}
+          name="comment-img"
+          mimetype="image/jpeg"
+        >
+          <img
+            src={imageData ?? attachmentPresignedUrls[path]}
+            width={width || 'auto'}
+            alt="img"
+            className="cursor-pointer rounded"
+          />
+        </FilePreviewItem>
+      </div>
+    </FilePreviewProvider>
   );
 };

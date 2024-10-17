@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { assertNever } from '@teable/core';
-import { X } from '@teable/icons';
+import { X, ChevronRight } from '@teable/icons';
 import type { ICommentContent } from '@teable/openapi';
 import { getCommentDetail, CommentNodeType } from '@teable/openapi';
-import { Button, cn } from '@teable/ui-lib';
-import { useMemo } from 'react';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ReactQueryKeys } from '../../../config';
 import { useTranslation } from '../../../context/app/i18n';
 import { useTableId } from '../../../hooks';
+import { CommentContent } from '../comment-list/CommentContent';
 import { MentionUser, BlockImageElement } from '../comment-list/node';
 import { useRecordId } from '../hooks';
 
@@ -27,6 +28,24 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
     queryFn: () => getCommentDetail(tableId!, recordId!, quoteId!).then((res) => res.data),
     enabled: !!tableId && !!recordId && !!quoteId,
   });
+  const textRef = useRef<HTMLElement>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  useEffect(() => {
+    const checkTextOverflow = () => {
+      const element = textRef.current;
+      if (element) {
+        setShowTooltip(element.scrollWidth > element.clientWidth);
+      }
+    };
+
+    checkTextOverflow();
+    window.addEventListener('resize', checkTextOverflow);
+
+    return () => {
+      window.removeEventListener('resize', checkTextOverflow);
+    };
+  }, [quoteData]);
 
   const findDisplayLine = (commentContent: ICommentContent) => {
     for (let i = 0; i < commentContent.length; i++) {
@@ -53,13 +72,23 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
     // only display the first line of the quote
     if (Array.isArray(displayLine)) {
       return (
-        <span className="truncate leading-6 text-secondary-foreground/50">
+        <span className="truncate leading-6 text-secondary-foreground/50" ref={textRef}>
           {displayLine.map((node, index) => {
             switch (node.type) {
-              case CommentNodeType.Link:
-                return <span key={index}>{node.title || node.url}</span>;
+              case CommentNodeType.Link: {
+                const title = node.title || node.url;
+                return (
+                  <span key={index} title={title}>
+                    {title}
+                  </span>
+                );
+              }
               case CommentNodeType.Text:
-                return <span key={index}>{node.value}</span>;
+                return (
+                  <span key={index} title={node.value}>
+                    {node.value}
+                  </span>
+                );
               case CommentNodeType.Mention:
                 return <MentionUser key={index} id={node.value} />;
               default:
@@ -80,9 +109,12 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
   return (
     quoteId && (
       <div
-        className={cn('flex items-center justify-between truncate bg-secondary px-2', className)}
+        className={cn(
+          'flex items-center justify-between truncate bg-secondary px-2 py-1 h-8 overflow-hidden',
+          className
+        )}
       >
-        <div className="item-center flex truncate text-xs">
+        <div className="flex h-full items-center truncate text-xs">
           <MentionUser id={quoteData ? quoteData.createdBy : ''} />
           <span className="self-center pr-1">:</span>
           {!quoteData ? (
@@ -90,7 +122,21 @@ export const CommentQuote = (props: ICommentQuoteProps) => {
               {t('comment.deletedComment')}
             </del>
           ) : (
-            quoteAbbreviationRender
+            <>
+              {quoteAbbreviationRender}
+              {showTooltip && (
+                <Popover modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size={'xs'} className={cn('p-0')}>
+                      <ChevronRight />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="max-h-40 max-w-60 overflow-auto p-2">
+                    <CommentContent content={quoteData.content} isExpanded />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </>
           )}
         </div>
         {onClose && (
