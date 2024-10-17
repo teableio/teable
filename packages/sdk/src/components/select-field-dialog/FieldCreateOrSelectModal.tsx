@@ -1,6 +1,6 @@
-import { createFieldRoSchema, getUniqName } from '@teable/core';
-import type { IFieldVo, FieldType, IFieldRo } from '@teable/core';
-import { ArrowLeft, Plus } from '@teable/icons';
+import { createFieldRoSchema, FieldType } from '@teable/core';
+import type { IFieldVo, IFieldRo } from '@teable/core';
+import { ArrowLeft } from '@teable/icons';
 import {
   Button,
   Dialog,
@@ -29,9 +29,7 @@ interface IFieldCreateOrSelectModalProps {
   title: ReactNode;
   content?: ReactNode;
   description?: ReactNode;
-  fieldTypes: FieldType[];
   selectedFieldId?: string;
-  isMultipleEnable?: boolean;
   isCreatable?: boolean;
   getCreateBtnText: (fieldName: string) => ReactNode;
   children: (isActive: boolean) => React.ReactNode;
@@ -49,15 +47,11 @@ export const FieldCreateOrSelectModal = forwardRef<
 >((props, forwardRef) => {
   const {
     title,
-    content,
     description,
-    fieldTypes,
+    content,
     selectedFieldId: _selectedFieldId,
-    isMultipleEnable,
-    isCreatable,
     children,
     onConfirm,
-    getCreateBtnText,
   } = props;
   const tableId = useTableId();
   const totalFields = useFields({ withHidden: true, withDenied: true });
@@ -75,24 +69,6 @@ export const FieldCreateOrSelectModal = forwardRef<
   useEffect(() => {
     setSelectedFieldId(_selectedFieldId);
   }, [_selectedFieldId]);
-
-  const filteredFields = useMemo(() => {
-    return totalFields.filter(({ type, isMultipleCellValue }) => {
-      if (isMultipleEnable) {
-        return fieldTypes.includes(type);
-      }
-      return !isMultipleCellValue && fieldTypes.includes(type);
-    });
-  }, [fieldTypes, totalFields, isMultipleEnable]);
-
-  const onNewFieldEdit = (field: IFieldRo) => {
-    const { name: originName } = field;
-    const allExistNames = totalFields.map(({ name }) => name);
-    const name = getUniqName(originName as string, allExistNames);
-
-    setNewField({ ...field, name });
-    setSelectedFieldId(undefined);
-  };
 
   const onFieldSelect = (value: string) => {
     setSelectedFieldId(value);
@@ -115,6 +91,16 @@ export const FieldCreateOrSelectModal = forwardRef<
     }
   };
 
+  const filteredFields = useMemo(() => {
+    return totalFields.filter((field) => {
+      const { type } = field;
+      if (type === FieldType.Attachment) {
+        return false;
+      }
+      return true;
+    });
+  }, [totalFields]);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children(open)}</DialogTrigger>
@@ -129,8 +115,8 @@ export const FieldCreateOrSelectModal = forwardRef<
           {description && <DialogDescription className="text-xs">{description}</DialogDescription>}
         </DialogHeader>
 
-        <ScrollArea className="h-36 w-full" type="always">
-          <div className="px-2">
+        <div className="rounded-md bg-gray-50 p-3 pr-0 dark:bg-gray-900">
+          <ScrollArea className="h-52 w-full" type="always">
             {newField ? (
               <FieldCreator field={newField} setField={setNewField} />
             ) : (
@@ -150,38 +136,10 @@ export const FieldCreateOrSelectModal = forwardRef<
                 })}
               </RadioGroup>
             )}
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
-        {!newField && (
-          <div className="flex flex-col space-y-2">
-            {fieldTypes.map((type) => {
-              const { title, Icon, defaultOptions } = getFieldStatic(type, false);
-              return (
-                <Button
-                  key={type}
-                  variant="secondary"
-                  className="justify-start"
-                  disabled={!isCreatable}
-                  onClick={() => {
-                    if (!isCreatable) return;
-                    onNewFieldEdit({
-                      type,
-                      name: title,
-                      options: defaultOptions,
-                    } as IFieldRo);
-                  }}
-                >
-                  <Plus className="size-5" />
-                  <Icon className="size-4" />
-                  {getCreateBtnText(title)}
-                </Button>
-              );
-            })}
-          </div>
-        )}
-
-        {!newField && content}
+        {content}
 
         <DialogFooter className={cn(newField && 'justify-between sm:justify-between')}>
           {newField && (

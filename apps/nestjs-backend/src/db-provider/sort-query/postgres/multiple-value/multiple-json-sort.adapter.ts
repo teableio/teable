@@ -12,7 +12,10 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
         [this.columnName]
       );
     } else {
-      builderClient.orderByRaw(`??::jsonb ->> 0 ASC NULLS FIRST`, [this.columnName]);
+      builderClient.orderByRaw(
+        `??::jsonb ->> 0 ASC NULLS FIRST, jsonb_array_length(??::jsonb) ASC`,
+        [this.columnName, this.columnName]
+      );
     }
     return builderClient;
   }
@@ -26,7 +29,10 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
         [this.columnName]
       );
     } else {
-      builderClient.orderByRaw(`??::jsonb ->> 0 DESC NULLS LAST`, [this.columnName]);
+      builderClient.orderByRaw(
+        `??::jsonb ->> 0 DESC NULLS LAST, jsonb_array_length(??::jsonb) DESC`,
+        [this.columnName, this.columnName]
+      );
     }
     return builderClient;
   }
@@ -41,7 +47,12 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
         ])
         .toQuery();
     } else {
-      return this.knex.raw(`??::jsonb ->> 0 ASC NULLS FIRST`, [this.columnName]).toQuery();
+      return this.knex
+        .raw(`??::jsonb ->> 0 ASC NULLS FIRST, jsonb_array_length(??::jsonb) ASC`, [
+          this.columnName,
+          this.columnName,
+        ])
+        .toQuery();
     }
   }
 
@@ -55,7 +66,12 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
         ])
         .toQuery();
     } else {
-      return this.knex.raw(`??::jsonb ->> 0 DESC NULLS LAST`, [this.columnName]).toQuery();
+      return this.knex
+        .raw(`??::jsonb ->> 0 DESC NULLS LAST, jsonb_array_length(??::jsonb) DESC`, [
+          this.columnName,
+          this.columnName,
+        ])
+        .toQuery();
     }
   }
 }

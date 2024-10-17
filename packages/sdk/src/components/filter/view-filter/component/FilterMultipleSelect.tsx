@@ -71,6 +71,7 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
       className={className}
       popoverClassName={popoverClassName}
       defaultLabel={<DefaultErrorLabel />}
+      placeholderClassName="text-xs"
     />
   );
 };

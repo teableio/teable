@@ -75,42 +75,51 @@ export const PluginHeader = (props: {
           onChange={(e) => setRename(e.target.value)}
         />
       </div>
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            className={cn('w-0 p-0 group-hover:w-auto group-hover:p-2', {
-              'w-auto px-2': menuOpen,
-            })}
-            variant={'ghost'}
-            size={'xs'}
-          >
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
-          {canManage && (
-            <DropdownMenuItem
-              onSelect={() => {
-                setRename(name);
-                setTimeout(() => renameRef.current?.focus(), 200);
-              }}
-            >
-              <Edit className="mr-1.5" />
-              {t('common:actions.rename')}
+      <div
+        className={cn('hidden gap-1 group-hover:flex', {
+          flex: menuOpen,
+        })}
+      >
+        <Button
+          title={t('dashboard:expand')}
+          className="h-5 w-auto p-2"
+          size={'xs'}
+          variant={'ghost'}
+          onClick={onExpand}
+        >
+          <Maximize2 />
+        </Button>
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button className="h-5 w-auto p-2" variant={'ghost'} size={'xs'}>
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
+            {canManage && (
+              <DropdownMenuItem
+                onSelect={() => {
+                  setRename(name);
+                  setTimeout(() => renameRef.current?.focus(), 200);
+                }}
+              >
+                <Edit className="mr-1.5" />
+                {t('common:actions.rename')}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={onExpand}>
+              <Maximize2 className="mr-1.5" />
+              {t('dashboard:expand')}
             </DropdownMenuItem>
-          )}
-          <DropdownMenuItem onSelect={onExpand}>
-            <Maximize2 className="mr-1.5" />
-            {t('dashboard:expand')}
-          </DropdownMenuItem>
-          {canManage && (
-            <>
-              <DropdownMenuSeparator />
-              <MenuDeleteItem onConfirm={onDelete} />
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {canManage && (
+              <>
+                <DropdownMenuSeparator />
+                <MenuDeleteItem onConfirm={onDelete} />
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 };

@@ -11,16 +11,20 @@ import type {
   ICreatedTimeFieldOptions,
   ILastModifiedTimeFieldOptions,
   IUserFieldOptions,
+  ICheckboxFieldOptions,
+  ILongTextFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
+import { CheckboxOptions } from './options/CheckboxOptions';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
 import { LinkOptions } from './options/LinkOptions';
+import { LongTextOptions } from './options/LongTextOptions';
 import { NumberOptions } from './options/NumberOptions';
 import { RatingOptions } from './options/RatingOptions';
 import { RollupOptions } from './options/RollupOptions';
-import { SelectOptions } from './options/SelectOptions';
+import { SelectOptions } from './options/SelectOptions/SelectOptions';
 import { SingleLineTextOptions } from './options/SingleLineTextOptions';
 import { UserOptions } from './options/UserOptions';
 import type { IFieldEditorRo } from './type';
@@ -36,7 +40,16 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) 
     case FieldType.SingleLineText:
       return (
         <SingleLineTextOptions
+          isLookup={isLookup}
           options={options as ISingleLineTextFieldOptions}
+          onChange={onChange}
+        />
+      );
+    case FieldType.LongText:
+      return (
+        <LongTextOptions
+          options={options as ILongTextFieldOptions}
+          isLookup={isLookup}
           onChange={onChange}
         />
       );
@@ -44,6 +57,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) 
     case FieldType.MultipleSelect:
       return (
         <SelectOptions
+          isMultiple={type === FieldType.MultipleSelect}
           options={options as ISelectFieldOptions}
           isLookup={isLookup}
           onChange={onChange}
@@ -107,6 +121,14 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) 
       return (
         <RatingOptions
           options={options as IRatingFieldOptions}
+          isLookup={isLookup}
+          onChange={onChange}
+        />
+      );
+    case FieldType.Checkbox:
+      return (
+        <CheckboxOptions
+          options={options as ICheckboxFieldOptions}
           isLookup={isLookup}
           onChange={onChange}
         />

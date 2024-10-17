@@ -1,6 +1,14 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { Colors, FieldType, isGreater, SortFunc, StatisticsFunc } from '@teable/core';
+import {
+  Colors,
+  FieldType,
+  isGreater,
+  SortFunc,
+  StatisticsFunc,
+  TimeFormatting,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import { createTable, baseQuery, BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import { initApp } from './utils/init-app';
@@ -27,7 +35,7 @@ describe('BaseSqlQuery e2e', () => {
             type: FieldType.SingleLineText,
           },
           {
-            name: 'age',
+            name: 'age?',
             type: FieldType.Number,
           },
           {
@@ -51,21 +59,21 @@ describe('BaseSqlQuery e2e', () => {
           {
             fields: {
               name: 'Alice',
-              age: 20,
+              'age?': 20,
               position: 'Frontend Developer',
             },
           },
           {
             fields: {
               name: 'Bob',
-              age: 30,
+              'age?': 30,
               position: 'Backend Developer',
             },
           },
           {
             fields: {
               name: 'Charlie',
-              age: 40,
+              'age?': 40,
               position: 'Frontend Developer',
             },
           },
@@ -108,9 +116,9 @@ describe('BaseSqlQuery e2e', () => {
       expect(res.data.columns).toHaveLength(3);
       expect(res.data.rows).toEqual([
         {
-          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Charlie',
-          [`${table.fields[1].id}_${table.fields[1].name}`]: 40,
-          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+          [`${table.fields[0].id}`]: 'Charlie',
+          [`${table.fields[1].id}`]: 40,
+          [`${table.fields[2].id}`]: 'Frontend Developer',
         },
       ]);
     });
@@ -129,19 +137,19 @@ describe('BaseSqlQuery e2e', () => {
       expect(res.data.columns).toHaveLength(3);
       expect(res.data.rows).toEqual([
         {
-          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Charlie',
-          [`${table.fields[1].id}_${table.fields[1].name}`]: 40,
-          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+          [`${table.fields[0].id}`]: 'Charlie',
+          [`${table.fields[1].id}`]: 40,
+          [`${table.fields[2].id}`]: 'Frontend Developer',
         },
         {
-          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Bob',
-          [`${table.fields[1].id}_${table.fields[1].name}`]: 30,
-          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Backend Developer',
+          [`${table.fields[0].id}`]: 'Bob',
+          [`${table.fields[1].id}`]: 30,
+          [`${table.fields[2].id}`]: 'Backend Developer',
         },
         {
-          [`${table.fields[0].id}_${table.fields[0].name}`]: 'Alice',
-          [`${table.fields[1].id}_${table.fields[1].name}`]: 20,
-          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+          [`${table.fields[0].id}`]: 'Alice',
+          [`${table.fields[1].id}`]: 20,
+          [`${table.fields[2].id}`]: 'Frontend Developer',
         },
       ]);
     });
@@ -176,14 +184,67 @@ describe('BaseSqlQuery e2e', () => {
       expect(res.data.columns).toHaveLength(2);
       expect(res.data.rows).toEqual([
         {
-          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Backend Developer',
+          [`${table.fields[2].id}`]: 'Backend Developer',
           [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
         },
         {
-          [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+          [`${table.fields[2].id}`]: 'Frontend Developer',
           [`${table.fields[1].id}_${StatisticsFunc.Average}`]: 30,
         },
       ]);
+    });
+
+    it('groupBy with date', async () => {
+      const table = await createTable(baseId, {
+        fields: [
+          {
+            name: 'id',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'date',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: 'YYYY-MM-DD',
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Shanghai',
+              },
+            },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              id: '1',
+              date: '2024-01-01',
+            },
+          },
+          {
+            fields: {
+              id: '2',
+              date: '2024-01-02',
+            },
+          },
+          {
+            fields: {
+              id: '3',
+              date: '2024-01-01',
+            },
+          },
+        ],
+      }).then((res) => res.data);
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        groupBy: [{ column: table.fields[1].id, type: BaseQueryColumnType.Field }],
+      });
+      expect(res.data.columns).toHaveLength(1);
+      expect(res.data.rows).toEqual(
+        expect.arrayContaining([
+          { [`${table.fields[1].id}`]: '2024-01-01' },
+          { [`${table.fields[1].id}`]: '2024-01-02' },
+        ])
+      );
     });
 
     it('limit and offset', async () => {
@@ -217,9 +278,9 @@ describe('BaseSqlQuery e2e', () => {
         expect(res.data.columns).toHaveLength(3);
         expect(res.data.rows).toEqual([
           {
-            [`${table.fields[0].id}_${table.fields[0].dbFieldName}`]: 'Charlie',
-            [`${table.fields[1].id}_${table.fields[1].dbFieldName}`]: 40,
-            [`${table.fields[2].id}_${table.fields[2].dbFieldName}`]: 'Frontend Developer',
+            [`${table.fields[0].id}`]: 'Charlie',
+            [`${table.fields[1].id}`]: 40,
+            [`${table.fields[2].id}`]: 'Frontend Developer',
           },
         ]);
       });
@@ -421,11 +482,91 @@ describe('BaseSqlQuery e2e', () => {
         expect(res.data.rows).toEqual([
           {
             [`${table.fields[1].id}_${StatisticsFunc.Sum}`]: 60,
-            [`${table.fields[2].id}_${table.fields[2].name}`]: 'Frontend Developer',
+            [`${table.fields[2].id}`]: 'Frontend Developer',
           },
           {
             [`${table.fields[1].id}_${StatisticsFunc.Sum}`]: 30,
-            [`${table.fields[2].id}_${table.fields[2].name}`]: 'Backend Developer',
+            [`${table.fields[2].id}`]: 'Backend Developer',
+          },
+        ]);
+      });
+
+      it('from query include aggregation, filter and group query aggregation field - query include select', async () => {
+        const res = await baseQuery(baseId, {
+          select: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+            {
+              column: table.fields[2].id,
+              type: BaseQueryColumnType.Field,
+            },
+          ],
+          where: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+                type: BaseQueryColumnType.Aggregation,
+                operator: isGreater.value,
+                value: 25,
+              },
+            ],
+          },
+          groupBy: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+              type: BaseQueryColumnType.Aggregation,
+            },
+            {
+              column: table.fields[2].id,
+              type: BaseQueryColumnType.Field,
+            },
+          ],
+          orderBy: [
+            {
+              column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+              type: BaseQueryColumnType.Aggregation,
+              order: SortFunc.Desc,
+            },
+          ],
+          from: {
+            select: [
+              {
+                column: `${table.fields[1].id}_${StatisticsFunc.Sum}`,
+                type: BaseQueryColumnType.Aggregation,
+              },
+              {
+                column: table.fields[2].id,
+                type: BaseQueryColumnType.Field,
+              },
+            ],
+            from: table.id,
+            aggregation: [
+              {
+                column: table.fields[1].id,
+                type: BaseQueryColumnType.Field,
+                statisticFunc: StatisticsFunc.Sum,
+              },
+            ],
+            groupBy: [
+              {
+                column: table.fields[2].id,
+                type: BaseQueryColumnType.Field,
+              },
+            ],
+          },
+        });
+        expect(res.data.columns).toHaveLength(2);
+        expect(res.data.rows).toEqual([
+          {
+            [`${table.fields[1].id}_${StatisticsFunc.Sum}`]: 60,
+            [`${table.fields[2].id}`]: 'Frontend Developer',
+          },
+          {
+            [`${table.fields[1].id}_${StatisticsFunc.Sum}`]: 30,
+            [`${table.fields[2].id}`]: 'Backend Developer',
           },
         ]);
       });
@@ -517,20 +658,20 @@ describe('BaseSqlQuery e2e', () => {
       expect(res.data.columns).toHaveLength(4);
       expect(res.data.rows).toEqual([
         {
-          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Alice',
-          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 20,
-          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'David',
-          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 20,
+          [`${table1.fields[0].id}`]: 'Alice',
+          [`${table1.fields[1].id}`]: 20,
+          [`${table2.fields[0].id}`]: 'David',
+          [`${table2.fields[1].id}`]: 20,
         },
         {
-          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Bob',
-          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 30,
-          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'Eve',
-          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 30,
+          [`${table1.fields[0].id}`]: 'Bob',
+          [`${table1.fields[1].id}`]: 30,
+          [`${table2.fields[0].id}`]: 'Eve',
+          [`${table2.fields[1].id}`]: 30,
         },
         {
-          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Charlie',
-          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 40,
+          [`${table1.fields[0].id}`]: 'Charlie',
+          [`${table1.fields[1].id}`]: 40,
         },
       ]);
     });
@@ -549,16 +690,16 @@ describe('BaseSqlQuery e2e', () => {
       expect(res.data.columns).toHaveLength(4);
       expect(res.data.rows).toEqual([
         {
-          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Alice',
-          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 20,
-          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'David',
-          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 20,
+          [`${table1.fields[0].id}`]: 'Alice',
+          [`${table1.fields[1].id}`]: 20,
+          [`${table2.fields[0].id}`]: 'David',
+          [`${table2.fields[1].id}`]: 20,
         },
         {
-          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Bob',
-          [`${table1.fields[1].id}_${table1.fields[1].name}`]: 30,
-          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'Eve',
-          [`${table2.fields[1].id}_${table2.fields[1].name}`]: 30,
+          [`${table1.fields[0].id}`]: 'Bob',
+          [`${table1.fields[1].id}`]: 30,
+          [`${table2.fields[0].id}`]: 'Eve',
+          [`${table2.fields[1].id}`]: 30,
         },
       ]);
     });
@@ -598,8 +739,8 @@ describe('BaseSqlQuery e2e', () => {
       expect(res.data.columns).toHaveLength(2);
       expect(res.data.rows).toEqual([
         {
-          [`${table1.fields[0].id}_${table1.fields[0].name}`]: 'Bob',
-          [`${table2.fields[0].id}_${table2.fields[0].name}`]: 'Eve',
+          [`${table1.fields[0].id}`]: 'Bob',
+          [`${table2.fields[0].id}`]: 'Eve',
         },
       ]);
     });

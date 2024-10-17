@@ -1,5 +1,4 @@
 import type { IFieldVo } from '@teable/core';
-import { FieldType } from '@teable/core';
 import { ArrowUpDown, Filter as FilterIcon, Share2, Layers, Settings, Plus } from '@teable/icons';
 import type { IFieldInstance, IFieldCreateOrSelectModalRef, KanbanView } from '@teable/sdk';
 import {
@@ -24,8 +23,6 @@ import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
 import { UndoRedoButtons } from './UndoRedoButtons';
-
-const KANBAN_STACKED_BY_FIELD_TYPES = [FieldType.SingleSelect, FieldType.User];
 
 export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
@@ -111,7 +108,6 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
         }
         isCreatable={permission['field|create']}
         selectedFieldId={stackFieldId}
-        fieldTypes={KANBAN_STACKED_BY_FIELD_TYPES}
         onConfirm={onFieldSelected}
         getCreateBtnText={(fieldName) => (
           <Trans ns="table" i18nKey={'toolbar.createFieldButtonText'}>

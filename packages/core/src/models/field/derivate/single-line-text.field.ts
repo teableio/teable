@@ -5,6 +5,7 @@ import { singleLineTextShowAsSchema } from '../show-as';
 
 export const singlelineTextFieldOptionsSchema = z.object({
   showAs: singleLineTextShowAsSchema.optional(),
+  defaultValue: z.string().optional(),
 });
 
 export type ISingleLineTextFieldOptions = z.infer<typeof singlelineTextFieldOptionsSchema>;

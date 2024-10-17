@@ -22,6 +22,8 @@ export class SystemFieldService {
     userId: string,
     timeStr: string
   ) {
+    if (!recordIds.length) return;
+
     const nativeQuery = this.knex(dbTableName)
       .update({
         __last_modified_time: timeStr,

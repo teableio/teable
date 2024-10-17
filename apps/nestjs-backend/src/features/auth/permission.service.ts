@@ -26,7 +26,7 @@ export class PermissionService {
       select: { roleName: true },
     });
     if (!collaborator) {
-      throw new ForbiddenException(`can't find collaborator`);
+      throw new ForbiddenException(`you have no permission to access this space`);
     }
     return collaborator.roleName as IRole;
   }

@@ -1,7 +1,7 @@
 import { isEqual } from 'lodash';
-import { useCallback, useContext, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type { Doc, Query } from 'sharedb/lib/client';
-import { AppContext } from '../app/AppContext';
+import { useConnection } from '../../hooks/use-connection';
 import { OpListenersManager } from './opListener';
 import type { IInstanceAction, IInstanceState } from './reducer';
 import { instanceReducer } from './reducer';
@@ -41,7 +41,7 @@ export function useInstances<T, R extends { id: string }>({
   queryParams,
   initData,
 }: IUseInstancesProps<T, R>): IInstanceState<R> {
-  const { connection, connected } = useContext(AppContext);
+  const { connection, connected } = useConnection();
   const [query, setQuery] = useState<Query<T>>();
   const [instances, dispatch] = useReducer(
     (state: IInstanceState<R>, action: IInstanceAction<T>) =>
@@ -160,6 +160,10 @@ export function useInstances<T, R extends { id: string }>({
         docs.map((doc) => doc.id)
       );
     };
+
+    if (query.ready) {
+      readyListener();
+    }
 
     query.on('ready', readyListener);
 

@@ -1,5 +1,20 @@
-const EMPTY_OPERATORS = ['isEmpty', 'isNotEmpty'];
-const MULTIPLE_OPERATORS = ['isAnyOf', 'isNoneOf'];
-const ARRAY_OPERATORS = ['isAnyOf', 'isNoneOf', 'hasAnyOf', 'hasAllof'];
+import {
+  hasAllOf,
+  hasAnyOf,
+  hasNoneOf,
+  isNoneOf,
+  isAnyOf,
+  isEmpty,
+  isNotEmpty,
+} from '@teable/core';
 
-export { EMPTY_OPERATORS, MULTIPLE_OPERATORS, ARRAY_OPERATORS };
+const EMPTY_OPERATORS = [isEmpty.value, isNotEmpty.value] as string[];
+const SINGLE_SELECT_ARRAY_OPERATORS = [isAnyOf.value, isNoneOf.value] as string[];
+const MULTIPLE_SELECT_ARRAY_OPERATORS = [
+  hasAnyOf.value,
+  hasAllOf.value,
+  hasNoneOf.value,
+] as string[];
+const ARRAY_OPERATORS = [...SINGLE_SELECT_ARRAY_OPERATORS, ...MULTIPLE_SELECT_ARRAY_OPERATORS];
+
+export { EMPTY_OPERATORS, ARRAY_OPERATORS };

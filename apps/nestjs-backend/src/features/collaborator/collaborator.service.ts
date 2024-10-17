@@ -73,7 +73,11 @@ export class CollaboratorService {
     return collaborator;
   }
 
-  async getListByBase(baseId: string): Promise<ListBaseCollaboratorVo> {
+  async getListByBase(
+    baseId: string,
+    options?: { includeSystem?: boolean }
+  ): Promise<ListBaseCollaboratorVo> {
+    const { includeSystem } = options ?? {};
     const base = await this.prismaService
       .txClient()
       .base.findUniqueOrThrow({ select: { spaceId: true }, where: { id: baseId } });
@@ -81,6 +85,7 @@ export class CollaboratorService {
     const collaborators = await this.prismaService.txClient().collaborator.findMany({
       where: {
         resourceId: { in: [baseId, base.spaceId] },
+        ...(includeSystem ? {} : { user: { isSystem: null } }),
       },
       select: {
         roleName: true,
@@ -92,9 +97,11 @@ export class CollaboratorService {
             name: true,
             email: true,
             avatar: true,
+            isSystem: true,
           },
         },
       },
+      orderBy: { createdTime: 'asc' },
     });
 
     return collaborators.map((collaborator) => ({
@@ -107,6 +114,7 @@ export class CollaboratorService {
       role: collaborator.roleName as IRole,
       createdTime: collaborator.createdTime.toISOString(),
       resourceType: collaborator.resourceType as CollaboratorType,
+      isSystem: collaborator.user.isSystem || undefined,
     }));
   }
 
@@ -162,6 +170,7 @@ export class CollaboratorService {
           },
         },
       },
+      orderBy: { createdTime: 'asc' },
     });
     return collaborators.map((collaborator) => ({
       userId: collaborator.user.id,
@@ -221,6 +230,22 @@ export class CollaboratorService {
     return { currentColl, targetColl };
   }
 
+  async isUniqueOwnerUser(spaceId: string, userId: string) {
+    const collaborators = await this.prismaService.txClient().collaborator.findMany({
+      where: {
+        resourceType: CollaboratorType.Space,
+        resourceId: spaceId,
+        roleName: Role.Owner,
+        user: {
+          isSystem: null,
+          deletedTime: null,
+          deactivatedTime: null,
+        },
+      },
+    });
+    return collaborators.length === 1 && collaborators[0].userId === userId;
+  }
+
   async deleteCollaborator({
     resourceId,
     resourceType,
@@ -246,7 +271,6 @@ export class CollaboratorService {
     ) {
       throw new ForbiddenException(`You do not have permission to delete this user: ${userId}`);
     }
-
     const result = await this.prismaService.txClient().collaborator.delete({
       where: {
         // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -410,6 +434,7 @@ export class CollaboratorService {
       role: roleMap[base.id],
       icon: base.icon,
       spaceId: base.spaceId,
+      collaboratorType: CollaboratorType.Base,
     }));
   }
 }

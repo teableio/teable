@@ -4,7 +4,6 @@ import { defaultLocale } from '../app/i18n';
 
 export const createAppContext = (context: Partial<IAppContext> = {}) => {
   const defaultContext: IAppContext = {
-    connected: false,
     locale: defaultLocale,
   };
   // eslint-disable-next-line react/display-name

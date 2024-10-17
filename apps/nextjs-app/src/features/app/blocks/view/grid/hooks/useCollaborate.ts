@@ -29,7 +29,7 @@ export const useCollaborate = (
       return presence.create(`${tableId}_${user.id}_${connection.id}`);
     }
     return null;
-  }, [connection.id, presence, tableId, user.id]);
+  }, [connection?.id, presence, tableId, user.id]);
 
   useEffect(() => {
     if (!tableId || !connection || !viewId) {

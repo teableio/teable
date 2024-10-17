@@ -2,7 +2,9 @@ import { z } from 'zod';
 import type { FieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 
-export const checkboxFieldOptionsSchema = z.object({}).strict();
+export const checkboxFieldOptionsSchema = z
+  .object({ defaultValue: z.boolean().optional() })
+  .strict();
 
 export type ICheckboxFieldOptions = z.infer<typeof checkboxFieldOptionsSchema>;
 

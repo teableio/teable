@@ -127,7 +127,6 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
     const { data, readonly } = cell;
     const { width, height, theme, isActive, hoverCellPosition } = props;
     const editable = !readonly && isActive;
-    if (!editable) return { type: CellRegionType.Blank };
 
     const { iconSizeSM } = theme;
     const [hoverX, hoverY] = hoverCellPosition;
@@ -135,6 +134,7 @@ export const imageCellRenderer: IInternalCellRenderer<IImageCell> = {
     const startY = (height - iconSizeSM) / 2;
 
     if (
+      editable &&
       isPointInsideRectangle(
         [hoverX, hoverY],
         [startX, startY],

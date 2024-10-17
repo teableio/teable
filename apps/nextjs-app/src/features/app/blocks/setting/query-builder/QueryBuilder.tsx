@@ -44,50 +44,48 @@ export const QueryBuilder = () => {
 
   return (
     <SettingRight title={<SettingRightTitle title={t('developer:apiQueryBuilder')} />}>
-      <div className="flex w-full flex-col gap-4 pb-8 pt-4">
-        <div className="text-sm">
-          {t('developer:subTitle')}{' '}
-          <Button variant="link" size="xs" asChild>
-            <Link href="/redocs" target="_blank">
-              <ArrowUpRight className="size-4" />
-              {t('developer:apiList')}
-            </Link>
-          </Button>
-        </div>
-        <p>{t('developer:chooseSource')}</p>
-        <div className="flex flex-col gap-2">
-          <h1>1. {t('common:noun.base')}</h1>
-          <Selector
-            className="w-80"
-            placeholder={t('developer:action.selectBase')}
-            candidates={baseListReq}
-            selectedId={baseId}
-            onChange={(id) => setBaseId(id)}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <h1>2. {t('common:noun.table')}</h1>
-          <Selector
-            className="w-80"
-            placeholder={t('developer:action.selectTable')}
-            candidates={tableListReq}
-            selectedId={tableId}
-            onChange={(id) => setTableId(id)}
-          />
-        </div>
-        <hr className="my-4" />
-        <p>{t('developer:pickParams')}</p>
-        {tableId && (
-          <>
-            <div className="flex flex-col gap-2">
-              <h1 className="font-bold">{t('common:noun.view')}</h1>
-              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
+      <StandaloneViewProvider baseId={baseId} tableId={tableId} viewId={viewId}>
+        <div className="flex w-full flex-col gap-4 pb-8 pt-4">
+          <div className="text-sm">
+            {t('developer:subTitle')}{' '}
+            <Button variant="link" size="xs" asChild>
+              <Link href="/redocs" target="_blank">
+                <ArrowUpRight className="size-4" />
+                {t('developer:apiList')}
+              </Link>
+            </Button>
+          </div>
+          <p>{t('developer:chooseSource')}</p>
+          <div className="flex flex-col gap-2">
+            <h1>1. {t('common:noun.base')}</h1>
+            <Selector
+              className="w-80"
+              placeholder={t('developer:action.selectBase')}
+              candidates={baseListReq}
+              selectedId={baseId}
+              onChange={(id) => setBaseId(id)}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <h1>2. {t('common:noun.table')}</h1>
+            <Selector
+              className="w-80"
+              placeholder={t('developer:action.selectTable')}
+              candidates={tableListReq}
+              selectedId={tableId}
+              onChange={(id) => setTableId(id)}
+            />
+          </div>
+          <hr className="my-4" />
+          <p>{t('developer:pickParams')}</p>
+          {tableId && (
+            <>
+              <div className="flex flex-col gap-2">
+                <h1 className="font-bold">{t('common:noun.view')}</h1>
                 <ViewBuilder viewId={viewId} onChange={setViewId} />
-              </StandaloneViewProvider>
-            </div>
-            <div className="flex flex-col gap-2">
-              <h1 className="font-bold">{t('sdk:filter.label')}</h1>
-              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
+              </div>
+              <div className="flex flex-col gap-2">
+                <h1 className="font-bold">{t('sdk:filter.label')}</h1>
                 <FilterBuilder
                   filter={filter}
                   onChange={(f) => {
@@ -95,11 +93,9 @@ export const QueryBuilder = () => {
                     setFieldKeyType(FieldKeyType.Id);
                   }}
                 />
-              </StandaloneViewProvider>
-            </div>
-            <div className="flex flex-col gap-2">
-              <h1 className="font-bold">{t('sdk:sort.label')}</h1>
-              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
+              </div>
+              <div className="flex flex-col gap-2">
+                <h1 className="font-bold">{t('sdk:sort.label')}</h1>
                 <OrderByBuilder
                   orderBy={orderBy}
                   onChange={(o) => {
@@ -107,81 +103,77 @@ export const QueryBuilder = () => {
                     setFieldKeyType(FieldKeyType.Id);
                   }}
                 />
-              </StandaloneViewProvider>
-            </div>
-            <div className="flex flex-col gap-2">
-              <h1 className="font-bold">{t('common:actions.search')}</h1>
-              <StandaloneViewProvider baseId={baseId} tableId={tableId}>
+              </div>
+              <div className="flex flex-col gap-2">
+                <h1 className="font-bold">{t('common:actions.search')}</h1>
                 <SearchBuilder search={search} onChange={setSearch} />
-              </StandaloneViewProvider>
+              </div>
+              <div className="flex flex-col gap-2">
+                <h1 className="font-bold">{t('developer:cellFormat')}</h1>
+                <ToggleGroup
+                  className="w-auto justify-start"
+                  variant="outline"
+                  type="single"
+                  size="sm"
+                  value={cellFormat || CellFormat.Json}
+                  onValueChange={(v) => setCellFormat((v as CellFormat) || CellFormat.Json)}
+                >
+                  <ToggleGroupItem value="json" aria-label="Toggle json">
+                    JSON
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="text" aria-label="Toggle text">
+                    Text
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+              <div className="flex flex-col gap-2">
+                <h1 className="font-bold">{t('developer:fieldKeyType')}</h1>
+                <p className="text-xs">{t('developer:fieldKeyTypeDesc')}</p>
+                <ToggleGroup
+                  className="w-auto justify-start"
+                  variant="outline"
+                  type="single"
+                  size="sm"
+                  value={fieldKeyType || FieldKeyType.Name}
+                  onValueChange={(v) => {
+                    if (orderBy || filter) {
+                      setFieldKeyType(FieldKeyType.Id);
+                    } else {
+                      setFieldKeyType(v as FieldKeyType);
+                    }
+                  }}
+                >
+                  <ToggleGroupItem value="name" aria-label="Toggle json">
+                    Name
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="id" aria-label="Toggle text">
+                    Id
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+            </>
+          )}
+          <hr className="my-4" />
+          {tableId ? (
+            <div className="flex flex-col gap-4">
+              <h1 className="font-bold">{t('developer:buildResult')}</h1>
+              <PreviewScript
+                tableId={tableId}
+                query={{ fieldKeyType, viewId, filter, orderBy, search, cellFormat }}
+              />
             </div>
-            <div className="flex flex-col gap-2">
-              <h1 className="font-bold">{t('developer:cellFormat')}</h1>
-              <ToggleGroup
-                className="w-auto justify-start"
-                variant="outline"
-                type="single"
-                size="sm"
-                value={cellFormat || CellFormat.Json}
-                onValueChange={(v) => setCellFormat((v as CellFormat) || CellFormat.Json)}
-              >
-                <ToggleGroupItem value="json" aria-label="Toggle json">
-                  JSON
-                </ToggleGroupItem>
-                <ToggleGroupItem value="text" aria-label="Toggle text">
-                  Text
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-            <div className="flex flex-col gap-2">
-              <h1 className="font-bold">{t('developer:fieldKeyType')}</h1>
-              <p className="text-xs">{t('developer:fieldKeyTypeDesc')}</p>
-              <ToggleGroup
-                className="w-auto justify-start"
-                variant="outline"
-                type="single"
-                size="sm"
-                value={fieldKeyType || FieldKeyType.Name}
-                onValueChange={(v) => {
-                  if (orderBy || filter) {
-                    setFieldKeyType(FieldKeyType.Id);
-                  } else {
-                    setFieldKeyType(v as FieldKeyType);
-                  }
-                }}
-              >
-                <ToggleGroupItem value="name" aria-label="Toggle json">
-                  Name
-                </ToggleGroupItem>
-                <ToggleGroupItem value="id" aria-label="Toggle text">
-                  Id
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-          </>
-        )}
-        <hr className="my-4" />
-        {tableId ? (
-          <div className="flex flex-col gap-4">
-            <h1 className="font-bold">{t('developer:buildResult')}</h1>
-            <PreviewScript
-              tableId={tableId}
-              query={{ fieldKeyType, viewId, filter, orderBy, search, cellFormat }}
-            />
-          </div>
-        ) : (
-          t('developer:buildResultEmpty')
-        )}
-        <hr className="my-4" />
-        {tableId && (
-          <div className="flex w-full flex-col gap-4">
-            <h1 className="font-bold">{t('developer:previewReturnValue')}</h1>
-            <StandaloneViewProvider baseId={baseId} tableId={tableId}>
+          ) : (
+            t('developer:buildResultEmpty')
+          )}
+          <hr className="my-4" />
+          {tableId && (
+            <div className="flex w-full flex-col gap-4">
+              <h1 className="font-bold">{t('developer:previewReturnValue')}</h1>
               <PreviewTable query={{ filter, orderBy, viewId, search, cellFormat, fieldKeyType }} />
-            </StandaloneViewProvider>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      </StandaloneViewProvider>
     </SettingRight>
   );
 };

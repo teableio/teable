@@ -68,6 +68,7 @@ const {
   rowHeadIconPaddingTop,
   columnStatisticHeight,
   columnFreezeHandlerWidth,
+  minColumnStatisticWidth,
 } = GRID_DEFAULT;
 
 export const getRegionData = (props: ICheckRegionProps): IRegionData => {
@@ -174,10 +175,46 @@ const checkIsAppendColumn = (props: ICheckRegionProps): IRegionData | null => {
   return null;
 };
 
-const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null => {
-  const { position, columnStatistics, height, scrollState, coordInstance } = props;
+export const getColumnStatisticData = (
+  props: Pick<
+    IRenderLayerProps,
+    'height' | 'scrollState' | 'coordInstance' | 'columnStatistics' | 'getLinearRow'
+  > & {
+    position: IRegionPosition;
+  }
+) => {
+  const { columnStatistics, scrollState, coordInstance, getLinearRow, position, height } = props;
   if (columnStatistics == null) return null;
-  const { y, columnIndex } = position;
+  const { scrollLeft, scrollTop } = scrollState;
+  const { x, y, rowIndex, columnIndex } = position;
+
+  if (rowIndex > -1 && columnIndex > -1) {
+    const { type } = getLinearRow(rowIndex);
+    const isFirstColumn = columnIndex === 0;
+    const columnWidth = coordInstance.getColumnWidth(columnIndex);
+    const columnOffsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
+    const groupedStatisticX = isFirstColumn
+      ? columnOffsetX + columnWidth - minColumnStatisticWidth
+      : columnOffsetX;
+
+    if (
+      type === LinearRowType.Group &&
+      inRange(
+        x,
+        groupedStatisticX,
+        groupedStatisticX + (isFirstColumn ? minColumnStatisticWidth : columnWidth)
+      )
+    ) {
+      return {
+        type: RegionType.GroupStatistic,
+        x: columnOffsetX,
+        y: coordInstance.getRowOffset(rowIndex) - scrollTop,
+        width: columnWidth,
+        height: columnStatisticHeight,
+      };
+    }
+  }
+
   const isBottomRegion = inRange(y, height - columnStatisticHeight, height);
   const isColumnStatistic = isBottomRegion && columnIndex > -1;
   const isRowCountLabel = isBottomRegion && columnIndex === -1;
@@ -191,6 +228,7 @@ const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null =>
       height: columnStatisticHeight,
     };
   }
+
   if (isColumnStatistic) {
     const { scrollLeft } = scrollState;
 
@@ -202,7 +240,12 @@ const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null =>
       height: columnStatisticHeight,
     };
   }
+
   return null;
+};
+
+const checkIsColumnStatistic = (props: ICheckRegionProps): IRegionData | null => {
+  return getColumnStatisticData(props);
 };
 
 const checkIsAllCheckbox = (props: ICheckRegionProps): IRegionData | null => {

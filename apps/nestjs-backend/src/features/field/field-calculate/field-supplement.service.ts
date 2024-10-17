@@ -190,7 +190,7 @@ export class FieldSupplementService {
     fieldId: string,
     optionsRo: ILinkFieldOptionsRo
   ): Promise<ILinkFieldOptions> {
-    const { foreignTableId, isOneWay } = optionsRo;
+    const { baseId, foreignTableId, isOneWay } = optionsRo;
     const symmetricFieldId = isOneWay ? undefined : generateFieldId();
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
@@ -199,6 +199,19 @@ export class FieldSupplementService {
       where: { tableId: foreignTableId, isPrimary: true },
       select: { id: true },
     });
+
+    if (baseId) {
+      await this.prismaService.tableMeta
+        .findFirstOrThrow({
+          where: { id: foreignTableId, baseId, deletedTime: null },
+          select: { id: true },
+        })
+        .catch(() => {
+          throw new BadRequestException(
+            `foreignTableId ${foreignTableId} is not exist in base ${baseId}`
+          );
+        });
+    }
 
     return this.generateLinkOptionsVo({
       tableId,
@@ -217,7 +230,7 @@ export class FieldSupplementService {
     oldOptions: ILinkFieldOptions,
     newOptionsRo: ILinkFieldOptionsRo
   ): Promise<ILinkFieldOptions> {
-    const { foreignTableId, isOneWay } = newOptionsRo;
+    const { baseId, foreignTableId, isOneWay } = newOptionsRo;
 
     const dbTableName = await this.getDbTableName(tableId);
     const foreignTableName = await this.getDbTableName(foreignTableId);
@@ -237,6 +250,19 @@ export class FieldSupplementService {
               select: { id: true },
             })
           ).id;
+
+    if (baseId) {
+      await this.prismaService.tableMeta
+        .findFirstOrThrow({
+          where: { id: foreignTableId, baseId, deletedTime: null },
+          select: { id: true },
+        })
+        .catch(() => {
+          throw new BadRequestException(
+            `foreignTableId ${foreignTableId} is not exist in base ${baseId}`
+          );
+        });
+    }
 
     return this.generateLinkOptionsVo({
       tableId,
@@ -670,22 +696,29 @@ export class FieldSupplementService {
     };
   }
 
-  private prepareSelectOptions(options: ISelectFieldOptionsRo) {
+  private prepareSelectOptions(options: ISelectFieldOptionsRo, isMultiple: boolean) {
     const optionsRo = (options ?? SelectFieldCore.defaultOptions()) as ISelectFieldOptionsRo;
     const nameSet = new Set<string>();
+    const choices = optionsRo.choices.map((choice) => {
+      if (nameSet.has(choice.name)) {
+        throw new BadRequestException(`choice name ${choice.name} is duplicated`);
+      }
+      nameSet.add(choice.name);
+      return {
+        name: choice.name,
+        id: choice.id ?? generateChoiceId(),
+        color: choice.color ?? ColorUtils.randomColor()[0],
+      };
+    });
+
+    const defaultValue = optionsRo.defaultValue
+      ? [optionsRo.defaultValue].flat().filter((name) => nameSet.has(name))
+      : undefined;
+
     return {
       ...optionsRo,
-      choices: optionsRo.choices.map((choice) => {
-        if (nameSet.has(choice.name)) {
-          throw new BadRequestException(`choice name ${choice.name} is duplicated`);
-        }
-        nameSet.add(choice.name);
-        return {
-          name: choice.name,
-          id: choice.id ?? generateChoiceId(),
-          color: choice.color ?? ColorUtils.randomColor()[0],
-        };
-      }),
+      defaultValue: isMultiple ? defaultValue : defaultValue?.[0],
+      choices,
     };
   }
 
@@ -695,7 +728,7 @@ export class FieldSupplementService {
     return {
       ...field,
       name: name ?? 'Select',
-      options: this.prepareSelectOptions(options as ISelectFieldOptionsRo),
+      options: this.prepareSelectOptions(options as ISelectFieldOptionsRo, false),
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Text,
     };
@@ -707,7 +740,7 @@ export class FieldSupplementService {
     return {
       ...field,
       name: name ?? 'Tags',
-      options: this.prepareSelectOptions(options as ISelectFieldOptionsRo),
+      options: this.prepareSelectOptions(options as ISelectFieldOptionsRo, true),
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Json,
       isMultipleCellValue: true,
@@ -728,19 +761,27 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateUserField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
-    const mergeObj = merge({}, oldFieldVo, fieldRo);
+    const mergeObj = {
+      ...oldFieldVo,
+      ...fieldRo,
+    };
 
     return this.prepareUserField(mergeObj);
   }
 
   private prepareUserField(field: IFieldRo) {
-    const { name, options = UserFieldCore.defaultOptions() } = field;
-    const { isMultiple } = options as IUserFieldOptions;
+    const { name } = field;
+    const options: IUserFieldOptions = field.options || UserFieldCore.defaultOptions();
+    const { isMultiple } = options;
+    const defaultValue = options.defaultValue ? [options.defaultValue].flat() : undefined;
 
     return {
       ...field,
       name: name ?? `Collaborator${isMultiple ? 's' : ''}`,
-      options: options,
+      options: {
+        ...options,
+        defaultValue: isMultiple ? defaultValue : defaultValue?.[0],
+      },
       cellValueType: CellValueType.String,
       dbFieldType: DbFieldType.Json,
       isMultipleCellValue: isMultiple || undefined,
@@ -1048,9 +1089,9 @@ export class FieldSupplementService {
     }
 
     const prisma = this.prismaService.txClient();
-    const { name: tableName } = await prisma.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { name: true },
+    const { name: tableName, baseId } = await prisma.tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { name: true, baseId: true },
     });
 
     const fieldName = await this.uniqFieldName(tableId, tableName);
@@ -1074,6 +1115,7 @@ export class FieldSupplementService {
       dbFieldName,
       type: FieldType.Link,
       options: {
+        baseId: field.options.baseId ? baseId : undefined,
         relationship,
         foreignTableId: tableId,
         lookupFieldId,

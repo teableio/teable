@@ -35,6 +35,7 @@ import {
   useGridColumnStatistics,
   useGridColumnOrder,
   useGridAsyncRecords,
+  useCommentCountMap,
   useGridIcons,
   useGridTooltipStore,
   hexToRGBA,
@@ -131,12 +132,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     generateLocalId(tableId, activeViewId)
   );
 
-  const { onVisibleRegionChanged, onReset, recordMap, groupPoints } = useGridAsyncRecords(
-    ssrRecords,
-    undefined,
-    viewQuery,
-    groupPointsServerData
-  );
+  const { onVisibleRegionChanged, onReset, recordMap, groupPoints, recordsQuery } =
+    useGridAsyncRecords(ssrRecords, undefined, viewQuery, groupPointsServerData);
+
+  const commentCountMap = useCommentCountMap(recordsQuery);
 
   const onRowOrdered = useGridRowOrder(recordMap);
 
@@ -158,7 +157,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     setPrefillingFieldValueMap,
   } = useGridPrefillingRow(columns);
 
-  const { mutate: mutateCreateRecord } = useMutation({
+  const { mutate: mutateCreateRecord, isLoading: isCreatingRecord } = useMutation({
     mutationFn: () =>
       createRecords(tableId!, {
         records: [{ fields: prefillingFieldValueMap! }],
@@ -669,7 +668,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   );
 
   return (
-    <div ref={containerRef} className="relative size-full overflow-hidden">
+    <div ref={containerRef} className="relative size-full">
       <Grid
         ref={gridRef}
         theme={theme}
@@ -681,6 +680,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         freezeColumnCount={frozenColumnCount}
         columnStatistics={columnStatistics}
         columns={columns}
+        commentCountMap={commentCountMap}
         customIcons={customIcons}
         rowControls={rowControls}
         collapsedGroupIds={collapsedGroupIds}
@@ -718,7 +718,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       {inPrefilling && (
         <PrefillingRowContainer
           style={prefillingRowStyle}
+          isLoading={isCreatingRecord}
           onClickOutside={async () => {
+            if (isCreatingRecord) return;
             await mutateCreateRecord();
           }}
           onCancel={() => {
@@ -741,6 +743,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             draggable={DraggableType.None}
             selectable={SelectableType.Cell}
             columns={columns}
+            commentCountMap={commentCountMap}
             columnHeaderVisible={false}
             freezeColumnCount={frozenColumnCount}
             customIcons={customIcons}

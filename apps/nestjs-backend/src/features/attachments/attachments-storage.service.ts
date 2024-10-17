@@ -1,7 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
+import { UploadType } from '@teable/openapi';
 import { CacheService } from '../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
+import {
+  getTableThumbnailSize,
+  getTableThumbnailToken,
+} from '../../utils/generate-table-thumbnail-path';
 import { second } from '../../utils/second';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
@@ -77,5 +82,43 @@ export class AttachmentsStorageService {
       );
     }
     return url;
+  }
+
+  async getTableAttachmentThumbnailUrl(smThumbnailPath?: string, lgThumbnailPath?: string) {
+    const smThumbnailUrl = smThumbnailPath
+      ? await this.getPreviewUrlByPath(
+          StorageAdapter.getBucket(UploadType.Table),
+          smThumbnailPath,
+          getTableThumbnailToken(smThumbnailPath)
+        )
+      : undefined;
+    const lgThumbnailUrl = lgThumbnailPath
+      ? await this.getPreviewUrlByPath(
+          StorageAdapter.getBucket(UploadType.Table),
+          lgThumbnailPath,
+          getTableThumbnailToken(lgThumbnailPath)
+        )
+      : undefined;
+    return { smThumbnailUrl, lgThumbnailUrl };
+  }
+
+  async cutTableImage(bucket: string, path: string, width: number, height: number) {
+    const { smThumbnail, lgThumbnail } = getTableThumbnailSize(width, height);
+    const cutSmThumbnailPath = await this.storageAdapter.cutImage(
+      bucket,
+      path,
+      smThumbnail.width,
+      smThumbnail.height
+    );
+    const cutLgThumbnailPath = await this.storageAdapter.cutImage(
+      bucket,
+      path,
+      lgThumbnail.width,
+      lgThumbnail.height
+    );
+    return {
+      smThumbnailPath: cutSmThumbnailPath,
+      lgThumbnailPath: cutLgThumbnailPath,
+    };
   }
 }

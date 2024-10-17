@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import type { IGetFieldsQuery } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -20,6 +20,9 @@ export class ShareSocketService {
 
   getViewDocIdsByQuery(shareInfo: IShareViewInfo) {
     const { tableId, view } = shareInfo;
+    if (!view) {
+      throw new BadRequestException('view id is required');
+    }
     return this.viewService.getDocIdsByQuery(tableId, {
       includeIds: [view.id],
     });
@@ -27,6 +30,10 @@ export class ShareSocketService {
 
   getViewSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
     const { tableId, view } = shareInfo;
+    if (!view) {
+      throw new BadRequestException('view id is required');
+    }
+
     if (ids.length > 1 || ids[0] !== view.id) {
       throw new ForbiddenException('View permission not allowed: read');
     }
@@ -35,8 +42,12 @@ export class ShareSocketService {
 
   getFieldDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetFieldsQuery = {}) {
     const { tableId, view } = shareInfo;
-    const filterHidden = !view.shareMeta?.includeHiddenField;
-    return this.fieldService.getDocIdsByQuery(tableId, { ...query, viewId: view.id, filterHidden });
+    const filterHidden = !view?.shareMeta?.includeHiddenField;
+    return this.fieldService.getDocIdsByQuery(tableId, {
+      ...query,
+      viewId: view?.id,
+      filterHidden,
+    });
   }
 
   async getFieldSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
@@ -52,13 +63,19 @@ export class ShareSocketService {
   }
 
   getRecordDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetRecordsRo) {
-    const { tableId, view } = shareInfo;
-    return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId: view.id });
+    const { tableId, view, shareMeta } = shareInfo;
+    if (!shareMeta?.includeRecords) {
+      return { ids: [] };
+    }
+    return this.recordService.getDocIdsByQuery(tableId, { ...query, viewId: view?.id });
   }
 
   async getRecordSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
-    const { tableId, view } = shareInfo;
-    const diff = await this.recordService.getDiffIdsByIdAndFilter(tableId, ids, view.filter);
+    const { tableId, view, shareMeta } = shareInfo;
+    if (!shareMeta?.includeRecords) {
+      return [];
+    }
+    const diff = await this.recordService.getDiffIdsByIdAndFilter(tableId, ids, view?.filter);
     if (diff.length) {
       throw new ForbiddenException(`Record(${diff.join(',')}) permission not allowed: read`);
     }

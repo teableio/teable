@@ -120,7 +120,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as ISingleSelectCellValue}
-          options={transformSelectOptions(options as ISelectFieldOptions)}
+          options={transformSelectOptions((options as ISelectFieldOptions).choices)}
           onChange={onChange}
           readonly={readonly}
           onOptionAdd={onOptionAdd}
@@ -133,7 +133,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as IMultipleSelectCellValue}
-          options={transformSelectOptions(options as ISelectFieldOptions)}
+          options={transformSelectOptions((options as ISelectFieldOptions).choices)}
           onChange={onChange}
           isMultiple
           readonly={readonly}

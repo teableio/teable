@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { IdPrefix, StatisticsFunc } from '@teable/core';
 import { axios } from '../axios';
-import { queryBaseSchema } from '../record';
+import { contentQueryBaseSchema, queryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
@@ -14,9 +14,11 @@ export const aggregationFieldSchema = z.object({
 
 export type IAggregationField = z.infer<typeof aggregationFieldSchema>;
 
-export const aggregationRoSchema = queryBaseSchema.extend({
-  field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
-});
+export const aggregationRoSchema = queryBaseSchema
+  .merge(contentQueryBaseSchema.pick({ groupBy: true }))
+  .extend({
+    field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
+  });
 
 export type IAggregationRo = z.infer<typeof aggregationRoSchema>;
 
@@ -90,6 +92,9 @@ export const GetAggregationRoute: RouteConfig = registerRoute({
 
 export const getAggregation = async (tableId: string, query?: IAggregationRo) => {
   return axios.get<IAggregationVo>(urlBuilder(GET_AGGREGATION_LIST, { tableId }), {
-    params: query,
+    params: {
+      ...query,
+      groupBy: JSON.stringify(query?.groupBy),
+    },
   });
 };

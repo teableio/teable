@@ -45,6 +45,7 @@ export const getShareViewAggregations = async (
     params: {
       ...query,
       filter: JSON.stringify(query?.filter),
+      groupBy: JSON.stringify(query?.groupBy),
     },
   });
 };

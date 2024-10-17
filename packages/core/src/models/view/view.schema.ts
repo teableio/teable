@@ -2,6 +2,12 @@ import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
 import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
+import {
+  formViewOptionSchema,
+  gridViewOptionSchema,
+  kanbanViewOptionSchema,
+  pluginViewOptionSchema,
+} from './derivate';
 import { filterSchema } from './filter';
 import { groupSchema } from './group';
 import { viewOptionsSchema } from './option.schema';
@@ -13,6 +19,13 @@ export const shareViewMetaSchema = z.object({
   allowCopy: z.boolean().optional(),
   includeHiddenField: z.boolean().optional(),
   password: sharePasswordSchema.optional(),
+  includeRecords: z.boolean().optional(),
+  submit: z
+    .object({
+      allow: z.boolean().optional(),
+      requireLogin: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export type IShareViewMeta = z.infer<typeof shareViewMetaSchema>;
@@ -37,6 +50,7 @@ export const viewVoSchema = z.object({
   columnMeta: columnMetaSchema.openapi({
     description: 'A mapping of view IDs to their corresponding column metadata.',
   }),
+  pluginId: z.string().optional(),
 });
 
 export type IViewVo = z.infer<typeof viewVoSchema>;
@@ -53,6 +67,39 @@ export const viewRoSchema = viewVoSchema
     name: true,
     order: true,
     columnMeta: true,
+  })
+  .superRefine((data, ctx) => {
+    const { type } = data;
+    const optionsSchemaMap = {
+      [ViewType.Form]: formViewOptionSchema,
+      [ViewType.Kanban]: kanbanViewOptionSchema,
+      [ViewType.Grid]: gridViewOptionSchema,
+      [ViewType.Plugin]: pluginViewOptionSchema,
+    } as const;
+    if (!(type in optionsSchemaMap)) {
+      return ctx.addIssue({
+        path: ['options'],
+        code: z.ZodIssueCode.custom,
+        message: `Unknown view type: ${type}`,
+      });
+    }
+    const optionsSchema = optionsSchemaMap[type as keyof typeof optionsSchemaMap];
+    const result =
+      type === ViewType.Plugin
+        ? optionsSchema.safeParse(data.options)
+        : optionsSchema.optional().safeParse(data.options);
+    if (!result.success) {
+      const issue = result.error.issues[0];
+      ctx.addIssue(
+        issue
+          ? { ...issue, path: ['options'] }
+          : {
+              path: ['options'],
+              code: z.ZodIssueCode.custom,
+              message: `${result.error.message}`,
+            }
+      );
+    }
   });
 
 export type IViewRo = z.infer<typeof viewRoSchema>;

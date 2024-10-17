@@ -38,7 +38,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Release to upload file",
-      "uploadDragDefault": "Paste or drag and drop to upload here"
+      "uploadDragDefault": "Paste or drag and drop to upload here",
+      "upload": "upload"
     },
     "date": {
       "placeholder": "Pick a date",
@@ -58,7 +59,8 @@
       "selectRecord": "Select Record",
       "unselected": "Unselected",
       "selected": "Selected",
-      "expandRecordError": "No permission to view this record."
+      "expandRecordError": "No permission to view this record.",
+      "alreadyOpen": "This record is already open."
     },
     "user": {
       "searchPlaceholder": "Find users by name",
@@ -254,6 +256,7 @@
       "viewDelete": "Delete view",
       "viewRead": "Read view",
       "viewUpdate": "Update view",
+      "viewShare": "Share view",
       "fieldCreate": "Create field",
       "fieldDelete": "Delete field",
       "fieldRead": "Read field",
@@ -617,6 +620,7 @@
   },
   "statisticFunc": {
     "none": "None",
+    "count": "Count",
     "empty": "Empty",
     "filled": "Filled",
     "unique": "Unique",
@@ -681,6 +685,33 @@
     },
     "aggregation": {
       "title": "Aggregation"
+    }
+  },
+  "comment": {
+    "title": "Comment",
+    "placeholder": "Leave a comment...",
+    "emptyComment": "Start a conversation",
+    "deletedComment": "Deleted Comment",
+    "imageSizeLimit": "Image size could not be greater than {{size}}",
+    "tip": {
+      "editing": "Editing...",
+      "edited": "(Edited)",
+      "onNotify": "Only be notified comment relative to you if you turn off",
+      "offNotify": "You will be notified by all active if you turn on",
+      "reactionUserSuffix": "reacted with {{emoji}} emoji",
+      "me": "You",
+      "connection": "and"
+    },
+    "toolbar": {
+      "link": "Link",
+      "image": "Image"
+    },
+    "floatToolbar": {
+      "editLink": "Edit Link",
+      "caption": "Caption",
+      "delete": "Delete",
+      "linkText": "Link Text",
+      "enterUrl": "Enter URL"
     }
   }
 }

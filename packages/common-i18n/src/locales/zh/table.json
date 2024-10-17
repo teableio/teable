@@ -7,6 +7,7 @@
       "share": {
         "label": "分享",
         "statusLabel": "分享视图",
+        "noPermission": "无权限分享视图",
         "shareLink": "分享链接",
         "copied": "已复制",
         "genLink": "生成新链接",
@@ -22,7 +23,8 @@
         "URLSetting": "链接参数设置",
         "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，您需要复制带上新参数的链接以使其生效",
         "cancel": "取消",
-        "save": "保存"
+        "save": "保存",
+        "requireLogin": "需要登录提交"
       },
       "extensions": {
         "label": "插件",
@@ -170,6 +172,8 @@
       "editField": "编辑字段",
       "insertField": "插入字段",
       "graph": "关系图",
+      "defaultValue": "默认值",
+      "reset": "清空",
       "fieldUpdated": "字段已更新",
       "fieldCreated": "字段已创建",
       "previewDependenciesGraph": "预览依赖关系图",
@@ -202,6 +206,8 @@
       "manyToMany": "多对多",
       "self": "本表",
       "selectTable": "选择一张表...",
+      "selectBase": "选择一个数据库...",
+      "linkFromExternalBase": "从其他数据库关联",
       "inSelfLink": "自关联",
       "betweenTwoTables": "关联",
       "linkTipMessage": "提示：此配置表示<b>{{relationship}}</b>的<span>{{linkType}}</span>关系 ",
@@ -217,6 +223,9 @@
       "lookupToTable": "从{{tableName}}表中选择要进行查找的字段",
       "selectField": "选择一个字段...",
       "linkTable": "进行关联的表",
+      "linkBase": "进行关联的数据库",
+      "tableNoPermission": "无权限表格",
+      "baseNoPermission": "无权限数据库",
       "noLinkTip": "没有可查找的关联字段。请先创建关联字段，然后再次尝试配置查找。",
       "fieldValidationRules": "字段值验证规则",
       "enableValidateFieldUnique": "唯一值校验",
@@ -375,7 +384,7 @@
       "customizeCards": "卡片配置",
       "stackedBy": "分组依据 <0/>",
       "chooseStackingField": "选择分组依据",
-      "chooseStackingFieldDescription": "您希望使用哪个单选或用户字段来设置看板？您的记录将根据这个字段来进行分组。",
+      "chooseStackingFieldDescription": "您希望使用哪个字段来设置看板？您的记录将根据这个字段来进行分组。",
       "hideEmptyStack": "隐藏空的分组",
       "imageSetting": "封面设置",
       "fit": "适应",
@@ -437,7 +446,8 @@
     "crash": {
       "title": "页面崩溃!",
       "description": "当前页面意外崩溃，请刷新重试，如果持续出现问题请咨询 support@teable.io 获取帮助"
-    }
+    },
+    "addPluginView": "视图插件"
   },
   "lastModifiedTime": "修改时间",
   "lastModify": "上次修改："

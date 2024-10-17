@@ -1,7 +1,13 @@
-import { CellValueType, DbFieldType, FieldType, getRandomString } from '@teable/core';
+import {
+  CellValueType,
+  DbFieldType,
+  FieldType,
+  getRandomString,
+  NumberFieldCore,
+} from '@teable/core';
 import { BaseQueryColumnType } from '@teable/openapi';
 import type { IFieldInstance } from '../../../field/model/factory';
-import { createFieldInstanceByRaw } from '../../../field/model/factory';
+import { createFieldInstanceByVo } from '../../../field/model/factory';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const AGGREGATION_FIELD_INSTANCE_DESC = getRandomString(10);
@@ -26,33 +32,15 @@ export const createBaseQueryFieldInstance = (
   }
 ): IFieldInstance => {
   if (type === BaseQueryColumnType.Aggregation) {
-    return createFieldInstanceByRaw({
+    return createFieldInstanceByVo({
       id: id,
       dbFieldName,
       name,
       description: AGGREGATION_FIELD_INSTANCE_DESC,
-      options: null,
+      options: NumberFieldCore.defaultOptions(),
       type: FieldType.Number,
       cellValueType: CellValueType.Number,
-      isMultipleCellValue: null,
-      dbFieldType: DbFieldType.Integer,
-      notNull: null,
-      unique: null,
-      isPrimary: null,
-      isComputed: null,
-      isLookup: null,
-      isPending: null,
-      hasError: null,
-      lookupLinkedFieldId: null,
-      lookupOptions: null,
-      tableId: '',
-      order: 0,
-      version: 0,
-      lastModifiedTime: null,
-      deletedTime: null,
-      createdBy: '',
-      lastModifiedBy: null,
-      createdTime: new Date(),
+      dbFieldType: DbFieldType.Real,
     });
   }
   throw new Error(`Not implemented(createBaseQueryFieldInstance) type: ${type}`);

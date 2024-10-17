@@ -1,19 +1,19 @@
 /* eslint-disable @next/next/no-html-link-for-pages */
 import { TeableNew } from '@teable/icons';
-import { RecordProvider } from '@teable/sdk/context';
+import { RecordProvider, RowCountProvider, ShareViewContext } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useContext } from 'react';
+import { isSafari } from '@/features/app/blocks/view/grid/utils/copyAndPaste';
 import { EmbedFooter } from '../../EmbedFooter';
-import { ShareViewPageContext } from '../../ShareViewPageContext';
-import { AggregationProvider, RowCountProvider, GroupPointProvider } from './aggregation';
+import { AggregationProvider } from './aggregation';
 import { GridViewBase } from './GridViewBase';
 import { Toolbar } from './toolbar';
 
 export const GridView = () => {
-  const { records, view, extra } = useContext(ShareViewPageContext);
+  const { records, view, extra } = useContext(ShareViewContext);
   const isHydrated = useIsHydrated();
   const {
     query: { hideToolBar, embed },
@@ -35,13 +35,13 @@ export const GridView = () => {
           <RecordProvider serverRecords={records}>
             <AggregationProvider>
               <RowCountProvider>
-                <GroupPointProvider>
-                  {!hideToolBar && <Toolbar />}
-                  <div className="w-full grow overflow-hidden">
-                    {isHydrated && <GridViewBase groupPointsServerData={extra?.groupPoints} />}
+                {!hideToolBar && <Toolbar />}
+                {isHydrated && (
+                  <div className={cn('w-full grow overflow-hidden', isSafari() && 'pb-20 sm:pb-0')}>
+                    <GridViewBase groupPointsServerData={extra?.groupPoints} />
                   </div>
-                  {embed && <EmbedFooter />}
-                </GroupPointProvider>
+                )}
+                {embed && <EmbedFooter />}
               </RowCountProvider>
             </AggregationProvider>
           </RecordProvider>

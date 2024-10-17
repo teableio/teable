@@ -26,8 +26,9 @@ export const BaseCollaborators = (props: { baseId: string; role: IRole }) => {
   const { t } = useTranslation('common');
   const [search, setSearch] = React.useState('');
   const { data: collaborators } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
 
   const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
@@ -45,7 +46,9 @@ export const BaseCollaborators = (props: { baseId: string; role: IRole }) => {
         router.push('/space');
         return;
       }
-      await queryClient.invalidateQueries(ReactQueryKeys.baseCollaboratorList(baseId));
+      await queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
+      });
     },
   });
 

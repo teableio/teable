@@ -10,7 +10,7 @@ export const GridToolBar: React.FC = () => {
   const permission = useTablePermission();
 
   return (
-    <div className="flex items-center gap-2 border-t px-4 py-2 @container/toolbar">
+    <div className="flex items-center border-t px-1 py-2 @container/toolbar sm:gap-1 sm:px-2 md:gap-2 md:px-4">
       <UndoRedoButtons />
       <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
       <CreateRecordModal>

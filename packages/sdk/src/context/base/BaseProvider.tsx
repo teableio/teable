@@ -10,11 +10,12 @@ import { BaseContext } from './BaseContext';
 interface IBaseProviderProps {
   serverData?: IGetBaseVo;
   children: ReactNode;
+  fallback?: React.ReactNode;
 }
 
-export const BaseProvider: FC<IBaseProviderProps> = ({ children, serverData }) => {
+export const BaseProvider: FC<IBaseProviderProps> = ({ children, serverData, fallback }) => {
   const { baseId } = useContext(AnchorContext);
-  const { data: baseData, isLoading } = useQuery({
+  const { data: baseData } = useQuery({
     queryKey: ['base', baseId],
     queryFn: ({ queryKey }) =>
       queryKey[1] ? getBaseById(queryKey[1]).then((res) => res.data) : undefined,
@@ -27,12 +28,16 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, serverData }) =
   });
 
   const value = useMemo(() => {
-    const base = isLoading ? serverData : baseData;
+    const base = baseData || serverData;
     return {
       base: base ? new Base(base) : undefined,
       permission: basePermissionData,
     };
-  }, [isLoading, serverData, baseData, basePermissionData]);
+  }, [serverData, baseData, basePermissionData]);
+
+  if (!value.base) {
+    return <>{fallback}</>;
+  }
 
   return <BaseContext.Provider value={value}>{children}</BaseContext.Provider>;
 };

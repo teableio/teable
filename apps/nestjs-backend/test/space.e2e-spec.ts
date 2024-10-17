@@ -37,6 +37,8 @@ import {
   CollaboratorType,
   getSpaceCollaboratorList,
   deleteBase,
+  UPDATE_SPACE_COLLABORATE,
+  DELETE_SPACE_COLLABORATOR,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { Events } from '../src/event-emitter/events';
@@ -150,6 +152,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
     const newUser3Email = 'newuser2@example.com';
 
     let userRequest: AxiosInstance;
+    let userRequestId: string;
     let user3Request: AxiosInstance;
     let space2Id: string;
     beforeEach(async () => {
@@ -161,6 +164,7 @@ describe('OpenAPI SpaceController (e2e)', () => {
         email: newUserEmail,
         password: '12345678',
       });
+      userRequestId = (await userRequest.get<IUserMeVo>(USER_ME)).data.id;
       const res = await userRequest.post<ICreateSpaceVo>(CREATE_SPACE, {
         name: 'new space',
       });
@@ -352,6 +356,22 @@ describe('OpenAPI SpaceController (e2e)', () => {
         expect(error?.status).toBe(403);
       });
 
+      it('/api/space/:spaceId/collaborators (PATCH) - last owner', async () => {
+        const error = await getError(() =>
+          userRequest.patch<void>(
+            urlBuilder(UPDATE_SPACE_COLLABORATE, {
+              spaceId: space2Id,
+            }),
+            {
+              role: Role.Editor,
+              userId: userRequestId,
+            }
+          )
+        );
+        expect(error?.status).toBe(400);
+        expect(error?.message).toBe('Cannot change the role of the only owner of the space');
+      });
+
       it('/api/space/:spaceId/collaborators (DELETE)', async () => {
         const res = await deleteSpaceCollaborator({
           spaceId: space2Id,
@@ -386,6 +406,16 @@ describe('OpenAPI SpaceController (e2e)', () => {
         });
         const error = await getError(() => apiGetSpaceCollaboratorList(space2Id));
         expect(error?.status).toBe(403);
+      });
+
+      it('/api/space/:spaceId/collaborators (DELETE) - last owner', async () => {
+        const error = await getError(() =>
+          userRequest.delete(urlBuilder(DELETE_SPACE_COLLABORATOR, { spaceId: space2Id }), {
+            params: { userId: userRequestId },
+          })
+        );
+        expect(error?.status).toBe(400);
+        expect(error?.message).toBe('Cannot delete the only owner of the space');
       });
     });
   });

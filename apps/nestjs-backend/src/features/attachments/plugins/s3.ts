@@ -1,17 +1,24 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { join } from 'path';
+import { join, resolve } from 'path';
 import type { Readable } from 'stream';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getRandomString } from '@teable/core';
+import * as fse from 'fs-extra';
 import ms from 'ms';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { second } from '../../../utils/second';
-import type StorageAdapter from './adapter';
+import StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IObjectMeta, IRespHeaders } from './types';
+import { generateCutImagePath } from './utils';
 
 @Injectable()
 export class S3Storage implements StorageAdapter {
@@ -39,6 +46,7 @@ export class S3Storage implements StorageAdapter {
           },
         })
       : this.s3Client;
+    fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
   }
 
   private checkConfig() {
@@ -203,5 +211,50 @@ export class S3Storage implements StorageAdapter {
       hash: res.ETag!,
       path,
     }));
+  }
+
+  // s3 file exists
+  private async fileExists(bucket: string, path: string): Promise<boolean> {
+    try {
+      const command = new HeadObjectCommand({
+        Bucket: bucket,
+        Key: path,
+      });
+      await this.s3Client.send(command);
+      return true;
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((error as any).name === 'NotFound') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async cutImage(bucket: string, path: string, width: number, height: number) {
+    const newPath = generateCutImagePath(path, width, height);
+    const resizedImagePath = resolve(
+      StorageAdapter.TEMPORARY_DIR,
+      encodeURIComponent(join(bucket, newPath))
+    );
+    if (await this.fileExists(bucket, newPath)) {
+      return newPath;
+    }
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: path,
+    });
+    const { Body: stream, ContentType: mimetype } = await this.s3Client.send(command);
+    if (!mimetype?.startsWith('image/')) {
+      throw new BadRequestException('Invalid image');
+    }
+    const metaReader = sharp();
+    const sharpReader = (stream as Readable).pipe(metaReader);
+    const resizedImage = sharpReader.resize(width, height);
+    await resizedImage.toFile(resizedImagePath);
+    const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
+      'Content-Type': mimetype,
+    });
+    return upload.path;
   }
 }

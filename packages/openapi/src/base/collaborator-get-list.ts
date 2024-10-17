@@ -8,7 +8,16 @@ export const BASE_COLLABORATE_LIST = '/base/{baseId}/collaborators';
 
 export const itemBaseCollaboratorSchema = itemSpaceCollaboratorSchema.extend({
   resourceType: z.nativeEnum(CollaboratorType),
+  isSystem: z.boolean().optional(),
 });
+
+export const listBaseCollaboratorRoSchema = z.object({
+  includeSystem: z.coerce.boolean().optional(),
+});
+
+export type ListBaseCollaboratorRo = z.infer<typeof listBaseCollaboratorRoSchema>;
+
+export type ItemBaseCollaborator = z.infer<typeof itemBaseCollaboratorSchema>;
 
 export const listBaseCollaboratorVoSchema = z.array(itemBaseCollaboratorSchema);
 
@@ -22,6 +31,7 @@ export const ListBaseCollaboratorRoute: RouteConfig = registerRoute({
     params: z.object({
       baseId: z.string(),
     }),
+    query: listBaseCollaboratorRoSchema,
   },
   responses: {
     200: {
@@ -36,10 +46,11 @@ export const ListBaseCollaboratorRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
-export const getBaseCollaboratorList = async (baseId: string) => {
+export const getBaseCollaboratorList = async (baseId: string, options?: ListBaseCollaboratorRo) => {
   return axios.get<ListBaseCollaboratorVo>(
     urlBuilder(BASE_COLLABORATE_LIST, {
       baseId,
-    })
+    }),
+    { params: options }
   );
 };

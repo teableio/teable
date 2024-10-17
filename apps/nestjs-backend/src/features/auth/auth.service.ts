@@ -171,6 +171,8 @@ export class AuthService {
       },
     });
     await this.cacheService.del(`reset-password-email:${code}`);
+    // clear session
+    await this.sessionStoreService.clearByUserId(userId);
   }
 
   async addPassword(newPassword: string) {
@@ -188,6 +190,8 @@ export class AuthService {
         salt,
       },
     });
+    // clear session
+    await this.sessionStoreService.clearByUserId(userId);
   }
 
   async getUserInfo(user: IUserMeVo): Promise<IUserInfoVo> {

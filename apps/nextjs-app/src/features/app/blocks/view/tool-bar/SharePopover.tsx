@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable/core';
 import { Edit, RefreshCcw, Qrcode } from '@teable/icons';
-import { useView } from '@teable/sdk/hooks';
+import { useTablePermission, useView } from '@teable/sdk/hooks';
 import type { View } from '@teable/sdk/model';
 import {
   Button,
@@ -68,6 +68,7 @@ export const SharePopover: React.FC<{
   const { children } = props;
   const view = useView();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const permission = useTablePermission();
 
   const ShareViewText = t('table:toolbar.others.share.label');
   const [showPasswordDialog, setShowPasswordDialog] = useState<boolean>();
@@ -132,8 +133,18 @@ export const SharePopover: React.FC<{
     view.setShareMeta(omit(view.shareMeta, 'password'));
   };
 
+  const onSubmitRequireLoginChange = (check: boolean) => {
+    if (!shareMeta?.submit) {
+      return;
+    }
+    setShareMeta({ submit: { ...shareMeta?.submit, requireLogin: check } });
+  };
+
   const needConfigCopy = [ViewType.Grid].includes(view.type);
   const needConfigIncludeHiddenField = [ViewType.Grid].includes(view.type);
+  const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
+  // TODO: need fixed createBy not support yet
+  const needSubmit = false;
 
   return (
     <Popover>
@@ -145,7 +156,7 @@ export const SharePopover: React.FC<{
             className="ml-auto"
             id="share-switch"
             checked={enableShare}
-            disabled={enableShareLoading || disableShareLoading}
+            disabled={enableShareLoading || disableShareLoading || !permission['view|share']}
             onCheckedChange={setEnableShare}
           />
         </div>
@@ -153,9 +164,6 @@ export const SharePopover: React.FC<{
         {enableShare ? (
           <>
             <div className="flex items-center gap-1">
-              <Label className="sr-only" htmlFor="share-link">
-                Share Link
-              </Label>
               <Input className="h-7 grow" id="share-link" value={shareUrl} readOnly />
 
               <Popover>
@@ -228,6 +236,18 @@ export const SharePopover: React.FC<{
                   </Button>
                 )}
               </div>
+              {needSubmit && shareMeta?.submit && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="share-required-login"
+                    checked={Boolean(shareMeta?.submit?.requireLogin)}
+                    onCheckedChange={onSubmitRequireLoginChange}
+                  />
+                  <Label className="text-xs" htmlFor="share-required-login">
+                    {t('table:toolbar.others.share.requireLogin')}
+                  </Label>
+                </div>
+              )}
             </div>
             <hr />
             <div>
@@ -236,14 +256,14 @@ export const SharePopover: React.FC<{
                 {t('table:toolbar.others.share.URLSettingDescription')}
               </p>
             </div>
-            {view.type !== ViewType.Form && (
+            {needEmbedHiddenToolbar && (
               <div className="flex items-center gap-2">
                 <Switch
                   id="share-hideToolBar"
                   checked={hideToolBar}
                   onCheckedChange={(checked) => setHideToolBar(checked)}
                 />
-                <Label className="text-xs" htmlFor="share-includeHiddenField">
+                <Label className="text-xs" htmlFor="share-hideToolBar">
                   {t('table:toolbar.others.share.hideToolbar')}
                 </Label>
               </div>
@@ -254,7 +274,7 @@ export const SharePopover: React.FC<{
                 checked={embed}
                 onCheckedChange={(checked) => setEmbed(checked)}
               />
-              <Label className="text-xs" htmlFor="share-includeHiddenField">
+              <Label className="text-xs" htmlFor="share-embed">
                 {t('table:toolbar.others.share.embed')}
               </Label>
               {embed && shareUrl && (
@@ -324,7 +344,9 @@ export const SharePopover: React.FC<{
           </>
         ) : (
           <div className="text-center text-sm text-muted-foreground">
-            {t('table:toolbar.others.share.tips')}
+            {!enableShare && permission['view|share']
+              ? t('table:toolbar.others.share.tips')
+              : t('table:toolbar.others.share.noPermission')}
           </div>
         )}
         <Dialog

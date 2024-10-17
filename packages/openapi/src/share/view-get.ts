@@ -3,16 +3,20 @@ import { fieldVoSchema, recordSchema, shareViewMetaSchema, viewVoSchema } from '
 import { groupPointsVoSchema } from '../aggregation';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
+import { getViewInstallPluginVoSchema } from '../view/plugin-get';
 import { z } from '../zod';
 
 export const SHARE_VIEW_GET = '/share/{shareId}/view';
 
+const shareViewPluginSchema = getViewInstallPluginVoSchema.omit({ baseId: true });
+export type IShareViewPlugin = z.infer<typeof shareViewPluginSchema>;
+
 export const shareViewGetVoSchema = z.object({
-  viewId: z.string(),
+  viewId: z.string().optional(),
   tableId: z.string(),
   shareId: z.string(),
   shareMeta: shareViewMetaSchema.optional(),
-  view: viewVoSchema,
+  view: viewVoSchema.optional(),
   fields: fieldVoSchema.array(),
   records: recordSchema.array().openapi('first 50 records'),
   extra: z
@@ -20,6 +24,7 @@ export const shareViewGetVoSchema = z.object({
       groupPoints: groupPointsVoSchema.optional().openapi({
         description: 'Group points for the view',
       }),
+      plugin: shareViewPluginSchema.optional(),
     })
     .optional(),
 });
@@ -48,6 +53,6 @@ export const ShareViewGetRouter: RouteConfig = registerRoute({
   tags: ['share'],
 });
 
-export const shareViewGet = (shareId: string) => {
+export const getShareView = (shareId: string) => {
   return axios.get<ShareViewGetVo>(urlBuilder(SHARE_VIEW_GET, { shareId }));
 };

@@ -8,6 +8,7 @@ export enum IdPrefix {
   Field = 'fld',
   View = 'viw',
   Record = 'rec',
+  Comment = 'com',
   Attachment = 'act',
   Choice = 'cho',
 
@@ -66,6 +67,10 @@ export function generateViewId() {
 
 export function generateRecordId() {
   return IdPrefix.Record + getRandomString(16);
+}
+
+export function generateCommentId() {
+  return IdPrefix.Comment + getRandomString(16);
 }
 
 export function generateChoiceId() {

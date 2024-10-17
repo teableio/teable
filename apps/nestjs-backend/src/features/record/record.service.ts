@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
+  IColumnMeta,
   IExtraResult,
   IFilter,
   IFilterSet,
@@ -45,7 +46,7 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { difference, isDate, keyBy } from 'lodash';
+import { difference, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -53,7 +54,7 @@ import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
-import { string2Hash } from '../../utils';
+import { convertValueToStringify, string2Hash } from '../../utils';
 import { generateFilterItem } from '../../utils/filter';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
@@ -565,6 +566,63 @@ export class RecordService {
     };
   }
 
+  private async getViewProjection(
+    tableId: string,
+    query: IGetRecordsRo
+  ): Promise<Record<string, boolean> | undefined> {
+    const viewId = query.viewId;
+    if (!viewId) {
+      return;
+    }
+
+    const fieldKeyType = query.fieldKeyType || FieldKeyType.Name;
+    const view = await this.prismaService.txClient().view.findFirstOrThrow({
+      where: { id: viewId, deletedTime: null },
+      select: { id: true, columnMeta: true },
+    });
+
+    const columnMeta = JSON.parse(view.columnMeta) as IColumnMeta;
+    const useVisible = Object.values(columnMeta).some((column) => 'visible' in column);
+    const useHidden = Object.values(columnMeta).some((column) => 'hidden' in column);
+
+    if (!useVisible && !useHidden) {
+      return;
+    }
+
+    const fieldIdOrNames = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true, name: true },
+    });
+
+    const fieldMap = keyBy(fieldIdOrNames, 'id');
+
+    const projection = Object.entries(columnMeta).reduce<Record<string, boolean>>(
+      (acc, [fieldId, column]) => {
+        const field = fieldMap[fieldId];
+        if (!field) return acc;
+
+        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+
+        if (useVisible) {
+          if ('visible' in column && column.visible) {
+            acc[fieldKey] = true;
+          }
+        } else if (useHidden) {
+          if (!('hidden' in column) || !column.hidden) {
+            acc[fieldKey] = true;
+          }
+        } else {
+          acc[fieldKey] = true;
+        }
+
+        return acc;
+      },
+      {}
+    );
+
+    return Object.keys(projection).length > 0 ? projection : undefined;
+  }
+
   async getRecords(tableId: string, query: IGetRecordsRo): Promise<IRecordsVo> {
     const queryResult = await this.getDocIdsByQuery(tableId, {
       viewId: query.viewId,
@@ -578,13 +636,18 @@ export class RecordService {
       filterLinkCellSelected: query.filterLinkCellSelected,
     });
 
+    const projection = query.projection
+      ? this.convertProjection(query.projection)
+      : await this.getViewProjection(tableId, query);
+
     const recordSnapshot = await this.getSnapshotBulk(
       tableId,
       queryResult.ids,
-      this.convertProjection(query.projection),
+      projection,
       query.fieldKeyType || FieldKeyType.Name,
       query.cellFormat
     );
+
     return {
       records: recordSnapshot.map((r) => r.data),
       extra: queryResult.extra,
@@ -974,7 +1037,7 @@ export class RecordService {
 
     return await Promise.all(
       cellValue.map(async (item) => {
-        const { path, mimetype, token } = item;
+        const { path, mimetype, token, lgThumbnailPath, smThumbnailPath } = item;
         const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
           StorageAdapter.getBucket(UploadType.Table),
           path,
@@ -987,6 +1050,10 @@ export class RecordService {
         );
         return {
           ...item,
+          ...(await this.attachmentStorageService.getTableAttachmentThumbnailUrl(
+            smThumbnailPath,
+            lgThumbnailPath
+          )),
           presignedUrl,
         };
       })
@@ -1100,20 +1167,6 @@ export class RecordService {
     const ids = result.map((r) => r.__id);
 
     return { ids, extra: { groupPoints } };
-  }
-
-  private convertValueToStringify(value: unknown): number | string | null {
-    if (typeof value === 'bigint' || typeof value === 'number') {
-      return Number(value);
-    }
-    if (isDate(value)) {
-      return value.toISOString();
-    }
-    if (typeof value === 'string') {
-      return value;
-    }
-    if (value == null) return null;
-    return JSON.stringify(value);
   }
 
   async getRecordsFields(
@@ -1237,7 +1290,8 @@ export class RecordService {
   }
 
   @Timing()
-  private groupDbCollection2GroupPoints(
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private async groupDbCollection2GroupPoints(
     groupResult: { [key: string]: unknown; __c: number }[],
     groupFields: IFieldInstance[],
     collapsedGroupIds: string[] | undefined,
@@ -1246,18 +1300,23 @@ export class RecordService {
     const groupPoints: IGroupPoint[] = [];
     let fieldValues: unknown[] = [Symbol(), Symbol(), Symbol()];
     let curRowCount = 0;
+    let collapsedDepth = Number.MAX_SAFE_INTEGER;
 
-    groupResult.forEach((item) => {
+    for (let i = 0; i < groupResult.length; i++) {
+      const item = groupResult[i];
       const { __c: count } = item;
-      let isCollapsed = false;
 
-      groupFields.forEach((field, index) => {
-        if (isCollapsed) return;
+      for (let index = 0; index < groupFields.length; index++) {
+        if (index > collapsedDepth) break;
 
+        const field = groupFields[index];
         const { id, dbFieldName } = field;
-        const fieldValue = this.convertValueToStringify(item[dbFieldName]);
+        const fieldValue = convertValueToStringify(item[dbFieldName]);
 
-        if (fieldValues[index] === fieldValue) return;
+        if (fieldValues[index] === fieldValue) continue;
+
+        // Reset the collapsedDepth when encountering the next peer grouping
+        collapsedDepth = Number.MAX_SAFE_INTEGER;
 
         fieldValues[index] = fieldValue;
         fieldValues = fieldValues.map((value, idx) => (idx > index ? Symbol() : value));
@@ -1265,22 +1324,29 @@ export class RecordService {
         const flagString = `${id}_${fieldValues.slice(0, index + 1).join('_')}`;
         const groupId = String(string2Hash(flagString));
         const isCollapsedInner = collapsedGroupIds?.includes(groupId) ?? false;
+        let value = field.convertDBValue2CellValue(fieldValue);
+
+        if (field.type === FieldType.Attachment) {
+          value = await this.getAttachmentPresignedCellValue(value as IAttachmentCellValue);
+        }
 
         groupPoints.push({
           id: groupId,
           type: GroupPointType.Header,
           depth: index,
-          value: field.convertDBValue2CellValue(fieldValue),
+          value,
           isCollapsed: isCollapsedInner,
         });
 
-        isCollapsed = isCollapsedInner;
-      });
+        if (isCollapsedInner) {
+          collapsedDepth = index;
+        }
+      }
 
       curRowCount += Number(count);
-      if (isCollapsed) return;
+      if (collapsedDepth !== Number.MAX_SAFE_INTEGER) continue;
       groupPoints.push({ type: GroupPointType.Row, count: Number(count) });
-    });
+    }
 
     if (curRowCount < rowCount) {
       groupPoints.push(
@@ -1454,7 +1520,7 @@ export class RecordService {
           groupSql
         );
 
-      groupPoints = this.groupDbCollection2GroupPoints(
+      groupPoints = await this.groupDbCollection2GroupPoints(
         result,
         groupFields,
         collapsedGroupIds,

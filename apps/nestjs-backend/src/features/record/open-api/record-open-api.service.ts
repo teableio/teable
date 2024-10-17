@@ -16,6 +16,8 @@ import type {
 } from '@teable/openapi';
 import { forEach, keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { bufferCount, concatMap, from, lastValueFrom, reduce } from 'rxjs';
+import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
@@ -48,6 +50,7 @@ export class RecordOpenApiService {
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly attachmentsService: AttachmentsService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -55,9 +58,14 @@ export class RecordOpenApiService {
     tableId: string,
     createRecordsRo: ICreateRecordsRo
   ): Promise<ICreateRecordsVo> {
-    return await this.prismaService.$tx(async () => {
-      return await this.createRecords(tableId, createRecordsRo);
-    });
+    return await this.prismaService.$tx(
+      async () => {
+        return await this.createRecords(tableId, createRecordsRo);
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
   }
 
   /**
@@ -123,7 +131,7 @@ export class RecordOpenApiService {
     }
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
-
+    const chunkSize = this.thresholdConfig.calcChunkSize;
     const typecastRecords = await this.validateFieldsAndTypecast(
       tableId,
       records,
@@ -133,7 +141,20 @@ export class RecordOpenApiService {
 
     const preparedRecords = await this.appendRecordOrderIndexes(tableId, typecastRecords, order);
 
-    return await this.recordCalculateService.createRecords(tableId, preparedRecords, fieldKeyType);
+    return await lastValueFrom(
+      from(preparedRecords).pipe(
+        bufferCount(chunkSize),
+        concatMap((chunk) =>
+          from(this.recordCalculateService.createRecords(tableId, chunk, fieldKeyType))
+        ),
+        reduce(
+          (acc, result) => ({
+            records: [...acc.records, ...result.records],
+          }),
+          { records: [] } as ICreateRecordsVo
+        )
+      )
+    );
   }
 
   private async createPureRecords(
@@ -201,6 +222,10 @@ export class RecordOpenApiService {
 
     const newRecordsFields: Record<string, unknown>[] = recordsFields.map(() => ({}));
     for (const field of effectFieldInstance) {
+      // skip computed field
+      if (field.isComputed) {
+        continue;
+      }
       const typeCastAndValidate = new TypeCastAndValidate({
         services: {
           prismaService: this.prismaService,
@@ -218,14 +243,56 @@ export class RecordOpenApiService {
       const cellValues = recordsFields.map((recordFields) => recordFields[fieldIdOrName]);
 
       const newCellValues = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
+      const collectionAttachmentThumbnails: {
+        index: number;
+        key: string;
+        attachmentIndex: number;
+      }[] = [];
       newRecordsFields.forEach((recordField, i) => {
         // do not generate undefined field key
         if (newCellValues[i] !== undefined) {
           recordField[fieldIdOrName] = newCellValues[i];
+          const attachmentCv = newCellValues[i] as IAttachmentCellValue;
+          if (field.type === FieldType.Attachment && attachmentCv) {
+            attachmentCv.forEach((attachmentItem, index) => {
+              const { mimetype, lgThumbnailPath, smThumbnailPath } = attachmentItem;
+              if (mimetype.startsWith('image/') && (!lgThumbnailPath || !smThumbnailPath)) {
+                collectionAttachmentThumbnails.push({
+                  index: i,
+                  key: fieldIdOrName,
+                  attachmentIndex: index,
+                });
+              }
+            });
+          }
         }
       });
+      for (const thumbnail of collectionAttachmentThumbnails) {
+        const { index, key } = thumbnail;
+        const attachmentCv = newRecordsFields[index][key] as IAttachmentCellValue;
+        const attachmentItem = attachmentCv[thumbnail.attachmentIndex];
+        const { path, width, height } = attachmentItem;
+        if (!width || !height) {
+          continue;
+        }
+        const { smThumbnailPath, lgThumbnailPath } =
+          await this.attachmentsStorageService.cutTableImage(
+            StorageAdapter.getBucket(UploadType.Table),
+            path,
+            width,
+            height
+          );
+        attachmentItem.lgThumbnailPath = lgThumbnailPath;
+        attachmentItem.smThumbnailPath = smThumbnailPath;
+        const { smThumbnailUrl, lgThumbnailUrl } =
+          await this.attachmentsStorageService.getTableAttachmentThumbnailUrl(
+            smThumbnailPath,
+            lgThumbnailPath
+          );
+        attachmentItem.smThumbnailUrl = smThumbnailUrl;
+        attachmentItem.lgThumbnailUrl = lgThumbnailUrl;
+      }
     }
-
     return records.map((record, i) => ({
       ...record,
       fields: newRecordsFields[i],
@@ -294,7 +361,7 @@ export class RecordOpenApiService {
         windowId,
         userId: this.cls.get('user.id'),
         recordIds,
-        fieldIds: Object.keys(records[0].fields),
+        fieldIds: Object.keys(records[0]?.fields || {}),
         cellContexts,
         orderIndexesBefore,
         orderIndexesAfter,

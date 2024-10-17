@@ -159,7 +159,7 @@ COPY --from=post-builder --chown=nodejs:nodejs /app/packages ./packages
 COPY --from=post-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/plugins/chart/.next/standalone/plugins ./plugins
+COPY --from=post-builder --chown=nodejs:nodejs /app/plugins/.next/standalone/plugins ./plugins
 COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/static ./static
 
 COPY --chown=nodejs:nodejs scripts/start.sh ./scripts/start.sh

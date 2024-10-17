@@ -1,6 +1,7 @@
 export type IAggregationFunctionHandler = () => string;
 
 export interface IAggregationFunctionInterface {
+  count: IAggregationFunctionHandler;
   empty: IAggregationFunctionHandler;
   filled: IAggregationFunctionHandler;
   unique: IAggregationFunctionHandler;

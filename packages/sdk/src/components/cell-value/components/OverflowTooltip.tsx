@@ -57,7 +57,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
       className={cn(className, 'overflow-hidden')}
       style={{
         display: '-webkit-box',
-        WebkitLineClamp: maxLine,
+        WebkitLineClamp: maxLine > 99999 ? 99999 : maxLine,
         WebkitBoxOrient: 'vertical',
         wordBreak: 'break-all',
         whiteSpace: 'pre-wrap',

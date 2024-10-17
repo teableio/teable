@@ -90,7 +90,7 @@ export const LookupOptions = (props: {
             </span>
             <Selector
               className="w-full"
-              placeholder={t('table:field.editor.selectTable')}
+              placeholder={t('table:field.editor.selectField')}
               selectedId={options.linkFieldId}
               onChange={(selected: string) => {
                 const selectedLinkField = linkFields.find((l) => l.id === selected);

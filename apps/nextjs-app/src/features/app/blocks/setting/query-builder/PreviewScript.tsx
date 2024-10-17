@@ -66,16 +66,19 @@ const LanguageSelector = ({
 );
 
 const generateCurlCode = (endpoint: string, params: Record<string, unknown>, token: string) => {
-  const queryString = new URLSearchParams(
-    Object.entries(params)
-      .filter(([_, value]) => value != null)
-      .map(([key, value]) => {
-        if (key === 'filter' || key === 'orderBy') {
-          return [key, JSON.stringify(value)];
-        }
-        return [key, value as string];
-      })
-  ).toString();
+  const queryParams = new URLSearchParams();
+  Object.entries(params)
+    .filter(([_, value]) => value != null)
+    .forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach((item) => queryParams.append(key, item.toString()));
+      } else if (key === 'filter' || key === 'orderBy') {
+        queryParams.append(key, JSON.stringify(value));
+      } else {
+        queryParams.append(key, value as string);
+      }
+    });
+  const queryString = queryParams.toString();
   const url = `${endpoint}${queryString ? `?${queryString}` : ''}`;
   return `curl -X GET \\
   "${url}" \\

@@ -1,5 +1,16 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Get,
+  Delete,
+  Query,
+  BadRequestException,
+} from '@nestjs/common';
+import { Role } from '@teable/core';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
@@ -9,7 +20,7 @@ import type {
   CreateSpaceInvitationLinkVo,
   UpdateSpaceInvitationLinkVo,
   ListSpaceCollaboratorVo,
-  IGetBaseVo,
+  IGetBaseAllVo,
 } from '@teable/openapi';
 import {
   createSpaceRoSchema,
@@ -111,7 +122,7 @@ export class SpaceController {
 
   @Permissions('base|read')
   @Get(':spaceId/base')
-  async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseVo[]> {
+  async getBaseList(@Param('spaceId') spaceId: string): Promise<IGetBaseAllVo> {
     return await this.spaceService.getBaseListBySpaceId(spaceId);
   }
 
@@ -165,6 +176,12 @@ export class SpaceController {
     @Body(new ZodValidationPipe(updateSpaceCollaborateRoSchema))
     updateSpaceCollaborateRo: UpdateSpaceCollaborateRo
   ): Promise<void> {
+    if (
+      updateSpaceCollaborateRo.role !== Role.Owner &&
+      (await this.collaboratorService.isUniqueOwnerUser(spaceId, updateSpaceCollaborateRo.userId))
+    ) {
+      throw new BadRequestException('Cannot change the role of the only owner of the space');
+    }
     await this.collaboratorService.updateCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,
@@ -178,6 +195,9 @@ export class SpaceController {
     @Param('spaceId') spaceId: string,
     @Query('userId') userId: string
   ): Promise<void> {
+    if (await this.collaboratorService.isUniqueOwnerUser(spaceId, userId)) {
+      throw new BadRequestException('Cannot delete the only owner of the space');
+    }
     await this.collaboratorService.deleteCollaborator({
       resourceId: spaceId,
       resourceType: CollaboratorType.Space,

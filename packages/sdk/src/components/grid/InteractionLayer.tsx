@@ -51,7 +51,7 @@ import { RenderLayer } from './RenderLayer';
 import type { IRegionData } from './utils';
 import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
 
-const { columnAppendBtnWidth, columnHeadHeight, columnStatisticHeight } = GRID_DEFAULT;
+const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
 
 export interface IInteractionLayerProps
   extends Omit<
@@ -98,6 +98,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     width,
     height,
     columns,
+    commentCountMap,
     draggable,
     selectable,
     rowControls,
@@ -356,6 +357,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         return setCursor('pointer');
       }
       case RegionType.AppendColumn:
+      case RegionType.GroupStatistic:
       case RegionType.ColumnStatistic:
       case RegionType.ColumnHeaderMenu:
       case RegionType.ColumnDescription:
@@ -428,12 +430,14 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           width: coordInstance.getColumnWidth(columnIndex),
           height: columnHeadHeight,
         });
+      case RegionType.GroupStatistic:
       case RegionType.ColumnStatistic: {
+        const { x, y, width, height } = hoveredRegionRef.current;
         return onColumnStatisticClick?.(columnIndex, {
-          x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
-          y: containerHeight,
-          width: coordInstance.getColumnWidth(columnIndex),
-          height: columnStatisticHeight,
+          x,
+          y,
+          width,
+          height,
         });
       }
       case RegionType.Cell:
@@ -699,6 +703,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           width={width}
           height={height}
           columns={columns}
+          commentCountMap={commentCountMap}
           columnStatistics={columnStatistics}
           coordInstance={coordInstance}
           rowControls={rowControls}

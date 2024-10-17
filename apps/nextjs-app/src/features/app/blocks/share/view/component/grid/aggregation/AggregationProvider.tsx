@@ -9,10 +9,10 @@ import {
   useSearch,
   useViewListener,
   useTableListener,
+  ShareViewContext,
 } from '@teable/sdk';
 import type { ReactNode } from 'react';
 import { useCallback, useContext, useMemo, useRef } from 'react';
-import { ShareViewPageContext } from '../../../ShareViewPageContext';
 
 interface IAggregationProviderProps {
   children: ReactNode;
@@ -38,13 +38,13 @@ const useAggregationQuery = (): IShareViewAggregationsRo => {
     [view?.columnMeta]
   );
   return useMemo(
-    () => ({ filter: view?.filter, field, search: searchQuery }),
-    [field, searchQuery, view?.filter]
+    () => ({ filter: view?.filter, field, search: searchQuery, groupBy: view?.group }),
+    [field, searchQuery, view?.filter, view?.group]
   );
 };
 
 export const AggregationProvider = ({ children }: IAggregationProviderProps) => {
-  const { tableId, shareId } = useContext(ShareViewPageContext);
+  const { tableId, shareId } = useContext(ShareViewContext);
   const queryClient = useQueryClient();
   const query = useAggregationQuery();
   const queryRef = useRef(query);

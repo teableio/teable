@@ -1,4 +1,5 @@
 export enum StatisticsFunc {
+  Count = 'count',
   Empty = 'empty',
   Filled = 'filled',
   Unique = 'unique',

@@ -7,6 +7,7 @@
       "share": {
         "label": "Share",
         "statusLabel": "Sharing",
+        "noPermission": "No permission to share view",
         "shareLink": "Share Link",
         "copied": "Copied",
         "genLink": "Generate new link",
@@ -22,7 +23,8 @@
         "URLSetting": "URL parameters config",
         "URLSettingDescription": "Adjusting the following settings will not affect the shared links. You need to copy the link with new parameters to make it take effect",
         "cancel": "Cancel",
-        "save": "Save"
+        "save": "Save",
+        "requireLogin": "Require login submit"
       },
       "extensions": {
         "label": "Extensions",
@@ -171,6 +173,8 @@
       "editField": "Edit Field",
       "insertField": "Insert Field",
       "graph": "Graph",
+      "defaultValue": "Default value",
+      "reset": "Reset",
       "fieldUpdated": "Field has been updated",
       "fieldCreated": "Field has been created",
       "previewDependenciesGraph": "Preview Dependencies Graph",
@@ -203,6 +207,8 @@
       "manyToMany": "many-to-many",
       "self": "Self",
       "selectTable": "Select table...",
+      "selectBase": "Select a base...",
+      "linkFromExternalBase": "Link from external base",
       "inSelfLink": "in self-link",
       "betweenTwoTables": "between two tables",
       "linkTipMessage": "Tips: this configuration represents a<br></br> <b>{{relationship}}</b> relationship <span>{{linkType}}</span>",
@@ -218,6 +224,9 @@
       "lookupToTable": "{{tableName}} field you want to look up",
       "selectField": "Select a field...",
       "linkTable": "Link table",
+      "linkBase": "Link base",
+      "tableNoPermission": "No permission table",
+      "baseNoPermission": "No permission base",
       "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
       "fieldValidationRules": "Field value validation rules",
       "enableValidateFieldUnique": "Enable unique value validation",
@@ -376,7 +385,7 @@
       "customizeCards": "Customize cards",
       "stackedBy": "Stacked by <0/>",
       "chooseStackingField": "Choose a stacking field",
-      "chooseStackingFieldDescription": "Which single select or user field would you like to use for this kanban view? Your records will be stacked based on this field.",
+      "chooseStackingFieldDescription": "Which field would you like to use for this kanban view? Your records will be stacked based on this field.",
       "hideEmptyStack": "Hide empty stack",
       "imageSetting": "Image Setting",
       "fit": "Fit",
@@ -438,7 +447,8 @@
     "crash": {
       "title": "Crash!",
       "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
-    }
+    },
+    "addPluginView": "Add Plugin View"
   },
   "lastModifiedTime": "Last modified time",
   "lastModify": "Last modify: "

@@ -13,10 +13,10 @@ import {
   useState,
 } from 'react';
 import type { ForwardRefRenderFunction } from 'react';
-import { StandaloneViewProvider } from '../../../context';
+import { RowCountProvider, LinkViewProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
-import { useBaseId, useSearch, useTableId } from '../../../hooks';
-import { Table } from '../../../model';
+import { LinkFilterProvider } from '../../../context/query/LinkFilterProvider';
+import { useLinkFilter, useRowCount, useSearch } from '../../../hooks';
 import { CreateRecordModal } from '../../create-record';
 import { SearchInput } from '../../search';
 import { LinkListType } from './interface';
@@ -50,29 +50,29 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     onReset,
   }));
 
-  const baseId = useBaseId();
-  const tableId = useTableId();
   const { t } = useTranslation();
 
   const listRef = useRef<ILinkListRef>(null);
-  const [rowCount, setRowCount] = useState<number>(0);
   const [values, setValues] = useState<ILinkCellValue[]>();
   const [listType, setListType] = useState<LinkListType>(LinkListType.Unselected);
 
   const isMultiple = isMultiValueLink(options.relationship);
+  const rowCount = useRowCount() || 0;
+
+  const {
+    filterLinkCellSelected,
+    filterLinkCellCandidate,
+    setLinkCellCandidate,
+    setLinkCellSelected,
+  } = useLinkFilter();
 
   const recordQuery = useMemo((): IGetRecordsRo => {
-    if (listType === LinkListType.Selected) {
-      return {
-        search: searchQuery,
-        filterLinkCellSelected: recordId ? [fieldId, recordId] : fieldId,
-      };
-    }
     return {
       search: searchQuery,
-      filterLinkCellCandidate: recordId ? [fieldId, recordId] : fieldId,
+      filterLinkCellSelected,
+      filterLinkCellCandidate,
     };
-  }, [listType, searchQuery, recordId, fieldId]);
+  }, [searchQuery, filterLinkCellSelected, filterLinkCellCandidate]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -81,28 +81,15 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     setValues(Array.isArray(cellValue) ? cellValue : [cellValue]);
   }, [cellValue, isEditing]);
 
-  useEffect(() => {
-    if (baseId == null || tableId == null) return;
-
-    Table.getRowCount(tableId, recordQuery).then((res) => {
-      setRowCount(res.data.rowCount);
-    });
-  }, [tableId, baseId, recordQuery]);
-
   const onViewShown = (type: LinkListType) => {
     if (type === listType) return;
     listRef.current?.onReset();
     setListType(type);
-  };
-
-  const onCreateRecordCallback = async () => {
-    if (tableId == null) return;
-
-    Table.getRowCount(tableId, recordQuery).then((res) => {
-      const rowCount = res.data.rowCount;
-      setRowCount(() => rowCount);
-      listRef.current?.scrollToItem([0, rowCount - 1]);
-    });
+    if (type === LinkListType.Selected) {
+      setLinkCellSelected([fieldId, recordId].filter(Boolean));
+    } else {
+      setLinkCellCandidate([fieldId, recordId].filter(Boolean));
+    }
   };
 
   const onReset = () => {
@@ -160,7 +147,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
         />
       </div>
       <div className="flex justify-between">
-        <CreateRecordModal callback={onCreateRecordCallback}>
+        <CreateRecordModal>
           <Button variant="ghost">
             <Plus className="size-4" />
             {t('editor.link.create')}
@@ -185,14 +172,16 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
   props,
   forwardRef
 ) => {
-  const { options } = props;
-  const tableId = options.foreignTableId;
-  const baseId = useBaseId();
-
   return (
-    <StandaloneViewProvider baseId={baseId} tableId={tableId}>
-      <LinkEditorInner ref={forwardRef} {...props} />
-    </StandaloneViewProvider>
+    <LinkViewProvider linkFieldId={props.fieldId}>
+      <LinkFilterProvider
+        filterLinkCellCandidate={props.recordId ? [props.fieldId, props.recordId] : props.fieldId}
+      >
+        <RowCountProvider>
+          <LinkEditorInner ref={forwardRef} {...props} />
+        </RowCountProvider>
+      </LinkFilterProvider>
+    </LinkViewProvider>
   );
 };
 

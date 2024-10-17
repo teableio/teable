@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import type {
   IFieldVo,
   ILinkCellValue,
@@ -313,7 +318,7 @@ export class ReferenceService {
     //   .flat()
     //   .filter(Boolean)
     //   .map((d) => d.id);
-    const startRecordIds = recordData.map((data) => data.id);
+    const startRecordIds = uniq(recordData.map((data) => data.id));
     const linkFieldIds = linkData.map((data) => data.fieldId);
 
     // when link cell change, we need to get all lookup field
@@ -522,7 +527,13 @@ export class ReferenceService {
       if (linkCellValues) {
         return linkCellValues
           .map((v) => {
-            return dependenciesIndexed[v.id];
+            const result = dependenciesIndexed[v.id];
+            if (!result) {
+              throw new InternalServerErrorException(
+                `Record not found for: ${JSON.stringify(v)}, fieldId: ${field.id}`
+              );
+            }
+            return result;
           })
           .map((depRecord) => depRecord.fields[fieldId]);
       }

@@ -4,11 +4,11 @@ import { getShareViewCollaborators } from '@teable/openapi';
 import type { IFilterComponents } from '@teable/sdk/components';
 import { FilterUserSelectBase } from '@teable/sdk/components/filter/view-filter/component';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { ShareViewContext } from '@teable/sdk/context';
 import { useContext } from 'react';
-import { ShareViewPageContext } from '../../ShareViewPageContext';
 
 export const FilterUser: IFilterComponents[FieldType.User] = (props) => {
-  const { shareId } = useContext(ShareViewPageContext);
+  const { shareId } = useContext(ShareViewContext);
 
   const { data: userQuery } = useQuery({
     queryKey: ReactQueryKeys.shareViewCollaborators(shareId, props.field.id),

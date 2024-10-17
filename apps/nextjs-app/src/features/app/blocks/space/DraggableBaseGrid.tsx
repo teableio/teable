@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { IGetBaseVo } from '@teable/openapi';
+import type { IGetBaseAllVo } from '@teable/openapi';
 import { updateBaseOrder } from '@teable/openapi';
 import { useIsHydrated } from '@teable/sdk';
 import { DndKitContext, Droppable, Draggable } from '@teable/ui-lib/base';
@@ -8,14 +8,14 @@ import { useEffect, useState } from 'react';
 import { BaseCard } from './BaseCard';
 
 interface IDraggableBaseGridProps {
-  bases: IGetBaseVo[];
+  bases: IGetBaseAllVo;
 }
 
 const DraggableBaseGrid = (props: IDraggableBaseGridProps) => {
   const { bases } = props;
   const queryClient = useQueryClient();
   const isHydrated = useIsHydrated();
-  const [innerBases, setInnerBases] = useState<IGetBaseVo[]>([]);
+  const [innerBases, setInnerBases] = useState<IGetBaseAllVo>([]);
 
   useEffect(() => {
     if (!bases?.length) {

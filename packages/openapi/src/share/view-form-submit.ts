@@ -8,6 +8,7 @@ export const SHARE_VIEW_FORM_SUBMIT = '/share/{shareId}/view/form-submit';
 
 export const shareViewFormSubmitRoSchema = z.object({
   fields: recordSchema.shape.fields,
+  typecast: z.boolean().optional(),
 });
 
 export type ShareViewFormSubmitRo = z.infer<typeof shareViewFormSubmitRoSchema>;
@@ -44,9 +45,11 @@ export const ShareViewFormSubmitRouter: RouteConfig = registerRoute({
 export const shareViewFormSubmit = (params: {
   shareId: string;
   fields: Record<string, unknown>;
+  typecast?: boolean;
 }) => {
-  const { shareId, fields } = params;
+  const { shareId, fields, typecast } = params;
   return axios.post<IRecord>(urlBuilder(SHARE_VIEW_FORM_SUBMIT, { shareId }), {
     fields,
+    typecast,
   });
 };

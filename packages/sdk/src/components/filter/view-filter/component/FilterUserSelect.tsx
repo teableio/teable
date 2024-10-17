@@ -122,6 +122,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           optionRender={optionRender}
           className="flex w-64 overflow-hidden"
           popoverClassName="w-64"
+          placeholderClassName="text-xs"
         />
       ) : (
         <BaseMultipleSelect
@@ -132,6 +133,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           optionRender={optionRender}
           className="w-64"
           popoverClassName="w-64"
+          placeholderClassName="text-xs"
         />
       )}
     </>
@@ -141,8 +143,9 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
 const FilterUserSelect = (props: IFilterUserProps) => {
   const baseId = useBaseId();
   const { data: collaboratorsData } = useQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string),
-    queryFn: ({ queryKey }) => getBaseCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId as string, { includeSystem: true }),
+    queryFn: ({ queryKey }) =>
+      getBaseCollaboratorList(queryKey[1], queryKey[2]).then((res) => res.data),
   });
   return collaboratorsData && <FilterUserSelectBase {...props} data={collaboratorsData} />;
 };

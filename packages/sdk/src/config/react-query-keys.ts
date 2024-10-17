@@ -8,6 +8,8 @@ import type {
   IQueryBaseRo,
   ResourceType,
   ListSpaceCollaboratorRo,
+  IGetRecordsRo,
+  ListBaseCollaboratorRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -17,11 +19,30 @@ export const ReactQueryKeys = {
 
   baseAll: () => ['base-all'] as const,
 
+  baseList: (spaceId: string) => ['base-list', spaceId] as const,
+
   pinList: () => ['pin-list'] as const,
 
   spaceList: () => ['space-list'] as const,
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
+
+  recordCommentCount: (tableId: string, recordId: string) =>
+    ['record-comment-count', tableId, recordId] as const,
+
+  commentList: (tableId: string, recordId: string) => ['comment-list', tableId, recordId] as const,
+
+  commentCount: (tableId: string, query?: IGetRecordsRo) =>
+    ['comment-count', tableId, query] as const,
+
+  commentDetail: (tableId: string, recordId: string, commentId: string) =>
+    ['comment-detail', tableId, recordId, commentId] as const,
+
+  commentAttachment: (tableId: string, recordId: string, path: string) =>
+    ['comment-attachment', tableId, recordId, path] as const,
+
+  commentSubscribeStatus: (tableId: string, recordId: string) =>
+    ['comment-notify-status', tableId, recordId] as const,
 
   subscriptionSummary: (spaceId: string) => ['subscription-summary', spaceId] as const,
 
@@ -32,7 +53,10 @@ export const ReactQueryKeys = {
       ? (['space-collaborator-list', spaceId, options] as const)
       : (['space-collaborator-list', spaceId] as const),
 
-  baseCollaboratorList: (baseId: string) => ['base-collaborator-list', baseId] as const,
+  baseCollaboratorList: (baseId: string, options?: ListBaseCollaboratorRo) =>
+    options
+      ? (['base-collaborator-list', baseId, options] as const)
+      : (['base-collaborator-list', baseId] as const),
 
   notifyList: (filter: { status: NotificationStatesEnum }) =>
     ['notification', 'list', filter] as const,
@@ -43,6 +67,8 @@ export const ReactQueryKeys = {
     ['group-points', tableId, query] as const,
   aggregations: (tableId: string, query: IAggregationRo) =>
     ['aggregations', tableId, query] as const,
+
+  shareView: (shareId: string) => ['share-view', shareId] as const,
 
   shareViewRowCount: (shareId: string, query: IShareViewRowCountRo) =>
     ['share-view-row-count', shareId, query] as const,
@@ -88,7 +114,7 @@ export const ReactQueryKeys = {
 
   getBaseTrashItems: (baseId: string) => ['base-trash-items', baseId] as const,
 
-  getDashboardList: () => ['dashboard-list'] as const,
+  getDashboardList: (baseId: string) => ['dashboard-list', baseId] as const,
 
   getDashboard: (dashboardId: string) => ['dashboard', dashboardId] as const,
 };

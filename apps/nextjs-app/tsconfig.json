@@ -9,6 +9,7 @@
     "module": "esnext",
     "jsx": "preserve",
     "incremental": true,
+    "moduleResolution": "Bundler",
     "paths": {
       "@/test-utils": ["../config/tests/test-utils"],
       "@/config/*": ["./config/*"],

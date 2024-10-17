@@ -26,6 +26,7 @@ export interface IRowHeaderDrawerProps extends IRectangle {
   isHover?: boolean;
   isChecked?: boolean;
   rowIndexVisible?: boolean;
+  commentCount?: number;
 }
 
 export interface IGroupRowHeaderDrawerProps extends IRectangle {
@@ -92,4 +93,14 @@ export interface ICacheDrawerProps {
   pixelRatio: number;
   shouldRerender?: boolean;
   draw: (cacheCtx: CanvasRenderingContext2D) => void;
+}
+
+export interface IGroupStatisticDrawerProps extends IRectangle {
+  theme: IGridTheme;
+  bgColor?: string;
+  isHovered: boolean;
+  text?: string;
+  textOffsetY?: number;
+  showAlways?: boolean;
+  defaultLabel?: string;
 }

@@ -98,7 +98,18 @@ describe('EvalVisitor', () => {
   });
 
   it('addition', () => {
+    const record: IRecord = {
+      id: 'recTest',
+      fields: {
+        fldMultipleNumber: [1],
+        fldMultipleLink: [{ id: 'recxxxxxxx' }, { id: 'recyyyyyyy', title: 'A2' }],
+      },
+      createdTime: new Date().toISOString(),
+    };
+
     expect(evalFormula('1 + 2')).toBe(3);
+    expect(evalFormula('1 + {fldNumber}', fieldContext, record)).toBe(1);
+    expect(evalFormula('1 + {fldMultipleNumber}', fieldContext, record)).toBe(2);
   });
 
   it('subtraction', () => {
@@ -201,5 +212,16 @@ describe('EvalVisitor', () => {
   it('should return null when the value is false', () => {
     const result = evaluate('1 > 2', {});
     expect(result.toPlain()).toEqual(null);
+  });
+
+  it('should calculate string with escape characters', () => {
+    expect(evalFormula("'Hello\nWorld'")).toBe(`Hello\nWorld`);
+    expect(evalFormula("'Hello\rWorld'")).toBe(`Hello\rWorld`);
+    expect(evalFormula("'Hello\bWorld'")).toBe(`Hello\bWorld`);
+    expect(evalFormula("'Hello\fWorld'")).toBe(`Hello\fWorld`);
+    expect(evalFormula("'Hello\vWorld'")).toBe(`Hello\vWorld`);
+    expect(evalFormula("'Hello\tWorld'")).toBe('Hello\tWorld');
+    expect(evalFormula("'Hello\\World'")).toBe('Hello\\World');
+    expect(evalFormula("'Hello\"World'")).toBe('Hello"World');
   });
 });

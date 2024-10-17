@@ -19,7 +19,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "plugins/*",
+    "plugins",
     "!apps/electron"
   ],
   "scripts": {
@@ -51,7 +51,8 @@
     "publish:next:patch": "node ./scripts/publish.mjs patch next",
     "publish:next:minor": "node ./scripts/publish.mjs minor next",
     "publish:next:major": "node ./scripts/publish.mjs major next",
-    "prepare": "run-s install:husky"
+    "prepare": "run-s install:husky",
+    "run:plugin": "pnpm -F '@teable/plugin' dev"
   },
   "dependencies": {
     "cross-env": "7.0.3"

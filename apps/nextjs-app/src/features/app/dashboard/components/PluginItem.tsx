@@ -6,8 +6,9 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
+import { useCallback } from 'react';
+import { PluginContent } from '../../components/plugin/PluginContent';
 import { useIsExpandPlugin } from '../hooks/useIsExpandPlugin';
-import { PluginContent } from './PluginContent';
 import { PluginHeader } from './PluginHeader';
 
 export const PluginItem = (props: {
@@ -38,7 +39,7 @@ export const PluginItem = (props: {
     },
   });
 
-  const onExpand = () => {
+  const onExpand = useCallback(() => {
     const query = { ...router.query, expandPluginId: pluginInstallId };
     router.push(
       {
@@ -48,7 +49,7 @@ export const PluginItem = (props: {
       undefined,
       { shallow: true }
     );
-  };
+  }, [pluginInstallId, router]);
 
   const onClose = () => {
     const query = { ...router.query };
@@ -77,7 +78,7 @@ export const PluginItem = (props: {
         className={cn(
           'group flex h-full flex-col overflow-hidden rounded-xl border bg-background',
           {
-            'md:w-4/5 h-4/5 w-full mx-4': isExpanded,
+            'md:w-[90%] h-[90%] w-full mx-4': isExpanded,
             'pointer-events-none select-none': dragging,
           }
         )}
@@ -96,7 +97,9 @@ export const PluginItem = (props: {
           pluginId={pluginId}
           pluginInstallId={pluginInstallId}
           pluginUrl={pluginUrl}
-          dashboardId={dashboardId}
+          positionId={dashboardId}
+          onExpand={onExpand}
+          renderClassName="p-1"
         />
       </div>
     </div>

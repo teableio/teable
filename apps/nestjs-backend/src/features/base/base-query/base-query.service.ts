@@ -193,9 +193,11 @@ export class BaseQueryService {
     currentFieldMap = groupedFieldMap;
     currentQueryBuilder = groupedQueryBuilder;
 
-    if (baseQuery.limit) {
-      currentQueryBuilder.limit(baseQuery.limit);
-    }
+    // max limit 1000
+    currentQueryBuilder.limit(
+      baseQuery.limit && baseQuery.limit > 0 ? Math.min(baseQuery.limit, 1000) : 1000
+    );
+
     if (baseQuery.offset) {
       currentQueryBuilder.offset(baseQuery.offset);
     }
@@ -229,6 +231,7 @@ export class BaseQueryService {
         // column must appear in the GROUP BY clause or be used in an aggregate function
         aggregation: baseQuery.aggregation,
         groupBy: baseQuery.groupBy,
+        knex: this.knex,
       });
 
     return { queryBuilder: selectedQueryBuilder, fieldMap: selectedFieldMap };

@@ -201,6 +201,7 @@ build.db-migrate:
 
 sqlite.integration.test:
 	@export PRISMA_DATABASE_URL='file:../../db/main.db'; \
+	export CALC_CHUNK_SIZE=400; \
 	make sqlite.mode; \
 	pnpm -F "./packages/**" run build; \
 	pnpm g:test-e2e-cover
@@ -274,7 +275,6 @@ postgres.mode:		## postgres.mode
 	@cd ./packages/db-main-prisma; \
 		pnpm prisma-generate --schema ./prisma/postgres/schema.prisma; \
 		pnpm prisma-migrate deploy --schema ./prisma/postgres/schema.prisma
-
 # Override environment variable files based on variables
 RUN_DB_MODE ?= sqlite
 FILE_ENV_PATHS = $(ENV_PATH)/.env.development* $(ENV_PATH)/.env.test*
@@ -283,6 +283,11 @@ ifeq ($(CI)-$(RUN_DB_MODE),0-sqlite)
 	@for file in $(FILE_ENV_PATHS); do \
 		echo $$file; \
 		perl -i -pe 's~^PRISMA_DATABASE_URL=.*~PRISMA_DATABASE_URL=$(SQLITE_PRISMA_DATABASE_URL)~' $$file; \
+		if ! grep -q '^CALC_CHUNK_SIZE=' $$file; then \
+			echo "CALC_CHUNK_SIZE=400" >> $$file; \
+		else \
+			perl -i -pe 's~^CALC_CHUNK_SIZE=.*~CALC_CHUNK_SIZE=400~' $$file; \
+		fi; \
 	done
 else ifeq ($(CI)-$(RUN_DB_MODE),0-postges)
 	@for file in $(FILE_ENV_PATHS); do \

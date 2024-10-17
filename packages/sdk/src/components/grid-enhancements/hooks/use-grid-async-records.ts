@@ -15,6 +15,7 @@ type IRes = {
   recordMap: IRecordIndexMap;
   onReset: () => void;
   onForceUpdate: () => void;
+  recordsQuery: IGetRecordsRo;
   onVisibleRegionChanged: NonNullable<IGridProps['onVisibleRegionChanged']>;
 };
 
@@ -133,6 +134,7 @@ export const useGridAsyncRecords = (
     groupPoints,
     recordMap: loadedRecordMap,
     onVisibleRegionChanged,
+    recordsQuery,
     onForceUpdate,
     onReset,
   };

@@ -1,13 +1,22 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { FieldType } from '@teable/core';
 import type { IViewVo, IShareViewMeta } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { PermissionService } from '../auth/permission.service';
+import { createFieldInstanceByRaw } from '../field/model/factory';
 import { createViewVoByRaw } from '../view/model/factory';
 
 export interface IShareViewInfo {
   shareId: string;
   tableId: string;
-  view: IViewVo;
+  view?: IViewVo;
+  shareMeta?: IShareViewMeta;
 }
 
 export interface IJwtShareInfo {
@@ -18,6 +27,7 @@ export interface IJwtShareInfo {
 @Injectable()
 export class ShareAuthService {
   constructor(
+    private readonly permissionService: PermissionService,
     private readonly prismaService: PrismaService,
     private readonly jwtService: JwtService
   ) {}
@@ -57,11 +67,44 @@ export class ShareAuthService {
     if (!view) {
       throw new BadRequestException('share view not found');
     }
-
+    const viewVo = createViewVoByRaw(view);
     return {
       shareId,
       tableId: view.tableId,
       view: createViewVoByRaw(view),
+      shareMeta: viewVo.shareMeta,
+    };
+  }
+
+  async getLinkViewInfo(linkFieldId: string): Promise<IShareViewInfo> {
+    const fieldRaw = await this.prismaService.field
+      .findFirstOrThrow({
+        where: { id: linkFieldId, deletedTime: null },
+      })
+      .catch((_err) => {
+        throw new NotFoundException(`Field ${linkFieldId} not exist`);
+      });
+
+    const field = createFieldInstanceByRaw(fieldRaw);
+
+    if (field.type !== FieldType.Link) {
+      throw new BadRequestException('field is not a link field');
+    }
+
+    // make sure user has permission to access the table where the link field from
+    await this.permissionService.validPermissions(fieldRaw.tableId, [
+      'table|read',
+      'record|read',
+      'field|read',
+    ]);
+
+    return {
+      shareId: linkFieldId,
+      tableId: field.options.foreignTableId,
+      shareMeta: {
+        allowCopy: true,
+        includeRecords: true,
+      },
     };
   }
 }

@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userMe } from '@teable/openapi';
 import { useCallback, useMemo, useState } from 'react';
 import type { IUser } from './SessionContext';
@@ -6,12 +6,15 @@ import { SessionContext } from './SessionContext';
 
 interface ISessionProviderProps {
   user?: IUser;
+  disabledApi?: boolean;
+  fallback?: React.ReactNode;
 }
 
 export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderProps>> = (
   props
 ) => {
-  const { user, children } = props;
+  const { user, fallback, children, disabledApi = false } = props;
+  const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<IUser | undefined>(() => {
     if (user) {
       return user;
@@ -19,13 +22,19 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
     return undefined;
   });
 
+  const { data: userQuery } = useQuery({
+    queryKey: ['user-me'],
+    queryFn: () => userMe().then((res) => res.data),
+    enabled: !disabledApi,
+  });
   const { mutateAsync: getUser } = useMutation({ mutationFn: userMe });
 
   const refresh = useCallback(async () => {
     const { data } = await getUser();
+    queryClient.invalidateQueries({ queryKey: ['user-me'] });
     setCurrentUser(data);
     return data;
-  }, [getUser]);
+  }, [getUser, queryClient]);
 
   const refreshAvatar = useCallback(async () => {
     if (currentUser?.avatar) {
@@ -44,9 +53,13 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   }, [currentUser, refresh]);
 
   const value = useMemo(
-    () => ({ user: currentUser, refresh, refreshAvatar }),
-    [currentUser, refresh, refreshAvatar]
+    () => ({ user: userQuery || currentUser, refresh, refreshAvatar }),
+    [currentUser, userQuery, refresh, refreshAvatar]
   );
+
+  if (!value.user) {
+    return <>{fallback}</>;
+  }
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

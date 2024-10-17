@@ -22,7 +22,11 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements FieldBase
   convertCellValue2DBValue(value: unknown): unknown {
     return (
       value &&
-      JSON.stringify((value as IAttachmentCellValue).map((item) => omit(item, ['presignedUrl'])))
+      JSON.stringify(
+        (value as IAttachmentCellValue).map((item) =>
+          omit(item, ['presignedUrl', 'smThumbnailUrl', 'lgThumbnailUrl'])
+        )
+      )
     );
   }
 

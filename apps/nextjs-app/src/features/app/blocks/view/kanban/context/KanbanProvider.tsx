@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ISelectFieldChoice, ISelectFieldOptions, IUserCellValue } from '@teable/core';
+import type { IUserCellValue } from '@teable/core';
 import { FieldType } from '@teable/core';
+import type { ListBaseCollaboratorRo } from '@teable/openapi';
 import {
-  GroupPointType,
   getBaseCollaboratorList,
   getShareViewCollaborators,
+  GroupPointType,
 } from '@teable/openapi';
 import { ExpandRecorder } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { ShareViewContext } from '@teable/sdk/context';
 import {
   useView,
   useFields,
@@ -17,35 +19,30 @@ import {
   useFieldPermission,
   useBaseId,
 } from '@teable/sdk/hooks';
-import type {
-  KanbanView,
-  UserField,
-  IFieldInstance,
-  AttachmentField,
-  SingleSelectField,
-} from '@teable/sdk/model';
+import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
 import type { ReactNode } from 'react';
 import { useContext, useMemo, useState } from 'react';
-import { ShareViewPageContext } from '../../../share/view/ShareViewPageContext';
-import {
-  KANBAN_STACK_FIELD_TYPES,
-  UNCATEGORIZED_STACK_EMAIL,
-  UNCATEGORIZED_STACK_ID,
-  UNCATEGORIZED_STACK_NAME,
-} from '../constant';
+import { UNCATEGORIZED_STACK_ID } from '../constant';
 import { KanbanContext } from './KanbanContext';
+
+const UNCATEGORIZED_STACK_DATA = {
+  id: UNCATEGORIZED_STACK_ID,
+  count: 0,
+  data: null,
+};
 
 export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
-  const { shareId } = useContext(ShareViewPageContext) ?? {};
-  const { sort, filter } = view ?? {};
   const baseId = useBaseId() as string;
+  const { shareId } = useContext(ShareViewContext) ?? {};
+  const { sort, filter } = view ?? {};
   const permission = useTablePermission();
   const fields = useFields();
   const allFields = useFields({ withHidden: true, withDenied: true });
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
+  const fieldPermission = useFieldPermission(stackFieldId);
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const groupPoints = useGroupPoint();
 
@@ -60,24 +57,22 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
 
   const stackField = useMemo(() => {
     if (!stackFieldId) return;
-    return allFields.find(
-      ({ id, type, isMultipleCellValue }) =>
-        id === stackFieldId && KANBAN_STACK_FIELD_TYPES.has(type) && !isMultipleCellValue
-    ) as SingleSelectField | UserField | undefined;
+    return allFields.find(({ id }) => id === stackFieldId);
   }, [stackFieldId, allFields]);
-  const fieldPermission = useFieldPermission(stackFieldId);
 
-  const { type: stackFieldType, options: stackFieldOptions } = stackField ?? {};
+  const { type, isMultipleCellValue } = stackField ?? {};
 
   const { data: userList } = useQuery({
     queryKey: shareId
       ? ReactQueryKeys.shareViewCollaborators(shareId)
-      : ReactQueryKeys.baseCollaboratorList(baseId),
+      : ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true }),
     queryFn: ({ queryKey }) =>
       shareId
         ? getShareViewCollaborators(queryKey[1], {}).then((data) => data.data)
-        : getBaseCollaboratorList(queryKey[1]).then((data) => data.data),
-    enabled: Boolean((shareId || baseId) && stackFieldType === FieldType.User),
+        : getBaseCollaboratorList(queryKey[1], queryKey[2] as ListBaseCollaboratorRo).then(
+            (data) => data.data
+          ),
+    enabled: Boolean((shareId || baseId) && type === FieldType.User && !isMultipleCellValue),
   });
 
   const kanbanPermission = useMemo(() => {
@@ -93,106 +88,83 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [permission, fieldPermission]);
 
-  const groupPointMap = useMemo(() => {
-    if (groupPoints == null || stackFieldType == null) return null;
-    const isUserField = stackFieldType === FieldType.User;
-
-    return groupPoints.reduce(
-      (prev, cur, index) => {
-        if (cur.type !== GroupPointType.Header) {
-          return prev;
-        }
-        const { value } = cur;
-        const key =
-          value == null
-            ? UNCATEGORIZED_STACK_ID
-            : isUserField
-              ? (value as IUserCellValue).id
-              : value;
-        const rowData = groupPoints[index + 1];
-
-        if (rowData?.type !== GroupPointType.Row) {
-          return prev;
-        }
-
-        const { count } = rowData;
-
-        prev[key as string] = {
-          count,
-          data: value as IUserCellValue | string | null,
-        };
-        return prev;
-      },
-      {} as Record<string, { count: number; data: IUserCellValue | string | null }>
-    );
-  }, [groupPoints, stackFieldType]);
-
   const stackCollection = useMemo(() => {
-    if (stackFieldType == null || groupPointMap == null) return;
+    if (groupPoints == null || stackField == null) return;
 
-    if (stackFieldType === FieldType.User) {
-      const users = userList;
-      if (!users?.length) return;
+    const { type, options, isMultipleCellValue } = stackField;
+    const isDisabledStackField = type === FieldType.Attachment;
 
-      const stacks = users.map(({ userId, userName, avatar, email }) => {
-        const data = groupPointMap[userId];
-        return {
-          id: userId,
-          data: {
+    if (isDisabledStackField) return;
+
+    const stackList: { id: string; count: number; data: unknown }[] = [];
+    const stackMap: Record<string, { id: string; count: number; data: unknown }> = {};
+
+    groupPoints.forEach((cur, index) => {
+      if (cur.type !== GroupPointType.Header) return;
+
+      const { id: groupId, value } = cur;
+      const rowData = groupPoints[index + 1];
+
+      if (rowData?.type !== GroupPointType.Row) return;
+      if (value == null) return;
+
+      const { count } = rowData;
+      const obj = {
+        id: groupId,
+        count,
+        data: value,
+      };
+      stackList.push(obj);
+
+      if (type === FieldType.SingleSelect) {
+        stackMap[value as string] = obj;
+      }
+
+      if (type === FieldType.User && !isMultipleCellValue) {
+        stackMap[(value as IUserCellValue).id] = obj;
+      }
+    });
+
+    if (type === FieldType.SingleSelect) {
+      const choices = options?.choices;
+      const stackList = choices.map(
+        ({ id, name }) =>
+          stackMap[name] ?? {
+            id,
+            count: 0,
+            data: name,
+          }
+      );
+      stackList.unshift(UNCATEGORIZED_STACK_DATA);
+      return stackList;
+    }
+
+    if (type === FieldType.User && !isMultipleCellValue && userList) {
+      const stackList = userList.map(
+        ({ userId, userName, email, avatar }) =>
+          stackMap[userId] ?? {
             id: userId,
-            title: userName,
-            email,
-            avatarUrl: avatar,
-          },
-          count: data?.count ?? 0,
-        };
-      });
-
-      stacks.unshift({
-        id: UNCATEGORIZED_STACK_ID,
-        data: {
-          id: UNCATEGORIZED_STACK_ID,
-          title: UNCATEGORIZED_STACK_NAME,
-          email: UNCATEGORIZED_STACK_EMAIL,
-          avatarUrl: null,
-        },
-        count: groupPointMap[UNCATEGORIZED_STACK_ID]?.count ?? 0,
-      });
-
-      if (isEmptyStackHidden) {
-        return stacks.filter(({ count }) => count > 0);
-      }
-      return stacks;
+            count: 0,
+            data: {
+              id: userId,
+              title: userName,
+              email,
+              avatarUrl: avatar,
+            },
+          }
+      );
+      stackList.unshift(UNCATEGORIZED_STACK_DATA);
+      return stackList;
     }
 
-    if (stackFieldType === FieldType.SingleSelect) {
-      const { choices } = stackFieldOptions as ISelectFieldOptions;
+    stackList.unshift(UNCATEGORIZED_STACK_DATA);
 
-      const stacks = choices.map((choice) => {
-        const { id, name } = choice;
-        const data = groupPointMap[name];
-        return {
-          id,
-          data: choice,
-          count: data?.count ?? 0,
-        };
-      });
-
-      stacks.unshift({
-        id: UNCATEGORIZED_STACK_ID,
-        data: {
-          id: UNCATEGORIZED_STACK_ID,
-          name: UNCATEGORIZED_STACK_NAME,
-        } as ISelectFieldChoice,
-        count: groupPointMap[UNCATEGORIZED_STACK_ID]?.count ?? 0,
-      });
-
-      if (isEmptyStackHidden) {
-        return stacks.filter(({ count }) => count > 0);
-      }
-      return stacks;
+    if (isEmptyStackHidden) {
+      return stackList.filter(({ count }) => count > 0);
     }
-  }, [groupPointMap, isEmptyStackHidden, stackFieldOptions, stackFieldType, userList]);
+
+    return stackList;
+  }, [groupPoints, isEmptyStackHidden, stackField, userList]);
 
   const coverField = useMemo(() => {
     if (!coverFieldId) return;

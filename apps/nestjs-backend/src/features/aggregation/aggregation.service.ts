@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { IGridColumnMeta, IFilter } from '@teable/core';
+import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
 import { mergeWithDefaultFilter, nullsToUndefined, StatisticsFunc, ViewType } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -14,19 +14,21 @@ import type {
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { groupBy, isDate, isEmpty } from 'lodash';
+import { groupBy, isDate, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { convertValueToStringify, string2Hash } from '../../utils';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { RecordService } from '../record/record.service';
 
 export type IWithView = {
   viewId?: string;
+  groupBy?: IGroup;
   customFilter?: IFilter;
   customFieldStats?: ICustomFieldStats[];
 };
@@ -74,6 +76,7 @@ export class AggregationService {
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
 
     const { filter, statisticFields } = statisticsData;
+    const groupBy = withView?.groupBy;
 
     const rawAggregationData = await this.handleAggregation({
       dbTableName,
@@ -101,7 +104,96 @@ export class AggregationService {
         }
       }
     }
-    return { aggregations };
+
+    const aggregationsWithGroup = await this.performGroupedAggregation({
+      aggregations,
+      statisticFields,
+      filter,
+      search,
+      groupBy,
+      dbTableName,
+      fieldInstanceMap,
+    });
+
+    return { aggregations: aggregationsWithGroup };
+  }
+
+  async performGroupedAggregation(params: {
+    aggregations: IRawAggregations;
+    statisticFields: IAggregationField[] | undefined;
+    filter?: IFilter;
+    search: [string, string] | undefined;
+    groupBy?: IGroup;
+    dbTableName: string;
+    fieldInstanceMap: Record<string, IFieldInstance>;
+  }) {
+    const {
+      dbTableName,
+      aggregations,
+      statisticFields,
+      filter,
+      groupBy,
+      search,
+      fieldInstanceMap,
+    } = params;
+
+    if (!groupBy || !statisticFields) return aggregations;
+
+    const currentUserId = this.cls.get('user.id');
+    const aggregationByFieldId = keyBy(aggregations, 'fieldId');
+
+    const groupByFields = groupBy.map(({ fieldId }) => {
+      return {
+        fieldId,
+        dbFieldName: fieldInstanceMap[fieldId].dbFieldName,
+      };
+    });
+
+    for (let i = 0; i < groupBy.length; i++) {
+      const rawGroupedAggregationData = (await this.handleAggregation({
+        dbTableName,
+        fieldInstanceMap,
+        filter,
+        groupBy: groupBy.slice(0, i + 1),
+        search,
+        statisticFields,
+        withUserId: currentUserId,
+      }))!;
+
+      const currentGroupFieldId = groupByFields[i].fieldId;
+
+      for (const groupedAggregation of rawGroupedAggregationData) {
+        const groupByValueString = groupByFields
+          .slice(0, i + 1)
+          .map(({ dbFieldName }) => {
+            const groupByValue = groupedAggregation[dbFieldName];
+            return convertValueToStringify(groupByValue);
+          })
+          .join('_');
+        const flagString = `${currentGroupFieldId}_${groupByValueString}`;
+        const groupId = String(string2Hash(flagString));
+
+        for (const statisticField of statisticFields) {
+          const { fieldId, statisticFunc } = statisticField;
+          const aggKey = `${fieldId}_${statisticFunc}`;
+          const curFieldAggregation = aggregationByFieldId[fieldId]!;
+          const convertValue = this.formatConvertValue(groupedAggregation[aggKey], statisticFunc);
+
+          if (!curFieldAggregation.group) {
+            aggregationByFieldId[fieldId].group = {
+              [groupId]: { value: convertValue, aggFunc: statisticFunc },
+            };
+          } else {
+            aggregationByFieldId[fieldId]!.group![groupId] = {
+              value: convertValue,
+              aggFunc: statisticFunc,
+            };
+          }
+        }
+      }
+    }
+
+    return Object.values(aggregationByFieldId);
   }
 
   async performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue> {
@@ -281,11 +373,14 @@ export class AggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     filter?: IFilter;
+    groupBy?: IGroup;
     search?: [string, string];
     statisticFields?: IAggregationField[];
     withUserId?: string;
   }) {
-    const { dbTableName, fieldInstanceMap, filter, search, statisticFields, withUserId } = params;
+    const { dbTableName, fieldInstanceMap, filter, search, statisticFields, withUserId, groupBy } =
+      params;
+
     if (!statisticFields?.length) {
       return;
     }
@@ -305,10 +400,20 @@ export class AggregationService {
       })
       .from(tableAlias);
 
-    const aggSql = this.dbProvider
+    const qb = this.dbProvider
       .aggregationQuery(queryBuilder, tableAlias, fieldInstanceMap, statisticFields)
-      .appendBuilder()
-      .toQuery();
+      .appendBuilder();
+
+    if (groupBy) {
+      this.dbProvider
+        .groupQuery(
+          qb,
+          fieldInstanceMap,
+          groupBy.map((item) => item.fieldId)
+        )
+        .appendGroupBuilder();
+    }
+    const aggSql = qb.toQuery();
     return this.prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
   }
 

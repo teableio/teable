@@ -5,11 +5,12 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
-import { getFileCover } from '../../editor';
+import { getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
 import type { ChartType, ICell, INumberShowAs as IGridNumberShowAs } from '../../grid/renderers';
 import { CellType } from '../../grid/renderers';
+import { convertNextImageUrl } from '../utils';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 100 });
 
@@ -99,7 +100,7 @@ const useGenerateGroupCellFn = () => {
             }
             return {
               type: CellType.Text,
-              data: (cellValue as string) || '',
+              data: (cellValue as string) || emptyStr,
               displayData,
             };
           }
@@ -125,8 +126,8 @@ const useGenerateGroupCellFn = () => {
             if (cellValueType === CellValueType.DateTime) {
               return {
                 type: CellType.Text,
-                data: (cellValue as string) || '',
-                displayData: field.cellValue2String(cellValue),
+                data: (cellValue as string) || emptyStr,
+                displayData: (cellValue as string) || emptyStr,
               };
             }
 
@@ -204,10 +205,13 @@ const useGenerateGroupCellFn = () => {
           }
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
-            const data = cv.map(({ id, mimetype, presignedUrl }) => ({
-              id,
-              url: getFileCover(mimetype, presignedUrl),
-            }));
+            const data = cv.map(({ id, mimetype, presignedUrl, smThumbnailUrl }) => {
+              const url = getFileCover(mimetype, presignedUrl);
+              return {
+                id,
+                url: isSystemFileIcon(mimetype) ? url : smThumbnailUrl ?? url,
+              };
+            });
             const displayData = data.map(({ url }) => url);
             return {
               type: CellType.Image,
@@ -247,7 +251,18 @@ const useGenerateGroupCellFn = () => {
           case FieldType.CreatedBy:
           case FieldType.LastModifiedBy: {
             const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
-            const data = cv.map(({ id, title }) => ({ id, name: title }));
+            const data = cv.map((item) => {
+              const { title, avatarUrl } = item;
+              return {
+                ...item,
+                name: title,
+                avatarUrl: convertNextImageUrl({
+                  url: avatarUrl,
+                  w: 64,
+                  q: 100,
+                }),
+              };
+            });
 
             return {
               type: CellType.User,

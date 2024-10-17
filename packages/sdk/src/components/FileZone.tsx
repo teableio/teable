@@ -54,7 +54,7 @@ export const FileZone = (props: IFileZoneProps) => {
   if (!dragFileEnter && children) {
     return (
       <div
-        className={cn('min-h-full cursor-default', className)}
+        className={cn('min-h-full cursor-default p-[1px]', className)}
         tabIndex={0}
         role="button"
         {...bound}

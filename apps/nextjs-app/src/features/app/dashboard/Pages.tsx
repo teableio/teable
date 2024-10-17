@@ -15,8 +15,8 @@ export function DashboardPage() {
   useInitializationZodI18n();
 
   const { data: dashboardList, isLoading } = useQuery({
-    queryKey: ReactQueryKeys.getDashboardList(),
-    queryFn: () => getDashboardList(baseId).then((res) => res.data),
+    queryKey: ReactQueryKeys.getDashboardList(baseId),
+    queryFn: ({ queryKey }) => getDashboardList(queryKey[1]).then((res) => res.data),
     enabled: !!baseId,
   });
   if (isLoading) {
@@ -29,7 +29,6 @@ export function DashboardPage() {
   if (!isLoading && !dashboardList?.length) {
     return <EmptyDashboard />;
   }
-
   const dashboardId = (router.query.id as string) ?? dashboardList?.[0]?.id;
   return (
     <div className="flex h-full flex-col">

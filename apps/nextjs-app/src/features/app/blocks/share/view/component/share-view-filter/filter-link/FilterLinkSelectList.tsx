@@ -3,14 +3,14 @@ import { getShareViewLinkRecords } from '@teable/openapi';
 import { ApiRecordList } from '@teable/sdk/components';
 import type { IFilterLinkSelectListProps } from '@teable/sdk/components/filter/view-filter/component/filter-link/types';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { ShareViewContext } from '@teable/sdk/context';
 import { useCallback, useContext, useState } from 'react';
-import { ShareViewPageContext } from '../../../ShareViewPageContext';
 
 const pageSize = 50;
 export const StorageSelected: Record<string, string | undefined> = {};
 
 export const FilterLinkSelectList = (props: IFilterLinkSelectListProps) => {
-  const { shareId } = useContext(ShareViewPageContext);
+  const { shareId } = useContext(ShareViewContext);
   const { field, value, onClick } = props;
 
   const [search, setSearch] = useState<string>();
