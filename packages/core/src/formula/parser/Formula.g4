@@ -41,6 +41,7 @@ expr
     | ws_or_comment expr # LeftWhitespaceOrComments
     | expr ws_or_comment # RightWhitespaceOrComments
     | OPEN_PAREN expr CLOSE_PAREN # Brackets
+    | MINUS expr # UnaryOp
     | expr op=(SLASH | STAR | PERCENT) expr # BinaryOp
     | expr op=(PLUS | MINUS) expr # BinaryOp
     | expr op=(GT | LT | GTE | LTE) expr # BinaryOp
