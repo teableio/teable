@@ -62,7 +62,7 @@ export class ExportOpenApiService {
       ? encodeURIComponent(`${tableRaw?.name}${viewRaw?.name ? `_${viewRaw.name}` : ''}`)
       : 'export';
 
-    response.setHeader('Content-Type', 'text/csv');
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
     response.setHeader('Content-Disposition', `attachment; filename=${fileName}.csv`);
 
     csvStream.pipe(response);
@@ -85,6 +85,8 @@ export class ExportOpenApiService {
       ])
     );
 
+    // add BOM to make sure the csv file can be opened correctly in excel
+    csvStream.push('\uFEFF');
     csvStream.push(headerData);
 
     try {

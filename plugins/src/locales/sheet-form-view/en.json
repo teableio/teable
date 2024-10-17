@@ -1,7 +1,7 @@
 {
   "toolbar": {
     "design": "Design",
-    "previewAndSave": "Preview",
+    "preview": "Preview",
     "share": "Share",
     "insertCell": "Insert Cell",
     "submit": "submit"
@@ -10,7 +10,8 @@
     "insertCellTips": "Please select a field first",
     "unSupportFieldType": "UnSupport field type",
     "selected": "This field has been selected",
-    "submitSuccess": "Submit success"
+    "submitSuccess": "Submit success",
+    "onlyPreview": "This is only for preview, please share the view first then to submit"
   },
   "validation": {
     "coordinate": "coordinate",

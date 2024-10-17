@@ -310,6 +310,8 @@ export const PreviewPanel = (props: IPreviewPanel) => {
       // only submit when share page
       if (shareId) {
         submitFormFn({ shareId, fields: submitField, typecast: true });
+      } else {
+        toast({ description: t('tooltips.onlyPreview') });
       }
     }, 0);
   };

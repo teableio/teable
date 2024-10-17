@@ -1,7 +1,7 @@
 {
   "toolbar": {
     "design": "设计",
-    "previewAndSave": "预览",
+    "preview": "预览",
     "share": "分享",
     "insertCell": "插入单元格",
     "submit": "提交"
@@ -10,7 +10,8 @@
     "insertCellTips": "请先选择一个插入的字段",
     "unSupportFieldType": "不支持的字段类型",
     "selected": "已选择",
-    "submitSuccess": "提交成功"
+    "submitSuccess": "提交成功",
+    "onlyPreview": "此为预览视图，如需提交请分享该视图"
   },
   "validation": {
     "coordinate": "坐标",

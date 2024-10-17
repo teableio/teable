@@ -121,9 +121,9 @@ export const SheetView = () => {
           <div className="flex h-12 items-center justify-between border-y py-2 pl-8 pr-4">
             <div className="flex gap-2">
               <Button
-                size={'xs'}
+                size={'sm'}
                 variant={'outline'}
-                className={cn({ 'bg-secondary': SheetMode.Design === mode })}
+                className={cn('px-6 text-sm', { 'bg-secondary': SheetMode.Design === mode })}
                 onClick={() => {
                   setMode(SheetMode.Design);
                 }}
@@ -131,16 +131,16 @@ export const SheetView = () => {
                 {t('toolbar.design')}
               </Button>
               <Button
-                size={'xs'}
+                size={'sm'}
                 variant={'outline'}
-                className={cn({ 'bg-secondary': SheetMode.Preview === mode })}
+                className={cn('px-6 text-sm', { 'bg-secondary': SheetMode.Preview === mode })}
                 onClick={async () => {
                   const workBookData = getActiveWorkBookData();
                   await updateStorage(workBookData);
                   setMode(SheetMode.Preview);
                 }}
               >
-                {t('toolbar.previewAndSave')}
+                {t('toolbar.preview')}
               </Button>
             </div>
             <SharePopover>
