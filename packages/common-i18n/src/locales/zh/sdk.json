@@ -197,7 +197,9 @@
       "before": "变更前",
       "after": "变更后",
       "viewRecord": "查看记录"
-    }
+    },
+    "showHiddenFields": "显示 {{count}} 个隐藏字段",
+    "hideHiddenFields": "隐藏 {{count}} 个隐藏字段"
   },
   "sort": {
     "label": "排序",

@@ -164,7 +164,9 @@
       "before": "Avant",
       "after": "Après",
       "viewRecord": "Voir l'enregistrement"
-    }
+    },
+    "showHiddenFields": "Afficher {{count}} champs cachés",
+    "hideHiddenFields": "Masquer {{count}} champs cachés"
   },
   "sort": {
     "label": "Trier",

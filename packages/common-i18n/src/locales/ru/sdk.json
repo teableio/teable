@@ -182,7 +182,9 @@
       "before": "До",
       "after": "После",
       "viewRecord": "Просмотреть запись"
-    }
+    },
+    "showHiddenFields": "Показать {{count}} скрытых поля",
+    "hideHiddenFields": "Скрыть {{count}} скрытых поля"
   },
   "sort": {
     "label": "Сортировка",

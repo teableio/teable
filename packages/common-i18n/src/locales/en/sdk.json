@@ -184,7 +184,9 @@
       "before": "Before",
       "after": "After",
       "viewRecord": "View record"
-    }
+    },
+    "showHiddenFields": "Show {{count}} hidden fields",
+    "hideHiddenFields": "Hide {{count}} hidden fields"
   },
   "sort": {
     "label": "Sort",
