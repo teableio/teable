@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import { SortFunc } from '@teable/core';
-import type { IGroup, StatisticsFunc } from '@teable/core';
+import type { IGroup } from '@teable/core';
+import { is, SortFunc, StatisticsFunc } from '@teable/core';
 import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import { getAggregation, getGroupPoints, getRowCount, GroupPointType } from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
@@ -396,6 +396,46 @@ describe('OpenAPI AggregationController (e2e)', () => {
           expect(Object.keys(group ?? []).length).toEqual(expectGroupedCount);
         }
       );
+    });
+
+    it('percent aggregation zero', async () => {
+      const tableId = table.id;
+      const viewId = table.views[0].id;
+      const fieldId = table.fields[0].id;
+      const checkboxFieldId = table.fields[4].id;
+      const result = await getAggregation(tableId, {
+        viewId: viewId,
+        field: {
+          [StatisticsFunc.PercentFilled]: [fieldId],
+          [StatisticsFunc.PercentUnique]: [fieldId],
+          [StatisticsFunc.PercentChecked]: [checkboxFieldId],
+          [StatisticsFunc.PercentUnChecked]: [checkboxFieldId],
+          [StatisticsFunc.PercentEmpty]: [fieldId],
+        },
+        filter: JSON.stringify({
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId,
+              operator: is.value,
+              value: 'xxxxxxxxxx',
+            },
+          ],
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        }) as any,
+      }).then((res) => res.data);
+      expect(result).toBeDefined();
+      expect(result.aggregations?.length).toBe(5);
+      expect(result.aggregations?.[0].total?.aggFunc).toBe(StatisticsFunc.PercentFilled);
+      expect(result.aggregations?.[0].total?.value).toBeCloseTo(0);
+      expect(result.aggregations?.[1].total?.aggFunc).toBe(StatisticsFunc.PercentUnique);
+      expect(result.aggregations?.[1].total?.value).toBeCloseTo(0);
+      expect(result.aggregations?.[2].total?.aggFunc).toBe(StatisticsFunc.PercentEmpty);
+      expect(result.aggregations?.[2].total?.value).toBeCloseTo(0);
+      expect(result.aggregations?.[3].total?.aggFunc).toBe(StatisticsFunc.PercentChecked);
+      expect(result.aggregations?.[3].total?.value).toBeCloseTo(0);
+      expect(result.aggregations?.[4].total?.aggFunc).toBe(StatisticsFunc.PercentUnChecked);
+      expect(result.aggregations?.[4].total?.value).toBeCloseTo(0);
     });
   });
 
