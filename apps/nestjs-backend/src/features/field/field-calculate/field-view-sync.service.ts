@@ -54,7 +54,7 @@ export class FieldViewSyncService {
       if (hiddenFieldIds?.length) {
         const newHiddenFieldIds = hiddenFieldIds.filter((id) => !deletedFieldIdSet.has(id));
         if (!isEqual(newHiddenFieldIds, hiddenFieldIds)) {
-          newOptions.hiddenFieldIds = newHiddenFieldIds;
+          newOptions.hiddenFieldIds = newHiddenFieldIds?.length ? newHiddenFieldIds : null;
           isOptionsChanged = true;
         }
       }

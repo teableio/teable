@@ -1,5 +1,12 @@
 import { type INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFilterRo, IRecord, IUserFieldOptions, IViewRo } from '@teable/core';
+import type {
+  IFieldRo,
+  IFilterRo,
+  ILinkFieldOptions,
+  IRecord,
+  IUserFieldOptions,
+  IViewRo,
+} from '@teable/core';
 import {
   ANONYMOUS_USER_ID,
   FieldKeyType,
@@ -26,6 +33,7 @@ import {
   createField,
   updateViewShareMeta,
   shareViewFormSubmit,
+  deleteView,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
@@ -40,6 +48,9 @@ import {
   initApp,
   updateViewColumnMeta,
   updateViewFilter,
+  getField,
+  deleteField,
+  convertField,
 } from './utils/init-app';
 
 const formViewRo: IViewRo = {
@@ -691,6 +702,99 @@ describe('OpenAPI ShareController (e2e)', () => {
 
       expect(shareResult.data.records.length).toBeLessThanOrEqual(1);
       expect(shareResult.data.fields.length).toEqual(3);
+    });
+
+    it('should clean link options after filterByViewId is deleted', async () => {
+      const view = await createView(table2.id, {
+        name: 'view',
+        type: ViewType.Grid,
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'clean link options filterByViewId',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filterByViewId: view.id,
+        },
+      });
+
+      expect((linkField.data.options as ILinkFieldOptions).filterByViewId).toEqual(view.id);
+
+      await deleteView(table2.id, view.id);
+      const currentLinkField = await getField(table1.id, linkField.data.id);
+
+      expect((currentLinkField.options as ILinkFieldOptions).filterByViewId).toBeNull();
+    });
+
+    it('should clean link options after filtering field is deleted', async () => {
+      const singleSelectField = table2.fields[2];
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: singleSelectField.id,
+            operator: is.value,
+            value: 'x',
+          },
+        ],
+      };
+
+      const linkField = await createField(table1.id, {
+        name: 'clean link options filter',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filter,
+          hiddenFieldIds: [singleSelectField.id],
+        },
+      });
+
+      expect((linkField.data.options as ILinkFieldOptions).filter).toEqual(filter);
+      expect((linkField.data.options as ILinkFieldOptions).hiddenFieldIds).toEqual([
+        singleSelectField.id,
+      ]);
+
+      await deleteField(table2.id, singleSelectField.id);
+      const currentLinkField = await getField(table1.id, linkField.data.id);
+
+      expect((currentLinkField.options as ILinkFieldOptions).filter).toBeNull();
+      expect((currentLinkField.options as ILinkFieldOptions).hiddenFieldIds).toBeNull();
+    });
+
+    it('should clean link options after filtering field is converted', async () => {
+      const singleSelectField = table2.fields[2];
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: singleSelectField.id,
+            operator: is.value,
+            value: 'x',
+          },
+        ],
+      };
+
+      const linkField = await createField(table1.id, {
+        name: 'convert link options filter',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filter,
+        },
+      });
+
+      expect((linkField.data.options as ILinkFieldOptions).filter).toEqual(filter);
+
+      await convertField(table2.id, singleSelectField.id, {
+        type: FieldType.MultipleSelect,
+      });
+      const currentLinkField = await getField(table1.id, linkField.data.id);
+
+      expect((currentLinkField.options as ILinkFieldOptions).filter).toBeNull();
     });
   });
 });
