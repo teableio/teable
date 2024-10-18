@@ -23,11 +23,13 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
       ![FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(type) ||
       isMultipleCellValue
     ) {
-      return super.percentUnique();
+      return this.knex
+        .raw(`(COUNT(DISTINCT ??) * 1.0 / MAX(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+        .toQuery();
     }
 
     return this.knex
-      .raw(`(COUNT(DISTINCT json_extract(??, '$.id')) * 1.0 / COUNT(*)) * 100`, [
+      .raw(`(COUNT(DISTINCT json_extract(??, '$.id')) * 1.0 / MAX(COUNT(*), 1)) * 100`, [
         this.tableColumnRef,
       ])
       .toQuery();
@@ -42,5 +44,25 @@ export class AggregationFunctionSqlite extends AbstractAggregationFunction {
 
   totalAttachmentSize(): string {
     return `SELECT SUM(json_extract(json_each.value, '$.size')) AS value FROM ${this.dbTableName}, json_each(${this.tableColumnRef})`;
+  }
+
+  percentEmpty(): string {
+    return this.knex
+      .raw(`((COUNT(*) - COUNT(??)) * 1.0 / MAX(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+      .toQuery();
+  }
+
+  percentFilled(): string {
+    return this.knex
+      .raw(`(COUNT(??) * 1.0 / MAX(COUNT(*), 1)) * 100`, [this.tableColumnRef])
+      .toQuery();
+  }
+
+  percentChecked(): string {
+    return this.percentFilled();
+  }
+
+  percentUnChecked(): string {
+    return this.percentEmpty();
   }
 }
