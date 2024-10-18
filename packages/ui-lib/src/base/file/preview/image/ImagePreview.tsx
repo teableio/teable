@@ -1,8 +1,6 @@
+import { RotateCw, ZoomIn, ZoomOut } from '@teable/icons';
 import { useState } from 'react';
 import Reset from '../../../../../../icons/src/components/Reset';
-import Rotate from '../../../../../../icons/src/components/Rotate';
-import ZoomIn from '../../../../../../icons/src/components/ZoomIn';
-import ZoomOut from '../../../../../../icons/src/components/ZoomOut';
 import type { IFileItemInner } from '../FilePreviewContext';
 
 interface IImagePreviewProps extends IFileItemInner {}
@@ -30,45 +28,37 @@ export const ImagePreview = (props: IImagePreviewProps) => {
     setRotate(rotate + 30);
   };
   return (
-    <div>
-      <div className="flex">
-        {/* zoomin */}
-        <button
-          className="absolute top-4 right-5 p-1 rounded-md hover:bg-black/40"
-          onClick={handleZoomIn}
-        >
-          <ZoomIn className="text-xl" />
-        </button>
-        {/* zoomout */}
-        <button
-          className="absolute top-10 right-5 p-1 rounded-md hover:bg-black/40"
-          onClick={handleZoomOut}
-        >
-          <ZoomOut className="text-xl" />
-        </button>
-        {/* rotate */}
-        <button
-          className="absolute top-16 right-5 p-1 rounded-md hover:bg-black/40"
-          onClick={handleRotate}
-        >
-          <Rotate className="text-xl" />
-        </button>
-        {/* reset */}
-        <button
-          className="absolute top-22 right-5 p-1 rounded-md hover:bg-black/40"
-          onClick={handleReset}
-        >
-          <Reset className="text-xl" />
-        </button>
-      </div>
+    <div className="flex-col flex h-full justify-center items-center">
       <img
-        className="max-h-2xl max-w-2xl"
+        className="max-h-2xl max-w-2xl items-center"
         src={src}
         alt={name}
         style={{
           transform: `scale(${scale}) rotate(${rotate}deg)`,
         }}
       />
+      <div className=" absolute bottom-0  right-30 justify-center">
+        {/* zoomin */}
+
+        <button className=" p-2 rounded-md hover:bg-black/40" onClick={handleZoomIn}>
+          <ZoomIn className="text-xl" />
+        </button>
+        {/* zoomout */}
+        <button className=" p-2 rounded-md hover:bg-black/40" onClick={handleZoomOut}>
+          <ZoomOut className="text-xl" />
+        </button>
+        {/* rotate */}
+        <button className=" p-2 rounded-md hover:bg-black/40" onClick={handleRotate}>
+          <RotateCw className="text-xl" />
+        </button>
+        {/* reset */}
+        {/* <button
+          className="absolute top-22 right-5 p-1 rounded-md hover:bg-black/40"
+          onClick={handleReset}
+        >
+          <Reset className="text-xl" />
+        </button> */}
+      </div>
     </div>
   );
 };
