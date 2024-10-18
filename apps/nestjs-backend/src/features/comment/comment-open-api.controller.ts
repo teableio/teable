@@ -11,9 +11,11 @@ import {
   getCommentListQueryRoSchema,
   IGetCommentListQueryRo,
   IGetRecordsRo,
+  UploadType,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import StorageAdapter from '../attachments/plugins/adapter';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { TqlPipe } from '../record/open-api/tql.pipe';
@@ -49,7 +51,8 @@ export class CommentOpenApiController {
   // eslint-disable-next-line sonarjs/no-duplicate-string
   @Permissions('record|read')
   async getAttachmentPresignedUrl(@Param('path') path: string) {
-    const [bucket, token] = path.split('/');
+    const [, token] = path.split('/');
+    const bucket = StorageAdapter.getBucket(UploadType.Comment);
     return this.attachmentsStorageService.getPreviewUrlByPath(bucket, path, token);
   }
 
