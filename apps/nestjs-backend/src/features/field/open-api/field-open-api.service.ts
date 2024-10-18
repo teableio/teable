@@ -281,7 +281,7 @@ export class FieldOpenApiService {
     const referenceMap = await this.getFieldReferenceMap(fieldIds);
 
     await this.prismaService.$tx(async () => {
-      await this.fieldViewSyncService.deleteViewRelativeByFields(
+      await this.fieldViewSyncService.deleteDependenciesByFieldIds(
         tableId,
         fields.map((f) => f.id)
       );
@@ -403,7 +403,7 @@ export class FieldOpenApiService {
 
     // 2. stage alter field
     await this.prismaService.$tx(async () => {
-      await this.fieldViewSyncService.convertFieldRelative(tableId, newField, oldField);
+      await this.fieldViewSyncService.convertDependenciesByFieldIds(tableId, newField, oldField);
       await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
       await this.fieldConvertingService.deleteOrCreateSupplementLink(tableId, newField, oldField);
       // for modify supplement link
