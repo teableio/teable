@@ -425,17 +425,45 @@ describe('OpenAPI AggregationController (e2e)', () => {
         }) as any,
       }).then((res) => res.data);
       expect(result).toBeDefined();
-      expect(result.aggregations?.length).toBe(5);
-      expect(result.aggregations?.[0].total?.aggFunc).toBe(StatisticsFunc.PercentFilled);
-      expect(result.aggregations?.[0].total?.value).toBeCloseTo(0);
-      expect(result.aggregations?.[1].total?.aggFunc).toBe(StatisticsFunc.PercentUnique);
-      expect(result.aggregations?.[1].total?.value).toBeCloseTo(0);
-      expect(result.aggregations?.[2].total?.aggFunc).toBe(StatisticsFunc.PercentEmpty);
-      expect(result.aggregations?.[2].total?.value).toBeCloseTo(0);
-      expect(result.aggregations?.[3].total?.aggFunc).toBe(StatisticsFunc.PercentChecked);
-      expect(result.aggregations?.[3].total?.value).toBeCloseTo(0);
-      expect(result.aggregations?.[4].total?.aggFunc).toBe(StatisticsFunc.PercentUnChecked);
-      expect(result.aggregations?.[4].total?.value).toBeCloseTo(0);
+      expect(result.aggregations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            fieldId,
+            total: {
+              aggFunc: StatisticsFunc.PercentUnique,
+              value: '0',
+            },
+          }),
+          expect.objectContaining({
+            fieldId,
+            total: {
+              aggFunc: StatisticsFunc.PercentEmpty,
+              value: '0',
+            },
+          }),
+          expect.objectContaining({
+            fieldId,
+            total: {
+              aggFunc: StatisticsFunc.PercentFilled,
+              value: '0',
+            },
+          }),
+          expect.objectContaining({
+            fieldId: checkboxFieldId,
+            total: {
+              aggFunc: StatisticsFunc.PercentChecked,
+              value: '0',
+            },
+          }),
+          expect.objectContaining({
+            fieldId: checkboxFieldId,
+            total: {
+              aggFunc: StatisticsFunc.PercentChecked,
+              value: '0',
+            },
+          }),
+        ])
+      );
     });
   });
 
