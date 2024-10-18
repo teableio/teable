@@ -89,11 +89,7 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
             >
               <ChevronRight className="rotate-180 text-6xl" />
             </button>
-            <div
-              id="file-box"
-              className="h-full flex items-center justify-center"
-              onClick={clickFileBox}
-            >
+            <div id="file-box" className="h-full flex  justify-center" onClick={clickFileBox}>
               <FilePreview />
             </div>
             <button
