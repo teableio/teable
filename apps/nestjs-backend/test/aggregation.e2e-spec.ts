@@ -429,41 +429,40 @@ describe('OpenAPI AggregationController (e2e)', () => {
         expect.arrayContaining([
           expect.objectContaining({
             fieldId,
-            total: {
+            total: expect.objectContaining({
               aggFunc: StatisticsFunc.PercentUnique,
-              value: '0',
-            },
+            }),
           }),
           expect.objectContaining({
             fieldId,
-            total: {
+            total: expect.objectContaining({
               aggFunc: StatisticsFunc.PercentEmpty,
-              value: '0',
-            },
+            }),
           }),
           expect.objectContaining({
             fieldId,
-            total: {
+            total: expect.objectContaining({
               aggFunc: StatisticsFunc.PercentFilled,
-              value: '0',
-            },
+            }),
           }),
           expect.objectContaining({
             fieldId: checkboxFieldId,
-            total: {
+            total: expect.objectContaining({
               aggFunc: StatisticsFunc.PercentChecked,
-              value: '0',
-            },
+            }),
           }),
           expect.objectContaining({
             fieldId: checkboxFieldId,
-            total: {
-              aggFunc: StatisticsFunc.PercentChecked,
-              value: '0',
-            },
+            total: expect.objectContaining({
+              aggFunc: StatisticsFunc.PercentUnChecked,
+            }),
           }),
         ])
       );
+
+      result.aggregations?.forEach((agg) => {
+        expect(agg.total?.value).toBeCloseTo(0, 4);
+      });
     });
   });
 
