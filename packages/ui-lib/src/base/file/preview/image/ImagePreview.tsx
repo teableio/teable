@@ -1,6 +1,5 @@
-import { RotateCw, ZoomIn, ZoomOut } from '@teable/icons';
+import { RotateCw, ZoomIn, ZoomOut, RefreshCcw } from '@teable/icons';
 import { useState } from 'react';
-import Reset from '../../../../../../icons/src/components/Reset';
 import type { IFileItemInner } from '../FilePreviewContext';
 
 interface IImagePreviewProps extends IFileItemInner {}
@@ -39,7 +38,6 @@ export const ImagePreview = (props: IImagePreviewProps) => {
       />
       <div className=" absolute bottom-0  right-30 justify-center">
         {/* zoomin */}
-
         <button className=" p-2 rounded-md hover:bg-black/40" onClick={handleZoomIn}>
           <ZoomIn className="text-xl" />
         </button>
@@ -52,12 +50,9 @@ export const ImagePreview = (props: IImagePreviewProps) => {
           <RotateCw className="text-xl" />
         </button>
         {/* reset */}
-        {/* <button
-          className="absolute top-22 right-5 p-1 rounded-md hover:bg-black/40"
-          onClick={handleReset}
-        >
-          <Reset className="text-xl" />
-        </button> */}
+        <button className="p-2 rounded-md hover:bg-black/40" onClick={handleReset}>
+          <RefreshCcw className="text-xl" />
+        </button>
       </div>
     </div>
   );
