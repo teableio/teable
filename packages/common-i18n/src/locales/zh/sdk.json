@@ -72,7 +72,8 @@
       "unselected": "未选择",
       "selected": "已选择",
       "expandRecordError": "无权查看此记录",
-      "alreadyOpen": "此记录已被打开"
+      "alreadyOpen": "此记录已被打开",
+      "goToForeignTable": "跳转至关联表"
     },
     "user": {
       "searchPlaceholder": "通过姓名查找用户",
@@ -196,7 +197,9 @@
       "before": "变更前",
       "after": "变更后",
       "viewRecord": "查看记录"
-    }
+    },
+    "showHiddenFields": "显示 {{count}} 个隐藏字段",
+    "hideHiddenFields": "隐藏 {{count}} 个隐藏字段"
   },
   "sort": {
     "label": "排序",

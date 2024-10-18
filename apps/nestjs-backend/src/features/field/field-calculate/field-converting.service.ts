@@ -26,7 +26,11 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
+import {
+  majorFieldKeysChanged,
+  majorOptionsKeyChanged,
+  NON_INFECT_OPTION_KEYS,
+} from '../../../utils/major-field-keys-changed';
 import { BatchService } from '../../calculation/batch.service';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
@@ -253,7 +257,7 @@ export class FieldConvertingService {
 
     newOptions = { ...newOptions };
     oldOptions = { ...oldOptions };
-    const nonInfectKeys = ['formatting', 'showAs'];
+    const nonInfectKeys = Array.from(NON_INFECT_OPTION_KEYS);
     nonInfectKeys.forEach((key) => {
       delete newOptions[key];
       delete oldOptions[key];
@@ -1018,7 +1022,7 @@ export class FieldConvertingService {
     }
 
     // for same field with options change
-    if (keys.includes('options')) {
+    if (keys.includes('options') && majorOptionsKeyChanged(oldField.options, newField.options)) {
       return await this.modifyOptions(tableId, newField, oldField);
     }
   }
@@ -1152,7 +1156,6 @@ export class FieldConvertingService {
       newField,
       oldField
     );
-
     return {
       newField,
       oldField,

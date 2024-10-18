@@ -46,7 +46,8 @@
       "selectRecord": "レコードを選択",
       "unselected": "未選択",
       "selected": "選択済",
-      "expandRecordError": "このレコードを表示する権限がありません。"
+      "expandRecordError": "このレコードを表示する権限がありません。",
+      "goToForeignTable": "関連テーブルに移動"
     },
     "user": {
       "searchPlaceholder": "名前でユーザーを検索する",
@@ -166,7 +167,9 @@
       "before": "以前",
       "after": "以後",
       "viewRecord": "レコードを表示"
-    }
+    },
+    "showHiddenFields": "{{count}} 個の隠しフィールドを表示",
+    "hideHiddenFields": "{{count}} 個の隠しフィールドを非表示"
   },
   "sort": {
     "label": "ソート",

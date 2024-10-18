@@ -4,6 +4,7 @@ import { useTranslation } from '../../context/app/i18n';
 
 import { useViewId, useFields, useView } from '../../hooks';
 import type { GridView, IFieldInstance } from '../../model';
+import { swapReorder } from '../../utils';
 import { HideFieldsBase } from './HideFieldsBase';
 
 export const HideFields: React.FC<{
@@ -45,12 +46,40 @@ export const HideFields: React.FC<{
     }
   };
 
+  const onOrderChange = (fieldId: string, fromIndex: number, toIndex: number) => {
+    if (!view) return;
+
+    const newOrder = swapReorder(1, fromIndex, toIndex, fields.length, (index) => {
+      const fieldId = fields[index].id;
+      return view?.columnMeta[fieldId].order;
+    })[0];
+
+    if (newOrder === view?.columnMeta[fieldId].order) {
+      return;
+    }
+
+    view.updateColumnMeta([
+      {
+        fieldId,
+        columnMeta: {
+          order: newOrder,
+        },
+      },
+    ]);
+  };
+
   if (!activeViewId) {
     return <></>;
   }
 
   return (
-    <HideFieldsBase footer={footer} fields={fieldData} hidden={hiddenFieldIds} onChange={onChange}>
+    <HideFieldsBase
+      footer={footer}
+      fields={fieldData}
+      hidden={hiddenFieldIds}
+      onChange={onChange}
+      onOrderChange={onOrderChange}
+    >
       {children(
         hiddenCount ? t('hidden.configLabel_other', { count: hiddenCount }) : t('hidden.label'),
         Boolean(hiddenCount)

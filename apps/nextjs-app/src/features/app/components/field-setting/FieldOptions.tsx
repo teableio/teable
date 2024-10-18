@@ -35,7 +35,7 @@ export interface IFieldOptionsProps {
 }
 
 export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) => {
-  const { type, isLookup, cellValueType, isMultipleCellValue, options } = field;
+  const { id, type, isLookup, cellValueType, isMultipleCellValue, options } = field;
   switch (type) {
     case FieldType.SingleLineText:
       return (
@@ -75,6 +75,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange }) 
     case FieldType.Link:
       return (
         <LinkOptions
+          fieldId={id}
           options={options as ILinkFieldOptionsRo}
           isLookup={isLookup}
           onChange={onChange}

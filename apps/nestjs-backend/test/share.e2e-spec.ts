@@ -1,6 +1,20 @@
 import { type INestApplication } from '@nestjs/common';
-import type { IFieldRo, IRecord, IUserFieldOptions, IViewRo } from '@teable/core';
-import { ANONYMOUS_USER_ID, FieldKeyType, FieldType, Relationship, ViewType } from '@teable/core';
+import type {
+  IFieldRo,
+  IFilterRo,
+  ILinkFieldOptions,
+  IRecord,
+  IUserFieldOptions,
+  IViewRo,
+} from '@teable/core';
+import {
+  ANONYMOUS_USER_ID,
+  FieldKeyType,
+  FieldType,
+  is,
+  Relationship,
+  ViewType,
+} from '@teable/core';
 import {
   urlBuilder,
   SHARE_VIEW_GET,
@@ -19,9 +33,11 @@ import {
   createField,
   updateViewShareMeta,
   shareViewFormSubmit,
+  deleteView,
 } from '@teable/openapi';
 import type { ITableFullVo, ShareViewAuthVo, ShareViewGetVo } from '@teable/openapi';
 import { map } from 'lodash';
+import { x_20 } from './data-helpers/20x';
 import { createAnonymousUserAxios } from './utils/axios-instance/anonymous-user';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
@@ -31,6 +47,10 @@ import {
   permanentDeleteTable,
   initApp,
   updateViewColumnMeta,
+  updateViewFilter,
+  getField,
+  deleteField,
+  convertField,
 } from './utils/init-app';
 
 const formViewRo: IViewRo = {
@@ -538,6 +558,243 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(
         user2Request.get(urlBuilder(SHARE_VIEW_GET, { shareId: shareResult.data.shareId }))
       ).rejects.toThrow();
+    });
+  });
+
+  describe('link view limit', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, { name: 'table1' });
+      table2 = await createTable(baseId, {
+        name: 'table2',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should get link view limit by view', async () => {
+      const filterByViewId = table2.defaultViewId;
+      const singleSelectField = table2.fields[2];
+      const filter: IFilterRo = {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: singleSelectField.id,
+              operator: is.value,
+              value: 'x',
+            },
+          ],
+        },
+      };
+
+      await updateViewFilter(table2.id, table2.defaultViewId!, filter);
+
+      const linkField = await createField(table1.id, {
+        name: 'link field limit by view',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filterByViewId,
+        },
+      });
+      const shareResult = await getShareView(linkField.data.id);
+
+      expect(shareResult.data.records.length).toEqual(7);
+    });
+
+    it('should get link view limit by filter', async () => {
+      const singleSelectField = table2.fields[2];
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: singleSelectField.id,
+            operator: is.value,
+            value: 'x',
+          },
+        ],
+      };
+      const linkField = await createField(table1.id, {
+        name: 'link field limit by filter',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filter,
+        },
+      });
+      const shareResult = await getShareView(linkField.data.id);
+
+      expect(shareResult.data.records.length).toEqual(7);
+    });
+
+    it('should get link view limit by hidden fields', async () => {
+      const fields = table2.fields;
+      const hiddenFieldIds = fields.slice(1, fields.length).map((field) => field.id);
+      const linkField = await createField(table1.id, {
+        name: 'link field limit by hidden fields',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          hiddenFieldIds,
+        },
+      });
+      const shareResult = await getShareView(linkField.data.id);
+
+      expect(shareResult.data.fields.length).toEqual(2);
+    });
+
+    it('should get link view limited by multiple conditions', async () => {
+      const filterByViewId = table2.defaultViewId;
+      const textField = table2.fields[0];
+      const singleSelectField = table2.fields[2];
+      const filter: IFilterRo = {
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: singleSelectField.id,
+              operator: is.value,
+              value: 'x',
+            },
+          ],
+        },
+      };
+
+      await updateViewFilter(table2.id, table2.defaultViewId!, filter);
+
+      const fields = table2.fields;
+      const hiddenFieldIds = fields.slice(2, fields.length).map((field) => field.id);
+
+      const additionalFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: textField.id,
+            operator: is.value,
+            value: '6',
+          },
+        ],
+      };
+
+      const linkField = await createField(table1.id, {
+        name: 'link field with multiple limits',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filterByViewId,
+          filter: additionalFilter,
+          hiddenFieldIds,
+        },
+      });
+      const shareResult = await getShareView(linkField.data.id);
+
+      expect(shareResult.data.records.length).toBeLessThanOrEqual(1);
+      expect(shareResult.data.fields.length).toEqual(3);
+    });
+
+    it('should clean link options after filterByViewId is deleted', async () => {
+      const view = await createView(table2.id, {
+        name: 'view',
+        type: ViewType.Grid,
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'clean link options filterByViewId',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filterByViewId: view.id,
+        },
+      });
+
+      expect((linkField.data.options as ILinkFieldOptions).filterByViewId).toEqual(view.id);
+
+      await deleteView(table2.id, view.id);
+      const currentLinkField = await getField(table1.id, linkField.data.id);
+
+      expect((currentLinkField.options as ILinkFieldOptions).filterByViewId).toBeNull();
+    });
+
+    it('should clean link options after filtering field is deleted', async () => {
+      const singleSelectField = table2.fields[2];
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: singleSelectField.id,
+            operator: is.value,
+            value: 'x',
+          },
+        ],
+      };
+
+      const linkField = await createField(table1.id, {
+        name: 'clean link options filter',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filter,
+          hiddenFieldIds: [singleSelectField.id],
+        },
+      });
+
+      expect((linkField.data.options as ILinkFieldOptions).filter).toEqual(filter);
+      expect((linkField.data.options as ILinkFieldOptions).hiddenFieldIds).toEqual([
+        singleSelectField.id,
+      ]);
+
+      await deleteField(table2.id, singleSelectField.id);
+      const currentLinkField = await getField(table1.id, linkField.data.id);
+
+      expect((currentLinkField.options as ILinkFieldOptions).filter).toBeNull();
+      expect((currentLinkField.options as ILinkFieldOptions).hiddenFieldIds).toBeNull();
+    });
+
+    it('should clean link options after filtering field is converted', async () => {
+      const singleSelectField = table2.fields[2];
+      const filter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: singleSelectField.id,
+            operator: is.value,
+            value: 'x',
+          },
+        ],
+      };
+
+      const linkField = await createField(table1.id, {
+        name: 'convert link options filter',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          filter,
+        },
+      });
+
+      expect((linkField.data.options as ILinkFieldOptions).filter).toEqual(filter);
+
+      await convertField(table2.id, singleSelectField.id, {
+        type: FieldType.MultipleSelect,
+      });
+      const currentLinkField = await getField(table1.id, linkField.data.id);
+
+      expect((currentLinkField.options as ILinkFieldOptions).filter).toBeNull();
     });
   });
 });

@@ -1,6 +1,8 @@
 import { Button } from '@teable/ui-lib';
 import { useRef } from 'react';
-import { useMeasure, useToggle } from 'react-use';
+import { useLocalStorage, useMeasure } from 'react-use';
+import { LocalStorageKeys } from '../../config';
+import { useTranslation } from '../../context/app/i18n';
 import type { IFieldInstance, Record } from '../../model';
 import { RecordEditorItem } from './RecordEditorItem';
 
@@ -14,11 +16,15 @@ export const RecordEditor = (props: {
   onChange?: (newValue: unknown, fieldId: string) => void;
   readonly?: boolean | ((field: IFieldInstance) => boolean);
 }) => {
+  const { t } = useTranslation();
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const wrapRef = useRef<HTMLDivElement>(null);
   const { fields, hiddenFields = [], record, onChange, readonly } = props;
   const vertical = width > EDITOR_VERTICAL_MIN;
-  const [showHiddenFields, toggle] = useToggle(false);
+  const [hiddenFieldsVisible, setHiddenFieldsVisible] = useLocalStorage(
+    LocalStorageKeys.ExpandRecordHiddenFieldsVisible,
+    false
+  );
 
   return (
     <div ref={ref} className="max-w-3xl">
@@ -36,13 +42,19 @@ export const RecordEditor = (props: {
         {hiddenFields.length !== 0 && (
           <div className="flex items-center gap-2">
             <div className="border-top-width h-px flex-1 bg-border" />
-            <Button variant={'outline'} size={'xs'} onClick={toggle}>
-              {showHiddenFields ? 'Hide' : 'Show'} {hiddenFields.length} hidden field
+            <Button
+              size={'xs'}
+              variant={'outline'}
+              onClick={() => setHiddenFieldsVisible(!hiddenFieldsVisible)}
+            >
+              {hiddenFieldsVisible
+                ? t('expandRecord.hideHiddenFields', { count: hiddenFields.length })
+                : t('expandRecord.showHiddenFields', { count: hiddenFields.length })}
             </Button>
             <div className="border-top-width h-px flex-1 bg-border" />
           </div>
         )}
-        {showHiddenFields &&
+        {hiddenFieldsVisible &&
           hiddenFields?.map((field) => (
             <RecordEditorItem
               key={field.id}

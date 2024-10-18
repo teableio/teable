@@ -1,7 +1,7 @@
 import { LRUCache } from 'lru-cache';
 import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
-import type { IPosition, IRectangle } from '../../interface';
+import type { IRectangle } from '../../interface';
 import type { SpriteManager } from '../../managers';
 import { GridInnerIcon } from '../../managers';
 import { isPointInsideRectangle } from '../../utils';
@@ -16,7 +16,16 @@ import type {
   ICellClickCallback,
 } from './interface';
 
-const deleteBtnPositionCache: LRUCache<string, IPosition[]> = new LRUCache({
+enum ISelectRegionType {
+  Content = 'Content',
+  DeleteBtn = 'DeleteBtn',
+}
+
+interface ISelectRegion extends IRectangle {
+  type: ISelectRegionType;
+}
+
+const positionCache: LRUCache<string, ISelectRegion[]> = new LRUCache({
   max: 10,
 });
 
@@ -102,7 +111,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const lineHeight = iconSizeSM + OPTION_GAP_SIZE;
 
     const cacheKey = `${String(width)}-${displayData.join(',')}`;
-    const deleteBtnPositions: IPosition[] = [];
+    const positions: ISelectRegion[] = [];
 
     for (const text of displayData) {
       const { width: displayWidth } = drawSingleLineText(ctx, {
@@ -121,15 +130,28 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         y += lineHeight;
       }
 
-      deleteBtnPositions.push({
-        x: x + width - iconSizeXS - OPTION_PADDING_HORIZONTAL + 2,
+      positions.push({
+        type: ISelectRegionType.Content,
+        x,
         y: y + 2,
+        width: displayWidth + OPTION_PADDING_HORIZONTAL + 2,
+        height: lineHeight,
       });
+
+      if (!readonly) {
+        positions.push({
+          type: ISelectRegionType.DeleteBtn,
+          x: x + width - iconSizeXS - OPTION_PADDING_HORIZONTAL + 2,
+          y: y + 2,
+          width: iconSizeXS,
+          height: lineHeight,
+        });
+      }
 
       x += width + OPTION_PADDING_HORIZONTAL;
     }
 
-    deleteBtnPositionCache.set(cacheKey, deleteBtnPositions);
+    positionCache.set(cacheKey, positions);
 
     const totalHeight = SELECT_CELL_PADDING_TOP + lineCount * lineHeight;
     const displayRowCount = Math.min(maxRowCount, lineCount);
@@ -218,36 +240,45 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
 
     ctx.restore();
   },
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   checkRegion: (cell: ISelectCell, props: ICellClickProps, shouldCalculate?: boolean) => {
     const { data, displayData, readonly } = cell;
-    const { width, theme, isActive, hoverCellPosition, activeCellBound } = props;
+    const { width, isActive, hoverCellPosition, activeCellBound } = props;
     const editable = !readonly && isActive && activeCellBound;
     if (!editable) return { type: CellRegionType.Blank };
 
-    const { iconSizeXS } = theme;
     const { scrollTop } = activeCellBound;
     const [hoverX, hoverY] = hoverCellPosition;
 
     const cacheKey = `${String(width)}-${displayData.join(',')}`;
-    const deleteBtnPositions = deleteBtnPositionCache.get(cacheKey);
+    const positions = positionCache.get(cacheKey);
 
-    if (!deleteBtnPositions) return { type: CellRegionType.Blank };
+    if (!positions) return { type: CellRegionType.Blank };
 
-    for (let i = 0; i < deleteBtnPositions.length; i++) {
-      const { x, y } = deleteBtnPositions[i];
+    for (let i = 0; i < positions.length; i++) {
+      const { type, x, y, width, height } = positions[i];
 
-      if (
-        isPointInsideRectangle(
-          [hoverX, scrollTop + hoverY],
-          [x, y],
-          [x + iconSizeXS, y + iconSizeXS]
-        )
-      ) {
-        if (!shouldCalculate) return { type: CellRegionType.Update, data: null };
-        const result = data.filter((_, index) => index !== i);
+      if (isPointInsideRectangle([hoverX, scrollTop + hoverY], [x, y], [x + width, y + height])) {
+        if (!shouldCalculate) {
+          return {
+            type:
+              type === ISelectRegionType.DeleteBtn ? CellRegionType.Update : CellRegionType.Preview,
+            data: null,
+          };
+        }
+
+        const realIndex = Math.floor(i / 2);
+
+        if (type === ISelectRegionType.DeleteBtn) {
+          const result = data.filter((_, index) => index !== realIndex);
+          return {
+            type: CellRegionType.Update,
+            data: result.length ? result : null,
+          };
+        }
         return {
-          type: CellRegionType.Update,
-          data: result.length ? result : null,
+          type: CellRegionType.Preview,
+          data: (data[realIndex] as { id: string; title: string })?.id,
         };
       }
     }
@@ -265,6 +296,9 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         return callback({ type: CellRegionType.ToggleEditing, data: null });
       }
       return;
+    }
+    if (cellRegion.type === CellRegionType.Preview) {
+      return cell?.onPreview?.(cellRegion.data as string);
     }
     callback(cellRegion);
   },
