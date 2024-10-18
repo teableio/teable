@@ -112,8 +112,27 @@ describe('EvalVisitor', () => {
     expect(evalFormula('1 + {fldMultipleNumber}', fieldContext, record)).toBe(2);
   });
 
+  it('unary operator', () => {
+    const record: IRecord = {
+      id: 'recTest',
+      fields: {
+        fldNumber: 3,
+        fldMultipleNumber: [1],
+        fldMultipleLink: [{ id: 'recxxxxxxx' }, { id: 'recyyyyyyy', title: 'A2' }],
+      },
+      createdTime: new Date().toISOString(),
+    };
+
+    expect(evalFormula('-1')).toBe(-1);
+    expect(evalFormula('-(1)')).toBe(-1);
+    expect(evalFormula('-{fldNumber}', fieldContext, record)).toBe(-3);
+    expect(evalFormula('-{fldMultipleNumber}', fieldContext, record)).toBe(-1);
+    expect(evalFormula('-{fldMultipleLink}', fieldContext, record)).toBe(null);
+  });
+
   it('subtraction', () => {
     expect(evalFormula('5 - 3')).toBe(2);
+    expect(evalFormula('5-3')).toBe(2);
   });
 
   it('multiplication', () => {
