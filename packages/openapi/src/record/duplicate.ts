@@ -41,7 +41,7 @@ export const duplicateRoute = registerRoute({
   tags: ['record'],
 });
 
-export const duplicateRecords = async (
+export const duplicateRecord = async (
   tableId: string,
   recordId: string,
   order: IRecordInsertOrderRo

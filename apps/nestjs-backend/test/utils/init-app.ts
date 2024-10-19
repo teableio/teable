@@ -41,7 +41,7 @@ import {
   createField as apiCreateField,
   deleteField as apiDeleteField,
   convertField as apiConvertField,
-  duplicateRecords as apiDuplicateRecords,
+  duplicateRecord as apiDuplicateRecord,
   getFields as apiGetFields,
   getField as apiGetField,
   getViewList as apiGetViewList,
@@ -324,7 +324,7 @@ export async function duplicateRecord(
   expectStatus = 201
 ) {
   try {
-    const res = await apiDuplicateRecords(tableId, recordId, order);
+    const res = await apiDuplicateRecord(tableId, recordId, order);
 
     expect(res.status).toEqual(expectStatus);
     return res.data;

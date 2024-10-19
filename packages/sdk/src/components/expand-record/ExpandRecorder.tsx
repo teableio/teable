@@ -1,5 +1,5 @@
 import type { IRecord } from '@teable/core';
-import { deleteRecord, duplicateRecords } from '@teable/openapi';
+import { deleteRecord, duplicateRecord } from '@teable/openapi';
 import { useToast } from '@teable/ui-lib';
 import { useEffect, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -74,7 +74,7 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   }
 
   const onDuplicate = async (tableId: string, recordId: string) => {
-    await duplicateRecords(tableId, recordId, {
+    await duplicateRecord(tableId, recordId, {
       viewId: viewId || '',
       anchorId: recordId,
       position: 'after',

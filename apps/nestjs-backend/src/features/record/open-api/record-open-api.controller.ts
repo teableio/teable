@@ -143,12 +143,12 @@ export class RecordOpenApiController {
 
   @Permissions('record|create')
   @Post(':recordId')
-  async duplicateRecords(
+  async duplicateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
     @Body(new ZodValidationPipe(recordInsertOrderRoSchema)) order: IRecordInsertOrderRo
   ) {
-    return await this.recordOpenApiService.duplicateRecords(tableId, recordId, order);
+    return await this.recordOpenApiService.duplicateRecord(tableId, recordId, order);
   }
 
   @Permissions('record|delete')
