@@ -45,8 +45,9 @@ pnpm-debug.log*
 
 
 # IDE
-.idea/*
-!.idea/modules.xml
+**/.idea/*
+!**/.idea/modules.xml
+!**/.idea/*.iml
 .project
 .classpath
 *.launch
