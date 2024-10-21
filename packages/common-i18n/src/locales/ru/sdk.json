@@ -60,7 +60,8 @@
       "unselected": "Не выбрано",
       "selected": "Выбранные",
       "expandRecordError": "Нет разрешения на просмотр этой записи.",
-      "alreadyOpen": "This record is already open."
+      "alreadyOpen": "This record is already open.",
+      "goToForeignTable": "Go to foreign table"
     },
     "user": {
       "searchPlaceholder": "Найти пользователей по имени",
@@ -183,7 +184,9 @@
       "before": "До",
       "after": "После",
       "viewRecord": "Просмотреть запись"
-    }
+    },
+    "showHiddenFields": "Show {{count}} hidden fields",
+    "hideHiddenFields": "Hide {{count}} hidden fields"
   },
   "sort": {
     "label": "Сортировать",
