@@ -2,10 +2,10 @@ import type { IWorksheetData, ICellData } from '@univerjs/core';
 import { cloneDeep, has, isObject } from 'lodash';
 
 // to compatible with previous
-const exactCountPattern = /^\{\{([^:{}]+):([^{}]+)\}\}$/;
+const previousTemplateValue = /^\s*\{\{([^:{}]+):([^{}]+)\}\}\s*$/;
 const templateValueReg = /^\{\{[^}]*\}\}$/;
 
-export const clearTemplateMarker = (sheetData?: IWorksheetData['cellData']) => {
+export const getPreviewSheetData = (sheetData?: IWorksheetData['cellData']) => {
   if (!sheetData) {
     return sheetData;
   }
@@ -17,10 +17,10 @@ export const clearTemplateMarker = (sheetData?: IWorksheetData['cellData']) => {
       for (const key2 in newSheetData[key]) {
         const cellValue = newSheetData[key][key2].v ?? '';
         // new way to recognize template value
-        const customer = newSheetData[key][key2].custom;
+        const custom = newSheetData[key][key2]?.custom;
         if (
-          (has(newSheetData[key], key2) && exactCountPattern.test(String(cellValue))) ||
-          (isObject(customer) && has(customer, 'fieldId'))
+          (has(newSheetData[key], key2) && previousTemplateValue.test(String(cellValue))) ||
+          (isObject(custom) && has(custom, 'fieldId') && Boolean(custom?.fieldId))
         ) {
           newSheetData[key][key2].v = undefined;
         }
@@ -40,21 +40,25 @@ export const clearChangedTemplateValue = (sheetData?: IWorksheetData['cellData']
   }
 
   const newSheetData = cloneDeep(sheetData);
-  const deletedFields = [];
+  const deletedFields: string[] = [];
 
   for (const key in newSheetData) {
-    if (has(newSheetData, key)) {
-      for (const key2 in newSheetData[key]) {
-        const cellValue = newSheetData[key][key2].v ?? '';
-        if (
-          (has(newSheetData[key], key2) &&
-            !templateValueReg.test(String(cellValue)) &&
-            Boolean(newSheetData[key][key2]?.custom?.fieldId)) ||
-          !exactCountPattern.test(String(cellValue))
-        ) {
-          deletedFields.push(newSheetData[key][key2]?.custom?.fieldId as string);
-          delete newSheetData[key][key2].custom;
-        }
+    if (!has(newSheetData, key)) {
+      continue;
+    }
+    for (const key2 in newSheetData[key]) {
+      const cellValue = newSheetData[key][key2].v ?? '';
+      if (!has(newSheetData[key], key2)) {
+        continue;
+      }
+
+      if (
+        Boolean(newSheetData[key][key2]?.custom?.fieldId) &&
+        !templateValueReg.test(String(cellValue))
+      ) {
+        const fieldId = newSheetData[key][key2]?.custom?.fieldId as string;
+        fieldId && !deletedFields.includes(fieldId) && deletedFields.push(fieldId);
+        delete newSheetData[key][key2].custom;
       }
     }
   }
@@ -74,11 +78,12 @@ export const getRecordRangesMap = (sheetData?: IWorksheetData['cellData']) => {
 
   const processCell = (key: string, key2: string, cell: ICellData) => {
     const { v: cellValue } = cell;
-    const match = typeof cellValue === 'string' ? cellValue.match(exactCountPattern) : null;
+    const match = typeof cellValue === 'string' ? cellValue.match(previousTemplateValue) : null;
 
     if (match) {
       const fieldId = match[2];
       rangesMap[fieldId] = [parseInt(key), parseInt(key2)];
+      return;
     }
 
     if (cell.custom?.fieldId) {

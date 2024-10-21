@@ -20,7 +20,7 @@ import { useInitializationZodI18n } from '../../../../hooks/useInitializationZod
 import { LinkDisplayCount, DefaultSheetId } from './constant';
 import { SheetSkeleton } from './SheetSkeleton';
 import type { IUniverSheetProps, IUniverSheetRef } from './UniverSheet';
-import { clearTemplateMarker, getRecordRangesMap, getLetterCoordinateByRange } from './utils';
+import { getPreviewSheetData, getRecordRangesMap, getLetterCoordinateByRange } from './utils';
 const UniverSheet = lazy(() => import('./UniverSheet'));
 
 interface IPreviewPanel extends IUniverSheetProps {
@@ -227,7 +227,7 @@ export const PreviewPanel = (props: IPreviewPanel) => {
         sheets: {
           [DefaultSheetId]: {
             ...workBookData?.sheets?.[DefaultSheetId],
-            cellData: clearTemplateMarker(workBookData?.sheets?.[DefaultSheetId]?.cellData),
+            cellData: getPreviewSheetData(workBookData?.sheets?.[DefaultSheetId]?.cellData),
           },
         },
       }) as IWorkbookData,

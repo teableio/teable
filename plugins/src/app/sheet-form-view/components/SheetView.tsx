@@ -17,8 +17,8 @@ import {
   TooltipTrigger,
   cn,
 } from '@teable/ui-lib';
-import type { IWorkbookData } from '@univerjs/core';
-import { cloneDeep, get, isEqual, uniq } from 'lodash';
+import type { IWorkbookData, IWorksheetData } from '@univerjs/core';
+import { cloneDeep, get, isEqual } from 'lodash';
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SharePopover } from './SharePopover';
@@ -41,6 +41,7 @@ export const SheetView = () => {
   const baseId = useBaseId();
   const fieldStaticGetter = useFieldStaticGetter();
   const selectedField = useRef<IFieldInstance>();
+  const [innerCellData, setInnerCellData] = useState<IWorksheetData['cellData']>();
   const [insertedFields, setInsertedFields] = useState<string[]>([]);
   const univerRef = useRef<IUniverSheetRef>(null);
   const { t } = useTranslation();
@@ -57,20 +58,25 @@ export const SheetView = () => {
     staleTime: Infinity,
   });
 
+  useEffect(() => {
+    const cellData = get(pluginInstall?.storage, ['sheets', DefaultSheetId, 'cellData']);
+    setInnerCellData(cellData);
+  }, [pluginInstall?.storage]);
+
   const workBookData = useMemo<IWorkbookData>(() => {
     return cloneDeep(pluginInstall?.storage || DefaultWorkBookData) as IWorkbookData;
   }, [pluginInstall?.storage]);
 
   useEffect(() => {
-    const cellData = get(pluginInstall?.storage, ['sheets', DefaultSheetId, 'cellData']);
-    const rangeMap = getRecordRangesMap(cellData);
+    const rangeMap = getRecordRangesMap(innerCellData);
+
     setInsertedFields((pre) => {
       if (!isEqual(pre, Object.keys(rangeMap))) {
         return Object.keys(rangeMap);
       }
       return pre;
     });
-  }, [pluginInstall?.storage]);
+  }, [pluginInstall?.storage, innerCellData]);
 
   const getActiveWorkBookData = () => {
     return univerRef?.current?.getActiveWorkBookData();
@@ -93,12 +99,8 @@ export const SheetView = () => {
   const updateStorage = useCallback(
     async (storage?: IWorkbookData) => {
       if (tableId && viewId && pluginInstall?.pluginInstallId && workBookData) {
-        const { cellData, deletedFields } = clearChangedTemplateValue(
-          storage?.sheets?.['sheet1']?.cellData
-        );
-        if (deletedFields.length) {
-          setInsertedFields((pre) => pre.filter((id) => !deletedFields.includes(id)));
-        }
+        const { cellData } = clearChangedTemplateValue(storage?.sheets?.['sheet1']?.cellData);
+        setInnerCellData(cellData);
         await updateStorageFn({
           tableId,
           viewId,
@@ -119,7 +121,6 @@ export const SheetView = () => {
 
   const onDragDrop = useCallback((range: [number, number, number, number]) => {
     const { name, id } = selectedField?.current || {};
-    setInsertedFields((pre) => uniq([...pre, id as string]));
     id &&
       name &&
       univerRef?.current?.insertCellByRange(range, {
