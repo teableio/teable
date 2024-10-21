@@ -16,7 +16,7 @@ export interface IShareViewInfo {
   shareId: string;
   tableId: string;
   view?: IViewVo;
-  linkOptions?: Pick<ILinkFieldOptions, 'filterByViewId' | 'hiddenFieldIds' | 'filter'>;
+  linkOptions?: Pick<ILinkFieldOptions, 'filterByViewId' | 'visibleFieldIds' | 'filter'>;
   shareMeta?: IShareViewMeta;
 }
 
@@ -99,12 +99,12 @@ export class ShareAuthService {
       'field|read',
     ]);
 
-    const { filterByViewId, hiddenFieldIds, filter } = field.options;
+    const { filterByViewId, visibleFieldIds, filter } = field.options;
 
     return {
       shareId: linkFieldId,
       tableId: field.options.foreignTableId,
-      linkOptions: { filterByViewId, hiddenFieldIds, filter },
+      linkOptions: { filterByViewId, visibleFieldIds, filter },
       shareMeta: {
         allowCopy: true,
         includeRecords: true,

@@ -71,15 +71,15 @@ export class ShareService {
   async getShareView(shareInfo: IShareViewInfo): Promise<ShareViewGetVo> {
     const { shareId, tableId, view, linkOptions, shareMeta } = shareInfo;
     const { id, group } = view ?? {};
-    const { filterByViewId, filter, hiddenFieldIds } = linkOptions ?? {};
+    const { filterByViewId, filter, visibleFieldIds } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
 
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId,
       filterHidden: Boolean(filterByViewId) || !shareMeta?.includeHiddenField,
     });
-    const filteredFields = hiddenFieldIds?.length
-      ? fields.filter((f) => !hiddenFieldIds?.includes(f.id))
+    const filteredFields = linkOptions
+      ? fields.filter((f) => visibleFieldIds?.includes(f.id) || f.isPrimary)
       : fields;
 
     let records: IRecordsVo['records'] = [];

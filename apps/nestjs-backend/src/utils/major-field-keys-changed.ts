@@ -6,7 +6,7 @@ import { isEqual, difference } from 'lodash';
 export const NON_INFECT_OPTION_KEYS = new Set([
   'formatting',
   'showAs',
-  'hiddenFieldIds',
+  'visibleFieldIds',
   'filterByViewId',
   'filter',
 ]);
