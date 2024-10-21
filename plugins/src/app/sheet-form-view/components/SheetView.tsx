@@ -17,8 +17,8 @@ import {
   TooltipTrigger,
   cn,
 } from '@teable/ui-lib';
-import type { IWorkbookData } from '@univerjs/core';
-import { get, isEqual } from 'lodash';
+import type { IWorkbookData, IWorksheetData } from '@univerjs/core';
+import { cloneDeep, get, isEqual } from 'lodash';
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SharePopover } from './SharePopover';
@@ -26,7 +26,7 @@ import { DefaultWorkBookData, DefaultSheetId, UnSupportFieldType } from './sheet
 import { DesignPanel } from './sheet/DesignPanel';
 import { PreviewPanel } from './sheet/PreviewPanel';
 import type { IUniverSheetRef } from './sheet/UniverSheet';
-import { getRecordRangesMap } from './sheet/utils';
+import { getRecordRangesMap, clearChangedTemplateValue } from './sheet/utils';
 
 enum SheetMode {
   Design = 'design',
@@ -41,33 +41,42 @@ export const SheetView = () => {
   const baseId = useBaseId();
   const fieldStaticGetter = useFieldStaticGetter();
   const selectedField = useRef<IFieldInstance>();
+  const [innerCellData, setInnerCellData] = useState<IWorksheetData['cellData']>();
   const [insertedFields, setInsertedFields] = useState<string[]>([]);
   const univerRef = useRef<IUniverSheetRef>(null);
   const { t } = useTranslation();
   const [mode, setMode] = useState<SheetMode>(SheetMode.Design);
 
-  const { data: pluginInstall, isLoading } = useQuery({
+  const {
+    data: pluginInstall,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['view_plugin', tableId, viewId],
     queryFn: () => getViewInstallPlugin(tableId!, viewId!).then((res) => res.data),
     enabled: Boolean(tableId && viewId),
     staleTime: Infinity,
   });
 
-  const workBookData = useMemo<IWorkbookData>(() => {
-    return (pluginInstall?.storage || DefaultWorkBookData) as IWorkbookData;
+  useEffect(() => {
+    const cellData = get(pluginInstall?.storage, ['sheets', DefaultSheetId, 'cellData']);
+    setInnerCellData(cellData);
   }, [pluginInstall?.storage]);
 
-  const cellData = get(pluginInstall?.storage, ['sheets', DefaultSheetId, 'cellData']);
-  const rangeMap = getRecordRangesMap(cellData);
+  const workBookData = useMemo<IWorkbookData>(() => {
+    return cloneDeep(pluginInstall?.storage || DefaultWorkBookData) as IWorkbookData;
+  }, [pluginInstall?.storage]);
 
   useEffect(() => {
+    const rangeMap = getRecordRangesMap(innerCellData);
+
     setInsertedFields((pre) => {
       if (!isEqual(pre, Object.keys(rangeMap))) {
         return Object.keys(rangeMap);
       }
       return pre;
     });
-  }, [rangeMap, selectedField]);
+  }, [pluginInstall?.storage, innerCellData]);
 
   const getActiveWorkBookData = () => {
     return univerRef?.current?.getActiveWorkBookData();
@@ -88,13 +97,22 @@ export const SheetView = () => {
   });
 
   const updateStorage = useCallback(
-    async (storage: unknown) => {
+    async (storage?: IWorkbookData) => {
       if (tableId && viewId && pluginInstall?.pluginInstallId && workBookData) {
+        const { cellData } = clearChangedTemplateValue(storage?.sheets?.['sheet1']?.cellData);
+        setInnerCellData(cellData);
         await updateStorageFn({
           tableId,
           viewId,
           pluginInstallId: pluginInstall?.pluginInstallId,
-          storage: storage as Record<string, unknown>,
+          storage: {
+            sheets: {
+              sheet1: {
+                ...workBookData.sheets.sheet1,
+                cellData: cellData,
+              },
+            },
+          } as Record<string, unknown>,
         });
       }
     },
@@ -103,7 +121,12 @@ export const SheetView = () => {
 
   const onDragDrop = useCallback((range: [number, number, number, number]) => {
     const { name, id } = selectedField?.current || {};
-    id && univerRef?.current?.insertCellByRange(range, `{{${name}:${id}}}`);
+    id &&
+      name &&
+      univerRef?.current?.insertCellByRange(range, {
+        name: name,
+        id: id,
+      });
   }, []);
 
   if (isLoading) {
@@ -138,6 +161,7 @@ export const SheetView = () => {
                   const workBookData = getActiveWorkBookData();
                   await updateStorage(workBookData);
                   setMode(SheetMode.Preview);
+                  refetch();
                 }}
               >
                 {t('toolbar.preview')}

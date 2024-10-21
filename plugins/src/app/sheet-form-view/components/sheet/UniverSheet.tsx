@@ -58,7 +58,10 @@ import { DefaultSheetId } from './constant';
 
 export interface IUniverSheetRef {
   insertActiveCell: (value: string) => void;
-  insertCellByRange: (range: [number, number, number, number], value: string) => void;
+  insertCellByRange: (
+    range: [number, number, number, number],
+    value: { name: string; id: string }
+  ) => void;
   getActiveWorkBookData: () => IWorkbookData | undefined;
   getActiveSheetCellData: () => IWorksheetData['cellData'] | undefined;
   getCellValueByRange: (range: [number, number]) => unknown;
@@ -118,11 +121,21 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
   }, []);
 
   const insertCellByRange = useCallback(
-    (range: [number, number, number, number], value: string) => {
+    (
+      range: [number, number, number, number],
+      value: {
+        name: string;
+        id: string;
+      }
+    ) => {
       const sheet = fUniverRef?.current?.getActiveWorkbook()?.getActiveSheet();
       const ranges = sheet?.getRange(...range);
+      const { name, id } = value;
       ranges?.setValue({
-        v: value,
+        v: `{{${name}}}`,
+        custom: {
+          fieldId: id,
+        },
       });
     },
     []
