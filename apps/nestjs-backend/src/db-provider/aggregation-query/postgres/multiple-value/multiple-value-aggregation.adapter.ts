@@ -49,7 +49,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionPostgres
   percentUnique(): string {
     return this.knex
       .raw(
-        `SELECT (COUNT(DISTINCT "value") * 1.0 / COUNT(*)) * 100 AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
+        `SELECT (COUNT(DISTINCT "value") * 1.0 / GREATEST(COUNT(*), 1)) * 100 AS "value" FROM ??, jsonb_array_elements_text(??::jsonb)`,
         [this.dbTableName, this.tableColumnRef]
       )
       .toQuery();

@@ -116,29 +116,15 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     return this.empty();
   }
 
-  percentEmpty(): string {
-    return this.knex
-      .raw(`((COUNT(*) - COUNT(??)) * 1.0 / COUNT(*)) * 100`, [this.tableColumnRef])
-      .toQuery();
-  }
+  abstract percentEmpty(): string;
 
-  percentFilled(): string {
-    return this.knex.raw(`(COUNT(??) * 1.0 / COUNT(*)) * 100`, [this.tableColumnRef]).toQuery();
-  }
+  abstract percentFilled(): string;
 
-  percentUnique(): string {
-    return this.knex
-      .raw(`(COUNT(DISTINCT ??) * 1.0 / COUNT(*)) * 100`, [this.tableColumnRef])
-      .toQuery();
-  }
+  abstract percentUnique(): string;
 
-  percentChecked(): string {
-    return this.percentFilled();
-  }
+  abstract percentChecked(): string;
 
-  percentUnChecked(): string {
-    return this.percentEmpty();
-  }
+  abstract percentUnChecked(): string;
 
   earliestDate(): string {
     return this.min();

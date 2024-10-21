@@ -22,7 +22,7 @@ export class MultipleValueAggregationAdapter extends AggregationFunctionSqlite {
   }
 
   percentUnique(): string {
-    return `SELECT (COUNT(DISTINCT json_each.value) * 1.0 / COUNT(*)) * 100 AS value FROM ${this.dbTableName}, json_each(${this.tableColumnRef})`;
+    return `SELECT (COUNT(DISTINCT json_each.value) * 1.0 / MAX(COUNT(*), 1)) * 100 AS value FROM ${this.dbTableName}, json_each(${this.tableColumnRef})`;
   }
 
   dateRangeOfDays(): string {
