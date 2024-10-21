@@ -60,7 +60,8 @@
       "unselected": "未选择",
       "selected": "已选择",
       "expandRecordError": "无权查看此记录",
-      "alreadyOpen": "This record is already open."
+      "alreadyOpen": "This record is already open.",
+      "goToForeignTable": "Go to foreign table"
     },
     "user": {
       "searchPlaceholder": "通过姓名查找用户",
@@ -183,7 +184,9 @@
       "before": "Before",
       "after": "After",
       "viewRecord": "View record"
-    }
+    },
+    "showHiddenFields": "Show {{count}} hidden fields",
+    "hideHiddenFields": "Hide {{count}} hidden fields"
   },
   "sort": {
     "label": "排序",
