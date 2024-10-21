@@ -60,7 +60,8 @@
       "unselected": "Unselected",
       "selected": "Selected",
       "expandRecordError": "No permission to view this record.",
-      "alreadyOpen": "This record is already open."
+      "alreadyOpen": "This record is already open.",
+      "goToForeignTable": "Go to foreign table"
     },
     "user": {
       "searchPlaceholder": "Find users by name",
@@ -183,7 +184,9 @@
       "before": "Before",
       "after": "After",
       "viewRecord": "View record"
-    }
+    },
+    "showHiddenFields": "Show {{count}} hidden fields",
+    "hideHiddenFields": "Hide {{count}} hidden fields"
   },
   "sort": {
     "label": "Sort",
