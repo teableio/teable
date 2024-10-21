@@ -83,6 +83,11 @@ export const shouldResetFieldValue = (newOperator: string, oldOperator: string):
   const newOperatorType = getOperatorType(newOperator);
   const oldOperatorType = getOperatorType(oldOperator);
 
+  // date type exchange from `isWithIn` or to `isWithIn` should reset value
+  if ((newOperator === 'isWithIn' || oldOperator === 'isWithIn') && newOperator !== oldOperator) {
+    return true;
+  }
+
   if (newOperatorType === oldOperatorType) {
     return false;
   }

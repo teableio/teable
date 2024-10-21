@@ -1,5 +1,5 @@
 import type { IDateTimeFieldOperator, IDateFilter, ITimeZoneString } from '@teable/core';
-import { exactDate, FieldType, getValidFilterSubOperators } from '@teable/core';
+import { exactDate, FieldType, getValidFilterSubOperators, isWithIn } from '@teable/core';
 import { Input } from '@teable/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
@@ -16,11 +16,6 @@ interface IFilerDatePickerProps {
   onSelect: (value: IDateFilter | null) => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const isDateMetaValue = (value: any) => {
-  return !!(value?.mode && value?.timeZone);
-};
-
 function FilterDatePicker(props: IFilerDatePickerProps) {
   const { value: initValue, operator, onSelect, field } = props;
   const [innerValue, setInnerValue] = useState<IDateFilter | null>(initValue);
@@ -28,23 +23,20 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   const dateMap = useDateI18nMap();
 
   const defaultConfig = useMemo(() => {
-    if (operator !== 'isWithIn') {
+    if (operator !== isWithIn.value) {
       return defaultValue;
     }
     return withInDefaultValue;
   }, [operator]);
 
   useEffect(() => {
-    if (!initValue) {
-      setInnerValue(defaultConfig);
-    } else {
+    // according to the operator to get the default value
+    if (initValue) {
       setInnerValue(initValue);
+    } else {
+      setInnerValue(defaultConfig);
     }
-
-    if (!isDateMetaValue(initValue)) {
-      onSelect(null);
-    }
-  }, [defaultConfig, initValue, onSelect]);
+  }, [defaultConfig, initValue, operator]);
 
   const mergedOnSelect = useCallback(
     (val: string | null) => {
@@ -53,11 +45,23 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       setInnerValue(mergedValue as IDateFilter);
-      if (val !== null && !INPUTOPTIONS.includes(val) && !DATEPICKEROPTIONS.includes(val)) {
-        onSelect?.(mergedValue as IDateFilter);
+      if (val === null) {
+        return;
       }
+      if (INPUTOPTIONS.includes(val)) {
+        innerValue?.numberOfDays &&
+          onSelect?.({ ...mergedValue, numberOfDays: innerValue?.numberOfDays });
+        return;
+      }
+
+      if (DATEPICKEROPTIONS.includes(val)) {
+        innerValue?.exactDate && onSelect?.({ ...mergedValue, exactDate: innerValue?.exactDate });
+        return;
+      }
+
+      onSelect?.(mergedValue as IDateFilter);
     },
-    [onSelect]
+    [innerValue?.exactDate, innerValue?.numberOfDays, onSelect]
   );
 
   const datePickerSelect = useCallback(
@@ -79,19 +83,11 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       FieldType.Date,
       operator as IDateTimeFieldOperator
     );
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const options = optionMapping!.map((operator) => ({
+    return optionMapping!.map((operator) => ({
       label: dateMap[operator],
       value: operator,
     }));
-    // change the operator to another type
-    if (innerValue && !options.some((option) => option.value === innerValue?.mode)) {
-      const newValue = { ...innerValue };
-      newValue.mode = defaultConfig.mode;
-      onSelect?.(newValue);
-    }
-    return options;
-  }, [dateMap, defaultConfig.mode, innerValue, onSelect, operator]);
+  }, [dateMap, operator]);
 
   const inputCreator = useMemo(() => {
     const isDatePick = innerValue?.mode && DATEPICKEROPTIONS.includes(innerValue?.mode);
