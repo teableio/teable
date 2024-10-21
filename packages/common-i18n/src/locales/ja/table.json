@@ -232,7 +232,11 @@
       "enableValidateFieldUnique": "Enable unique value validation",
       "enableValidateFieldNotNull": "Enable not null value validation",
       "knowMore": "know more",
-      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link"
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "filterByView": "Filter records by view",
+      "filter": "Filter records",
+      "hideFields": "Hide fields",
+      "moreOptions": "More options"
     },
     "subTitle": {
       "link": "Link to records in the table you choose",
