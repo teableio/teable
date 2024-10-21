@@ -60,7 +60,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         IconLeft: ({ ..._props }) => <ChevronLeftIcon className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRightIcon className="h-4 w-4" />,
       }}
-      fromYear={1970}
+      fromYear={1900}
       toYear={2100}
       captionLayout="dropdown-buttons"
       {...props}

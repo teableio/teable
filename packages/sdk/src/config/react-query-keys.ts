@@ -1,5 +1,10 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { IFieldRo, IConvertFieldRo, NotificationStatesEnum } from '@teable/core';
+import type {
+  IFieldRo,
+  IConvertFieldRo,
+  NotificationStatesEnum,
+  IGetFieldsQuery,
+} from '@teable/core';
 import type {
   IShareViewRowCountRo,
   IShareViewAggregationsRo,
@@ -99,6 +104,9 @@ export const ReactQueryKeys = {
   getViewFilterLinkRecords: (tableId: string, viewId: string) =>
     ['get-view-filter-link-records', tableId, viewId] as const,
 
+  getFieldFilterLinkRecords: (tableId: string, fieldId: string) =>
+    ['get-field-filter-link-records', tableId, fieldId] as const,
+
   shareViewLinkRecords: (shareId: string, fieldId: string, search?: string) =>
     ['share-link-records', shareId, fieldId, search] as const,
 
@@ -117,4 +125,8 @@ export const ReactQueryKeys = {
   getDashboardList: (baseId: string) => ['dashboard-list', baseId] as const,
 
   getDashboard: (dashboardId: string) => ['dashboard', dashboardId] as const,
+
+  viewList: (tableId: string) => ['view-list', tableId] as const,
+
+  fieldList: (tableId: string, query?: IGetFieldsQuery) => ['field-list', tableId, query] as const,
 };

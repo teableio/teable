@@ -169,8 +169,13 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
 
   return useCallback(
     (fields: IFieldInstance[], editable: (field: IFieldInstance) => boolean) =>
-      // eslint-disable-next-line sonarjs/cognitive-complexity
-      (record: Record, col: number, isPrefilling?: boolean): ICell => {
+      (
+        record: Record,
+        col: number,
+        isPrefilling?: boolean,
+        expandRecord?: (tableId: string, recordId: string) => void
+        // eslint-disable-next-line sonarjs/cognitive-complexity
+      ): ICell => {
         const field = fields[col];
 
         if (field == null) return { type: CellType.Loading };
@@ -367,6 +372,7 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
             const cv = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
             const displayData = cv.map(({ title }) => title || t('common.untitled'));
             const choices = cv.map(({ id, title }) => ({ id, name: title }));
+            const { foreignTableId } = field.options;
             return {
               ...baseCellProps,
               type: CellType.Select,
@@ -374,6 +380,9 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
               displayData,
               choiceSorted: choices,
               isMultiple,
+              onPreview: (activeId: string) => {
+                expandRecord?.(foreignTableId, activeId);
+              },
               customEditor: (props) => <GridLinkEditor field={field} record={record} {...props} />,
             };
           }
@@ -474,9 +483,9 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
   );
 };
 
-export function useGridColumns(hasMenu?: boolean) {
+export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
   const view = useView() as GridView | undefined;
-  const fields = useFields();
+  const originFields = useFields();
   const totalFields = useFields({ withHidden: true, withDenied: true });
   const fieldEditable = useFieldCellEditable();
   const { resolvedTheme } = useTheme();
@@ -484,6 +493,11 @@ export function useGridColumns(hasMenu?: boolean) {
   const group = view?.group;
   const filter = view?.filter;
   const isAutoSort = sort && !sort?.manualSort;
+
+  const fields = useMemo(() => {
+    const hiddenSet = new Set(hiddenFieldIds ?? []);
+    return originFields.filter((field) => !hiddenSet.has(field.id));
+  }, [originFields, hiddenFieldIds]);
 
   const sortFieldIds = useMemo(() => {
     if (!isAutoSort) return;

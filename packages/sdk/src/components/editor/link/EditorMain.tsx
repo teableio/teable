@@ -1,6 +1,6 @@
 import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import { isMultiValueLink } from '@teable/core';
-import { Plus } from '@teable/icons';
+import { ArrowUpRight, Plus } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { Button, Tabs, TabsList, TabsTrigger } from '@teable/ui-lib';
 import {
@@ -16,7 +16,7 @@ import type { ForwardRefRenderFunction } from 'react';
 import { RowCountProvider, LinkViewProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
 import { LinkFilterProvider } from '../../../context/query/LinkFilterProvider';
-import { useLinkFilter, useRowCount, useSearch } from '../../../hooks';
+import { useBaseId, useLinkFilter, useRowCount, useSearch } from '../../../hooks';
 import { CreateRecordModal } from '../../create-record';
 import { SearchInput } from '../../search';
 import { LinkListType } from './interface';
@@ -45,6 +45,8 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange } = props;
 
   const { searchQuery } = useSearch();
+  const rowCount = useRowCount() || 0;
+  const baseId = useBaseId();
 
   useImperativeHandle(forwardRef, () => ({
     onReset,
@@ -57,7 +59,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const [listType, setListType] = useState<LinkListType>(LinkListType.Unselected);
 
   const isMultiple = isMultiValueLink(options.relationship);
-  const rowCount = useRowCount() || 0;
+  const { foreignTableId, filterByViewId } = options;
 
   const {
     filterLinkCellSelected,
@@ -109,9 +111,34 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     onChange?.(isMultiple ? values : values[0]);
   };
 
+  const onNavigate = () => {
+    if (!baseId) return;
+
+    let path = `/base/${baseId}/${foreignTableId}`;
+
+    if (filterByViewId) {
+      path += `/${filterByViewId}`;
+    }
+
+    const url = new URL(path, window.location.origin);
+
+    window.open(url.toString(), '_blank');
+  };
+
   return (
     <>
-      <div className="text-lg">{t('editor.link.placeholder')}</div>
+      <div className="flex items-center space-x-0.5">
+        <span className="text-lg">{t('editor.link.placeholder')}</span>
+        <Button
+          size="xs"
+          variant="link"
+          className="gap-0.5 text-[13px] text-slate-500 underline"
+          onClick={onNavigate}
+        >
+          {t('editor.link.goToForeignTable')}
+          <ArrowUpRight className="size-4" />
+        </Button>
+      </div>
       <div className="flex items-center justify-between">
         <SearchInput container={props.container} />
         <div className="ml-4">
@@ -172,8 +199,12 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
   props,
   forwardRef
 ) => {
+  const { options } = props;
+  const { baseId: foreignBaseId } = options;
+  const baseId = useBaseId();
+
   return (
-    <LinkViewProvider linkFieldId={props.fieldId}>
+    <LinkViewProvider linkBaseId={foreignBaseId ?? baseId} linkFieldId={props.fieldId}>
       <LinkFilterProvider
         filterLinkCellCandidate={props.recordId ? [props.fieldId, props.recordId] : props.fieldId}
       >

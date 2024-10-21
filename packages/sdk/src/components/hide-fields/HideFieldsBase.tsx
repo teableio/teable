@@ -23,9 +23,8 @@ import {
 import { map } from 'lodash';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from '../../context/app/i18n';
-import { useFieldStaticGetter, useView } from '../../hooks';
+import { useFieldStaticGetter } from '../../hooks';
 import type { IFieldInstance } from '../../model';
-import { swapReorder } from '../../utils/order';
 
 interface IHideFieldsBaseProps {
   fields: IFieldInstance[];
@@ -33,15 +32,17 @@ interface IHideFieldsBaseProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   onChange: (hidden: string[]) => void;
+  onOrderChange?: (fieldId: string, fromIndex: number, toIndex: number) => void;
 }
 
 export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
-  const { fields, hidden, footer, children, onChange } = props;
-  const fieldStaticGetter = useFieldStaticGetter();
-  const view = useView();
-  const [innerFields, setInnerFields] = useState([...fields]);
+  const { fields, hidden, footer, children, onChange, onOrderChange } = props;
   const { t } = useTranslation();
+  const fieldStaticGetter = useFieldStaticGetter();
+
+  const [innerFields, setInnerFields] = useState([...fields]);
   const [dragHandleVisible, setDragHandleVisible] = useState(true);
+  const dragEnabled = Boolean(onOrderChange) && dragHandleVisible;
 
   useEffect(() => {
     setInnerFields([...fields]);
@@ -79,33 +80,18 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
     const to = over?.data?.current?.sortable?.index;
     const from = active?.data?.current?.sortable?.index;
 
-    if (!over || !view || to === from) {
+    if (!over || to === from) {
       return;
     }
 
     const list = [...fields];
     const [field] = list.splice(from, 1);
-
-    const newOrder = swapReorder(1, from, to, fields.length, (index) => {
-      const fieldId = fields[index].id;
-      return view?.columnMeta[fieldId].order;
-    })[0];
-
-    if (newOrder === view?.columnMeta[field.id].order) {
-      return;
-    }
-
     list.splice(to, 0, field);
     setInnerFields(list);
-    view.updateColumnMeta([
-      {
-        fieldId: field.id as string,
-        columnMeta: {
-          order: newOrder,
-        },
-      },
-    ]);
+
+    onOrderChange?.(field.id, from, to);
   };
+
   const commandFilter = useCallback(
     (fieldId: string, searchValue: string) => {
       const currentField = fields.find(
@@ -138,7 +124,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                 const { id, name, type, isLookup, isPrimary } = field;
                 const { Icon } = fieldStaticGetter(type, isLookup);
                 return (
-                  <Draggable key={id} id={id}>
+                  <Draggable key={id} id={id} disabled={!dragEnabled}>
                     {({ setNodeRef, listeners, attributes, style, isDragging }) => (
                       <>
                         {
@@ -175,7 +161,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                                       </span>
                                     </Label>
                                     {/* forbid drag when search */}
-                                    {dragHandleVisible && (
+                                    {dragEnabled && (
                                       <div {...attributes} {...listeners} className="pr-1">
                                         <DraggableHandle></DraggableHandle>
                                       </div>

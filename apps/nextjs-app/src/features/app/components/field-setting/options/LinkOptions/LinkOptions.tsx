@@ -5,21 +5,30 @@ import { ArrowUpRight } from '@teable/icons';
 import { getTablePermission } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useTableId } from '@teable/sdk/hooks';
-import { Label, Switch } from '@teable/ui-lib/shadcn';
+import { Button, Label, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { Trans, useTranslation } from 'next-i18next';
+import { Fragment, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { MoreLinkOptions } from './MoreLinkOptions';
 import { SelectTable } from './SelectTable';
 
 export const LinkOptions = (props: {
   options: Partial<ILinkFieldOptionsRo> | undefined;
+  fieldId?: string;
   isLookup?: boolean;
   onChange?: (options: Partial<ILinkFieldOptionsRo>) => void;
 }) => {
-  const { options, isLookup, onChange } = props;
+  const { fieldId, options, isLookup, onChange } = props;
   const tableId = useTableId();
   const selfBaseId = useBaseId() as string;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const isMoreVisible = Boolean(
+    options?.filterByViewId || options?.filter || options?.hiddenFieldIds
+  );
+
+  const [moreVisible, setMoreVisible] = useState(isMoreVisible);
 
   const relationship = options?.relationship ?? Relationship.ManyOne;
   const foreignTableId = options?.foreignTableId;
@@ -81,9 +90,43 @@ export const LinkOptions = (props: {
         baseId={options?.baseId}
         tableId={options?.foreignTableId}
         onChange={(baseId, tableId) => {
-          onChange?.({ baseId, foreignTableId: tableId, relationship, isOneWay });
+          onChange?.({
+            baseId,
+            foreignTableId: tableId,
+            relationship,
+            isOneWay,
+            filterByViewId: null,
+            hiddenFieldIds: null,
+            filter: null,
+          });
         }}
       />
+      {options?.foreignTableId && (
+        <Fragment>
+          <div className="flex justify-end">
+            <Button
+              size="xs"
+              variant="link"
+              className="text-xs text-slate-500 underline"
+              onClick={() => setMoreVisible(!moreVisible)}
+            >
+              {t('table:field.editor.moreOptions')}
+            </Button>
+          </div>
+          {moreVisible && (
+            <MoreLinkOptions
+              foreignTableId={options?.foreignTableId}
+              fieldId={fieldId}
+              filterByViewId={options?.filterByViewId}
+              hiddenFieldIds={options?.hiddenFieldIds}
+              filter={options?.filter}
+              onChange={(partialOptions: Partial<ILinkFieldOptionsRo>) => {
+                onChange?.({ ...options, ...partialOptions });
+              }}
+            />
+          )}
+        </Fragment>
+      )}
       {foreignTableId && (
         <>
           <hr className="my-2" />

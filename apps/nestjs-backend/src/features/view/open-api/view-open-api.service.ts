@@ -49,6 +49,7 @@ import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
+import { FieldViewSyncService } from '../../field/field-calculate/field-view-sync.service';
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
@@ -65,6 +66,7 @@ export class ViewOpenApiService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
+    private readonly fieldViewSyncService: FieldViewSyncService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -86,6 +88,7 @@ export class ViewOpenApiService {
 
   async deleteView(tableId: string, viewId: string) {
     return await this.prismaService.$tx(async () => {
+      await this.fieldViewSyncService.deleteLinkOptionsDependenciesByViewId(tableId, viewId);
       return await this.deleteViewInner(tableId, viewId);
     });
   }
