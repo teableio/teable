@@ -156,6 +156,10 @@ describe('OpenAPI RecordController (e2e)', () => {
         },
       });
 
+      const dateField = await createField(table.id, {
+        type: FieldType.Date,
+      });
+
       const res1 = await updateRecord(table.id, table.records[0].id, {
         record: { fields: { [singleUserField.id]: 'test' } },
         fieldKeyType: FieldKeyType.Id,
@@ -164,6 +168,12 @@ describe('OpenAPI RecordController (e2e)', () => {
 
       const res2 = await updateRecord(table.id, table.records[0].id, {
         record: { fields: { [multiUserField.id]: 'test@e2e.com' } },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+
+      const res3 = await updateRecord(table.id, table.records[0].id, {
+        record: { fields: { [dateField.id]: 'now' } },
         fieldKeyType: FieldKeyType.Id,
         typecast: true,
       });
@@ -178,6 +188,11 @@ describe('OpenAPI RecordController (e2e)', () => {
           title: 'test',
         },
       ]);
+
+      expect(res3.fields[dateField.id]).toBeDefined();
+      expect(new Date(res3.fields[dateField.id] as string).toISOString().slice(0, -7)).toEqual(
+        new Date().toISOString().slice(0, -7)
+      );
     });
 
     it('should batch create records', async () => {

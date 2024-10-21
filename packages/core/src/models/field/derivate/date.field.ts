@@ -72,6 +72,10 @@ export class DateFieldCore extends FieldCore {
 
     if (value === '' || value == null) return null;
 
+    if (value === 'now') {
+      return dayjs().toISOString();
+    }
+
     const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
 
     const format = `${this.options.formatting.date}${hasTime && this.options.formatting.time !== TimeFormatting.None ? ' ' + this.options.formatting.time : ''}`;
