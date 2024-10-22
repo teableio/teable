@@ -58,12 +58,23 @@ export const FieldEditor = (props: {
       });
     }
 
+    let options: IFieldOptionsRo | undefined = getFieldStatic(type, false)
+      .defaultOptions as IFieldOptionsRo;
+
+    if (
+      [field.type, type].every((t) =>
+        [FieldType.MultipleSelect, FieldType.SingleSelect].includes(t as FieldType)
+      )
+    ) {
+      options = field.options;
+    }
+
     setFieldFn({
       ...field,
       type,
       isLookup: undefined,
       lookupOptions: undefined,
-      options: getFieldStatic(type, false).defaultOptions as IFieldOptionsRo,
+      options,
       unique: checkFieldUniqueValidationEnabled(type, field.isLookup) ? field.unique : undefined,
       notNull:
         operator === FieldOperator.Edit && checkFieldNotNullValidationEnabled(type, field.isLookup)

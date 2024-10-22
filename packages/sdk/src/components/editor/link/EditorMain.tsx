@@ -61,20 +61,15 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   const isMultiple = isMultiValueLink(options.relationship);
   const { foreignTableId, filterByViewId } = options;
 
-  const {
-    filterLinkCellSelected,
-    filterLinkCellCandidate,
-    setLinkCellCandidate,
-    setLinkCellSelected,
-  } = useLinkFilter();
+  const { selectedRecordIds, filterLinkCellCandidate, setLinkCellCandidate } = useLinkFilter();
 
   const recordQuery = useMemo((): IGetRecordsRo => {
     return {
       search: searchQuery,
-      filterLinkCellSelected,
       filterLinkCellCandidate,
+      selectedRecordIds,
     };
-  }, [searchQuery, filterLinkCellSelected, filterLinkCellCandidate]);
+  }, [searchQuery, filterLinkCellCandidate, selectedRecordIds]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -88,7 +83,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
     listRef.current?.onReset();
     setListType(type);
     if (type === LinkListType.Selected) {
-      setLinkCellSelected([fieldId, recordId].filter(Boolean));
+      setLinkCellCandidate(undefined);
     } else {
       setLinkCellCandidate([fieldId, recordId].filter(Boolean));
     }
@@ -199,14 +194,23 @@ const LinkEditorMainBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdit
   props,
   forwardRef
 ) => {
-  const { options } = props;
+  const { options, cellValue } = props;
   const { baseId: foreignBaseId } = options;
   const baseId = useBaseId();
+
+  const selectedRecordIds = useMemo(() => {
+    return Array.isArray(cellValue)
+      ? cellValue.map((v) => v.id)
+      : cellValue?.id
+        ? [cellValue.id]
+        : [];
+  }, [cellValue]);
 
   return (
     <LinkViewProvider linkBaseId={foreignBaseId ?? baseId} linkFieldId={props.fieldId}>
       <LinkFilterProvider
         filterLinkCellCandidate={props.recordId ? [props.fieldId, props.recordId] : props.fieldId}
+        selectedRecordIds={selectedRecordIds}
       >
         <RowCountProvider>
           <LinkEditorInner ref={forwardRef} {...props} />

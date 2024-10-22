@@ -53,7 +53,7 @@ export class ShareSocketService {
     });
     const fieldIds = fields.map((field) => field.id);
 
-    if (linkOptions) {
+    if (visibleFieldIds?.length) {
       return {
         ids: fields
           .filter((f) => visibleFieldIds?.includes(f.id) || f.isPrimary)

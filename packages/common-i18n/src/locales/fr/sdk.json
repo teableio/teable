@@ -149,6 +149,7 @@
     "label": "Champs cachés",
     "configLabel_one": "{{count}} champ caché",
     "configLabel_other": "{{count}} champs cachés",
+    "configLabel_other_visible": "{{count}} champs visibles",
     "showAll": "Tout afficher",
     "hideAll": "Tout masquer",
     "primaryKey": "Champ principal : utilisé pour identifier les enregistrements, ne peut pas être caché ou supprimé"

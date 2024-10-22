@@ -78,7 +78,7 @@ export class ShareService {
       viewId,
       filterHidden: Boolean(filterByViewId) || !shareMeta?.includeHiddenField,
     });
-    const filteredFields = linkOptions
+    const filteredFields = visibleFieldIds?.length
       ? fields.filter((f) => visibleFieldIds?.includes(f.id) || f.isPrimary)
       : fields;
 

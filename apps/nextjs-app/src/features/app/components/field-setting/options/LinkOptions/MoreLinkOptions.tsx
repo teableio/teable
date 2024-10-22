@@ -60,6 +60,9 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
   const context = useFieldFilterLinkContext(currentTableId, fieldId, !fieldId);
 
   const hiddenFieldIds = useMemo(() => {
+    // Default all fields are visible
+    if (!visibleFieldIds.length) return [];
+
     return totalFields
       ?.filter((field) => !visibleFieldIds.includes(field.id) && !field.isPrimary)
       .map((field) => field.id);
@@ -71,7 +74,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
 
   const visibleCount = visibleFieldIds.length;
   const text = visibleCount
-    ? t('sdk:hidden.configLabel_other', { count: visibleCount })
+    ? t('sdk:hidden.configLabel_other_visible', { count: visibleCount })
     : t('sdk:hidden.label');
 
   const onHiddenChange = (hiddenFieldIds: string[]) => {
@@ -79,7 +82,6 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
     const visibleFieldIds = totalFields
       .filter((field) => !hiddenFieldSet.has(field.id))
       .map((field) => field.id);
-    console.log('visibleFieldIds', visibleFieldIds);
     onChange?.({ visibleFieldIds: visibleFieldIds.length ? visibleFieldIds : null });
   };
 

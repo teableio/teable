@@ -33,8 +33,6 @@ export enum LinkDisplayType {
 
 export const LinkEditor = (props: ILinkEditorProps) => {
   const {
-    fieldId,
-    recordId,
     cellValue,
     options,
     onChange,
@@ -62,11 +60,19 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     return JSON.stringify(values) === JSON.stringify(cellValue);
   }, [cellValue, values]);
 
+  const selectedRecordIds = useMemo(() => {
+    return Array.isArray(cellValue)
+      ? cellValue.map((v) => v.id)
+      : cellValue?.id
+        ? [cellValue.id]
+        : [];
+  }, [cellValue]);
+
   const recordQuery = useMemo((): IGetRecordsRo => {
     return {
-      filterLinkCellSelected: recordId ? [fieldId, recordId] : fieldId,
+      selectedRecordIds,
     };
-  }, [fieldId, recordId]);
+  }, [selectedRecordIds]);
 
   useEffect(() => {
     if (cellValue == null) return setValues(cellValue);
@@ -118,6 +124,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
                 filterLinkCellCandidate={
                   props.recordId ? [props.fieldId, props.recordId] : props.fieldId
                 }
+                selectedRecordIds={selectedRecordIds}
               >
                 <RowCountProvider>
                   <LinkList

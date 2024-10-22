@@ -25,11 +25,11 @@ export const RowCountProvider: FC<RowCountProviderProps> = ({ children }) => {
   const queryClient = useQueryClient();
   const { searchQuery } = useSearch();
   const { shareId } = useContext(ShareViewContext);
-  const { filterLinkCellSelected, filterLinkCellCandidate } = useLinkFilter();
+  const { selectedRecordIds, filterLinkCellCandidate } = useLinkFilter();
 
   const rowCountQuery = useMemo(
-    () => ({ viewId, search: searchQuery, filterLinkCellSelected, filterLinkCellCandidate }),
-    [filterLinkCellCandidate, filterLinkCellSelected, searchQuery, viewId]
+    () => ({ viewId, search: searchQuery, selectedRecordIds, filterLinkCellCandidate }),
+    [filterLinkCellCandidate, selectedRecordIds, searchQuery, viewId]
   );
 
   const rowCountQueryKey = useMemo(

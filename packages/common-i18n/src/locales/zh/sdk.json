@@ -181,6 +181,7 @@
     "label": "字段配置",
     "configLabel_one": "字段配置({{count}} 隐藏)",
     "configLabel_other": "字段配置({{count}} 隐藏)",
+    "configLabel_other_visible": "字段配置({{count}} 显示)",
     "showAll": "显示全部",
     "hideAll": "隐藏全部",
     "primaryKey": "主字段：用于标识记录，不可隐藏或删除\n其值会在关联记录中显示"

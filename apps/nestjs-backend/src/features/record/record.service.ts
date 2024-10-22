@@ -481,6 +481,7 @@ export class RecordService {
       | 'filterLinkCellCandidate'
       | 'filterLinkCellSelected'
       | 'collapsedGroupIds'
+      | 'selectedRecordIds'
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
@@ -494,6 +495,12 @@ export class RecordService {
       throw new BadRequestException(
         'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time'
       );
+    }
+
+    if (query.selectedRecordIds) {
+      query.filterLinkCellCandidate
+        ? queryBuilder.whereNotIn(`${dbTableName}.__id`, query.selectedRecordIds)
+        : queryBuilder.whereIn(`${dbTableName}.__id`, query.selectedRecordIds);
     }
 
     if (query.filterLinkCellCandidate) {
@@ -634,6 +641,7 @@ export class RecordService {
       groupBy: query.groupBy,
       filterLinkCellCandidate: query.filterLinkCellCandidate,
       filterLinkCellSelected: query.filterLinkCellSelected,
+      selectedRecordIds: query.selectedRecordIds,
     });
 
     const projection = query.projection
