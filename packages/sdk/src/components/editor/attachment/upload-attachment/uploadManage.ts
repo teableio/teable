@@ -116,7 +116,7 @@ export class AttachmentManager {
       this.completeUpload(uploadTask, notifyRes.data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      uploadTask.errorCallback(uploadTask.file, undefined, error?.status);
+      uploadTask.errorCallback(uploadTask.file, error?.message, error?.status);
     }
   }
 

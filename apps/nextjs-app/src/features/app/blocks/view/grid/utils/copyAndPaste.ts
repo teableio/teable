@@ -1,7 +1,7 @@
 import type { IAttachmentCellValue } from '@teable/core';
 import { AttachmentFieldCore } from '@teable/core';
 import type { ICopyVo, IPasteRo } from '@teable/openapi';
-import { RangeType } from '@teable/openapi';
+import { RangeType, UploadType } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk/components';
 import { SelectionRegionType } from '@teable/sdk/components';
 import type { Field } from '@teable/sdk/model';
@@ -63,12 +63,14 @@ export const filePasteHandler = async ({
   fields,
   recordMap,
   selection,
+  baseId,
   requestPaste,
 }: {
   selection: CombinedSelection;
   recordMap: IRecordIndexMap;
   fields: Field[];
   files: FileList;
+  baseId?: string;
   requestPaste: (
     content: string,
     type: RangeType | undefined,
@@ -76,7 +78,7 @@ export const filePasteHandler = async ({
   ) => Promise<unknown>;
 }) => {
   const selectionCell = getSelectionCell(selection);
-  const attachments = await uploadFiles(files);
+  const attachments = await uploadFiles(files, UploadType.Table, baseId);
 
   if (selectionCell) {
     const [fieldIndex, recordIndex] = selectionCell;
