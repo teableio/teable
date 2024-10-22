@@ -82,7 +82,6 @@ export const filePasteHandler = async ({
     const [fieldIndex, recordIndex] = selectionCell;
     const record = recordMap[recordIndex];
     const field = fields[fieldIndex];
-    console.log('selectionCell', selectionCell, record);
     const oldCellValue = (record.getCellValue(field.id) as IAttachmentCellValue) || [];
     await record.updateCell(field.id, [...oldCellValue, ...attachments]);
   } else {

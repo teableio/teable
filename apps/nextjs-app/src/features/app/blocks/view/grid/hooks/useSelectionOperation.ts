@@ -1,6 +1,12 @@
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import type { ICopyVo, IPasteRo, IRangesRo, ITemporaryPasteRo } from '@teable/openapi';
+import type {
+  ICopyVo,
+  IPasteRo,
+  IRangesRo,
+  ITemporaryPasteRo,
+  ITemporaryPasteVo,
+} from '@teable/openapi';
 import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
 import { useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
@@ -136,7 +142,7 @@ export const useSelectionOperation = (props?: {
       e: React.ClipboardEvent,
       selection: CombinedSelection,
       recordMap: IRecordIndexMap,
-      updateTemporaryData?: (fieldValueMap: Record<string, unknown>) => void
+      updateTemporaryData?: (records: ITemporaryPasteVo) => void
     ) => {
       if (!checkCopyAndPasteEnvironment()) return;
       if (!viewId || !tableId) return;
@@ -162,8 +168,7 @@ export const useSelectionOperation = (props?: {
             requestPaste: async (content, type, ranges) => {
               if (updateTemporaryData) {
                 const res = await temporaryPasteReq({ content, ranges });
-                const fieldValueMap = res.data[0].fields;
-                updateTemporaryData(fieldValueMap);
+                updateTemporaryData(res.data);
               } else {
                 await pasteReq({ content, type, ranges });
               }
@@ -173,8 +178,7 @@ export const useSelectionOperation = (props?: {
           await textPasteHandler(selection, async (content, type, ranges, header) => {
             if (updateTemporaryData) {
               const res = await temporaryPasteReq({ content, ranges, header });
-              const fieldValueMap = res.data[0].fields;
-              updateTemporaryData(fieldValueMap);
+              updateTemporaryData(res.data);
             } else {
               await pasteReq({ content, type, ranges, header });
             }
