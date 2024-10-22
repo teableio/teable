@@ -410,5 +410,54 @@ describe('OpenAPI link Select (e2e)', () => {
         expect(result1.records.length).toEqual(0);
       });
     });
+
+    describe('fetch selected records', () => {
+      let linkField2: IFieldVo;
+      beforeEach(async () => {
+        const Link1FieldRo: IFieldRo = {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        };
+
+        await createField(table1.id, Link1FieldRo);
+
+        const table2Fields = await getFields(table2.id);
+        linkField2 = table2Fields[2];
+      });
+
+      it('should filter records by selected recordIds', async () => {
+        const recordRo: IGetRecordsRo = {
+          fieldKeyType: FieldKeyType.Id,
+          selectedRecordIds: [table1.records[0].id, table1.records[1].id],
+        };
+
+        const result = await getRecords(table1.id, recordRo);
+        expect(result.records.length).toEqual(2);
+
+        const rowCountResult = (await apiGetRowCount(table1.id, recordRo)).data;
+        expect(rowCountResult.rowCount).toBe(2);
+      });
+
+      it('should filter candidate records by selected recordIds', async () => {
+        const updateValue1 = [{ id: table1.records[2].id }];
+
+        await updateRecordByApi(table2.id, table2.records[0].id, linkField2.id, updateValue1);
+
+        const table1Record0Selected: IGetRecordsRo = {
+          fieldKeyType: FieldKeyType.Id,
+          filterLinkCellCandidate: [linkField2.id, table2.records[0].id],
+          selectedRecordIds: [table1.records[1].id],
+        };
+
+        const result = await getRecords(table1.id, table1Record0Selected);
+        expect(result.records.length).toEqual(1);
+
+        const rowCountResult = (await apiGetRowCount(table1.id, table1Record0Selected)).data;
+        expect(rowCountResult.rowCount).toBe(1);
+      });
+    });
   });
 });

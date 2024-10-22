@@ -74,6 +74,9 @@ export const queryBaseSchema = z.object({
       description:
         'Filter out selected records based on this link cell from the relational table. Note that viewId, filter, and orderBy will not take effect in this case because selected records has it own order. Ignoring recordId gets all the selected records for the field',
     }),
+  selectedRecordIds: z.array(z.string().startsWith(IdPrefix.Record)).optional().openapi({
+    description: 'Filter selected records by record ids',
+  }),
 });
 
 export type IQueryBaseRo = z.infer<typeof queryBaseSchema>;

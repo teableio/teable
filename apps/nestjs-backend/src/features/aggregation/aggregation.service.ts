@@ -197,7 +197,7 @@ export class AggregationService {
   }
 
   async performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue> {
-    const { filterLinkCellCandidate, filterLinkCellSelected } = queryRo;
+    const { filterLinkCellCandidate, filterLinkCellSelected, selectedRecordIds } = queryRo;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -220,6 +220,7 @@ export class AggregationService {
       filter,
       filterLinkCellCandidate,
       filterLinkCellSelected,
+      selectedRecordIds,
       search: queryRo.search,
       withUserId: currentUserId,
     });
@@ -424,6 +425,7 @@ export class AggregationService {
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
     filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
+    selectedRecordIds?: IGetRecordsRo['selectedRecordIds'];
     search?: [string, string];
     withUserId?: string;
   }) {
@@ -434,6 +436,7 @@ export class AggregationService {
       filter,
       filterLinkCellCandidate,
       filterLinkCellSelected,
+      selectedRecordIds,
       search,
       withUserId,
     } = params;
@@ -448,6 +451,12 @@ export class AggregationService {
 
     if (search) {
       this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+    }
+
+    if (selectedRecordIds) {
+      filterLinkCellCandidate
+        ? queryBuilder.whereNotIn(`${dbTableName}.__id`, selectedRecordIds)
+        : queryBuilder.whereIn(`${dbTableName}.__id`, selectedRecordIds);
     }
 
     if (filterLinkCellCandidate) {
