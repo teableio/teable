@@ -455,5 +455,9 @@
     "addPluginView": "Add Plugin View"
   },
   "lastModifiedTime": "Время последнего изменения",
-  "lastModify": "Последнее изменение: "
+  "lastModify": "Последнее изменение: ",
+  "pasteNewRecords": {
+    "title": "Do you want to add multiple records?",
+    "description": "The {{count}} records will be added to the table."
+  }
 }
