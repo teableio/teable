@@ -151,6 +151,7 @@
     "label": "隠しフィールド",
     "configLabel_one": "{{count}}個の隠しフィールド",
     "configLabel_other": "{{count}}個の隠しフィールド",
+    "configLabel_other_visible": "{{count}}表示フィールド",
     "showAll": "すべて表示",
     "hideAll": "すべて非表示",
     "primaryKey": "プライマリフィールド: レコードを識別するために使用され、非表示にしたり削除したりすることはできません"

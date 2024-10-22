@@ -168,6 +168,7 @@
     "label": "Hidden Fields",
     "configLabel_one": "{{count}} hidden field",
     "configLabel_other": "{{count}} hidden fields",
+    "configLabel_other_visible": "{{count}} visible fields",
     "showAll": "Show All",
     "hideAll": "Hide All",
     "primaryKey": "Primary field: Identifies records\ncannot be hidden or deleted, visible in linked records."

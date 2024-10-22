@@ -166,6 +166,7 @@
     "label": "Скрытые поля",
     "configLabel_one": "{{count}} скрытое поле",
     "configLabel_other": "{{count}} скрытых поля",
+    "configLabel_other_visible": "{{count}} видимых поля",
     "showAll": "Показать все",
     "hideAll": "Скрыть все",
     "primaryKey": "Основное поле: Идентифицирует записи\nнельзя скрыть или удалить, видно в связанных записях."

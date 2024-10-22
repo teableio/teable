@@ -43,7 +43,6 @@ export const ConvertFieldRoute: RouteConfig = registerRoute({
 });
 
 export const convertField = async (tableId: string, fieldId: string, fieldRo: IConvertFieldRo) => {
-  console.log('convertField', JSON.stringify(fieldRo.options, null, 2));
   return axios.put<IFieldVo>(
     urlBuilder(CONVERT_FIELD, {
       tableId,
