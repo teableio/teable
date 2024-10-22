@@ -53,6 +53,7 @@ export const ViewSelect = (props: ViewSelectProps) => {
       optionRender={displayRender}
       cancelable={cancelable}
       className="my-1 h-9"
+      modal
     />
   );
 };

@@ -25,7 +25,7 @@ describe('LinkFieldCore', () => {
       foreignKeyName: '__fk_fldxxxxxxx',
       symmetricFieldId: 'fldxxxxxxx',
       filterByViewId: 'viwxxxxxxx',
-      hiddenFieldIds: ['fldxxxxxxx'],
+      visibleFieldIds: ['fldxxxxxxx'],
       filter: {
         conjunction: 'and',
         filterSet: [],
@@ -149,7 +149,7 @@ describe('LinkFieldCore', () => {
         dbForeignKeyName: '__fk_fldiBBKwOZuW8rlrtoW',
         symmetricFieldId: 'fld8bh5u0MkjdmtFCxv',
         filterByViewId: 'viwXWPHcgSGeKgFFuOI',
-        hiddenFieldIds: ['fldXWPHcgSGeKgFFuOI'],
+        visibleFieldIds: ['fldXWPHcgSGeKgFFuOI'],
         filter: {
           conjunction: 'and',
           filterSet: [],
@@ -160,7 +160,7 @@ describe('LinkFieldCore', () => {
         relationship: 'manyOne',
         foreignTableId: 'tblERSkHpp4KDRK1hvL',
         filterByViewId: 'viwXWPHcgSGeKgFFuOI',
-        hiddenFieldIds: ['fldXWPHcgSGeKgFFuOI'],
+        visibleFieldIds: ['fldXWPHcgSGeKgFFuOI'],
         filter: {
           conjunction: 'and',
           filterSet: [],

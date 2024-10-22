@@ -40,8 +40,8 @@ export const linkFieldOptionsSchema = z
     filterByViewId: z.string().nullable().optional().openapi({
       description: 'the view id that limits the number of records in the link field',
     }),
-    hiddenFieldIds: z.array(z.string()).nullable().optional().openapi({
-      description: 'the fields that will be hidden in the link field',
+    visibleFieldIds: z.array(z.string()).nullable().optional().openapi({
+      description: 'the fields that will be displayed in the link field',
     }),
     filter: filterSchema.optional(),
   })
@@ -55,7 +55,7 @@ export const linkFieldOptionsRoSchema = linkFieldOptionsSchema.pick({
   foreignTableId: true,
   isOneWay: true,
   filterByViewId: true,
-  hiddenFieldIds: true,
+  visibleFieldIds: true,
   filter: true,
 });
 
