@@ -54,12 +54,13 @@ export const InplacePreviewColumn = (props: IPreviewColumnProps) => {
     // init sourceColumnMap automatically
     // TODO add more match logic
     if (isEmptySourceColumnMap && analyzeColumns?.length) {
-      columns.forEach((col, index) => {
-        if (analyzeColumns[index] && !col.isComputed) {
+      columns.forEach((col) => {
+        if (!col.isComputed) {
           const matchIndex = analyzeColumns.findIndex(
-            (c) => c.name.toLowerCase() === col.name.toLowerCase()
+            (c) => c.name.toLowerCase().trim() === col.name.toLowerCase().trim()
           );
-          initSourceColumnMap[col.id] = matchIndex > -1 ? matchIndex : index;
+          // only match the same name, others need to be set manually
+          initSourceColumnMap[col.id] = matchIndex > -1 ? matchIndex : null;
         }
       });
       onChange(initSourceColumnMap);
