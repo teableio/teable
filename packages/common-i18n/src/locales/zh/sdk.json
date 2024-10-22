@@ -168,6 +168,7 @@
     "label": "字段配置",
     "configLabel_one": "字段配置({{count}} 隐藏)",
     "configLabel_other": "字段配置({{count}} 隐藏)",
+    "configLabel_other_visible": "{{count}} visible fields",
     "showAll": "显示全部",
     "hideAll": "隐藏全部",
     "primaryKey": "Primary field: Identifies records\ncannot be hidden or deleted, visible in linked records."
