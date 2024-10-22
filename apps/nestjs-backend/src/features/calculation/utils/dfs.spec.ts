@@ -56,6 +56,20 @@ describe('Graph Processing Functions', () => {
       expect(buildCompressedAdjacencyMap(graph, linkIdSet)).toEqual(expected);
     });
 
+    it('should compress a graph based on linkIdSet with multiple entry', () => {
+      const graph = [
+        { fromFieldId: 'id1', toFieldId: 'id2' },
+        { fromFieldId: 'id2', toFieldId: 'id3' },
+        { fromFieldId: 'id2', toFieldId: 'id4' },
+      ];
+      const linkIdSet = new Set(['id3', 'id4']);
+      const expected = {
+        id1: ['id3', 'id4'],
+        id2: ['id3', 'id4'],
+      };
+      expect(buildCompressedAdjacencyMap(graph, linkIdSet)).toEqual(expected);
+    });
+
     it('should handle empty linkIdSet', () => {
       const graph = [
         { fromFieldId: 'id1', toFieldId: 'id2' },
