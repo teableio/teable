@@ -42,19 +42,22 @@ export class ShareSocketService {
 
   async getFieldDocIdsByQuery(shareInfo: IShareViewInfo, query: IGetFieldsQuery = {}) {
     const { tableId, view, linkOptions } = shareInfo;
-    const { filterByViewId, hiddenFieldIds } = linkOptions ?? {};
+    const { filterByViewId, visibleFieldIds } = linkOptions ?? {};
     const viewId = filterByViewId ?? view?.id;
     const filterHidden = !view?.shareMeta?.includeHiddenField;
 
-    const { ids: fieldIds } = await this.fieldService.getDocIdsByQuery(tableId, {
+    const fields = await this.fieldService.getFieldsByQuery(tableId, {
       ...query,
       viewId,
       filterHidden: Boolean(filterByViewId) || filterHidden,
     });
+    const fieldIds = fields.map((field) => field.id);
 
-    if (hiddenFieldIds?.length) {
+    if (linkOptions) {
       return {
-        ids: fieldIds.filter((id) => !hiddenFieldIds?.includes(id)),
+        ids: fields
+          .filter((f) => visibleFieldIds?.includes(f.id) || f.isPrimary)
+          .map((field) => field.id),
       };
     }
     return { ids: fieldIds };
@@ -80,12 +83,12 @@ export class ShareSocketService {
     }
 
     const { id } = view ?? {};
-    const { filterByViewId, hiddenFieldIds } = linkOptions ?? {};
+    const { filterByViewId } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
     const filter = linkOptions?.filter ?? query.filter;
     let projection = query.projection;
 
-    if (filterByViewId || hiddenFieldIds?.length) {
+    if (linkOptions) {
       projection = (await this.getFieldDocIdsByQuery(shareInfo, query)).ids;
     }
 

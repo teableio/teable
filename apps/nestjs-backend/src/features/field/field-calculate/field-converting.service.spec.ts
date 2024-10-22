@@ -36,7 +36,7 @@ describe('FieldConvertingService', () => {
             ],
           },
           filterByViewId: 'viewxxxxxxx01',
-          hiddenFieldIds: ['fldxxxxxxx01'],
+          visibleFieldIds: ['fldxxxxxxx01'],
           anotherKey: 'anotherKey',
         },
         {
@@ -53,7 +53,7 @@ describe('FieldConvertingService', () => {
             ],
           },
           filterByViewId: 'viewxxxxxxx02',
-          hiddenFieldIds: ['fldxxxxxxx02'],
+          visibleFieldIds: ['fldxxxxxxx02'],
           otherKey: 'otherKey',
         }
       )
@@ -78,7 +78,7 @@ describe('FieldConvertingService', () => {
             ],
           },
           filterByViewId: 'viewxxxxxxx01',
-          hiddenFieldIds: ['fldxxxxxxx01'],
+          visibleFieldIds: ['fldxxxxxxx01'],
           anotherKey: 'anotherKey',
         },
         {
@@ -95,7 +95,7 @@ describe('FieldConvertingService', () => {
             ],
           },
           filterByViewId: 'viewxxxxxxx02',
-          hiddenFieldIds: ['fldxxxxxxx02'],
+          visibleFieldIds: ['fldxxxxxxx02'],
           otherKey: 'otherKey',
         },
         true
@@ -107,7 +107,7 @@ describe('FieldConvertingService', () => {
       showAs: null,
       filter: null,
       filterByViewId: null,
-      hiddenFieldIds: null,
+      visibleFieldIds: null,
     });
 
     expect(
@@ -126,7 +126,7 @@ describe('FieldConvertingService', () => {
             ],
           },
           filterByViewId: 'viewxxxxxxx01',
-          hiddenFieldIds: ['fldxxxxxxx01'],
+          visibleFieldIds: ['fldxxxxxxx01'],
           otherKey: 'newOtherKey',
         },
         {
@@ -143,7 +143,7 @@ describe('FieldConvertingService', () => {
             ],
           },
           filterByViewId: 'viewxxxxxxx02',
-          hiddenFieldIds: ['fldxxxxxxx02'],
+          visibleFieldIds: ['fldxxxxxxx02'],
           otherKey: 'oldOtherKey',
         }
       )

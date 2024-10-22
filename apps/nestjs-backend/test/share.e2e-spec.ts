@@ -637,21 +637,21 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(shareResult.data.records.length).toEqual(7);
     });
 
-    it('should get link view limit by hidden fields', async () => {
+    it('should get link view limit by visible fields', async () => {
       const fields = table2.fields;
-      const hiddenFieldIds = fields.slice(1, fields.length).map((field) => field.id);
+      const visibleFieldIds = fields.slice(0, 3).map((field) => field.id);
       const linkField = await createField(table1.id, {
         name: 'link field limit by hidden fields',
         type: FieldType.Link,
         options: {
           relationship: Relationship.ManyMany,
           foreignTableId: table2.id,
-          hiddenFieldIds,
+          visibleFieldIds,
         },
       });
       const shareResult = await getShareView(linkField.data.id);
 
-      expect(shareResult.data.fields.length).toEqual(2);
+      expect(shareResult.data.fields.length).toEqual(3);
     });
 
     it('should get link view limited by multiple conditions', async () => {
@@ -674,7 +674,7 @@ describe('OpenAPI ShareController (e2e)', () => {
       await updateViewFilter(table2.id, table2.defaultViewId!, filter);
 
       const fields = table2.fields;
-      const hiddenFieldIds = fields.slice(2, fields.length).map((field) => field.id);
+      const visibleFieldIds = fields.slice(0, 3).map((field) => field.id);
 
       const additionalFilter = {
         conjunction: 'and',
@@ -695,7 +695,7 @@ describe('OpenAPI ShareController (e2e)', () => {
           foreignTableId: table2.id,
           filterByViewId,
           filter: additionalFilter,
-          hiddenFieldIds,
+          visibleFieldIds,
         },
       });
       const shareResult = await getShareView(linkField.data.id);
@@ -748,12 +748,12 @@ describe('OpenAPI ShareController (e2e)', () => {
           relationship: Relationship.ManyMany,
           foreignTableId: table2.id,
           filter,
-          hiddenFieldIds: [singleSelectField.id],
+          visibleFieldIds: [singleSelectField.id],
         },
       });
 
       expect((linkField.data.options as ILinkFieldOptions).filter).toEqual(filter);
-      expect((linkField.data.options as ILinkFieldOptions).hiddenFieldIds).toEqual([
+      expect((linkField.data.options as ILinkFieldOptions).visibleFieldIds).toEqual([
         singleSelectField.id,
       ]);
 
@@ -761,7 +761,7 @@ describe('OpenAPI ShareController (e2e)', () => {
       const currentLinkField = await getField(table1.id, linkField.data.id);
 
       expect((currentLinkField.options as ILinkFieldOptions).filter).toBeNull();
-      expect((currentLinkField.options as ILinkFieldOptions).hiddenFieldIds).toBeNull();
+      expect((currentLinkField.options as ILinkFieldOptions).visibleFieldIds).toBeNull();
     });
 
     it('should clean link options after filtering field is converted', async () => {

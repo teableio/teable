@@ -25,7 +25,7 @@ export const LinkOptions = (props: {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const isMoreVisible = Boolean(
-    options?.filterByViewId || options?.filter || options?.hiddenFieldIds
+    options?.filterByViewId || options?.filter || options?.visibleFieldIds
   );
 
   const [moreVisible, setMoreVisible] = useState(isMoreVisible);
@@ -96,7 +96,7 @@ export const LinkOptions = (props: {
             relationship,
             isOneWay,
             filterByViewId: null,
-            hiddenFieldIds: null,
+            visibleFieldIds: null,
             filter: null,
           });
         }}
@@ -118,7 +118,7 @@ export const LinkOptions = (props: {
               foreignTableId={options?.foreignTableId}
               fieldId={fieldId}
               filterByViewId={options?.filterByViewId}
-              hiddenFieldIds={options?.hiddenFieldIds}
+              visibleFieldIds={options?.visibleFieldIds}
               filter={options?.filter}
               onChange={(partialOptions: Partial<ILinkFieldOptionsRo>) => {
                 onChange?.({ ...options, ...partialOptions });

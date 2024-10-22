@@ -44,7 +44,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { keyBy, merge } from 'lodash';
+import { keyBy, merge, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
@@ -296,7 +296,11 @@ export class FieldSupplementService {
   // only for linkField to linkField
   private async prepareUpdateLinkField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     if (!majorFieldKeysChanged(oldFieldVo, fieldRo)) {
-      return merge({}, oldFieldVo, fieldRo);
+      return mergeWith({}, oldFieldVo, fieldRo, (_oldValue: unknown, newValue: unknown) => {
+        if (Array.isArray(newValue)) {
+          return newValue;
+        }
+      });
     }
 
     const newOptionsRo = fieldRo.options as ILinkFieldOptionsRo;

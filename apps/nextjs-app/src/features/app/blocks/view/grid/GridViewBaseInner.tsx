@@ -296,7 +296,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           insertRecord: (anchorId, position) => {
             if (!tableId || !view?.id || !record) return;
             const targetIndex = position === 'before' ? rowStart - 1 : rowStart;
-            generateRecord({}, Math.max(targetIndex, 0), { anchorId, position });
+            const fieldValueMap =
+              group?.reduce(
+                (prev, { fieldId }) => {
+                  prev[fieldId] = record.getCellValue(fieldId);
+                  return prev;
+                },
+                {} as { [key: string]: unknown }
+              ) ?? {};
+            generateRecord(fieldValueMap, Math.max(targetIndex, 0), { anchorId, position });
           },
           deleteRecords: async (selection) => {
             deleteRecords(selection);

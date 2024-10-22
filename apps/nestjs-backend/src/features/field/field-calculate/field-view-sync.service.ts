@@ -47,14 +47,14 @@ export class FieldViewSyncService {
 
       if (options == null) continue;
 
-      const { filter, hiddenFieldIds } = options as ILinkFieldOptions;
+      const { filter, visibleFieldIds } = options as ILinkFieldOptions;
       const newOptions: ILinkFieldOptions = { ...options };
       let isOptionsChanged = false;
 
-      if (hiddenFieldIds?.length) {
-        const newHiddenFieldIds = hiddenFieldIds.filter((id) => !deletedFieldIdSet.has(id));
-        if (!isEqual(newHiddenFieldIds, hiddenFieldIds)) {
-          newOptions.hiddenFieldIds = newHiddenFieldIds?.length ? newHiddenFieldIds : null;
+      if (visibleFieldIds?.length) {
+        const newVisibleFieldIds = visibleFieldIds.filter((id) => !deletedFieldIdSet.has(id));
+        if (!isEqual(newVisibleFieldIds, visibleFieldIds)) {
+          newOptions.visibleFieldIds = newVisibleFieldIds?.length ? newVisibleFieldIds : null;
           isOptionsChanged = true;
         }
       }

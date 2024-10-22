@@ -21,7 +21,7 @@ interface IMoreOptionsProps {
   fieldId?: string;
   filter?: IFilter | null;
   filterByViewId?: string | null;
-  hiddenFieldIds?: string[] | null;
+  visibleFieldIds?: string[] | null;
   onChange?: (options: Partial<ILinkFieldOptionsRo>) => void;
 }
 
@@ -30,14 +30,14 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
     foreignTableId = '',
     fieldId,
     filterByViewId,
-    hiddenFieldIds: _hiddenFieldIds,
+    visibleFieldIds: _visibleFieldIds,
     filter,
     onChange,
   } = props;
 
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const currentTableId = useTableId() as string;
-  const hiddenFieldIds = _hiddenFieldIds ?? [];
+  const visibleFieldIds = useMemo(() => _visibleFieldIds ?? [], [_visibleFieldIds]);
 
   const query = useMemo(() => {
     return {
@@ -59,17 +59,29 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
 
   const context = useFieldFilterLinkContext(currentTableId, fieldId, !fieldId);
 
+  const hiddenFieldIds = useMemo(() => {
+    return totalFields
+      ?.filter((field) => !visibleFieldIds.includes(field.id) && !field.isPrimary)
+      .map((field) => field.id);
+  }, [totalFields, visibleFieldIds]);
+
   if (!foreignTableId || !totalFields.length) {
     return null;
   }
 
-  const hiddenCount = hiddenFieldIds.length;
-  const text = hiddenCount
-    ? t('sdk:hidden.configLabel_other', { count: hiddenCount })
+  const visibleCount = visibleFieldIds.length;
+  const text = visibleCount
+    ? t('sdk:hidden.configLabel_other', { count: visibleCount })
     : t('sdk:hidden.label');
 
-  const onHiddenChange = (hiddenFieldIds: string[]) =>
-    onChange?.({ hiddenFieldIds: hiddenFieldIds.length ? hiddenFieldIds : null });
+  const onHiddenChange = (hiddenFieldIds: string[]) => {
+    const hiddenFieldSet = new Set(hiddenFieldIds);
+    const visibleFieldIds = totalFields
+      .filter((field) => !hiddenFieldSet.has(field.id))
+      .map((field) => field.id);
+    console.log('visibleFieldIds', visibleFieldIds);
+    onChange?.({ visibleFieldIds: visibleFieldIds.length ? visibleFieldIds : null });
+  };
 
   return (
     <div className="flex flex-col gap-2 rounded-md border px-2 py-3">
@@ -119,7 +131,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           <Button
             variant={'ghost'}
             className={cn('font-normal shrink-0 truncate text-[13px]', {
-              'bg-secondary': Boolean(hiddenCount),
+              'bg-secondary': Boolean(visibleCount),
             })}
           >
             <EyeOff className="size-4" />
