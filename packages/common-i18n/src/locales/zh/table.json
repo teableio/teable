@@ -454,5 +454,9 @@
     "addPluginView": "视图插件"
   },
   "lastModifiedTime": "修改时间",
-  "lastModify": "上次修改："
+  "lastModify": "上次修改：",
+  "pasteNewRecords": {
+    "title": "确认新增记录？",
+    "description": "将会新增 {{count}} 条记录"
+  }
 }

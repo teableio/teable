@@ -7,7 +7,7 @@ import {
   fieldVoSchema,
   stringifyClipboardText,
 } from '@teable/core';
-import type { IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
+import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
 import { createRecords } from '@teable/openapi';
 import type {
   IRectangle,
@@ -77,6 +77,8 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { PrefillingRowContainer } from './components';
+import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
+import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
@@ -127,6 +129,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const fieldEditable = useFieldCellEditable();
   const { undo, redo } = useUndoRedo();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
+  const confirmNewRecordsRef = useRef<IConfirmNewRecordsRef>(null);
+  const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
 
   const groupCollection = useGridGroupCollection();
 
@@ -160,9 +164,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   } = useGridPrefillingRow(columns);
 
   const { mutate: mutateCreateRecord, isLoading: isCreatingRecord } = useMutation({
-    mutationFn: () =>
+    mutationFn: (records: ICreateRecordsRo['records']) =>
       createRecords(tableId!, {
-        records: [{ fields: prefillingFieldValueMap! }],
+        records,
         fieldKeyType: FieldKeyType.Id,
         order:
           activeViewId && prefillingRowOrder
@@ -170,10 +174,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             : undefined,
       }),
     onSuccess: () => {
-      setPrefillingRowIndex(undefined);
-      setPrefillingFieldValueMap(undefined);
+      resetNewRecords();
     },
   });
+
+  const resetNewRecords = () => {
+    setPrefillingRowIndex(undefined);
+    setPrefillingFieldValueMap(undefined);
+    setNewRecords(undefined);
+  };
 
   const inPrefilling = prefillingRowIndex != null;
 
@@ -495,8 +504,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (!permission['record|update'] || localRecord == null) {
       return toast({ title: 'Unable to paste' });
     }
-    paste(e, selection, { 0: localRecord }, (fieldValueMap) => {
-      setPrefillingFieldValueMap({ ...prefillingFieldValueMap, ...fieldValueMap });
+    paste(e, selection, { 0: localRecord }, (records) => {
+      if (records.length > 1) {
+        confirmNewRecordsRef.current?.setOpen(true, records.length);
+        setNewRecords(records);
+        return;
+      }
+      setPrefillingFieldValueMap({ ...prefillingFieldValueMap, ...records[0].fields });
     });
   };
 
@@ -732,8 +746,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           style={prefillingRowStyle}
           isLoading={isCreatingRecord}
           onClickOutside={async () => {
-            if (isCreatingRecord) return;
-            await mutateCreateRecord();
+            if (isCreatingRecord || newRecords?.length) return;
+            await mutateCreateRecord([{ fields: prefillingFieldValueMap! }]);
           }}
           onCancel={() => {
             setPrefillingRowIndex(undefined);
@@ -778,6 +792,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           onClose={() => setExpandRecord(undefined)}
         />
       )}
+      <ConfirmNewRecords
+        ref={confirmNewRecordsRef}
+        onCancel={() => {
+          setPrefillingFieldValueMap({ ...prefillingFieldValueMap, ...newRecords?.[0].fields });
+          setNewRecords(undefined);
+        }}
+        onConfirm={() => newRecords && mutateCreateRecord(newRecords)}
+      />
     </div>
   );
 };
