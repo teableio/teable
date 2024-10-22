@@ -168,6 +168,7 @@
     "label": "Скрытые поля",
     "configLabel_one": "{{count}} скрытое поле",
     "configLabel_other": "{{count}} скрытых полей",
+    "configLabel_other_visible": "{{count}} visible fields",
     "showAll": "Показать все",
     "hideAll": "Скрыть все",
     "primaryKey": "Primary field: Identifies records\ncannot be hidden or deleted, visible in linked records."
