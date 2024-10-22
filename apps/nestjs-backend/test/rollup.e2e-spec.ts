@@ -504,4 +504,80 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
     await rollupFrom(table1, lookedUpToField2.id, 'count({values})');
   });
+
+  describe('Roll up corner case', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, {});
+      table2 = await createTable(baseId, {});
+    });
+
+    it('should update multiple field when rollup  to a same a formula field', async () => {
+      const numberField = await createField(table1.id, {
+        type: FieldType.Number,
+      });
+
+      const formulaField = await createField(table1.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${numberField.id}}`,
+        },
+      });
+
+      const linkField = await createField(table2.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table1.id,
+        },
+      });
+
+      const rollup1 = await createField(table2.id, {
+        name: `rollup 1`,
+        type: FieldType.Rollup,
+        options: {
+          expression: `sum({values})`,
+        },
+        lookupOptions: {
+          foreignTableId: table1.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: formulaField.id,
+        } as ILookupOptionsRo,
+      });
+
+      const rollup2 = await createField(table2.id, {
+        name: `rollup 2`,
+        type: FieldType.Rollup,
+        options: {
+          expression: `sum({values})`,
+        },
+        lookupOptions: {
+          foreignTableId: table1.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: formulaField.id,
+        } as ILookupOptionsRo,
+      });
+
+      await updateRecordField(table1.id, table1.records[0].id, numberField.id, 1);
+      await updateRecordField(table1.id, table1.records[1].id, numberField.id, 2);
+
+      // add a link record after
+      await updateRecordField(table2.id, table2.records[0].id, linkField.id, [
+        { id: table1.records[0].id },
+        { id: table1.records[1].id },
+      ]);
+
+      const record1 = await getRecord(table2.id, table2.records[0].id);
+
+      expect(record1.fields[rollup1.id]).toEqual(3);
+      expect(record1.fields[rollup2.id]).toEqual(3);
+
+      await updateRecordField(table1.id, table1.records[1].id, numberField.id, 3);
+
+      const record2 = await getRecord(table2.id, table2.records[0].id);
+      expect([record2.fields[rollup1.id], record2.fields[rollup2.id]]).toEqual([4, 4]);
+    });
+  });
 });

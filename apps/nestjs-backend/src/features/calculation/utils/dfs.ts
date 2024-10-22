@@ -25,30 +25,6 @@ export function buildAdjacencyMap(graph: IGraphItem[]): IAdjacencyMap {
   return adjList;
 }
 
-export function findNextValidNode(
-  current: string,
-  adjMap: IAdjacencyMap,
-  linkIdSet: Set<string>
-): string | null {
-  if (linkIdSet.has(current)) {
-    return current;
-  }
-
-  const neighbors = adjMap[current];
-  if (!neighbors) {
-    return null;
-  }
-
-  for (const neighbor of neighbors) {
-    const validNode = findNextValidNode(neighbor, adjMap, linkIdSet);
-    if (validNode) {
-      return validNode;
-    }
-  }
-
-  return null;
-}
-
 /**
  * Builds a compressed adjacency map based on the provided graph, linkIdSet, and startFieldIds.
  * The compressed adjacency map represents the neighbors of each node in the graph, excluding nodes that are not valid according to the linkIdSet.
@@ -64,33 +40,28 @@ export function buildCompressedAdjacencyMap(
   const adjMap = buildAdjacencyMap(graph);
   const compressedAdjMap: IAdjacencyMap = {};
 
-  Object.keys(adjMap).forEach((from) => {
-    const queue = [from];
-    const visited = new Set<string>();
+  function dfs(node: string, visited: Set<string>): string[] {
+    if (visited.has(node)) return [];
+    visited.add(node);
 
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (!current || visited.has(current)) continue;
-
-      visited.add(current);
-      const neighbors = adjMap[current] || [];
-      const compressedNeighbors = [];
-
-      for (const neighbor of neighbors) {
-        const nextValid = findNextValidNode(neighbor, adjMap, linkIdSet);
-        if (nextValid && !visited.has(nextValid)) {
-          compressedNeighbors.push(nextValid);
-          if (!linkIdSet.has(current)) {
-            queue.push(nextValid);
-          }
-        }
-      }
-
-      if (compressedNeighbors.length > 0) {
-        compressedAdjMap[current] = compressedNeighbors;
-      }
+    if (linkIdSet.has(node) && node !== Array.from(visited)[0]) {
+      return [node];
     }
-  });
+
+    const validPaths: string[] = [];
+    for (const neighbor of adjMap[node] || []) {
+      validPaths.push(...dfs(neighbor, new Set(visited)));
+    }
+
+    return validPaths;
+  }
+
+  for (const node of Object.keys(adjMap)) {
+    const paths = dfs(node, new Set());
+    if (paths.length > 0) {
+      compressedAdjMap[node] = Array.from(new Set(paths));
+    }
+  }
 
   return compressedAdjMap;
 }
