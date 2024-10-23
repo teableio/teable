@@ -21,7 +21,9 @@ export const GridView = (props: IViewBaseProps) => {
           <RowCountProvider>
             <GridToolBar />
             {isHydrated && (
-              <div className={cn('w-full grow sm:pl-2', isSafari() && 'pb-20 sm:pb-0')}>
+              <div
+                className={cn('w-full grow sm:pl-2 overflow-hidden', isSafari() && 'pb-20 sm:pb-0')}
+              >
                 <GridViewBase groupPointsServerDataMap={groupPointsServerDataMap} />
                 {graphOpen && <DynamicCellGraph />}
               </div>

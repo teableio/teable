@@ -664,8 +664,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (gridRef.current == null || prefillingRowIndex == null) {
       return { top: defaultTop, height };
     }
+
     return {
-      top: gridRef.current.getRowOffset(prefillingRowIndex) + defaultTop,
+      top: Math.max(
+        gridRef.current.getRowOffset(prefillingRowIndex) + defaultTop,
+        GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short]
+      ),
       height,
     };
   }, [rowHeight, prefillingRowIndex]);
