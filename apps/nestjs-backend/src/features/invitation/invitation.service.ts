@@ -403,8 +403,23 @@ export class InvitationService {
     }
 
     const resourceType = spaceId ? CollaboratorType.Space : CollaboratorType.Base;
+    let baseSpaceId: string | null = null;
+    if (baseId) {
+      const base = await this.prismaService
+        .txClient()
+        .base.findUniqueOrThrow({
+          where: { id: baseId, deletedTime: null },
+        })
+        .catch(() => {
+          throw new NotFoundException(`base ${baseId} not found`);
+        });
+      baseSpaceId = base.spaceId;
+    }
     const exist = await this.prismaService.txClient().collaborator.count({
-      where: { userId: currentUserId, resourceId, resourceType },
+      where: {
+        userId: currentUserId,
+        resourceId: { in: baseSpaceId ? [baseSpaceId, baseId!] : [spaceId!] },
+      },
     });
     if (!exist) {
       await this.prismaService.$tx(async () => {
