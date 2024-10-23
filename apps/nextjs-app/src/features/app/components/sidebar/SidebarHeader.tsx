@@ -20,7 +20,7 @@ export const SidebarHeader = (prop: ISidebarHeaderProps) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className="w-6 shrink-0 px-0"
+                className="ml-auto mr-0 w-6 shrink-0 px-0"
                 variant="ghost"
                 size="xs"
                 onClick={() => onExpand?.()}
