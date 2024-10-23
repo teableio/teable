@@ -1,7 +1,7 @@
 import type { IFilterItem } from '@teable/core';
 import { Input, cn } from '@teable/ui-lib';
 import { toString } from 'lodash';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 
 interface InputProps {
@@ -17,11 +17,21 @@ const FilterInput = (props: InputProps) => {
   const inputValue = toString(value);
   const [compositing, setCompositing] = useState(false);
   const [stashValue, setStashValue] = useState(inputValue);
+  const [isFocus, setIsFocus] = useState(false);
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (inputRef.current && !isFocus) {
+      inputRef.current.value = inputValue;
+    }
+  }, [inputValue, isFocus]);
 
   return (
     <Input
       placeholder={placeholder}
       defaultValue={inputValue}
+      ref={inputRef}
       onInput={(e) => {
         setStashValue(e.currentTarget.value);
         !compositing && onChange(e.currentTarget.value || null);
@@ -30,6 +40,14 @@ const FilterInput = (props: InputProps) => {
       onCompositionEnd={() => {
         setCompositing(false);
         onChange(stashValue || null);
+      }}
+      onBlur={() => {
+        setIsFocus(false);
+      }}
+      onFocus={() => {
+        if (!isFocus) {
+          setIsFocus(true);
+        }
       }}
       className={cn('h-8 placeholder:text-xs', className)}
     />
