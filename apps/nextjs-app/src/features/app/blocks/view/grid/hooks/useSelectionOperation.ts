@@ -9,7 +9,7 @@ import type {
 } from '@teable/openapi';
 import { clear, copy, deleteSelection, paste, temporaryPaste } from '@teable/openapi';
 import type { CombinedSelection, IRecordIndexMap } from '@teable/sdk';
-import { useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
+import { useBaseId, useFields, useSearch, useTableId, useView, useViewId } from '@teable/sdk';
 import { useToast } from '@teable/ui-lib';
 import type { AxiosResponse } from 'axios';
 import { useTranslation } from 'next-i18next';
@@ -30,6 +30,7 @@ export const useSelectionOperation = (props?: {
   copyReq?: UseMutateAsyncFunction<AxiosResponse<ICopyVo>, unknown, IRangesRo, unknown>;
 }) => {
   const { collapsedGroupIds, copyReq } = props || {};
+  const baseId = useBaseId();
   const tableId = useTableId();
   const viewId = useViewId();
   const fields = useFields();
@@ -165,6 +166,7 @@ export const useSelectionOperation = (props?: {
             fields,
             selection,
             recordMap,
+            baseId,
             requestPaste: async (content, type, ranges) => {
               if (updateTemporaryData) {
                 const res = await temporaryPasteReq({ content, ranges });
@@ -200,7 +202,17 @@ export const useSelectionOperation = (props?: {
         console.error('Paste error: ', error);
       }
     },
-    [viewId, tableId, fields, toast, temporaryPasteReq, pasteReq, checkCopyAndPasteEnvironment, t]
+    [
+      baseId,
+      viewId,
+      tableId,
+      fields,
+      toast,
+      temporaryPasteReq,
+      pasteReq,
+      checkCopyAndPasteEnvironment,
+      t,
+    ]
   );
 
   const doClear = useCallback(

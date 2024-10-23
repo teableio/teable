@@ -195,10 +195,9 @@ export class MinioStorage implements StorageAdapter {
       throw new BadRequestException('Invalid image');
     }
     const stream = await this.minioClientPrivateNetwork.getObject(bucket, objectName);
-    const metaReader = sharp();
+    const metaReader = sharp({ failOn: 'none', unlimited: true }).resize(width, height);
     const sharpReader = stream.pipe(metaReader);
-    const resizedImage = sharpReader.resize(width, height);
-    await resizedImage.toFile(resizedImagePath);
+    await sharpReader.toFile(resizedImagePath);
     const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
       'Content-Type': mimetype,
     });

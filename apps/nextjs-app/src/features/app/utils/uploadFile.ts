@@ -5,7 +5,8 @@ import { AttachmentManager } from '@teable/sdk';
 
 export const uploadFiles = async (
   files: FileList | File[],
-  type = UploadType.Table
+  type = UploadType.Table,
+  baseId?: string
 ): Promise<(INotifyVo & { id: string; name: string })[]> => {
   return new Promise((resolve, reject) => {
     const attachmentManager = new AttachmentManager(2);
@@ -30,7 +31,8 @@ export const uploadFiles = async (
         errorCallback: (_file, error?: string) => {
           reject(error);
         },
-      }
+      },
+      baseId
     );
   });
 };
