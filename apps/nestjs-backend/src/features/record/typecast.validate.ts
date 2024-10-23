@@ -149,6 +149,9 @@ export class TypeCastAndValidate {
           throw new BadRequestException(fromZodError(validate.error).message);
         }
       }
+      if (this.field.type === FieldType.SingleLineText) {
+        return this.field.convertStringToCellValue(validate.data as string);
+      }
       return validate.data == null ? null : validate.data;
     });
   }

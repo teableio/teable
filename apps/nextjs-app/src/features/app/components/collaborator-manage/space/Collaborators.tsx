@@ -108,7 +108,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
                       className="h-auto p-0.5"
                       size={'xs'}
                       variant={'ghost'}
-                      onClick={() => goBase(base!.name)}
+                      onClick={() => goBase(base!.id)}
                     >
                       <Settings />
                     </Button>
