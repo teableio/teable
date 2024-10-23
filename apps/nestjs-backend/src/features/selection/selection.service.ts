@@ -520,12 +520,6 @@ export class SelectionService {
                 stringValue
               );
               break;
-            case FieldType.SingleLineText:
-              {
-                // filter \n \r \t
-                recordField[field.id] = field.convertStringToCellValue(stringValue);
-              }
-              break;
             default:
               recordField[field.id] = stringValue || null;
           }
