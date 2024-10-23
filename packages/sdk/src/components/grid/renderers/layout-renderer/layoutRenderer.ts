@@ -672,6 +672,7 @@ export const drawActiveCell = (ctx: CanvasRenderingContext2D, props: ILayoutDraw
 const getVisibleCollaborators = (
   collaborators: ICollaborator,
   visibleRegion: IVisibleRegion,
+  freezeColumnCount: number,
   getCellContent: (cell: ICellItem) => ICell
 ) => {
   const groupedCollaborators = groupBy(collaborators, 'activeCellId');
@@ -679,7 +680,15 @@ const getVisibleCollaborators = (
   // through visible region to find the cell that has collaborators and get the real coordinate
   const { startColumnIndex, stopColumnIndex, startRowIndex, stopRowIndex } = visibleRegion;
   const visibleCells = [];
-  for (let i = startColumnIndex; i <= stopColumnIndex; i++) {
+  const columnIndices = [
+    ...Array.from({ length: freezeColumnCount }, (_, i) => i),
+    ...Array.from(
+      { length: stopColumnIndex - Math.max(freezeColumnCount, startColumnIndex) + 1 },
+      (_, i) => Math.max(freezeColumnCount, startColumnIndex) + i
+    ),
+  ];
+
+  for (const i of columnIndices) {
     for (let j = startRowIndex; j < stopRowIndex; j++) {
       const cell = getCellContent([i, j]);
       if (!cell?.id) {
@@ -718,7 +727,12 @@ export const drawCollaborators = (ctx: CanvasRenderingContext2D, props: ILayoutD
 
   ctx.save();
 
-  const visibleCells = getVisibleCollaborators(collaborators, visibleRegion, getCellContent);
+  const visibleCells = getVisibleCollaborators(
+    collaborators,
+    visibleRegion,
+    freezeColumnCount,
+    getCellContent
+  );
 
   for (let i = 0; i < visibleCells.length; i++) {
     // for conflict cell, we'd like to show the latest collaborator
