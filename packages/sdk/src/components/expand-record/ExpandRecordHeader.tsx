@@ -82,7 +82,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
       )}
     >
       <div>
-        <TooltipWrap description="Previous record" disabled={disabledPrev}>
+        <TooltipWrap description={t('expandRecord.previousRecord')} disabled={disabledPrev}>
           <Button
             variant={'ghost'}
             tabIndex={-1}
@@ -93,7 +93,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             <ChevronUp />
           </Button>
         </TooltipWrap>
-        <TooltipWrap description="Next record" disabled={disabledNext}>
+        <TooltipWrap description={t('expandRecord.nextRecord')} disabled={disabledNext}>
           <Button
             variant={'ghost'}
             size={'xs'}
@@ -139,7 +139,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           )}
 
           {editable && (
-            <TooltipWrap description="comment">
+            <TooltipWrap description={t('comment.title')}>
               <Button
                 size={'xs'}
                 onClick={onCommentToggle}
