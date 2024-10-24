@@ -1,11 +1,11 @@
 import { ATTACHMENT_SM_THUMBNAIL_HEIGHT, ATTACHMENT_LG_THUMBNAIL_HEIGHT } from '@teable/core';
+import { ThumbnailSize } from '../features/attachments/plugins/types';
 import { generateCutImagePath } from '../features/attachments/plugins/utils';
 
-export const generateTableThumbnailPath = (path: string, width: number, height: number) => {
-  const { smThumbnail, lgThumbnail } = getTableThumbnailSize(width, height);
+export const generateTableThumbnailPath = (path: string) => {
   return {
-    smThumbnailPath: generateCutImagePath(path, smThumbnail.width, smThumbnail.height),
-    lgThumbnailPath: generateCutImagePath(path, lgThumbnail.width, lgThumbnail.height),
+    smThumbnailPath: generateCutImagePath(path, ThumbnailSize.SM),
+    lgThumbnailPath: generateCutImagePath(path, ThumbnailSize.LG),
   };
 };
 

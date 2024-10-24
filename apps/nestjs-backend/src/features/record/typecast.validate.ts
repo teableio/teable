@@ -311,7 +311,7 @@ export class TypeCastAndValidate {
       }
 
       const attachmentsWithPresignedUrls = attachmentCellValue.map(async (item) => {
-        const { path, mimetype, token, smThumbnailPath, lgThumbnailPath } = item;
+        const { path, mimetype, token } = item;
         // presigned just for realtime op preview
         const presignedUrl = await this.services.attachmentsStorageService.getPreviewUrlByPath(
           StorageAdapter.getBucket(UploadType.Table),
@@ -326,10 +326,7 @@ export class TypeCastAndValidate {
           }
         );
         const { smThumbnailUrl, lgThumbnailUrl } =
-          await this.services.attachmentsStorageService.getTableAttachmentThumbnailUrl(
-            smThumbnailPath,
-            lgThumbnailPath
-          );
+          await this.services.attachmentsStorageService.getTableAttachmentThumbnailUrl(path);
 
         return {
           ...item,

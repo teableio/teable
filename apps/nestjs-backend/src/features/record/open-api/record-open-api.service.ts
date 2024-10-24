@@ -255,8 +255,8 @@ export class RecordOpenApiService {
           const attachmentCv = newCellValues[i] as IAttachmentCellValue;
           if (field.type === FieldType.Attachment && attachmentCv) {
             attachmentCv.forEach((attachmentItem, index) => {
-              const { mimetype, lgThumbnailPath, smThumbnailPath } = attachmentItem;
-              if (mimetype.startsWith('image/') && (!lgThumbnailPath || !smThumbnailPath)) {
+              const { mimetype } = attachmentItem;
+              if (mimetype.startsWith('image/')) {
                 collectionAttachmentThumbnails.push({
                   index: i,
                   key: fieldIdOrName,
@@ -275,22 +275,12 @@ export class RecordOpenApiService {
         if (!width || !height) {
           continue;
         }
-        const { smThumbnailPath, lgThumbnailPath } =
-          await this.attachmentsStorageService.cutTableImage(
-            StorageAdapter.getBucket(UploadType.Table),
-            path,
-            width,
-            height
-          );
-        attachmentItem.lgThumbnailPath = lgThumbnailPath;
-        attachmentItem.smThumbnailPath = smThumbnailPath;
-        const { smThumbnailUrl, lgThumbnailUrl } =
-          await this.attachmentsStorageService.getTableAttachmentThumbnailUrl(
-            smThumbnailPath,
-            lgThumbnailPath
-          );
-        attachmentItem.smThumbnailUrl = smThumbnailUrl;
-        attachmentItem.lgThumbnailUrl = lgThumbnailUrl;
+        this.attachmentsStorageService.cutTableImage(
+          StorageAdapter.getBucket(UploadType.Table),
+          path,
+          width,
+          height
+        );
       }
     }
     return records.map((record, i) => ({

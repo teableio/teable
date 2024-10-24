@@ -1045,7 +1045,7 @@ export class RecordService {
 
     return await Promise.all(
       cellValue.map(async (item) => {
-        const { path, mimetype, token, lgThumbnailPath, smThumbnailPath } = item;
+        const { path, mimetype, token } = item;
         const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
           StorageAdapter.getBucket(UploadType.Table),
           path,
@@ -1058,10 +1058,7 @@ export class RecordService {
         );
         return {
           ...item,
-          ...(await this.attachmentStorageService.getTableAttachmentThumbnailUrl(
-            smThumbnailPath,
-            lgThumbnailPath
-          )),
+          ...(await this.attachmentStorageService.getTableAttachmentThumbnailUrl(path)),
           presignedUrl,
         };
       })
