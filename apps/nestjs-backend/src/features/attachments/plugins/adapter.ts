@@ -122,7 +122,7 @@ export default abstract class StorageAdapter {
    * @param newPath save as new path
    * @returns cut image url
    */
-  abstract cutImage(
+  abstract cropImage(
     bucket: string,
     path: string,
     width: number,

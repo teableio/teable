@@ -3,6 +3,8 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { CacheService } from '../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
 import {
   generateTableThumbnailPath,
   getTableThumbnailSize,
@@ -18,6 +20,7 @@ export class AttachmentsStorageService {
   constructor(
     private readonly cacheService: CacheService,
     private readonly prismaService: PrismaService,
+    private readonly eventEmitterService: EventEmitterService,
     @StorageConfig() private readonly storageConfig: IStorageConfig,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
   ) {}
@@ -126,21 +129,24 @@ export class AttachmentsStorageService {
   async cutTableImage(bucket: string, path: string, width: number, height: number) {
     const { smThumbnail, lgThumbnail } = getTableThumbnailSize(width, height);
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const cutSmThumbnailPath = await this.storageAdapter.cutImage(
+    const cutSmThumbnailPath = await this.storageAdapter.cropImage(
       bucket,
       path,
       smThumbnail.width,
       smThumbnail.height,
       smThumbnailPath
     );
-    const cutLgThumbnailPath = await this.storageAdapter.cutImage(
+    const cutLgThumbnailPath = await this.storageAdapter.cropImage(
       bucket,
       path,
       lgThumbnail.width,
       lgThumbnail.height,
       lgThumbnailPath
     );
-
+    this.eventEmitterService.emit(Events.CROP_IMAGE, {
+      bucket,
+      path,
+    });
     return {
       smThumbnailPath: cutSmThumbnailPath,
       lgThumbnailPath: cutLgThumbnailPath,

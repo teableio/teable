@@ -61,4 +61,6 @@ export enum Events {
 
   WORKFLOW_ACTIVATE = 'workflow.activate',
   WORKFLOW_DEACTIVATE = 'workflow.deactivate',
+
+  CROP_IMAGE = 'crop.image',
 }
