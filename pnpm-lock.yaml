@@ -1703,6 +1703,9 @@ importers:
       deepmerge:
         specifier: 4.3.1
         version: 4.3.1
+      docx-preview:
+        specifier: 0.3.2
+        version: 0.3.2
       embla-carousel-react:
         specifier: 8.0.0
         version: 8.0.0(react@18.3.1)
@@ -17429,6 +17432,12 @@ packages:
     requiresBuild: true
     dev: false
 
+  /docx-preview@0.3.2:
+    resolution: {integrity: sha512-YRsyiiejdauCQ2boKNHKjJMiIhOCXs643+NCHnmbCM31e7JWqmPiobtzlmHOnv4i+ft9w+ajPEK1hK7VymyRXQ==}
+    dependencies:
+      jszip: 3.10.1
+    dev: false
+
   /dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
     dev: true
@@ -21822,6 +21831,15 @@ packages:
       object.assign: 4.1.5
       object.values: 1.2.0
 
+  /jszip@3.10.1:
+    resolution: {integrity: sha512-xXDvecyTpGLrqFrvkrUSoxxfJI5AH7U8zxxtVclpsUtMCq4JQ290LY8AW5c7Ggnr/Y/oK+bQMbqK2qmtk3pN4g==}
+    dependencies:
+      lie: 3.3.0
+      pako: 1.0.11
+      readable-stream: 2.3.8
+      setimmediate: 1.0.5
+    dev: false
+
   /juice@10.0.0:
     resolution: {integrity: sha512-9f68xmhGrnIi6DBkiiP3rUrQN33SEuaKu1+njX6VgMP+jwZAsnT33WIzlrWICL9matkhYu3OyrqSUP55YTIdGg==}
     engines: {node: '>=10.0.0'}
@@ -22019,6 +22037,12 @@ packages:
 
   /lie@3.1.1:
     resolution: {integrity: sha512-RiNhHysUjhrDQntfYSfY4MU24coXXdEOgw9WGcKHNeEwffDYbF//u87M1EWaMGzuFoSbqW0C9C6lEEhDOAswfw==}
+    dependencies:
+      immediate: 3.0.6
+    dev: false
+
+  /lie@3.3.0:
+    resolution: {integrity: sha512-UaiMJzeWRlEujzAuw5LokY1L5ecNQYZKfmyZ9L7wDHb/p5etKaxXhohBcrw0EYby+G/NA52vRSN4N39dxHAIwQ==}
     dependencies:
       immediate: 3.0.6
     dev: false
@@ -24999,7 +25023,6 @@ packages:
 
   /pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
-    dev: true
 
   /papaparse@5.4.1:
     resolution: {integrity: sha512-HipMsgJkZu8br23pW15uvo6sib6wne/4woLZPlFf3rpDyMe9ywEXUsuD7+6K9PRkJlVT51j/sCOYDKGGS3ZJrw==}
@@ -28607,7 +28630,6 @@ packages:
 
   /setimmediate@1.0.5:
     resolution: {integrity: sha512-MATJdZp8sLqDl/68LfQmbP8zKPLQNV6BIZoIgrscFDQ+RsvK/BxeDQOgyxKKoh0y/8h3BqVFnCqQ/gd+reiIXA==}
-    dev: true
 
   /setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
@@ -29114,9 +29136,6 @@ packages:
   /sqlite3@5.1.7:
     resolution: {integrity: sha512-GGIyOiFaG+TUra3JIfkI/zGP8yZYLPQ0pl1bH+ODjiX57sPhrLU5sQJn1y9bDKZUFYkX1crlrPfSYt0BKKdkog==}
     requiresBuild: true
-    peerDependenciesMeta:
-      node-gyp:
-        optional: true
     dependencies:
       bindings: 1.5.0
       node-addon-api: 7.1.0

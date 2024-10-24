@@ -146,6 +146,7 @@
     "cmdk": "1.0.0",
     "date-fns": "2.30.0",
     "deepmerge": "4.3.1",
+    "docx-preview": "0.3.2",
     "embla-carousel-react": "8.0.0",
     "react-day-picker": "8.10.0",
     "react-hook-form": "7.51.1",
