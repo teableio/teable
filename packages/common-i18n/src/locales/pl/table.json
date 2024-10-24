@@ -1,0 +1,463 @@
+{
+  "toolbar": {
+    "comingSoon": "Coming soon",
+    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
+    "createFieldButtonText": "Create a new <0/> field",
+    "others": {
+      "share": {
+        "label": "Udostępnij",
+        "statusLabel": "Udostępnianie",
+        "noPermission": "Brak uprawnień do udostępniania widoku",
+        "shareLink": "Udostępnij link",
+        "copied": "Skopiowano",
+        "genLink": "Wygeneruj nowy link",
+        "allowCopy": "Zezwól na kopiowanie danych z tego widoku",
+        "showAllFields": "Pokaż wszystkie pola po rozwinięciu rekordów",
+        "restrict": "Ogranicz hasłem",
+        "tips": "Osoby posiadające link mogą zobaczyć ten widok.",
+        "passwordTitle": "Wprowadź hasło",
+        "passwordTips": "Ograniczenie widoku współdzielonego za pomocą hasła",
+        "embed": "Osadzenie",
+        "embedPreview": "Podgląd osadzenia",
+        "hideToolbar": "Ukryj pasek narzędzi",
+        "URLSetting": "Konfiguracja parametrów linku",
+        "URLSettingDescription": "Zmiana poniższych ustawień nie wpłynie na już udostępnione linki. Aby zmiany weszły w życie musisz skopiować nowy link",
+        "cancel": "Anuluj",
+        "save": "Zapisz",
+        "requireLogin": "Require login submit"
+      },
+      "extensions": {
+        "label": "Rozszerzenia",
+        "graph": "Wykres"
+      },
+      "api": {
+        "label": "API",
+        "restfulApi": "Interfejs REST API",
+        "databaseConnection": "Połączenie z bazą danych"
+      }
+    }
+  },
+  "welcome": {
+    "title": "Welcome",
+    "description": "Click the + sign on the left sidebar to create a table.",
+    "help": "Visit the <HelpCenter /> for more information.",
+    "helpCenter": "Help Center"
+  },
+  "field": {
+    "fieldManagement": "Zarządzanie polami",
+    "fieldManagementDesc": "Szczegółowe parametry dla wszystkich pól bieżącej tabeli",
+    "advancedProps": "Zaawansowane właściwości",
+    "hide": "hide",
+    "default": {
+      "singleLineText": {
+        "title": "Label"
+      },
+      "longText": {
+        "title": "Notes"
+      },
+      "number": {
+        "title": "Number",
+        "formatType": "Format Type",
+        "currencySymbol": "Currency Symbol",
+        "defaultSymbol": "$",
+        "precision": "Precision",
+        "decimalExample": "Decimal (1.0)",
+        "currencyExample": "Currency ($100)",
+        "percentExample": "Percent (20%)"
+      },
+      "singleSelect": {
+        "title": "Status",
+        "options": {
+          "todo": "To Do",
+          "inProgress": "In Progress",
+          "done": "Done"
+        }
+      },
+      "multipleSelect": {
+        "title": "Tags"
+      },
+      "attachment": {
+        "title": "Attachments"
+      },
+      "user": {
+        "title": "Collaborator"
+      },
+      "date": {
+        "title": "Date",
+        "dateFormatting": "Date Formatting",
+        "timeFormatting": "Time Formatting",
+        "timeZone": "Time Zone",
+        "yearMonth": "Year/Month",
+        "monthDay": "Month/Day",
+        "year": "Year",
+        "month": "Month",
+        "day": "Day",
+        "local": "Local",
+        "friendly": "Friendly",
+        "us": "US",
+        "european": "European",
+        "asia": "Asia",
+        "custom": "Custom",
+        "12Hour": "12 hour",
+        "24Hour": "24 hour",
+        "noDisplay": "No display"
+      },
+      "autoNumber": {
+        "title": "ID"
+      },
+      "createdTime": {
+        "title": "Created time"
+      },
+      "lastModifiedTime": {
+        "title": "Last modified time"
+      },
+      "createdBy": {
+        "title": "Created by"
+      },
+      "lastModifiedBy": {
+        "title": "Last modified by"
+      },
+      "rating": {
+        "title": "Rating"
+      },
+      "checkbox": {
+        "title": "Done"
+      },
+      "formula": {
+        "title": "Calculation",
+        "formula": "Formula"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (from {{linkFieldName}})"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} Rollup (from {{linkFieldName}})",
+        "rollup": "Rollup",
+        "selectAnRollupFunction": "Select an rollup function",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Returns true if all the values are true",
+          "arrayCompact": "Removes empty strings and null values from the array. Keeps 'false' and strings that contain one or more blank characters.",
+          "arrayJoin": "Join all the values into a single comma-separated string.",
+          "arrayUnique": "Return only unique items.",
+          "average": "Mean average of the values.",
+          "concatenate": "Joins together the text values into a single text value.",
+          "count": "Count only non-empty numeric values. If you want to count all records, use COUNTALL.",
+          "countA": "Count the number of non-empty values. This function counts both numeric and text values.",
+          "countAll": "counts all values including blank records.",
+          "max": "Returns the largest of the given numbers.",
+          "min": "Returns the smallest of the given numbers.",
+          "or": "Returns true if any one of the values is true.",
+          "sum": "Sum together the values.",
+          "xor": "Returns true if and only if odd number of values are true."
+        }
+      }
+    },
+    "editor": {
+      "addField": "Add Field",
+      "editField": "Edit Field",
+      "insertField": "Insert Field",
+      "graph": "Wykres",
+      "defaultValue": "Default value",
+      "reset": "Reset",
+      "fieldUpdated": "Field has been updated",
+      "fieldCreated": "Field has been created",
+      "previewDependenciesGraph": "Preview Dependencies Graph",
+      "areYouSurePerformIt": "Are you sure you want to perform it?",
+      "addDescription": "Add Description",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe this field (optional)",
+      "type": "Type",
+      "showAs": "Show As",
+      "color": "Color",
+      "number": "Number",
+      "chartBar": "Chart Bar",
+      "chartLine": "Chart Line",
+      "ring": "Ring",
+      "bar": "Bar",
+      "text": "Text",
+      "url": "Url",
+      "email": "Email",
+      "phone": "Phone",
+      "maxNumber": "Max Number",
+      "showNumber": "Show Number",
+      "autoFillDate": "Auto Fill with current date",
+      "createSymmetricLink": "Create a back link field in the link table",
+      "allowLinkMultipleRecords": "Allow multiple select",
+      "allowLinkToDuplicateRecords": "Allows records to be selected more than once",
+      "allowSymmetricFieldLinkMultipleRecords": "Allows records to be selected more than once",
+      "oneToOne": "one-to-one",
+      "oneToMany": "one-to-many",
+      "manyToOne": "many-to-one",
+      "manyToMany": "many-to-many",
+      "self": "Self",
+      "selectTable": "Select table...",
+      "selectBase": "Select a base...",
+      "linkFromExternalBase": "Link from external base",
+      "inSelfLink": "in self-link",
+      "betweenTwoTables": "between two tables",
+      "linkTipMessage": "Tips: this configuration represents a<br></br> <b>{{relationship}}</b> relationship <span>{{linkType}}</span>",
+      "style": "Style",
+      "maximum": "Maximum",
+      "addOption": "Add option",
+      "allowMultiUsers": "Allow adding multiple users",
+      "notifyUsers": "Notify users once they're selected",
+      "searchTable": "Search table...",
+      "calculating": "Calculating...",
+      "doSaveChanges": "Do you want to save the changes you made?",
+      "linkFieldToLookup": "Linked record field to use for lookup",
+      "lookupToTable": "{{tableName}} field you want to look up",
+      "selectField": "Select a field...",
+      "linkTable": "Link table",
+      "linkBase": "Link base",
+      "tableNoPermission": "No permission table",
+      "baseNoPermission": "No permission base",
+      "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
+      "fieldValidationRules": "Field value validation rules",
+      "enableValidateFieldUnique": "Enable unique value validation",
+      "enableValidateFieldNotNull": "Enable not null value validation",
+      "knowMore": "know more",
+      "linkFieldKnowMoreLink": "https://help.teable.io/product/fields/field-type/link",
+      "filterByView": "Filter records by view",
+      "filter": "Filter records",
+      "hideFields": "Hide fields",
+      "moreOptions": "More options"
+    },
+    "subTitle": {
+      "link": "Link to records in the table you choose",
+      "singleLineText": "Enter text, or prefill each new cell with a default value.",
+      "longText": "Enter multiple lines of text.",
+      "attachment": "Add images, documents, or other files to be viewed or downloaded.",
+      "checkbox": "Check or uncheck to indicate status.",
+      "multipleSelect": "Select one or more predefined options in a list.",
+      "singleSelect": "Select one predefined option from a list, or prefill each new cell with a default option.",
+      "user": "Add an user to a record.",
+      "date": "Enter a date (e.g. 11/12/2023) or choose one from a calendar.",
+      "number": "Enter a number, or prefill each new cell with a default value.",
+      "duration": "Enter a duration of time in hours, minutes or seconds (e.g. 1:23).",
+      "rating": "Add a rating on a predefined scale.",
+      "formula": "Compute values based on fields.",
+      "rollup": "Summarize data from linked records.",
+      "count": "Count the number of linked records.",
+      "createdTime": "See the date and time each record was created.",
+      "lastModifiedTime": "See the date and time of the most recent edit to some or all fields in a record.",
+      "createdBy": "See which user created the record.",
+      "lastModifiedBy": "See which user made the most recent edit to some or all fields in a record.",
+      "autoNumber": "Automatically generate unique incremental numbers for each record.",
+      "button": "Trigger a customized action.",
+      "lookup": "See values from a field in a linked record."
+    },
+    "fieldName": "Field Name",
+    "fieldNameOptional": "Field Name (Optional)",
+    "fieldType": "Field Type"
+  },
+  "table": {
+    "newTableLabel": "Nowa tabela",
+    "rename": "Zmień nazwę",
+    "design": "Projekt",
+    "tableRecordHistory": "Table record history",
+    "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
+    "dbTableName": "Nazwa tabeli w rzeczywistej bazie danych",
+    "schemaName": "Nazwa schematu w rzeczywistej bazie danych",
+    "tableInfo": "Informacje o tabeli",
+    "tableInfoDetail": "Podstawowe informacje dotyczące tabeli",
+    "typeOfDatabase": "Rodzaj bazy danych",
+    "descriptionForTable": "Dodatkowe informacje o tej tabeli",
+    "nameForTable": "Wyświetlana nazwa tej tabeli",
+    "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
+    "deleteTip2": "This table can be restored from the trash after deletion.",
+    "operator": {
+      "createBlank": "Utwórz pustą tabelę"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
+      "copyAndPasteBrowser": "Copy and paste not supported in this browser",
+      "copying": "Copying...",
+      "copySuccessful": "Copy successful",
+      "copyFailed": "Copy failed",
+      "pasting": "Pasting...",
+      "pasteSuccessful": "Paste successful",
+      "pasteFailed": "Paste failed",
+      "clearing": "Clearing...",
+      "clearSuccessful": "Clear successful",
+      "deleting": "Deleting...",
+      "deleteSuccessful": "Delete successful",
+      "pasteFileFailed": "Files can only be pasted into an attachment field"
+    },
+    "graph": {
+      "tableLabel": "Table label",
+      "effectCells": "May effect cells",
+      "estimatedTime": "Estimated time"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "Upload",
+      "import": "Import",
+      "localFile": "Local Files",
+      "linkUrl": "Link(URL)",
+      "linkUrlInputTitle": "Add file from URL",
+      "importTitle": "Create a new table",
+      "incrementImportTitle": "Import Into — ",
+      "optionsTitle": "Import option",
+      "primitiveFields": "Primitive Fields",
+      "importFields": "Import Field",
+      "primaryField": "Primary Field",
+      "tipsTitle": "Tips",
+      "confirm": "Confirm and continue"
+    },
+    "menu": {
+      "addFromOtherSource": "Dodaj z innych źródeł",
+      "excelFile": "Microsoft Excel",
+      "csvFile": "Plik Csv",
+      "cancel": "Cancel",
+      "leave": "Leave",
+      "downAsCsv": "Pobierz CSV",
+      "importData": "Importuj dane"
+    },
+    "tips": {
+      "importWayTip": "Click or drag file to this area to upload",
+      "leaveTip": "Your data will still be imported.",
+      "fileExceedSizeTip": "This type file size exceeds the limit of",
+      "analyzing": "analyzing",
+      "importing": "Importing",
+      "notSupportFieldType": "Field type is not supported",
+      "resultEmpty": "No results found.",
+      "searchPlaceholder": "Search...",
+      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import status is displayed in the upper right corner of the table. The results of import process will be notified to you once completed. You should not update the field during the import as it may cause errors.",
+      "noTips": "I know that, don't show again"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Auto-select field types",
+      "useFirstRowAsHeaderOptionName": "Use first row as header",
+      "importDataOptionName": "Import Data",
+      "sheetKey": "SheetName: ",
+      "excludeFirstRow": "Exclude first row in import"
+    },
+    "form": {
+      "defaultFieldName": "Field",
+      "error": {
+        "urlEmptyTip": "URL should not be empty!",
+        "errorFileFormat": "File format is incorrect!",
+        "uniqueFieldName": "Field name should be unique!",
+        "fieldNameEmpty": "Field name should not be empty!",
+        "atLeastAImportField": "Please set a import field at least",
+        "urlValidateTip": "Couldn't parse URL. Try a different URL!"
+      },
+      "option": {
+        "doNotImport": "Do not import"
+      }
+    }
+  },
+  "export": {
+    "menu": {
+      "exportCsv": "Download Csv"
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "Add new record",
+    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row."
+  },
+  "form": {
+    "fieldsManagement": "Fields",
+    "addAll": "Add All",
+    "removeAll": "Remove All",
+    "hideFieldTip": "Hide the field to here",
+    "unableAddFieldTip": "Unable to add this type field",
+    "removeFromFormTip": "Remove from the form",
+    "descriptionPlaceholder": "Enter from description",
+    "dragToFormTip": "Drag the field here to add it to the form"
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Hide field name",
+      "customizeCards": "Customize cards",
+      "stackedBy": "Stacked by <0/>",
+      "chooseStackingField": "Choose a stacking field",
+      "chooseStackingFieldDescription": "Which field would you like to use for this kanban view? Your records will be stacked based on this field.",
+      "hideEmptyStack": "Hide empty stack",
+      "imageSetting": "Image Setting",
+      "fit": "Fit",
+      "noImage": "No image",
+      "chooseAttachmentField": "Choose attachment field"
+    },
+    "stack": {
+      "addStack": "Add Stack",
+      "noCards": "No cards",
+      "uncategorized": "Uncategorized"
+    },
+    "stackMenu": {
+      "collapseStack": "Collapse stack",
+      "renameStack": "Rename stack",
+      "deleteStack": "Delete stack"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Insert card above",
+      "insertCardBelow": "Insert card below",
+      "expandCard": "Expand card",
+      "deleteCard": "Delete card"
+    }
+  },
+  "menu": {
+    "insertRecordAbove": "Insert record above",
+    "insertRecordBelow": "Insert record below",
+    "copyCells": "Copy cells",
+    "deleteRecord": "Delete record",
+    "deleteAllSelectedRecords": "Delete all selected records",
+    "editField": "Edit field",
+    "insertFieldLeft": "Insert left",
+    "insertFieldRight": "Insert right",
+    "freezeUpField": "Freeze up to this field",
+    "hideField": "Hide field",
+    "deleteField": "Delete field",
+    "deleteAllSelectedFields": "Delete all selected fields"
+  },
+  "connection": {
+    "title": "Połączenie z bazą danych",
+    "description": "Dostęp do bazy danych można uzyskać bezpośrednio przez połączenie z bazą, w tym do wszystkich tabel dostępnych tutaj",
+    "noPermission": "Nie masz uprawnień dostępu do bazy danych",
+    "connectionCountTip": "Maksymalna liczba połączeń z bazą danych wynosi <b>{{max}}</b> a bieżąca liczba połączeń wynosi <b>{{current}}</b>",
+    "helpLink": "https://help.teable.io/developer/database-connection"
+  },
+  "view": {
+    "addRecord": "Add record",
+    "searchView": "Search view...",
+    "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
+    "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
+    "action": {
+      "rename": "Rename view",
+      "delete": "Delete view"
+    },
+    "category": {
+      "table": "Grid View",
+      "form": "Form View",
+      "kanban": "Kanban View"
+    },
+    "crash": {
+      "title": "Crash!",
+      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
+    },
+    "addPluginView": "Add Plugin View"
+  },
+  "lastModifiedTime": "Ostatnia data modyfikacji",
+  "lastModify": "Ostatnia modyfikacja: ",
+  "pasteNewRecords": {
+    "title": "Do you want to add multiple records?",
+    "description": "The {{count}} records will be added to the table."
+  }
+}

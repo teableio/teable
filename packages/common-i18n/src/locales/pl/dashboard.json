@@ -1,0 +1,15 @@
+{
+  "empty": {
+    "title": "Nie ma jeszcze żadnych pulpitów",
+    "description": "Wygląda na to, że nie utworzono jeszcze żadnych pulpitów. Pulpity pomagają wizualizować dane i zarządzać nimi w bardziej efektywny sposób.",
+    "create": "Utwórz swój pierwszy pulpit"
+  },
+  "addPlugin": "Dodaj wtyczkę",
+  "createDashboard": {
+    "button": "Stwórz pulpit",
+    "title": "Utwórz nowy pulpit",
+    "placeholder": "Wprowadź nazwę pulpitu"
+  },
+  "findDashboard": "Znajdź pulpit...",
+  "expand": "Rozwiń"
+}
