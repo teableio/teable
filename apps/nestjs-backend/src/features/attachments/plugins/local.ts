@@ -215,13 +215,21 @@ export class LocalStorage implements StorageAdapter {
     if (!fse.existsSync(resolve(this.storageDir, bucket, path))) {
       return undefined;
     }
+    return this.getPreviewUrlInner(bucket, path, expiresIn, respHeaders);
+  }
+
+  async getPreviewUrlInner(
+    bucket: string,
+    path: string,
+    expiresIn: number,
+    respHeaders?: IRespHeaders
+  ) {
     const url = this.getUrl(bucket, path, {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,
     });
     return this.baseConfig.storagePrefix + join('/', url);
   }
-
   verifyReadToken(token: string) {
     try {
       const { expiresDate, respHeaders } = this.expireTokenEncryptor.decrypt(token);
