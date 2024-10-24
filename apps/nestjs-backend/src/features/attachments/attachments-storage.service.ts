@@ -3,7 +3,10 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { CacheService } from '../../cache/cache.service';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
 import {
+  generateTableThumbnailPath,
   getTableThumbnailSize,
   getTableThumbnailToken,
 } from '../../utils/generate-table-thumbnail-path';
@@ -17,6 +20,7 @@ export class AttachmentsStorageService {
   constructor(
     private readonly cacheService: CacheService,
     private readonly prismaService: PrismaService,
+    private readonly eventEmitterService: EventEmitterService,
     @StorageConfig() private readonly storageConfig: IStorageConfig,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
   ) {}
@@ -71,7 +75,9 @@ export class AttachmentsStorageService {
     let url = previewCache?.url;
     if (!url) {
       url = await this.storageAdapter.getPreviewUrl(bucket, path, expiresIn, respHeaders);
-
+      if (!url) {
+        throw new BadRequestException(`Invalid token: ${token}`);
+      }
       await this.cacheService.set(
         `attachment:preview:${token}`,
         {
@@ -84,38 +90,63 @@ export class AttachmentsStorageService {
     return url;
   }
 
-  async getTableAttachmentThumbnailUrl(smThumbnailPath?: string, lgThumbnailPath?: string) {
-    const smThumbnailUrl = smThumbnailPath
-      ? await this.getPreviewUrlByPath(
-          StorageAdapter.getBucket(UploadType.Table),
-          smThumbnailPath,
-          getTableThumbnailToken(smThumbnailPath)
-        )
-      : undefined;
-    const lgThumbnailUrl = lgThumbnailPath
-      ? await this.getPreviewUrlByPath(
-          StorageAdapter.getBucket(UploadType.Table),
-          lgThumbnailPath,
-          getTableThumbnailToken(lgThumbnailPath)
-        )
-      : undefined;
+  private async getTableThumbnailUrl(path: string, token: string) {
+    const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
+    if (previewCache?.url) {
+      return previewCache.url;
+    }
+    const url = await this.storageAdapter.getPreviewUrl(
+      StorageAdapter.getBucket(UploadType.Table),
+      path,
+      second(this.storageConfig.urlExpireIn)
+    );
+    if (url) {
+      await this.cacheService.set(
+        `attachment:preview:${token}`,
+        {
+          url,
+          expiresIn: second(this.storageConfig.urlExpireIn),
+        },
+        second(this.storageConfig.urlExpireIn)
+      );
+    }
+    return url;
+  }
+
+  async getTableAttachmentThumbnailUrl(path: string) {
+    const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
+    const smThumbnailUrl = await this.getTableThumbnailUrl(
+      smThumbnailPath,
+      getTableThumbnailToken(smThumbnailPath)
+    );
+    const lgThumbnailUrl = await this.getTableThumbnailUrl(
+      lgThumbnailPath,
+      getTableThumbnailToken(lgThumbnailPath)
+    );
     return { smThumbnailUrl, lgThumbnailUrl };
   }
 
   async cutTableImage(bucket: string, path: string, width: number, height: number) {
     const { smThumbnail, lgThumbnail } = getTableThumbnailSize(width, height);
-    const cutSmThumbnailPath = await this.storageAdapter.cutImage(
+    const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
+    const cutSmThumbnailPath = await this.storageAdapter.cropImage(
       bucket,
       path,
       smThumbnail.width,
-      smThumbnail.height
+      smThumbnail.height,
+      smThumbnailPath
     );
-    const cutLgThumbnailPath = await this.storageAdapter.cutImage(
+    const cutLgThumbnailPath = await this.storageAdapter.cropImage(
       bucket,
       path,
       lgThumbnail.width,
-      lgThumbnail.height
+      lgThumbnail.height,
+      lgThumbnailPath
     );
+    this.eventEmitterService.emit(Events.CROP_IMAGE, {
+      bucket,
+      path,
+    });
     return {
       smThumbnailPath: cutSmThumbnailPath,
       lgThumbnailPath: cutLgThumbnailPath,

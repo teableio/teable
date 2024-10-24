@@ -10,7 +10,6 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
-import { generateCutImagePath } from './utils';
 
 @Injectable()
 export class MinioStorage implements StorageAdapter {
@@ -125,6 +124,9 @@ export class MinioStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
+    if (!(await this.fileExists(bucket, path))) {
+      return;
+    }
     const { 'Content-Disposition': contentDisposition, ...headers } = respHeaders ?? {};
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, {
       ...headers,
@@ -178,8 +180,8 @@ export class MinioStorage implements StorageAdapter {
     }
   }
 
-  async cutImage(bucket: string, path: string, width: number, height: number) {
-    const newPath = generateCutImagePath(path, width, height);
+  async cropImage(bucket: string, path: string, width: number, height: number, _newPath?: string) {
+    const newPath = _newPath || `${path}_${width}_${height}`;
     const resizedImagePath = resolve(
       StorageAdapter.TEMPORARY_DIR,
       encodeURIComponent(join(bucket, newPath))

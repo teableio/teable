@@ -5,7 +5,10 @@ import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
 import { FieldKeyType, FieldType, getRandomString } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { permanentDeleteTable, updateRecord, uploadAttachment } from '@teable/openapi';
+import { getRecord, permanentDeleteTable, updateRecord, uploadAttachment } from '@teable/openapi';
+import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
+import { Events } from '../src/event-emitter/events';
+import { createAwaitWithEvent } from './utils/event-promise';
 import { createField, createTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AttachmentController (e2e)', () => {
@@ -88,6 +91,8 @@ describe('OpenAPI AttachmentController (e2e)', () => {
   });
 
   it('should get thumbnail url', async () => {
+    const eventEmitterService = app.get(EventEmitterService);
+    const awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.CROP_IMAGE);
     const imagePath = path.join(os.tmpdir(), `./${getRandomString(12)}.svg`);
     fs.writeFileSync(
       imagePath,
@@ -98,15 +103,18 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     );
     const imageStream = fs.createReadStream(imagePath);
     const field = await createField(table.id, { type: FieldType.Attachment });
-    const record = await uploadAttachment(table.id, table.records[0].id, field.id, imageStream);
-    fs.unlinkSync(imagePath);
-    expect(record.data.fields[field.id] as IAttachmentCellValue[]).toEqual(
+
+    await awaitWithEvent(async () => {
+      await uploadAttachment(table.id, table.records[0].id, field.id, imageStream);
+      fs.unlinkSync(imagePath);
+    });
+    eventEmitterService.eventEmitter.removeAllListeners(Events.CROP_IMAGE);
+    const record = await getRecord(table.id, table.records[0].id);
+    expect(record.data.fields[field.name] as IAttachmentCellValue[]).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           smThumbnailUrl: expect.any(String),
           lgThumbnailUrl: expect.any(String),
-          smThumbnailPath: expect.any(String),
-          lgThumbnailPath: expect.any(String),
         }),
       ])
     );

@@ -15,7 +15,6 @@ import { Encryptor } from '../../../utils/encryptor';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
 import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
-import { generateCutImagePath } from './utils';
 
 interface ITokenEncryptor {
   expiresDate: number;
@@ -212,14 +211,25 @@ export class LocalStorage implements StorageAdapter {
     path: string,
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
-  ): Promise<string> {
+  ): Promise<string | undefined> {
+    if (!fse.existsSync(resolve(this.storageDir, bucket, path))) {
+      return undefined;
+    }
+    return this.getPreviewUrlInner(bucket, path, expiresIn, respHeaders);
+  }
+
+  async getPreviewUrlInner(
+    bucket: string,
+    path: string,
+    expiresIn: number,
+    respHeaders?: IRespHeaders
+  ) {
     const url = this.getUrl(bucket, path, {
       expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
       respHeaders,
     });
     return this.baseConfig.storagePrefix + join('/', url);
   }
-
   verifyReadToken(token: string) {
     try {
       const { expiresDate, respHeaders } = this.expireTokenEncryptor.decrypt(token);
@@ -281,14 +291,15 @@ export class LocalStorage implements StorageAdapter {
     };
   }
 
-  async cutImage(bucket: string, path: string, width: number, height: number) {
-    const newPath = generateCutImagePath(path, width, height);
+  async cropImage(bucket: string, path: string, width: number, height: number, _newPath?: string) {
+    const newPath = _newPath || `${path}_${width}_${height}`;
     const resizedImagePath = resolve(this.storageDir, bucket, newPath);
     if (fse.existsSync(resizedImagePath)) {
       return newPath;
     }
+
     const imagePath = resolve(this.storageDir, bucket, path);
-    const image = sharp(imagePath);
+    const image = sharp(imagePath, { failOn: 'none', unlimited: true });
     const metadata = await image.metadata();
     if (!metadata.width || !metadata.height) {
       throw new BadRequestException('Invalid image');

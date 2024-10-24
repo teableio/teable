@@ -316,7 +316,7 @@ describe('LocalStorage', () => {
     });
   });
 
-  describe('getPreviewUrl', () => {
+  describe('getPreviewUrlInner', () => {
     it('should get preview URL', async () => {
       const mockBucket = 'mock-bucket';
       const mockPath = 'mock/file/path';
@@ -324,7 +324,7 @@ describe('LocalStorage', () => {
 
       vi.spyOn(storage.expireTokenEncryptor, 'encrypt').mockReturnValueOnce('mock-token');
 
-      const result = await storage.getPreviewUrl(
+      const result = await storage.getPreviewUrlInner(
         mockBucket,
         mockPath,
         mockExpiresIn,

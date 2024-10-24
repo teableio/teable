@@ -83,7 +83,7 @@ export default abstract class StorageAdapter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [key: string]: any;
     }
-  ): Promise<string>;
+  ): Promise<string | undefined>;
 
   /**
    * uploadFile with file path
@@ -119,7 +119,14 @@ export default abstract class StorageAdapter {
    * @param path path name
    * @param width width
    * @param height height
+   * @param newPath save as new path
    * @returns cut image url
    */
-  abstract cutImage(bucket: string, path: string, width: number, height: number): Promise<string>;
+  abstract cropImage(
+    bucket: string,
+    path: string,
+    width: number,
+    height: number,
+    newPath?: string
+  ): Promise<string>;
 }

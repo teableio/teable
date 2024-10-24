@@ -26,7 +26,7 @@ import {
   DriverClient,
   CellFormat,
 } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import { type ITableFullVo } from '@teable/openapi';
 import {
   getRecords,
   createField,
@@ -252,20 +252,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         type: FieldType.Attachment,
       };
 
-      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo, [
-        [
-          {
-            id: 'actId',
-            name: 'example.jpg',
-            token: 'ivJAXrtjLeSZ',
-            size: 1,
-            mimetype: 'image/jpeg',
-            path: 'table/example',
-            bucket: '',
-          },
-        ],
-      ]);
-      expect(values[0]).toBeTruthy();
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
       expect(newField.name).toEqual('New Name');
     });
 
