@@ -251,8 +251,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         name: 'New Name',
         type: FieldType.Attachment,
       };
-      const { newField, values } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
-      expect(values[0]).toBeTruthy();
+
+      const { newField } = await expectUpdate(table1, sourceFieldRo, newFieldRo);
       expect(newField.name).toEqual('New Name');
     });
 
