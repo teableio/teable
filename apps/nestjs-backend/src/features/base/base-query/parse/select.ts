@@ -3,6 +3,8 @@ import { BaseQueryColumnType } from '@teable/openapi';
 import type { IQueryAggregation, IBaseQuerySelect, IBaseQueryGroupBy } from '@teable/openapi';
 import type { Knex } from 'knex';
 import { cloneDeep, isEmpty } from 'lodash';
+import type { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { isUserOrLink } from '../../../../utils/is-user-or-link';
 import type { IFieldInstance } from '../../../field/model/factory';
 import { getQueryColumnTypeByFieldInstance } from './utils';
 
@@ -15,9 +17,10 @@ export class QuerySelect {
       fieldMap: Record<string, IFieldInstance>;
       aggregation: IQueryAggregation | undefined;
       groupBy: IBaseQueryGroupBy | undefined;
+      dbProvider: IDbProvider;
     }
   ): { queryBuilder: Knex.QueryBuilder; fieldMap: Record<string, IFieldInstance> } {
-    const { queryBuilder, fieldMap, groupBy, aggregation, knex } = content;
+    const { queryBuilder, fieldMap, groupBy, aggregation, knex, dbProvider } = content;
     let currentFieldMap = cloneDeep(fieldMap);
 
     // column must appear in the GROUP BY clause or be used in an aggregate function
@@ -25,6 +28,7 @@ export class QuerySelect {
       knex,
       groupBy,
       fieldMap: currentFieldMap,
+      dbProvider,
     });
     const allowSelectColumnIds = this.allowSelectedColumnIds(currentFieldMap, groupBy, aggregation);
     if (aggregation?.length || groupBy?.length) {
@@ -160,9 +164,10 @@ export class QuerySelect {
       groupBy: IBaseQueryGroupBy | undefined;
       fieldMap: Record<string, IFieldInstance>;
       knex: Knex;
+      dbProvider: IDbProvider;
     }
   ): Record<string, IFieldInstance> | undefined {
-    const { groupBy, fieldMap, knex } = content;
+    const { groupBy, fieldMap, knex, dbProvider } = content;
     if (!groupBy) {
       return;
     }
@@ -176,13 +181,17 @@ export class QuerySelect {
       {} as Record<string, IFieldInstance>
     );
     const groupByColumnMap = this.extractGroupByColumnMap(queryBuilder, groupFieldMap);
-    Object.entries(groupByColumnMap).forEach(([dbFieldName, column]) => {
+    Object.entries(groupByColumnMap).forEach(([fieldId, column]) => {
+      if (isUserOrLink(fieldMap[fieldId].type)) {
+        dbProvider.baseQuery().jsonSelect(queryBuilder, fieldMap[fieldId].dbFieldName, fieldId);
+        return;
+      }
       queryBuilder.select(
         typeof column === 'string'
           ? {
-              [dbFieldName]: column,
+              [fieldId]: column,
             }
-          : knex.raw(`${column.sql} as ??`, [...column.bindings, dbFieldName])
+          : knex.raw(`${column.sql} as ??`, [...column.bindings, fieldId])
       );
     });
 

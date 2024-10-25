@@ -112,7 +112,6 @@ export class BaseQueryService {
         throw new BadRequestException(`Query failed: ${query}, ${e.message}`);
       });
     const columns = this.convertFieldMapToColumn(fieldMap);
-
     return {
       rows: await this.dbRows2Rows(rows, columns, cellFormat),
       columns,
@@ -132,6 +131,7 @@ export class BaseQueryService {
         fieldMap,
         queryBuilder,
         baseId,
+        dbTableName,
       });
     }
     const { queryBuilder, fieldMap } = await this.parseBaseQuery(baseId, baseQuery.from, depth + 1);
@@ -149,6 +149,7 @@ export class BaseQueryService {
       ),
       queryBuilder: this.knex(queryBuilder.as(alias)),
       baseId,
+      dbTableName: alias,
     });
   }
 
@@ -158,9 +159,10 @@ export class BaseQueryService {
       baseId: string;
       fieldMap: Record<string, IFieldInstance>;
       queryBuilder: Knex.QueryBuilder;
+      dbTableName: string;
     }
   ): Promise<{ queryBuilder: Knex.QueryBuilder; fieldMap: Record<string, IFieldInstance> }> {
-    const { fieldMap, baseId, queryBuilder } = context;
+    const { fieldMap, baseId, queryBuilder, dbTableName } = context;
     let currentQueryBuilder = queryBuilder;
     let currentFieldMap = fieldMap;
     if (baseQuery.join) {
@@ -207,7 +209,7 @@ export class BaseQueryService {
       new QueryAggregation().parse(baseQuery.aggregation, {
         queryBuilder: currentQueryBuilder,
         fieldMap: currentFieldMap,
-        dbTableName: '',
+        dbTableName,
         dbProvider: this.dbProvider,
       });
     currentFieldMap = aggregatedFieldMap;
@@ -232,6 +234,7 @@ export class BaseQueryService {
         aggregation: baseQuery.aggregation,
         groupBy: baseQuery.groupBy,
         knex: this.knex,
+        dbProvider: this.dbProvider,
       });
 
     return { queryBuilder: selectedQueryBuilder, fieldMap: selectedFieldMap };
