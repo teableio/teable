@@ -24,5 +24,5 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         ...(await getTranslationsProps(context, i18nNamespaces)),
       },
     };
-  })
+  }, true)
 );
