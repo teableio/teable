@@ -27,7 +27,9 @@ export const isWord = (mimetype: string) => {
 export const isExcel = (mimetype: string) => {
   return (
     mimetype.startsWith('application/vnd.ms-excel') ||
-    mimetype.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    mimetype.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') ||
+    mimetype.startsWith('text/csv') ||
+    mimetype.startsWith('application/csv')
   );
 };
 
