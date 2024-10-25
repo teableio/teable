@@ -233,8 +233,14 @@ export class S3Storage implements StorageAdapter {
     }
   }
 
-  async cropImage(bucket: string, path: string, width: number, height: number, _newPath?: string) {
-    const newPath = _newPath || `${path}_${width}_${height}`;
+  async cropImage(
+    bucket: string,
+    path: string,
+    width?: number,
+    height?: number,
+    _newPath?: string
+  ) {
+    const newPath = _newPath || `${path}_${width ?? 0}_${height ?? 0}`;
     const resizedImagePath = resolve(
       StorageAdapter.TEMPORARY_DIR,
       encodeURIComponent(join(bucket, newPath))

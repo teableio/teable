@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ATTACHMENT_LG_THUMBNAIL_HEIGHT, ATTACHMENT_SM_THUMBNAIL_HEIGHT } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { CacheService } from '../../cache/cache.service';
@@ -7,7 +8,6 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import {
   generateTableThumbnailPath,
-  getTableThumbnailSize,
   getTableThumbnailToken,
 } from '../../utils/generate-table-thumbnail-path';
 import { second } from '../../utils/second';
@@ -126,21 +126,20 @@ export class AttachmentsStorageService {
     return { smThumbnailUrl, lgThumbnailUrl };
   }
 
-  async cropTableImage(bucket: string, path: string, width: number, height: number) {
-    const { smThumbnail, lgThumbnail } = getTableThumbnailSize(width, height);
+  async cropTableImage(bucket: string, path: string) {
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
     const cutSmThumbnailPath = await this.storageAdapter.cropImage(
       bucket,
       path,
-      smThumbnail.width,
-      smThumbnail.height,
+      undefined,
+      ATTACHMENT_SM_THUMBNAIL_HEIGHT,
       smThumbnailPath
     );
     const cutLgThumbnailPath = await this.storageAdapter.cropImage(
       bucket,
       path,
-      lgThumbnail.width,
-      lgThumbnail.height,
+      undefined,
+      ATTACHMENT_LG_THUMBNAIL_HEIGHT,
       lgThumbnailPath
     );
     this.eventEmitterService.emit(Events.CROP_IMAGE, {

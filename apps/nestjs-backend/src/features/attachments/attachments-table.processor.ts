@@ -1,6 +1,5 @@
 import { InjectQueue, Processor } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import type { IAttachmentItem } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { Queue } from 'bullmq';
 import type { Job } from 'bullmq';
@@ -13,18 +12,23 @@ export enum AttachmentJobName {
 
 interface IRecordImageJob {
   tableId: string;
-  attachmentItem?: IAttachmentItem;
+  attachmentItem?: {
+    path: string;
+    mimetype: string;
+    lgThumbnailUrl?: string;
+    smThumbnailUrl?: string;
+  };
 }
 
-export const RECORD_IMAGE_QUEUE = 'record-image-queue';
+export const ATTACHMENTS_TABLE_QUEUE = 'attachments-table-queue';
 
 @Injectable()
-@Processor(RECORD_IMAGE_QUEUE)
-export class RecordImageQueueProcessor {
-  private logger = new Logger(RecordImageQueueProcessor.name);
+@Processor(ATTACHMENTS_TABLE_QUEUE)
+export class AttachmentsTableQueueProcessor {
+  private logger = new Logger(AttachmentsTableQueueProcessor.name);
   constructor(
     private readonly attachmentsStorageService: AttachmentsStorageService,
-    @InjectQueue(RECORD_IMAGE_QUEUE) public readonly queue: Queue<IRecordImageJob>
+    @InjectQueue(ATTACHMENTS_TABLE_QUEUE) public readonly queue: Queue<IRecordImageJob>
   ) {}
 
   public async process(job: Job<IRecordImageJob>) {
@@ -33,9 +37,9 @@ export class RecordImageQueueProcessor {
       return;
     }
     const tableBucket = StorageAdapter.getBucket(UploadType.Table);
-    const { path, mimetype, width, height, lgThumbnailUrl, smThumbnailUrl } = attachmentItem;
-    if (mimetype.startsWith('image/') && width && height && !smThumbnailUrl && !lgThumbnailUrl) {
-      await this.attachmentsStorageService.cropTableImage(tableBucket, path, width, height);
+    const { path, mimetype, lgThumbnailUrl, smThumbnailUrl } = attachmentItem;
+    if (mimetype.startsWith('image/') && !smThumbnailUrl && !lgThumbnailUrl) {
+      await this.attachmentsStorageService.cropTableImage(tableBucket, path);
       this.logger.log(`crop table(${tableId}) path(${path}) thumbnails success`);
       return;
     }

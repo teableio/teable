@@ -124,8 +124,8 @@ export default abstract class StorageAdapter {
   abstract cropImage(
     bucket: string,
     path: string,
-    width: number,
-    height: number,
+    width?: number,
+    height?: number,
     newPath?: string
   ): Promise<string>;
 }

@@ -32,7 +32,6 @@ import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
-import { RecordImageQueueProcessor } from '../record-image-queue.processor';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
@@ -51,7 +50,6 @@ export class RecordOpenApiService {
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly attachmentsService: AttachmentsService,
-    private readonly recordImageQueueProcessor: RecordImageQueueProcessor,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>
   ) {}
@@ -245,43 +243,12 @@ export class RecordOpenApiService {
       const cellValues = recordsFields.map((recordFields) => recordFields[fieldIdOrName]);
 
       const newCellValues = await typeCastAndValidate.typecastCellValuesWithField(cellValues);
-      const collectionAttachmentThumbnails: {
-        index: number;
-        key: string;
-        attachmentIndex: number;
-      }[] = [];
       newRecordsFields.forEach((recordField, i) => {
         // do not generate undefined field key
         if (newCellValues[i] !== undefined) {
           recordField[fieldIdOrName] = newCellValues[i];
-          const attachmentCv = newCellValues[i] as IAttachmentCellValue;
-          if (field.type === FieldType.Attachment && attachmentCv) {
-            attachmentCv.forEach((attachmentItem, index) => {
-              const { mimetype } = attachmentItem;
-              if (mimetype.startsWith('image/')) {
-                collectionAttachmentThumbnails.push({
-                  index: i,
-                  key: fieldIdOrName,
-                  attachmentIndex: index,
-                });
-              }
-            });
-          }
         }
       });
-      for (const thumbnail of collectionAttachmentThumbnails) {
-        const { index, key } = thumbnail;
-        const attachmentCv = newRecordsFields[index][key] as IAttachmentCellValue;
-        const attachmentItem = attachmentCv[thumbnail.attachmentIndex];
-        const { width, height } = attachmentItem;
-        if (!width || !height) {
-          continue;
-        }
-        this.recordImageQueueProcessor.queue.add(`crop_image_${tableId}`, {
-          tableId,
-          attachmentItem,
-        });
-      }
     }
     return records.map((record, i) => ({
       ...record,
