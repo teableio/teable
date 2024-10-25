@@ -50,6 +50,12 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
           if (e.key === 'Escape') {
             closePreview();
           }
+          if (e.key === 'ArrowRight') {
+            onNext();
+          }
+          if (e.key === 'ArrowLeft') {
+            onPrev();
+          }
           e.stopPropagation();
         }}
       >
