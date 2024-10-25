@@ -36,6 +36,8 @@ export class AttachmentsTableService {
       attachment: {
         path: string;
         mimetype: string;
+        width?: number;
+        height?: number;
       };
     })[] = [];
     records.forEach((record) => {
@@ -54,6 +56,8 @@ export class AttachmentsTableService {
             attachment: {
               path: attachment.path,
               mimetype: attachment.mimetype,
+              width: attachment.width,
+              height: attachment.height,
             },
           });
         });
@@ -62,14 +66,16 @@ export class AttachmentsTableService {
     await this.prismaService.$tx(async (prisma) => {
       for (let i = 0; i < newAttachments.length; i++) {
         await prisma.attachmentsTable.create({ data: omit(newAttachments[i], 'attachment') });
-        const { path, mimetype } = newAttachments[i].attachment;
-        await this.attachmentsTableQueueProcessor.queue.add(`crop_image_${tableId}`, {
-          tableId,
-          attachmentItem: {
-            path,
-            mimetype,
-          },
-        });
+        const { path, mimetype, width, height } = newAttachments[i].attachment;
+        if (mimetype.startsWith('image/') && width && height) {
+          await this.attachmentsTableQueueProcessor.queue.add(`crop_image_${tableId}`, {
+            tableId,
+            attachmentItem: {
+              path,
+              mimetype,
+            },
+          });
+        }
       }
     });
   }
@@ -80,6 +86,8 @@ export class AttachmentsTableService {
       attachment: {
         path: string;
         mimetype: string;
+        width?: number;
+        height?: number;
       };
     })[] = [];
     const needDelete: {
@@ -136,6 +144,8 @@ export class AttachmentsTableService {
               attachment: {
                 path: attachment.path,
                 mimetype: attachment.mimetype,
+                width: attachment.width,
+                height: attachment.height,
               },
             });
           }
@@ -147,14 +157,16 @@ export class AttachmentsTableService {
       needDelete.length && (await this.delete(needDelete));
       for (let i = 0; i < newAttachments.length; i++) {
         await prisma.attachmentsTable.create({ data: omit(newAttachments[i], 'attachment') });
-        const { path, mimetype } = newAttachments[i].attachment;
-        await this.attachmentsTableQueueProcessor.queue.add(`crop_image_${tableId}`, {
-          tableId,
-          attachmentItem: {
-            path,
-            mimetype,
-          },
-        });
+        const { path, mimetype, width, height } = newAttachments[i].attachment;
+        if (mimetype.startsWith('image/') && width && height) {
+          await this.attachmentsTableQueueProcessor.queue.add(`crop_image_${tableId}`, {
+            tableId,
+            attachmentItem: {
+              path,
+              mimetype,
+            },
+          });
+        }
       }
     });
   }
