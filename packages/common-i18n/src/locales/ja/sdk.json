@@ -23,6 +23,10 @@
     "summaryTip": "カーソルを合わせて概要を選択",
     "actions": "アクション"
   },
+  "preview": {
+    "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
+    "loadFileError": "ファイルの読み込みに失敗しました"
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "ファイルをアップロードするにはリリースしてください",

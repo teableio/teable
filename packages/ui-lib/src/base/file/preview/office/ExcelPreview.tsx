@@ -1,10 +1,10 @@
 import type { GridCell, Item } from '@glideapps/glide-data-grid';
 import { DataEditor, GridCellKind } from '@glideapps/glide-data-grid';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useContext } from 'react';
 import * as XLSX from 'xlsx';
 import { Button, cn, Skeleton } from '../../../../shadcn';
 import { Spin } from '../../../spin/Spin';
-import type { IFileItemInner } from '../FilePreviewContext';
+import { FilePreviewContext, type IFileItemInner } from '../FilePreviewContext';
 import { getFileIcon } from '../getFileIcon';
 import { numberCoordinate2Letter, getBlobFromUrl } from './utils';
 
@@ -22,6 +22,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
   const [sheetList, setSheetList] = useState<ISheetItem[]>([]);
   const [loading, setLoading] = useState(true);
   const FileIcon = useMemo(() => (mimetype ? getFileIcon(mimetype) : ''), [mimetype]);
+  const { i18nMap } = useContext(FilePreviewContext);
 
   const currentSheetData = useMemo<XLSX.CellObject[][]>(() => {
     return (sheetList.find((sheet) => sheet.name === currentSheetName)?.data ||
@@ -37,7 +38,10 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
         const buffer = await blob.arrayBuffer();
 
         if (blob.size > 1024 * 1024 * 10) {
-          setError('File is too large to preview, please download it instead.');
+          const errorText =
+            i18nMap?.['previewFileLimit'] ||
+            'File is too large to preview, please download it instead.';
+          setError(errorText);
           return;
         }
 
@@ -60,12 +64,12 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
         setSheetList(newSheetList);
       } catch (e) {
         console.error('Failed to load Excel file:', e);
-        setError('loading error');
+        setError(i18nMap?.['loadFileError'] || 'Failed to load file');
       }
     };
 
     fetchAndParseExcel();
-  }, [src]);
+  }, [i18nMap, src]);
 
   const getData = useCallback(
     ([col, row]: Item): GridCell => {

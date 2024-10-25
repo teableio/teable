@@ -35,6 +35,10 @@
     "recordHistory": "记录历史",
     "you": "你"
   },
+  "preview": {
+    "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
+    "loadFileError": "加载文件失败"
+  },
   "undoRedo": {
     "undo": "撤销",
     "redo": "重做",

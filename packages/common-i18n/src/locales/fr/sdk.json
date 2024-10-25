@@ -23,6 +23,10 @@
     "summaryTip": "Survolez pour sélectionner le résumé",
     "actions": "Actions"
   },
+  "preview": {
+    "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
+    "loadFileError": "Échec du chargement du fichier"
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "Relâchez pour télécharger le fichier",

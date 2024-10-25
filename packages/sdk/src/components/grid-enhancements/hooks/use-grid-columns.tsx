@@ -21,6 +21,7 @@ import type { GridView } from '../../../model/view';
 import { getFilterFieldIds } from '../../filter/view-filter/utils';
 import type { IGridTheme } from '../../grid/configs';
 import { GRID_DEFAULT } from '../../grid/configs';
+import { useAttachmentPreviewI18Map } from '../../hooks';
 import {
   GridAttachmentEditor,
   GridDateEditor,
@@ -166,6 +167,7 @@ const useGenerateColumns = () => {
 
 export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
   const { t } = useTranslation();
+  const i18nMap = useAttachmentPreviewI18Map();
 
   return useCallback(
     (fields: IFieldInstance[], editable: (field: IFieldInstance) => boolean) =>
@@ -412,6 +414,7 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
                   activeId,
                   field,
                   record,
+                  i18nMap,
                 });
               },
               customEditor: (props) => (
@@ -479,7 +482,7 @@ export const useCreateCellValue2GridDisplay = (rowHeight?: RowHeightLevel) => {
           }
         }
       },
-    [rowHeight, t]
+    [i18nMap, rowHeight, t]
   );
 };
 

@@ -6,10 +6,11 @@ import { FilePreviewContext } from './FilePreviewContext';
 interface IFilePreviewProvider {
   container?: HTMLElement | null;
   children?: React.ReactNode;
+  i18nMap?: Record<string, string>;
 }
 
 export const FilePreviewProvider = (props: IFilePreviewProvider) => {
-  const { children, container } = props;
+  const { children, container, i18nMap } = props;
   const [current, setCurrent] = useState<number | string>();
   const [files, setFiles] = useState<IFileItemInner[]>([]);
 
@@ -94,6 +95,7 @@ export const FilePreviewProvider = (props: IFilePreviewProvider) => {
         closePreview,
         onPrev,
         onNext,
+        i18nMap: i18nMap,
       }}
     >
       {children}

@@ -4,16 +4,18 @@ import { FilePreviewDialog, FilePreviewProvider } from '@teable/ui-lib';
 import { noop } from 'lodash';
 import { useEffect, useMemo, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { IFieldInstance, Record } from '../../../model';
+// import { useTranslation } from '../../../context/app/i18n';
+import type { IFieldInstance, Record as IRecord } from '../../../model';
 
 interface IGridFilePreviewerProps {
   activeId: string;
-  record: Record;
+  record: IRecord;
   field: IFieldInstance;
+  i18nMap?: Record<string, string>;
 }
 
 export const GridFilePreviewer = (props: IGridFilePreviewerProps) => {
-  const { activeId, record, field } = props;
+  const { activeId, record, field, i18nMap } = props;
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
   const imagePreviewDialogRef = useRef<IFilePreviewDialogRef>(null);
 
@@ -33,7 +35,7 @@ export const GridFilePreviewer = (props: IGridFilePreviewerProps) => {
   }, [attachments]);
 
   return (
-    <FilePreviewProvider>
+    <FilePreviewProvider i18nMap={i18nMap}>
       <FilePreviewDialog ref={imagePreviewDialogRef} files={previewFiles} />
     </FilePreviewProvider>
   );
@@ -51,6 +53,7 @@ export const expandPreviewModal = (props: IGridFilePreviewerProps) => {
   const div = document.createElement('div');
   document.body.appendChild(div);
   const root = createRoot(div);
+
   const close = () => {
     root.unmount();
     if (div && div.parentNode) {
