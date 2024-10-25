@@ -203,6 +203,8 @@ export class MinioStorage implements StorageAdapter {
     const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
       'Content-Type': mimetype,
     });
+    // delete resized image
+    fse.removeSync(resizedImagePath);
     return upload.path;
   }
 }
