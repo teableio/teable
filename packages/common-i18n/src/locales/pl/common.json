@@ -1,0 +1,283 @@
+{
+  "brand": "Teable",
+  "actions": {
+    "title": "actions",
+    "save": "Zapisz",
+    "doNotSave": "Nie zapisuj",
+    "submit": "Prześlij",
+    "confirm": "Potwierdź",
+    "close": "Zamknij",
+    "edit": "Edytuj",
+    "fill": "Wypełnij",
+    "update": "Zaktualizuj",
+    "create": "Stwórz",
+    "delete": "Usuń",
+    "cancel": "Anuluj",
+    "zoomIn": "Powiększ",
+    "zoomOut": "Pomniejsz",
+    "back": "Cofnij",
+    "saveSucceed": "Save Succeed!",
+    "submitSucceed": "Submit Succeed!",
+    "editSucceed": "Edit Succeed!",
+    "updateSucceed": "Update Succeed!",
+    "deleteSucceed": "Delete Succeed!",
+    "resetSucceed": "Empty trash Succeed!",
+    "restoreSucceed": "Restored Succeed!",
+    "loading": "Loading...",
+    "refreshPage": "Refresh Page",
+    "yesDelete": "Tak, skasuj",
+    "rename": "Zmień nazwę",
+    "duplicate": "Powiel",
+    "change": "Change",
+    "upgrade": "Upgrade",
+    "search": "Wyszukaj",
+    "loadMore": "Załaduj więcej",
+    "collapseSidebar": "Zwiń pasek boczny",
+    "restore": "Przywróć",
+    "permanentDelete": "Usuń na stałe"
+  },
+  "quickAction": {
+    "title": "Szybkie akcje...",
+    "placeHolder": "Wpisz komendę lub wyszukaj..."
+  },
+  "settings": {
+    "title": "Ustawienia",
+    "back": "Back to home",
+    "account": {
+      "title": "Mój profil",
+      "tab": "Mój profil",
+      "updatePhoto": "Wgraj zdjęcie",
+      "updateNameDesc": "Nazwa będzie wyświetlana na liście zmian i we wzmiankach. Możesz ją zmienić w dowolnym momencie.",
+      "securityTitle": "Bezpieczeństwo konta",
+      "email": "Email",
+      "password": "Hasło",
+      "passwordDesc": "Stałe hasło do logowania się na konto.",
+      "changePassword": {
+        "title": "Zmień hasło",
+        "desc": "Podaj swoje dotychczasowe hasło i nowe",
+        "current": "Podaj swoje obecne hasło",
+        "new": "Podaj nowe hasło",
+        "confirm": "Potwórz nowe hasło"
+      },
+      "changePasswordError": {
+        "disMatch": "Twoje nowe hasło się nie zgadza.",
+        "equal": "Nowe hasło musi różnić się od obecnego.",
+        "invalid": "Bieżące hasło jest nieprawidłowe.",
+        "invalidNew": "Twoje nowe hasło jest nieprawidłowe, minimum 8 znaków."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Pomyślnie zmieniono hasło.",
+        "desc": "Zostaniesz przekierowany na stronę logowania w ciągu 2 sekund."
+      },
+      "manageToken": "Tokeny dostępu",
+      "addPassword": {
+        "title": "Dodaj hasło",
+        "desc": "Ustaw stałe hasło do logowania się na konto",
+        "password": "Podaj hasło",
+        "confirm": "Potwórz hasło"
+      },
+      "addPasswordError": {
+        "disMatch": "Hasła się nie zgadzają.",
+        "invalid": "Podano nieprawidłowe hasło, minimum 8 znaków."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Pomyślnie dodano hasło."
+      }
+    },
+    "notify": {
+      "title": "Powiadomienia",
+      "label": "Aktywność w Twojej przestrzeni",
+      "desc": "Otrzymuj wiadomości e-mail, gdy otrzymasz komentarze, wzmianki, zaproszenia do strony, przypomnienia, prośby o dostęp i zmiany właściwości."
+    },
+    "setting": {
+      "title": "Personalizacja",
+      "theme": "Motyw",
+      "themeDesc": "Wybierz motyw dla aplikacji.",
+      "dark": "Ciemny",
+      "light": "Jasny",
+      "system": "Systemowy",
+      "version": "Wersja aplikacji",
+      "language": "Język"
+    },
+    "nav": {
+      "settings": "Ustawienia",
+      "logout": "Wyloguj się"
+    },
+    "integration": {
+      "title": "Integracje",
+      "description": "Liczba aplikacji mająca dostęp do Twojego konta: {{count}}.",
+      "lastUsed": "Ostatnio używane {{date}}",
+      "revoke": "Wycofaj",
+      "owner": "Właściciel: {{user}}",
+      "revokeTitle": "Czy na pewno chcesz cofnąć autoryzację?",
+      "revokeDesc": "{{name}} nie będzie już w stanie uzyskać dostępu do Teable API. Nie możesz cofnąć tej akcji.",
+      "scopeTitle": "Uprawnienia",
+      "scopeDesc": "Aplikacja będzie mogła korzystać z następujących obszarów:"
+    }
+  },
+  "noun": {
+    "table": "Tabela",
+    "view": "Widok",
+    "space": "Przestrzeń",
+    "base": "Baza",
+    "field": "Pole",
+    "record": "Rekord",
+    "dashboard": "Pulpit",
+    "automation": "Automatyzacje",
+    "authorityMatrix": "Macierz uprawnień",
+    "adminPanel": "Panel administracyjny",
+    "license": "Licencja",
+    "instanceId": "ID instancji",
+    "beta": "Beta",
+    "trash": "Kosz"
+  },
+  "level": {
+    "free": "Free",
+    "plus": "Plus",
+    "pro": "Pro",
+    "enterprise": "Enterprise"
+  },
+  "noResult": "No Result.",
+  "untitled": "Untitled",
+  "name": "Nazwa",
+  "description": "Opis",
+  "required": "Required",
+  "guide": {
+    "prev": "Prev",
+    "next": "Next",
+    "done": "Done",
+    "skip": "Skip",
+    "createSpaceTooltipTitle": "Create a space",
+    "createSpaceTooltipContent": "Teable is organized into spaces, where each space invites users to collaborate. <br></br>Spaces in Teable serve as a primary navigation element within the menu bar, offering a foundational platform for users to add and manage databases as needed.",
+    "createBaseTooltipTitle": "Create a base",
+    "createBaseTooltipContent": "A base (short for \"database\") is a place to store important data, and the workflows that depend on it.",
+    "createTableTooltipTitle": "Create a table",
+    "createTableTooltipContent": "Tables are designed to efficiently handle diverse datasets, offering a versatile display of information through various data types.",
+    "createViewTooltipTitle": "Create a view",
+    "createViewTooltipContent": "Currently, users can create Grid and Form views, with Gallery, Kanban, and Calendar views planned for future releases. <br></br>This variety equips users with a comprehensive toolkit for various data management tasks.",
+    "viewFilteringTooltipTitle": "Filtering records",
+    "viewFilteringTooltipContent": "One of the core features of views is the ability to filter out records from a view according to the conditions you set. <br></br>When a record is filtered out based on a condition, it is not deleted—it's just hidden from the particular view you're using to look at your table.",
+    "viewSortingTooltipTitle": "Sorting records",
+    "viewSortingTooltipContent": "While in a view, you can sort your records so that they appear in a particular order according to the values in specific fields. <br></br>Sorting your records in one view doesn't affect the order of records in other views—it just applies to the view you're currently using to look at your table.",
+    "viewGroupingTooltipTitle": "Grouping records",
+    "viewGroupingTooltipContent": "Grouping records allows creators to build a set of one or more conditions that will help to categorize the dataset that is being presented within a particular view.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable offers a powerful API that supports nearly all product features, allowing developers to make calls using an <a>Token</a>."
+  },
+  "token": "Token",
+  "poweredBy": "Powered by <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}} space sharing",
+      "desc_one": "This space has <b>{{count}} collaborator</b>. Adding a space collaborator will give them access to all bases within this space.",
+      "desc_other": "This space has <b>{{count}} collaborators</b>. Adding a space collaborator will give them access to all bases within this space.",
+      "tabEmail": "Invite by email",
+      "emailPlaceholder": "Invite more collaborators via email",
+      "tabLink": "Invite by link",
+      "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
+      "emailSend": "Send invite",
+      "linkSend": "Create link",
+      "spaceTitle": "Space collaborators",
+      "collaboratorSearchPlaceholder": "Znajdź członka przestrzeni według nazwy lub adresu e-mail",
+      "collaboratorJoin": "dołączył {{joinTime}}",
+      "collaboratorRemove": "Remove collaborator",
+      "linkTitle": "Invite links",
+      "linkCreatedTime": "created {{createdTime}}",
+      "linkCopySuccess": "Link copied",
+      "linkRemove": "Remove link"
+    },
+    "base": {
+      "title": "Share {{baseName}}",
+      "desc_one": "This base is shared with {{count}} collaborator.",
+      "desc_other": "This base is shared with {{count}} collaborators.",
+      "baseTitle": "Base collaborators",
+      "collaboratorSearchPlaceholder": "Find a base collaborator by name or email"
+    }
+  },
+  "help": {
+    "title": "Pomoc",
+    "mainLink": "https://help.teable.io",
+    "apiLink": "https://help.teable.io/developer/api"
+  },
+  "pagePermissionChangeTip": "Page permissions have been updated. Please refresh the page to see the latest content.",
+  "listEmptyTips": "The list is empty",
+  "billing": {
+    "overLimits": "Over limits",
+    "overLimitsDescription": "Your current subscription has exceeded its usage limit. Please upgrade your plan to continue using this feature without interruption.",
+    "userLimitExceededDescription": "The current instance have reached the maximum number of users allowed by your license. Please deactivate some users or upgrade the license.",
+    "unavailableInPlanTips": "The current subscription plan does not support this feature",
+    "levelTips": "This space is currently on the {{level}} plan",
+    "spaceSubscriptionModal": {
+      "title": "Upgrade space's subscription plan",
+      "description": "You can only upgrade workspaces where you are an owner"
+    },
+    "status": {
+      "active": "Active",
+      "canceled": "Canceled",
+      "incomplete": "Incomplete",
+      "incompleteExpired": "Incomplete Expired",
+      "trialing": "Trialing",
+      "pastDue": "Past Due",
+      "unpaid": "Unpaid",
+      "paused": "Paused",
+      "seatLimitExceeded": "Seat limit exceeded"
+    }
+  },
+  "admin": {
+    "setting": {
+      "description": "Zmień ustawienia dla Twojej obecnej instancji",
+      "allowSignUp": "Zezwalaj na tworzenie nowych kont",
+      "allowSignUpDescription": "Wyłączenie tej opcji uniemożliwi nowe rejestracje użytkowników, a przycisk rejestracji nie będzie już pojawiał się na stronie logowania.",
+      "allowSpaceInvitation": "Zezwalaj na wysyłanie zaproszeń do przestrzeni",
+      "allowSpaceInvitationDescription": "Wyłączenie tej opcji uniemożliwi użytkownikom innych niż administratorzy zapraszanie innych do dołączenia do przestrzeni. Włączenie tej opcji pozwoli zaproszonym użytkownikom na utworzenie konta, nawet jeśli rejestracja jest wyłączona.",
+      "allowSpaceCreation": "Zezwalaj wszystkim na tworzenie nowych przestrzeni",
+      "allowSpaceCreationDescription": "Wyłączenie tej opcji uniemożliwi użytkownikom innych niż administratorzy tworzenie nowych przestrzeni."
+    }
+  },
+  "notification": {
+    "title": "Powiadomienia",
+    "unread": "Nieodczytane",
+    "read": "Odczytane",
+    "markAs": "Oznacz to powiadomienie jako {{status}}",
+    "markAllAsRead": "Oznacz wszystkie jako odczytane",
+    "noUnread": "Brak powiadomień w folderze {{status}}",
+    "changeSetting": "Change page notification settings",
+    "new": "new {{count}}",
+    "showMore": "Show more"
+  },
+  "role": {
+    "title": {
+      "owner": "Właściciel",
+      "creator": "Twórca",
+      "editor": "Edytor",
+      "commenter": "Komentujący",
+      "viewer": "Obserwator"
+    },
+    "description": {
+      "owner": "Może w pełni konfigurować i edytować bazy, automatyzacje, macierze uprawnień oraz zarządzać ustawieniami przestrzeni i płatnościami",
+      "creator": "Może w pełni konfigurować i edytować bazy, automatyzacje i włączać macierze uprawnień",
+      "editor": "Może edytować rekordy i widoki, ale nie może konfigurować tabel ani pól",
+      "commenter": "Może komentować rekordy",
+      "viewer": "Nie może edytować ani komentować"
+    }
+  },
+  "trash": {
+    "type": "Type",
+    "resetTrash": "Empty trash",
+    "deletedBy": "Deleted by",
+    "deletedTime": "Deleted time",
+    "fromSpace": "From \"{{name}}\" space",
+    "permanentDeleteTips": "Are you sure you want to permanently delete \"{{name}}\" {{resource}}?",
+    "resetTrashConfirm": "Are you sure you want to empty the trash?"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "Plugin Not Setting url",
+    "install": "Zainstaluj",
+    "publisher": "Wydawca",
+    "lastUpdated": "Ostatnio zaktualizowano",
+    "pluginNotFound": "Nie znaleziono wtyczki",
+    "pluginEmpty": {
+      "title": "Nie ma jeszcze wtyczek"
+    }
+  }
+}
