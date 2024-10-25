@@ -21,3 +21,19 @@ export const numberCoordinate2Letter = (n: number) => {
   }
   return result;
 };
+
+export const letterCoordinate2Number = (letters: string) => {
+  let result = 0;
+
+  for (let i = 0; i < letters.length; i++) {
+    const charValue = letters.charCodeAt(i) - 'A'.charCodeAt(0) + 1;
+    result = result * 26 + charValue;
+  }
+
+  return result;
+};
+
+export const getEndColumn = (range: string): string | null => {
+  const match = range.match(/:(\D+)\d+$/);
+  return match ? match[1] : null;
+};

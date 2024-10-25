@@ -6,11 +6,18 @@ import { Button, cn, Skeleton } from '../../../../shadcn';
 import { Spin } from '../../../spin/Spin';
 import { FilePreviewContext, type IFileItemInner } from '../FilePreviewContext';
 import { getFileIcon } from '../getFileIcon';
-import { numberCoordinate2Letter, getBlobFromUrl } from './utils';
+import {
+  numberCoordinate2Letter,
+  getBlobFromUrl,
+  getEndColumn,
+  letterCoordinate2Number,
+} from './utils';
+
+type ISheetData = XLSX.WorkSheet;
 
 interface ISheetItem {
   name: string;
-  data: XLSX.WorkSheet;
+  data: ISheetData;
 }
 
 interface IExcelPreviewProps extends IFileItemInner {}
@@ -24,10 +31,30 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
   const FileIcon = useMemo(() => (mimetype ? getFileIcon(mimetype) : ''), [mimetype]);
   const { i18nMap } = useContext(FilePreviewContext);
 
-  const currentSheetData = useMemo<XLSX.CellObject[][]>(() => {
-    return (sheetList.find((sheet) => sheet.name === currentSheetName)?.data ||
-      []) as XLSX.CellObject[][];
+  const currentSheetData = useMemo<ISheetData>(() => {
+    return sheetList.find((sheet) => sheet.name === currentSheetName)?.data as ISheetData;
   }, [sheetList, currentSheetName]);
+
+  const cols = useMemo(() => {
+    if (!currentSheetData) {
+      return [];
+    }
+    const ref = currentSheetData['!ref'];
+
+    if (!ref) {
+      return [];
+    }
+
+    const letter = getEndColumn(ref);
+    const colNum = letterCoordinate2Number(letter!);
+
+    return (
+      Array.from({ length: colNum }).map((_, index) => ({
+        title: numberCoordinate2Letter(index + 1),
+        id: numberCoordinate2Letter(index + 1),
+      })) || []
+    );
+  }, [currentSheetData]);
 
   useEffect(() => {
     const fetchAndParseExcel = async () => {
@@ -84,7 +111,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
       return {
         kind: GridCellKind.Text,
         data: value,
-        allowOverlay: false,
+        allowOverlay: true,
         displayData: value,
       };
     },
@@ -128,12 +155,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
           }}
           verticalBorder={true}
           getCellContent={getData}
-          columns={
-            currentSheetData[0]?.map((_, index) => ({
-              title: numberCoordinate2Letter(index + 1),
-              id: numberCoordinate2Letter(index + 1),
-            })) || []
-          }
+          columns={cols}
           rows={currentSheetData.length}
         />
       )}
