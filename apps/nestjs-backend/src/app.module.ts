@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { AccessTokenModule } from './features/access-token/access-token.module';
@@ -67,7 +68,21 @@ export const appModules = {
 
 @Module({
   ...appModules,
-  imports: [GlobalModule, ...appModules.imports],
+  imports: [
+    GlobalModule,
+    ...appModules.imports,
+    ...(process.env.BACKEND_CACHE_REDIS_URI
+      ? [
+          BullModule.forRoot({
+            connection: {
+              lazyConnect: true,
+              maxRetriesPerRequest: null,
+              url: process.env.BACKEND_CACHE_REDIS_URI,
+            },
+          }),
+        ]
+      : []),
+  ],
   controllers: [],
 })
 export class AppModule {

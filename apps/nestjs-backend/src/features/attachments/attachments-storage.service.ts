@@ -126,7 +126,7 @@ export class AttachmentsStorageService {
     return { smThumbnailUrl, lgThumbnailUrl };
   }
 
-  async cutTableImage(bucket: string, path: string, width: number, height: number) {
+  async cropTableImage(bucket: string, path: string, width: number, height: number) {
     const { smThumbnail, lgThumbnail } = getTableThumbnailSize(width, height);
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
     const cutSmThumbnailPath = await this.storageAdapter.cropImage(

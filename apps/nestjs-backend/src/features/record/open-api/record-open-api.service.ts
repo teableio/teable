@@ -32,6 +32,7 @@ import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { RecordCalculateService } from '../record-calculate/record-calculate.service';
+import { RecordImageQueueProcessor } from '../record-image-queue.processor';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import { TypeCastAndValidate } from '../typecast.validate';
@@ -50,6 +51,7 @@ export class RecordOpenApiService {
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly attachmentsService: AttachmentsService,
+    private readonly recordImageQueueProcessor: RecordImageQueueProcessor,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>
   ) {}
@@ -271,16 +273,14 @@ export class RecordOpenApiService {
         const { index, key } = thumbnail;
         const attachmentCv = newRecordsFields[index][key] as IAttachmentCellValue;
         const attachmentItem = attachmentCv[thumbnail.attachmentIndex];
-        const { path, width, height } = attachmentItem;
+        const { width, height } = attachmentItem;
         if (!width || !height) {
           continue;
         }
-        this.attachmentsStorageService.cutTableImage(
-          StorageAdapter.getBucket(UploadType.Table),
-          path,
-          width,
-          height
-        );
+        this.recordImageQueueProcessor.queue.add(`crop_image_${tableId}`, {
+          tableId,
+          attachmentItem,
+        });
       }
     }
     return records.map((record, i) => ({
