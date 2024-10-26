@@ -17,7 +17,9 @@ export const WordPreview: React.FC<WordPreviewProps> = ({ src }) => {
 
       if (previewRef.current && src) {
         const blob = await getBlobFromUrl(src);
-        docx.renderAsync(blob, previewRef.current);
+        docx.renderAsync(blob, previewRef.current, undefined, {
+          useBase64URL: true,
+        });
         setLoading(false);
       }
     };
