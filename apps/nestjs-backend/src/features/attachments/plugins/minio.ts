@@ -140,7 +140,12 @@ export class MinioStorage implements StorageAdapter {
     filePath: string,
     metadata: Record<string, string | number>
   ) {
-    const { etag: hash } = await this.minioClient.fPutObject(bucket, path, filePath, metadata);
+    const { etag: hash } = await this.minioClientPrivateNetwork.fPutObject(
+      bucket,
+      path,
+      filePath,
+      metadata
+    );
     return {
       hash,
       path,
