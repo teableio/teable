@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
+import { ConditionalModule } from '@nestjs/config';
 import { AccessTokenModule } from './features/access-token/access-token.module';
 import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
@@ -71,17 +72,18 @@ export const appModules = {
   imports: [
     GlobalModule,
     ...appModules.imports,
-    ...(process.env.BACKEND_CACHE_REDIS_URI
-      ? [
-          BullModule.forRoot({
-            connection: {
-              lazyConnect: true,
-              maxRetriesPerRequest: null,
-              url: process.env.BACKEND_CACHE_REDIS_URI,
-            },
-          }),
-        ]
-      : []),
+    ConditionalModule.registerWhen(
+      BullModule.forRoot({
+        connection: {
+          lazyConnect: true,
+          maxRetriesPerRequest: null,
+          url: process.env.BACKEND_CACHE_REDIS_URI,
+        },
+      }),
+      (env) => {
+        return Boolean(env.BACKEND_CACHE_REDIS_URI);
+      }
+    ),
   ],
   controllers: [],
 })

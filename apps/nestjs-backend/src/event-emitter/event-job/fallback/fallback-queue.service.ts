@@ -16,6 +16,7 @@ export class FallbackQueueService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    this.logger.debug('FallbackQueueService init');
     this.collectionProcess();
   }
 
