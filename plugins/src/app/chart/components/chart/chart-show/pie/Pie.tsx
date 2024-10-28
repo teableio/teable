@@ -36,9 +36,9 @@ export const ChartPie = (props: { config: IPieConfig }) => {
     if (!queryData?.rows || !dimension) {
       return [];
     }
-    return queryData.rows.map((row) => ({
+    return queryData.rows.map((row, index) => ({
       ...row,
-      fill: `var(--color-${row[dimension]})`,
+      fill: `var(--color-pie-${index})`,
     }));
   }, [config.dimension, queryData?.rows]);
 
