@@ -2,22 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Skeleton } from '../../../../shadcn';
 import { Spin } from '../../../spin/Spin';
 import type { IFileItemInner } from '../FilePreviewContext';
-import { urlToBase64 } from './utils';
+import { getBlobUrlFromUrl } from './utils';
 
 interface IPdfPreviewProps extends IFileItemInner {}
 
 export const PDFPreview = (props: IPdfPreviewProps) => {
-  const [base64, setBase64] = useState('');
+  const [blobUrl, setBlobUrl] = useState('');
 
   useEffect(() => {
-    urlToBase64(props.src).then((res) => {
-      setBase64(res.base64WithPrefix);
+    getBlobUrlFromUrl(props.src).then((res) => {
+      setBlobUrl(res);
     });
   }, [props.src]);
 
-  return base64 ? (
+  return blobUrl ? (
     <iframe
-      src={base64}
+      src={blobUrl}
       width="100%"
       height="100%"
       title="PDF Viewer"
