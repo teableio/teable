@@ -14,15 +14,19 @@ export abstract class SearchQueryAbstract {
     fieldMap?: { [fieldId: string]: IFieldInstance },
     search?: string[]
   ) {
-    if (!search || !search[1] || !fieldMap) {
+    if (!search || !fieldMap) {
       return originQueryBuilder;
     }
-    let searchArr = search[1]?.split(',');
-    const searchValue = search[0];
 
-    if (searchArr[0] === 'all_fields') {
+    let searchArr = [];
+
+    if (!search?.[1]) {
       searchArr = Object.values(fieldMap).map((f) => f.id);
+    } else {
+      searchArr = search[1]?.split(',');
     }
+
+    const searchValue = search[0];
 
     searchArr.forEach((item) => {
       const field = fieldMap?.[item];

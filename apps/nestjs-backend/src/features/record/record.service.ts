@@ -403,7 +403,7 @@ export class RecordService {
       throw new Error('fieldMap is required when search is set');
     }
 
-    if (fieldIdOrName === 'all_fields') {
+    if (!fieldIdOrName) {
       return [
         searchValue,
         Object.values(fieldMap)
@@ -1529,7 +1529,7 @@ export class RecordService {
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
     filter?: IFilter,
-    search?: [string, string]
+    search?: [string, string] | [string]
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);

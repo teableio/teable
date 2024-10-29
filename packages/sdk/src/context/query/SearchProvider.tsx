@@ -15,8 +15,14 @@ export const SearchProvider: React.FC<ISearchProviderProps> = ({ children }) => 
     setValue(undefined);
   }, []);
 
-  const searchQuery = useMemo<[string, string] | undefined>(() => {
-    return value && fieldId ? [value, fieldId] : undefined;
+  const searchQuery = useMemo<[string, string] | [string] | undefined>(() => {
+    if (value && fieldId) {
+      if (fieldId === 'all_fields') {
+        return [value];
+      }
+      return [value, fieldId];
+    }
+    return undefined;
   }, [fieldId, value]);
 
   return (

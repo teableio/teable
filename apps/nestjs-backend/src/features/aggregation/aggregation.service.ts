@@ -428,7 +428,7 @@ export class AggregationService {
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
     filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
     selectedRecordIds?: IGetRecordsRo['selectedRecordIds'];
-    search?: [string, string];
+    search?: [string] | [string, string];
     withUserId?: string;
   }) {
     const {
