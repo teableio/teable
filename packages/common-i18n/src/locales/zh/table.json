@@ -370,7 +370,8 @@
   },
   "grid": {
     "prefillingRowTitle": "新建记录",
-    "prefillingRowTooltip": "请在下方输入新记录的数据。当焦点离开当前行后，数据将自动保存。"
+    "prefillingRowTooltip": "请在下方输入新记录的数据。当焦点离开当前行后，数据将自动保存。",
+    "presortRowTitle": "此记录已经被过滤或因排序规则改变位置"
   },
   "form": {
     "fieldsManagement": "字段管理",

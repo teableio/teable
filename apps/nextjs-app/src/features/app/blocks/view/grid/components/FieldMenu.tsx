@@ -2,7 +2,14 @@
 import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable/icons';
 import { deleteFields } from '@teable/openapi';
 import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
-import { useFields, useIsTouchDevice, useTableId, useTablePermission, useView } from '@teable/sdk';
+import {
+  useFields,
+  useGridViewStore,
+  useIsTouchDevice,
+  useTableId,
+  useTablePermission,
+  useView,
+} from '@teable/sdk';
 import { TablePermissionContext } from '@teable/sdk/context/table-permission';
 import { insertSingle } from '@teable/sdk/utils';
 import {
@@ -23,7 +30,6 @@ import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
-import { useGridViewStore } from '../store/gridView';
 import type { IMenuItemProps } from './RecordMenu';
 
 enum MenuItemType {

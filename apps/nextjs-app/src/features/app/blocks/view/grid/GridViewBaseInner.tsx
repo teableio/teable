@@ -16,7 +16,6 @@ import type {
   ICellItem,
   ICell,
   IInnerCell,
-  Record,
   GridView,
   IGroupPoint,
   IUseTablePermissionAction,
@@ -48,6 +47,9 @@ import {
   SelectableType,
   useGridRowOrder,
   ExpandRecorder,
+  useGridViewStore,
+  useGridSelection,
+  Record,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
@@ -76,13 +78,12 @@ import type { IExpandRecordContainerRef } from '@/features/app/components/Expand
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
-import { PrefillingRowContainer } from './components';
+import { PrefillingRowContainer, PresortRowContainer } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
-import { useGridViewStore } from './store/gridView';
 
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo;
@@ -97,10 +98,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { groupPointsServerData, onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const router = useRouter();
-  const gridRef = useRef<IGridRef>(null);
-  const prefillingGridRef = useRef<IGridRef>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
   const tableId = useTableId() as string;
   const activeViewId = useViewId();
   const view = useView(activeViewId) as GridView | undefined;
@@ -128,9 +125,16 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = useFieldCellEditable();
   const { undo, redo } = useUndoRedo();
+
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
-  const confirmNewRecordsRef = useRef<IConfirmNewRecordsRef>(null);
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
+
+  const gridRef = useRef<IGridRef>(null);
+  const presortGridRef = useRef<IGridRef>(null);
+  const prefillingGridRef = useRef<IGridRef>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
+  const confirmNewRecordsRef = useRef<IConfirmNewRecordsRef>(null);
 
   const groupCollection = useGridGroupCollection();
 
@@ -150,6 +154,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
   });
+
+  const {
+    presortRecord,
+    onSelectionChanged,
+    presortRecordData,
+    onPresortCellEdited,
+    getPresortCellContent,
+    setPresortRecordData,
+  } = useGridSelection({ recordMap, columns, viewQuery, gridRef });
 
   const {
     localRecord,
@@ -468,10 +481,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     copy(selection);
   };
 
-  const onCopyForPrefilling = async (selection: CombinedSelection) => {
+  const onCopyForSingleRow = async (
+    selection: CombinedSelection,
+    fieldValueMap?: { [fieldId: string]: unknown }
+  ) => {
     const { type } = selection;
 
-    if (type !== SelectionRegionType.Cells || prefillingFieldValueMap == null) return;
+    if (type !== SelectionRegionType.Cells || fieldValueMap == null) return;
 
     const getCopyData = async () => {
       const [start, end] = selection.serialize();
@@ -483,9 +499,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         })
         .filter(Boolean) as IFieldVo[];
       const content = [
-        selectedFields.map((field) =>
-          field.cellValue2String(prefillingFieldValueMap[field.id] as never)
-        ),
+        selectedFields.map((field) => field.cellValue2String(fieldValueMap[field.id] as never)),
       ];
       return { content: stringifyClipboardText(content), header: filteredPropsFields };
     };
@@ -514,12 +528,20 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     });
   };
 
-  const onSelectionChanged = useCallback(
-    (selection: CombinedSelection) => {
-      setSelection(selection);
-    },
-    [setSelection]
-  );
+  const onPasteForPresort = (selection: CombinedSelection, e: React.ClipboardEvent) => {
+    if (!presortRecord) return;
+    if (!permission['record|update']) {
+      return toast({ title: 'Unable to paste' });
+    }
+    paste(e, selection, { 0: presortRecord }, (records) => {
+      Record.updateRecord(tableId, presortRecord.id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: { ...presortRecord.fields, ...records[0].fields },
+        },
+      });
+    });
+  };
 
   const collaborators = useCollaborate(selection, getCellContent);
 
@@ -674,6 +696,24 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     };
   }, [rowHeight, prefillingRowIndex]);
 
+  const presortRowStyle = useMemo(() => {
+    const defaultTop = rowHeight / 2;
+    const height = rowHeight + 5;
+    const rowIndex = presortRecordData?.rowIndex;
+
+    if (gridRef.current == null || rowIndex == null) {
+      return { top: defaultTop, height };
+    }
+
+    return {
+      top: Math.max(
+        gridRef.current.getRowOffset(rowIndex) + defaultTop,
+        GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short]
+      ),
+      height,
+    };
+  }, [rowHeight, presortRecordData]);
+
   useEffect(() => {
     if (!inPrefilling) return;
     const scrollState = gridRef.current?.getScrollState();
@@ -780,10 +820,42 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             getCellContent={getPrefillingCellContent}
             onScrollChanged={onPrefillingGridScrollChanged}
             onCellEdited={onPrefillingCellEdited}
-            onCopy={onCopyForPrefilling}
+            onCopy={(selection) => onCopyForSingleRow(selection, prefillingFieldValueMap)}
             onPaste={onPasteForPrefilling}
           />
         </PrefillingRowContainer>
+      )}
+      {presortRecord && (
+        <PresortRowContainer
+          style={presortRowStyle}
+          onClickOutside={async () => setPresortRecordData(undefined)}
+        >
+          <Grid
+            ref={presortGridRef}
+            theme={theme}
+            scrollBufferX={
+              permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
+            }
+            scrollBufferY={0}
+            scrollBarVisible={false}
+            rowCount={1}
+            rowHeight={rowHeight}
+            rowIndexVisible={false}
+            rowControls={rowControls}
+            draggable={DraggableType.None}
+            selectable={SelectableType.Cell}
+            columns={columns}
+            columnHeaderVisible={false}
+            commentCountMap={commentCountMap}
+            freezeColumnCount={frozenColumnCount}
+            customIcons={customIcons}
+            getCellContent={getPresortCellContent}
+            onScrollChanged={onPrefillingGridScrollChanged}
+            onCellEdited={onPresortCellEdited}
+            onCopy={(selection) => onCopyForSingleRow(selection, presortRecord.fields)}
+            onPaste={onPasteForPresort}
+          />
+        </PresortRowContainer>
       )}
       <RowCounter rowCount={realRowCount} className="absolute bottom-3 left-0" />
       <DomBox id={componentId} />

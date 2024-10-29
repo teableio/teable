@@ -29,6 +29,7 @@ import {
   generateLocalId,
   useGridTooltipStore,
   RegionType,
+  useGridViewStore,
 } from '@teable/sdk/components';
 import {
   useIsHydrated,
@@ -52,7 +53,6 @@ import type { IExpandRecordContainerRef } from '@/features/app/components/Expand
 import { useHiddenFields } from '@/features/app/hooks/useHiddenFields';
 import { GIRD_ROW_HEIGHT_DEFINITIONS } from '../../../../view/grid/const';
 import { useSelectionOperation } from '../../../../view/grid/hooks';
-import { useGridViewStore } from '../../../../view/grid/store/gridView';
 
 interface IGridViewProps {
   groupPointsServerData?: IGroupPointsVo;

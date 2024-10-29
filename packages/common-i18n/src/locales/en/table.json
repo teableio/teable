@@ -371,7 +371,8 @@
   },
   "grid": {
     "prefillingRowTitle": "Add new record",
-    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row."
+    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row.",
+    "presortRowTitle": "This record has been filtered or moved due to sorting rules"
   },
   "form": {
     "fieldsManagement": "Fields",

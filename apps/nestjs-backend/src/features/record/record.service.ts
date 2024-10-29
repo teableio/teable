@@ -42,6 +42,7 @@ import type {
   IGroupHeaderPoint,
   IGroupPoint,
   IGroupPointsVo,
+  IRecordStatusVo,
   IRecordsVo,
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
@@ -1543,5 +1544,28 @@ export class RecordService {
     });
 
     return { groupPoints, filter: mergeFilter(filter, filterWithCollapsed) };
+  }
+
+  async getRecordStatus(
+    tableId: string,
+    recordId: string,
+    query: IGetRecordsRo
+  ): Promise<IRecordStatusVo> {
+    const dbTableName = await this.getDbTableName(tableId);
+    const queryBuilder = this.knex(dbTableName).select('__id').where('__id', recordId).limit(1);
+
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
+
+    const isDeleted = result.length === 0;
+
+    if (isDeleted) {
+      return { isDeleted, isVisible: false };
+    }
+
+    const records = await this.getRecords(tableId, query);
+    const isVisible = records.records.find((record) => record.id === recordId) != null;
+    return { isDeleted, isVisible };
   }
 }

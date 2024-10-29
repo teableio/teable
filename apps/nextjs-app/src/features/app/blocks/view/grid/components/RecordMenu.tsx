@@ -1,4 +1,5 @@
 import { Trash, ArrowUp, ArrowDown } from '@teable/icons';
+import { useGridViewStore } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import {
   cn,
@@ -16,7 +17,6 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
-import { useGridViewStore } from '../store/gridView';
 
 export interface IMenuItemProps<T> {
   type: T;

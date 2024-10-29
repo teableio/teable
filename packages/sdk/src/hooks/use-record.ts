@@ -48,10 +48,10 @@ export const useRecord = (recordId: string | undefined, initData?: IRecord) => {
   }, [connection, recordId, tableId]);
 
   return useMemo(() => {
-    if (!instance || !fields.length) {
+    if (!instance || !fields.length || recordId == null) {
       return undefined;
     }
     const fieldMap = keyBy(fields, 'id');
     return recordInstanceFieldMap(instance, fieldMap);
-  }, [fields, instance]);
+  }, [fields, instance, recordId]);
 };

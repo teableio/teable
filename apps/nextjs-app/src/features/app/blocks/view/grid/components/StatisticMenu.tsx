@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */
 import { getValidStatisticFunc, NoneFunc } from '@teable/core';
 import type { StatisticsFunc } from '@teable/core';
-import { useStatisticFunc2NameMap } from '@teable/sdk/components';
+import { useGridViewStore, useStatisticFunc2NameMap } from '@teable/sdk/components';
 import { useField, useIsTouchDevice, useView } from '@teable/sdk/hooks';
 import {
   Command,
@@ -19,7 +19,6 @@ import { useTranslation } from 'next-i18next';
 import { useRef } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
-import { useGridViewStore } from '../store/gridView';
 
 export const StatisticMenu = () => {
   const view = useView();
