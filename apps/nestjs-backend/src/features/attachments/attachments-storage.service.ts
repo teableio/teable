@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ATTACHMENT_LG_THUMBNAIL_HEIGHT, ATTACHMENT_SM_THUMBNAIL_HEIGHT } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -19,6 +19,7 @@ import type { IRespHeaders } from './plugins/types';
 @Injectable()
 export class AttachmentsStorageService {
   private readonly urlExpireIn: number;
+  private readonly logger = new Logger(AttachmentsStorageService.name);
 
   constructor(
     private readonly cacheService: CacheService,
@@ -81,7 +82,8 @@ export class AttachmentsStorageService {
     if (!url) {
       url = await this.storageAdapter.getPreviewUrl(bucket, path, expiresIn, respHeaders);
       if (!url) {
-        throw new BadRequestException(`Invalid token: ${token}`);
+        this.logger.error(`Invalid token: ${token}`);
+        return '';
       }
       await this.cacheService.set(
         `attachment:preview:${token}`,
