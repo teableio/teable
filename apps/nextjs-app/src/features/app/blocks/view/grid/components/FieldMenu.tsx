@@ -1,10 +1,23 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
-import { Trash, Edit, EyeOff, ArrowLeft, ArrowRight, FreezeColumn } from '@teable/icons';
+import type { IFilter, IGroup, ISort } from '@teable/core';
+import { getValidFilterOperators } from '@teable/core';
+import {
+  Trash,
+  Edit,
+  EyeOff,
+  ArrowLeft,
+  ArrowRight,
+  FreezeColumn,
+  Filter,
+  LayoutList,
+  ArrowUpDown,
+} from '@teable/icons';
 import { deleteFields } from '@teable/openapi';
 import type { GridView, IUseFieldPermissionAction } from '@teable/sdk';
 import { useFields, useIsTouchDevice, useTableId, useTablePermission, useView } from '@teable/sdk';
 import { TablePermissionContext } from '@teable/sdk/context/table-permission';
 import { insertSingle } from '@teable/sdk/utils';
+
 import {
   cn,
   Command,
@@ -23,6 +36,7 @@ import { useClickAway } from 'react-use';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
+import { useToolBarStore } from '../../tool-bar/components/useToolBarStore';
 import { useGridViewStore } from '../store/gridView';
 import type { IMenuItemProps } from './RecordMenu';
 
@@ -33,6 +47,9 @@ enum MenuItemType {
   Delete = 'Delete',
   InsertLeft = 'InsertLeft',
   InsertRight = 'InsertRight',
+  Sort = 'Sort',
+  Filter = 'Filter',
+  Group = 'Group',
 }
 
 const iconClassName = 'mr-2 h-4 w-4';
@@ -40,6 +57,7 @@ const iconClassName = 'mr-2 h-4 w-4';
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
   const view = useView() as GridView | undefined;
+  const { filter, sort, group } = view || {};
   const tableId = useTableId();
   const { headerMenu, closeHeaderMenu } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
@@ -49,6 +67,7 @@ export const FieldMenu = () => {
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
   const { fields, onSelectionClear } = headerMenu ?? {};
+  const { filterRef, sortRef, groupRef } = useToolBarStore();
 
   const menuFieldPermission = useMemo(() => {
     if (!fields?.length || !fieldsPermission) {
@@ -142,6 +161,117 @@ export const FieldMenu = () => {
         icon: <ArrowRight className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !permission['field|create'],
         onClick: async () => await insertField(),
+      },
+    ],
+    [
+      {
+        type: MenuItemType.Filter,
+        name: t('table:menu.filterField'),
+        icon: <Filter className={iconClassName} />,
+        hidden: fieldIds.length !== 1 || !permission['view|update'],
+        onClick: async () => {
+          if (!headerMenu) {
+            return;
+          }
+          const { fields } = headerMenu;
+          const field = fields.at(0);
+          if (!field) {
+            return;
+          }
+          const { id: fieldId } = field;
+          const newItem = {
+            fieldId,
+            operator: getValidFilterOperators(field)?.[0] || null,
+            value: null,
+          };
+          let newFilter = {
+            conjunction: 'and',
+            filterSet: [newItem],
+          } as IFilter;
+          if (filter) {
+            newFilter = {
+              ...filter,
+              filterSet: [...filter.filterSet, newItem],
+            };
+          }
+          await view.updateFilter(newFilter);
+          setTimeout(() => {
+            filterRef?.current?.click();
+          }, 0);
+        },
+      },
+      {
+        type: MenuItemType.Sort,
+        name: t('table:menu.sortField'),
+        icon: <ArrowUpDown className={iconClassName} />,
+        hidden: fieldIds.length !== 1 || !permission['view|update'],
+        onClick: async () => {
+          if (!headerMenu) {
+            return;
+          }
+          const { fields } = headerMenu;
+          const field = fields.at(0);
+          if (!field) {
+            return;
+          }
+          const { id: fieldId } = field;
+          const newSortItem = {
+            fieldId,
+            order: 'asc',
+          };
+          let newSort = {
+            sortObjs: [newSortItem],
+          };
+          let shouldUpdate = true;
+          if (sort) {
+            const index = sort.sortObjs.findIndex((f) => f.fieldId === fieldId);
+            if (index > -1) {
+              shouldUpdate = false;
+            }
+            newSort = {
+              ...sort,
+              sortObjs: [...sort.sortObjs, newSortItem],
+            };
+          }
+          shouldUpdate && (await view?.updateSort(newSort as ISort));
+          setTimeout(() => {
+            sortRef?.current?.click();
+          }, 0);
+        },
+      },
+      {
+        type: MenuItemType.Group,
+        name: t('table:menu.groupField'),
+        icon: <LayoutList className={iconClassName} />,
+        hidden: fieldIds.length !== 1 || !permission['view|update'],
+        onClick: async () => {
+          if (!headerMenu) {
+            return;
+          }
+          const { fields } = headerMenu;
+          const field = fields.at(0);
+          if (!field) {
+            return;
+          }
+          const { id: fieldId } = field;
+          const newGroupItem = {
+            fieldId,
+            order: 'asc',
+          };
+          let newGroup = [newGroupItem];
+          let shouldUpdate = true;
+          if (group) {
+            const index = group.findIndex((f) => f.fieldId === fieldId);
+            if (index > -1) {
+              shouldUpdate = false;
+            }
+            newGroup = [...group, newGroupItem];
+          }
+          shouldUpdate && (await view.updateGroup(newGroup as IGroup));
+          setTimeout(() => {
+            groupRef?.current?.click();
+          }, 0);
+        },
       },
     ],
     [
