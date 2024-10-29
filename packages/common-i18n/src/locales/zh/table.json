@@ -413,8 +413,8 @@
     }
   },
   "menu": {
-    "insertRecordAbove": "在上方插入记录",
-    "insertRecordBelow": "在下方插入记录",
+    "insertRecordAbove": "在上方插入 <input /> 记录",
+    "insertRecordBelow": "在下方插入 <input /> 记录",
     "copyCells": "复制单元格",
     "deleteRecord": "删除记录",
     "deleteAllSelectedRecords": "删除所有选定的记录",
@@ -424,7 +424,10 @@
     "freezeUpField": "冻结至此字段",
     "hideField": "隐藏字段",
     "deleteField": "删除字段",
-    "deleteAllSelectedFields": "删除所有选定的字段"
+    "deleteAllSelectedFields": "删除所有选定的字段",
+    "filterField": "按此字段筛选",
+    "sortField": "按此字段排序",
+    "groupField": "按此字段分组"
   },
   "connection": {
     "title": "数据库连接",

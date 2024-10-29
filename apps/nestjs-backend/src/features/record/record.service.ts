@@ -402,11 +402,25 @@ export class RecordService {
     if (!fieldMap) {
       throw new Error('fieldMap is required when search is set');
     }
-    const field = fieldMap[fieldIdOrName];
-    if (!field) {
-      throw new NotFoundException(`Field ${fieldIdOrName} not found`);
+
+    if (fieldIdOrName === 'all_fields') {
+      return [
+        searchValue,
+        Object.values(fieldMap)
+          .map((f) => f.id)
+          .join(','),
+      ];
     }
-    return [searchValue, field.id];
+    const fieldIds = fieldIdOrName.split(',');
+
+    fieldIds.forEach((id) => {
+      const field = fieldMap[id];
+      if (!field) {
+        throw new NotFoundException(`Field ${id} not found`);
+      }
+    });
+
+    return [searchValue, fieldIdOrName];
   }
 
   async prepareQuery(
@@ -537,8 +551,9 @@ export class RecordService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
-    // add search rules to the query builder
-    this.dbProvider.searchQuery(queryBuilder, fieldMap, search);
+    queryBuilder.where((builder) => {
+      this.dbProvider.searchQuery(builder, fieldMap, search);
+    });
 
     // ignore sorting when filterLinkCellSelected is set
     if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
@@ -1527,7 +1542,9 @@ export class RecordService {
 
     if (search) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
-      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, handledSearch);
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
+      });
     }
 
     const rowCountSql = queryBuilder.count({ count: '*' });
@@ -1575,7 +1592,9 @@ export class RecordService {
 
     if (search) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
-      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, handledSearch);
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
+      });
     }
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();

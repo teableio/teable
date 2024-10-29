@@ -34,7 +34,9 @@
     "loadMore": "Load more",
     "collapseSidebar": "Collapse Sidebar",
     "restore": "Restore",
-    "permanentDelete": "Permanent Delete"
+    "permanentDelete": "Permanent Delete",
+    "globalSearch": "Global Search",
+    "fieldSearch": "Field Search"
   },
   "quickAction": {
     "title": "Quick Actions...",
@@ -129,7 +131,8 @@
     "license": "License",
     "instanceId": "Instance ID",
     "beta": "Beta",
-    "trash": "Trash"
+    "trash": "Trash",
+    "global": "Global"
   },
   "level": {
     "free": "Free",
@@ -142,6 +145,7 @@
   "name": "Name",
   "description": "Description",
   "required": "Required",
+  "atLeastOne": "At least reserve a {{noun}}",
   "guide": {
     "prev": "Prev",
     "next": "Next",

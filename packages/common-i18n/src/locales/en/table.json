@@ -414,8 +414,8 @@
     }
   },
   "menu": {
-    "insertRecordAbove": "Insert record above",
-    "insertRecordBelow": "Insert record below",
+    "insertRecordAbove": "Insert <input /> record above",
+    "insertRecordBelow": "Insert <input /> record below",
     "copyCells": "Copy cells",
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
@@ -425,7 +425,10 @@
     "freezeUpField": "Freeze up to this field",
     "hideField": "Hide field",
     "deleteField": "Delete field",
-    "deleteAllSelectedFields": "Delete all selected fields"
+    "deleteAllSelectedFields": "Delete all selected fields",
+    "filterField": "Filter by this field",
+    "sortField": "Sort by this field",
+    "groupField": "Group by this field"
   },
   "connection": {
     "title": "Database Connection",

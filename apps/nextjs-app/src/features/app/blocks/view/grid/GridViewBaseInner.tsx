@@ -392,13 +392,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     num?: number
   ) => {
     const index = targetIndex ?? Math.max(realRowCount - 1, 0);
-    if (!num) {
+    if (num === 0) {
       return;
     }
     setPrefillingFieldValueMap(fieldValueMap);
     setPrefillingRowOrder(rowOrder);
     setPrefillingRowIndex(index);
-    if (num === 1) {
+    if (num === 1 || num === undefined) {
       setSelection(emptySelection);
       gridRef.current?.setSelection(emptySelection);
       setTimeout(() => {

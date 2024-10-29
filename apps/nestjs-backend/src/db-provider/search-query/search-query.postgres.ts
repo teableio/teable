@@ -10,7 +10,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
 
   multipleNumber() {
     const precision = (this.field.options as INumberFieldOptions).formatting.precision;
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -26,7 +26,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
 
   multipleDate() {
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -41,7 +41,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   }
 
   multipleText() {
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1
@@ -57,7 +57,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   }
 
   multipleJson() {
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -72,19 +72,23 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   }
 
   json() {
-    return this.originQueryBuilder.whereRaw("??->>'title' ILIKE ?", [
+    return this.originQueryBuilder.orWhereRaw("??->>'title' ILIKE ?", [
       this.field.dbFieldName,
       `%${this.searchValue}%`,
     ]);
   }
 
   text() {
-    return this.originQueryBuilder.where(this.field.dbFieldName, 'ILIKE', `%${this.searchValue}%`);
+    return this.originQueryBuilder.orWhere(
+      this.field.dbFieldName,
+      'ILIKE',
+      `%${this.searchValue}%`
+    );
   }
 
   date() {
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       "TO_CHAR(TIMEZONE(?, ??), 'YYYY-MM-DD HH24:MI') ILIKE ?",
       [timeZone, this.field.dbFieldName, `%${this.searchValue}%`]
     );
@@ -92,7 +96,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
 
   number() {
     const precision = (this.field.options as INumberFieldOptions).formatting.precision;
-    return this.originQueryBuilder.whereRaw('ROUND(??::numeric, ?)::text ILIKE ?', [
+    return this.originQueryBuilder.orWhereRaw('ROUND(??::numeric, ?)::text ILIKE ?', [
       this.field.dbFieldName,
       precision,
       `%${this.searchValue}%`,

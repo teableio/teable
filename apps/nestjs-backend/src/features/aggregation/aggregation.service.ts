@@ -396,7 +396,9 @@ export class AggregationService {
             .appendQueryBuilder();
         }
         if (search) {
-          this.dbProvider.searchQuery(qb, fieldInstanceMap, search);
+          qb.where((builder) => {
+            this.dbProvider.searchQuery(builder, fieldInstanceMap, search);
+          });
         }
       })
       .from(tableAlias);
@@ -450,7 +452,9 @@ export class AggregationService {
     }
 
     if (search) {
-      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldInstanceMap, search);
+      });
     }
 
     if (selectedRecordIds) {
