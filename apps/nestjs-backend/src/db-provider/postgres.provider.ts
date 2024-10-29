@@ -309,7 +309,7 @@ export class PostgresProvider implements IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string]
+    search?: [string, string] | [string]
   ) {
     return SearchQueryAbstract.factory(SearchQueryPostgres, originQueryBuilder, fieldMap, search);
   }

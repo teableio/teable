@@ -46,7 +46,7 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { difference, keyBy } from 'lodash';
+import { get, difference, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
@@ -381,6 +381,28 @@ export class RecordService {
     }
   }
 
+  private getFieldMapWithoutHiddenFields(
+    originFieldMap?: Record<string, IFieldInstance>,
+    columnMetaRaw?: string
+  ) {
+    if (!columnMetaRaw || !originFieldMap) {
+      return originFieldMap;
+    }
+
+    const newFieldMap = { ...originFieldMap };
+
+    const parseColumnMeta = JSON.parse(columnMetaRaw);
+
+    if (parseColumnMeta) {
+      Object.entries(parseColumnMeta).forEach(([key, value]) => {
+        const hidden = get(value, 'hidden');
+        hidden && delete newFieldMap[key];
+      });
+    }
+
+    return newFieldMap as Record<string, IFieldInstance>;
+  }
+
   private async getTinyView(tableId: string, viewId?: string) {
     if (!viewId) {
       return;
@@ -389,7 +411,7 @@ export class RecordService {
     return this.prismaService
       .txClient()
       .view.findFirstOrThrow({
-        select: { id: true, type: true, filter: true, sort: true, group: true },
+        select: { id: true, type: true, filter: true, sort: true, group: true, columnMeta: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
@@ -451,7 +473,14 @@ export class RecordService {
       groupBy,
       originSearch
     );
-    const search = originSearch ? this.parseSearch(originSearch, fieldMap) : undefined;
+    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
+      fieldMap,
+      view?.columnMeta
+    );
+
+    const search = originSearch
+      ? this.parseSearch(originSearch, fieldMapWithoutHiddenFields)
+      : undefined;
 
     return {
       queryBuilder,
@@ -461,6 +490,7 @@ export class RecordService {
       orderBy,
       groupBy,
       fieldMap,
+      fieldMapWithoutHiddenFields,
     };
   }
 
@@ -505,8 +535,16 @@ export class RecordService {
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
-      await this.prepareQuery(tableId, query);
+    const {
+      dbTableName,
+      queryBuilder,
+      filter,
+      search,
+      orderBy,
+      groupBy,
+      fieldMap,
+      fieldMapWithoutHiddenFields,
+    } = await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -552,7 +590,7 @@ export class RecordService {
       .appendSortBuilder();
 
     queryBuilder.where((builder) => {
-      this.dbProvider.searchQuery(builder, fieldMap, search);
+      this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
     });
 
     // ignore sorting when filterLinkCellSelected is set
@@ -1575,6 +1613,10 @@ export class RecordService {
       groupBy,
       search
     ))!;
+    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
+      fieldInstanceMap,
+      viewRaw?.columnMeta
+    );
     const dbTableName = await this.getDbTableName(tableId);
 
     const filterStr = viewRaw?.filter;
@@ -1593,7 +1635,7 @@ export class RecordService {
     if (search) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
       queryBuilder.where((builder) => {
-        this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
+        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, handledSearch);
       });
     }
 

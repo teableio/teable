@@ -31,6 +31,10 @@ export abstract class SearchQueryAbstract {
     searchArr.forEach((item) => {
       const field = fieldMap?.[item];
 
+      if (!field) {
+        return;
+      }
+
       if (field.cellValueType === CellValueType.Boolean) {
         return;
       }
