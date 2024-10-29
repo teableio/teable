@@ -53,7 +53,6 @@ export function instanceReducer<T, R extends { id: string }>(
           ...state.instances.slice(0, action.index),
           ...state.instances.slice(action.index + action.docs.length),
         ],
-        extra: undefined,
       };
     case 'move': {
       const { docs, from, to } = action;
