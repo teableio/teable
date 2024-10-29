@@ -11,9 +11,12 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Input,
+  Button,
 } from '@teable/ui-lib/shadcn';
-import { useTranslation } from 'next-i18next';
-import { Fragment, useRef } from 'react';
+import { noop } from 'lodash';
+import { useTranslation, Trans } from 'next-i18next';
+import { Fragment, useCallback, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useGridViewStore } from '../store/gridView';
@@ -25,7 +28,13 @@ export interface IMenuItemProps<T> {
   hidden?: boolean;
   disabled?: boolean;
   className?: string;
+  render?: React.ReactNode;
   onClick: () => void;
+}
+
+interface InsertRecordRender {
+  onClick: (num: number) => void;
+  icon: React.ReactElement;
 }
 
 enum MenuItemType {
@@ -35,7 +44,53 @@ enum MenuItemType {
   InsertBelow = 'InsertBelow',
 }
 
-const iconClassName = 'mr-2 h-4 w-4';
+const iconClassName = 'mr-2 h-4 w-4 shrink-0';
+
+const InsertRecordRender = (props: InsertRecordRender) => {
+  const { onClick, icon } = props;
+  const [num, setNumber] = useState(1);
+  return (
+    <Button
+      variant={'ghost'}
+      size="sm"
+      className="m-0 flex size-full h-5 justify-start gap-0 p-0"
+      onClick={() => {
+        onClick(num);
+      }}
+    >
+      {icon}
+      <div className="flex flex-1 items-center text-sm">
+        <Trans
+          ns={tableConfig.i18nNamespaces}
+          i18nKey="table:menu.insertRecordAbove"
+          components={{
+            input: (
+              <Input
+                className="mx-1 h-8 w-16"
+                min={1}
+                type="number"
+                value={num}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  const input = Math.round(Number(e.target.value));
+                  setNumber(input);
+                }}
+              />
+            ),
+          }}
+        />
+      </div>
+    </Button>
+  );
+};
 
 export const RecordMenu = () => {
   const { recordMenu, closeRecordMenu, selection } = useGridViewStore();
@@ -50,9 +105,22 @@ export const RecordMenu = () => {
     closeRecordMenu();
   });
 
+  const insertRecordFn = useCallback(
+    (num: number, position: 'before' | 'after') => {
+      if (!recordMenu) {
+        return null;
+      }
+      const { record, insertRecord } = recordMenu;
+      if (!tableId || !viewId || !record) return;
+      insertRecord?.(record.id, position, num);
+    },
+    [recordMenu, tableId, viewId]
+  );
+
   if (recordMenu == null) return null;
 
-  const { record, isMultipleSelected, insertRecord } = recordMenu;
+  const { record, isMultipleSelected } = recordMenu;
+
   if (!record && !isMultipleSelected) return null;
 
   const visible = Boolean(recordMenu);
@@ -73,9 +141,14 @@ export const RecordMenu = () => {
         icon: <ArrowUp className={iconClassName} />,
         hidden: isMultipleSelected || !permission['record|create'],
         disabled: isAutoSort,
+        render: (
+          <InsertRecordRender
+            onClick={(num: number) => insertRecordFn(num, 'before')}
+            icon={<ArrowUp className={iconClassName} />}
+          />
+        ),
         onClick: async () => {
-          if (!tableId || !viewId || !record) return;
-          insertRecord?.(record.id, 'before');
+          noop();
         },
       },
       {
@@ -84,9 +157,14 @@ export const RecordMenu = () => {
         icon: <ArrowDown className={iconClassName} />,
         hidden: isMultipleSelected || !permission['record|create'],
         disabled: isAutoSort,
+        render: (
+          <InsertRecordRender
+            onClick={(num: number) => insertRecordFn(num, 'after')}
+            icon={<ArrowDown className={iconClassName} />}
+          />
+        ),
         onClick: async () => {
-          if (!tableId || !viewId || !record) return;
-          insertRecord?.(record.id, 'after');
+          noop();
         },
       },
     ],
@@ -128,43 +206,59 @@ export const RecordMenu = () => {
           return (
             <Fragment key={index}>
               <CommandGroup aria-valuetext="name">
-                {items.map(({ type, name, icon, className, disabled, onClick }) => (
-                  <CommandItem
-                    className={cn('px-4 py-2', className)}
-                    key={type}
-                    value={name}
-                    onSelect={async () => {
-                      if (disabled) {
-                        return;
-                      }
-                      await onClick();
-                      closeRecordMenu();
-                    }}
-                  >
-                    {disabled ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger
-                            className={cn('flex items-center gap-2', {
-                              'opacity-50': disabled,
-                            })}
-                          >
-                            {icon}
-                            {name}
-                          </TooltipTrigger>
-                          <TooltipContent hideWhenDetached={true}>
-                            {t('table:view.insertToolTip')}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : (
-                      <>
-                        {icon}
-                        {name}
-                      </>
-                    )}
-                  </CommandItem>
-                ))}
+                {items.map(({ type, name, icon, className, disabled, onClick, render }) => {
+                  return (
+                    <CommandItem
+                      className={cn('px-4 py-2', className)}
+                      key={type}
+                      value={name}
+                      onSelect={async () => {
+                        if (disabled) {
+                          return;
+                        }
+                        await onClick();
+                        closeRecordMenu();
+                      }}
+                    >
+                      {disabled ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger
+                              className={cn('flex items-center gap-2', {
+                                'opacity-50': disabled,
+                              })}
+                            >
+                              <div className="pointer-events-none">
+                                {render ? (
+                                  render
+                                ) : (
+                                  <>
+                                    {icon}
+                                    {name}
+                                  </>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent hideWhenDetached={true}>
+                              {t('table:view.insertToolTip')}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <>
+                          {render ? (
+                            render
+                          ) : (
+                            <>
+                              {icon}
+                              {name}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
               {nextItems.length > 0 && <CommandSeparator />}
             </Fragment>
