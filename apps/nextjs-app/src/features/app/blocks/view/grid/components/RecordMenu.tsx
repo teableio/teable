@@ -35,6 +35,7 @@ export interface IMenuItemProps<T> {
 interface InsertRecordRender {
   onClick: (num: number) => void;
   icon: React.ReactElement;
+  type: MenuItemType.InsertAbove | MenuItemType.InsertBelow;
 }
 
 enum MenuItemType {
@@ -47,8 +48,12 @@ enum MenuItemType {
 const iconClassName = 'mr-2 h-4 w-4 shrink-0';
 
 const InsertRecordRender = (props: InsertRecordRender) => {
-  const { onClick, icon } = props;
+  const { onClick, icon, type } = props;
   const [num, setNumber] = useState(1);
+  const i18nKey =
+    type === MenuItemType.InsertAbove
+      ? 'table:menu.insertRecordAbove'
+      : 'table:menu.insertRecordBelow';
   return (
     <Button
       variant={'ghost'}
@@ -62,7 +67,7 @@ const InsertRecordRender = (props: InsertRecordRender) => {
       <div className="flex flex-1 items-center text-sm">
         <Trans
           ns={tableConfig.i18nNamespaces}
-          i18nKey="table:menu.insertRecordAbove"
+          i18nKey={i18nKey}
           components={{
             input: (
               <Input
@@ -145,6 +150,7 @@ export const RecordMenu = () => {
           <InsertRecordRender
             onClick={(num: number) => insertRecordFn(num, 'before')}
             icon={<ArrowUp className={iconClassName} />}
+            type={MenuItemType.InsertAbove}
           />
         ),
         onClick: async () => {
@@ -161,6 +167,7 @@ export const RecordMenu = () => {
           <InsertRecordRender
             onClick={(num: number) => insertRecordFn(num, 'after')}
             icon={<ArrowDown className={iconClassName} />}
+            type={MenuItemType.InsertBelow}
           />
         ),
         onClick: async () => {
