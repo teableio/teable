@@ -1176,7 +1176,11 @@ export class RecordService {
             selected.push('lg');
           }
           const { smThumbnailUrl, lgThumbnailUrl } =
-            await this.attachmentStorageService.getTableAttachmentThumbnailUrl(path, selected);
+            await this.attachmentStorageService.getTableAttachmentThumbnailUrl(
+              path,
+              height,
+              selected
+            );
           return {
             ...item,
             smThumbnailUrl: cacheSmThumbnailUrl ?? smThumbnailUrl,

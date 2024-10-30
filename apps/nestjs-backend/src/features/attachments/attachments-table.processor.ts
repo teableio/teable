@@ -17,6 +17,7 @@ interface IRecordImageJob {
     mimetype: string;
     lgThumbnailUrl?: string;
     smThumbnailUrl?: string;
+    height: number;
   };
 }
 
@@ -40,9 +41,9 @@ export class AttachmentsTableQueueProcessor extends WorkerHost {
       return;
     }
     const tableBucket = StorageAdapter.getBucket(UploadType.Table);
-    const { path, mimetype, lgThumbnailUrl, smThumbnailUrl } = attachmentItem;
+    const { path, mimetype, lgThumbnailUrl, smThumbnailUrl, height } = attachmentItem;
     if (mimetype.startsWith('image/') && !smThumbnailUrl && !lgThumbnailUrl) {
-      await this.attachmentsStorageService.cropTableImage(tableBucket, path);
+      await this.attachmentsStorageService.cropTableImage(tableBucket, path, height);
       this.logger.log(`crop table(${tableId}) path(${path}) thumbnails success`);
       return;
     }

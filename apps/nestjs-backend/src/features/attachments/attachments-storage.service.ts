@@ -125,33 +125,41 @@ export class AttachmentsStorageService {
   }
 
   @Timing()
-  async getTableAttachmentThumbnailUrl(path: string, selected?: ('sm' | 'lg')[]) {
+  async getTableAttachmentThumbnailUrl(path: string, height: number, selected?: ('sm' | 'lg')[]) {
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const smThumbnailUrl = selected?.includes('sm')
-      ? await this.getTableThumbnailUrl(smThumbnailPath, getTableThumbnailToken(smThumbnailPath))
-      : undefined;
-    const lgThumbnailUrl = selected?.includes('lg')
-      ? await this.getTableThumbnailUrl(lgThumbnailPath, getTableThumbnailToken(lgThumbnailPath))
-      : undefined;
+    const smThumbnailUrl =
+      height > ATTACHMENT_SM_THUMBNAIL_HEIGHT && selected?.includes('sm')
+        ? await this.getTableThumbnailUrl(smThumbnailPath, getTableThumbnailToken(smThumbnailPath))
+        : undefined;
+    const lgThumbnailUrl =
+      height > ATTACHMENT_LG_THUMBNAIL_HEIGHT && selected?.includes('lg')
+        ? await this.getTableThumbnailUrl(lgThumbnailPath, getTableThumbnailToken(lgThumbnailPath))
+        : undefined;
     return { smThumbnailUrl, lgThumbnailUrl };
   }
 
-  async cropTableImage(bucket: string, path: string) {
+  async cropTableImage(bucket: string, path: string, height: number) {
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const cutSmThumbnailPath = await this.storageAdapter.cropImage(
-      bucket,
-      path,
-      undefined,
-      ATTACHMENT_SM_THUMBNAIL_HEIGHT,
-      smThumbnailPath
-    );
-    const cutLgThumbnailPath = await this.storageAdapter.cropImage(
-      bucket,
-      path,
-      undefined,
-      ATTACHMENT_LG_THUMBNAIL_HEIGHT,
-      lgThumbnailPath
-    );
+    const cutSmThumbnailPath =
+      height > ATTACHMENT_SM_THUMBNAIL_HEIGHT
+        ? await this.storageAdapter.cropImage(
+            bucket,
+            path,
+            undefined,
+            ATTACHMENT_SM_THUMBNAIL_HEIGHT,
+            smThumbnailPath
+          )
+        : undefined;
+    const cutLgThumbnailPath =
+      height > ATTACHMENT_LG_THUMBNAIL_HEIGHT
+        ? await this.storageAdapter.cropImage(
+            bucket,
+            path,
+            undefined,
+            ATTACHMENT_LG_THUMBNAIL_HEIGHT,
+            lgThumbnailPath
+          )
+        : undefined;
     this.eventEmitterService.emit(Events.CROP_IMAGE, {
       bucket,
       path,

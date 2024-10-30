@@ -325,14 +325,24 @@ export class TypeCastAndValidate {
             'Content-Disposition': `attachment; filename="${item.name}"`,
           }
         );
-        const { smThumbnailUrl, lgThumbnailUrl } =
-          await this.services.attachmentsStorageService.getTableAttachmentThumbnailUrl(path);
+        if (item.height && item.mimetype.startsWith('image/')) {
+          const { smThumbnailUrl, lgThumbnailUrl } =
+            await this.services.attachmentsStorageService.getTableAttachmentThumbnailUrl(
+              path,
+              item.height,
+              ['sm', 'lg']
+            );
+          return {
+            ...item,
+            presignedUrl,
+            smThumbnailUrl,
+            lgThumbnailUrl,
+          };
+        }
 
         return {
           ...item,
           presignedUrl,
-          smThumbnailUrl,
-          lgThumbnailUrl,
         };
       });
 

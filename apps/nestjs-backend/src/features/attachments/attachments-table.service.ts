@@ -73,6 +73,7 @@ export class AttachmentsTableService {
             attachmentItem: {
               path,
               mimetype,
+              height,
             },
           });
         }
@@ -164,6 +165,7 @@ export class AttachmentsTableService {
             attachmentItem: {
               path,
               mimetype,
+              height,
             },
           });
         }
