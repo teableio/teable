@@ -455,7 +455,11 @@
       "title": "页面崩溃!",
       "description": "当前页面意外崩溃，请刷新重试，如果持续出现问题请咨询 support@teable.io 获取帮助"
     },
-    "addPluginView": "视图插件"
+    "addPluginView": "视图插件",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "字段({{length}})"
+    }
   },
   "lastModifiedTime": "修改时间",
   "lastModify": "上次修改：",

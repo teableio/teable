@@ -369,7 +369,7 @@ export const FieldMenu = () => {
           })}
           style={style}
         >
-          <CommandList>
+          <CommandList className="max-h-96">
             {menuGroups.map((items, index) => {
               const nextItems = menuGroups[index + 1] ?? [];
               if (!items.length) return null;

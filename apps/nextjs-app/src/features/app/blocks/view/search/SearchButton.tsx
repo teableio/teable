@@ -3,7 +3,7 @@ import { LocalStorageKeys } from '@teable/sdk';
 import { useFields, useSearch } from '@teable/sdk/hooks';
 import { cn, Popover, PopoverContent, PopoverTrigger, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce, useLocalStorage } from 'react-use';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
@@ -21,7 +21,7 @@ export function SearchButton({
   const { fieldId, value, setFieldId, setValue } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'table']);
   const ref = useRef<HTMLInputElement>(null);
   const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
     LocalStorageKeys.EnableGlobalSearch,
@@ -81,6 +81,20 @@ export function SearchButton({
     }
   }, [active, enableGlobalSearch, fieldId, fields, ref, setFieldId]);
 
+  const searchHeader = useMemo(() => {
+    if (fieldId === 'all_fields') {
+      return t('noun.global');
+    }
+    const fieldIds = fieldId?.split(',') || [];
+    const fieldName = fields.find((f) => f.id === fieldIds[0])?.name;
+    if (fieldIds.length === 1) {
+      return t('table:view.search.field_one', { name: fieldName });
+    }
+    if (fieldIds.length > 1) {
+      return t('table:view.search.field_other', { name: fieldName, length: fieldIds?.length });
+    }
+  }, [fieldId, fields, t]);
+
   return active ? (
     <div
       className={cn(
@@ -92,11 +106,11 @@ export function SearchButton({
     >
       <Popover modal>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size={'xs'} className="rounded-none border-r">
-            {fieldId === 'all_fields' ? t('noun.global') : t('noun.field')}
+          <Button variant="ghost" size={'xs'} className="max-w-40 truncate rounded-none border-r">
+            <span className="truncate">{searchHeader}</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-1">
+        <PopoverContent className="w-64 p-1">
           <SearchCommand
             value={fieldId}
             onChange={(fieldIds) => {

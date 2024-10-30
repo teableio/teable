@@ -456,7 +456,11 @@
       "title": "Crash!",
       "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
     },
-    "addPluginView": "Add Plugin View"
+    "addPluginView": "Add Plugin View",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "{{name}} and {{length}} other fields"
+    }
   },
   "lastModifiedTime": "Last modified time",
   "lastModify": "Last modify: ",
