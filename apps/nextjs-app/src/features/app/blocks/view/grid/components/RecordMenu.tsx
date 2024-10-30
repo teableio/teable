@@ -83,8 +83,14 @@ const InsertRecordRender = (props: InsertRecordRender) => {
                 onChange={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  const input = Math.abs(Math.round(Number(e.target.value)));
-                  setNumber(isNaN(input) ? 1 : input);
+                  const originValue = Math.abs(Math.round(Number(e.target.value)));
+                  const newValue = isNaN(originValue) ? 1 : originValue;
+                  if (originValue > 1000) {
+                    e.target.value = '1000';
+                    setNumber(1000);
+                    return;
+                  }
+                  setNumber(newValue);
                 }}
               />
             ),

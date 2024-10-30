@@ -33,7 +33,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
 
   const currentSheetData = useMemo<ISheetData>(() => {
     const result = sheetList.find((sheet) => sheet.name === currentSheetName)?.data as ISheetData;
-    console.info(`sheetData`, Boolean(result));
+    Boolean(result) && console.info(`get sheetData success`);
     return result;
   }, [sheetList, currentSheetName]);
 
