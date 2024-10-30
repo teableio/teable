@@ -113,7 +113,7 @@ describe('OpenAPI AttachmentController (e2e)', () => {
       expect.arrayContaining([
         expect.objectContaining({
           smThumbnailUrl: expect.any(String),
-          lgThumbnailUrl: expect.any(String),
+          lgThumbnailUrl: undefined,
         }),
       ])
     );
