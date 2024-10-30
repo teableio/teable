@@ -1698,8 +1698,19 @@ export class RecordService {
       return { isDeleted, isVisible: false };
     }
 
-    const records = await this.getRecords(tableId, query);
-    const isVisible = records.records.find((record) => record.id === recordId) != null;
+    const queryResult = await this.getDocIdsByQuery(tableId, {
+      viewId: query.viewId,
+      skip: query.skip,
+      take: query.take,
+      filter: query.filter,
+      orderBy: query.orderBy,
+      search: query.search,
+      groupBy: query.groupBy,
+      filterLinkCellCandidate: query.filterLinkCellCandidate,
+      filterLinkCellSelected: query.filterLinkCellSelected,
+      selectedRecordIds: query.selectedRecordIds,
+    });
+    const isVisible = queryResult.ids.includes(recordId);
     return { isDeleted, isVisible };
   }
 }
