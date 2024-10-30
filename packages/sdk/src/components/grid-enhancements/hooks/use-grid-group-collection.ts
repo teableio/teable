@@ -43,13 +43,18 @@ const useGenerateGroupCellFn = () => {
   return useCallback(
     (fields: IFieldInstance[]) =>
       // eslint-disable-next-line sonarjs/cognitive-complexity
-      (cellValue: unknown, depth: number): ICell => {
+      (_cellValue: unknown, depth: number): ICell => {
         const field = fields[depth];
 
         if (field == null) return { type: CellType.Loading };
 
         const { id: fieldId, type, isMultipleCellValue: isMultiple, cellValueType } = field;
         const emptyStr = '(Empty)';
+
+        const validateCellValue = field.validateCellValue(_cellValue);
+        const cellValue = (
+          validateCellValue.success ? validateCellValue.data : undefined
+        ) as unknown;
 
         if (cellValue == null) {
           return {
