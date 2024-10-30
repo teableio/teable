@@ -1,5 +1,4 @@
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
@@ -8,6 +7,7 @@ import type { ITableFullVo } from '@teable/openapi';
 import { getRecord, permanentDeleteTable, updateRecord, uploadAttachment } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { createAwaitWithEvent } from './utils/event-promise';
 import { createField, createTable, initApp } from './utils/init-app';
 
@@ -20,8 +20,7 @@ describe('OpenAPI AttachmentController (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    const tempDir = os.tmpdir();
-    filePath = path.join(tempDir, 'test-file.txt');
+    filePath = path.join(StorageAdapter.TEMPORARY_DIR, 'test-file.txt');
     fs.writeFileSync(filePath, 'This is a test file for attachment upload.');
   });
 
@@ -93,7 +92,7 @@ describe('OpenAPI AttachmentController (e2e)', () => {
   it('should get thumbnail url', async () => {
     const eventEmitterService = app.get(EventEmitterService);
     const awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.CROP_IMAGE);
-    const imagePath = path.join(os.tmpdir(), `./${getRandomString(12)}.svg`);
+    const imagePath = path.join(StorageAdapter.TEMPORARY_DIR, `./${getRandomString(12)}.svg`);
     fs.writeFileSync(
       imagePath,
       `<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">

@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import fs from 'fs';
-import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo, IViewRo } from '@teable/core';
@@ -18,6 +17,7 @@ import {
   UploadType,
 } from '@teable/openapi';
 
+import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { createView, initApp, getTable } from './utils/init-app';
 
 let app: INestApplication;
@@ -183,9 +183,8 @@ beforeAll(async () => {
   const appCtx = await initApp();
   app = appCtx.app;
 
-  const tmpDir = os.tmpdir();
   const format = 'txt';
-  const tmpPath = path.resolve(path.join(tmpDir, `test.${format}`));
+  const tmpPath = path.resolve(path.join(StorageAdapter.TEMPORARY_DIR, `test.${format}`));
   const txtData = `field_1,field_2,field_3,field_4,field_5,field_6
   1,string_1,true,2022-11-10 16:00:00,,"long
   text"
