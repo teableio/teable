@@ -201,9 +201,7 @@ export const FieldMenu = () => {
             };
           }
           await view.updateFilter(newFilter);
-          setTimeout(() => {
-            filterRef?.current?.click();
-          }, 0);
+          filterRef?.current?.click();
         },
       },
       {
@@ -240,9 +238,7 @@ export const FieldMenu = () => {
             };
           }
           shouldUpdate && (await view?.updateSort(newSort as ISort));
-          setTimeout(() => {
-            sortRef?.current?.click();
-          }, 0);
+          sortRef?.current?.click();
         },
       },
       {
@@ -274,9 +270,7 @@ export const FieldMenu = () => {
             newGroup = [...group, newGroupItem];
           }
           shouldUpdate && (await view.updateGroup(newGroup as IGroup));
-          setTimeout(() => {
-            groupRef?.current?.click();
-          }, 0);
+          groupRef?.current?.click();
         },
       },
     ],

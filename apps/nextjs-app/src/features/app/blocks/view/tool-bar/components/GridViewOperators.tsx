@@ -1,14 +1,6 @@
 import { type IGridViewOptions } from '@teable/core';
 import { ArrowUpDown, Filter as FilterIcon, EyeOff, LayoutList, Share2 } from '@teable/icons';
-import {
-  HideFields,
-  RowHeight,
-  useFields,
-  Sort,
-  Group,
-  ViewFilter,
-  useIsHydrated,
-} from '@teable/sdk';
+import { HideFields, RowHeight, useFields, Sort, Group, ViewFilter } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -29,17 +21,12 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const filterRef = useRef<HTMLButtonElement>(null);
   const sortRef = useRef<HTMLButtonElement>(null);
   const groupRef = useRef<HTMLButtonElement>(null);
-  const isHydrated = useIsHydrated();
 
   useEffect(() => {
-    setTimeout(() => {
-      if (isHydrated && filterRef.current && sortRef.current && groupRef.current) {
-        setFilterRef(filterRef);
-        setSortRef(sortRef);
-        setGroupRef(groupRef);
-      }
-    }, 200);
-  }, [setFilterRef, setSortRef, setGroupRef, isHydrated]);
+    setFilterRef(filterRef);
+    setSortRef(sortRef);
+    setGroupRef(groupRef);
+  }, [setFilterRef, setGroupRef, setSortRef]);
 
   if (!view || !fields.length) {
     return <div></div>;
