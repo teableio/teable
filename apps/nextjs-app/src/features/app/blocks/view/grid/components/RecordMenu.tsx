@@ -71,10 +71,8 @@ const InsertRecordRender = (props: InsertRecordRender) => {
           components={{
             input: (
               <Input
-                className="mx-1 h-8 w-16"
-                min={1}
-                type="number"
-                value={num}
+                className="mx-1 h-6 w-14"
+                defaultValue={1}
                 onKeyDown={(e) => {
                   e.stopPropagation();
                 }}
@@ -85,8 +83,8 @@ const InsertRecordRender = (props: InsertRecordRender) => {
                 onChange={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  const input = Math.round(Number(e.target.value));
-                  setNumber(input);
+                  const input = Math.abs(Math.round(Number(e.target.value)));
+                  setNumber(isNaN(input) ? 1 : input);
                 }}
               />
             ),
@@ -200,7 +198,7 @@ export const RecordMenu = () => {
   return (
     <Command
       ref={recordMenuRef}
-      className={cn('absolute rounded-sm shadow-sm w-60 h-auto border', {
+      className={cn('absolute rounded-sm shadow-sm w-64 h-auto border', {
         hidden: !visible,
       })}
       style={style}
