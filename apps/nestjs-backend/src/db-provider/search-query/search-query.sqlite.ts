@@ -1,5 +1,6 @@
-import type { IDateFieldOptions, INumberFieldOptions } from '@teable/core';
+import type { IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
+import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import { SearchQueryAbstract } from './abstract';
 import { getOffset } from './get-offset';
@@ -10,7 +11,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   multipleNumber() {
-    const precision = (this.field.options as INumberFieldOptions).formatting.precision;
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
     return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
@@ -93,7 +94,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   number() {
-    const precision = (this.field.options as INumberFieldOptions).formatting.precision;
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
     return this.originQueryBuilder.orWhereRaw('ROUND(??, ?) LIKE ?', [
       this.field.dbFieldName,
       precision,
