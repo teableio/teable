@@ -29,6 +29,7 @@ import type {
   IGroupPoint,
   ILinearRow,
   IGroupCollection,
+  DragRegionType,
 } from './interface';
 import {
   RegionType,
@@ -109,6 +110,7 @@ export interface IGridExternalProps {
   onColumnStatisticClick?: (colIndex: number, bounds: IRectangle) => void;
   onContextMenu?: (selection: CombinedSelection, position: IPosition) => void;
   onScrollChanged?: (scrollLeft: number, scrollTop: number) => void;
+  onDragStart?: (type: DragRegionType, dragIndexs: number[]) => void;
 
   /**
    * Triggered when the mouse hovers over the every type of region
@@ -198,6 +200,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
+    onDragStart,
     onContextMenu,
     onSelectionChanged,
     onVisibleRegionChanged,
@@ -605,6 +608,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onCopy={onCopy}
             onPaste={onPaste}
             onDelete={onDelete}
+            onDragStart={onDragStart}
             onRowAppend={onRowAppend}
             onRowExpand={onRowExpand}
             onRowOrdered={onRowOrdered}

@@ -1,5 +1,5 @@
 import { FieldKeyType } from '@teable/core';
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTableId, useView, useViewId } from '../../../hooks';
 import { Record, type GridView } from '../../../model';
 import type { IRecordIndexMap } from './use-grid-async-records';
@@ -10,16 +10,12 @@ export const useGridRowOrder = (recordMap: IRecordIndexMap) => {
   const view = useView(viewId) as GridView | undefined;
   const group = view?.group;
 
-  return useCallback(
-    (rowIndexCollection: number[], newRowIndex: number) => {
-      const operationRecordIds: string[] = [];
+  const [draggingRecordIds, setDraggingRecordIds] = useState<string[]>();
 
-      for (const rowIndex of rowIndexCollection) {
-        const record = recordMap[rowIndex];
-        if (!record) {
-          throw new Error('Can not find record by index: ' + rowIndex);
-        }
-        operationRecordIds.push(record.id);
+  const onRowOrdered = useCallback(
+    (rowIndexCollection: number[], newRowIndex: number) => {
+      if (draggingRecordIds?.length !== rowIndexCollection.length) {
+        return;
       }
 
       if (!viewId) {
@@ -48,7 +44,7 @@ export const useGridRowOrder = (recordMap: IRecordIndexMap) => {
       if (newRowIndex === 0) {
         return Record.updateRecords(tableId as string, {
           fieldKeyType: FieldKeyType.Id,
-          records: operationRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
+          records: draggingRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
           order: {
             viewId,
             anchorId: recordMap[0].id,
@@ -64,7 +60,7 @@ export const useGridRowOrder = (recordMap: IRecordIndexMap) => {
 
       return Record.updateRecords(tableId as string, {
         fieldKeyType: FieldKeyType.Id,
-        records: operationRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
+        records: draggingRecordIds.map((recordId) => ({ id: recordId, fields: fieldValueMap })),
         order: {
           viewId,
           anchorId: record.id,
@@ -72,6 +68,13 @@ export const useGridRowOrder = (recordMap: IRecordIndexMap) => {
         },
       });
     },
-    [viewId, recordMap, tableId, group]
+    [viewId, group, recordMap, tableId, draggingRecordIds]
   );
+
+  return useMemo(() => {
+    return {
+      onRowOrdered,
+      setDraggingRecordIds,
+    };
+  }, [onRowOrdered, setDraggingRecordIds]);
 };

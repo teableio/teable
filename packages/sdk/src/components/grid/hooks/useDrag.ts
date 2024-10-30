@@ -47,7 +47,10 @@ export const useDrag = (
   const [dragState, setDragState] = useState<IDragState>(DEFAULT_DRAG_STATE);
   const { scrollTop, scrollLeft } = scrollState;
 
-  const onDragStart = (mouseState: IMouseState) => {
+  const onDragStart = (
+    mouseState: IMouseState,
+    onEnd: (type: DragRegionType, dragIndexs: IRange[]) => void
+  ) => {
     if (draggable === DraggableType.None) return;
 
     const { type, rowIndex: hoverRowIndex, columnIndex: hoverColumnIndex, x, y } = mouseState;
@@ -59,6 +62,7 @@ export const useDrag = (
         isRowSelection && selection.includes([hoverRowIndex, hoverRowIndex])
           ? selectionRanges
           : ([[hoverRowIndex, hoverRowIndex]] as IRange[]);
+      onEnd(DragRegionType.Rows, ranges);
       setDragState({
         type: DragRegionType.Rows,
         ranges,
@@ -73,6 +77,7 @@ export const useDrag = (
         isColumnSelection && selection.includes([hoverColumnIndex, hoverColumnIndex])
           ? selectionRanges
           : ([[hoverColumnIndex, hoverColumnIndex]] as IRange[]);
+      onEnd(DragRegionType.Columns, ranges);
       setDragState({
         type: DragRegionType.Columns,
         ranges,
@@ -97,7 +102,7 @@ export const useDrag = (
 
   const onDragEnd = (
     mouseState: IMouseState,
-    onEnd: (dragIndex: IRange[], dropIndex: number) => void
+    onEnd: (dragIndexs: IRange[], dropIndex: number) => void
   ) => {
     const { type, isDragging } = dragState;
 

@@ -50,6 +50,7 @@ import {
   useGridViewStore,
   useGridSelection,
   Record,
+  DragRegionType,
 } from '@teable/sdk';
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
@@ -147,7 +148,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const commentCountMap = useCommentCountMap(recordsQuery);
 
-  const onRowOrdered = useGridRowOrder(recordMap);
+  const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
   const { copy, paste, clear, deleteRecords } = useSelectionOperation({
     collapsedGroupIds: viewQuery?.collapsedGroupIds
@@ -660,6 +661,16 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     return DraggableType.All;
   }, [isAutoSort]);
 
+  const onDragStart = useCallback(
+    (type: DragRegionType, dragIndexs: number[]) => {
+      if (type === DragRegionType.Rows) {
+        const recordIds = dragIndexs.map((index) => recordMap[index]?.id).filter(Boolean);
+        setDraggingRecordIds(recordIds);
+      }
+    },
+    [recordMap, setDraggingRecordIds]
+  );
+
   const getAuthorizedFunction = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     <T extends (...args: any[]) => any>(
@@ -759,6 +770,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         collaborators={collaborators}
         getCellContent={getCellContent}
         onDelete={getAuthorizedFunction(onDelete, 'record|update')}
+        onDragStart={onDragStart}
         onRowOrdered={onRowOrdered}
         onRowExpand={onRowExpandInner}
         onRowAppend={
