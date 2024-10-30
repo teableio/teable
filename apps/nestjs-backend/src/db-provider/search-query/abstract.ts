@@ -14,46 +14,70 @@ export abstract class SearchQueryAbstract {
     fieldMap?: { [fieldId: string]: IFieldInstance },
     search?: string[]
   ) {
-    if (!search || !search[1] || !fieldMap) {
+    if (!search || !fieldMap) {
       return originQueryBuilder;
     }
-    const field = fieldMap?.[search[1]];
+
+    let searchArr = [];
+
+    if (!search?.[1]) {
+      searchArr = Object.values(fieldMap).map((f) => f.id);
+    } else {
+      searchArr = search[1]?.split(',');
+    }
+
     const searchValue = search[0];
-    if (field.cellValueType === CellValueType.Boolean) {
-      return originQueryBuilder;
-    }
 
-    const searchQueryBuilder = new SearchQuery(originQueryBuilder, field, searchValue);
+    searchArr.forEach((item) => {
+      const field = fieldMap?.[item];
 
-    if (field.isMultipleCellValue) {
+      if (!field) {
+        return;
+      }
+
+      if (field.cellValueType === CellValueType.Boolean) {
+        return;
+      }
+
+      const searchQueryBuilder = new SearchQuery(originQueryBuilder, field, searchValue);
+
+      if (field.isMultipleCellValue) {
+        switch (field.cellValueType) {
+          case CellValueType.DateTime:
+            searchQueryBuilder.multipleDate();
+            break;
+          case CellValueType.Number:
+            searchQueryBuilder.multipleNumber();
+            break;
+          case CellValueType.String:
+            if (field.isStructuredCellValue) {
+              searchQueryBuilder.multipleJson();
+            } else {
+              searchQueryBuilder.multipleText();
+            }
+            break;
+        }
+        return;
+      }
+
       switch (field.cellValueType) {
         case CellValueType.DateTime:
-          return searchQueryBuilder.multipleDate();
+          searchQueryBuilder.date();
+          break;
         case CellValueType.Number:
-          return searchQueryBuilder.multipleNumber();
+          searchQueryBuilder.number();
+          break;
         case CellValueType.String:
           if (field.isStructuredCellValue) {
-            return searchQueryBuilder.multipleJson();
+            searchQueryBuilder.json();
+          } else {
+            searchQueryBuilder.text();
           }
-          return searchQueryBuilder.multipleText();
-        default:
-          return originQueryBuilder;
+          break;
       }
-    }
+    });
 
-    switch (field.cellValueType) {
-      case CellValueType.DateTime:
-        return searchQueryBuilder.date();
-      case CellValueType.Number:
-        return searchQueryBuilder.number();
-      case CellValueType.String:
-        if (field.isStructuredCellValue) {
-          return searchQueryBuilder.json();
-        }
-        return searchQueryBuilder.text();
-      default:
-        return originQueryBuilder;
-    }
+    return originQueryBuilder;
   }
 
   constructor(

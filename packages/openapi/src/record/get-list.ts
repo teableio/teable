@@ -50,7 +50,7 @@ export const queryBaseSchema = z.object({
       description: FILTER_DESCRIPTION,
     }),
   search: z
-    .tuple([z.string(), z.string()])
+    .union([z.tuple([z.string()]), z.tuple([z.string(), z.string()])])
     .optional()
     .openapi({
       default: ['searchValue', 'fieldIdOrName'],

@@ -1,6 +1,7 @@
 {
   "name": "@teable/plugin",
   "version": "1.5.0",
+  "license": "AGPL-3.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",

@@ -316,7 +316,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           position,
           record,
           neighborRecords,
-          insertRecord: (anchorId, position) => {
+          insertRecord: (anchorId, position, num: number) => {
             if (!tableId || !view?.id || !record) return;
             const targetIndex = position === 'before' ? rowStart - 1 : rowStart;
             const fieldValueMap =
@@ -327,7 +327,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
                 },
                 {} as { [key: string]: unknown }
               ) ?? {};
-            generateRecord(fieldValueMap, Math.max(targetIndex, 0), { anchorId, position });
+            generateRecord(fieldValueMap, Math.max(targetIndex, 0), { anchorId, position }, num);
           },
           deleteRecords: async (selection) => {
             deleteRecords(selection);
@@ -402,22 +402,34 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const generateRecord = (
     fieldValueMap: { [fieldId: string]: unknown },
     targetIndex?: number,
-    rowOrder?: IUpdateOrderRo
+    rowOrder?: IUpdateOrderRo,
+    num?: number
   ) => {
     const index = targetIndex ?? Math.max(realRowCount - 1, 0);
+    if (num === 0) {
+      return;
+    }
     setPrefillingFieldValueMap(fieldValueMap);
     setPrefillingRowOrder(rowOrder);
     setPrefillingRowIndex(index);
-    setSelection(emptySelection);
-    gridRef.current?.setSelection(emptySelection);
-    setTimeout(() => {
-      prefillingGridRef.current?.setSelection(
-        new CombinedSelection(SelectionRegionType.Cells, [
-          [0, 0],
-          [0, 0],
-        ])
-      );
-    });
+    if (num === 1 || num === undefined) {
+      setSelection(emptySelection);
+      gridRef.current?.setSelection(emptySelection);
+      setTimeout(() => {
+        prefillingGridRef.current?.setSelection(
+          new CombinedSelection(SelectionRegionType.Cells, [
+            [0, 0],
+            [0, 0],
+          ])
+        );
+      });
+    } else {
+      // insert empty records
+      const emptyRecords = Array.from({ length: num }).fill({
+        fields: {},
+      }) as ICreateRecordsRo['records'];
+      mutateCreateRecord(emptyRecords);
+    }
   };
 
   const onRowAppend = (targetIndex?: number) => {

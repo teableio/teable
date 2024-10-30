@@ -1,12 +1,13 @@
 import { Search, X } from '@teable/icons';
-import { FieldSelector } from '@teable/sdk/components';
+import { LocalStorageKeys } from '@teable/sdk';
 import { useFields, useSearch } from '@teable/sdk/hooks';
-import { cn } from '@teable/ui-lib/shadcn';
+import { cn, Popover, PopoverContent, PopoverTrigger, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { useDebounce } from 'react-use';
+import { useDebounce, useLocalStorage } from 'react-use';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
+import { SearchCommand } from './SearchCommand';
 
 export function SearchButton({
   className,
@@ -22,6 +23,10 @@ export function SearchButton({
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useTranslation('common');
   const ref = useRef<HTMLInputElement>(null);
+  const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
+    LocalStorageKeys.EnableGlobalSearch,
+    false
+  );
 
   useHotkeys(
     `mod+f`,
@@ -66,11 +71,15 @@ export function SearchButton({
   useEffect(() => {
     if (active) {
       ref.current?.focus();
-      if (!fieldId) {
+      if (enableGlobalSearch) {
+        setFieldId('all_fields');
+        return;
+      }
+      if (fieldId === undefined) {
         setFieldId(fields[0].id);
       }
     }
-  }, [active, fieldId, fields, ref, setFieldId]);
+  }, [active, enableGlobalSearch, fieldId, fields, ref, setFieldId]);
 
   return active ? (
     <div
@@ -81,13 +90,27 @@ export function SearchButton({
         }
       )}
     >
-      <FieldSelector
-        className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-xs font-normal"
-        value={fieldId}
-        onSelect={(value) => {
-          setFieldId(value);
-        }}
-      />
+      <Popover modal>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size={'xs'} className="rounded-none border-r">
+            {fieldId === 'all_fields' ? t('noun.global') : t('noun.field')}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="p-1">
+          <SearchCommand
+            value={fieldId}
+            onChange={(fieldIds) => {
+              const ids = fieldIds.join(',');
+              if (ids === 'all_fields') {
+                setEnableGlobalSearch(true);
+              } else {
+                setEnableGlobalSearch(false);
+              }
+              setFieldId(ids);
+            }}
+          />
+        </PopoverContent>
+      </Popover>
       <input
         ref={ref}
         className="placeholder:text-muted-foregrounds flex w-32 rounded-md bg-transparent px-1 outline-none"

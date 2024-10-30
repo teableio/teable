@@ -149,7 +149,7 @@ export class TypeCastAndValidate {
           throw new BadRequestException(fromZodError(validate.error).message);
         }
       }
-      if (this.field.type === FieldType.SingleLineText) {
+      if (this.field.type === FieldType.SingleLineText || this.field.type === FieldType.LongText) {
         return this.field.convertStringToCellValue(validate.data as string);
       }
       return validate.data == null ? null : validate.data;

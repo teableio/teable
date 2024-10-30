@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ATTACHMENT_LG_THUMBNAIL_HEIGHT, ATTACHMENT_SM_THUMBNAIL_HEIGHT } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
@@ -11,26 +11,32 @@ import {
   getTableThumbnailToken,
 } from '../../utils/generate-table-thumbnail-path';
 import { second } from '../../utils/second';
+import { Timing } from '../../utils/timing';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
 import type { IRespHeaders } from './plugins/types';
 
 @Injectable()
 export class AttachmentsStorageService {
+  private readonly urlExpireIn: number;
+  private readonly logger = new Logger(AttachmentsStorageService.name);
+
   constructor(
     private readonly cacheService: CacheService,
     private readonly prismaService: PrismaService,
     private readonly eventEmitterService: EventEmitterService,
     @StorageConfig() private readonly storageConfig: IStorageConfig,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
-  ) {}
+  ) {
+    this.urlExpireIn = second(this.storageConfig.urlExpireIn);
+  }
 
   async getPreviewUrl<T extends string | string[] = string | string[]>(
     bucket: string,
     token: T,
     meta?: { expiresIn?: number }
   ): Promise<T> {
-    const { expiresIn = second(this.storageConfig.urlExpireIn) } = meta ?? {};
+    const { expiresIn = this.urlExpireIn } = meta ?? {};
     const isArray = Array.isArray(token);
     if (isArray && token.length === 0) {
       return [] as unknown as T;
@@ -68,7 +74,7 @@ export class AttachmentsStorageService {
     bucket: string,
     path: string,
     token: string,
-    expiresIn: number = second(this.storageConfig.urlExpireIn),
+    expiresIn: number = this.urlExpireIn,
     respHeaders?: IRespHeaders
   ) {
     const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
@@ -76,7 +82,8 @@ export class AttachmentsStorageService {
     if (!url) {
       url = await this.storageAdapter.getPreviewUrl(bucket, path, expiresIn, respHeaders);
       if (!url) {
-        throw new BadRequestException(`Invalid token: ${token}`);
+        this.logger.error(`Invalid token: ${token}`);
+        return '';
       }
       await this.cacheService.set(
         `attachment:preview:${token}`,
@@ -90,7 +97,11 @@ export class AttachmentsStorageService {
     return url;
   }
 
-  private async getTableThumbnailUrl(path: string, token: string) {
+  private async getTableThumbnailUrl(
+    path: string,
+    token: string,
+    expiresIn: number = this.urlExpireIn
+  ) {
     const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
     if (previewCache?.url) {
       return previewCache.url;
@@ -98,31 +109,30 @@ export class AttachmentsStorageService {
     const url = await this.storageAdapter.getPreviewUrl(
       StorageAdapter.getBucket(UploadType.Table),
       path,
-      second(this.storageConfig.urlExpireIn)
+      expiresIn
     );
     if (url) {
       await this.cacheService.set(
         `attachment:preview:${token}`,
         {
           url,
-          expiresIn: second(this.storageConfig.urlExpireIn),
+          expiresIn,
         },
-        second(this.storageConfig.urlExpireIn)
+        expiresIn
       );
     }
     return url;
   }
 
-  async getTableAttachmentThumbnailUrl(path: string) {
+  @Timing()
+  async getTableAttachmentThumbnailUrl(path: string, selected?: ('sm' | 'lg')[]) {
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const smThumbnailUrl = await this.getTableThumbnailUrl(
-      smThumbnailPath,
-      getTableThumbnailToken(smThumbnailPath)
-    );
-    const lgThumbnailUrl = await this.getTableThumbnailUrl(
-      lgThumbnailPath,
-      getTableThumbnailToken(lgThumbnailPath)
-    );
+    const smThumbnailUrl = selected?.includes('sm')
+      ? await this.getTableThumbnailUrl(smThumbnailPath, getTableThumbnailToken(smThumbnailPath))
+      : undefined;
+    const lgThumbnailUrl = selected?.includes('lg')
+      ? await this.getTableThumbnailUrl(lgThumbnailPath, getTableThumbnailToken(lgThumbnailPath))
+      : undefined;
     return { smThumbnailUrl, lgThumbnailUrl };
   }
 

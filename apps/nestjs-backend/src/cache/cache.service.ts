@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { getRandomInt } from '@teable/core';
-import { type Store } from 'keyv';
+import Keyv from 'keyv';
 import { second } from '../utils/second';
 import type { ICacheStore } from './types';
 
 @Injectable()
 export class CacheService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(private readonly cacheManager: Store<any>) {}
+  constructor(private readonly cacheManager: Keyv<any>) {}
 
   async get<TKey extends keyof ICacheStore>(key: TKey): Promise<ICacheStore[TKey] | undefined> {
     return this.cacheManager.get(key);
@@ -29,5 +29,11 @@ export class CacheService {
 
   async del<TKey extends keyof ICacheStore>(key: TKey): Promise<void> {
     await this.cacheManager.delete(key);
+  }
+
+  async getMany<TKey extends keyof ICacheStore>(
+    keys: TKey[]
+  ): Promise<Array<ICacheStore[TKey] | undefined>> {
+    return this.cacheManager.get(keys);
   }
 }

@@ -47,9 +47,10 @@ import type {
 } from '@teable/openapi';
 import { GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { difference, keyBy } from 'lodash';
+import { get, difference, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CacheService } from '../../cache/cache.service';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -57,6 +58,10 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { generateFilterItem } from '../../utils/filter';
+import {
+  generateTableThumbnailPath,
+  getTableThumbnailToken,
+} from '../../utils/generate-table-thumbnail-path';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -92,8 +97,9 @@ export class RecordService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
-    private readonly attachmentStorageService: AttachmentsStorageService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly cacheService: CacheService,
+    private readonly attachmentStorageService: AttachmentsStorageService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
@@ -376,6 +382,28 @@ export class RecordService {
     }
   }
 
+  private getFieldMapWithoutHiddenFields(
+    originFieldMap?: Record<string, IFieldInstance>,
+    columnMetaRaw?: string
+  ) {
+    if (!columnMetaRaw || !originFieldMap) {
+      return originFieldMap;
+    }
+
+    const newFieldMap = { ...originFieldMap };
+
+    const parseColumnMeta = JSON.parse(columnMetaRaw);
+
+    if (parseColumnMeta) {
+      Object.entries(parseColumnMeta).forEach(([key, value]) => {
+        const hidden = get(value, 'hidden');
+        hidden && delete newFieldMap[key];
+      });
+    }
+
+    return newFieldMap as Record<string, IFieldInstance>;
+  }
+
   private async getTinyView(tableId: string, viewId?: string) {
     if (!viewId) {
       return;
@@ -384,7 +412,7 @@ export class RecordService {
     return this.prismaService
       .txClient()
       .view.findFirstOrThrow({
-        select: { id: true, type: true, filter: true, sort: true, group: true },
+        select: { id: true, type: true, filter: true, sort: true, group: true, columnMeta: true },
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
@@ -397,11 +425,25 @@ export class RecordService {
     if (!fieldMap) {
       throw new Error('fieldMap is required when search is set');
     }
-    const field = fieldMap[fieldIdOrName];
-    if (!field) {
-      throw new NotFoundException(`Field ${fieldIdOrName} not found`);
+
+    if (!fieldIdOrName) {
+      return [
+        searchValue,
+        Object.values(fieldMap)
+          .map((f) => f.id)
+          .join(','),
+      ];
     }
-    return [searchValue, field.id];
+    const fieldIds = fieldIdOrName.split(',');
+
+    fieldIds.forEach((id) => {
+      const field = fieldMap[id];
+      if (!field) {
+        throw new NotFoundException(`Field ${id} not found`);
+      }
+    });
+
+    return [searchValue, fieldIdOrName];
   }
 
   async prepareQuery(
@@ -432,7 +474,14 @@ export class RecordService {
       groupBy,
       originSearch
     );
-    const search = originSearch ? this.parseSearch(originSearch, fieldMap) : undefined;
+    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
+      fieldMap,
+      view?.columnMeta
+    );
+
+    const search = originSearch
+      ? this.parseSearch(originSearch, fieldMapWithoutHiddenFields)
+      : undefined;
 
     return {
       queryBuilder,
@@ -442,6 +491,7 @@ export class RecordService {
       orderBy,
       groupBy,
       fieldMap,
+      fieldMapWithoutHiddenFields,
     };
   }
 
@@ -486,8 +536,16 @@ export class RecordService {
     >
   ): Promise<Knex.QueryBuilder> {
     // Prepare the base query builder, filtering conditions, sorting rules, grouping rules and field mapping
-    const { dbTableName, queryBuilder, filter, search, orderBy, groupBy, fieldMap } =
-      await this.prepareQuery(tableId, query);
+    const {
+      dbTableName,
+      queryBuilder,
+      filter,
+      search,
+      orderBy,
+      groupBy,
+      fieldMap,
+      fieldMapWithoutHiddenFields,
+    } = await this.prepareQuery(tableId, query);
 
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -532,8 +590,9 @@ export class RecordService {
       .sortQuery(queryBuilder, fieldMap, [...(groupBy ?? []), ...orderBy])
       .appendSortBuilder();
 
-    // add search rules to the query builder
-    this.dbProvider.searchQuery(queryBuilder, fieldMap, search);
+    queryBuilder.where((builder) => {
+      this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, search);
+    });
 
     // ignore sorting when filterLinkCellSelected is set
     if (query.filterLinkCellSelected && Array.isArray(query.filterLinkCellSelected)) {
@@ -1016,20 +1075,61 @@ export class RecordService {
     return fields.map((field) => createFieldInstanceByRaw(field));
   }
 
+  private async getPreviewUrlTokenMap(
+    records: ISnapshotBase<IRecord>[],
+    fields: IFieldInstance[],
+    fieldKeyType: FieldKeyType
+  ) {
+    const previewToken: string[] = [];
+    for (const field of fields) {
+      if (field.type === FieldType.Attachment) {
+        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        for (const record of records) {
+          const cellValue = record.data.fields[fieldKey];
+          if (cellValue == null) continue;
+          (cellValue as IAttachmentCellValue).forEach((item) => {
+            if (item.mimetype.startsWith('image/') && item.width && item.height) {
+              const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(item.path);
+              previewToken.push(getTableThumbnailToken(smThumbnailPath));
+              previewToken.push(getTableThumbnailToken(lgThumbnailPath));
+            }
+            previewToken.push(item.token);
+          });
+        }
+      }
+    }
+    // limit 1000 one handle
+    const tokenMap: Record<string, string> = {};
+    for (let i = 0; i < previewToken.length; i += 1000) {
+      const tokenBatch = previewToken.slice(i, i + 1000);
+      const previewUrls = await this.cacheService.getMany(
+        tokenBatch.map((token) => `attachment:preview:${token}` as const)
+      );
+      previewUrls.forEach((url, index) => {
+        if (url) {
+          tokenMap[previewToken[i + index]] = url.url;
+        }
+      });
+    }
+    return tokenMap;
+  }
+
+  @Timing()
   private async recordsPresignedUrl(
     records: ISnapshotBase<IRecord>[],
     fields: IFieldInstance[],
     fieldKeyType: FieldKeyType
   ) {
+    const tokenUrlMap = await this.getPreviewUrlTokenMap(records, fields, fieldKeyType);
     for (const field of fields) {
       if (field.type === FieldType.Attachment) {
         const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
         for (const record of records) {
           const cellValue = record.data.fields[fieldKey];
           const presignedCellValue = await this.getAttachmentPresignedCellValue(
-            cellValue as IAttachmentCellValue
+            cellValue as IAttachmentCellValue,
+            tokenUrlMap
           );
-
           if (presignedCellValue == null) continue;
 
           record.data.fields[fieldKey] = presignedCellValue;
@@ -1039,27 +1139,53 @@ export class RecordService {
     return records;
   }
 
-  async getAttachmentPresignedCellValue(cellValue: IAttachmentCellValue | null) {
+  async getAttachmentPresignedCellValue(
+    cellValue: IAttachmentCellValue | null,
+    tokenUrlMap?: Record<string, string>
+  ) {
     if (cellValue == null) {
       return null;
     }
 
     return await Promise.all(
       cellValue.map(async (item) => {
-        const { path, mimetype, token } = item;
-        const presignedUrl = await this.attachmentStorageService.getPreviewUrlByPath(
-          StorageAdapter.getBucket(UploadType.Table),
-          path,
-          token,
-          undefined,
-          {
-            'Content-Type': mimetype,
-            'Content-Disposition': `attachment; filename="${item.name}"`,
+        const { path, mimetype, token, width, height } = item;
+        const presignedUrl =
+          tokenUrlMap?.[token] ??
+          (await this.attachmentStorageService.getPreviewUrlByPath(
+            StorageAdapter.getBucket(UploadType.Table),
+            path,
+            token,
+            undefined,
+            {
+              'Content-Type': mimetype,
+              'Content-Disposition': `attachment; filename="${item.name}"`,
+            }
+          ));
+        if (width && height && mimetype.startsWith('image/')) {
+          const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
+          const smThumbnailToken = getTableThumbnailToken(smThumbnailPath);
+          const lgThumbnailToken = getTableThumbnailToken(lgThumbnailPath);
+          const selected: ('sm' | 'lg')[] = [];
+          const cacheSmThumbnailUrl = tokenUrlMap?.[smThumbnailToken];
+          const cacheLgThumbnailUrl = tokenUrlMap?.[lgThumbnailToken];
+          if (!cacheSmThumbnailUrl) {
+            selected.push('sm');
           }
-        );
+          if (!cacheLgThumbnailUrl) {
+            selected.push('lg');
+          }
+          const { smThumbnailUrl, lgThumbnailUrl } =
+            await this.attachmentStorageService.getTableAttachmentThumbnailUrl(path, selected);
+          return {
+            ...item,
+            smThumbnailUrl: cacheSmThumbnailUrl ?? smThumbnailUrl,
+            lgThumbnailUrl: cacheLgThumbnailUrl ?? lgThumbnailUrl,
+            presignedUrl,
+          };
+        }
         return {
           ...item,
-          ...(await this.attachmentStorageService.getTableAttachmentThumbnailUrl(path)),
           presignedUrl,
         };
       })
@@ -1442,7 +1568,7 @@ export class RecordService {
     dbTableName: string,
     fieldInstanceMap: Record<string, IFieldInstance>,
     filter?: IFilter,
-    search?: [string, string]
+    search?: [string, string] | [string]
   ) {
     const withUserId = this.cls.get('user.id');
     const queryBuilder = this.knex(dbTableName);
@@ -1455,7 +1581,9 @@ export class RecordService {
 
     if (search) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
-      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, handledSearch);
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldInstanceMap, handledSearch);
+      });
     }
 
     const rowCountSql = queryBuilder.count({ count: '*' });
@@ -1486,6 +1614,10 @@ export class RecordService {
       groupBy,
       search
     ))!;
+    const fieldMapWithoutHiddenFields = this.getFieldMapWithoutHiddenFields(
+      fieldInstanceMap,
+      viewRaw?.columnMeta
+    );
     const dbTableName = await this.getDbTableName(tableId);
 
     const filterStr = viewRaw?.filter;
@@ -1503,7 +1635,9 @@ export class RecordService {
 
     if (search) {
       const handledSearch = search ? this.parseSearch(search, fieldInstanceMap) : undefined;
-      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, handledSearch);
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldMapWithoutHiddenFields, handledSearch);
+      });
     }
 
     this.dbProvider.sortQuery(queryBuilder, fieldInstanceMap, groupBy).appendSortBuilder();
