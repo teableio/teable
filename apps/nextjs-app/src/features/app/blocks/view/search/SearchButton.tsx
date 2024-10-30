@@ -1,7 +1,8 @@
 import { Search, X } from '@teable/icons';
-import { LocalStorageKeys } from '@teable/sdk';
+import { LocalStorageKeys, useView } from '@teable/sdk';
 import { useFields, useSearch } from '@teable/sdk/hooks';
 import { cn, Popover, PopoverContent, PopoverTrigger, Button } from '@teable/ui-lib/shadcn';
+import { isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -27,6 +28,24 @@ export function SearchButton({
     LocalStorageKeys.EnableGlobalSearch,
     false
   );
+  const view = useView();
+
+  useEffect(() => {
+    if (!fieldId) {
+      return;
+    }
+    const selectedField = fieldId.split(',');
+    const hiddenFields: string[] = [];
+    const columnMeta = view?.columnMeta || {};
+    Object.entries(columnMeta).forEach(([key, value]) => {
+      value?.hidden && hiddenFields.push(key);
+    });
+    const filteredFields = selectedField.filter((f) => !hiddenFields.includes(f));
+    const primaryFieldId = fields.find((f) => f.isPrimary)?.id;
+    if (!isEqual(filteredFields, selectedField)) {
+      setFieldId(filteredFields.length > 0 ? filteredFields.join(',') : primaryFieldId);
+    }
+  }, [fieldId, fields, setFieldId, value, view?.columnMeta]);
 
   useHotkeys(
     `mod+f`,
