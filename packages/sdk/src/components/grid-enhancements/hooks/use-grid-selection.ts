@@ -173,12 +173,6 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
 
     if (recordMap[rowIndex]?.id === activeRecordId) return;
 
-    const isVisibleRecord = Object.values(recordMap).find(
-      (record) => record?.id === activeRecordId
-    );
-
-    if (isVisibleRecord) return;
-
     mutateGetRecordStatus({
       tableId,
       recordId: activeCell.recordId,
