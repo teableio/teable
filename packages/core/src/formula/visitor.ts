@@ -297,7 +297,11 @@ export class EvalVisitor
 
   private createTypedValueByField(field: FieldCore) {
     let value: any = this.record ? this.record.fields[field.id] : null;
-    if (value == null || field.cellValueType !== CellValueType.String) {
+
+    if (
+      value == null ||
+      ![CellValueType.String, CellValueType.DateTime].includes(field.cellValueType)
+    ) {
       return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);
     }
 
