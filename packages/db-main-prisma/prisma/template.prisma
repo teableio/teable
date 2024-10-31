@@ -225,6 +225,7 @@ model Attachments {
   createdTime    DateTime  @default(now()) @map("created_time")
   createdBy      String    @map("created_by")
   lastModifiedBy String?   @map("last_modified_by")
+  thumbnailPath  String?   @map("thumbnail_path")
 
   @@map("attachments")
 }

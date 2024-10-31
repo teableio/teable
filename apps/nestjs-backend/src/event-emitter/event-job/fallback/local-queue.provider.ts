@@ -17,6 +17,11 @@ export const createLocalQueueProvider = (queueName: string): Provider => ({
           queueName,
         });
       },
+      addBulk: (jobs: JobsOptions[]) => {
+        jobs.forEach((job) => {
+          localQueueEventEmitter.emit('handle-listener', job);
+        });
+      },
     };
   },
 });

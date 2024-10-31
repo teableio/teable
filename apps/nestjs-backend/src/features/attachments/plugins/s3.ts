@@ -152,10 +152,7 @@ export class S3Storage implements StorageAdapter {
     path: string,
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
-  ): Promise<string | undefined> {
-    if (!(await this.fileExists(bucket, path))) {
-      return;
-    }
+  ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: path,

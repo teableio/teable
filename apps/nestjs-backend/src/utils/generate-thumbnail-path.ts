@@ -1,4 +1,7 @@
-import { ATTACHMENT_SM_THUMBNAIL_HEIGHT, ATTACHMENT_LG_THUMBNAIL_HEIGHT } from '@teable/core';
+import {
+  ATTACHMENT_LG_THUMBNAIL_HEIGHT,
+  ATTACHMENT_SM_THUMBNAIL_HEIGHT,
+} from '../features/attachments/constant';
 import { ThumbnailSize } from '../features/attachments/plugins/types';
 import { generateCropImagePath } from '../features/attachments/plugins/utils';
 

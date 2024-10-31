@@ -211,10 +211,7 @@ export class LocalStorage implements StorageAdapter {
     path: string,
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
-  ): Promise<string | undefined> {
-    if (!fse.existsSync(resolve(this.storageDir, bucket, path))) {
-      return undefined;
-    }
+  ): Promise<string> {
     return this.getPreviewUrlInner(bucket, path, expiresIn, respHeaders);
   }
 

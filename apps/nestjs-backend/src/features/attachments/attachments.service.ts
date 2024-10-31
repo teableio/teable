@@ -26,6 +26,7 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import type { IClsStore } from '../../types/cls';
 import { FileUtils } from '../../utils';
 import { second } from '../../utils/second';
+import { AttachmentsCropQueueProcessor } from './attachments-crop.processor';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
@@ -40,6 +41,7 @@ export class AttachmentsService {
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
+    private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor,
     @StorageConfig() readonly storageConfig: IStorageConfig,
     @ThresholdConfig() readonly thresholdConfig: IThresholdConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
@@ -166,6 +168,13 @@ export class AttachmentsService {
         height: true,
         path: true,
       },
+    });
+    await this.attachmentsCropQueueProcessor.queue.add('attachment_crop_image', {
+      token: attachment.token,
+      path: attachment.path,
+      mimetype: attachment.mimetype,
+      height: attachment.height,
+      bucket,
     });
     const filenameHeader = filename
       ? {

@@ -61,7 +61,7 @@ import { generateFilterItem } from '../../utils/filter';
 import {
   generateTableThumbnailPath,
   getTableThumbnailToken,
-} from '../../utils/generate-table-thumbnail-path';
+} from '../../utils/generate-thumbnail-path';
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -1075,7 +1075,7 @@ export class RecordService {
     return fields.map((field) => createFieldInstanceByRaw(field));
   }
 
-  private async getPreviewUrlTokenMap(
+  private async getCachePreviewUrlTokenMap(
     records: ISnapshotBase<IRecord>[],
     fields: IFieldInstance[],
     fieldKeyType: FieldKeyType
@@ -1114,13 +1114,57 @@ export class RecordService {
     return tokenMap;
   }
 
+  private async getThumbnailPathTokenMap(
+    records: ISnapshotBase<IRecord>[],
+    fields: IFieldInstance[],
+    fieldKeyType: FieldKeyType
+  ) {
+    const thumbnailTokens: string[] = [];
+    for (const field of fields) {
+      if (field.type === FieldType.Attachment) {
+        const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
+        for (const record of records) {
+          const cellValue = record.data.fields[fieldKey];
+          if (cellValue == null) continue;
+          (cellValue as IAttachmentCellValue).forEach((item) => {
+            if (item.mimetype.startsWith('image/') && item.width && item.height) {
+              thumbnailTokens.push(getTableThumbnailToken(item.token));
+            }
+          });
+        }
+      }
+    }
+    const attachments = await this.prismaService.txClient().attachments.findMany({
+      where: { token: { in: thumbnailTokens } },
+      select: { token: true, thumbnailPath: true },
+    });
+    return attachments.reduce<
+      Record<
+        string,
+        | {
+            sm?: string;
+            lg?: string;
+          }
+        | undefined
+      >
+    >((acc, cur) => {
+      acc[cur.token] = cur.thumbnailPath ? JSON.parse(cur.thumbnailPath) : undefined;
+      return acc;
+    }, {});
+  }
+
   @Timing()
   private async recordsPresignedUrl(
     records: ISnapshotBase<IRecord>[],
     fields: IFieldInstance[],
     fieldKeyType: FieldKeyType
   ) {
-    const tokenUrlMap = await this.getPreviewUrlTokenMap(records, fields, fieldKeyType);
+    const cacheTokenUrlMap = await this.getCachePreviewUrlTokenMap(records, fields, fieldKeyType);
+    const thumbnailPathTokenMap = await this.getThumbnailPathTokenMap(
+      records,
+      fields,
+      fieldKeyType
+    );
     for (const field of fields) {
       if (field.type === FieldType.Attachment) {
         const fieldKey = fieldKeyType === FieldKeyType.Id ? field.id : field.name;
@@ -1128,7 +1172,8 @@ export class RecordService {
           const cellValue = record.data.fields[fieldKey];
           const presignedCellValue = await this.getAttachmentPresignedCellValue(
             cellValue as IAttachmentCellValue,
-            tokenUrlMap
+            cacheTokenUrlMap,
+            thumbnailPathTokenMap
           );
           if (presignedCellValue == null) continue;
 
@@ -1141,7 +1186,8 @@ export class RecordService {
 
   async getAttachmentPresignedCellValue(
     cellValue: IAttachmentCellValue | null,
-    tokenUrlMap?: Record<string, string>
+    cacheTokenUrlMap?: Record<string, string>,
+    thumbnailPathTokenMap?: Record<string, { sm?: string; lg?: string } | undefined>
   ) {
     if (cellValue == null) {
       return null;
@@ -1149,9 +1195,9 @@ export class RecordService {
 
     return await Promise.all(
       cellValue.map(async (item) => {
-        const { path, mimetype, token, width, height } = item;
+        const { path, mimetype, token } = item;
         const presignedUrl =
-          tokenUrlMap?.[token] ??
+          cacheTokenUrlMap?.[token] ??
           (await this.attachmentStorageService.getPreviewUrlByPath(
             StorageAdapter.getBucket(UploadType.Table),
             path,
@@ -1162,35 +1208,26 @@ export class RecordService {
               'Content-Disposition': `attachment; filename="${item.name}"`,
             }
           ));
-        if (width && height && mimetype.startsWith('image/')) {
-          const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-          const smThumbnailToken = getTableThumbnailToken(smThumbnailPath);
-          const lgThumbnailToken = getTableThumbnailToken(lgThumbnailPath);
-          const selected: ('sm' | 'lg')[] = [];
-          const cacheSmThumbnailUrl = tokenUrlMap?.[smThumbnailToken];
-          const cacheLgThumbnailUrl = tokenUrlMap?.[lgThumbnailToken];
-          if (!cacheSmThumbnailUrl) {
-            selected.push('sm');
+        let smThumbnailUrl: string | undefined;
+        let lgThumbnailUrl: string | undefined;
+        if (thumbnailPathTokenMap && thumbnailPathTokenMap[token]) {
+          const { sm: smThumbnailPath, lg: lgThumbnailPath } = thumbnailPathTokenMap[token]!;
+          if (smThumbnailPath) {
+            smThumbnailUrl =
+              cacheTokenUrlMap?.[getTableThumbnailToken(smThumbnailPath)] ??
+              (await this.attachmentStorageService.getTableThumbnailUrl(smThumbnailPath, mimetype));
           }
-          if (!cacheLgThumbnailUrl) {
-            selected.push('lg');
+          if (lgThumbnailPath) {
+            lgThumbnailUrl =
+              cacheTokenUrlMap?.[getTableThumbnailToken(lgThumbnailPath)] ??
+              (await this.attachmentStorageService.getTableThumbnailUrl(lgThumbnailPath, mimetype));
           }
-          const { smThumbnailUrl, lgThumbnailUrl } =
-            await this.attachmentStorageService.getTableAttachmentThumbnailUrl(
-              path,
-              height,
-              selected
-            );
-          return {
-            ...item,
-            smThumbnailUrl: cacheSmThumbnailUrl ?? smThumbnailUrl,
-            lgThumbnailUrl: cacheLgThumbnailUrl ?? lgThumbnailUrl,
-            presignedUrl,
-          };
         }
         return {
           ...item,
           presignedUrl,
+          smThumbnailUrl: smThumbnailUrl || presignedUrl,
+          lgThumbnailUrl: lgThumbnailUrl || presignedUrl,
         };
       })
     );

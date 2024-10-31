@@ -82,7 +82,7 @@ export default abstract class StorageAdapter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [key: string]: any;
     }
-  ): Promise<string | undefined>;
+  ): Promise<string>;
 
   /**
    * uploadFile with file path

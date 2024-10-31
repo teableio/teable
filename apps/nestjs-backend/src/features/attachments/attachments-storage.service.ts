@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { ATTACHMENT_LG_THUMBNAIL_HEIGHT, ATTACHMENT_SM_THUMBNAIL_HEIGHT } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { CacheService } from '../../cache/cache.service';
@@ -9,9 +8,9 @@ import { Events } from '../../event-emitter/events';
 import {
   generateTableThumbnailPath,
   getTableThumbnailToken,
-} from '../../utils/generate-table-thumbnail-path';
+} from '../../utils/generate-thumbnail-path';
 import { second } from '../../utils/second';
-import { Timing } from '../../utils/timing';
+import { ATTACHMENT_LG_THUMBNAIL_HEIGHT, ATTACHMENT_SM_THUMBNAIL_HEIGHT } from './constant';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
 import type { IRespHeaders } from './plugins/types';
@@ -81,10 +80,6 @@ export class AttachmentsStorageService {
     let url = previewCache?.url;
     if (!url) {
       url = await this.storageAdapter.getPreviewUrl(bucket, path, expiresIn, respHeaders);
-      if (!url) {
-        this.logger.error(`Invalid token: ${token}`);
-        return '';
-      }
       await this.cacheService.set(
         `attachment:preview:${token}`,
         {
@@ -97,45 +92,17 @@ export class AttachmentsStorageService {
     return url;
   }
 
-  private async getTableThumbnailUrl(
-    path: string,
-    token: string,
-    expiresIn: number = this.urlExpireIn
-  ) {
-    const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
-    if (previewCache?.url) {
-      return previewCache.url;
-    }
-    const url = await this.storageAdapter.getPreviewUrl(
+  async getTableThumbnailUrl(path: string, mimetype: string) {
+    return this.getPreviewUrlByPath(
       StorageAdapter.getBucket(UploadType.Table),
       path,
-      expiresIn
+      getTableThumbnailToken(path),
+      undefined,
+      {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': mimetype,
+      }
     );
-    if (url) {
-      await this.cacheService.set(
-        `attachment:preview:${token}`,
-        {
-          url,
-          expiresIn,
-        },
-        expiresIn
-      );
-    }
-    return url;
-  }
-
-  @Timing()
-  async getTableAttachmentThumbnailUrl(path: string, height: number, selected?: ('sm' | 'lg')[]) {
-    const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const smThumbnailUrl =
-      height > ATTACHMENT_SM_THUMBNAIL_HEIGHT && selected?.includes('sm')
-        ? await this.getTableThumbnailUrl(smThumbnailPath, getTableThumbnailToken(smThumbnailPath))
-        : undefined;
-    const lgThumbnailUrl =
-      height > ATTACHMENT_LG_THUMBNAIL_HEIGHT && selected?.includes('lg')
-        ? await this.getTableThumbnailUrl(lgThumbnailPath, getTableThumbnailToken(lgThumbnailPath))
-        : undefined;
-    return { smThumbnailUrl, lgThumbnailUrl };
   }
 
   async cropTableImage(bucket: string, path: string, height: number) {

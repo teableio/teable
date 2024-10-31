@@ -124,9 +124,6 @@ export class MinioStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
-    if (!(await this.fileExists(bucket, path))) {
-      return;
-    }
     const { 'Content-Disposition': contentDisposition, ...headers } = respHeaders ?? {};
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, {
       ...headers,
