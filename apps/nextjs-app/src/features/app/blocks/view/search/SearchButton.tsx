@@ -29,14 +29,14 @@ export function SearchButton({
     LocalStorageKeys.EnableGlobalSearch,
     false
   );
-  const [searchFieldMap, setSearchFieldMap] = useLocalStorage<Record<string, string[]>>(
+  const [searchFieldMapCache, setSearchFieldMap] = useLocalStorage<Record<string, string[]>>(
     LocalStorageKeys.TableSearchFieldsCache,
     {}
   );
   const view = useView();
 
   useEffect(() => {
-    if (!fieldId) {
+    if (!fieldId || fieldId === 'all_fields') {
       return;
     }
     const selectedField = fieldId.split(',');
@@ -52,7 +52,7 @@ export function SearchButton({
     if (!isEqual(filteredFields, selectedField)) {
       tableId &&
         setSearchFieldMap({
-          ...searchFieldMap,
+          ...searchFieldMapCache,
           [tableId]: filteredFields,
         });
       setFieldId(filteredFields.length > 0 ? filteredFields.join(',') : primaryFieldId);
@@ -60,7 +60,7 @@ export function SearchButton({
   }, [
     fieldId,
     fields,
-    searchFieldMap,
+    searchFieldMapCache,
     setFieldId,
     setSearchFieldMap,
     tableId,
@@ -115,15 +115,26 @@ export function SearchButton({
         setFieldId('all_fields');
         return;
       }
+      // init fieldId
       if (fieldId === undefined) {
-        if (tableId && searchFieldMap?.[tableId]?.length) {
-          setFieldId(searchFieldMap[tableId].join(','));
+        if (tableId && searchFieldMapCache?.[tableId]?.length) {
+          setFieldId(searchFieldMapCache[tableId].join(','));
           return;
         }
         setFieldId(fields[0].id);
       }
     }
-  }, [active, enableGlobalSearch, fieldId, fields, ref, searchFieldMap, setFieldId, tableId]);
+  }, [
+    active,
+    enableGlobalSearch,
+    fieldId,
+    fields,
+    ref,
+    searchFieldMapCache,
+    setFieldId,
+    setSearchFieldMap,
+    tableId,
+  ]);
 
   const searchHeader = useMemo(() => {
     if (fieldId === 'all_fields') {
@@ -155,19 +166,28 @@ export function SearchButton({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-64 p-1">
-          <SearchCommand
-            value={fieldId}
-            onChange={(fieldIds) => {
-              const ids = fieldIds.join(',');
-              if (ids === 'all_fields') {
-                setEnableGlobalSearch(true);
-              } else {
-                setEnableGlobalSearch(false);
-              }
-              tableId && setSearchFieldMap({ ...searchFieldMap, [tableId]: fieldIds });
-              setFieldId(ids);
-            }}
-          />
+          {fieldId && tableId && (
+            <SearchCommand
+              value={fieldId}
+              onChange={(fieldIds) => {
+                // switch to field
+                if (!fieldIds) {
+                  const newIds = searchFieldMapCache?.[tableId] || [fields[0].id];
+                  setFieldId(newIds.join(','));
+                  setEnableGlobalSearch(false);
+                  return;
+                }
+                const ids = fieldIds.join(',');
+                if (ids === 'all_fields') {
+                  setEnableGlobalSearch(true);
+                } else {
+                  setEnableGlobalSearch(false);
+                  tableId && setSearchFieldMap({ ...searchFieldMapCache, [tableId]: fieldIds });
+                }
+                setFieldId(ids);
+              }}
+            />
+          )}
         </PopoverContent>
       </Popover>
       <input

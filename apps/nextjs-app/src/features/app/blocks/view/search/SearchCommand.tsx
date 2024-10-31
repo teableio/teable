@@ -14,11 +14,11 @@ import {
   Button,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 interface ISearchCommand {
-  value?: string;
-  onChange: (fieldIds: string[]) => void;
+  value: string;
+  onChange: (fieldIds: string[] | null) => void;
 }
 export const SearchCommand = (props: ISearchCommand) => {
   const { onChange, value } = props;
@@ -26,20 +26,9 @@ export const SearchCommand = (props: ISearchCommand) => {
   const fields = useFields();
   const fieldStaticGetter = useFieldStaticGetter();
 
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
-
-  useEffect(() => {
-    if ((value === 'all_fields' || value === undefined) && fields?.[0]?.id) {
-      setSelectedFields([fields?.[0]?.id]);
-    } else {
-      const fieldArr = value?.split(',') || [];
-      setSelectedFields(fieldArr);
-    }
-  }, [fields, value]);
-
-  const defaultFieldId = useMemo(() => {
-    return fields?.[0]?.id ?? null;
-  }, [fields]);
+  const selectedFields = useMemo(() => {
+    return value.split(',');
+  }, [value]);
 
   const switchChange = (id: string, checked: boolean) => {
     let newSelectedFields = [...selectedFields];
@@ -48,9 +37,6 @@ export const SearchCommand = (props: ISearchCommand) => {
     } else {
       newSelectedFields = newSelectedFields.filter((f) => f !== id);
     }
-
-    setSelectedFields(newSelectedFields);
-
     onChange(newSelectedFields);
   };
 
@@ -125,8 +111,7 @@ export const SearchCommand = (props: ISearchCommand) => {
         variant={'outline'}
         size="xs"
         onClick={() => {
-          defaultFieldId && setSelectedFields([defaultFieldId]);
-          onChange(value === 'all_fields' ? [fields[0].id] : ['all_fields']);
+          onChange(value === 'all_fields' ? null : ['all_fields']);
         }}
       >
         {value === 'all_fields' ? t('actions.fieldSearch') : t('actions.globalSearch')}
