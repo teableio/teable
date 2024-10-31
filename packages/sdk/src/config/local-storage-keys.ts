@@ -12,4 +12,5 @@ export enum LocalStorageKeys {
   ImportAlert = 'ls_import_alert',
   ExpandRecordHiddenFieldsVisible = 'ls_expand_record_hidden_fields_visible',
   EnableGlobalSearch = 'ls_enable_globalSearch',
+  TableSearchFieldsCache = 'ls_table_search_fields_cache',
 }
