@@ -33,7 +33,8 @@
     "automation": "自动化",
     "user": "用户",
     "recordHistory": "记录历史",
-    "you": "你"
+    "you": "你",
+    "instance": "实例"
   },
   "preview": {
     "previewFileLimit": "预览暂不支持{{size}}MB以上的附件, 请下载后预览",
@@ -292,7 +293,9 @@
       "automationUpdate": "更新自动化",
       "userEmailRead": "查看用户电子邮件",
       "recordHistoryRead": "查看记录历史",
-      "baseQuery": "查询数据库"
+      "baseQuery": "查询数据库",
+      "instanceRead": "查看实例",
+      "instanceUpdate": "更新实例"
     }
   },
   "formula": {

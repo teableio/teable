@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch } from '@nestjs/common';
 import { IUpdateSettingRo, updateSettingRoSchema } from '@teable/openapi';
 import type { ISettingVo } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Public } from '../auth/decorators/public.decorator';
-import { AdminGuard } from './admin.guard';
 import { SettingService } from './setting.service';
 
 @Controller('api/admin/setting')
@@ -16,8 +16,8 @@ export class SettingController {
     return await this.settingService.getSetting();
   }
 
-  @UseGuards(AdminGuard)
   @Patch()
+  @Permissions('instance|update')
   async updateSetting(
     @Body(new ZodValidationPipe(updateSettingRoSchema))
     updateSettingRo: IUpdateSettingRo

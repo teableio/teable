@@ -276,7 +276,9 @@
       "automationUpdate": "Обновить автоматизацию",
       "userEmailRead": "Читать электронную почту пользователя",
       "recordHistoryRead": "Читать историю записей",
-      "baseQuery": "Запрос базы"
+      "baseQuery": "Запрос базы",
+      "instanceRead": "Читать экземпляр",
+      "instanceUpdate": "Обновить экземпляр"
     }
   },
   "noun": {
@@ -289,7 +291,8 @@
     "automation": "Автоматизация",
     "user": "Пользователь",
     "recordHistory": "История записи",
-    "you": "Вы"
+    "you": "Вы",
+    "instance": "Экземпляр"
   },
   "formula": {
     "SUM": {

@@ -279,7 +279,9 @@
       "automationUpdate": "Update automation",
       "userEmailRead": "Read user email",
       "recordHistoryRead": "Read record history",
-      "baseQuery": "Query base"
+      "baseQuery": "Query base",
+      "instanceRead": "Read instance",
+      "instanceUpdate": "Update instance"
     }
   },
   "noun": {
@@ -292,7 +294,8 @@
     "automation": "Automation",
     "user": "User",
     "recordHistory": "Record History",
-    "you": "You"
+    "you": "You",
+    "instance": "Instance"
   },
   "formula": {
     "SUM": {

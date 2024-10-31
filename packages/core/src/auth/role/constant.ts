@@ -48,6 +48,8 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'automation|read': true,
     'automation|update': true,
     'user|email_read': true,
+    'instance|read': false,
+    'instance|update': false,
   },
   [Role.Creator]: {
     'space|create': false,
@@ -94,6 +96,8 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'automation|read': true,
     'automation|update': true,
     'user|email_read': true,
+    'instance|read': false,
+    'instance|update': false,
   },
   [Role.Editor]: {
     'space|create': false,
@@ -140,6 +144,8 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'automation|read': true,
     'automation|update': false,
     'user|email_read': true,
+    'instance|read': false,
+    'instance|update': false,
   },
   [Role.Commenter]: {
     'space|create': false,
@@ -186,6 +192,8 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'automation|read': true,
     'automation|update': false,
     'user|email_read': true,
+    'instance|read': false,
+    'instance|update': false,
   },
   [Role.Viewer]: {
     'space|create': false,
@@ -232,5 +240,7 @@ export const RolePermission: Record<IRole, Record<Action, boolean>> = {
     'automation|read': true,
     'automation|update': false,
     'user|email_read': true,
+    'instance|read': false,
+    'instance|update': false,
   },
 };

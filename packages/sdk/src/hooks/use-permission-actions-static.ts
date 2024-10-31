@@ -143,6 +143,12 @@ const actionsI18nMap: Record<
   'base|query_data': {
     description: 'permission.actionDescription.baseQuery',
   },
+  'instance|read': {
+    description: 'permission.actionDescription.instanceRead',
+  },
+  'instance|update': {
+    description: 'permission.actionDescription.instanceUpdate',
+  },
 };
 
 const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
@@ -172,6 +178,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   },
   [ActionPrefix.TableRecordHistory]: {
     title: 'noun.recordHistory',
+  },
+  [ActionPrefix.Instance]: {
+    title: 'noun.instance',
   },
 };
 
