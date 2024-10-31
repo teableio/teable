@@ -32,9 +32,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
   const { i18nMap } = useContext(FilePreviewContext);
 
   const currentSheetData = useMemo<ISheetData>(() => {
-    const result = sheetList.find((sheet) => sheet.name === currentSheetName)?.data as ISheetData;
-    Boolean(result) && console.info(`get sheetData success`);
-    return result;
+    return sheetList.find((sheet) => sheet.name === currentSheetName)?.data as ISheetData;
   }, [sheetList, currentSheetName]);
 
   const cols = useMemo(() => {
@@ -156,7 +154,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
             paddingBottom: 10,
           }}
           verticalBorder={true}
-          getCellContent={getData}
+          getCellContent={(cell) => getData(cell)}
           columns={cols}
           rows={currentSheetData.length}
         />
