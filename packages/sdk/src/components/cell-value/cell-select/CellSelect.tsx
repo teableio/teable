@@ -24,11 +24,12 @@ export interface ISelectOption {
 
 interface ICellSelect extends ICellValue<string | string[]> {
   options?: ISelectOption[] | null;
+  ellipsis?: boolean;
   itemClassName?: string;
 }
 
 export const CellSelect = (props: ICellSelect) => {
-  const { value, options, className, style, itemClassName } = props;
+  const { value, options, className, style, ellipsis, itemClassName } = props;
 
   const innerValue = useMemo(() => {
     if (value == null || Array.isArray(value)) return value;
@@ -40,7 +41,14 @@ export const CellSelect = (props: ICellSelect) => {
   }, [options]);
 
   return (
-    <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
+    <div
+      className={cn(
+        'flex gap-1',
+        ellipsis ? 'flex-nowrap overflow-hidden' : 'flex-wrap',
+        className
+      )}
+      style={style}
+    >
       {innerValue?.map((itemVal) => {
         const option = optionMap[itemVal];
         if (option == null) return null;

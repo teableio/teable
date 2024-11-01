@@ -9,7 +9,7 @@ interface ICellText extends ICellValue<string> {
 }
 
 export const CellText = (props: ICellText) => {
-  const { value, className, style, maxLine = 1, displayType } = props;
+  const { value, className, style, ellipsis, displayType } = props;
 
   const onJump = () => {
     if (!displayType || !value) return;
@@ -19,9 +19,9 @@ export const CellText = (props: ICellText) => {
   return (
     <OverflowTooltip
       text={value}
-      maxLine={maxLine}
+      ellipsis={ellipsis}
       className={cn(
-        'w-full text-[13px]',
+        'w-full text-[13px] leading-5',
         displayType && 'cursor-pointer hover:underline hover:underline-offset-2 text-violet-500',
         className
       )}

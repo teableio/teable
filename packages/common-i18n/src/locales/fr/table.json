@@ -437,7 +437,8 @@
     "category": {
       "table": "Vue en grille",
       "form": "Vue en formulaire",
-      "kanban": "Vue Kanban"
+      "kanban": "Vue Kanban",
+      "gallery": "Vue en galerie"
     },
     "crash": {
       "title": "Plantage !",

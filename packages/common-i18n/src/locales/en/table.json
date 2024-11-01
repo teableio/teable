@@ -446,7 +446,8 @@
     "category": {
       "table": "Grid View",
       "form": "Form View",
-      "kanban": "Kanban View"
+      "kanban": "Kanban View",
+      "gallery": "Gallery View"
     },
     "crash": {
       "title": "Crash!",

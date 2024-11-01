@@ -568,6 +568,9 @@ importers:
       '@tanstack/react-table':
         specifier: 8.11.7
         version: 8.11.7(react-dom@18.3.1)(react@18.3.1)
+      '@tanstack/react-virtual':
+        specifier: 3.2.0
+        version: 3.2.0(react-dom@18.3.1)(react@18.3.1)
       '@teable/common-i18n':
         specifier: workspace:^
         version: link:../../packages/common-i18n
@@ -29114,9 +29117,6 @@ packages:
   /sqlite3@5.1.7:
     resolution: {integrity: sha512-GGIyOiFaG+TUra3JIfkI/zGP8yZYLPQ0pl1bH+ODjiX57sPhrLU5sQJn1y9bDKZUFYkX1crlrPfSYt0BKKdkog==}
     requiresBuild: true
-    peerDependenciesMeta:
-      node-gyp:
-        optional: true
     dependencies:
       bindings: 1.5.0
       node-addon-api: 7.1.0

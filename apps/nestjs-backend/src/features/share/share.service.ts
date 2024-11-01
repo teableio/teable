@@ -351,7 +351,7 @@ export class ShareService {
       return this.getViewAllCollaborators(shareInfo);
     }
 
-    // only form and kanban view can get all records
+    // only form, kanban and plugin view can get all collaborators
     if ([ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
       return this.getViewAllCollaborators(shareInfo);
     }

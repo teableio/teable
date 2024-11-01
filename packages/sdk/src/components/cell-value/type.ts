@@ -3,5 +3,5 @@ export interface ICellValue<T> {
   className?: string;
   style?: React.CSSProperties;
   maxWidth?: number;
-  maxLine?: number;
+  ellipsis?: boolean;
 }

@@ -10,7 +10,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 interface IOverflowTooltipProps {
   text?: string;
-  maxLine?: number;
+  ellipsis?: boolean;
   className?: string;
   tooltipClassName?: string;
   style?: React.CSSProperties;
@@ -18,19 +18,16 @@ interface IOverflowTooltipProps {
 }
 
 export const OverflowTooltip = (props: IOverflowTooltipProps) => {
-  const { text = '', maxLine = 1, className, tooltipClassName, onClick } = props;
+  const { text = '', ellipsis = false, className, tooltipClassName, onClick } = props;
   const [isOverflow, setOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const checkOverflow = useCallback(() => {
-    if (contentRef.current) {
+    if (contentRef.current && ellipsis) {
       const element = contentRef.current;
-      const lineHeight = parseInt(window.getComputedStyle(element).lineHeight);
-      const maxHeight = lineHeight * maxLine;
-      const isOverflow = element.scrollHeight > maxHeight;
-      setOverflow(isOverflow);
+      setOverflow(element.scrollWidth > element.clientWidth);
     }
-  }, [maxLine]);
+  }, [ellipsis]);
 
   useEffect(() => {
     const observer = new ResizeObserver(checkOverflow);
@@ -56,11 +53,15 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
       ref={contentRef}
       className={cn(className, 'overflow-hidden')}
       style={{
-        display: '-webkit-box',
-        WebkitLineClamp: maxLine > 99999 ? 99999 : maxLine,
-        WebkitBoxOrient: 'vertical',
-        wordBreak: 'break-all',
-        whiteSpace: 'pre-wrap',
+        ...(ellipsis
+          ? {
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }
+          : {
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }),
       }}
       onClick={onClick}
       onKeyDown={(e) => {
@@ -75,7 +76,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
     </div>
   );
 
-  if (!isOverflow) {
+  if (!ellipsis || !isOverflow) {
     return Content;
   }
 

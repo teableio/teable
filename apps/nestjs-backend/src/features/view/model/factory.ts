@@ -3,6 +3,7 @@ import { assertNever, ViewType } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { FormViewDto } from './form-view.dto';
+import { GalleryViewDto } from './gallery-view.dto';
 import { GridViewDto } from './grid-view.dto';
 import { KanbanViewDto } from './kanban-view.dto';
 import { PluginViewDto } from './plugin-view.dto';
@@ -15,11 +16,12 @@ export function createViewInstanceByRaw(viewRaw: View) {
       return plainToInstance(GridViewDto, viewVo);
     case ViewType.Kanban:
       return plainToInstance(KanbanViewDto, viewVo);
+    case ViewType.Gallery:
+      return plainToInstance(GalleryViewDto, viewVo);
     case ViewType.Form:
       return plainToInstance(FormViewDto, viewVo);
     case ViewType.Plugin:
       return plainToInstance(PluginViewDto, viewVo);
-    case ViewType.Gallery:
     case ViewType.Gantt:
     case ViewType.Calendar:
       throw new Error('did not implement yet');

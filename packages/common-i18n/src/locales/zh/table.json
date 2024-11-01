@@ -445,7 +445,8 @@
     "category": {
       "table": "表格视图",
       "form": "表单视图",
-      "kanban": "看板视图"
+      "kanban": "看板视图",
+      "gallery": "画册视图"
     },
     "crash": {
       "title": "页面崩溃!",

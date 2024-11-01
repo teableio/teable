@@ -28,19 +28,19 @@ interface ICellValueContainer extends ICellValue<unknown> {
 }
 
 export const CellValue = (props: ICellValueContainer) => {
-  const { field, value, maxWidth, maxLine, className, itemClassName, formatImageUrl } = props;
+  const { field, value, maxWidth, ellipsis, className, itemClassName, formatImageUrl } = props;
   const { type, options, cellValueType } = field;
 
   switch (type) {
     case FieldType.LongText: {
-      return <CellText value={value as string} className={className} maxLine={maxLine} />;
+      return <CellText value={value as string} className={className} ellipsis={ellipsis} />;
     }
     case FieldType.SingleLineText: {
       return (
         <CellText
           value={value as string}
           className={className}
-          maxLine={maxLine}
+          ellipsis={ellipsis}
           displayType={options.showAs?.type}
         />
       );
@@ -51,17 +51,23 @@ export const CellValue = (props: ICellValueContainer) => {
           value={value as number}
           formatting={options.formatting as INumberFormatting}
           className={className}
+          ellipsis={ellipsis}
         />
       );
     }
     case FieldType.AutoNumber: {
-      return <CellNumber value={value as number} className={className} />;
+      return <CellNumber value={value as number} ellipsis={ellipsis} className={className} />;
     }
     case FieldType.Date:
     case FieldType.CreatedTime:
     case FieldType.LastModifiedTime: {
       return (
-        <CellDate value={value as string} formatting={options.formatting} className={className} />
+        <CellDate
+          value={value as string}
+          formatting={options.formatting}
+          ellipsis={ellipsis}
+          className={className}
+        />
       );
     }
     case FieldType.SingleSelect:
@@ -73,6 +79,7 @@ export const CellValue = (props: ICellValueContainer) => {
           className={className}
           itemClassName={itemClassName}
           maxWidth={maxWidth}
+          ellipsis={ellipsis}
         />
       );
     }

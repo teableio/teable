@@ -81,6 +81,7 @@ export { default as Inbox } from './components/Inbox';
 export { default as Kanban } from './components/Kanban';
 export { default as Key } from './components/Key';
 export { default as Layers } from './components/Layers';
+export { default as LayoutGrid } from './components/LayoutGrid';
 export { default as LayoutList } from './components/LayoutList';
 export { default as LayoutTemplate } from './components/LayoutTemplate';
 export { default as License } from './components/License';

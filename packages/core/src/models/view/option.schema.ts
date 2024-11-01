@@ -1,11 +1,17 @@
 import z from 'zod';
 import { ViewType } from './constant';
-import { kanbanViewOptionSchema, gridViewOptionSchema, formViewOptionSchema } from './derivate';
+import {
+  kanbanViewOptionSchema,
+  gridViewOptionSchema,
+  formViewOptionSchema,
+  galleryViewOptionSchema,
+} from './derivate';
 import { pluginViewOptionSchema } from './derivate/plugin.view';
 
 export const viewOptionsSchema = z.union([
   gridViewOptionSchema,
   kanbanViewOptionSchema,
+  galleryViewOptionSchema,
   formViewOptionSchema,
   pluginViewOptionSchema,
 ]);
@@ -19,6 +25,9 @@ export const validateOptionsType = (type: ViewType, optionsString: IViewOptions)
       break;
     case ViewType.Kanban:
       kanbanViewOptionSchema.parse(optionsString);
+      break;
+    case ViewType.Gallery:
+      galleryViewOptionSchema.parse(optionsString);
       break;
     case ViewType.Form:
       formViewOptionSchema.parse(optionsString);

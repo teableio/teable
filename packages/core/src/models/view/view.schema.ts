@@ -4,6 +4,7 @@ import { columnMetaSchema } from './column-meta.schema';
 import { ViewType } from './constant';
 import {
   formViewOptionSchema,
+  galleryViewOptionSchema,
   gridViewOptionSchema,
   kanbanViewOptionSchema,
   pluginViewOptionSchema,
@@ -73,6 +74,7 @@ export const viewRoSchema = viewVoSchema
     const optionsSchemaMap = {
       [ViewType.Form]: formViewOptionSchema,
       [ViewType.Kanban]: kanbanViewOptionSchema,
+      [ViewType.Gallery]: galleryViewOptionSchema,
       [ViewType.Grid]: gridViewOptionSchema,
       [ViewType.Plugin]: pluginViewOptionSchema,
     } as const;

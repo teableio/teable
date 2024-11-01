@@ -1,4 +1,4 @@
-import type { IKanbanViewOptions, IViewVo } from '@teable/core';
+import type { IGalleryViewOptions, IKanbanViewOptions, IViewVo } from '@teable/core';
 import { ViewType } from '@teable/core';
 
 export const isNotHiddenField = (
@@ -13,6 +13,13 @@ export const isNotHiddenField = (
     return (
       [stackFieldId, coverFieldId].includes(fieldId) ||
       Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
+    );
+  }
+
+  if (viewType === ViewType.Gallery) {
+    const { coverFieldId } = (options ?? {}) as IGalleryViewOptions;
+    return (
+      fieldId === coverFieldId || Boolean((columnMeta[fieldId] as { visible?: boolean })?.visible)
     );
   }
 
