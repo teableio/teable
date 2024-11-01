@@ -3,7 +3,6 @@ import { FieldType } from '@teable/core';
 import type { IAttachmentCellValue, IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Prisma } from '@teable/db-main-prisma';
-import { omit } from 'lodash';
 import type { IChangeRecord } from '../../event-emitter/events';
 
 @Injectable()
@@ -49,7 +48,7 @@ export class AttachmentsTableService {
     await this.prismaService.$tx(async (prisma) => {
       for (let i = 0; i < newAttachments.length; i++) {
         await prisma.attachmentsTable.create({
-          data: omit(newAttachments[i]),
+          data: newAttachments[i],
         });
       }
     });
@@ -119,7 +118,7 @@ export class AttachmentsTableService {
       needDelete.length && (await this.delete(needDelete));
       for (let i = 0; i < newAttachments.length; i++) {
         await prisma.attachmentsTable.create({
-          data: omit(newAttachments[i]),
+          data: newAttachments[i],
         });
       }
     });
