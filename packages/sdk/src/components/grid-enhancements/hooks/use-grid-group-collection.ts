@@ -52,9 +52,10 @@ const useGenerateGroupCellFn = () => {
         const emptyStr = '(Empty)';
 
         const validateCellValue = field.validateCellValue(_cellValue);
-        const cellValue = (
-          validateCellValue.success ? validateCellValue.data : undefined
-        ) as unknown;
+        const cellValue =
+          field.cellValueType === CellValueType.DateTime
+            ? _cellValue
+            : ((validateCellValue.success ? validateCellValue.data : undefined) as unknown);
 
         if (cellValue == null) {
           return {
