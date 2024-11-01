@@ -8,6 +8,8 @@ import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregation-query.postgres';
+import type { BaseQueryAbstract } from './base-query/abstract';
+import { BaseQueryPostgres } from './base-query/base-query.postgres';
 import type {
   IAggregationQueryExtra,
   IDbProvider,
@@ -307,7 +309,7 @@ export class PostgresProvider implements IDbProvider {
   searchQuery(
     originQueryBuilder: Knex.QueryBuilder,
     fieldMap?: { [fieldId: string]: IFieldInstance },
-    search?: [string, string]
+    search?: [string, string] | [string]
   ) {
     return SearchQueryAbstract.factory(SearchQueryPostgres, originQueryBuilder, fieldMap, search);
   }
@@ -326,5 +328,9 @@ export class PostgresProvider implements IDbProvider {
         this.knex.raw(`jsonb_extract_path_text("${dbFieldName}", 'id') AS user_id`)
       );
     }
+  }
+
+  baseQuery(): BaseQueryAbstract {
+    return new BaseQueryPostgres(this.knex);
   }
 }

@@ -1,5 +1,6 @@
-import type { CombinedSelection, IPosition, IRectangle } from '@teable/sdk/components';
-import type { IFieldInstance, Record } from '@teable/sdk/model';
+import type { IFieldInstance, Record } from '../../../model';
+import type { IPosition, IRectangle } from '../../grid/interface';
+import type { CombinedSelection } from '../../grid/managers';
 
 export interface IHeaderMenu {
   fields: IFieldInstance[];
@@ -14,7 +15,7 @@ export interface IRecordMenu {
   isMultipleSelected?: boolean;
   position: IPosition;
   deleteRecords?: (selection: CombinedSelection) => Promise<void>;
-  insertRecord?: (anchorId: string, position: 'before' | 'after') => void;
+  insertRecord?: (anchorId: string, position: 'before' | 'after', num: number) => void;
 }
 
 export interface IStatisticMenu {

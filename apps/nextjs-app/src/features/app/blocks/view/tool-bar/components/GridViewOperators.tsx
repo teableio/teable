@@ -4,10 +4,12 @@ import { HideFields, RowHeight, useFields, Sort, Group, ViewFilter } from '@teab
 import { useView } from '@teable/sdk/hooks/use-view';
 import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useEffect, useRef } from 'react';
 import { GUIDE_VIEW_FILTERING, GUIDE_VIEW_SORTING, GUIDE_VIEW_GROUPING } from '@/components/Guide';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
+import { useToolBarStore } from './useToolBarStore';
 
 export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
@@ -15,10 +17,20 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const fields = useFields();
   const { onFilterChange, onRowHeightChange, onSortChange, onGroupChange } = useToolbarChange();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
+  const filterRef = useRef<HTMLButtonElement>(null);
+  const sortRef = useRef<HTMLButtonElement>(null);
+  const groupRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setFilterRef(filterRef);
+    setSortRef(sortRef);
+    setGroupRef(groupRef);
+  }, [setFilterRef, setGroupRef, setSortRef]);
+
   if (!view || !fields.length) {
     return <div></div>;
   }
-
   return (
     <div className="flex @sm/toolbar:gap-1">
       <HideFields>
@@ -50,6 +62,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             disabled={disabled}
             isActive={isActive}
             text={text}
+            ref={filterRef}
             className={cn(
               GUIDE_VIEW_FILTERING,
               'max-w-xs',
@@ -68,6 +81,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             disabled={disabled}
             isActive={isActive}
             text={text}
+            ref={sortRef}
             className={cn(
               GUIDE_VIEW_SORTING,
               'max-w-xs',
@@ -86,6 +100,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
             disabled={disabled}
             isActive={isActive}
             text={text}
+            ref={groupRef}
             className={cn(
               GUIDE_VIEW_GROUPING,
               'max-w-xs',

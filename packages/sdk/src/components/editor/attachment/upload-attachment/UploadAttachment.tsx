@@ -24,6 +24,7 @@ import { useTranslation } from '../../../../context/app/i18n';
 import { useBaseId } from '../../../../hooks';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { FileZone } from '../../../FileZone';
+import { useAttachmentPreviewI18Map } from '../../../hooks';
 import { getFileCover } from '../utils';
 import AttachmentItem from './AttachmentItem';
 import { FileInput } from './FileInput';
@@ -57,6 +58,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
   const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
   const [newAttachments, setNewAttachments] = useState<IAttachmentCellValue>([]);
   const { t } = useTranslation();
+  const i18nMap = useAttachmentPreviewI18Map();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -194,7 +196,7 @@ export const UploadAttachment = (props: IUploadAttachment) => {
         >
           {len > 0 && (
             <ul className="-right-2 flex size-full flex-wrap overflow-hidden">
-              <FilePreviewProvider>
+              <FilePreviewProvider i18nMap={i18nMap}>
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}

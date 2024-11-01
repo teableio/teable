@@ -1,4 +1,3 @@
-import os from 'node:os';
 import type { Readable as ReadableStream } from 'node:stream';
 import { resolve } from 'path';
 import { BadRequestException } from '@nestjs/common';
@@ -7,7 +6,7 @@ import { storageConfig } from '../../../configs/storage';
 import type { IObjectMeta, IPresignParams, IPresignRes } from './types';
 
 export default abstract class StorageAdapter {
-  static readonly TEMPORARY_DIR = resolve(os.tmpdir(), '.temporary');
+  static readonly TEMPORARY_DIR = resolve(process.cwd(), '.temporary');
 
   static readonly getBucket = (type: UploadType) => {
     switch (type) {
@@ -83,7 +82,7 @@ export default abstract class StorageAdapter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       [key: string]: any;
     }
-  ): Promise<string | undefined>;
+  ): Promise<string>;
 
   /**
    * uploadFile with file path
@@ -125,8 +124,8 @@ export default abstract class StorageAdapter {
   abstract cropImage(
     bucket: string,
     path: string,
-    width: number,
-    height: number,
+    width?: number,
+    height?: number,
     newPath?: string
   ): Promise<string>;
 }

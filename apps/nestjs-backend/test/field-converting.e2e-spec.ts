@@ -962,7 +962,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
             { name: 'x', color: Colors.Blue },
             { name: 'y', color: Colors.Red },
             { name: "','" },
-            { name: ', ' },
+            { name: ',' },
             { name: 'z' },
           ],
         },
@@ -972,8 +972,8 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect(values[1]).toEqual(['x', 'y']);
       expect(values[2]).toEqual(['x', 'z']);
       expect(values[3]).toEqual(['x', "','"]);
-      expect(values[4]).toEqual(['x', 'y', ', ']);
-      expect(values[5]).toEqual(["','", ', ']);
+      expect(values[4]).toEqual(['x', 'y', ',']);
+      expect(values[5]).toEqual(["','", ',']);
     });
 
     it('should convert long text to attachment', async () => {

@@ -247,6 +247,41 @@ describe('BaseSqlQuery e2e', () => {
       );
     });
 
+    it('groupBy with single user field', async () => {
+      const table = await createTable(baseId, {
+        fields: [
+          {
+            name: 'user',
+            type: FieldType.User,
+          },
+        ],
+        records: [
+          {
+            fields: {},
+          },
+          {
+            fields: {
+              user: {
+                id: globalThis.testConfig.userId,
+                title: globalThis.testConfig.userName,
+                email: globalThis.testConfig.email,
+              },
+            },
+          },
+        ],
+      }).then((res) => res.data);
+      const res = await baseQuery(baseId, {
+        from: table.id,
+        groupBy: [{ column: table.fields[0].id, type: BaseQueryColumnType.Field }],
+      });
+      console.log('res.data', res.data);
+      expect(res.data.columns).toHaveLength(1);
+      expect(res.data.rows).toEqual([
+        {},
+        { [`${table.fields[0].id}`]: globalThis.testConfig.userName },
+      ]);
+    });
+
     it('limit and offset', async () => {
       const res = await baseQuery(baseId, {
         from: table.id,

@@ -124,9 +124,6 @@ export class MinioStorage implements StorageAdapter {
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
   ) {
-    if (!(await this.fileExists(bucket, path))) {
-      return;
-    }
     const { 'Content-Disposition': contentDisposition, ...headers } = respHeaders ?? {};
     return this.minioClient.presignedGetObject(bucket, path, expiresIn, {
       ...headers,
@@ -140,7 +137,12 @@ export class MinioStorage implements StorageAdapter {
     filePath: string,
     metadata: Record<string, string | number>
   ) {
-    const { etag: hash } = await this.minioClient.fPutObject(bucket, path, filePath, metadata);
+    const { etag: hash } = await this.minioClientPrivateNetwork.fPutObject(
+      bucket,
+      path,
+      filePath,
+      metadata
+    );
     return {
       hash,
       path,
@@ -180,8 +182,14 @@ export class MinioStorage implements StorageAdapter {
     }
   }
 
-  async cropImage(bucket: string, path: string, width: number, height: number, _newPath?: string) {
-    const newPath = _newPath || `${path}_${width}_${height}`;
+  async cropImage(
+    bucket: string,
+    path: string,
+    width?: number,
+    height?: number,
+    _newPath?: string
+  ) {
+    const newPath = _newPath || `${path}_${width ?? 0}_${height ?? 0}`;
     const resizedImagePath = resolve(
       StorageAdapter.TEMPORARY_DIR,
       encodeURIComponent(join(bucket, newPath))
@@ -203,6 +211,8 @@ export class MinioStorage implements StorageAdapter {
     const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
       'Content-Type': mimetype,
     });
+    // delete resized image
+    fse.removeSync(resizedImagePath);
     return upload.path;
   }
 }

@@ -11,6 +11,7 @@ export enum ActionPrefix {
   Automation = 'automation',
   User = 'user',
   TableRecordHistory = 'table_record_history',
+  Instance = 'instance',
 }
 
 export const spaceActions = [
@@ -93,6 +94,10 @@ export const tableRecordHistoryActions = ['table_record_history|read'] as const;
 export const tableRecordHistoryActionSchema = z.enum(tableRecordHistoryActions);
 export type TableRecordHistoryAction = z.infer<typeof tableRecordHistoryActionSchema>;
 
+export const instanceActions = ['instance|read', 'instance|update'] as const;
+export const instanceActionSchema = z.enum(instanceActions);
+export type InstanceAction = z.infer<typeof instanceActionSchema>;
+
 export type Action =
   | SpaceAction
   | BaseAction
@@ -102,7 +107,8 @@ export type Action =
   | RecordAction
   | AutomationAction
   | UserAction
-  | TableRecordHistoryAction;
+  | TableRecordHistoryAction
+  | InstanceAction;
 
 export type ActionPrefixMap = {
   [ActionPrefix.Space]: SpaceAction[];
@@ -114,6 +120,7 @@ export type ActionPrefixMap = {
   [ActionPrefix.Automation]: AutomationAction[];
   [ActionPrefix.User]: UserAction[];
   [ActionPrefix.TableRecordHistory]: TableRecordHistoryAction[];
+  [ActionPrefix.Instance]: InstanceAction[];
 };
 export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.Space]: [...spaceActions],
@@ -125,4 +132,5 @@ export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.Automation]: [...automationActions],
   [ActionPrefix.TableRecordHistory]: [...tableRecordHistoryActions],
   [ActionPrefix.User]: [...userActions],
+  [ActionPrefix.Instance]: [...instanceActions],
 };

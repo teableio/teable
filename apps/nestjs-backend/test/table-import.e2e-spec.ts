@@ -1,5 +1,4 @@
 import fs from 'fs';
-import os from 'node:os';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, defaultDatetimeFormatting } from '@teable/core';
@@ -19,6 +18,7 @@ import {
   UploadType,
 } from '@teable/openapi';
 import * as XLSX from 'xlsx';
+import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
 
 import { initApp, permanentDeleteTable, getTable as apiGetTableById } from './utils/init-app';
@@ -97,10 +97,9 @@ const genTestFiles = async () => {
     [TestFileFormat.TXT]: 'text/plain',
     [TestFileFormat.XLSX]: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   };
-  const tmpDir = os.tmpdir();
   for (let i = 0; i < testFileFormats.length; i++) {
     const format = testFileFormats[i];
-    const tmpPath = path.resolve(path.join(tmpDir, `test.${format}`));
+    const tmpPath = path.resolve(path.join(StorageAdapter.TEMPORARY_DIR, `test.${format}`));
     const data = fileDataMap[format];
     const contentType = contentTypeMap[format];
 

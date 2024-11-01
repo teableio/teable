@@ -20,7 +20,7 @@ export class SingleSelectFieldCore extends SelectFieldCore {
       return null;
     }
 
-    const cellValue = String(value).replace(/\n|\r/g, ' ');
+    const cellValue = String(value).replace(/\n|\r/g, ' ').trim();
     if (shouldExtend) {
       return cellValue;
     }

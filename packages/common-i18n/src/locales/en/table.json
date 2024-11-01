@@ -371,7 +371,8 @@
   },
   "grid": {
     "prefillingRowTitle": "Add new record",
-    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row."
+    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row.",
+    "presortRowTitle": "This record has been filtered or moved due to sorting rules"
   },
   "form": {
     "fieldsManagement": "Fields",
@@ -414,8 +415,8 @@
     }
   },
   "menu": {
-    "insertRecordAbove": "Insert record above",
-    "insertRecordBelow": "Insert record below",
+    "insertRecordAbove": "Insert <input /> record above",
+    "insertRecordBelow": "Insert <input /> record below",
     "copyCells": "Copy cells",
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
@@ -425,7 +426,10 @@
     "freezeUpField": "Freeze up to this field",
     "hideField": "Hide field",
     "deleteField": "Delete field",
-    "deleteAllSelectedFields": "Delete all selected fields"
+    "deleteAllSelectedFields": "Delete all selected fields",
+    "filterField": "Filter by this field",
+    "sortField": "Sort by this field",
+    "groupField": "Group by this field"
   },
   "connection": {
     "title": "Database Connection",
@@ -453,7 +457,11 @@
       "title": "Crash!",
       "description": "This view is broken. If the refresh still fails, please contact us. support@teable.io"
     },
-    "addPluginView": "Add Plugin View"
+    "addPluginView": "Add Plugin View",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "{{name}} and {{length}} other fields"
+    }
   },
   "lastModifiedTime": "Last modified time",
   "lastModify": "Last modify: ",

@@ -23,6 +23,10 @@
     "summaryTip": "カーソルを合わせて概要を選択",
     "actions": "アクション"
   },
+  "preview": {
+    "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
+    "loadFileError": "ファイルの読み込みに失敗しました"
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "ファイルをアップロードするにはリリースしてください",
@@ -257,7 +261,9 @@
       "automationUpdate": "オートメーションの更新",
       "userEmailRead": "ユーザーメールの読み取り",
       "recordHistoryRead": "レコード履歴の読み取り",
-      "baseQuery": "クエリベース"
+      "baseQuery": "クエリベース",
+      "instanceRead": "インスタンスの読み取り",
+      "instanceUpdate": "インスタンスの更新"
     }
   },
   "noun": {
@@ -269,7 +275,8 @@
     "record": "レコード",
     "automation": "オートメーション",
     "user": "ユーザー",
-    "recordHistory": "レコード履歴"
+    "recordHistory": "レコード履歴",
+    "instance": "インスタンス"
   },
   "formula": {
     "SUM": {

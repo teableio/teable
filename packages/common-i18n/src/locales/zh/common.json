@@ -34,7 +34,9 @@
     "loadMore": "加载更多",
     "collapseSidebar": "折叠侧边栏",
     "restore": "恢复",
-    "permanentDelete": "永久删除"
+    "permanentDelete": "永久删除",
+    "globalSearch": "全局搜索",
+    "fieldSearch": "字段搜索"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -129,7 +131,8 @@
     "license": "许可证",
     "instanceId": "实例 ID",
     "beta": "测试版",
-    "trash": "回收站"
+    "trash": "回收站",
+    "global": "全局"
   },
   "level": {
     "free": "免费版",
@@ -142,6 +145,7 @@
   "name": "名称",
   "description": "描述",
   "required": "必填",
+  "atLeastOne": "至少保留一个{{noun}}",
   "guide": {
     "prev": "上一步",
     "next": "下一步",

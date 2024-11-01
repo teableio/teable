@@ -146,6 +146,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
     onCollapsedGroupChanged,
+    onDragStart: _onDragStart,
   } = props;
 
   useImperativeHandle(ref, () => ({
@@ -556,7 +557,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       setEditing(false);
       editorContainerRef.current?.saveValue?.();
     }
-    onDragStart(mouseState);
+    onDragStart(mouseState, (type, ranges) => {
+      if (type === DragRegionType.Columns) {
+        _onDragStart?.(type, flatRanges(ranges));
+      }
+      if (type === DragRegionType.Rows) {
+        const originRealIndexs = flatRanges(ranges).map((index) => getLinearRow(index).realIndex);
+        _onDragStart?.(type, originRealIndexs);
+      }
+    });
     onColumnFreezeStart(mouseState);
     prevActiveCellRef.current = activeCell;
     onSelectionStart(event, mouseState);

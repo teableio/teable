@@ -5,7 +5,10 @@ import { FieldCore } from '../../field';
 
 export const selectFieldChoiceSchema = z.object({
   id: z.string(),
-  name: z.string().min(1),
+  name: z
+    .string()
+    .transform((s) => s.trim())
+    .pipe(z.string().min(1)),
   color: z.nativeEnum(Colors),
 });
 

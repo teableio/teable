@@ -1,10 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type {
-  IAttachmentCellValue,
-  IAttachmentItem,
-  ILinkCellValue,
-  UserFieldCore,
-} from '@teable/core';
+import type { IAttachmentItem, ILinkCellValue, UserFieldCore } from '@teable/core';
 import {
   ColorUtils,
   FieldType,
@@ -149,7 +144,7 @@ export class TypeCastAndValidate {
           throw new BadRequestException(fromZodError(validate.error).message);
         }
       }
-      if (this.field.type === FieldType.SingleLineText) {
+      if (this.field.type === FieldType.SingleLineText || this.field.type === FieldType.LongText) {
         return this.field.convertStringToCellValue(validate.data as string);
       }
       return validate.data == null ? null : validate.data;
@@ -305,13 +300,16 @@ export class TypeCastAndValidate {
     );
 
     const allAttachmentsPromises = unsignedValues.map((cellValues) => {
-      const attachmentCellValue = cellValues as IAttachmentCellValue;
+      const attachmentCellValue = cellValues as (IAttachmentItem & {
+        thumbnailPath?: { sm?: string; lg?: string };
+      })[];
       if (!attachmentCellValue) {
         return attachmentCellValue;
       }
 
       const attachmentsWithPresignedUrls = attachmentCellValue.map(async (item) => {
-        const { path, mimetype, token } = item;
+        const { thumbnailPath, ...cellValue } = item;
+        const { path, mimetype, token } = cellValue;
         // presigned just for realtime op preview
         const presignedUrl = await this.services.attachmentsStorageService.getPreviewUrlByPath(
           StorageAdapter.getBucket(UploadType.Table),
@@ -325,14 +323,29 @@ export class TypeCastAndValidate {
             'Content-Disposition': `attachment; filename="${item.name}"`,
           }
         );
-        const { smThumbnailUrl, lgThumbnailUrl } =
-          await this.services.attachmentsStorageService.getTableAttachmentThumbnailUrl(path);
+        let smThumbnailUrl = presignedUrl;
+        let lgThumbnailUrl = presignedUrl;
+        if (thumbnailPath) {
+          if (thumbnailPath.sm) {
+            smThumbnailUrl = await this.services.attachmentsStorageService.getTableThumbnailUrl(
+              thumbnailPath.sm,
+              mimetype
+            );
+          }
+          if (thumbnailPath.lg) {
+            lgThumbnailUrl = await this.services.attachmentsStorageService.getPreviewUrlByPath(
+              StorageAdapter.getBucket(UploadType.Table),
+              thumbnailPath.lg,
+              mimetype
+            );
+          }
+        }
 
         return {
           ...item,
-          presignedUrl,
           smThumbnailUrl,
           lgThumbnailUrl,
+          presignedUrl,
         };
       });
 
@@ -380,7 +393,7 @@ export class TypeCastAndValidate {
 
   private async getAttachmentItemMap(
     cellValues: unknown[]
-  ): Promise<Record<string, IAttachmentItem>> {
+  ): Promise<Record<string, IAttachmentItem & { thumbnailPath?: { sm?: string; lg?: string } }>> {
     // Extract and flatten attachment IDs from cell values
     const attachmentIds = cellValues
       .flat()
@@ -399,14 +412,25 @@ export class TypeCastAndValidate {
     // Fetch attachment details from attachments table
     const attachmentDetails = await this.services.prismaService.attachments.findMany({
       where: { token: { in: tokens } },
-      select: { token: true, size: true, mimetype: true, path: true, width: true, height: true },
+      select: {
+        token: true,
+        size: true,
+        mimetype: true,
+        path: true,
+        width: true,
+        height: true,
+        thumbnailPath: true,
+      },
     });
 
     // Combine metadata and details into a single map
-    return attachmentDetails.reduce<Record<string, IAttachmentItem>>((acc, detail) => {
+    return attachmentDetails.reduce<
+      Record<string, IAttachmentItem & { thumbnailPath?: { sm?: string; lg?: string } }>
+    >((acc, detail) => {
       const metadata = metadataMap[detail.token];
       acc[metadata.attachmentId] = {
         ...nullsToUndefined(detail),
+        thumbnailPath: detail.thumbnailPath ? JSON.parse(detail.thumbnailPath) : undefined,
         name: metadata.name,
         id: generateAttachmentId(),
       };

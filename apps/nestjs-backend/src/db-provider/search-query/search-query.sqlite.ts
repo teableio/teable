@@ -1,5 +1,6 @@
-import type { IDateFieldOptions, INumberFieldOptions } from '@teable/core';
+import type { IDateFieldOptions } from '@teable/core';
 import type { Knex } from 'knex';
+import { get } from 'lodash';
 import type { IFieldInstance } from '../../features/field/model/factory';
 import { SearchQueryAbstract } from './abstract';
 import { getOffset } from './get-offset';
@@ -10,8 +11,8 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   multipleNumber() {
-    const precision = (this.field.options as INumberFieldOptions).formatting.precision;
-    return this.originQueryBuilder.whereRaw(
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -27,7 +28,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
 
   multipleDate() {
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -42,7 +43,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   multipleText() {
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -58,7 +59,7 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   multipleJson() {
-    return this.originQueryBuilder.whereRaw(
+    return this.originQueryBuilder.orWhereRaw(
       `
       EXISTS (
         SELECT 1 FROM (
@@ -73,19 +74,19 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   json() {
-    return this.originQueryBuilder.whereRaw("json_extract(??, '$.title') LIKE ?", [
+    return this.originQueryBuilder.orWhereRaw("json_extract(??, '$.title') LIKE ?", [
       this.field.dbFieldName,
       `%${this.searchValue}%`,
     ]);
   }
 
   text() {
-    return this.originQueryBuilder.where(this.field.dbFieldName, 'LIKE', `%${this.searchValue}%`);
+    return this.originQueryBuilder.orWhere(this.field.dbFieldName, 'LIKE', `%${this.searchValue}%`);
   }
 
   date() {
     const timeZone = (this.field.options as IDateFieldOptions).formatting.timeZone;
-    return this.originQueryBuilder.whereRaw('DATETIME(??, ?) LIKE ?', [
+    return this.originQueryBuilder.orWhereRaw('DATETIME(??, ?) LIKE ?', [
       this.field.dbFieldName,
       `${getOffset(timeZone)} hour`,
       `%${this.searchValue}%`,
@@ -93,8 +94,8 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   }
 
   number() {
-    const precision = (this.field.options as INumberFieldOptions).formatting.precision;
-    return this.originQueryBuilder.whereRaw('ROUND(??, ?) LIKE ?', [
+    const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
+    return this.originQueryBuilder.orWhereRaw('ROUND(??, ?) LIKE ?', [
       this.field.dbFieldName,
       precision,
       `%${this.searchValue}%`,

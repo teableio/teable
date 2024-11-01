@@ -2,12 +2,11 @@ import { useMutation } from '@tanstack/react-query';
 import { ColorUtils } from '@teable/core';
 import { DraggableHandle, X } from '@teable/icons';
 import { IdReturnType, getGraph, getIdsFromRanges } from '@teable/openapi';
-import { useBaseId, useTableId, useViewId } from '@teable/sdk';
+import { useBaseId, useGridViewStore, useTableId, useViewId } from '@teable/sdk';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useEffect, useRef, useState } from 'react';
 import { Rnd } from 'react-rnd';
 import { useMount } from 'react-use';
-import { useGridViewStore } from '../view/grid/store/gridView';
 import { useCellGraphStore } from './useCellGraphStore';
 import { useGraph } from './useGraph';
 

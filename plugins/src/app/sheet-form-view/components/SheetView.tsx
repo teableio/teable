@@ -106,6 +106,7 @@ export const SheetView = () => {
           viewId,
           pluginInstallId: pluginInstall?.pluginInstallId,
           storage: {
+            ...storage,
             sheets: {
               sheet1: {
                 ...workBookData.sheets.sheet1,

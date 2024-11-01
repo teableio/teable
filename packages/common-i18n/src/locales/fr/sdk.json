@@ -23,6 +23,10 @@
     "summaryTip": "Survolez pour sélectionner le résumé",
     "actions": "Actions"
   },
+  "preview": {
+    "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
+    "loadFileError": "Échec du chargement du fichier"
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "Relâchez pour télécharger le fichier",
@@ -270,7 +274,9 @@
       "automationUpdate": "Mettre à jour une automatisation",
       "userEmailRead": "Lire l'email de l'utilisateur",
       "recordHistoryRead": "Lire l'historique des enregistrements",
-      "baseQuery": "Interroger la base"
+      "baseQuery": "Interroger la base",
+      "instanceRead": "Lire l'instance",
+      "instanceUpdate": "Mettre à jour l'instance"
     }
   },
   "noun": {
@@ -282,7 +288,8 @@
     "record": "Enregistrement",
     "automation": "Automatisation",
     "user": "Utilisateur",
-    "recordHistory": "Historique des enregistrements"
+    "recordHistory": "Historique des enregistrements",
+    "instance": "Instance"
   },
   "formula": {
     "SUM": {

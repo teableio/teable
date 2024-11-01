@@ -105,6 +105,7 @@
     "@emoji-mart/data": "1.1.2",
     "@emoji-mart/react": "1.1.1",
     "@fontsource-variable/inter": "5.0.17",
+    "@glideapps/glide-data-grid": "6.0.3",
     "@hello-pangea/dnd": "16.6.0",
     "@hookform/resolvers": "3.3.4",
     "@nem035/gpt-3-encoder": "1.1.7",

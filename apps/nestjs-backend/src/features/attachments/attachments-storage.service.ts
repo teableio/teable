@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import { CacheService } from '../../cache/cache.service';
@@ -7,30 +7,35 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import {
   generateTableThumbnailPath,
-  getTableThumbnailSize,
   getTableThumbnailToken,
-} from '../../utils/generate-table-thumbnail-path';
+} from '../../utils/generate-thumbnail-path';
 import { second } from '../../utils/second';
+import { ATTACHMENT_LG_THUMBNAIL_HEIGHT, ATTACHMENT_SM_THUMBNAIL_HEIGHT } from './constant';
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
 import type { IRespHeaders } from './plugins/types';
 
 @Injectable()
 export class AttachmentsStorageService {
+  private readonly urlExpireIn: number;
+  private readonly logger = new Logger(AttachmentsStorageService.name);
+
   constructor(
     private readonly cacheService: CacheService,
     private readonly prismaService: PrismaService,
     private readonly eventEmitterService: EventEmitterService,
     @StorageConfig() private readonly storageConfig: IStorageConfig,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
-  ) {}
+  ) {
+    this.urlExpireIn = second(this.storageConfig.urlExpireIn);
+  }
 
   async getPreviewUrl<T extends string | string[] = string | string[]>(
     bucket: string,
     token: T,
     meta?: { expiresIn?: number }
   ): Promise<T> {
-    const { expiresIn = second(this.storageConfig.urlExpireIn) } = meta ?? {};
+    const { expiresIn = this.urlExpireIn } = meta ?? {};
     const isArray = Array.isArray(token);
     if (isArray && token.length === 0) {
       return [] as unknown as T;
@@ -68,16 +73,13 @@ export class AttachmentsStorageService {
     bucket: string,
     path: string,
     token: string,
-    expiresIn: number = second(this.storageConfig.urlExpireIn),
+    expiresIn: number = this.urlExpireIn,
     respHeaders?: IRespHeaders
   ) {
     const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
     let url = previewCache?.url;
     if (!url) {
       url = await this.storageAdapter.getPreviewUrl(bucket, path, expiresIn, respHeaders);
-      if (!url) {
-        throw new BadRequestException(`Invalid token: ${token}`);
-      }
       await this.cacheService.set(
         `attachment:preview:${token}`,
         {
@@ -90,59 +92,41 @@ export class AttachmentsStorageService {
     return url;
   }
 
-  private async getTableThumbnailUrl(path: string, token: string) {
-    const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
-    if (previewCache?.url) {
-      return previewCache.url;
-    }
-    const url = await this.storageAdapter.getPreviewUrl(
+  async getTableThumbnailUrl(path: string, mimetype: string) {
+    return this.getPreviewUrlByPath(
       StorageAdapter.getBucket(UploadType.Table),
       path,
-      second(this.storageConfig.urlExpireIn)
+      getTableThumbnailToken(path),
+      undefined,
+      {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': mimetype,
+      }
     );
-    if (url) {
-      await this.cacheService.set(
-        `attachment:preview:${token}`,
-        {
-          url,
-          expiresIn: second(this.storageConfig.urlExpireIn),
-        },
-        second(this.storageConfig.urlExpireIn)
-      );
-    }
-    return url;
   }
 
-  async getTableAttachmentThumbnailUrl(path: string) {
+  async cropTableImage(bucket: string, path: string, height: number) {
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const smThumbnailUrl = await this.getTableThumbnailUrl(
-      smThumbnailPath,
-      getTableThumbnailToken(smThumbnailPath)
-    );
-    const lgThumbnailUrl = await this.getTableThumbnailUrl(
-      lgThumbnailPath,
-      getTableThumbnailToken(lgThumbnailPath)
-    );
-    return { smThumbnailUrl, lgThumbnailUrl };
-  }
-
-  async cutTableImage(bucket: string, path: string, width: number, height: number) {
-    const { smThumbnail, lgThumbnail } = getTableThumbnailSize(width, height);
-    const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const cutSmThumbnailPath = await this.storageAdapter.cropImage(
-      bucket,
-      path,
-      smThumbnail.width,
-      smThumbnail.height,
-      smThumbnailPath
-    );
-    const cutLgThumbnailPath = await this.storageAdapter.cropImage(
-      bucket,
-      path,
-      lgThumbnail.width,
-      lgThumbnail.height,
-      lgThumbnailPath
-    );
+    const cutSmThumbnailPath =
+      height > ATTACHMENT_SM_THUMBNAIL_HEIGHT
+        ? await this.storageAdapter.cropImage(
+            bucket,
+            path,
+            undefined,
+            ATTACHMENT_SM_THUMBNAIL_HEIGHT,
+            smThumbnailPath
+          )
+        : undefined;
+    const cutLgThumbnailPath =
+      height > ATTACHMENT_LG_THUMBNAIL_HEIGHT
+        ? await this.storageAdapter.cropImage(
+            bucket,
+            path,
+            undefined,
+            ATTACHMENT_LG_THUMBNAIL_HEIGHT,
+            lgThumbnailPath
+          )
+        : undefined;
     this.eventEmitterService.emit(Events.CROP_IMAGE, {
       bucket,
       path,

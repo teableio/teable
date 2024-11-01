@@ -1,12 +1,14 @@
 import { Search, X } from '@teable/icons';
-import { FieldSelector } from '@teable/sdk/components';
-import { useFields, useSearch } from '@teable/sdk/hooks';
-import { cn } from '@teable/ui-lib/shadcn';
+import { LocalStorageKeys, useView } from '@teable/sdk';
+import { useFields, useSearch, useTableId } from '@teable/sdk/hooks';
+import { cn, Popover, PopoverContent, PopoverTrigger, Button } from '@teable/ui-lib/shadcn';
+import { isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { useDebounce } from 'react-use';
+import { useDebounce, useLocalStorage } from 'react-use';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
+import { SearchCommand } from './SearchCommand';
 
 export function SearchButton({
   className,
@@ -17,11 +19,54 @@ export function SearchButton({
 }) {
   const [active, setActive] = useState(false);
   const fields = useFields();
+  const tableId = useTableId();
   const { fieldId, value, setFieldId, setValue } = useSearch();
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'table']);
   const ref = useRef<HTMLInputElement>(null);
+  const [enableGlobalSearch, setEnableGlobalSearch] = useLocalStorage(
+    LocalStorageKeys.EnableGlobalSearch,
+    false
+  );
+  const [searchFieldMapCache, setSearchFieldMap] = useLocalStorage<Record<string, string[]>>(
+    LocalStorageKeys.TableSearchFieldsCache,
+    {}
+  );
+  const view = useView();
+
+  useEffect(() => {
+    if (!fieldId || fieldId === 'all_fields') {
+      return;
+    }
+    const selectedField = fieldId.split(',');
+    const hiddenFields: string[] = [];
+    const columnMeta = view?.columnMeta || {};
+    Object.entries(columnMeta).forEach(([key, value]) => {
+      value?.hidden && hiddenFields.push(key);
+    });
+    const filteredFields = selectedField.filter(
+      (f) => !hiddenFields.includes(f) && fields.map((f) => f.id).includes(f)
+    );
+    const primaryFieldId = fields.find((f) => f.isPrimary)?.id;
+    if (!isEqual(filteredFields, selectedField)) {
+      tableId &&
+        setSearchFieldMap({
+          ...searchFieldMapCache,
+          [tableId]: filteredFields,
+        });
+      setFieldId(filteredFields.length > 0 ? filteredFields.join(',') : primaryFieldId);
+    }
+  }, [
+    fieldId,
+    fields,
+    searchFieldMapCache,
+    setFieldId,
+    setSearchFieldMap,
+    tableId,
+    value,
+    view?.columnMeta,
+  ]);
 
   useHotkeys(
     `mod+f`,
@@ -66,11 +111,44 @@ export function SearchButton({
   useEffect(() => {
     if (active) {
       ref.current?.focus();
-      if (!fieldId) {
+      if (enableGlobalSearch) {
+        setFieldId('all_fields');
+        return;
+      }
+      // init fieldId
+      if (fieldId === undefined) {
+        if (tableId && searchFieldMapCache?.[tableId]?.length) {
+          setFieldId(searchFieldMapCache[tableId].join(','));
+          return;
+        }
         setFieldId(fields[0].id);
       }
     }
-  }, [active, fieldId, fields, ref, setFieldId]);
+  }, [
+    active,
+    enableGlobalSearch,
+    fieldId,
+    fields,
+    ref,
+    searchFieldMapCache,
+    setFieldId,
+    setSearchFieldMap,
+    tableId,
+  ]);
+
+  const searchHeader = useMemo(() => {
+    if (fieldId === 'all_fields') {
+      return t('noun.global');
+    }
+    const fieldIds = fieldId?.split(',') || [];
+    const fieldName = fields.find((f) => f.id === fieldIds[0])?.name;
+    if (fieldIds.length === 1) {
+      return t('table:view.search.field_one', { name: fieldName });
+    }
+    if (fieldIds.length > 1) {
+      return t('table:view.search.field_other', { name: fieldName, length: fieldIds?.length });
+    }
+  }, [fieldId, fields, t]);
 
   return active ? (
     <div
@@ -81,13 +159,37 @@ export function SearchButton({
         }
       )}
     >
-      <FieldSelector
-        className="h-full w-auto gap-1 rounded-none border-0 border-r px-1 text-xs font-normal"
-        value={fieldId}
-        onSelect={(value) => {
-          setFieldId(value);
-        }}
-      />
+      <Popover modal>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size={'xs'} className="max-w-40 truncate rounded-none border-r">
+            <span className="truncate">{searchHeader}</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-1">
+          {fieldId && tableId && (
+            <SearchCommand
+              value={fieldId}
+              onChange={(fieldIds) => {
+                // switch to field
+                if (!fieldIds) {
+                  const newIds = searchFieldMapCache?.[tableId] || [fields[0].id];
+                  setFieldId(newIds.join(','));
+                  setEnableGlobalSearch(false);
+                  return;
+                }
+                const ids = fieldIds.join(',');
+                if (ids === 'all_fields') {
+                  setEnableGlobalSearch(true);
+                } else {
+                  setEnableGlobalSearch(false);
+                  tableId && setSearchFieldMap({ ...searchFieldMapCache, [tableId]: fieldIds });
+                }
+                setFieldId(ids);
+              }}
+            />
+          )}
+        </PopoverContent>
+      </Popover>
       <input
         ref={ref}
         className="placeholder:text-muted-foregrounds flex w-32 rounded-md bg-transparent px-1 outline-none"

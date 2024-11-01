@@ -362,7 +362,8 @@
   },
   "grid": {
     "prefillingRowTitle": "Ajouter un nouvel enregistrement",
-    "prefillingRowTooltip": "Veuillez entrer les données du nouvel enregistrement ci-dessous. L'enregistrement sera sauvegardé automatiquement une fois que vous cliquerez en dehors de cette ligne."
+    "prefillingRowTooltip": "Veuillez entrer les données du nouvel enregistrement ci-dessous. L'enregistrement sera sauvegardé automatiquement une fois que vous cliquerez en dehors de cette ligne.",
+    "presortRowTitle": "Cet enregistrement a été filtré ou déplacé en raison des règles de tri"
   },
   "form": {
     "fieldsManagement": "Champs",

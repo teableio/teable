@@ -29,4 +29,5 @@ export const FilePreviewContext = createContext<{
   onPrev: () => void;
   onNext: () => void;
   onDelete: (fileId: IFileId) => void;
+  i18nMap?: Record<string, string>;
 }>(null!);

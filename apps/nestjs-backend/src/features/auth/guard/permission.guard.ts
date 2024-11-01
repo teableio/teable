@@ -62,6 +62,24 @@ export class PermissionGuard {
     return true;
   }
 
+  protected async instancePermissionChecker(action: Action) {
+    const isAdmin = this.cls.get('user.isAdmin');
+
+    if (!isAdmin) {
+      throw new ForbiddenException('User is not an admin');
+    }
+
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (accessTokenId) {
+      const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
+      const allowConfig = scopes.includes(action);
+      if (!allowConfig) {
+        throw new ForbiddenException(`Access token does not have ${action} permission`);
+      }
+    }
+    return true;
+  }
+
   protected async permissionCheck(context: ExecutionContext) {
     const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
       context.getHandler(),
@@ -80,6 +98,13 @@ export class PermissionGuard {
 
     if (!permissions?.length) {
       return true;
+    }
+    // instance permission check
+    if (permissions?.includes('instance|update')) {
+      return this.instancePermissionChecker('instance|update');
+    }
+    if (permissions?.includes('instance|read')) {
+      return this.instancePermissionChecker('instance|read');
     }
     // space create permission check
     if (permissions?.includes('space|create')) {

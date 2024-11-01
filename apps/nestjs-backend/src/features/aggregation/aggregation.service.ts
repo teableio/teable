@@ -14,7 +14,7 @@ import type {
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
-import { groupBy, isDate, isEmpty, keyBy } from 'lodash';
+import { get, groupBy, isDate, isEmpty, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -61,17 +61,18 @@ export class AggregationService {
     tableId: string;
     withFieldIds?: string[];
     withView?: IWithView;
-    search?: [string, string];
+    search?: [string, string] | [string];
   }): Promise<IRawAggregationValue> {
     const { tableId, withFieldIds, withView, search } = params;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
-    const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
-      tableId,
-      withView,
-      withFieldIds,
-    });
+    const { statisticsData, fieldInstanceMap, fieldInstanceMapWithoutHiddenFields } =
+      await this.fetchStatisticsParams({
+        tableId,
+        withView,
+        withFieldIds,
+      });
 
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
 
@@ -81,6 +82,7 @@ export class AggregationService {
     const rawAggregationData = await this.handleAggregation({
       dbTableName,
       fieldInstanceMap,
+      fieldInstanceMapWithoutHiddenFields,
       filter,
       search,
       statisticFields,
@@ -113,6 +115,7 @@ export class AggregationService {
       groupBy,
       dbTableName,
       fieldInstanceMap,
+      fieldInstanceMapWithoutHiddenFields,
     });
 
     return { aggregations: aggregationsWithGroup };
@@ -122,10 +125,11 @@ export class AggregationService {
     aggregations: IRawAggregations;
     statisticFields: IAggregationField[] | undefined;
     filter?: IFilter;
-    search: [string, string] | undefined;
+    search?: [string, string] | [string];
     groupBy?: IGroup;
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
+    fieldInstanceMapWithoutHiddenFields: Record<string, IFieldInstance>;
   }) {
     const {
       dbTableName,
@@ -135,6 +139,7 @@ export class AggregationService {
       groupBy,
       search,
       fieldInstanceMap,
+      fieldInstanceMapWithoutHiddenFields,
     } = params;
 
     if (!groupBy || !statisticFields) return aggregations;
@@ -153,6 +158,7 @@ export class AggregationService {
       const rawGroupedAggregationData = (await this.handleAggregation({
         dbTableName,
         fieldInstanceMap,
+        fieldInstanceMapWithoutHiddenFields,
         filter,
         groupBy: groupBy.slice(0, i + 1),
         search,
@@ -201,13 +207,14 @@ export class AggregationService {
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
-    const { statisticsData, fieldInstanceMap } = await this.fetchStatisticsParams({
-      tableId,
-      withView: {
-        viewId: queryRo.viewId,
-        customFilter: queryRo.filter,
-      },
-    });
+    const { statisticsData, fieldInstanceMap, fieldInstanceMapWithoutHiddenFields } =
+      await this.fetchStatisticsParams({
+        tableId,
+        withView: {
+          viewId: queryRo.viewId,
+          customFilter: queryRo.filter,
+        },
+      });
 
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
 
@@ -217,6 +224,7 @@ export class AggregationService {
       tableId,
       dbTableName,
       fieldInstanceMap,
+      fieldInstanceMapWithoutHiddenFields,
       filter,
       filterLinkCellCandidate,
       filterLinkCellSelected,
@@ -237,6 +245,7 @@ export class AggregationService {
   }): Promise<{
     statisticsData: IStatisticsData;
     fieldInstanceMap: Record<string, IFieldInstance>;
+    fieldInstanceMapWithoutHiddenFields: Record<string, IFieldInstance>;
   }> {
     const { tableId, withView, withFieldIds } = params;
 
@@ -250,7 +259,18 @@ export class AggregationService {
     );
 
     const statisticsData = this.buildStatisticsData(filteredFieldInstances, viewRaw, withView);
-    return { statisticsData, fieldInstanceMap };
+
+    const fieldInstanceMapWithoutHiddenFields = { ...fieldInstanceMap };
+
+    if (viewRaw?.columnMeta) {
+      const columnMeta = JSON.parse(viewRaw?.columnMeta);
+      Object.entries(columnMeta).forEach(([key, value]) => {
+        if (get(value, ['hidden'])) {
+          delete fieldInstanceMapWithoutHiddenFields[key];
+        }
+      });
+    }
+    return { statisticsData, fieldInstanceMap, fieldInstanceMapWithoutHiddenFields };
   }
 
   private async findView(tableId: string, withView?: IWithView) {
@@ -373,9 +393,10 @@ export class AggregationService {
   private async handleAggregation(params: {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
+    fieldInstanceMapWithoutHiddenFields: Record<string, IFieldInstance>;
     filter?: IFilter;
     groupBy?: IGroup;
-    search?: [string, string];
+    search?: [string, string] | [string];
     statisticFields?: IAggregationField[];
     withUserId?: string;
   }) {
@@ -396,7 +417,9 @@ export class AggregationService {
             .appendQueryBuilder();
         }
         if (search) {
-          this.dbProvider.searchQuery(qb, fieldInstanceMap, search);
+          qb.where((builder) => {
+            this.dbProvider.searchQuery(builder, fieldInstanceMap, search);
+          });
         }
       })
       .from(tableAlias);
@@ -422,17 +445,19 @@ export class AggregationService {
     tableId: string;
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
+    fieldInstanceMapWithoutHiddenFields: Record<string, IFieldInstance>;
     filter?: IFilter;
     filterLinkCellCandidate?: IGetRecordsRo['filterLinkCellCandidate'];
     filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
     selectedRecordIds?: IGetRecordsRo['selectedRecordIds'];
-    search?: [string, string];
+    search?: [string] | [string, string];
     withUserId?: string;
   }) {
     const {
       tableId,
       dbTableName,
       fieldInstanceMap,
+      fieldInstanceMapWithoutHiddenFields,
       filter,
       filterLinkCellCandidate,
       filterLinkCellSelected,
@@ -450,7 +475,9 @@ export class AggregationService {
     }
 
     if (search) {
-      this.dbProvider.searchQuery(queryBuilder, fieldInstanceMap, search);
+      queryBuilder.where((builder) => {
+        this.dbProvider.searchQuery(builder, fieldInstanceMapWithoutHiddenFields, search);
+      });
     }
 
     if (selectedRecordIds) {

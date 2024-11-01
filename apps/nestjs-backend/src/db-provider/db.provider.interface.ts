@@ -5,6 +5,7 @@ import type { Knex } from 'knex';
 import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
+import type { BaseQueryAbstract } from './base-query/abstract';
 import type { IFilterQueryInterface } from './filter-query/filter-query.interface';
 import type { IGroupQueryExtra, IGroupQueryInterface } from './group-query/group-query.interface';
 import type { ISortQueryInterface } from './sort-query/sort-query.interface';
@@ -130,4 +131,6 @@ export interface IDbProvider {
     dbFieldName: string,
     isMultipleCellValue?: boolean | null
   ): void;
+
+  baseQuery(): BaseQueryAbstract;
 }

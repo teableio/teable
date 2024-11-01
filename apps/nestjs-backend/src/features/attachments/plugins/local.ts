@@ -211,10 +211,7 @@ export class LocalStorage implements StorageAdapter {
     path: string,
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
-  ): Promise<string | undefined> {
-    if (!fse.existsSync(resolve(this.storageDir, bucket, path))) {
-      return undefined;
-    }
+  ): Promise<string> {
     return this.getPreviewUrlInner(bucket, path, expiresIn, respHeaders);
   }
 
@@ -291,8 +288,14 @@ export class LocalStorage implements StorageAdapter {
     };
   }
 
-  async cropImage(bucket: string, path: string, width: number, height: number, _newPath?: string) {
-    const newPath = _newPath || `${path}_${width}_${height}`;
+  async cropImage(
+    bucket: string,
+    path: string,
+    width?: number,
+    height?: number,
+    _newPath?: string
+  ) {
+    const newPath = _newPath || `${path}_${width ?? 0}_${height ?? 0}`;
     const resizedImagePath = resolve(this.storageDir, bucket, newPath);
     if (fse.existsSync(resizedImagePath)) {
       return newPath;

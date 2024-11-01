@@ -5,6 +5,7 @@ import {
   type UpdateAccessTokenRo,
   updateAccessTokenRoSchema,
 } from '@teable/openapi';
+import { useSession } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -17,16 +18,6 @@ import { ExpirationSelect } from './ExpirationSelect';
 import { RefreshToken } from './RefreshToken';
 
 export type IFormType = 'new' | 'edit';
-
-const actionsPrefixes = [
-  ActionPrefix.Space,
-  ActionPrefix.Base,
-  ActionPrefix.Table,
-  ActionPrefix.View,
-  ActionPrefix.Field,
-  ActionPrefix.Record,
-  ActionPrefix.Automation,
-];
 
 type ISubmitData = {
   new: CreateAccessTokenRo;
@@ -54,6 +45,8 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   const { type, isLoading, onCancel, onSubmit, onRefresh, defaultData, id } = props;
   const { t } = useTranslation(personalAccessTokenConfig.i18nNamespaces);
 
+  const { user } = useSession();
+
   const [spaceIds, setSpaceIds] = useState<string[] | undefined | null>(defaultData?.spaceIds);
   const [baseIds, setBaseIds] = useState<string[] | undefined | null>(defaultData?.baseIds);
   const [expiredTime, setExpiredTime] = useState<string | undefined>(defaultData?.expiredTime);
@@ -62,6 +55,23 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
     defaultData?.description || ''
   );
   const [scopes, setScopes] = useState<string[]>(defaultData?.scopes || []);
+
+  const actionsPrefixes = useMemo(() => {
+    const prefixes = [
+      ActionPrefix.Space,
+      ActionPrefix.Base,
+      ActionPrefix.Table,
+      ActionPrefix.View,
+      ActionPrefix.Field,
+      ActionPrefix.Record,
+      ActionPrefix.Automation,
+    ];
+
+    if (user.isAdmin) {
+      prefixes.push(ActionPrefix.Instance);
+    }
+    return prefixes;
+  }, [user.isAdmin]);
 
   const disableSubmit = useMemo(() => {
     if (type === 'new') {

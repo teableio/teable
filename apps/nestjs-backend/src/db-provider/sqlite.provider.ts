@@ -9,6 +9,8 @@ import type { IFieldInstance } from '../features/field/model/factory';
 import type { SchemaType } from '../features/field/util';
 import type { IAggregationQueryInterface } from './aggregation-query/aggregation-query.interface';
 import { AggregationQuerySqlite } from './aggregation-query/sqlite/aggregation-query.sqlite';
+import type { BaseQueryAbstract } from './base-query/abstract';
+import { BaseQuerySqlite } from './base-query/base-query.sqlite';
 import type {
   IAggregationQueryExtra,
   IDbProvider,
@@ -278,5 +280,9 @@ export class SqliteProvider implements IDbProvider {
     } else {
       originQueryBuilder.distinct(this.knex.raw(`json_extract(${dbFieldName}, '$.id') AS user_id`));
     }
+  }
+
+  baseQuery(): BaseQueryAbstract {
+    return new BaseQuerySqlite(this.knex);
   }
 }

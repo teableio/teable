@@ -47,7 +47,9 @@ export class AttachmentsTableService {
     });
     await this.prismaService.$tx(async (prisma) => {
       for (let i = 0; i < newAttachments.length; i++) {
-        await prisma.attachmentsTable.create({ data: newAttachments[i] });
+        await prisma.attachmentsTable.create({
+          data: newAttachments[i],
+        });
       }
     });
   }
@@ -115,7 +117,9 @@ export class AttachmentsTableService {
     await this.prismaService.$tx(async (prisma) => {
       needDelete.length && (await this.delete(needDelete));
       for (let i = 0; i < newAttachments.length; i++) {
-        await prisma.attachmentsTable.create({ data: newAttachments[i] });
+        await prisma.attachmentsTable.create({
+          data: newAttachments[i],
+        });
       }
     });
   }

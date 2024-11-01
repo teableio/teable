@@ -361,7 +361,8 @@
   },
   "grid": {
     "prefillingRowTitle": "新しいレコードを追加",
-    "prefillingRowTooltip": "以下に新しいレコードデータを入力してください。この行の外側をクリックすると、レコードは自動的に保存されます。"
+    "prefillingRowTooltip": "以下に新しいレコードデータを入力してください。この行の外側をクリックすると、レコードは自動的に保存されます。",
+    "presortRowTitle": "このレコードはフィルタリングまたは並べ替えルールにより変更されました"
   },
   "form": {
     "fieldsManagement": "フィールド",

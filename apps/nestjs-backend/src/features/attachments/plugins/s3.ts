@@ -152,10 +152,7 @@ export class S3Storage implements StorageAdapter {
     path: string,
     expiresIn: number = second(this.config.urlExpireIn),
     respHeaders?: IRespHeaders
-  ): Promise<string | undefined> {
-    if (!(await this.fileExists(bucket, path))) {
-      return;
-    }
+  ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: path,
@@ -233,8 +230,14 @@ export class S3Storage implements StorageAdapter {
     }
   }
 
-  async cropImage(bucket: string, path: string, width: number, height: number, _newPath?: string) {
-    const newPath = _newPath || `${path}_${width}_${height}`;
+  async cropImage(
+    bucket: string,
+    path: string,
+    width?: number,
+    height?: number,
+    _newPath?: string
+  ) {
+    const newPath = _newPath || `${path}_${width ?? 0}_${height ?? 0}`;
     const resizedImagePath = resolve(
       StorageAdapter.TEMPORARY_DIR,
       encodeURIComponent(join(bucket, newPath))
@@ -256,6 +259,9 @@ export class S3Storage implements StorageAdapter {
     const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
       'Content-Type': mimetype,
     });
+    // delete resized image
+    fse.removeSync(resizedImagePath);
+
     return upload.path;
   }
 }

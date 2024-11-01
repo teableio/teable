@@ -30,7 +30,11 @@ const TextEditorBase: ForwardRefRenderFunction<
 
   const saveValue = () => {
     if (value === displayData || !isEditing) return;
-    onChange?.(type === CellType.Number ? Number(value) : value);
+    if (type === CellType.Number) {
+      onChange?.(Number(value));
+    } else {
+      onChange?.(typeof value === 'string' ? value.trim() : value);
+    }
   };
 
   const onChangeInner = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

@@ -4,6 +4,7 @@ import { cn, Dialog, DialogContent, FilePreviewDialog, FilePreviewProvider } fro
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { AttachmentEditorMain } from '../../editor';
 import type { IEditorProps } from '../../grid/components';
+import { useAttachmentPreviewI18Map } from '../../hooks';
 import type { IWrapperEditorProps } from './type';
 
 interface IGridAttachmentEditorRef {
@@ -18,7 +19,7 @@ export const GridAttachmentEditor = forwardRef<
   const containerRef = useRef<HTMLDivElement>(null);
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
   const imagePreviewDialogRef = useRef<IFilePreviewDialogRef>(null);
-
+  const i18nMap = useAttachmentPreviewI18Map();
   const previewFiles = useMemo(() => {
     return attachments
       ? attachments.map((item) => ({
@@ -57,7 +58,7 @@ export const GridAttachmentEditor = forwardRef<
           <AttachmentEditorMain value={attachments || []} onChange={setAttachments} />
         </DialogContent>
       </Dialog>
-      <FilePreviewProvider>
+      <FilePreviewProvider i18nMap={i18nMap}>
         <FilePreviewDialog ref={imagePreviewDialogRef} files={previewFiles} />
       </FilePreviewProvider>
     </>

@@ -1,6 +1,7 @@
 import type { IAttachmentCellValue } from '@teable/core';
 import { FilePreviewItem, FilePreviewProvider, cn } from '@teable/ui-lib';
 import { getFileCover, isSystemFileIcon } from '../../editor/attachment';
+import { useAttachmentPreviewI18Map } from '../../hooks';
 import type { ICellValue } from '../type';
 
 interface ICellAttachment extends ICellValue<IAttachmentCellValue> {
@@ -10,9 +11,9 @@ interface ICellAttachment extends ICellValue<IAttachmentCellValue> {
 
 export const CellAttachment = (props: ICellAttachment) => {
   const { value, className, style, itemClassName } = props;
-
+  const i18nMap = useAttachmentPreviewI18Map();
   return (
-    <FilePreviewProvider>
+    <FilePreviewProvider i18nMap={i18nMap}>
       <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
         {value?.map((attachment) => {
           const { id, name, mimetype, size, presignedUrl, lgThumbnailUrl } = attachment;

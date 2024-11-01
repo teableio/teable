@@ -19,7 +19,7 @@ export class MultipleSelectFieldCore extends SelectFieldCore {
     }
 
     let cellValue = value.split(/[\n\r,]\s?(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((item) => {
-      return item.includes(',') ? item.slice(1, -1) : item;
+      return item.includes(',') ? item.slice(1, -1).trim() : item.trim();
     });
 
     cellValue = shouldExtend
