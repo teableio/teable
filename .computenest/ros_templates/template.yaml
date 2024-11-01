@@ -1,0 +1,364 @@
+ROSTemplateFormatVersion: '2015-09-01'
+Description:
+  en: DockerCompose service template
+  zh-cn: DockerCompose服务模板
+Conditions:
+  CreateVpcConditions:
+    Fn::Equals:
+      - NewVPC
+      - Ref: VpcOption
+Parameters:
+  VpcOption:
+    Type: String
+    AllowedValues:
+      - NewVPC
+      - ExistingVPC
+    AssociationPropertyMetadata:
+      ValueLabelMapping:
+        NewVPC:
+          zh-cn: 新建专有网络
+          en: New VPC
+        ExistingVPC:
+          zh-cn: 已有专有网络
+          en: Existing VPC
+    Label:
+      en: Select Existing or New VPC
+      zh-cn: 选择已有/新建的专有网络
+    Required: true
+    Default: NewVPC
+  VpcCidrBlock:
+    Type: String
+    Label:
+      en: VPC CIDR IPv4 Block
+      zh-cn: 专有网络IPv4网段
+    Description:
+      zh-cn: VPC的ip地址段范围，<br>您可以使用以下的ip地址段或其子网:<br><font color='green'>[10.0.0.0/8]</font><br><font color='green'>[172.16.0.0/12]</font><br><font color='green'>[192.168.0.0/16]</font>
+      en: 'The ip address range of the VPC in the CidrBlock form; <br>You can use the following ip address ranges and their subnets: <br><font color=''green''>[10.0.0.0/8]</font><br><font color=''green''>[172.16.0.0/12]</font><br><font color=''green''>[192.168.0.0/16]</font>'
+    Default: 192.168.0.0/16
+    Required:
+      Fn::Equals:
+        - NewVPC
+        - ${VpcOption}
+    AssociationProperty: ALIYUN::VPC::VPC::CidrBlock
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - NewVPC
+            - ${VpcOption}
+  VSwitchCidrBlock:
+    Type: String
+    Label:
+      en: VSwitch CIDR Block
+      zh-cn: 交换机子网网段
+    Description:
+      zh-cn: 必须属于VPC的子网段。
+      en: Must belong to the subnet segment of VPC.
+    Default: 192.168.1.0/24
+    Required:
+      Fn::Equals:
+        - NewVPC
+        - ${VpcOption}
+    AssociationProperty: ALIYUN::VPC::VSwitch::CidrBlock
+    AssociationPropertyMetadata:
+      VpcCidrBlock: VpcCidrBlock
+      Visible:
+        Condition:
+          Fn::Equals:
+            - NewVPC
+            - ${VpcOption}
+  PayType:
+    Type: String
+    Label:
+      en: ECS Instance Charge Type
+      zh-cn: 付费类型
+    Default: PostPaid
+    AllowedValues:
+      - PostPaid
+      - PrePaid
+    AssociationProperty: ChargeType
+    AssociationPropertyMetadata:
+      LocaleKey: InstanceChargeType
+  PayPeriodUnit:
+    Type: String
+    Label:
+      en: Pay Period Unit
+      zh-cn: 购买资源时长周期
+    Default: Month
+    AllowedValues:
+      - Month
+      - Year
+    AssociationProperty: PayPeriodUnit
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  PayPeriod:
+    Type: Number
+    Label:
+      en: Period
+      zh-cn: 购买资源时长
+    Default: 1
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+    AssociationProperty: PayPeriod
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Not:
+            Fn::Equals:
+              - ${PayType}
+              - PostPaid
+  EcsInstanceType:
+    Type: String
+    Label:
+      en: Instance Type
+      zh-cn: 实例类型
+    AssociationProperty: ALIYUN::ECS::Instance::InstanceType
+    AssociationPropertyMetadata:
+      InstanceChargeType: ${PayType}
+      Constraints:
+        InstanceTypeFamily:
+          - ecs.u1
+          - ecs.e
+  InstancePassword:
+    NoEcho: true
+    Type: String
+    Description:
+      en: Server login password, Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 服务器登录密码,长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    AllowedPattern: '^[a-zA-Z0-9-\(\)\`\~\!\@\#\$\%\^\&\*\_\-\+\=\|\{\}\[\]\:\;\<\>\,\.\?\/]*$'
+    Label:
+      en: Instance Password
+      zh-cn: 实例密码
+    ConstraintDescription:
+      en: Length 8-30, must contain three(Capital letters, lowercase letters, numbers, ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ Special symbol in)
+      zh-cn: 长度8-30，必须包含三项（大写字母、小写字母、数字、 ()`~!@#$%^&*_-+=|{}[]:;'<>,.?/ 中的特殊符号）
+    MinLength: 8
+    MaxLength: 30
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+  ZoneId:
+    Type: String
+    Label:
+      en: Zone ID
+      zh-cn: 可用区ID
+    AssociationProperty: ALIYUN::ECS::Instance::ZoneId
+  VpcId:
+    Type: String
+    Label:
+      en: VPC ID
+      zh-cn: 专有网络VPC实例ID
+    AssociationProperty: 'ALIYUN::ECS::VPC::VPCId'
+    Required:
+      Fn::Equals:
+        - ExistingVPC
+        - ${VpcOption}
+    Default: ''
+    AssociationPropertyMetadata:
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ExistingVPC
+            - ${VpcOption}
+  VSwitchId:
+    Type: String
+    Label:
+      en: VSwitch ID
+      zh-cn: 交换机实例ID
+    Default: ''
+    AssociationProperty: 'ALIYUN::ECS::VSwitch::VSwitchId'
+    Required:
+      Fn::Equals:
+        - ExistingVPC
+        - ${VpcOption}
+    AssociationPropertyMetadata:
+      VpcId: VpcId
+      ZoneId: ZoneId
+      Visible:
+        Condition:
+          Fn::Equals:
+            - ExistingVPC
+            - ${VpcOption}
+  Password:
+    Type: String
+    AssociationProperty: ALIYUN::ECS::Instance::Password
+    Label: 密码
+    NoEcho: True
+Resources:
+  # 新建vpc
+  EcsVpc:
+    Type: ALIYUN::ECS::VPC
+    Condition: CreateVpcConditions
+    Properties:
+      VpcName:
+        Ref: ALIYUN::StackName
+      CidrBlock:
+        Ref: VpcCidrBlock
+  # 新建vswitch
+  EcsVSwitch:
+    Condition: CreateVpcConditions
+    Type: ALIYUN::ECS::VSwitch
+    Properties:
+      VSwitchName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Ref: EcsVpc
+      ZoneId:
+        Ref: ZoneId
+      CidrBlock:
+        Ref: VSwitchCidrBlock
+  SecurityGroup:
+    Type: ALIYUN::ECS::SecurityGroup
+    Properties:
+      SecurityGroupName:
+        Ref: ALIYUN::StackName
+      VpcId:
+        Fn::If:
+          - CreateVpcConditions
+          - Ref: EcsVpc
+          - Ref: VpcId
+      SecurityGroupIngress:
+        - PortRange: 3000/3000
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+        - PortRange: 42345/42345
+          Priority: 1
+          SourceCidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          NicType: internet
+  InstanceGroup:
+    Type: ALIYUN::ECS::InstanceGroup
+    Properties:
+      # 付费类型
+      InstanceChargeType:
+        Ref: PayType
+      PeriodUnit:
+        Ref: PayPeriodUnit
+      Period:
+        Ref: PayPeriod
+      VpcId:
+        Fn::If:
+          - CreateVpcConditions
+          - Ref: EcsVpc
+          - Ref: VpcId
+      VSwitchId:
+        'Fn::If':
+          - CreateVpcConditions
+          - Ref: EcsVSwitch
+          - Ref: VSwitchId
+      ZoneId:
+        Ref: ZoneId
+      SecurityGroupId:
+        Ref: SecurityGroup
+      ImageId: "{{resolve:oos:aliyun/services/computenest/images/aliyun_3_2104_docker_compose_2_27_compute_nest}}"
+      Password:
+        Ref: InstancePassword
+      InstanceType:
+        Ref: EcsInstanceType
+      SystemDiskCategory: cloud_essd
+      SystemDiskSize: 200
+      InternetMaxBandwidthOut: 5
+      IoOptimized: optimized
+      MaxAmount: 1
+  RunInstallCommand:
+    Type: ALIYUN::ECS::RunCommand
+    Properties:
+      InstanceIds:
+        Fn::GetAtt:
+        - InstanceGroup
+        - InstanceIds
+      Type: RunShellScript
+      Sync: true
+      Timeout: 3600
+      CommandContent:
+        Fn::Sub:
+          - |
+            dockerJson='{{ computenest::acr::dockerconfigjson }}'
+            decodeDockerJson=$(echo $dockerJson | base64 -d)
+            host=$(echo $decodeDockerJson | jq '.auths' | jq 'keys' | jq .[0])
+            username=$(echo $decodeDockerJson | jq ".auths.$host.username" | tr -d '"')
+            password=$(echo $decodeDockerJson | jq ".auths.$host.password" | tr -d '"')
+            host=$(echo $host | tr -d '"')
+            docker login $host --username=$username --password=$password
+
+            wget '{{ computenest::file::hanans426_teable-docker-compose }}' -O /root/application/docker_compose.tar
+            tar -xvf /root/application/docker_compose.tar -C /root/application
+
+            cat > /etc/systemd/system/docker-compose-app.service <<EOF
+            [Unit]
+            Description=Docker Compose Application Service
+            Requires=docker.service
+            After=docker.service
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            WorkingDirectory=/root/application/docker_compose
+            ExecStart=/usr/bin/docker compose -f dockers/examples/standalone/docker-compose.yaml up -d
+            ExecStop=/usr/bin/docker compose down
+            TimeoutStartSec=0
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            echo 'Password=${Password}' >> /root/application/docker_compose/dockers/examples/standalone/.env
+            systemctl start docker-compose-app
+          - RegionId:
+              Ref: ALIYUN::Region
+Outputs:
+  ServerAddress:
+    Description:
+      en: ServerAddress.
+      zh-cn: 访问页面。
+    Value:
+      Fn::Sub:
+        - http://${ServerAddress}:3000, http://${ServerAddress}:42345
+        - ServerAddress:
+            Fn::Select:
+            - 0
+            - Fn::GetAtt:
+              - InstanceGroup
+              - PublicIps
+Metadata:
+  ALIYUN::ROS::Interface:
+    ParameterGroups:
+      - Parameters:
+          - PayType
+          - PayPeriodUnit
+          - PayPeriod
+        Label:
+          default: 付费类型配置
+      - Parameters:
+          - EcsInstanceType
+          - InstancePassword
+        Label:
+          default: 资源配置
+      - Parameters:
+          - ZoneId
+          - VpcOption
+          - VpcId
+          - VSwitchId
+          - VpcCidrBlock
+          - VSwitchCidrBlock
+        Label:
+          default: 可用区配置
+      - Parameters:
+          - Password
+        Label:
+          en: Software Configuration
+          zh-cn: 软件配置
+      

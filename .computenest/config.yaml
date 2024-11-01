@@ -1,0 +1,28 @@
+Service:
+  RegionId: cn-hangzhou
+  DeployType: ros
+  DeployMetadata:
+    SupplierDeployMetadata:
+      FileArtifactRelation:
+        '{{ computenest::file::hanans426_teable-docker-compose }}':
+          ArtifactId: ${Artifact.Artifact_1.ArtifactId}
+          ArtifactVersion: ${Artifact.Artifact_1.ArtifactVersion}
+    TemplateConfigs:
+      - Name: 单机版
+        Url: 'ros_templates/template.yaml'
+        AllowedRegions:
+          - cn-hangzhou
+          - cn-shanghai
+          - cn-beijing
+  ServiceType: private
+  ServiceInfo:
+    Locale: zh-CN
+    ShortDescription: docker compose deploy
+    Image: 'resources/icons/service_logo.png'
+Artifact:
+  Artifact_1:
+    ArtifactType: File
+    ArtifactName: hanans426_teable-docker-compose
+    ArtifactProperty:
+      RegionId: cn-hangzhou
+      Url: 'resources/artifact_resources/docker_compose.tar'
