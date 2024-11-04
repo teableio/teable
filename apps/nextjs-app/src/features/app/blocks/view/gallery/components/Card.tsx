@@ -139,7 +139,7 @@ export const Card = (props: IKanbanCardProps) => {
           )}
           <div className="px-3 py-2">
             <div
-              className="flex text-base font-semibold"
+              className="flex pb-2 text-base font-semibold"
               style={{ height: CARD_STYLE.titleHeight }}
             >
               {titleComponent}

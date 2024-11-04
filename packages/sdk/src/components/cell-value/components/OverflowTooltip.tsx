@@ -83,7 +83,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
             e.stopPropagation();
             onClick?.();
           }}
-          className="w-full"
+          className="w-full text-left"
         >
           <div
             className={cn(className, 'overflow-hidden')}
