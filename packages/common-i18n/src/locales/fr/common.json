@@ -154,7 +154,7 @@
     "createTableTooltipTitle": "Créer une table",
     "createTableTooltipContent": "Les tables sont conçues pour gérer efficacement des ensembles de données divers, offrant un affichage polyvalent des informations à travers différents types de données.",
     "createViewTooltipTitle": "Créer une vue",
-    "createViewTooltipContent": "Actuellement, les utilisateurs peuvent créer des vues en Grille et en Formulaire, avec des vues Galerie, Kanban et Calendrier prévues pour les futures versions. <br></br>Cette variété fournit aux utilisateurs un ensemble complet d'outils pour diverses tâches de gestion des données.",
+    "createViewTooltipContent": "Actuellement, les utilisateurs peuvent créer des vues en Grille, Galerie, Kanban et Formulaire, avec des vues Calendrier prévues pour les futures versions. <br></br>Cette variété fournit aux utilisateurs un ensemble complet d'outils pour diverses tâches de gestion des données.",
     "viewFilteringTooltipTitle": "Filtrage des enregistrements",
     "viewFilteringTooltipContent": "L'une des fonctionnalités principales des vues est la capacité à filtrer les enregistrements d'une vue selon les conditions que vous définissez. <br></br>Lorsqu'un enregistrement est filtré en fonction d'une condition, il n'est pas supprimé—il est juste masqué de la vue particulière que vous utilisez pour consulter votre table.",
     "viewSortingTooltipTitle": "Triage des enregistrements",

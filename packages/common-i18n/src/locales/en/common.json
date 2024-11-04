@@ -158,7 +158,7 @@
     "createTableTooltipTitle": "Create a table",
     "createTableTooltipContent": "Tables are designed to efficiently handle diverse datasets, offering a versatile display of information through various data types.",
     "createViewTooltipTitle": "Create a view",
-    "createViewTooltipContent": "Currently, users can create Grid and Form views, with Gallery, Kanban, and Calendar views planned for future releases. <br></br>This variety equips users with a comprehensive toolkit for various data management tasks.",
+    "createViewTooltipContent": "Currently, users can create Grid, Gallery, Kanban and Form views, with Calendar views planned for future releases. <br></br>This variety equips users with a comprehensive toolkit for various data management tasks.",
     "viewFilteringTooltipTitle": "Filtering records",
     "viewFilteringTooltipContent": "One of the core features of views is the ability to filter out records from a view according to the conditions you set. <br></br>When a record is filtered out based on a condition, it is not deleted—it's just hidden from the particular view you're using to look at your table.",
     "viewSortingTooltipTitle": "Sorting records",
