@@ -8,6 +8,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Collaborators } from '@/features/app/components/collaborator-manage/space/Collaborators';
 import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
 import { spaceConfig } from '@/features/i18n/space.config';
 
 export const CollaboratorPage = () => {
@@ -22,31 +23,25 @@ export const CollaboratorPage = () => {
   });
 
   return (
-    <div className="h-screen w-full overflow-y-auto overflow-x-hidden">
-      <div className="w-full px-8 py-6">
-        <div className="border-b pb-4">
-          <h1 className="text-3xl font-semibold">{t('space:spaceSetting.collaborators')}</h1>
-          <div className="mt-3 text-sm text-slate-500">
-            {t('space:spaceSetting.collaboratorDescription')}
-          </div>
+    <SpaceSettingContainer
+      title={t('space:spaceSetting.collaborators')}
+      description={t('space:spaceSetting.collaboratorDescription')}
+    >
+      {isHydrated && !!space && (
+        <div className="w-full py-4">
+          <Collaborators
+            spaceId={spaceId}
+            role={space.role}
+            collaboratorQuery={{ includeBase: true }}
+          >
+            <SpaceCollaboratorModalTrigger space={space}>
+              <Button size="sm">
+                <UserPlus className="size-4" /> {t('space:action.invite')}
+              </Button>
+            </SpaceCollaboratorModalTrigger>
+          </Collaborators>
         </div>
-
-        {isHydrated && !!space && (
-          <div className="w-full py-4">
-            <Collaborators
-              spaceId={spaceId}
-              role={space.role}
-              collaboratorQuery={{ includeBase: true }}
-            >
-              <SpaceCollaboratorModalTrigger space={space}>
-                <Button size="sm">
-                  <UserPlus className="size-4" /> {t('space:action.invite')}
-                </Button>
-              </SpaceCollaboratorModalTrigger>
-            </Collaborators>
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </SpaceSettingContainer>
   );
 };

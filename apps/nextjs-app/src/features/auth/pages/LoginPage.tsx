@@ -3,13 +3,14 @@ import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
-import { useState, type FC, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { authConfig } from '@/features/i18n/auth.config';
 import type { ISignForm } from '../components/SignForm';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
 
-export const LoginPage: FC = () => {
+export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[] }) => {
+  const { children } = props;
   const { t } = useTranslation(authConfig.i18nNamespaces);
   const router = useRouter();
   const redirect = router.query.redirect as string;
@@ -37,6 +38,7 @@ export const LoginPage: FC = () => {
         <div className="relative top-1/2 mx-auto w-80 -translate-y-1/2 py-[5em] lg:py-24">
           <SignForm type={signType} onSuccess={onSuccess} />
           <SocialAuth />
+          {children}
         </div>
       </div>
     </>
