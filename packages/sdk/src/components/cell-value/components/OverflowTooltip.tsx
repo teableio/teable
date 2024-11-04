@@ -25,7 +25,9 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   const checkOverflow = useCallback(() => {
     if (contentRef.current && ellipsis) {
       const element = contentRef.current;
-      setOverflow(element.scrollWidth > element.clientWidth);
+      const lineHeight = parseInt(window.getComputedStyle(element).lineHeight);
+      const isOverflow = element.scrollHeight > lineHeight;
+      setOverflow(isOverflow);
     }
   }, [ellipsis]);
 
@@ -51,19 +53,11 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   const Content = (
     <div
       ref={contentRef}
-      className={cn(className, 'overflow-hidden')}
-      style={{
-        ...(ellipsis
-          ? {
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }
-          : {
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-            }),
+      className={cn(className, 'overflow-hidden whitespace-pre-wrap break-all line-clamp-6')}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
       }}
-      onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           onClick?.();
@@ -71,6 +65,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
       }}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
+      title={text}
     >
       {text}
     </div>
@@ -83,7 +78,23 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger onClick={onClick}>{Content}</TooltipTrigger>
+        <TooltipTrigger
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick?.();
+          }}
+          className="w-full"
+        >
+          <div
+            className={cn(className, 'overflow-hidden')}
+            style={{
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {text}
+          </div>
+        </TooltipTrigger>
         <TooltipPortal>
           <TooltipContent className={cn('max-w-60 break-all', tooltipClassName)}>
             <p>{text}</p>

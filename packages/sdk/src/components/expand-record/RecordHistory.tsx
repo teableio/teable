@@ -121,7 +121,6 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                   value={before.data}
                   field={before.meta as IFieldInstance}
                   className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
-                  ellipsis
                 />
               ) : (
                 <span className="text-gray-500">{t('common.empty')}</span>
@@ -155,7 +154,6 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                   value={after.data}
                   field={after.meta as IFieldInstance}
                   className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
-                  ellipsis
                 />
               ) : (
                 <span className="text-gray-500">{t('common.empty')}</span>

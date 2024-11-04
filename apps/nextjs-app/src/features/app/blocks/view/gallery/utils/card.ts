@@ -44,9 +44,6 @@ export const getCardHeight = (
     cardPaddingBottom;
   staticHeight = hasCover ? staticHeight + CARD_COVER_HEIGHT : staticHeight;
   const dynamicHeight = fields.reduce((prev, { type }) => {
-    // if (type === FieldType.LongText) {
-    //   return prev + DEFAULT_FIELD_HEIGHT * LONG_TEXT_FIELD_DISPLAY_ROWS;
-    // }
     return prev + (FIELD_HEIGHT_MAP[type] || DEFAULT_FIELD_HEIGHT);
   }, 0);
   return staticHeight + dynamicHeight;

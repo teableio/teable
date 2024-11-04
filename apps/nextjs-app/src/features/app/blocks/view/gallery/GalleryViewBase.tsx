@@ -48,7 +48,7 @@ export const GalleryViewBase = () => {
     count: Math.ceil(rowCount / columnsPerRow),
     getScrollElement: () => parentRef.current,
     estimateSize: () => getCardHeight(displayFields, Boolean(coverField), isFieldNameHidden),
-    overscan: 4,
+    overscan: 5,
   });
 
   const sensors = useSensors(
