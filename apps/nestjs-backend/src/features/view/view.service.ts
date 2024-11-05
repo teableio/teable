@@ -16,6 +16,7 @@ import type {
   IKanbanViewOptions,
   IFilterSet,
   IPluginViewOptions,
+  IGalleryViewOptions,
 } from '@teable/core';
 import {
   getUniqName,
@@ -25,6 +26,7 @@ import {
   ViewOpBuilder,
   viewVoSchema,
   ViewType,
+  FieldType,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -150,6 +152,22 @@ export class ViewService implements IReadonlyAdapterService {
         ...columnMeta,
         [primaryField.id]: { ...primaryFieldColumnMeta, visible: true },
       };
+
+      // set default cover field id for gallery view
+      if (innerViewRo.type === ViewType.Gallery) {
+        const fields = await this.prismaService.txClient().field.findMany({
+          where: { tableId, deletedTime: null },
+          select: { id: true, type: true },
+        });
+        const galleryOptions = (innerViewRo.options ?? {}) as IGalleryViewOptions;
+        const coverFieldId =
+          galleryOptions.coverFieldId ??
+          fields.find((field) => field.type === FieldType.Attachment)?.id;
+        innerViewRo.options = {
+          ...galleryOptions,
+          coverFieldId,
+        };
+      }
     }
     return innerViewRo;
   }
