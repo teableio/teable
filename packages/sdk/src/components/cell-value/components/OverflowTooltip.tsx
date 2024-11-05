@@ -55,8 +55,10 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
       ref={contentRef}
       className={cn(className, 'overflow-hidden whitespace-pre-wrap break-all line-clamp-6')}
       onClick={(e) => {
-        e.stopPropagation();
-        onClick?.();
+        if (onClick) {
+          e.stopPropagation();
+          onClick();
+        }
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -80,8 +82,10 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
       <Tooltip>
         <TooltipTrigger
           onClick={(e) => {
-            e.stopPropagation();
-            onClick?.();
+            if (onClick) {
+              e.stopPropagation();
+              onClick();
+            }
           }}
           className="w-full text-left"
         >

@@ -7,42 +7,31 @@ import {
   DragOverlay,
   closestCenter,
 } from '@dnd-kit/core';
-import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, rectSortingStrategy } from '@dnd-kit/sortable';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FieldKeyType } from '@teable/core';
-import { useRecords, useRowCount, useTableId, useViewId } from '@teable/sdk/hooks';
-import { Record } from '@teable/sdk/model';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRowCount, useTableId, useViewId } from '@teable/sdk/hooks';
+import { Record as RecordModel } from '@teable/sdk/model';
+import { cn } from '@teable/ui-lib/shadcn';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card } from './components/Card';
 import { SortableItem } from './components/SortableItem';
-import { useGallery } from './hooks';
+import { useGallery, useCacheRecords } from './hooks';
 import { calculateColumns, getCardHeight } from './utils';
 
-const DEFAULT_TAKE = 200;
-
 export const GalleryViewBase = () => {
-  const { recordQuery, displayFields, coverField, isFieldNameHidden } = useGallery();
+  const { recordQuery, displayFields, coverField, isFieldNameHidden, permission } = useGallery();
   const tableId = useTableId() as string;
   const viewId = useViewId() as string;
   const rowCount = useRowCount() ?? 0;
+  const { cardDraggable } = permission;
 
-  const [skip, setSkip] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
-  const skipIndexRef = useRef(skip);
   const [columnsPerRow, setColumnsPerRow] = useState(4);
 
-  const query = useMemo(() => {
-    return {
-      ...recordQuery,
-      skip,
-      take: DEFAULT_TAKE,
-    };
-  }, [recordQuery, skip]);
-
-  const { records } = useRecords(query);
-
-  const [cards, setCards] = useState<Record[]>(records);
+  const { skip, recordIds, loadedRecordMap, updateSkipIndex, updateRecordOrder } =
+    useCacheRecords(recordQuery);
 
   const virtualizer = useVirtualizer({
     count: Math.ceil(rowCount / columnsPerRow),
@@ -86,28 +75,11 @@ export const GalleryViewBase = () => {
   }, [updateGridColumns]);
 
   useEffect(() => {
-    if (!records.length) return;
-
-    setCards((prev) => {
-      const merged = [...prev];
-      records.forEach((record, index) => {
-        merged[skipIndexRef.current + index] = record;
-      });
-      return merged;
-    });
-  }, [records]);
-
-  useEffect(() => {
     if (!virtualizer.range) return;
-    const { endIndex } = virtualizer.range;
-    const actualIndex = endIndex * columnsPerRow;
-    const newSkip = Math.floor(actualIndex / DEFAULT_TAKE) * DEFAULT_TAKE;
-
-    if (newSkip >= rowCount) return;
-
-    skipIndexRef.current = newSkip;
-    setSkip(newSkip);
-  }, [columnsPerRow, rowCount, virtualizer.range]);
+    const { startIndex } = virtualizer.range;
+    const actualStartIndex = startIndex * columnsPerRow;
+    updateSkipIndex(actualStartIndex, rowCount);
+  }, [columnsPerRow, rowCount, virtualizer.range, updateSkipIndex]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -115,27 +87,34 @@ export const GalleryViewBase = () => {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
+    const activeId = active.id;
+    const overId = over?.id;
 
-    if (active.id !== over?.id) {
-      const oldIndex = cards.findIndex((item) => item.id === active.id);
-      const newIndex = cards.findIndex((item) => item.id === over?.id);
-      const newCards = arrayMove(cards, oldIndex, newIndex);
+    if (!activeId || !overId || activeId === overId) return;
 
-      setCards(newCards);
+    const oldIndex = recordIds.findIndex((id) => id === activeId);
+    const newIndex = recordIds.findIndex((id) => id === overId);
 
-      if (oldIndex != null && newIndex != null && oldIndex !== newIndex) {
-        Record.updateRecord(tableId, active.id as string, {
-          fieldKeyType: FieldKeyType.Id,
-          record: { fields: {} },
-          order: {
-            viewId,
-            anchorId: over?.id as string,
-            position: oldIndex > newIndex ? 'before' : 'after',
-          },
-        });
-      }
-    }
+    if (oldIndex == null || newIndex == null || oldIndex === newIndex) return;
+
+    const actualOldIndex = oldIndex + skip;
+    const actualNewIndex = newIndex + skip;
+
+    updateRecordOrder(actualOldIndex, actualNewIndex);
+
+    RecordModel.updateRecord(tableId, activeId as string, {
+      fieldKeyType: FieldKeyType.Id,
+      record: { fields: {} },
+      order: {
+        viewId,
+        anchorId: overId as string,
+        position: actualOldIndex > actualNewIndex ? 'before' : 'after',
+      },
+    });
   };
+
+  const activeIndex = activeId ? recordIds.findIndex((id) => id === activeId) : null;
+  const activeRecord = activeIndex != null ? loadedRecordMap[activeIndex + skip] : null;
 
   return (
     <DndContext
@@ -145,7 +124,7 @@ export const GalleryViewBase = () => {
       onDragEnd={handleDragEnd}
     >
       <div ref={parentRef} className="size-full overflow-auto p-4">
-        <SortableContext items={cards} strategy={rectSortingStrategy}>
+        <SortableContext items={recordIds} strategy={rectSortingStrategy} disabled={!cardDraggable}>
           <div
             className="relative w-full"
             style={{
@@ -162,7 +141,9 @@ export const GalleryViewBase = () => {
                 }}
               >
                 {Array.from({ length: columnsPerRow }).map((_, i) => {
-                  const card = cards[virtualRow.index * columnsPerRow + i];
+                  const actualIndex = virtualRow.index * columnsPerRow + i;
+                  const card = loadedRecordMap[actualIndex];
+
                   return card ? (
                     <SortableItem key={card.id} id={card.id}>
                       <Card card={card} />
@@ -170,7 +151,10 @@ export const GalleryViewBase = () => {
                   ) : (
                     <div
                       key={`placeholder-${virtualRow.index}-${i}`}
-                      className="flex-1 bg-background"
+                      className={cn(
+                        'flex-1 rounded-md',
+                        actualIndex >= rowCount ? 'bg-transparent' : 'bg-gray-100 dark:bg-gray-800'
+                      )}
                     />
                   );
                 })}
@@ -179,9 +163,7 @@ export const GalleryViewBase = () => {
           </div>
         </SortableContext>
       </div>
-      <DragOverlay>
-        {activeId ? <Card card={cards.find((c) => c?.id === activeId)!} /> : null}
-      </DragOverlay>
+      <DragOverlay>{activeRecord ? <Card card={activeRecord} /> : null}</DragOverlay>
     </DndContext>
   );
 };
