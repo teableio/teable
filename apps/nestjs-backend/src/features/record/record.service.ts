@@ -1223,11 +1223,12 @@ export class RecordService {
               (await this.attachmentStorageService.getTableThumbnailUrl(lgThumbnailPath, mimetype));
           }
         }
+        const isImage = mimetype.startsWith('image/');
         return {
           ...item,
           presignedUrl,
-          smThumbnailUrl: smThumbnailUrl || presignedUrl,
-          lgThumbnailUrl: lgThumbnailUrl || presignedUrl,
+          smThumbnailUrl: isImage ? smThumbnailUrl || presignedUrl : undefined,
+          lgThumbnailUrl: isImage ? lgThumbnailUrl || presignedUrl : undefined,
         };
       })
     );
