@@ -5,8 +5,10 @@ import { ArrowDown, ArrowUp, Maximize2, Trash } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord } from '@teable/openapi';
 import { CellValue, getFileCover } from '@teable/sdk/components';
+import { useAttachmentPreviewI18Map } from '@teable/sdk/components/hooks';
 import { useFieldStaticGetter, useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
+import { FilePreviewItem, FilePreviewProvider } from '@teable/ui-lib/base';
 import {
   Carousel,
   CarouselContent,
@@ -20,7 +22,7 @@ import {
   ContextMenuTrigger,
   cn,
 } from '@teable/ui-lib/shadcn';
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import type { IKanbanContext } from '../context';
@@ -39,6 +41,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
   const { stack, card, provided, isDragging } = props;
   const tableId = useTableId();
   const viewId = useViewId();
+  const i18nMap = useAttachmentPreviewI18Map();
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const {
@@ -111,38 +114,61 @@ export const KanbanCard = (props: IKanbanCardProps) => {
             onClick={onExpand}
           >
             {coverCellValue?.length && (
-              <Carousel
-                opts={{
-                  watchDrag: false,
-                  watchResize: false,
-                  watchSlides: false,
-                }}
-              >
-                <CarouselContent className="ml-0">
-                  {coverCellValue.map(({ id, mimetype, presignedUrl, lgThumbnailUrl }) => {
-                    const url = lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
-                    return (
-                      <CarouselItem
-                        key={id}
-                        style={{ height: CARD_COVER_HEIGHT }}
-                        className="relative w-full pl-0"
-                      >
-                        <img
-                          src={url}
-                          alt="card cover"
-                          style={{
-                            objectFit: isCoverFit ? 'contain' : 'cover',
-                            width: '100%',
-                            height: '100%',
-                          }}
-                        />
-                      </CarouselItem>
-                    );
-                  })}
-                </CarouselContent>
-                <CarouselPrevious className="left-1" onClick={(e) => e.stopPropagation()} />
-                <CarouselNext className="right-1" onClick={(e) => e.stopPropagation()} />
-              </Carousel>
+              <FilePreviewProvider i18nMap={i18nMap}>
+                <Carousel
+                  opts={{
+                    watchDrag: false,
+                    watchResize: false,
+                    watchSlides: false,
+                  }}
+                  className="border-b"
+                >
+                  <CarouselContent className="ml-0">
+                    {coverCellValue.map(
+                      ({ id, name, size, mimetype, presignedUrl, lgThumbnailUrl }) => {
+                        const url = lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
+                        return (
+                          <CarouselItem
+                            key={id}
+                            style={{ height: CARD_COVER_HEIGHT }}
+                            className="relative size-full pl-0"
+                          >
+                            <FilePreviewItem
+                              key={id}
+                              className="size-full cursor-pointer"
+                              src={presignedUrl || ''}
+                              name={name}
+                              mimetype={mimetype}
+                              size={size}
+                            >
+                              <img
+                                src={url}
+                                alt="card cover"
+                                className="size-full"
+                                style={{
+                                  objectFit: isCoverFit ? 'contain' : 'cover',
+                                }}
+                              />
+                            </FilePreviewItem>
+                          </CarouselItem>
+                        );
+                      }
+                    )}
+                  </CarouselContent>
+                  {coverCellValue?.length > 1 && (
+                    <Fragment>
+                      <CarouselPrevious
+                        className="left-1 size-7"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <CarouselNext
+                        className="right-1 size-7"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </Fragment>
+                  )}
+                </Carousel>
+              </FilePreviewProvider>
             )}
             <div className="text-base font-semibold">{titleComponent}</div>
             {displayFields.map((field) => {
