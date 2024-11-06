@@ -402,7 +402,8 @@
       "insertCardAbove": "Вставить карточку выше",
       "insertCardBelow": "Вставить карточку ниже",
       "expandCard": "Развернуть карточку",
-      "deleteCard": "Удалить карточку"
+      "deleteCard": "Удалить карточку",
+      "duplicateCard": "Дублировать карточку"
     }
   },
   "menu": {

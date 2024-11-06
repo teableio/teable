@@ -147,6 +147,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             onCopyUrl={onCopyUrl}
             onRecordHistoryToggle={onRecordHistoryToggle}
             onCommentToggle={onCommentToggle}
+            onDuplicate={onDuplicate}
             onDelete={onDelete}
             recordId={recordId}
             tableId={tableId}

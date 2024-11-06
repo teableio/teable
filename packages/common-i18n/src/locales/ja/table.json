@@ -401,7 +401,8 @@
       "insertCardAbove": "カードを上に挿入",
       "insertCardBelow": "カードを下に挿入",
       "expandCard": "カードを展開",
-      "deleteCard": "カードを削除"
+      "deleteCard": "カードを削除",
+      "duplicateCard": "カードを複製"
     }
   },
   "menu": {

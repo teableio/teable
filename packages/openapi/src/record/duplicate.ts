@@ -14,7 +14,7 @@ export type IDuplicateVo = z.infer<typeof duplicateVoSchema>;
 export const duplicateRoute = registerRoute({
   method: 'post',
   path: DUPLICATE_URL,
-  description: 'Duplicate the selected data',
+  description: 'Duplicate the selected record',
   request: {
     params: z.object({
       tableId: z.string(),
@@ -41,7 +41,7 @@ export const duplicateRoute = registerRoute({
   tags: ['record'],
 });
 
-export const duplicateRecords = async (
+export const duplicateRecord = async (
   tableId: string,
   recordId: string,
   order: IRecordInsertOrderRo

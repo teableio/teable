@@ -1,4 +1,4 @@
-import { Trash, ArrowUp, ArrowDown } from '@teable/icons';
+import { Trash, ArrowUp, ArrowDown, Copy } from '@teable/icons';
 import { useGridViewStore } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import {
@@ -43,6 +43,7 @@ enum MenuItemType {
   Delete = 'Delete',
   InsertAbove = 'InsertAbove',
   InsertBelow = 'InsertBelow',
+  Duplicate = 'Duplicate',
 }
 
 const iconClassName = 'mr-2 h-4 w-4 shrink-0';
@@ -176,6 +177,19 @@ export const RecordMenu = () => {
         ),
         onClick: async () => {
           noop();
+        },
+      },
+    ],
+    [
+      {
+        type: MenuItemType.Duplicate,
+        name: t('sdk:expandRecord.duplicateRecord'),
+        icon: <Copy className={iconClassName} />,
+        hidden: isMultipleSelected || !permission['record|create'],
+        onClick: async () => {
+          if (tableId && recordMenu?.duplicateRecord) {
+            await recordMenu.duplicateRecord();
+          }
         },
       },
     ],

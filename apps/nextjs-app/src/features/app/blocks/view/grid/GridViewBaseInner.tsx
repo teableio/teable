@@ -329,6 +329,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
               ) ?? {};
             generateRecord(fieldValueMap, Math.max(targetIndex, 0), { anchorId, position }, num);
           },
+          duplicateRecord: async () => {
+            if (!record || !activeViewId) return;
+            await Record.duplicateRecord(tableId, record.id, {
+              viewId: activeViewId,
+              anchorId: record.id,
+              position: 'after',
+            });
+          },
           deleteRecords: async (selection) => {
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);
@@ -887,6 +895,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       {expandRecord != null && (
         <ExpandRecorder
           tableId={expandRecord.tableId}
+          viewId={activeViewId}
           recordId={expandRecord.recordId}
           recordIds={[expandRecord.recordId]}
           onClose={() => setExpandRecord(undefined)}

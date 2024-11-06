@@ -573,7 +573,7 @@ export class RecordOpenApiService {
     return await this.updateRecord(tableId, recordId, updateRecordRo);
   }
 
-  async duplicateRecords(tableId: string, recordId: string, order: IRecordInsertOrderRo) {
+  async duplicateRecord(tableId: string, recordId: string, order: IRecordInsertOrderRo) {
     const query = { fieldKeyType: FieldKeyType.Id };
     const result = await this.recordService.getRecord(tableId, recordId, query);
     const records = { fields: result.fields };

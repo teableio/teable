@@ -402,7 +402,8 @@
       "insertCardAbove": "Insérer une carte au-dessus",
       "insertCardBelow": "Insérer une carte en dessous",
       "expandCard": "Développer la carte",
-      "deleteCard": "Supprimer la carte"
+      "deleteCard": "Supprimer la carte",
+      "duplicateCard": "Dupliquer la carte"
     }
   },
   "menu": {

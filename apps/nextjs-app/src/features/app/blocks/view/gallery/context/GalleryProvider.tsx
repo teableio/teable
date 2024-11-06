@@ -86,6 +86,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
       {tableId && (
         <ExpandRecorder
           tableId={tableId}
+          viewId={view?.id}
           recordId={expandRecordId}
           recordIds={expandRecordId ? [expandRecordId] : []}
           onClose={() => setExpandRecordId(undefined)}

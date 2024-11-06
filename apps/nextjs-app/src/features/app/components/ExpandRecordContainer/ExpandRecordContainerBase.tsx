@@ -8,12 +8,13 @@ export const ExpandRecordContainerBase = forwardRef<
   IExpandRecordContainerRef,
   {
     tableId: string;
+    viewId?: string;
     recordServerData?: IRecord;
     onClose?: () => void;
     onUpdateRecordIdCallback?: (recordId: string) => void;
   }
 >((props, forwardRef) => {
-  const { tableId, recordServerData, onClose, onUpdateRecordIdCallback } = props;
+  const { tableId, viewId, recordServerData, onClose, onUpdateRecordIdCallback } = props;
   const router = useRouter();
   const recordId = router.query.recordId as string;
   const commentId = router.query.commentId as string;
@@ -26,6 +27,7 @@ export const ExpandRecordContainerBase = forwardRef<
   return (
     <ExpandRecorder
       tableId={tableId}
+      viewId={viewId}
       recordId={recordId}
       commentId={commentId}
       recordIds={recordIds}

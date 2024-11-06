@@ -411,7 +411,8 @@
       "insertCardAbove": "Insert card above",
       "insertCardBelow": "Insert card below",
       "expandCard": "Expand card",
-      "deleteCard": "Delete card"
+      "deleteCard": "Delete card",
+      "duplicateCard": "Duplicate card"
     }
   },
   "menu": {
