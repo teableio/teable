@@ -1,20 +1,13 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { IAttachmentCellValue } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
-import { ArrowDown, ArrowUp, Image, Maximize2, Trash } from '@teable/icons';
+import { ArrowDown, ArrowUp, Copy, Image, Maximize2, Trash } from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
-import { createRecords, deleteRecord } from '@teable/openapi';
-import { CellValue, getFileCover } from '@teable/sdk/components';
-import { useAttachmentPreviewI18Map } from '@teable/sdk/components/hooks';
+import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
+import { CellValue } from '@teable/sdk/components';
 import { useFieldStaticGetter, useTableId, useViewId } from '@teable/sdk/hooks';
 import type { Record } from '@teable/sdk/model';
-import { FilePreviewItem, FilePreviewProvider } from '@teable/ui-lib/base';
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -26,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useGallery } from '../hooks';
 import { CARD_COVER_HEIGHT, CARD_STYLE } from '../utils';
+import { CardCarousel } from './CardCarousel';
 
 interface IKanbanCardProps {
   card: Record;
@@ -36,7 +30,6 @@ export const Card = (props: IKanbanCardProps) => {
   const tableId = useTableId();
   const viewId = useViewId();
   const getFieldStatic = useFieldStaticGetter();
-  const i18nMap = useAttachmentPreviewI18Map();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const {
     coverField,
@@ -70,6 +63,11 @@ export const Card = (props: IKanbanCardProps) => {
     deleteRecord(tableId, card.id);
   };
 
+  const onDuplicate = () => {
+    if (tableId == null || viewId == null) return;
+    duplicateRecord(tableId, card.id, { viewId, anchorId: card.id, position: 'after' });
+  };
+
   const onInsert = async (position: IRecordInsertOrderRo['position']) => {
     if (tableId == null || viewId == null) return;
     const res = await createRecords(tableId, {
@@ -98,61 +96,7 @@ export const Card = (props: IKanbanCardProps) => {
           {coverFieldId && (
             <Fragment>
               {coverCellValue?.length ? (
-                <FilePreviewProvider i18nMap={i18nMap}>
-                  <Carousel
-                    opts={{
-                      watchDrag: false,
-                      watchResize: false,
-                      watchSlides: false,
-                    }}
-                    className="border-b"
-                  >
-                    <CarouselContent className="ml-0">
-                      {coverCellValue.map(
-                        ({ id, name, size, mimetype, presignedUrl, lgThumbnailUrl }) => {
-                          const url = lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
-                          return (
-                            <CarouselItem
-                              key={id}
-                              style={{ height: CARD_COVER_HEIGHT }}
-                              className="relative size-full pl-0"
-                            >
-                              <FilePreviewItem
-                                key={id}
-                                className="size-full cursor-pointer"
-                                src={presignedUrl || ''}
-                                name={name}
-                                mimetype={mimetype}
-                                size={size}
-                              >
-                                <img
-                                  src={url}
-                                  alt="card cover"
-                                  className="size-full"
-                                  style={{
-                                    objectFit: isCoverFit ? 'contain' : 'cover',
-                                  }}
-                                />
-                              </FilePreviewItem>
-                            </CarouselItem>
-                          );
-                        }
-                      )}
-                    </CarouselContent>
-                    {coverCellValue?.length > 1 && (
-                      <Fragment>
-                        <CarouselPrevious
-                          className="left-1 size-7"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <CarouselNext
-                          className="right-1 size-7"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </Fragment>
-                    )}
-                  </Carousel>
-                </FilePreviewProvider>
+                <CardCarousel value={coverCellValue} isCoverFit={isCoverFit} />
               ) : (
                 <div
                   style={{ height: CARD_COVER_HEIGHT }}
@@ -204,6 +148,10 @@ export const Card = (props: IKanbanCardProps) => {
               {t('table:kanban.cardMenu.insertCardBelow')}
             </ContextMenuItem>
             <ContextMenuSeparator />
+            <ContextMenuItem onClick={onDuplicate}>
+              <Copy className="mr-2 size-4" />
+              {t('table:kanban.cardMenu.duplicateCard')}
+            </ContextMenuItem>
           </>
         )}
         <ContextMenuItem onClick={onExpand}>
