@@ -26,7 +26,6 @@ import type {
   ITableFullVo,
   ICreateSpaceRo,
   ICreateBaseRo,
-  IDuplicateVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
 import {
@@ -332,7 +331,7 @@ export async function duplicateRecord(
     if ((e as HttpError).status !== expectStatus) {
       throw e;
     }
-    return {} as IDuplicateVo;
+    return {} as ICreateRecordsVo;
   }
 }
 

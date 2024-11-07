@@ -1,16 +1,11 @@
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
-import type { IRecordInsertOrderRo } from './create';
-import { recordInsertOrderRoSchema } from './create';
+import type { ICreateRecordsVo, IRecordInsertOrderRo } from './create';
+import { createRecordsVoSchema, recordInsertOrderRoSchema } from './create';
 
 export const DUPLICATE_URL = '/table/{tableId}/record/{recordId}';
 
-export const duplicateVoSchema = z.object({
-  id: z.string(),
-});
-
-export type IDuplicateVo = z.infer<typeof duplicateVoSchema>;
 export const duplicateRoute = registerRoute({
   method: 'post',
   path: DUPLICATE_URL,
@@ -33,7 +28,7 @@ export const duplicateRoute = registerRoute({
       description: 'Successful duplicate',
       content: {
         'application/json': {
-          schema: duplicateVoSchema,
+          schema: createRecordsVoSchema,
         },
       },
     },
@@ -46,5 +41,5 @@ export const duplicateRecord = async (
   recordId: string,
   order: IRecordInsertOrderRo
 ) => {
-  return axios.post<IDuplicateVo>(urlBuilder(DUPLICATE_URL, { tableId, recordId }), order);
+  return axios.post<ICreateRecordsVo>(urlBuilder(DUPLICATE_URL, { tableId, recordId }), order);
 };

@@ -582,9 +582,6 @@ export class RecordOpenApiService {
       order,
       records: [records],
     };
-    const createdRecords = await this.prismaService.$tx(async () =>
-      this.createRecords(tableId, createRecordsRo)
-    );
-    return { id: createdRecords.records[0]?.id };
+    return await this.prismaService.$tx(async () => this.createRecords(tableId, createRecordsRo));
   }
 }
