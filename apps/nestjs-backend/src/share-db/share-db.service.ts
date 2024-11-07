@@ -12,6 +12,7 @@ import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
+import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
 import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
 
@@ -24,6 +25,7 @@ export class ShareDbService extends ShareDBClass {
     private readonly eventEmitterService: EventEmitterService,
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly repairAttachmentOpService: RepairAttachmentOpService,
     @CacheConfig() private readonly cacheConfig: ICacheConfig
   ) {
     super({
@@ -68,11 +70,12 @@ export class ShareDbService extends ShareDBClass {
   }
 
   @Timing()
-  publishOpsMap(rawOpMaps: IRawOpMap[] | undefined) {
+  async publishOpsMap(rawOpMaps: IRawOpMap[] | undefined) {
     if (!rawOpMaps?.length) {
       return;
     }
-
+    const repairAttachmentContext =
+      await this.repairAttachmentOpService.getCollectionsAttachmentsContext(rawOpMaps);
     for (const rawOpMap of rawOpMaps) {
       for (const collection in rawOpMap) {
         const data = rawOpMap[collection];
@@ -81,11 +84,15 @@ export class ShareDbService extends ShareDBClass {
           const channels = [collection, `${collection}.${docId}`];
           rawOp.c = collection;
           rawOp.d = docId;
-          this.pubsub.publish(channels, rawOp, noop);
+          const repairedOp = await this.repairAttachmentOpService.repairAttachmentOp(
+            rawOp,
+            repairAttachmentContext
+          );
+          this.pubsub.publish(channels, repairedOp, noop);
 
-          if (this.shouldPublishAction(rawOp)) {
+          if (this.shouldPublishAction(repairedOp)) {
             const tableId = collection.split('_')[1];
-            this.publishRelatedChannels(tableId, rawOp);
+            this.publishRelatedChannels(tableId, repairedOp);
           }
         }
       }

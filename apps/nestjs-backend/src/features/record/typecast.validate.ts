@@ -9,11 +9,9 @@ import {
   nullsToUndefined,
 } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
 import { keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
-import StorageAdapter from '../attachments/plugins/adapter';
 import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
 import type { IFieldInstance } from '../field/model/factory';
@@ -307,49 +305,7 @@ export class TypeCastAndValidate {
         return attachmentCellValue;
       }
 
-      const attachmentsWithPresignedUrls = attachmentCellValue.map(async (item) => {
-        const { thumbnailPath, ...cellValue } = item;
-        const { path, mimetype, token } = cellValue;
-        // presigned just for realtime op preview
-        const presignedUrl = await this.services.attachmentsStorageService.getPreviewUrlByPath(
-          StorageAdapter.getBucket(UploadType.Table),
-          path,
-          token,
-          undefined,
-          {
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Type': mimetype,
-            // eslint-disable-next-line @typescript-eslint/naming-convention
-            'Content-Disposition': `attachment; filename="${item.name}"`,
-          }
-        );
-        let smThumbnailUrl = presignedUrl;
-        let lgThumbnailUrl = presignedUrl;
-        if (thumbnailPath) {
-          if (thumbnailPath.sm) {
-            smThumbnailUrl = await this.services.attachmentsStorageService.getTableThumbnailUrl(
-              thumbnailPath.sm,
-              mimetype
-            );
-          }
-          if (thumbnailPath.lg) {
-            lgThumbnailUrl = await this.services.attachmentsStorageService.getPreviewUrlByPath(
-              StorageAdapter.getBucket(UploadType.Table),
-              thumbnailPath.lg,
-              mimetype
-            );
-          }
-        }
-
-        return {
-          ...item,
-          smThumbnailUrl,
-          lgThumbnailUrl,
-          presignedUrl,
-        };
-      });
-
-      return Promise.all(attachmentsWithPresignedUrls);
+      return Promise.all(attachmentCellValue);
     });
     return await Promise.all(allAttachmentsPromises);
   }
@@ -393,7 +349,7 @@ export class TypeCastAndValidate {
 
   private async getAttachmentItemMap(
     cellValues: unknown[]
-  ): Promise<Record<string, IAttachmentItem & { thumbnailPath?: { sm?: string; lg?: string } }>> {
+  ): Promise<Record<string, IAttachmentItem>> {
     // Extract and flatten attachment IDs from cell values
     const attachmentIds = cellValues
       .flat()
@@ -419,7 +375,6 @@ export class TypeCastAndValidate {
         path: true,
         width: true,
         height: true,
-        thumbnailPath: true,
       },
     });
 
@@ -430,7 +385,6 @@ export class TypeCastAndValidate {
       const metadata = metadataMap[detail.token];
       acc[metadata.attachmentId] = {
         ...nullsToUndefined(detail),
-        thumbnailPath: detail.thumbnailPath ? JSON.parse(detail.thumbnailPath) : undefined,
         name: metadata.name,
         id: generateAttachmentId(),
       };
