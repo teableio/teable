@@ -204,10 +204,19 @@ export class MinioStorage implements StorageAdapter {
     if (!mimetype?.startsWith('image/')) {
       throw new BadRequestException('Invalid image');
     }
+    const sourceFilePath = resolve(StorageAdapter.TEMPORARY_DIR, encodeURIComponent(path));
+    const writeStream = fse.createWriteStream(sourceFilePath);
     const stream = await this.minioClientPrivateNetwork.getObject(bucket, objectName);
-    const metaReader = sharp({ failOn: 'none', unlimited: true }).resize(width, height);
-    const sharpReader = stream.pipe(metaReader);
-    await sharpReader.toFile(resizedImagePath);
+    // stream save in sourceFilePath
+    stream.pipe(writeStream);
+    const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true }).resize(
+      width,
+      height
+    );
+    await metaReader.toFile(resizedImagePath);
+    // delete source file
+    fse.removeSync(sourceFilePath);
+
     const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
       'Content-Type': mimetype,
     });

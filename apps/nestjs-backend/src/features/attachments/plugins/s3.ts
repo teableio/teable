@@ -253,15 +253,23 @@ export class S3Storage implements StorageAdapter {
     if (!mimetype?.startsWith('image/')) {
       throw new BadRequestException('Invalid image');
     }
-    const metaReader = sharp({ failOn: 'none', unlimited: true }).resize(width, height);
-    const sharpReader = (stream as Readable).pipe(metaReader);
-    await sharpReader.toFile(resizedImagePath);
+    if (!stream) {
+      throw new BadRequestException("can't get image stream");
+    }
+    const sourceFilePath = resolve(StorageAdapter.TEMPORARY_DIR, encodeURIComponent(path));
+    const writeStream = fse.createWriteStream(sourceFilePath);
+    (stream as Readable).pipe(writeStream);
+    const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true }).resize(
+      width,
+      height
+    );
+    await metaReader.toFile(resizedImagePath);
+    fse.removeSync(sourceFilePath);
     const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
       'Content-Type': mimetype,
     });
     // delete resized image
     fse.removeSync(resizedImagePath);
-
     return upload.path;
   }
 }
