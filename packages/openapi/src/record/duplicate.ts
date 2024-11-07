@@ -7,7 +7,7 @@ import { recordInsertOrderRoSchema } from './create';
 export const DUPLICATE_URL = '/table/{tableId}/record/{recordId}';
 
 export const duplicateVoSchema = z.object({
-  ids: z.array(z.string()),
+  id: z.string(),
 });
 
 export type IDuplicateVo = z.infer<typeof duplicateVoSchema>;

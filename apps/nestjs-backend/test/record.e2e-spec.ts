@@ -303,7 +303,7 @@ describe('OpenAPI RecordController (e2e)', () => {
         anchorId: addRecord.id,
         position: 'after',
       });
-      const record = await getRecord(table.id, duplicateRes.ids[0], undefined, 200);
+      const record = await getRecord(table.id, duplicateRes.id, undefined, 200);
       expect(record.fields[table.fields[0].id]).toEqual(value1);
     });
   });

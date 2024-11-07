@@ -585,6 +585,6 @@ export class RecordOpenApiService {
     const createdRecords = await this.prismaService.$tx(async () =>
       this.createRecords(tableId, createRecordsRo)
     );
-    return { ids: createdRecords.records.map((record) => record.id) };
+    return { id: createdRecords.records[0]?.id };
   }
 }
