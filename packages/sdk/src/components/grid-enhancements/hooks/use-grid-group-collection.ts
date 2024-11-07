@@ -1,10 +1,10 @@
 import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
-import { CellValueType, ColorUtils, FieldType } from '@teable/core';
+import { CellValueType, ColorUtils, FieldType, validateDateFieldValueLoose } from '@teable/core';
 import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
-import type { DateField, IFieldInstance } from '../../../model';
+import type { IFieldInstance } from '../../../model';
 import { getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
@@ -53,7 +53,7 @@ const useGenerateGroupCellFn = () => {
 
         const validateCellValue =
           field.cellValueType === CellValueType.DateTime
-            ? (field as DateField).validateCellValueLoose(_cellValue)
+            ? validateDateFieldValueLoose(_cellValue)
             : field.validateCellValue(_cellValue);
         const cellValue = (
           validateCellValue.success ? validateCellValue.data : undefined

@@ -61,3 +61,10 @@ export const validateCellValue = (field: IFieldVo, cellValue: unknown) => {
       assertNever(type);
   }
 };
+
+export const validateDateFieldValueLoose = (cellValue: unknown, isMultipleCellValue?: boolean) => {
+  if (isMultipleCellValue) {
+    return z.array(z.string()).nonempty().nullable().safeParse(cellValue);
+  }
+  return z.string().nullable().safeParse(cellValue);
+};
