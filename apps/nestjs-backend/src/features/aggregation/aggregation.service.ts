@@ -608,14 +608,6 @@ export class AggregationService {
     const queryBuilder = this.knex
       .with('viewTable', (qb) => {
         qb.select('*').from(viewRecordsQB.as('t'));
-        // if (filter) {
-        //   this.dbProvider.filterQuery(qb, fieldInstanceMap, filter).appendQueryBuilder();
-        // }
-        // if (search) {
-        //   qb.where((builder) => {
-        //     this.dbProvider.searchQuery(builder, fieldInstanceMap, search);
-        //   });
-        // }
       })
       .select(this.knex.raw('COUNT(*) as count'));
 

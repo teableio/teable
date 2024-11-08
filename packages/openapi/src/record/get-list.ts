@@ -53,7 +53,21 @@ export const queryBaseSchema = z.object({
     .union([
       z.tuple([z.string()]),
       z.tuple([z.string(), z.string()]),
-      z.tuple([z.string(), z.string(), z.coerce.boolean()]),
+      z.tuple([
+        z.string(),
+        z.string(),
+        z.union([
+          z.string().transform((val) => {
+            if (val === 'true') {
+              return true;
+            } else if (val === 'false') {
+              return false;
+            }
+            return true;
+          }),
+          z.boolean(),
+        ]),
+      ]),
     ])
     .optional()
     // because of the https params only be string, so the boolean params should transform
