@@ -1,9 +1,9 @@
+import type { IQueryBaseRo } from '@teable/openapi';
 import React from 'react';
-
 export interface ISearchContext {
   fieldId?: string;
   value?: string;
-  searchQuery?: [string] | [string, string, boolean];
+  searchQuery?: IQueryBaseRo['search'];
   setFieldId?: (fieldId: string) => void;
   setValue?: (value: string | undefined) => void;
   reset?: () => void;
