@@ -763,6 +763,10 @@ export class AggregationService {
       indexQueryBuilder.toQuery()
     );
 
+    if (indexResult?.length === 0) {
+      return null;
+    }
+
     return {
       index: Number(indexResult[0]?.row_num),
       fieldId: result[0]?.fieldId,
