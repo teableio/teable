@@ -148,9 +148,9 @@ export abstract class SearchQueryAbstract {
             break;
           case CellValueType.String:
             if (field.isStructuredCellValue) {
-              currentWhereRaw = searchQueryBuilder.getMultipleTextSqlQuery();
-            } else {
               currentWhereRaw = searchQueryBuilder.getMultipleJsonSqlQuery();
+            } else {
+              currentWhereRaw = searchQueryBuilder.getMultipleTextSqlQuery();
             }
             break;
         }
