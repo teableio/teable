@@ -131,6 +131,7 @@ export function SearchButton({
     enableGlobalSearch,
     fieldId,
     fields,
+    hideNotMatchRow,
     ref,
     searchFieldMapCache,
     setFieldId,

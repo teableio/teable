@@ -13,4 +13,5 @@ export enum LocalStorageKeys {
   ExpandRecordHiddenFieldsVisible = 'ls_expand_record_hidden_fields_visible',
   EnableGlobalSearch = 'ls_enable_globalSearch',
   TableSearchFieldsCache = 'ls_table_search_fields_cache',
+  SearchHideNotMatchRow = 'ls_search_hide_not_match_row',
 }

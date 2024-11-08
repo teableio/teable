@@ -1346,8 +1346,6 @@ export class RecordService {
       .$queryRawUnsafe<{ __id: string }[]>(queryBuilder.toQuery());
     const ids = result.map((r) => r.__id);
 
-    // console.log('viewRecords sql', queryBuilder.toQuery());
-
     return { ids, extra: { groupPoints } };
   }
 
