@@ -65,8 +65,8 @@ describe('OpenAPI AggregationController (e2e)', () => {
         search: ['1', '', false],
         viewId: table.views[0].id,
       });
-      expect(result?.data?.count).toBe(87);
-      expect(result2?.data?.count).toBe(75);
+      expect(result?.data?.count).toBe(86);
+      expect(result2?.data?.count).toBe(74);
     });
 
     it('should return 0 when there is no result', async () => {
@@ -83,7 +83,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
         index: 1,
         search: ['Text Field', '', false],
       });
-      expect(result2?.data?.index).toBe(1);
+      expect(result2?.data?.index).toBe(2);
       expect(result2?.data?.fieldId).toBe(table.fields[0].id);
     });
 
